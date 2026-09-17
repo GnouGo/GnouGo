@@ -57,7 +57,7 @@ public sealed class CanonicalContractCoverageTests
         Assert.Equal("local_processing", operation.Kind);
         Assert.DoesNotContain(operation.OperationAdmission!.Assignments, a => a.RuntimeEvidenceId == covered.Id);
         var exclusion = Assert.Single(PlanningOperations.ReadContributions(state), p => p.RuntimeEvidenceId == covered.Id);
-        Assert.Null(exclusion.DecisionId); Assert.Equal(5, exclusion.Version);
+        Assert.Null(exclusion.DecisionId); Assert.Equal(6, exclusion.Version);
         Assert.Equal(PlanningContributionOrigin.DeterministicExclusion, Assert.Single(exclusion.Contributions).Origin);
         Assert.Equal(retained, JsonSerializer.Serialize(state.RuntimeEvidence, PlanningJsonContext.Default.ListPlanningRuntimeEvidence));
         var clone = PlanningContext.Clone(state); var fingerprint = JsonSerializer.Serialize(clone, PlanningJsonContext.Default.PlanningSnapshot);
@@ -79,6 +79,10 @@ public sealed class CanonicalContractCoverageTests
         var decision = Assert.Single(PlanningOperations.ContributionDecisions(state));
         Assert.Equal(PlanningOperations.ContributionDecisionId(child), decision.Id);
         Assert.DoesNotContain(parent.ActionReference!, decision.Schema.ToJsonString());
+        var coveredProperty = new JsonObject { ["status"] = "qualified", ["units"] = new JsonArray((JsonNode)new JsonObject
+            { ["role"] = "governing_property", ["governingKind"] = "runtime_fallback", ["scope"] = parent.ClauseReference,
+                ["evidence"] = state.Obligations.Single(o => o.Id == "contract").EvidenceReferences[0] }) };
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(coveredProperty, decision.Schema));
         var domains = decision.Schema.ToJsonString();
         var original = PlanningContext.Clone(state); original.RuntimeEvidence.Reverse(); original.DeclarationAssignments.Reverse();
         Assert.Equal(domains, Assert.Single(PlanningOperations.ContributionDecisions(original)).Schema.ToJsonString());
@@ -189,7 +193,7 @@ public sealed class CanonicalContractCoverageTests
         PlanningFixtures.Runtime(state, Span(state, "Transform the value."), independentBoundary: false);
         OperationEffectFixtures.Seed(state); await PlanningOperations.ResolveAsync(state, RejectCalls(), Ct);
         var current = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
-        Assert.Equal(15, current.OperationAdmission!.Version);
+        Assert.Equal(16, current.OperationAdmission!.Version);
         var clone = PlanningContext.Clone(state); var index = clone.Obligations.FindIndex(o => o.Id == current.Id);
         clone.Obligations[index] = clone.Obligations[index] with { OperationAdmission = clone.Obligations[index].OperationAdmission! with { Version = 12 } };
         var accounting = JsonSerializer.Serialize(clone.RequestAccounting);

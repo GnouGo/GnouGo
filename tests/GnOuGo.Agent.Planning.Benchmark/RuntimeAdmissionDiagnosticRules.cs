@@ -97,17 +97,17 @@ internal static class RuntimeAdmissionDiagnosticRules
         void Require(bool condition, string code, string message)
         { if (!condition) throw new WorkflowRuntimeException(code, message); }
         Require(identityDecisions == 0, "DIAGNOSTIC_IDENTITY_DECISION", "The fixture requires deterministic occurrence identity after effect grounding.");
-        Require(operations.Count == (name == "local" ? 1 : 2) && operations.All(o => o.Required && o.OperationAdmission is { Version: 15, Dependencies.Version: 1 }) &&
+        Require(operations.Count == (name == "local" ? 1 : 2) && operations.All(o => o.Required && o.OperationAdmission is { Version: 16, Dependencies.Version: 1 }) &&
             operations.Count(o => o.Kind == "local_processing") == 1 && operations.Count(o => o.Kind == "external_read") == (name == "mixed" ? 1 : 0),
             "DIAGNOSTIC_ADMISSION_MISMATCH", "The frozen fixture requires exactly its declared runtime effects.");
         var local = operations.Single(o => o.Kind == "local_processing");
         foreach (var operation in operations) RequirePositiveSupports(operation);
         Require(operations.All(o => o.OperationAdmission!.ExecutionContributions.Count > 0 &&
-            o.OperationAdmission.ExecutionContributions.All(p => p.Version == 5 && !string.IsNullOrEmpty(p.ProofFingerprint)) &&
-            o.OperationAdmission.Assignments.All(a => o.OperationAdmission.ExecutionContributions.Any(p => p.RuntimeEvidenceIds.Contains(a.RuntimeEvidenceId!) &&
+            o.OperationAdmission.ExecutionContributions.All(p => p.Version == 6 && !string.IsNullOrEmpty(p.ProofFingerprint)) &&
+            o.OperationAdmission.Assignments.All(a => o.OperationAdmission.ExecutionContributions.Any(p => (a.RuntimeEvidenceId is null || p.RuntimeEvidenceIds.Contains(a.RuntimeEvidenceId)) &&
                 p.Contributions.Any(c => c.Id == a.ContributionId && c.EvidenceReference == a.ActionReference &&
                     (a.Disposition == "supports" ? c.Role == "supports" && c.EffectId == o.Id : c.Role == "governing_property" && c.EffectId is null &&
-                        o.OperationAdmission.GoverningApplicability.Any(g => g.Version == 1 && g.ContributionId == c.Id && g.Outcome == "active" && g.Targets.Contains(o.Id))))))),
+                        o.OperationAdmission.GoverningApplicability.Any(g => g.Version == 2 && g.ContributionId == c.Id && g.Outcome == "active" && g.Targets.Contains(o.Id))))))),
             "DIAGNOSTIC_CONTRIBUTION_AUTHORITY", "Every contribution requires current effect-specific execution or governing qualification.");
         Require(operations.All(o => o.OperationAdmission!.RealizationCoverage is { Version: 3 } coverage &&
             !string.IsNullOrEmpty(coverage.ProofFingerprint) && coverage.SelectedEffects.Contains(o.Id) &&
@@ -152,7 +152,7 @@ internal static class RuntimeAdmissionDiagnosticRules
         RequirePositiveSupports(local);
         var proof = local.OperationAdmission!;
         if (proof.GoverningApplicability.Count == 0 ||
-            proof.GoverningApplicability.Any(p => p.Version != 1 || p.Outcome != "active" ||
+            proof.GoverningApplicability.Any(p => p.Version != 2 || p.Outcome != "active" ||
                 !p.Targets.SequenceEqual([local.Id]) || string.IsNullOrEmpty(p.ProofFingerprint) ||
                 p.Origin is not (PlanningApplicabilityOrigin.ModelApplicability or PlanningApplicabilityOrigin.DeterministicOwner) ||
                 p.Origin == PlanningApplicabilityOrigin.ModelApplicability && p.DecisionId is null ||
@@ -171,7 +171,7 @@ internal static class RuntimeAdmissionDiagnosticRules
             if (admission is null || assignment.EffectId != operation.Id || assignment.TargetId != operation.Id ||
                 assignment.Kind != operation.Kind || assignment.BaselineReference != admission.BaselineReference ||
                 assignment.Effect is not { Version: 7 } effect) return false;
-            var matches = admission.ExecutionContributions.Where(p => p.Version == 5 &&
+            var matches = admission.ExecutionContributions.Where(p => p.Version == 6 &&
                     !string.IsNullOrEmpty(p.ProofFingerprint) && p.RuntimeEvidenceIds.Contains(assignment.RuntimeEvidenceId!))
                 .SelectMany(p => p.Contributions).Where(c => c.Id == assignment.ContributionId).ToArray();
             if (matches.Length != 1) return false;
@@ -224,13 +224,13 @@ internal static class RuntimeAdmissionDiagnosticRules
         string sourceId, int start, int length)
     {
         var proof = operation.OperationAdmission!;
-        var qualified = proof.ExecutionContributions.Where(p => p.Version == 5).SelectMany(p => p.Contributions).ToArray();
+        var qualified = proof.ExecutionContributions.Where(p => p.Version == 6).SelectMany(p => p.Contributions).ToArray();
         var references = proof.Assignments.Where(a => a.EffectId == operation.Id && a.TargetId == operation.Id && qualified.Any(c =>
             c.Id == a.ContributionId && c.EvidenceReference == a.ActionReference &&
             (a.Disposition == "supports" && c.Role == "supports" && c.EffectId == operation.Id &&
                 c.Basis is "requested_result_production" or "requested_owned_occurrence" or "existing_baseline_execution" ||
              a.Disposition == "attach" && c.Role == "governing_property" && proof.GoverningApplicability.Any(p =>
-                p.Version == 1 && p.Outcome == "active" && p.ContributionId == c.Id && p.Targets.Contains(operation.Id) &&
+                p.Version == 2 && p.Outcome == "active" && p.ContributionId == c.Id && p.Targets.Contains(operation.Id) &&
                 !string.IsNullOrEmpty(p.ProofFingerprint)))))
             .Select(a => state.References.Single(r => r.Id == a.ActionReference)).ToArray();
         if (sourceId != "request" || start < 0 || length <= 0 || start > state.Request.Prompt.Length - length ||

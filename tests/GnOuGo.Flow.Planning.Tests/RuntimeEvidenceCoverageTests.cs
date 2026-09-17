@@ -143,6 +143,15 @@ public sealed class RuntimeEvidenceCoverageTests
         PlanningFixtures.Runtime(state, Span(state, "Classify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise."), evidenceRole: "governing");
         var preservation = PlanningFixtures.Runtime(state, Span(state, "Preserve the original id and amount."));
         PlanningDeclarations.Commit(state, state.DeclarationAssignments, PlanningDeclarations.EvidenceFingerprint(state));
+        OperationEffectFixtures.Seed(state, qualification: members =>
+        {
+            var scope = Assert.Single(members);
+            var answer = OperationEffectFixtures.ContributionAnswer(state, scope);
+            // Explicit synthetic rule qualification preserves the retained owned
+            // condition semantics; it is not a descriptive-property relabeling.
+            if (scope.Evidence!.EvidenceRole == "governing") answer["units"]![0]!["governingKind"] = "runtime_condition";
+            return OperationEffectFixtures.CompleteQualification(state, scope, answer);
+        });
         await ResolveGrounded(state, NoModel(), Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
         Assert.Equal("local_processing", operation.Kind); Assert.Equal(2, operation.OperationAdmission!.Assignments.Count);

@@ -30,8 +30,11 @@ public sealed class BusinessClarificationTests
     private static PlanningBusinessDecision Domain(PlanningSnapshot state, bool complete = true)
     {
         var subject = Evidence(state, state.Request.Prompt, "business_choice", "choice");
-        var first = Evidence(state, "Publish the result", "external_write", "publish");
-        var second = Evidence(state, "retain the draft", "local_processing", "retain");
+        // These synthetic execution references account for the complete request,
+        // including its conjunction/punctuation; qualification no longer ignores gaps.
+        var first = Evidence(state, "Publish the result or", "external_write", "publish");
+        var second = Evidence(state, state.Request.Prompt.EndsWith("retain the draft.", StringComparison.Ordinal)
+            ? "retain the draft." : "retain the draft", "local_processing", "retain");
         state.Preparation!.Capabilities = [new() { Id = "implementation", StepType = "mcp.call", Resolution = "mcp", EffectKind = "write", OperationIds = ["publish"], Required = false },
             new() { Id = "local", StepType = "set", Resolution = "local", EffectKind = "none", OperationIds = ["retain"], Required = false }];
         var decision = new PlanningBusinessDecision { Id = "question_choice", ObligationId = "choice", SubjectReference = subject,
@@ -200,7 +203,7 @@ public sealed class BusinessClarificationTests
     {
         var state = Session("Publish the result or retain the draft or send a notice or store a copy or share a summary.");
         var decision = Domain(state);
-        var fragments = new[] { "send a notice", "store a copy", "share a summary" };
+        var fragments = new[] { "or send a notice", "or store a copy", "or share a summary." };
         for (var index = 2; index < count; index++)
         {
             var operation = "operation_" + index;

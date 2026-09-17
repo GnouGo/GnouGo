@@ -13,7 +13,7 @@ internal static partial class RuntimeAdmissionDiagnostic
 {
     // Explicit synthetic corrected mappings on detached archive input. No provider,
     // durable budget writer, checkpoint writer, or session advancement is installed.
-    internal static async Task CoverageFixtureAsync(string id, IKeyVaultRecordStore records, bool contractEligibility = false, bool jointClause = false, bool nestedQualifiers = false)
+    internal static async Task CoverageFixtureAsync(string id, IKeyVaultRecordStore records, bool contractEligibility = false, bool jointClause = false, bool nestedQualifiers = false, bool fallbackOwnership = false)
     {
         var archiveBefore = await ArchiveAsync(records, CancellationToken.None);
         var captured = await records.GetAsync(Collection, Tenant, id + ":checkpoint", Author) ?? throw new InvalidOperationException("Missing retained checkpoint.");
@@ -21,6 +21,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         var state = JsonSerializer.Deserialize(JsonNode.Parse(captured.Value)!["snapshot"], PlanningJsonContext.Default.PlanningSnapshot)!;
         var name = id.EndsWith(":mixed", StringComparison.Ordinal) ? "mixed" : "local";
         var originalAccounting = state.RequestAccounting.Count;
+        var originalActionReferences = state.RuntimeEvidence.ToDictionary(e => e.Id, e => e.ActionReference, StringComparer.Ordinal);
         state.Obligations.RemoveAll(o => o.OperationAdmission is not null); state.OperationAdmissionFingerprint = null;
         // Explicit current-proof reassessment of detached fixture facts. Historical receipts remain unchanged.
         state.RuntimeEvidence = state.RuntimeEvidence.Select(e => PlanningOperations.SealRuntime(state, e with { EvidenceRole = e.Origin == PlanningRuntimeEvidenceOrigin.EngineBaseline ? e.EvidenceRole : null })).ToList();
@@ -54,7 +55,7 @@ internal static partial class RuntimeAdmissionDiagnostic
                 if (!semanticFixtures.TryGetValue(decision.Id, out var fixture) || PlanningContractValidation.ValidateInstance(fixture, decision.Schema).Count != 0)
                     throw new InvalidOperationException("An eligible retained-shape semantic fixture no longer fits its explicitly new domain.");
         }
-        var client = new CoverageFixtureClient(state, semanticFixtures, nestedQualifiers);
+        var client = new CoverageFixtureClient(state, semanticFixtures, nestedQualifiers, fallbackOwnership);
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = client, LLMCapabilities = client }, (_, _) => Task.CompletedTask);
         await PlanningOperations.ResolveAsync(state, runtime, CancellationToken.None);
         var groups = PlanningOperations.CoverageGroups(state);
@@ -65,7 +66,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         // runtime spans. Report further fixture gaps without relabelling the archive.
         JsonObject? acceptanceFinding = null;
         try { CheckEffectFixture(name, state, operations); }
-        catch (GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException error) when (nestedQualifiers)
+        catch (GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException error) when (nestedQualifiers && !fallbackOwnership)
         { acceptanceFinding = new() { ["code"] = error.Code, ["message"] = error.Message }; }
         var inputs = state.Declarations.ToDictionary(d => d.Id, d => PlanningDeclarations.Name(state, d));
         var local = operations.Single(o => o.Kind == "local_processing");
@@ -88,6 +89,8 @@ internal static partial class RuntimeAdmissionDiagnostic
             throw new InvalidOperationException("Archive changed.");
         var archiveAfter = await ArchiveAsync(records, CancellationToken.None);
         if (archiveBefore != archiveAfter) throw new InvalidOperationException("Other archived evidence changed.");
+        if (state.RuntimeEvidence.Any(e => originalActionReferences[e.Id] != e.ActionReference))
+            throw new InvalidOperationException("Synthetic qualification extended a historical action reference.");
         var fields = client.Requests.SelectMany(r => r.StructuredOutputSchema!["properties"]!.AsObject().Select(p => p.Key)).ToArray();
         Console.WriteLine(new JsonObject
         {
@@ -107,6 +110,9 @@ internal static partial class RuntimeAdmissionDiagnostic
             ["canonicalContributionDecisions"] = qualifications.Length,
             ["fixtureAcceptancePassed"] = acceptanceFinding is null, ["fixtureAcceptanceFinding"] = acceptanceFinding,
             ["jointClauseQualification"] = jointClause, ["nestedQualifierFixture"] = nestedQualifiers,
+            ["exactFallbackOwnershipFixture"] = fallbackOwnership, ["historicalActionReferencesUnchanged"] = true,
+            ["sourceOnlyGoverningContributions"] = PlanningOperations.ReadContributions(state).SelectMany(p => p.Contributions)
+                .Count(c => c.Role == "governing_property" && c.RuntimeEvidenceIds.Count == 0),
             ["nestedQualifiers"] = PlanningOperations.ReadContributions(state).Sum(p => p.Units.Count(u => u.ParentRequestUnitId is not null)),
             ["eligibleRuntimeRecords"] = PlanningOperations.Scopes(state).Length,
             ["clauseMembership"] = new JsonArray(qualifications.Select(d => (JsonNode)new JsonObject { ["decision"] = d.Id, ["members"] = d.Context["provenance"]!.AsObject().Count }).ToArray()),
@@ -143,7 +149,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         }.ToJsonString());
     }
 
-    private sealed class CoverageFixtureClient(PlanningSnapshot state, IReadOnlyDictionary<string, JsonObject> semanticFixtures, bool nestedQualifiers) : ILLMClient, ILLMCapabilityResolver
+    private sealed class CoverageFixtureClient(PlanningSnapshot state, IReadOnlyDictionary<string, JsonObject> semanticFixtures, bool nestedQualifiers, bool fallbackOwnership) : ILLMClient, ILLMCapabilityResolver
     {
         public List<LLMRequest> Requests { get; } = [];
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
@@ -167,14 +173,23 @@ internal static partial class RuntimeAdmissionDiagnostic
             var text = PlanningChoiceEvidence.Text(snapshot, scope.Clause.Id).Trim();
             if (text == "This is deterministic, local, in-memory business processing.")
                 return new() { ["status"] = "qualified", ["units"] = new JsonArray((JsonNode)new JsonObject
-                    { ["role"] = "governing_property", ["scope"] = scope.Clause.Id, ["evidence"] = scope.Evidence!.ActionReference }) };
+                    { ["role"] = "governing_property", ["governingKind"] = "descriptive_property", ["scope"] = scope.Clause.Id, ["evidence"] = scope.Evidence!.ActionReference }) };
             var answer = OperationEffectFixtures.ContributionAnswer(snapshot, scope, SyntheticMapping(snapshot, scope));
             if (text.StartsWith("Classify as rejected", StringComparison.Ordinal))
                 answer["units"]![0]!["request"]!["predicate"] = new JsonObject { ["start"] = "b0", ["end"] = "b2" };
             if (nestedQualifiers && text == "Read the record identified by sourceId once from the external record store.")
                 answer["units"]![0]!["qualifiers"] = new JsonArray((JsonNode)new JsonObject
-                    { ["evidence"] = new JsonObject { ["start"] = "b6", ["end"] = "b7" } });
-            return answer;
+                    { ["evidence"] = new JsonObject { ["start"] = "b6", ["end"] = "b7" }, ["governingKind"] = "descriptive_property" });
+            if (fallbackOwnership && text == "Classify the loaded record: rejected when approved is false, high when approved is true and amount>=threshold, standard otherwise.")
+            {
+                // New explicitly synthetic semantic qualification, never a repaired
+                // historical answer. The original action remains [255,374).
+                var action = snapshot.References.Single(r => r.Id == scope.Evidence!.ActionReference);
+                if (action.Start == 255 && action.Length == 119)
+                    answer["units"]!.AsArray().Add((JsonNode)new JsonObject { ["role"] = "governing_property", ["governingKind"] = "runtime_fallback",
+                        ["scope"] = scope.Clause.Id, ["evidence"] = new JsonObject { ["start"] = "b17", ["end"] = "b18" } });
+            }
+            return OperationEffectFixtures.CompleteQualification(snapshot, scope, answer);
         }
 
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
@@ -192,7 +207,7 @@ internal static partial class RuntimeAdmissionDiagnostic
                     var decision = PlanningOperations.ApplicabilityDecisions(state).Single(d => d.Id == field.Key);
                     var candidates = PlanningOperations.MaterializeCoverage(state);
                     var scope = PlanningOperations.QualifiedScopes(state).Single(s => PlanningOperations.ApplicabilityDecisionId(s) == field.Key);
-                    var kind = scope.Evidence!.Kind == "external_read" ? "external_read" : "local_processing";
+                    var kind = scope.Evidence?.Kind == "external_read" ? "external_read" : "local_processing";
                     result[field.Key] = OperationEffectFixtures.ApplicabilityAnswer(decision, [candidates.Single(o => o.Kind == kind).Id]);
                 }
                 else if (field.Key.StartsWith("coverage_", StringComparison.Ordinal))

@@ -220,7 +220,13 @@ public sealed class CanonicalRootTests
         final.Add(Link("ob_0fed767efbdf95bc", threshold, "modifier_of", "optional", Token(state, "ob_0fed767efbdf95bc", "100")));
         final = Canonicalize(state, final);
         var runtime = Runtime(initial, final);
-        await PlanningDeclarations.ResolveAsync(state, runtime, Ct); PlanningFixtures.RefreshAdmission(state);
+        await PlanningDeclarations.ResolveAsync(state, runtime, Ct);
+        // Explicit synthetic execution precondition for downstream behavior assembly:
+        // the complete classification request owns its conditions and fallback.
+        // This is not replay or repair of the historical fragmented interpretation.
+        var rules = state.Obligations.Single(o => o.Id == "ob_b3e067ac0c3137c9");
+        PlanningFixtures.Runtime(state, PlanningChoiceEvidence.Parent(state, rules.EvidenceReferences[0]), independentBoundary: false);
+        PlanningFixtures.RefreshAdmission(state);
         Assert.Equal(initial.Single(a => a.CandidateId == threshold), state.DeclarationAssignments.Single(a => a.CandidateId == threshold));
         Assert.Equal(initial.Single(a => a.CandidateId == output), state.DeclarationAssignments.Single(a => a.CandidateId == output));
         var plan = PlanningBehaviorDecisions.Assemble(state, new()); var workflow = Assert.Single(plan.Workflows);

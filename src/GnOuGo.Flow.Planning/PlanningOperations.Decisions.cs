@@ -51,7 +51,7 @@ internal static partial class PlanningOperations
         return scopes;
     }
 
-    internal static string DecisionId(Scope scope) => "operation_" + scope.Evidence!.Id;
+    internal static string DecisionId(Scope scope) => "operation_" + (scope.Evidence?.Id ?? scope.Contribution!.Id);
 
     internal static PlanningDecisionPages.Decision IdentityDecision(PlanningSnapshot state, Scope scope, PlanningOperationEffectProof proof, IReadOnlyList<string> identities)
     {

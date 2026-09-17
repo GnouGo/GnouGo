@@ -26,7 +26,7 @@ public sealed class NestedQualifierTests
     private static JsonObject Answer(PlanningSnapshot state, PlanningOperations.Scope scope, params (int Start, int End)[] ranges)
     {
         var answer = OperationEffectFixtures.ContributionAnswer(state, scope);
-        answer["units"]![0]!["qualifiers"] = new JsonArray(ranges.Select(r => (JsonNode)new JsonObject { ["evidence"] = Range(r.Start, r.End) }).ToArray());
+        answer["units"]![0]!["qualifiers"] = new JsonArray(ranges.Select(r => (JsonNode)new JsonObject { ["evidence"] = Range(r.Start, r.End), ["governingKind"] = "descriptive_property" }).ToArray());
         return answer;
     }
     private static TypedPlannerTests.FakeRuntime NoCalls() => new() { OnCall = (_, _, _) => throw new InvalidOperationException("Unexpected dispatch") };
@@ -49,7 +49,7 @@ public sealed class NestedQualifierTests
         Assert.Empty(PlanningOperations.ApplicabilityDecisions(state)); // Exact external occurrence owner, not nesting.
         await PlanningOperations.ResolveAsync(state, NoCalls(), TestContext.Current.CancellationToken);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
-        Assert.True(operation.Required); Assert.Equal(15, operation.OperationAdmission!.Version);
+        Assert.True(operation.Required); Assert.Equal(16, operation.OperationAdmission!.Version);
         Assert.Single(operation.OperationAdmission.Assignments, a => a.Disposition == "supports");
         Assert.Single(operation.OperationAdmission.Assignments, a => a.Disposition == "attach");
         Assert.Equal(PlanningApplicabilityOrigin.DeterministicOwner, Assert.Single(operation.OperationAdmission.GoverningApplicability).Origin);
@@ -128,21 +128,22 @@ public sealed class NestedQualifierTests
         if (defect is "outside" or "crossing") parent["request"]!["predicate"] = Range(0, 1);
         if (defect == "crossing") parent["qualifiers"]![0]!["evidence"] = Range(3, 5);
         if (defect == "predicate_exhausted") parent["request"]!["predicate"] = Range(4, 5);
-        if (defect == "execution_exhausted") parent["qualifiers"] = new JsonArray((JsonNode)new JsonObject { ["evidence"] = Range(0, 3) }, new JsonObject { ["evidence"] = Range(3, 5) });
-        if (defect == "crossing_siblings") parent["qualifiers"] = new JsonArray((JsonNode)new JsonObject { ["evidence"] = Range(1, 4) }, new JsonObject { ["evidence"] = Range(3, 5) });
+        if (defect == "execution_exhausted") parent["qualifiers"] = new JsonArray((JsonNode)new JsonObject { ["evidence"] = Range(0, 3), ["governingKind"] = "descriptive_property" }, new JsonObject { ["evidence"] = Range(3, 5), ["governingKind"] = "descriptive_property" });
+        if (defect == "crossing_siblings") parent["qualifiers"] = new JsonArray((JsonNode)new JsonObject { ["evidence"] = Range(1, 4), ["governingKind"] = "descriptive_property" }, new JsonObject { ["evidence"] = Range(3, 5), ["governingKind"] = "descriptive_property" });
         if (defect == "foreign") parent["qualifiers"]![0]!["evidence"] = "foreign";
         if (defect is "peer" or "excluded")
         {
             parent["qualifiers"] = new JsonArray();
             var peer = new JsonObject { ["role"] = defect == "peer" ? "governing_property" : "excluded", ["scope"] = scope.Clause.Id, ["evidence"] = Range(4, 5) };
+            if (defect == "peer") peer["governingKind"] = "descriptive_property";
             if (defect == "excluded") peer["basis"] = "no_operation_relevance";
             answer["units"]!.AsArray().Add(peer);
         }
         if (defect == "missing_predicate") parent["request"]!.AsObject().Remove("predicate");
         if (defect == "capacity")
         {
-            parent["qualifiers"] = new JsonArray(Enumerable.Range(0, 5).Select(_ => (JsonNode)new JsonObject { ["evidence"] = Range(4, 5) }).ToArray());
-            answer["units"]!.AsArray().Add(new JsonObject { ["role"] = "governing_property", ["scope"] = scope.Clause.Id, ["evidence"] = Range(4, 5) });
+            parent["qualifiers"] = new JsonArray(Enumerable.Range(0, 5).Select(_ => (JsonNode)new JsonObject { ["evidence"] = Range(4, 5), ["governingKind"] = "descriptive_property" }).ToArray());
+            answer["units"]!.AsArray().Add(new JsonObject { ["role"] = "governing_property", ["governingKind"] = "descriptive_property", ["scope"] = scope.Clause.Id, ["evidence"] = Range(4, 5) });
         }
         Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, answer));
     }

@@ -239,7 +239,8 @@ public sealed class OperationNecessityTests
         {
             var scope = g.MaxBy(s => state.References.Single(r => r.Id == s.Evidence!.ActionReference).Length)!;
             return new KeyValuePair<string, JsonNode?>(PlanningOperations.ContributionDecisionId(scope.Evidence!),
-                OperationEffectFixtures.ContributionAnswer(state, scope, OperationEffectFixtures.Answer(state, scope, contribution: "realizes")));
+                OperationEffectFixtures.CompleteQualification(state, scope,
+                    OperationEffectFixtures.ContributionAnswer(state, scope, OperationEffectFixtures.Answer(state, scope, contribution: "realizes"))));
         }));
         OperationEffectFixtures.SeedPages(state, PlanningOperations.ContributionDecisions(state), answers);
         var groups = PlanningOperations.CoverageGroups(state);

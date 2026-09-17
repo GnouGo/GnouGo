@@ -169,7 +169,9 @@ public sealed class DeclarationConstraintTests
         Add(state, "Use the supplied color blue.", "value", "explicit_value");
         Add(state, "The decision returns false otherwise.", "fallback", "runtime_fallback");
         var runtime = new TypedPlannerTests.FakeRuntime();
-        await PlanningDeclarations.ResolveAsync(state, runtime, Ct); PlanningFixtures.RefreshAdmission(state);
+        // Declaration classification does not establish an executable target for
+        // this isolated fallback. Admission is intentionally outside this test.
+        await PlanningDeclarations.ResolveAsync(state, runtime, Ct);
         Assert.Empty(runtime.Requests); Assert.Empty(state.Declarations); Assert.Empty(state.DeclarationAssignments);
         Assert.Equal("explicit_value", state.Obligations[0].Kind);
     }

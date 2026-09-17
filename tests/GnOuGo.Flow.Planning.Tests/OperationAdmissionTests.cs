@@ -80,7 +80,16 @@ public sealed class OperationAdmissionTests
         var root = Add(state, 0); Add(state, 1, evidenceRole: "governing"); Add(state, 2, evidenceRole: "governing");
         var condition = PolicyGroundingTests.Add(state, "request", "When accepted choose the upper category.", "condition", "runtime_condition");
         var fallback = PolicyGroundingTests.Add(state, "request", "Otherwise choose the lower category.", "fallback", "runtime_fallback");
-        var runtime = NoModel(); await ResolveGrounded(state, runtime, Ct);
+        OperationEffectFixtures.Seed(state, qualification: members =>
+        {
+            var scope = Assert.Single(members);
+            var answer = OperationEffectFixtures.ContributionAnswer(state, scope);
+            // Explicit synthetic qualifications retain the existing semantic kinds.
+            if (scope.Clause.Id == condition.Grounding!.ClauseReference) answer["units"]![0]!["governingKind"] = "runtime_condition";
+            if (scope.Clause.Id == fallback.Grounding!.ClauseReference) answer["units"]![0]!["governingKind"] = "runtime_fallback";
+            return answer;
+        });
+        var runtime = NoModel(); await PlanningOperations.ResolveAsync(state, runtime, Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
         Assert.Equal(3, operation.OperationAdmission!.Assignments.Count); Assert.Contains(condition, state.Obligations); Assert.Contains(fallback, state.Obligations); Assert.Empty(runtime.Requests);
     }

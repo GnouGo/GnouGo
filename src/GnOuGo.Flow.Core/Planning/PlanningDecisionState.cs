@@ -76,6 +76,7 @@ public sealed record PlanningOperationAssignment(string DecisionId, string Claus
     public string? ContributionId { get; init; }
     /// <summary>All source bindings; the legacy scalar is diagnostic only for current contributions.</summary>
     public List<string> RuntimeEvidenceIds { get; init; } = [];
+    public List<PlanningContributionSourceBinding> SourceBindings { get; init; } = [];
 }
 
 /// <summary>Business effect ownership and an explicit execution boundary; not an executable node.</summary>
@@ -124,13 +125,18 @@ public enum PlanningRuntimeEvidenceOrigin { Unknown, SourceInterpretation, Engin
 
 /// <summary>Canonical qualification of owned evidence, before realization coverage. Candidate effects
 /// and preliminary runtime labels confer no executable authority.</summary>
-public sealed record PlanningExecutionContributionProof(int Version, string RuntimeEvidenceId, string? DecisionId,
+public sealed record PlanningExecutionContributionProof(int Version, string? RuntimeEvidenceId, string? DecisionId,
     string DomainFingerprint, List<PlanningExecutionContribution> Contributions, string ProofFingerprint)
 {
     public string? ClauseReference { get; init; }
     public List<string> RuntimeEvidenceIds { get; init; } = [];
     public List<PlanningContributionUnit> Units { get; init; } = [];
+    public List<PlanningContributionSourceBinding> SourceBindings { get; init; } = [];
 }
+/// <summary>Exact source ownership, not execution or applicability authority. An optional semantic
+/// obligation binds its current grounding; source-only governing evidence needs no runtime parent.</summary>
+public sealed record PlanningContributionSourceBinding(string EvidenceReference, string ScopeReference,
+    string? SemanticObligationId, string? GroundingFingerprint);
 /// <summary>One clause-owned semantic unit, not an operation or a second execution graph.
 /// Requested execution binds its predicate and projections; properties have no support projections.</summary>
 public sealed record PlanningContributionUnit(string Id, string Role, string ScopeReference,
@@ -140,6 +146,8 @@ public sealed record PlanningContributionUnit(string Id, string Role, string Sco
     /// <summary>Engine-derived statement composition, never execution or applicability authority.
     /// Only a governing qualifier may refer to its containing requested-execution unit.</summary>
     public string? ParentRequestUnitId { get; init; }
+    public string? GoverningKind { get; init; }
+    public List<PlanningContributionSourceBinding> SourceBindings { get; init; } = [];
 }
 public sealed record PlanningExecutionContribution(string Id, string EvidenceReference, string Role,
     string? EffectId, string Basis, string? OwnerReference, string? BoundaryReference,
@@ -147,14 +155,19 @@ public sealed record PlanningExecutionContribution(string Id, string EvidenceRef
 {
     public string? UnitId { get; init; }
     public List<string> RuntimeEvidenceIds { get; init; } = [];
+    public string? GoverningKind { get; init; }
+    public List<PlanningContributionSourceBinding> SourceBindings { get; init; } = [];
 }
 /// <summary>Applicability of a qualified property, never executable authority. Inactive and
 /// workflow outcomes remain complete evidence even when no operation receives an attachment.</summary>
-public sealed record PlanningGoverningApplicabilityProof(int Version, string ContributionId, string RuntimeEvidenceId,
+public sealed record PlanningGoverningApplicabilityProof(int Version, string ContributionId, string? RuntimeEvidenceId,
     string EvidenceReference, string Outcome, List<string> Targets, string? WorkflowOwner,
     List<PlanningGoverningTargetEvidence> TargetEvidence, List<string> OwnerReferences,
     string? InactiveProofFingerprint, PlanningApplicabilityOrigin Origin, string? DecisionId,
-    string RealizedSetFingerprint, string DomainFingerprint, string ProofFingerprint);
+    string RealizedSetFingerprint, string DomainFingerprint, string ProofFingerprint)
+{
+    public List<PlanningContributionSourceBinding> SourceBindings { get; init; } = [];
+}
 public sealed record PlanningGoverningTargetEvidence(string Target, List<string> EvidenceReferences);
 public enum PlanningApplicabilityOrigin { Unknown, ModelApplicability, DeterministicOwner, DeterministicInactive }
 

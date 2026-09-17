@@ -68,7 +68,7 @@ public sealed class JointClauseQualificationTests
         {
             answer["units"]![0]!["request"]!["predicate"] = Range("b4", "b6");
             answer["units"]![0]!["request"]!["evidence"] = new JsonArray((JsonNode)Range("b0", "b4"));
-            answer["units"]!.AsArray().Add((JsonNode)new JsonObject { ["role"] = "governing_property", ["scope"] = scope.Clause.Id, ["evidence"] = Range("b4", "b6") });
+            answer["units"]!.AsArray().Add((JsonNode)new JsonObject { ["role"] = "governing_property", ["governingKind"] = "descriptive_property", ["scope"] = scope.Clause.Id, ["evidence"] = Range("b4", "b6") });
         }
         Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, answer));
     }
@@ -80,7 +80,7 @@ public sealed class JointClauseQualificationTests
         PlanningFixtures.Runtime(state, PlanningOperations.SourceScopes(state).Single(s => s.Source.Id == "request").Clause, "external_execute", independentBoundary: false);
         var scope = Assert.Single(PlanningOperations.Scopes(state));
         var answer = new JsonObject { ["status"] = "qualified", ["units"] = new JsonArray((JsonNode)new JsonObject
-            { ["role"] = "governing_property", ["scope"] = scope.Clause.Id, ["evidence"] = scope.Evidence!.ActionReference }) };
+            { ["role"] = "governing_property", ["governingKind"] = "descriptive_property", ["scope"] = scope.Clause.Id, ["evidence"] = scope.Evidence!.ActionReference }) };
         var proof = PlanningOperations.ParseContributions(state, scope, answer);
         Assert.All(proof.Units, u => Assert.Null(u.PredicateReference));
         Assert.DoesNotContain(proof.Contributions, c => c.Role == "supports");

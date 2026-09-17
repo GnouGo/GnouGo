@@ -58,12 +58,12 @@ public sealed class OperationContributionTests
         Assert.All(group.Plans.Values.SelectMany(p => p).Where(c => c.RuntimeEvidenceId == description), c => Assert.Equal("governs", c.Disposition));
         Cover(state); await PlanningOperations.ResolveAsync(state, NoCalls(), Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
-        Assert.True(operation.Required); Assert.Equal(15, operation.OperationAdmission!.Version);
+        Assert.True(operation.Required); Assert.Equal(16, operation.OperationAdmission!.Version);
         Assert.Equal(3, operation.OperationAdmission.RealizationCoverage!.Version);
         Assert.Equal(2, operation.OperationAdmission.Assignments.Count(a => a.Disposition == "supports"));
         Assert.Single(operation.OperationAdmission.Assignments, a => a.Disposition == "attach");
         Assert.DoesNotContain(state.DecisionPages.SelectMany(p => p.Decisions), id => id.StartsWith("operation_", StringComparison.Ordinal));
-        Assert.All(operation.OperationAdmission.ExecutionContributions, p => Assert.Equal(5, p.Version));
+        Assert.All(operation.OperationAdmission.ExecutionContributions, p => Assert.Equal(6, p.Version));
     }
 
     [Fact]
@@ -200,11 +200,11 @@ public sealed class OperationContributionTests
         JsonObject Response(PlanningSnapshot snapshot, PlanningOperations.Scope scope)
         {
             if (!supports.Contains(scope.Evidence!.Id)) return new JsonObject { ["status"] = "qualified", ["units"] = new JsonArray((JsonNode)new JsonObject
-                { ["role"] = "governing_property", ["scope"] = scope.Clause.Id, ["evidence"] = scope.Evidence.ActionReference }) };
+                { ["role"] = "governing_property", ["governingKind"] = "descriptive_property", ["scope"] = scope.Clause.Id, ["evidence"] = scope.Evidence.ActionReference }) };
             var answer = Answer(snapshot, scope);
             if (PlanningChoiceEvidence.Text(snapshot, scope.Clause.Id) == "Transform the supplied value locally.")
                 answer["units"]![0]!["qualifiers"] = new JsonArray((JsonNode)new JsonObject
-                    { ["evidence"] = new JsonObject { ["start"] = "b4", ["end"] = "b5" } });
+                    { ["evidence"] = new JsonObject { ["start"] = "b4", ["end"] = "b5" }, ["governingKind"] = "descriptive_property" });
             return answer;
         }
         other.RuntimeEvidence.Reverse(); other.References.Reverse();

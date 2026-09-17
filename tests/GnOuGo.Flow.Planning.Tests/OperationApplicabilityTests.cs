@@ -28,7 +28,7 @@ public sealed class OperationApplicabilityTests
     }
     private static JsonObject Property(PlanningOperations.Scope scope) => new()
     { ["status"] = "qualified", ["units"] = new JsonArray((JsonNode)new JsonObject
-        { ["role"] = "governing_property", ["scope"] = scope.Clause.Id, ["evidence"] = scope.Evidence!.ActionReference }) };
+        { ["role"] = "governing_property", ["governingKind"] = "descriptive_property", ["scope"] = scope.Clause.Id, ["evidence"] = scope.Evidence!.ActionReference }) };
     private static void Cover(PlanningSnapshot state)
     {
         var groups = PlanningOperations.CoverageGroups(state);
@@ -80,6 +80,7 @@ public sealed class OperationApplicabilityTests
         var state = Result(true); var scope = PlanningOperations.Scopes(state).Last();
         var decision = PlanningOperations.ContributionDecision(state, scope);
         var exclusion = Property(scope); exclusion["units"]![0]!["role"] = "excluded";
+        exclusion["units"]![0]!.AsObject().Remove("governingKind");
         exclusion["units"]![0]!["basis"] = "no_requested_execution";
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(exclusion, decision.Schema));
         exclusion["units"]![0]!["basis"] = "no_operation_relevance";

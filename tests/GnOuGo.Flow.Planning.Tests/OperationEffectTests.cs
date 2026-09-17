@@ -271,7 +271,8 @@ public sealed class OperationEffectTests
             // Explicit synthetic complete request: conditions inherit classification;
             // the implementation description remains a separate property unit.
             var scope = members.MaxBy(s => state.References.Single(r => r.Id == s.Evidence!.ActionReference).Length)!;
-            return OperationEffectFixtures.ContributionAnswer(state, scope, Mapping(scope));
+            return OperationEffectFixtures.CompleteQualification(state, scope,
+                OperationEffectFixtures.ContributionAnswer(state, scope, Mapping(scope)));
         });
         await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);

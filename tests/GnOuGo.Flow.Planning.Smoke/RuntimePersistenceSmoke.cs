@@ -177,7 +177,7 @@ internal static class RuntimePersistenceSmoke
                 await PlanningDeclarations.ResolveAsync(resumed.Snapshot, resumed.Runtime, CancellationToken.None);
                 if (client.Calls != correctedCalls + 1) throw new InvalidOperationException("Published duplicate-root replay dispatched again.");
             }
-            PlanningSnapshot Operations() => new() { Request = new() { TenantId = "smoke", Prompt = "Transform the value once. Transform according to the rules. This processing is deterministic.", MaxRepairsPerWorkflowGate = 0 } };
+            PlanningSnapshot Operations() => new() { Request = new() { TenantId = "smoke", Prompt = "Transform the value once. Transform according to the rules otherwise. This processing is deterministic.", MaxRepairsPerWorkflowGate = 0 } };
             client.OperationAnswers = true;
             await using (var opened = await Factory().OpenAsync(Context("operations"), Operations(), CancellationToken.None))
             {
@@ -186,7 +186,7 @@ internal static class RuntimePersistenceSmoke
                 foreach (var scope in scopes)
                 {
                     var answer = new JsonObject { ["role"] = "local_behavior", ["kind"] = "local_processing",
-                        ["action"] = new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() },
+                        ["action"] = new JsonObject { ["start"] = "b0", ["end"] = scope == scopes[1] ? JsonValue.Create("b5") : scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() },
                         ["execution"] = "generated_workflow",  ["necessity"] = new JsonObject { ["state"] = scope == scopes[1] ? "required" : "unspecified", ["evidence"] = scope == scopes[1] ? new JsonObject { ["start"] = "b0", ["end"] = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.DeepClone() } : null }, ["baseline"] = null };
                     answer["boundary"] = scope == scopes[0] ? new JsonObject { ["kind"] = "invocation", ["owner"] = answer["action"]!.DeepClone(), ["span"] = answer["action"]!.DeepClone() } : null;
                     snapshot.RuntimeEvidence.AddRange(PlanningOperations.ParseRuntime(snapshot, scope.Clause, scope.Select,
@@ -209,12 +209,14 @@ internal static class RuntimePersistenceSmoke
                 await PlanningOperations.ResolveAsync(resumed.Snapshot, resumed.Runtime, CancellationToken.None);
                 if (restart == 0 && client.Calls == identityCalls + 2) identityCalls = client.Calls;
                 var operation = resumed.Snapshot.Obligations.Single(PlanningSourceDecisions.IsOperation);
-                if (client.Calls != identityCalls || !operation.Required || resumed.Snapshot.RuntimeEvidence.Count != 3 || operation.OperationAdmission!.Assignments.Count != 4 || resumed.Snapshot.RepairAllowances.Count != 0 ||
-                    operation.OperationAdmission.Version != 15 || operation.OperationAdmission.RealizationCoverage?.Version != 3 ||
-                    operation.OperationAdmission.ExecutionContributions.Any(p => p.Version != 5 || p.Units.Count == 0 || p.RuntimeEvidenceIds.Count == 0) ||
+                if (client.Calls != identityCalls || !operation.Required || resumed.Snapshot.RuntimeEvidence.Count != 3 || operation.OperationAdmission!.Assignments.Count != 5 || resumed.Snapshot.RepairAllowances.Count != 0 ||
+                    operation.OperationAdmission.Version != 16 || operation.OperationAdmission.RealizationCoverage?.Version != 3 ||
+                    operation.OperationAdmission.ExecutionContributions.Any(p => p.Version != 6 || p.Units.Count == 0 || p.RuntimeEvidenceIds.Count == 0) ||
                     operation.OperationAdmission.Assignments.Count(a => a.Disposition == "supports") != 2 ||
                     operation.OperationAdmission.ExecutionContributions.SelectMany(p => p.Units).Count(u => u.ParentRequestUnitId is not null) != 1 ||
-                    operation.OperationAdmission.Assignments.Count(a => a.Disposition == "attach") != 2 ||
+                    operation.OperationAdmission.Assignments.Count(a => a.Disposition == "attach") != 3 ||
+                    operation.OperationAdmission.GoverningApplicability.Any(p => p.Version != 2) ||
+                    operation.OperationAdmission.ExecutionContributions.SelectMany(p => p.Contributions).Count(c => c.GoverningKind == "runtime_fallback" && c.RuntimeEvidenceIds.Count == 0 && c.SourceBindings.Count == 1) != 1 ||
                     operationFingerprint is not null && operationFingerprint != resumed.Snapshot.OperationAdmissionFingerprint)
                     throw new InvalidOperationException("Published encrypted operation identity/attachment replay failed.");
                 operationFingerprint = resumed.Snapshot.OperationAdmissionFingerprint;
@@ -296,7 +298,10 @@ internal static class RuntimePersistenceSmoke
                                 var answer = OperationEffectFixtures.ContributionAnswer(state, s, Mapping(s));
                                 if (PlanningChoiceEvidence.Text(state, s.Clause.Id).Trim() == "Transform the value once.")
                                     answer["units"]![0]!["qualifiers"] = new JsonArray((JsonNode)new JsonObject
-                                        { ["evidence"] = new JsonObject { ["start"] = "b3", ["end"] = "b4" } });
+                                        { ["evidence"] = new JsonObject { ["start"] = "b3", ["end"] = "b4" }, ["governingKind"] = "descriptive_property" });
+                                if (PlanningChoiceEvidence.Text(state, s.Clause.Id).Trim() == "Transform according to the rules otherwise.")
+                                    answer["units"]!.AsArray().Add((JsonNode)new JsonObject { ["role"] = "governing_property", ["governingKind"] = "runtime_fallback",
+                                        ["scope"] = s.Clause.Id, ["evidence"] = new JsonObject { ["start"] = "b5", ["end"] = "b6" } });
                                 return answer;
                             })));
                         }

@@ -19,7 +19,7 @@ public sealed class RuntimeAdmissionDiagnosticTests
     public void ApplicabilityGateRequiresProofBeyondSingletonCardinality(string defect, bool accepted)
     {
         var operation = Operation("local", "local_processing", ["record", "threshold"], ["result"], []);
-        operation.OperationAdmission!.GoverningApplicability.Add(new(defect == "stale" ? 0 : 1, "property", "runtime", "owned",
+        operation.OperationAdmission!.GoverningApplicability.Add(new(defect == "stale" ? 0 : 2, "property", "runtime", "owned",
             "active", [defect == "foreign" ? "foreign" : "local"], null, [new("local", ["owned"])], [], null,
             defect == "cardinality_only" ? PlanningApplicabilityOrigin.DeterministicOwner : defect == "unknown_origin" ? PlanningApplicabilityOrigin.Unknown : PlanningApplicabilityOrigin.ModelApplicability,
             defect == "missing_decision" ? null : "applicability_property", "realized", "domain", "proof"));
@@ -227,9 +227,9 @@ public sealed class RuntimeAdmissionDiagnosticTests
     private static PlanningObligation Operation(string id, string kind, string[] inputs, string[] outputs, string[] producers) =>
         new(id, ["evidence"], "workflow", kind, true)
         {
-            OperationAdmission = new(15, id, "evidence", null,
+            OperationAdmission = new(16, id, "evidence", null,
                 [new("decision", "clause", "action", kind, PlanningOperationNecessity.Required, id, null)
-                { ContributionId = "qualified", RuntimeEvidenceId = "runtime", RuntimeEvidenceIds = ["runtime"], Disposition = "supports", EffectId = id, Effect = new(7, "effect", "realizes", [new("main", "result", "result_realization", "result")], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { ExecutionContributions = [new(5, "runtime", "qualification", "domain", [new("qualified", "action", "supports", id, "requested_result_production", "result", "result", PlanningContributionOrigin.ModelQualification) { UnitId = "unit", RuntimeEvidenceIds = ["runtime"] }], "proof") { RuntimeEvidenceIds = ["runtime"], ClauseReference = "clause", Units = [new("unit", "requested_execution", "clause", "action", ["action"], ["runtime"], id, "requested_result_production", "result", "result")] }], Dependencies = new(1, "domain", producers.Select(p =>
+                { ContributionId = "qualified", RuntimeEvidenceId = "runtime", RuntimeEvidenceIds = ["runtime"], Disposition = "supports", EffectId = id, Effect = new(7, "effect", "realizes", [new("main", "result", "result_realization", "result")], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { ExecutionContributions = [new(6, "runtime", "qualification", "domain", [new("qualified", "action", "supports", id, "requested_result_production", "result", "result", PlanningContributionOrigin.ModelQualification) { UnitId = "unit", RuntimeEvidenceIds = ["runtime"] }], "proof") { RuntimeEvidenceIds = ["runtime"], ClauseReference = "clause", Units = [new("unit", "requested_execution", "clause", "action", ["action"], ["runtime"], id, "requested_result_production", "result", "result")] }], Dependencies = new(1, "domain", producers.Select(p =>
                     new PlanningOperationDependencyAssignment(p, id, "data", PlanningDependencyOrigin.ModelSemanticSelection, ["clause"], "decision")).ToList(), "dependency-proof"),
                     RealizationCoverage = new(3, "coverage", "domain", [id], [new("runtime", "supports", [id], ["action"]) { ContributionId = "qualified" }],
                         [new(id, new("main", "result", "result_realization", "result"), ["qualified"], inputs.ToList(), outputs.ToList())], "coverage-proof") }
@@ -343,7 +343,7 @@ public sealed class RuntimeAdmissionDiagnosticTests
                 proof.Assignments.Add(proof.Assignments[0] with { ContributionId = id, ActionReference = id, Disposition = "attach" });
                 proof.ExecutionContributions[0].Contributions.Add(new(id, id, "governing_property", null, "governing_property", null, null, PlanningContributionOrigin.ModelQualification));
             }
-            proof.GoverningApplicability.Add(new(1, id, "runtime", shape == "split" ? id : "action", "active", ["local"], null,
+            proof.GoverningApplicability.Add(new(2, id, "runtime", shape == "split" ? id : "action", "active", ["local"], null,
                 [new("local", ["clause"])], [], null, PlanningApplicabilityOrigin.ModelApplicability, "applicability", "realized", "domain", "proof"));
         }
         void Check() => RuntimeAdmissionDiagnosticRules.RequireSemanticEvidence(state, operation, "request", 0, length);

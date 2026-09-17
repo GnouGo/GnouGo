@@ -60,7 +60,7 @@ internal static partial class PlanningOperations
     }
 
     private static string ApplicabilityDomainFingerprint(PlanningSnapshot state, Scope scope, ApplicabilityContext context) => PlanningGraphCompiler.Fingerprint(
-        "governing-applicability-v1:" + context.RealizedFingerprint + ":" +
+        "governing-applicability-v2:" + context.RealizedFingerprint + ":" +
         context.Qualifications.Single(p => p.Contributions.Any(c => c.Id == scope.Contribution!.Id)).ProofFingerprint + ":" +
         CoverageStrings(ApplicabilityDomain(state, scope, context.Realizations).Keys).ToJsonString());
 
@@ -80,8 +80,9 @@ internal static partial class PlanningOperations
     private static PlanningGoverningApplicabilityProof PropertyProof(PlanningSnapshot state, Scope scope, ApplicabilityContext context, string outcome,
         List<string> targets, List<PlanningGoverningTargetEvidence> evidence, List<string> owners,
         PlanningApplicabilityOrigin origin, string? decision = null, string? workflow = null, string? inactive = null) => SealApplicability(new(
-            1, scope.Contribution!.Id, scope.Evidence!.Id, scope.Contribution.EvidenceReference, outcome, targets, workflow,
-            evidence, owners, inactive, origin, decision, context.RealizedFingerprint, ApplicabilityDomainFingerprint(state, scope, context), ""));
+            2, scope.Contribution!.Id, scope.Evidence?.Id, scope.Contribution.EvidenceReference, outcome, targets, workflow,
+            evidence, owners, inactive, origin, decision, context.RealizedFingerprint, ApplicabilityDomainFingerprint(state, scope, context), "")
+            { SourceBindings = scope.Contribution.SourceBindings });
 
     private static PlanningGoverningApplicabilityProof? DeterministicApplicability(PlanningSnapshot state, Scope scope, ApplicabilityContext context)
     {

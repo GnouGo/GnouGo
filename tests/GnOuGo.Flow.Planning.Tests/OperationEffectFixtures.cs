@@ -63,6 +63,7 @@ internal static class OperationEffectFixtures
         {
             var item = new JsonObject { ["role"] = role == "supports" ? "requested_execution" : role, ["scope"] = scope.Clause.Id, ["evidence"] = scope.Evidence!.ActionReference };
             if (excluded) item["basis"] = "no_operation_relevance";
+            if (role == "governing_property") item["governingKind"] = "descriptive_property";
             else if (role == "supports") item["effect"] = id;
             if (role == "supports")
             {
@@ -87,6 +88,9 @@ internal static class OperationEffectFixtures
         SeedBoundaries(state);
         var scopes = PlanningOperations.Scopes(state).Where(s => s.Evidence!.BaselineReference is null).ToArray();
         var values = qualification is null ? QualificationAnswers(state, s => ContributionAnswer(state, s, answer?.Invoke(s))) : new JsonObject(scopes.GroupBy(s => PlanningOperations.ContributionDecisionId(s.Evidence!)).Select(g => new KeyValuePair<string, JsonNode?>(g.Key, qualification(g.ToArray()))));
+        foreach (var scope in PlanningOperations.ContributionScopes(state))
+            if (values[PlanningOperations.ContributionDecisionId(scope)] is null)
+                values[PlanningOperations.ContributionDecisionId(scope)] = SourcePropertyAnswer(state, scope);
         SeedPages(state, PlanningOperations.ContributionDecisions(state), values);
     }
 
@@ -97,7 +101,7 @@ internal static class OperationEffectFixtures
         support["predicate"] = new JsonObject { ["start"] = "b0", ["end"] = "b" + boundary };
         support["evidence"] = new JsonArray(support["predicate"]!.DeepClone());
         var last = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.ToString();
-        answer["units"]!.AsArray().Add((JsonNode)new JsonObject { ["role"] = "governing_property", ["scope"] = scope.Clause.Id,
+        answer["units"]!.AsArray().Add((JsonNode)new JsonObject { ["role"] = "governing_property", ["governingKind"] = "descriptive_property", ["scope"] = scope.Clause.Id,
             ["evidence"] = new JsonObject { ["start"] = "b" + boundary, ["end"] = last } });
         return answer;
     }
@@ -105,7 +109,42 @@ internal static class OperationEffectFixtures
     internal static JsonObject QualificationAnswers(PlanningSnapshot state, Func<PlanningOperations.Scope, JsonObject> answer) =>
         new(PlanningOperations.Scopes(state).Where(s => s.Evidence!.BaselineReference is null)
             .GroupBy(s => PlanningOperations.ContributionDecisionId(s.Evidence!)).Select(g =>
-                new KeyValuePair<string, JsonNode?>(g.Key, CombineQualifications(g.Select(answer)))));
+                new KeyValuePair<string, JsonNode?>(g.Key, CompleteQualification(state, g.First(), CombineQualifications(g.Select(answer))))));
+
+    internal static JsonObject SourcePropertyAnswer(PlanningSnapshot state, PlanningOperations.Scope scope)
+    {
+        var units = new JsonArray(state.Obligations.Where(o => o.Grounding?.ClauseReference == scope.Clause.Id && o.Kind is "runtime_condition" or "runtime_fallback")
+            .SelectMany(o => o.EvidenceReferences.Select(id => (JsonNode)new JsonObject { ["role"] = "governing_property", ["scope"] = scope.Clause.Id,
+                ["evidence"] = id, ["governingKind"] = o.Kind })).ToArray());
+        return CompleteQualification(state, scope, new() { ["status"] = "qualified", ["units"] = units });
+    }
+
+    // Explicit synthetic assumption for old generic fixtures: otherwise unassigned
+    // source words have no additional operation relevance. Production never fills gaps.
+    internal static JsonObject CompleteQualification(PlanningSnapshot state, PlanningOperations.Scope scope, JsonObject answer)
+    {
+        if (answer["status"]?.ToString() != "qualified") return answer;
+        var covered = new List<PlanningReference>();
+        PlanningReference Resolve(JsonNode n) => n is JsonObject range ? scope.Select(range["start"]!.ToString(), range["end"]!.ToString()) : state.References.Single(r => r.Id == n.ToString());
+        foreach (var unit in answer["units"]!.AsArray())
+            if (unit!["request"] is { } request) covered.AddRange(request["evidence"]!.AsArray().Select(n => Resolve(n!)));
+            else covered.Add(Resolve(unit["evidence"]!));
+        covered.AddRange(PlanningOperations.ContributionDecision(state, scope).Context["contracts"]!.AsArray().Select(n => Resolve(n!)));
+        var count = scope.Words.Count; int? start = null;
+        for (var i = 0; i <= count; i++)
+        {
+            var word = i == count ? null : scope.Select("b" + i, "b" + (i + 1));
+            var missing = word is not null && !covered.Any(r => r.Start <= word.Start && r.Start + r.Length >= word.Start + word.Length);
+            if (missing) { start ??= i; continue; }
+            if (start is { } first)
+            {
+                answer["units"]!.AsArray().Add((JsonNode)new JsonObject { ["role"] = "excluded", ["scope"] = scope.Clause.Id,
+                    ["basis"] = "no_operation_relevance", ["evidence"] = new JsonObject { ["start"] = "b" + first, ["end"] = "b" + i } });
+                start = null;
+            }
+        }
+        return answer;
+    }
 
     internal static JsonObject CombineQualifications(IEnumerable<JsonObject> answers)
     {

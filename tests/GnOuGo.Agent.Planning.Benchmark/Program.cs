@@ -32,6 +32,11 @@ if (args.Length == 2 && args[0] == "audit-nested-qualifier-fixture")
 {
     await RuntimeAdmissionDiagnostic.CoverageFixtureAsync(args[1], records, contractEligibility: true, jointClause: true, nestedQualifiers: true); return;
 }
+if (args.Length == 2 && args[0] == "audit-fallback-ownership-fixture")
+{
+    await RuntimeAdmissionDiagnostic.CoverageFixtureAsync(args[1], records, contractEligibility: true, jointClause: true,
+        nestedQualifiers: true, fallbackOwnership: true); return;
+}
 if (args.Length == 2 && args[0] == "audit-joint-clause-fixture")
 {
     await RuntimeAdmissionDiagnostic.CoverageFixtureAsync(args[1], records, contractEligibility: true, jointClause: true); return;
