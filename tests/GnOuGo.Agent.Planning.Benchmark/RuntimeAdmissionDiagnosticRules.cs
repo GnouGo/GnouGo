@@ -8,10 +8,10 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-governing-applicability-diagnostics-1";
-    internal const string ComparisonIdentity = "schema5-execution-contributions-diagnostics-1";
+    internal const string Identity = "schema5-governing-applicability-mixed-diagnostics-1";
+    internal const string ComparisonIdentity = "schema5-governing-applicability-diagnostics-1";
     internal const string ProductionCommit = "23bce4bc842e598d19866d92d497772e1f3c0538";
-    internal const string ComparisonProductionCommit = "5617c1b9024b48f09c0baf49d5e6f146df130879";
+    internal const string ComparisonProductionCommit = ProductionCommit;
     internal const int MaxCalls = 16;
     internal static readonly string[] Cases = ["local", "mixed"];
     internal static JsonObject WithTypedPolicy(JsonObject options)
@@ -36,12 +36,22 @@ internal static class RuntimeAdmissionDiagnosticRules
     }
     internal static void RequireCase(string name, JsonObject? previous)
     {
-        if (name != "local") throw new InvalidOperationException("This campaign authorizes LOCAL only; MIXED and later gates require separate authorization.");
+        if (name != "mixed" || previous is null || previous["outcome"]?.ToString() != "RETAINED LOCAL ACCEPTED" ||
+            previous["identity"]?.ToString() != ComparisonIdentity + ":local" || previous["productionCommit"]?.ToString() != ProductionCommit ||
+            previous["originalStatus"]?.ToString() != "stopped" || previous["canonicalResult"] is not JsonObject result ||
+            result["kind"]?.ToString() != "local_processing" || result["required"]?.GetValue<bool>() != true ||
+            previous["readOnlyRestart"] is not JsonObject restart || restart["passed"]?.GetValue<bool>() != true ||
+            restart["providerCalls"]?.GetValue<int>() != 0 || restart["checkpointWrites"]?.GetValue<int>() != 0 ||
+            string.IsNullOrEmpty(restart["admissionFingerprint"]?.ToString()) ||
+            string.IsNullOrEmpty(previous["snapshotFingerprintBefore"]?.ToString()) ||
+            previous["snapshotFingerprintBefore"]?.ToString() != previous["snapshotFingerprintAfter"]?.ToString() ||
+            previous["snapshotFingerprintAfter"]?.ToString() != restart["snapshotFingerprint"]?.ToString())
+            throw new InvalidOperationException("Only one fresh MIXED is authorized, gated by the immutable accepted LOCAL adjudication; LOCAL and later gates are forbidden.");
     }
     internal static void RequireFreshStart(bool checkpoint, bool report, bool budget, bool reservations)
     {
         if (checkpoint || report || budget || reservations)
-            throw new InvalidOperationException("This LOCAL has already started. Read its report; do not start or resume it again.");
+            throw new InvalidOperationException("This MIXED has already started. Read its report; do not start or resume it again.");
     }
     internal static void RequireRequest(PlanningSnapshot state)
     {

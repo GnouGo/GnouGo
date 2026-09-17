@@ -61,32 +61,39 @@ public sealed class RuntimeAdmissionDiagnosticTests
     }
 
     [Theory]
-    [InlineData("local", null, true)]
-    [InlineData("local", "passed", true)]
-    [InlineData("mixed", "passed", false)]
+    [InlineData("local", null, false)]
+    [InlineData("local", "RETAINED LOCAL ACCEPTED", false)]
+    [InlineData("mixed", "RETAINED LOCAL ACCEPTED", true)]
     [InlineData("mixed", "stopped", false)]
     [InlineData("mixed", null, false)]
-    [InlineData("stage1", "passed", false)]
-    [InlineData("stage2", "passed", false)]
-    [InlineData("replacement", "passed", false)]
-    public void OnlyLocalIsAuthorizedEvenAfterLocalSuccess(string name, string? previous, bool allowed)
+    [InlineData("stage1", "RETAINED LOCAL ACCEPTED", false)]
+    [InlineData("stage2", "RETAINED LOCAL ACCEPTED", false)]
+    [InlineData("replacement", "RETAINED LOCAL ACCEPTED", false)]
+    public void OnlyMixedIsAuthorizedWithSeparateRetainedLocalAcceptance(string name, string? previous, bool allowed)
     {
         var report = previous is null ? null : AcceptedLocal();
-        if (report is not null) report["status"] = previous;
+        if (report is not null) report["outcome"] = previous;
         if (allowed) RuntimeAdmissionDiagnosticRules.RequireCase(name, report);
         else Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireCase(name, report));
     }
 
     private static JsonObject AcceptedLocal() => new()
     {
-        ["case"] = "local", ["status"] = "passed", ["effectValidationPassed"] = true,
-        ["readOnlyRestart"] = new JsonObject { ["passed"] = true, ["providerCalls"] = 0, ["checkpointWrites"] = 0, ["admissionFingerprint"] = "proof" }
+        ["identity"] = RuntimeAdmissionDiagnosticRules.ComparisonIdentity + ":local", ["originalStatus"] = "stopped",
+        ["productionCommit"] = RuntimeAdmissionDiagnosticRules.ProductionCommit, ["outcome"] = "RETAINED LOCAL ACCEPTED",
+        ["canonicalResult"] = new JsonObject { ["kind"] = "local_processing", ["required"] = true },
+        ["snapshotFingerprintBefore"] = "snapshot", ["snapshotFingerprintAfter"] = "snapshot",
+        ["readOnlyRestart"] = new JsonObject { ["passed"] = true, ["providerCalls"] = 0, ["checkpointWrites"] = 0,
+            ["admissionFingerprint"] = "proof", ["snapshotFingerprint"] = "snapshot" }
     };
 
     [Theory]
-    [InlineData("effectValidationPassed")]
+    [InlineData("canonicalResult")]
     [InlineData("readOnlyRestart")]
-    [InlineData("case")]
+    [InlineData("identity")]
+    [InlineData("productionCommit")]
+    [InlineData("outcome")]
+    [InlineData("snapshotFingerprintBefore")]
     public void IncompleteLocalEvidenceDoesNotAuthorizeMixed(string missing)
     {
         var report = AcceptedLocal(); report.Remove(missing);
@@ -99,6 +106,17 @@ public sealed class RuntimeAdmissionDiagnosticTests
     public void LocalRestartMustHaveBeenReadOnly(string field)
     {
         var report = AcceptedLocal(); report["readOnlyRestart"]![field] = 1;
+        Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireCase("mixed", report));
+    }
+
+    [Theory]
+    [InlineData("originalStatus", "passed")]
+    [InlineData("snapshotFingerprintAfter", "changed")]
+    [InlineData("productionCommit", "foreign")]
+    [InlineData("identity", "another:local")]
+    public void MixedAuthorizationPreservesHistoricalStatusAndExactProof(string field, string value)
+    {
+        var report = AcceptedLocal(); report[field] = value;
         Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireCase("mixed", report));
     }
     [Theory]
@@ -315,6 +333,7 @@ public sealed class RuntimeAdmissionDiagnosticTests
     }
 
     [Theory]
+    [InlineData("valid_multiple_supports", true)]
     [InlineData("valid", true)]
     [InlineData("missing_dependency", false)]
     [InlineData("reverse", false)]
@@ -339,6 +358,7 @@ public sealed class RuntimeAdmissionDiagnosticTests
         if (defect == "stale_effect") read.OperationAdmission.Assignments[0] = read.OperationAdmission.Assignments[0] with
         { Effect = read.OperationAdmission.Assignments[0].Effect! with { Version = 3 } };
         var local = Operation("local", "local_processing", ["threshold"], ["result"], defect == "missing_dependency" ? [] : defect == "self" ? ["local"] : ["read"]);
+        if (defect == "valid_multiple_supports") { AddSupport(read, "read-details"); AddSupport(local, "classification-rules"); }
         if (defect == "missing_evidence") local.OperationAdmission!.Dependencies!.Assignments[0].EvidenceReferences.Clear();
         if (defect == "local_invocation") local.OperationAdmission!.Assignments[0].Effect!.Candidates[0] = new("main", "action", "invocation", "action");
         var ops = new List<PlanningObligation> { read, local };

@@ -1,5 +1,15 @@
 # CodeReview convergence benchmark
 
+## Governing-applicability MIXED admission gate
+
+`schema5-governing-applicability-mixed-diagnostics-1` authorizes one fresh MIXED on production `23bce4bc842e598d19866d92d497772e1f3c0538`. It compares settings and fixtures with `schema5-governing-applicability-diagnostics-1` and requires the separate [accepted LOCAL adjudication](../../docs/planner-local-support-adjudication.md). The original LOCAL report stays stopped; its checkpoint, report and budget must still match the adjudication fingerprints.
+
+Build into an isolated output with production-reference rebuilding disabled and stage the hash-verified frozen production DLLs. After offline tests, fixture checks and published persistence smokes, `diagnose-runtime-admission freeze 23bce4bc842e598d19866d92d497772e1f3c0538` checks the unchanged configuration and currency prerequisite. `diagnose-runtime-admission run-mixed` is the only authorized live entrypoint. LOCAL, Stage 1, a second start and resumption are refused. The existing sixteen-call budget and all generation limits apply unchanged.
+
+Acceptance requires one externally owned read, one local result realization, valid contribution/coverage/applicability proofs, and exactly one admission-owned read-to-local data edge. Multiple qualified supports may establish one effect. Completed-admission reload must use zero calls and writes; later relationship domains must contain no `data` alternative. Report admission headroom separately from the final allowance after relationship checks. Stop at the first blocker; do not patch or retry the live case.
+
+This campaign consumed its single start and stopped at `DIAGNOSTIC_GOVERNING_EVIDENCE` after sixteen verified calls. Retained-evidence review found an earlier qualification defect: declaration-covered preservation was accepted as external-read support. Do not repeat the live command. See the [MIXED result](../../docs/planner-governing-applicability-mixed.md); the next gate is architecture review.
+
 ## Canonical-root validation campaign
 
 `schema5-canonical-roots-stage1-1` permits exactly one fresh Stage-1 start after
