@@ -19,6 +19,19 @@ internal static partial class RuntimeAdmissionDiagnostic
             return;
         }
         report["contributionProofsAvailable"] = true;
+        report["clauseQualifications"] = new JsonArray(proofs.Select(p => (JsonNode)new JsonObject
+        {
+            ["decisionId"] = p.DecisionId, ["clauseReference"] = p.ClauseReference,
+            ["runtimeEvidenceIds"] = new JsonArray(p.RuntimeEvidenceIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["proofFingerprint"] = p.ProofFingerprint,
+            ["units"] = new JsonArray(p.Units.Select(u => (JsonNode)new JsonObject
+            {
+                ["id"] = u.Id, ["role"] = u.Role, ["scopeReference"] = u.ScopeReference,
+                ["predicateReference"] = u.PredicateReference, ["effectId"] = u.EffectId, ["basis"] = u.Basis,
+                ["evidenceReferences"] = new JsonArray(u.EvidenceReferences.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+                ["runtimeEvidenceIds"] = new JsonArray(u.RuntimeEvidenceIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray())
+            }).ToArray())
+        }).ToArray());
         report["qualifiedContributions"] = new JsonArray(proofs.SelectMany(p => p.Contributions.Select(c =>
         {
             var r = state.References.Single(r => r.Id == c.EvidenceReference);

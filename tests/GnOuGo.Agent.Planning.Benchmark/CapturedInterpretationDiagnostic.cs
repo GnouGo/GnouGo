@@ -25,27 +25,25 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 // One separately authorized transport diagnostic. It cannot create or advance a planner session.
 internal static class CapturedInterpretationDiagnostic
 {
-    internal const string Identity = "schema5-realized-governing-singleton-diagnostic-1";
+    internal const string Identity = "schema5-joint-clause-interpretation-diagnostic-1";
     internal const string Tenant = "runtime-admission-diagnostics";
-    internal const string SourceCampaign = "schema5-realized-governing-diagnostics-rerun-1";
+    internal const string SourceCampaign = "schema5-joint-clause-qualification-diagnostics-1";
     private const string SourceCase = SourceCampaign + ":local";
     private const string Collection = "agent-planning-diagnostics-v5", Author = "GnOuGo.Agent.Planning.Benchmark";
-    private const string Decision = "interpret_3ef1aed4ec4fb268eae6f1b9";
-    private const string SourceRequest = SourceCase + ":0:5:intent:response_contract:93beceaf3191e878:page_a4237432cefa49bea8c3acb705f25a45d1b9e03ddfc04c680cc75f89d4776834:bdabce69f0501d17f4c549cc31ca60bf9ce254540c1d945df80fd6af86ecc3ee";
-    private const string SourceRequestHash = "12dd093242abfff616b7bb7e7c82160f8b803821991d8dd286fc9c501026fb38";
-    private const string ParentReceiptHash = "cf4a7fd402f967fcf0bf9828f01a642d2c39fbc0726024078cce67561c82b31c";
-    private const string SourceCheckpointHash = "0531d6be35591c47b404ccb9fb13ba596b8161a62482819f7eca5ca096d4fb85";
-    private const string SourceBudgetHash = "b9506d60062a7895b61f6598b540113cafaa0f65856da37cfb9cd3c610d1008e";
+    private const string Decision = "interpret_40997e14a2c6d889e553c1a9";
+    private const string SourceRequest = SourceCase + ":0:1:intent:response_contract:93beceaf3191e878:page_7af6ccd48db99329ff307e7afae91070eeb8945709c860bab473fce2df15fba9:f496e9c1857bb66a0ba69d92e42a0dc62b073d18310328fd1707b5b5d46a1ec2";
+    private const string SourceRequestHash = "358686e7a0733e9c79b11495da02d4ed79be9212080e6ea7431f1ab202d9acee";
+    private const string SourceCheckpointHash = "414c8938999a5dd3598655c790307c7b5d852e4b80a3c42ba744726d10ddf03e";
 
     internal static LLMRequest CreateRequest(LLMRequest source)
     {
-        if (source.MaxTokens != 16384 || source.Reasoning != "low" || !source.DisableTransportRetries || !source.RequireOutputTokenLimit ||
-            source.OutputBudgetEscalation is not { Level: 1 } ||
+        if (source.MaxTokens is not (8192 or 16384) || source.Reasoning != "low" || !source.DisableTransportRetries || !source.RequireOutputTokenLimit ||
+            (source.MaxTokens == 16384 ? source.OutputBudgetEscalation is not { Level: 1 } : source.OutputBudgetEscalation is not null) ||
             source.StructuredOutputSchema?["properties"] is not JsonObject fields || fields.Count != 1)
-            throw new InvalidOperationException("The diagnostic requires an exact captured low singleton escalation.");
+            throw new InvalidOperationException("The diagnostic requires an exact captured low singleton request.");
         var copy = JsonSerializer.Deserialize(JsonSerializer.Serialize(source, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
         // Archive-owned authorization is not transferable. The isolated journal has its own
-        // explicitly authorized 16k ceiling; the exact original proof remains encrypted in the archive.
+        // exactly preserved output ceiling; the exact original proof remains encrypted in the archive.
         copy.OutputBudgetEscalation = null;
         copy.ClientRequestId = null;
         copy.ClientRequestId = Identity + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(copy, PlanningJsonContext.Default.LLMRequest));
@@ -58,7 +56,7 @@ internal static class CapturedInterpretationDiagnostic
         var a = JsonSerializer.SerializeToNode(source, PlanningJsonContext.Default.LLMRequest)!.AsObject();
         var b = JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject();
         foreach (var name in new[] { "clientRequestId", "outputBudgetEscalation" }) { a.Remove(name); b.Remove(name); }
-        if (request.OutputBudgetEscalation is not null || request.MaxTokens != 16384 || !JsonNode.DeepEquals(a, b))
+        if (request.OutputBudgetEscalation is not null || request.MaxTokens != source.MaxTokens || !JsonNode.DeepEquals(a, b))
             throw new InvalidOperationException("A captured generation field changed, or archive authority was reused.");
     }
 
@@ -77,7 +75,7 @@ internal static class CapturedInterpretationDiagnostic
         // Retain cumulative calls/tokens/cost. The enclosing diagnostic deadline excludes archive wait time.
         var allowance = limits with { MaxCalls = Math.Min(limits.MaxCalls ?? int.MaxValue, checked((int)seed.Calls + 1)), MaxElapsed = null };
         var budget = new LLMUsageBudgetScope(allowance, snapshot, sink: sink, exchangeRateProvider: rates);
-        var generation = new PlanningGenerationOptions { MaxOutputTokens = 16384 };
+        var generation = new PlanningGenerationOptions { MaxOutputTokens = source.MaxTokens ?? throw new InvalidOperationException("The captured output ceiling is required.") };
         RequireIdenticalGeneration(source, PlanningGenerationPolicy.Apply(request, generation));
         return await new PlanningModelJournal(client, contexts, records, Tenant, Identity, budget, estimator, generation).CallAsync(request, ct);
     }
@@ -100,16 +98,10 @@ internal static class CapturedInterpretationDiagnostic
         if (request.ClientRequestId != SourceRequest || request.Model != "gpt-5.5-2026-04-24" ||
             request.StructuredOutputSchema?["properties"] is not JsonObject fields || fields.Count != 1 || !fields.ContainsKey(Decision))
             throw new InvalidOperationException("The captured request does not contain the authorized decision/model.");
-        var parentKey = SourceCase + ":" + request.OutputBudgetEscalation!.ParentRequestId;
-        var parentRequest = await records.GetAsync(PlanningModelJournal.RequestCollection, Tenant, parentKey, EfPlanningSessionStore.Author);
-        var parentReceipt = await records.GetAsync(PlanningModelJournal.Collection, Tenant, parentKey, EfPlanningSessionStore.Author);
-        if (parentRequest is null || parentReceipt is null || PlanningGraphCompiler.Fingerprint(parentReceipt.Value) != ParentReceiptHash)
-            throw new InvalidOperationException("The verified parent evidence differs.");
-        PlanningGenerationPolicy.ValidateOutputEscalation(request,
-            JsonSerializer.Deserialize(parentRequest.Value, PlanningJsonContext.Default.LLMRequest)!,
-            JsonSerializer.Deserialize(parentReceipt.Value, PlanningJsonContext.Default.LLMResponse)!, SourceCase);
+        if (request.MaxTokens != 8192 || request.OutputBudgetEscalation is not null)
+            throw new InvalidOperationException("This diagnostic authorizes only the captured normal-output request.");
         var campaign = JsonNode.Parse((await records.GetAsync(Collection, Tenant, SourceCampaign, Author))!.Value)!;
-        if (campaign["commit"]?.ToString() != "2f8b177ec6076cfdedbf524bd72a01d3f1b457d7")
+        if (campaign["commit"]?.ToString() != "d2ceac7cd85793baea732721f4e2b092c94be210")
             throw new InvalidOperationException("The authorized frozen production commit is required.");
         void RequireProductionHashes()
         {
@@ -121,9 +113,10 @@ internal static class CapturedInterpretationDiagnostic
         var before = await ArchiveFingerprintAsync(records, sourceContexts);
         var sourceBudget = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, SourceCase, EfPlanningSessionStore.Author)
             ?? throw new InvalidOperationException("Missing archived cumulative budget.");
-        if (PlanningGraphCompiler.Fingerprint(sourceBudget.Value) != SourceBudgetHash)
-            throw new InvalidOperationException("The archived budget differs from the retained evidence.");
         var seed = JsonSerializer.Deserialize(sourceBudget.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)!;
+        if (seed.Calls != 1 || seed.InputTokens != 0 || seed.OutputTokens != 0 ||
+            state.RequestAccounting.Count != 1 || state.RequestAccounting[0].Id != SourceRequest || state.RequestAccounting[0].Evidence != "unverifiable")
+            throw new InvalidOperationException("The archived reservation/accounting differs from the retained stop.");
         var limits = PlanningBudgetOptions.Parse(state.Request.Options) ?? throw new InvalidOperationException("Missing source limits.");
         using var cancel = new CancellationTokenSource(limits.MaxElapsed ?? TimeSpan.FromHours(5));
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancel.Cancel(); };
@@ -148,14 +141,14 @@ internal static class CapturedInterpretationDiagnostic
         var manifest = new JsonObject
         {
             ["identity"] = Identity, ["sourceCase"] = SourceCase, ["sourceRequest"] = SourceRequest, ["decision"] = Decision,
-            ["sourceRequestFingerprint"] = SourceRequestHash, ["parentReceiptFingerprint"] = ParentReceiptHash,
+            ["sourceRequestFingerprint"] = SourceRequestHash, ["parentReceiptFingerprint"] = null,
             ["sourceCheckpointFingerprint"] = SourceCheckpointHash,
             ["request"] = diagnostic.ClientRequestId, ["productionCommit"] = campaign["commit"]!.DeepClone(),
             ["sourceArchiveFingerprint"] = before, ["sourceBudgetFingerprint"] = PlanningGraphCompiler.Fingerprint(sourceBudget.Value),
             ["contextFingerprint"] = PlanningGraphCompiler.Fingerprint(request.Prompt),
             ["schemaFingerprint"] = PlanningGraphCompiler.Fingerprint(request.StructuredOutputSchema!.ToJsonString()),
             ["model"] = request.Model, ["reasoning"] = request.Reasoning, ["outputLimit"] = request.MaxTokens,
-            ["identicalGeneration"] = true, ["identityChange"] = "Isolated request ID and authorization; archived escalation metadata retained only as source evidence.",
+            ["identicalGeneration"] = true, ["identityChange"] = "Isolated request ID only; all generation fields including the normal 8192 output ceiling are identical.",
             ["harnessHash"] = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(Path.Combine(root, "GnOuGo.Agent.Planning.Benchmark.dll"))))
         };
         var existing = await records.GetAsync(Collection, Tenant, Identity, Author, ct);
@@ -186,6 +179,12 @@ internal static class CapturedInterpretationDiagnostic
             };
         }
         report["archiveUnchanged"] = before == await ArchiveFingerprintAsync(records, sourceContexts);
+        report["sourceUnverifiableRequests"] = 1;
+        report["sourceUsageUnknown"] = true;
+        report["cumulativeVerifiedUsageExcludesUnknownSourceUsage"] = true;
+        report["seedCalls"] = seed.Calls;
+        var finalBudget = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, Identity, EfPlanningSessionStore.Author);
+        report["cumulativeAccounting"] = finalBudget is null ? null : JsonNode.Parse(finalBudget.Value);
         RequireProductionHashes(); report["productionBinariesUnchanged"] = true; report["manifest"] = manifest;
         await using (var db = await contexts.CreateDbContextAsync())
         {

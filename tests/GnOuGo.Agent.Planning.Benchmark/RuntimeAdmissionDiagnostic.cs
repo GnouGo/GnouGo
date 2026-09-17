@@ -122,7 +122,7 @@ internal static partial class RuntimeAdmissionDiagnostic
                 ["exchangeRatePrerequisite"] = exchangeRatePrerequisite,
                 ["authorizedCases"] = new JsonArray("local"),
                 ["productionBinariesFingerprint"] = RuntimeAdmissionDiagnosticRules.ProductionBinariesFingerprint,
-                ["historicalLocalStatus"] = "stopped; unchanged, with separate retained-evidence acceptance",
+                ["historicalLocalStatus"] = "stopped on an unverifiable provider request; unchanged; isolated receipt is not imported into this fresh campaign",
                 ["model"] = campaign["model"]!.DeepClone(), ["sourceOptionsFingerprint"] = PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()),
                 ["transportConfigurationFingerprint"] = transportFingerprint,
                 ["catalogFingerprint"] = campaign["stages"]![0]!["catalogHash"]!.DeepClone(),

@@ -9,12 +9,12 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-canonical-contract-coverage-diagnostics-1";
-    internal const string ComparisonIdentity = "schema5-governing-applicability-diagnostics-1";
-    internal const string ProductionCommit = "ada9dbe35424f85e2e45ff1161bfd890960ce468";
-    internal const string ComparisonProductionCommit = "23bce4bc842e598d19866d92d497772e1f3c0538";
+    internal const string Identity = "schema5-joint-clause-qualification-diagnostics-rerun-1";
+    internal const string ComparisonIdentity = "schema5-joint-clause-qualification-diagnostics-1";
+    internal const string ProductionCommit = "d2ceac7cd85793baea732721f4e2b092c94be210";
+    internal const string ComparisonProductionCommit = "d2ceac7cd85793baea732721f4e2b092c94be210";
     // Sorted production DLL hashes from the accepted offline implementation report.
-    internal const string ProductionBinariesFingerprint = "aa727025b0c5edff49faa1b64f99c7c9754d51cd28050a4cba5cd2f364ccf9ab";
+    internal const string ProductionBinariesFingerprint = "2f10e8ca79f6d3e6c159680acbd0a009d1acd5d8d99dc976e6f8e9c174c4f962";
     internal static void RequireFrozenProduction(JsonObject binaries)
     {
         var production = new JsonObject(binaries.Where(p => p.Key != "GnOuGo.Agent.Planning.Benchmark.dll")
@@ -90,7 +90,7 @@ internal static class RuntimeAdmissionDiagnosticRules
         foreach (var operation in operations) RequirePositiveSupports(operation);
         Require(operations.All(o => o.OperationAdmission!.ExecutionContributions.Count > 0 &&
             o.OperationAdmission.ExecutionContributions.All(p => p.Version == 4 && !string.IsNullOrEmpty(p.ProofFingerprint)) &&
-            o.OperationAdmission.Assignments.All(a => o.OperationAdmission.ExecutionContributions.Any(p => p.RuntimeEvidenceId == a.RuntimeEvidenceId &&
+            o.OperationAdmission.Assignments.All(a => o.OperationAdmission.ExecutionContributions.Any(p => p.RuntimeEvidenceIds.Contains(a.RuntimeEvidenceId!) &&
                 p.Contributions.Any(c => c.Id == a.ContributionId && c.EvidenceReference == a.ActionReference &&
                     (a.Disposition == "supports" ? c.Role == "supports" && c.EffectId == o.Id : c.Role == "governing_property" && c.EffectId is null &&
                         o.OperationAdmission.GoverningApplicability.Any(g => g.Version == 1 && g.ContributionId == c.Id && g.Outcome == "active" && g.Targets.Contains(o.Id))))))),

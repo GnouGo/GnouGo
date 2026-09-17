@@ -253,6 +253,20 @@ public sealed class RuntimeAdmissionDiagnosticTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void JointClauseGateUsesCompleteProvenanceInsteadOfDiagnosticParent(bool foreignParent)
+    {
+        var operation = Operation("local", "local_processing", ["record", "threshold"], ["result"], []);
+        var proof = operation.OperationAdmission!.ExecutionContributions[0];
+        operation.OperationAdmission.ExecutionContributions[0] = proof with
+        { RuntimeEvidenceId = "other-member", RuntimeEvidenceIds = foreignParent ? ["other-member"] : ["other-member", "runtime"] };
+        void Check() => RuntimeAdmissionDiagnosticRules.RequireEffects("local", [operation], ["record", "threshold"], "result", 0);
+        if (foreignParent) Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
+        else Check();
+    }
+
+    [Theory]
     [InlineData("governs", true)]
     [InlineData("supports", false)]
     [InlineData("both", false)]

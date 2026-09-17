@@ -38,6 +38,19 @@ public sealed class CapturedInterpretationDiagnosticTests
             PlanningGenerationPolicy.Apply(CapturedInterpretationDiagnostic.CreateRequest(source), new())));
     }
 
+    [Fact]
+    public void NormalCapturedRequestRetains8192WithoutEscalationOrOtherChanges()
+    {
+        var source = Source(); source.MaxTokens = 8192; source.OutputBudgetEscalation = null;
+        var copy = CapturedInterpretationDiagnostic.CreateRequest(source);
+        CapturedInterpretationDiagnostic.RequireIdenticalGeneration(source, PlanningGenerationPolicy.Apply(copy, new()));
+        Assert.Equal(8192, copy.MaxTokens); Assert.Null(copy.OutputBudgetEscalation);
+        copy.MaxTokens = 16384;
+        Assert.Throws<InvalidOperationException>(() => CapturedInterpretationDiagnostic.RequireIdenticalGeneration(source, copy));
+        source.MaxTokens = 32768;
+        Assert.Throws<InvalidOperationException>(() => CapturedInterpretationDiagnostic.CreateRequest(source));
+    }
+
     [Theory]
     [InlineData("prompt")]
     [InlineData("schema")]
@@ -64,14 +77,19 @@ public sealed class CapturedInterpretationDiagnosticTests
     }
 
     [Theory]
-    [InlineData("completed")]
-    [InlineData("output_limit")]
-    [InlineData("unverifiable")]
-    public async Task OneDispatchIsReservedAndNeverRepeatedOrChargedToArchive(string completion)
+    [InlineData("completed", 16384)]
+    [InlineData("output_limit", 16384)]
+    [InlineData("unverifiable", 16384)]
+    [InlineData("completed", 8192)]
+    [InlineData("output_limit", 8192)]
+    [InlineData("unverifiable", 8192)]
+    public async Task OneDispatchIsReservedAndNeverRepeatedOrChargedToArchive(string completion, int outputLimit)
     {
         await using var archive = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         await using var isolated = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var source = Source(); var seed = new LLMUsageBudgetSnapshot { StartedAtUtc = DateTimeOffset.UtcNow, Calls = 12, InputTokens = 30, OutputTokens = 40, TotalTokens = 70 };
+        var source = Source(); source.MaxTokens = outputLimit;
+        if (outputLimit == 8192) source.OutputBudgetEscalation = null;
+        var seed = new LLMUsageBudgetSnapshot { StartedAtUtc = DateTimeOffset.UtcNow, Calls = 12, InputTokens = 30, OutputTokens = 40, TotalTokens = 70 };
         var archivedBudget = JsonSerializer.Serialize(seed, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
         await archive.Records.UpsertAsync(PlanningBudgetSink.Collection, CapturedInterpretationDiagnostic.Tenant, "archive", archivedBudget, EfPlanningSessionStore.Author, Ct);
         var client = new Client(async request =>
