@@ -154,7 +154,13 @@ public sealed class RuntimeEvidenceCoverageTests
         });
         await ResolveGrounded(state, NoModel(), Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
-        Assert.Equal("local_processing", operation.Kind); Assert.Equal(2, operation.OperationAdmission!.Assignments.Count);
+        Assert.Equal("local_processing", operation.Kind);
+        // One execution plus five projected rule portions: the two established
+        // condition groundings keep their exact boundaries within the clause.
+        Assert.Equal(6, operation.OperationAdmission!.Assignments.Count);
+        Assert.Equal(root.Id, Assert.Single(operation.OperationAdmission.Assignments, a => a.Disposition == "supports").RuntimeEvidenceId);
+        Assert.All(operation.OperationAdmission.ExecutionContributions.SelectMany(p => p.Contributions).Where(c => c.Role == "governing_property"),
+            c => Assert.Equal("runtime_condition", c.GoverningKind));
         Assert.Contains(preservation.Id, PlanningOperations.DeclarationExclusions(state).Keys);
         Assert.Equal(["record", "threshold"], state.Declarations.Where(d => d.Direction == "input").Select(d => PlanningDeclarations.Name(state, d)).Order(StringComparer.Ordinal));
         Assert.Equal("classifiedResult", PlanningDeclarations.Name(state, Assert.Single(state.Declarations, d => d.Direction == "output")));

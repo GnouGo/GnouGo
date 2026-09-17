@@ -5,6 +5,51 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class MissionCampaignTests
 {
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(1, 0)]
+    public void OrphanedCoordinatorOrJournalReservationCannotResume(int journal, int coordinator)
+        => Assert.Throws<InvalidOperationException>(() => MissionCampaign.RequireEntry(true, false, true, journal, journal, 0, coordinator));
+
+    [Theory]
+    [InlineData("not_run", false, false, "new")]
+    [InlineData("starting", false, true, "resume")]
+    [InlineData("running", true, true, "resume")]
+    [InlineData("behavior_accepted", true, true, "resume")]
+    [InlineData("passed", true, true, "completed")]
+    [InlineData("blocked", true, true, "completed")]
+    [InlineData("not_run", true, true, null)]
+    [InlineData("starting", false, false, null)]
+    [InlineData("passed", false, true, null)]
+    [InlineData("waiting", false, true, null)]
+    public void ProgressiveReentryRetainsItsOriginalStart(string status, bool session, bool name, string? expected)
+    {
+        var stage = new JsonObject { ["status"] = status, ["session"] = session ? "owned" : null, ["name"] = name ? "stage" : null };
+        var original = stage.ToJsonString();
+        if (expected is null) Assert.Throws<InvalidOperationException>(() => MissionCampaign.StageEntry(stage));
+        else Assert.Equal(expected, MissionCampaign.StageEntry(stage));
+        Assert.Equal(original, stage.ToJsonString());
+    }
+
+    [Theory]
+    [InlineData(false, false, false, 0, null, 0, "new")]
+    [InlineData(true, false, false, 0, null, 0, "resume")]
+    [InlineData(true, false, true, 2, 2L, 0, "resume")]
+    [InlineData(true, true, true, 2, 2L, 0, "completed")]
+    public void EntryReusesTheDurableStart(bool checkpoint, bool report, bool budget, int calls, long? budgetCalls, int missing, string expected)
+        => Assert.Equal(expected, MissionCampaign.RequireEntry(checkpoint, report, budget, calls, budgetCalls, missing));
+
+    [Theory]
+    [InlineData(false, true, false, 0, null, 0)]
+    [InlineData(false, false, true, 0, 0L, 0)]
+    [InlineData(false, false, true, 1, 1L, 0)]
+    [InlineData(true, false, false, 1, null, 0)]
+    [InlineData(true, false, true, 2, 1L, 0)]
+    [InlineData(true, false, true, 2, 2L, 1)]
+    [InlineData(true, true, true, 2, 2L, 1)]
+    public void AmbiguousEntryCannotAcquireAnotherAllowance(bool checkpoint, bool report, bool budget, int calls, long? budgetCalls, int missing)
+        => Assert.Throws<InvalidOperationException>(() => MissionCampaign.RequireEntry(checkpoint, report, budget, calls, budgetCalls, missing));
+
     private static JsonObject Validation() => new() { ["testedBinaryHashes"] = new JsonObject
     { ["bin/GnOuGo.Flow.Core.dll"] = new string('a', 64), ["bin/GnOuGo.Flow.Planning.dll"] = new string('b', 64),
       ["bin/GnOuGo.Agent.Planning.Benchmark.dll"] = new string('c', 64) } };
@@ -49,7 +94,7 @@ public sealed class MissionCampaignTests
         ["coordinatorReservationsWithoutJournalRequest"] = 0, ["relationshipProjectionVerified"] = name == "mixed",
         ["readOnlyRestart"] = new JsonObject { ["passed"] = true, ["providerCalls"] = 0, ["checkpointWrites"] = 0,
             ["admissionFingerprint"] = "proof", ["executionRequestProofVersions"] = new JsonArray(1),
-            ["contributionProofVersions"] = new JsonArray(7), ["admissionProofVersions"] = new JsonArray(17) }
+            ["contributionProofVersions"] = new JsonArray(8), ["admissionProofVersions"] = new JsonArray(18) }
     };
 
     [Theory]

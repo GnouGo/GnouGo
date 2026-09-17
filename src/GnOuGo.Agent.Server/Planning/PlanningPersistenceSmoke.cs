@@ -80,14 +80,14 @@ internal static class PlanningPersistenceSmoke
             new("baseline_runtime", "baseline_source", "baseline_clause", "contract", null, null, null, null, null, null, null, PlanningOperationNecessity.Unspecified, "baseline-proof")
             { ExecutionScope = PlanningRuntimeExecutionScope.PublicContract, Origin = PlanningRuntimeEvidenceOrigin.EngineBaseline }];
         state.Obligations = [new("action", ["anchor"], "workflow", "local_processing", true)
-        { Disposition = "admitted", OperationAdmission = new(17, "action", "anchor", null,
+        { Disposition = "admitted", OperationAdmission = new(18, "action", "anchor", null,
             [new("decision", "clause", "anchor", "local_processing", PlanningOperationNecessity.Required, null, null) { RuntimeEvidenceId = "runtime", Disposition = "distinct", ResolutionOrigin = "deterministic", EffectId = "action",
                 Effect = new(7, "effect-decision", "realizes", [new("main", "private_result", "result_realization", "private_result") { OccurrenceProof = new(1, "runtime", "main", null, new("invocation", "private_owner", "private_boundary"), null, "boundary-proof") }],
                     ["private_input"], ["private_result"], [], ["private_boundary_evidence"], "model", "effect-evidence-proof") },
              new("reuse", "rules", "rule_anchor", "local_processing", PlanningOperationNecessity.Unspecified, "action", null)], "evidence-proof", "operation-proof")
             { ExecutionRequests = [new(1, "request-authority", "request-decision", "request-domain",
                 [new("request-unit", "requested_execution", "clause", "private_predicate", ["private_execution_evidence"], ["runtime", "runtime-details"], "action", "requested_result_production", "private_result", "private_result") { ExecutionRequestId = "request-authority" }], "model", "request-proof")],
-              ExecutionContributions = [new(7, "runtime", "qualification", "qualified-domain",
+              ExecutionContributions = [new(8, "runtime", "qualification", "qualified-domain",
                 [new("qualified", "private_execution_evidence", "supports", "action", "requested_result_production", "private_result", "private_result", PlanningContributionOrigin.ModelQualification) { ExecutionRequestId = "request-authority", UnitId = "request-unit", RuntimeEvidenceIds = ["runtime", "runtime-details"] },
                  new("property", "property-evidence", "governing_property", null, "governing_property", null, null, PlanningContributionOrigin.ModelQualification) { UnitId = "qualifier-unit", RuntimeEvidenceIds = ["runtime"] },
                  new("fallback", "fallback-evidence", "governing_property", null, "governing_property", null, null, PlanningContributionOrigin.ModelQualification)
@@ -131,10 +131,10 @@ internal static class PlanningPersistenceSmoke
         if (prepared.RuntimeEvidence[2].Origin != PlanningRuntimeEvidenceOrigin.EngineBaseline ||
             prepared.References[1].Baseline is not { Version: 1, Fingerprint: "baseline-fingerprint", Port: "private_port", Field: "schema/description" })
             throw new InvalidOperationException("Structural baseline evidence did not survive encrypted persistence.");
-        if (prepared?.OperationAdmissionFingerprint != "operation-set-proof" || prepared.Obligations.Single().OperationAdmission is not { Version: 17 } admission ||
+        if (prepared?.OperationAdmissionFingerprint != "operation-set-proof" || prepared.Obligations.Single().OperationAdmission is not { Version: 18 } admission ||
             admission.ExecutionRequests.SingleOrDefault() is not { Version: 1, ProofFingerprint: "request-proof" } requestProof ||
             requestProof.Units.Single().ExecutionRequestId != "request-authority" ||
-            admission.ExecutionContributions.SingleOrDefault() is not { Version: 7, ProofFingerprint: "qualified-proof" } contribution ||
+            admission.ExecutionContributions.SingleOrDefault() is not { Version: 8, ProofFingerprint: "qualified-proof" } contribution ||
             contribution.Contributions.Single(c => c.Role == "supports").Basis != "requested_result_production" ||
             contribution.Units.Single(u => u.Role == "requested_execution").PredicateReference != "private_predicate" || contribution.Units.Single(u => u.Role == "requested_execution").Role != "requested_execution" ||
             contribution.Contributions.Single(c => c.Role == "supports").UnitId != contribution.Units.Single(u => u.Role == "requested_execution").Id || !contribution.RuntimeEvidenceIds.SequenceEqual(new[] { "runtime", "runtime-details" }) ||

@@ -49,7 +49,7 @@ public sealed class NestedQualifierTests
         Assert.Empty(PlanningOperations.ApplicabilityDecisions(state)); // Exact external occurrence owner, not nesting.
         await PlanningOperations.ResolveAsync(state, NoCalls(), TestContext.Current.CancellationToken);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
-        Assert.True(operation.Required); Assert.Equal(17, operation.OperationAdmission!.Version);
+        Assert.True(operation.Required); Assert.Equal(18, operation.OperationAdmission!.Version);
         Assert.Single(operation.OperationAdmission.Assignments, a => a.Disposition == "supports");
         Assert.Single(operation.OperationAdmission.Assignments, a => a.Disposition == "attach");
         Assert.Equal(PlanningApplicabilityOrigin.DeterministicOwner, Assert.Single(operation.OperationAdmission.GoverningApplicability).Origin);
@@ -101,10 +101,12 @@ public sealed class NestedQualifierTests
     public void QualifierSchemaOffersNoExecutionAuthorityOrModelOwnedParent(string field)
     {
         var state = State(); var scope = Assert.Single(PlanningOperations.Scopes(state));
-        var answer = Answer(state, scope, (4, 5));
-        answer["units"]![0]!["qualifiers"]![0]![field] = "foreign";
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(answer, OperationEffectFixtures.PropertyDecision(state, scope).Schema));
-        Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.ParseQualification(state, scope, answer));
+        var decision = OperationEffectFixtures.PropertyDecision(state, scope);
+        var answer = OperationEffectFixtures.PropertyAnswer(state, scope, Answer(state, scope, (4, 5)));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(answer, decision.Schema));
+        answer["units"]![0]![field] = "foreign";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(answer, decision.Schema));
+        Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, answer));
     }
 
     [Theory]

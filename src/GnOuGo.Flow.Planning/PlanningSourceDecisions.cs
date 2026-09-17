@@ -187,7 +187,7 @@ internal static class PlanningSourceDecisions
 
     internal static bool IsOperation(PlanningObligation obligation) => PlanningSourceGroundingRules.OperationKinds.Contains(obligation.Kind, StringComparer.Ordinal) &&
         obligation.Grounding?.Role is PlanningSourceSemanticRole.RequestedAction or PlanningSourceSemanticRole.ExistingAction && obligation.Disposition == "admitted" &&
-        obligation.OperationAdmission is { Version: 17, Dependencies.Version: 1 } proof && proof.CanonicalId == obligation.Id;
+        obligation.OperationAdmission is { Version: 18, Dependencies.Version: 1 } proof && proof.CanonicalId == obligation.Id;
 
     private static JsonObject AnnotationSchema(PlanningBaselineOwnership owner, JsonObject boundaries)
     {

@@ -232,9 +232,16 @@ internal static partial class PlanningOperations
 
     internal static bool EstablishedPolicyApplicability(PlanningSnapshot state, PlanningObligation policy, PlanningObligation operation)
     {
-        // Reuse only the exact covered policy evidence. Overlap, a shared clause or
-        // partial coverage must not suppress unrelated downstream responsibilities.
-        return policy.EvidenceReferences.All(reference => operation.OperationAdmission!.GoverningApplicability.Any(p =>
-            p.Outcome == "active" && p.Targets.Contains(operation.Id) && p.EvidenceReference == reference));
+        // Residual projection can split evidence or trim surrounding whitespace.
+        // Reuse only complete coverage bound to this exact policy grounding and
+        // current target, never overlap or membership in the same clause alone.
+        var admission = operation.OperationAdmission!;
+        var evidence = admission.ExecutionContributions.SelectMany(p => p.Contributions)
+            .Where(c => c.Role == "governing_property" && c.SourceBindings.Any(b => b.SemanticObligationId == policy.Id &&
+                b.GroundingFingerprint == policy.Grounding?.Fingerprint) && admission.GoverningApplicability.Any(p =>
+                p.Outcome == "active" && p.Targets.Contains(operation.Id) && p.ContributionId == c.Id && p.EvidenceReference == c.EvidenceReference))
+            .Select(c => state.References.Single(r => r.Id == c.EvidenceReference)).ToArray();
+        return policy.EvidenceReferences.Count != 0 && policy.EvidenceReferences.All(id =>
+            state.References.Single(r => r.Id == id) is var reference && Covered(state, reference, evidence.Where(r => ContainsSpan(reference, r))));
     }
 }

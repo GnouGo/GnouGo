@@ -92,8 +92,8 @@ internal sealed class MissionCampaign
             restart["providerCalls"]?.GetValue<int>() != 0 || restart["checkpointWrites"]?.GetValue<int>() != 0 ||
             restart["admissionFingerprint"]?.ToString() != report["admissionFingerprint"]?.ToString() ||
             !JsonNode.DeepEquals(restart["executionRequestProofVersions"], new JsonArray(1)) ||
-            !JsonNode.DeepEquals(restart["contributionProofVersions"], new JsonArray(7)) ||
-            !JsonNode.DeepEquals(restart["admissionProofVersions"], new JsonArray(17)) ||
+            !JsonNode.DeepEquals(restart["contributionProofVersions"], new JsonArray(8)) ||
+            !JsonNode.DeepEquals(restart["admissionProofVersions"], new JsonArray(18)) ||
             name == "mixed" && report["relationshipProjectionVerified"]?.GetValue<bool>() != true)
             throw new InvalidOperationException("The previous Intent gate lacks current, complete live acceptance and read-only restart evidence.");
     }
@@ -107,4 +107,23 @@ internal sealed class MissionCampaign
             restart["artifactHash"]?.ToString() != previous["approvedArtifactHash"]?.ToString())
             throw new InvalidOperationException("The previous workflow lacks exact approval and read-only encrypted restart evidence.");
     }
+
+    // A checkpoint is the durable gate start. Only an entirely empty identity
+    // may create one; interrupted work keeps its existing request allowances.
+    internal static string RequireEntry(bool checkpoint, bool report, bool budget, int journalCalls, long? budgetCalls, int missingReceipts, int? coordinatorCalls = null)
+    {
+        if (!checkpoint && (report || budget || journalCalls != 0) || journalCalls != (budgetCalls ?? 0) ||
+            journalCalls > 0 && !budget || missingReceipts != 0 || coordinatorCalls is not null && coordinatorCalls != journalCalls)
+            throw new InvalidOperationException("Mission gate state is incomplete or dispatch accounting is ambiguous; its start allowance cannot be reacquired.");
+        return report ? "completed" : checkpoint ? "resume" : "new";
+    }
+
+    internal static string StageEntry(JsonObject stage) => stage["status"]?.ToString() switch
+    {
+        "not_run" when stage["session"] is null && stage["name"] is null => "new",
+        "passed" or "blocked" when stage["session"] is not null => "completed",
+        "starting" when stage["name"] is not null => "resume",
+        "running" or "waiting" or "behavior_accepted" when stage["session"] is not null => "resume",
+        _ => throw new InvalidOperationException("The progressive gate has inconsistent start ownership.")
+    };
 }

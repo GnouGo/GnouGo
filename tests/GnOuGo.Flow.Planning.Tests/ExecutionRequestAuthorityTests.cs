@@ -57,7 +57,7 @@ public sealed class ExecutionRequestAuthorityTests
         await PlanningOperations.ResolveAsync(state, runtime, TestContext.Current.CancellationToken);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
         var admission = operation.OperationAdmission!;
-        Assert.Equal(17, admission.Version); Assert.Single(admission.ExecutionRequests);
+        Assert.Equal(18, admission.Version); Assert.Single(admission.ExecutionRequests);
         var supports = admission.ExecutionContributions.SelectMany(p => p.Contributions).Where(c => c.Role == "supports").ToArray();
         Assert.Equal(2, supports.Length);
         Assert.All(supports, c => { Assert.Equal(PlanningContributionOrigin.DeterministicRequestProjection, c.Origin); Assert.Equal(admission.ExecutionRequests.Single().Id, c.ExecutionRequestId); Assert.Equal(operation.Id, c.EffectId); });

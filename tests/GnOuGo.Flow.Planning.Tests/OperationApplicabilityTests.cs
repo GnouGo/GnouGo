@@ -49,7 +49,7 @@ public sealed class OperationApplicabilityTests
         var state = Result(true); var property = PlanningOperations.Scopes(state).Last();
         var qualification = OperationEffectFixtures.PropertyDecision(state, property);
         Assert.Empty(PlanningOperations.EffectDomain(state, property.Evidence!));
-        Assert.Empty(PlanningContractValidation.ValidateInstance(Property(property), qualification.Schema));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(OperationEffectFixtures.PropertyAnswer(state, property, Property(property)), qualification.Schema));
         Assert.DoesNotContain("requested_result_production", qualification.Schema.ToJsonString());
         Prepare(state);
         Assert.All(PlanningOperations.ReadCoverage(state).SelectMany(p => p.Contributions), c => Assert.Equal("supports", c.Disposition));
@@ -82,12 +82,16 @@ public sealed class OperationApplicabilityTests
         var decision = OperationEffectFixtures.PropertyDecision(state, scope);
         var exclusion = Property(scope); exclusion["units"]![0]!["role"] = "excluded";
         exclusion["units"]![0]!.AsObject().Remove("governingKind");
-        exclusion["units"]![0]!["basis"] = "no_requested_execution";
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(exclusion, decision.Schema));
         exclusion["units"]![0]!["basis"] = "no_operation_relevance";
-        Assert.Empty(PlanningContractValidation.ValidateInstance(exclusion, decision.Schema));
+        var answer = OperationEffectFixtures.PropertyAnswer(state, scope, exclusion);
+        var key = answer["residual"]!.AsObject().First().Key;
+        answer["residual"]![key]!["kind"] = "no_requested_execution";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(answer, decision.Schema));
+        answer["residual"]![key]!["kind"] = "excluded";
+        Assert.Empty(PlanningContractValidation.ValidateInstance(answer, decision.Schema));
         Assert.Equal("excluded", Assert.Single(OperationEffectFixtures.ParseQualification(state, scope, exclusion).Contributions).Role);
-        var bound = Property(scope); bound["units"]![0]!["effect"] = "possible";
+        var bound = OperationEffectFixtures.PropertyAnswer(state, scope, Property(scope));
+        bound["residual"]![key]!["effect"] = "possible";
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(bound, decision.Schema));
     }
 
@@ -181,6 +185,34 @@ public sealed class OperationApplicabilityTests
         await PlanningSourceDecisions.RelateAsync(state, NoCalls(), Ct);
         Assert.Contains(state.ObligationRelations, r => r.Producer == "owned-policy" && r.Role == "policy");
         Assert.DoesNotContain(state.DecisionPages.SelectMany(p => p.Decisions), d => d.StartsWith("relation_", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("complete")]
+    [InlineData("partial")]
+    [InlineData("foreign")]
+    [InlineData("stale")]
+    [InlineData("inactive")]
+    [InlineData("target")]
+    public void PolicyReuseRequiresCompleteCurrentGroundedCoverageAcrossPortions(string defect)
+    {
+        var state = Result(); var scope = PlanningOperations.Scopes(state).Last();
+        var policy = new PlanningObligation("policy", [scope.Clause.Id], "workflow", "implementation_policy", true);
+        policy = policy with { Grounding = PlanningSourceGroundingRules.Create(state, policy) };
+        var spans = new[] { scope.Select("b0", "b2"), scope.Select("b2", "b" + scope.Words.Count) };
+        state.References.AddRange(spans);
+        var contributions = spans.Select((span, index) => new PlanningExecutionContribution("property" + index, span.Id,
+            "governing_property", null, "governing_property", null, null, PlanningContributionOrigin.ModelQualification)
+        { SourceBindings = [new(span.Id, scope.Clause.Id, defect == "foreign" ? "other" : policy.Id,
+            defect == "stale" ? "stale" : policy.Grounding!.Fingerprint)] }).ToList();
+        var applicability = contributions.Select(c => new PlanningGoverningApplicabilityProof(2, c.Id, null, c.EvidenceReference,
+            defect == "inactive" ? "inactive" : "active", [defect == "target" ? "other" : "operation"], null, [], [], null,
+            PlanningApplicabilityOrigin.ModelApplicability, "decision", "realized", "domain", "proof")).ToList();
+        if (defect == "partial") applicability.RemoveAt(1);
+        var operation = new PlanningObligation("operation", [scope.Clause.Id], "workflow", "local_processing", true)
+        { OperationAdmission = new(18, "operation", scope.Clause.Id, null, [], "domain", "proof")
+            { ExecutionContributions = [new(8, null, "qualification", "domain", contributions, "proof")], GoverningApplicability = applicability } };
+        Assert.Equal(defect == "complete", PlanningOperations.EstablishedPolicyApplicability(state, policy, operation));
     }
     [Theory]
     [InlineData(false)]

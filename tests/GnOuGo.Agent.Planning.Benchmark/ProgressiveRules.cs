@@ -73,7 +73,7 @@ internal static class ProgressiveRules
         var actions = state.Obligations.Where(o => o.OperationAdmission is not null).ToArray();
         var rules = "Classify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise.";
         if (string.IsNullOrEmpty(state.OperationAdmissionFingerprint) || actions.Length != 1 || actions.Any(o => o.Kind != "local_processing" ||
-            o.Disposition != "admitted" || o.OperationAdmission is not { Version: 17 } || o.OperationAdmission.CanonicalId != o.Id ||
+            o.Disposition != "admitted" || o.OperationAdmission is not { Version: 18 } || o.OperationAdmission.CanonicalId != o.Id ||
             o.Grounding?.Authority != PlanningSourceAuthority.RequestedBehavior) ||
             !actions.Any(o => o.Required && o.OperationAdmission!.Assignments.Any(a => SourceText(state, a.ClauseReference) == rules)) ||
             state.BehaviorPlan is null || actions.Where(o => o.Required).Any(o => !state.BehaviorPlan.Workflows.Any(w =>

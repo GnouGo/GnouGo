@@ -72,6 +72,11 @@ internal static partial class RuntimeAdmissionDiagnostic
         { acceptanceFinding = new() { ["code"] = error.Code, ["message"] = error.Message }; }
         var inputs = state.Declarations.ToDictionary(d => d.Id, d => PlanningDeclarations.Name(state, d));
         var local = operations.Single(o => o.Kind == "local_processing");
+        if (fallbackOwnership)
+        {
+            MissionBehaviorReview.RequireResidualOwnership(state, PlanningSourceDecisions.Sources(state));
+            CheckLocalFallbackGate(state, local);
+        }
         var localInputs = local.OperationAdmission!.Assignments.SelectMany(a => a.Effect!.Inputs).Distinct().Select(r => inputs[r]).Order().ToArray();
         if (!localInputs.SequenceEqual(name == "mixed" ? ["threshold"] : new[] { "record", "threshold" })) throw new InvalidOperationException("Local public input evidence changed.");
         var before = client.Requests.Count; var restart = await VerifyReadOnlyRestartAsync(state, PlanningContext.Clone(state), CancellationToken.None);
@@ -179,13 +184,23 @@ internal static partial class RuntimeAdmissionDiagnostic
             var text = PlanningChoiceEvidence.Text(snapshot, scope.Clause.Id).Trim();
             if (text == "This is deterministic, local, in-memory business processing.")
                 return new() { ["status"] = "qualified", ["units"] = new JsonArray((JsonNode)new JsonObject
-                    { ["role"] = "governing_property", ["governingKind"] = "descriptive_property", ["scope"] = scope.Clause.Id, ["evidence"] = scope.Evidence!.ActionReference }) };
+                    { ["role"] = "governing_property", ["governingKind"] = "descriptive_property", ["scope"] = scope.Clause.Id, ["evidence"] = scope.Clause.Id }) };
             var answer = OperationEffectFixtures.ContributionAnswer(snapshot, scope, SyntheticMapping(snapshot, scope));
             if (text.StartsWith("Classify as rejected", StringComparison.Ordinal))
             {
                 answer["units"]![0]!["request"]!["predicate"] = new JsonObject { ["start"] = "b0", ["end"] = "b2" };
-                if (fallbackOwnership) answer["units"]![0]!["qualifiers"] = new JsonArray((JsonNode)new JsonObject
-                { ["evidence"] = new JsonObject { ["start"] = "b" + (scope.Words.Count - 1), ["end"] = "b" + scope.Words.Count }, ["governingKind"] = "runtime_fallback" });
+                if (fallbackOwnership)
+                {
+                    // Explicit fixture semantics for either retained action shape.
+                    // No request span is widened to consume the separate fallback.
+                    var range = new JsonObject { ["start"] = "b" + (scope.Words.Count - 1), ["end"] = "b" + scope.Words.Count };
+                    var fallback = scope.Select(range["start"]!.ToString(), range["end"]!.ToString());
+                    var action = snapshot.References.Single(r => r.Id == scope.Evidence!.ActionReference);
+                    if (action.Start <= fallback.Start && action.Start + action.Length >= fallback.Start + fallback.Length)
+                        answer["units"]![0]!["qualifiers"] = new JsonArray((JsonNode)new JsonObject { ["evidence"] = range, ["governingKind"] = "runtime_fallback" });
+                    else answer["units"]!.AsArray().Add((JsonNode)new JsonObject { ["role"] = "governing_property", ["scope"] = scope.Clause.Id,
+                        ["evidence"] = range, ["governingKind"] = "runtime_fallback" });
+                }
             }
             if (nestedQualifiers && text == "Read the record identified by sourceId once from the external record store.")
                 answer["units"]![0]!["qualifiers"] = new JsonArray((JsonNode)new JsonObject

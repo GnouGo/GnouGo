@@ -39,7 +39,7 @@ internal static partial class RuntimeAdmissionDiagnostic
     private static void AddFallbackReport(JsonObject report, PlanningSnapshot state)
     {
         var operations = state.Obligations.Where(o => o.OperationAdmission is not null).ToArray();
-        report["fallbackOwnershipGatePassed"] = report["case"]?.ToString() == "local" && report["status"]?.ToString() == "passed";
+        report["fallbackOwnershipGatePassed"] = report["status"]?.ToString() == "passed";
         report["qualifiedFallbacks"] = new JsonArray(operations.SelectMany(o => o.OperationAdmission!.ExecutionContributions.SelectMany(p => p.Contributions)
             .Where(c => c.GoverningKind == "runtime_fallback").DistinctBy(c => c.Id).Select(c =>
             {

@@ -36,14 +36,11 @@ internal static partial class PlanningOperations
         foreach (var member in members) RequireEligibleContribution(state, member.Evidence!);
         var proofs = requests ?? ReadExecutionRequests(state);
         var parents = RequestUnits(state, scope, proofs);
-        var definitions = new JsonObject { ["owned"] = ContributionSourceSchema(state, scope, members) };
-        var owned = new JsonObject { ["$ref"] = "#/$defs/owned" };
-        var alternatives = new JsonArray(
-            PlanningHoleRequests.Object(("role", PlanningHoleRequests.Enum(["excluded"])), ("scope", PlanningHoleRequests.Enum([scope.Clause.Id])),
-                ("basis", PlanningHoleRequests.Enum(["no_operation_relevance"])), ("evidence", owned.DeepClone().AsObject())),
-            PlanningHoleRequests.Object(("role", PlanningHoleRequests.Enum(["governing_property"])), ("scope", PlanningHoleRequests.Enum([scope.Clause.Id])),
-                ("governingKind", PlanningHoleRequests.Enum(GoverningKinds)), ("evidence", owned.DeepClone().AsObject())));
+        var portions = ResidualPortions(state, scope, proofs);
+        var alternatives = new JsonArray();
+        var obligations = ContributionObligations(state, scope);
         foreach (var parent in parents)
+        foreach (var kind in GoverningKinds)
         {
             var spans = parent.EvidenceReferences.Select(id => state.References.Single(r => r.Id == id)).ToArray();
             var choices = new JsonArray();
@@ -53,39 +50,50 @@ internal static partial class PlanningOperations
             for (var i = 0; i < starts.Length; i++)
             {
                 var allowed = ends.Skip(i).Where(end => scope.Select(starts[i], end) is var child &&
-                    spans.Any(p => ContainsSpan(p, child) && p.Length > child.Length)).ToArray();
+                    spans.Any(p => ContainsSpan(p, child) && p.Length > child.Length) && AllowedGoverningKinds(state, scope, child, obligations).Contains(kind)).ToArray();
                 if (allowed.Length != 0) choices.Add((JsonNode)PlanningHoleRequests.Object(
                     ("start", PlanningHoleRequests.Enum([starts[i]])), ("end", PlanningHoleRequests.Enum(allowed))));
             }
-            var refs = members.Select(s => s.Evidence!.ActionReference!).Concat(ContributionObligations(state, scope).SelectMany(o => o.EvidenceReferences))
-                .Where(id => spans.Any(p => state.References.Single(r => r.Id == id) is var child && ContainsSpan(p, child) && p.Length > child.Length))
+            var refs = members.Select(s => s.Evidence!.ActionReference!).Concat(obligations.SelectMany(o => o.EvidenceReferences))
+                .Where(id => spans.Any(p => state.References.Single(r => r.Id == id) is var child && ContainsSpan(p, child) && p.Length > child.Length) && AllowedGoverningKinds(state, scope, state.References.Single(r => r.Id == id), obligations).Contains(kind))
                 .Distinct().Order(StringComparer.Ordinal).ToArray();
             if (refs.Length != 0) choices.Add((JsonNode)PlanningHoleRequests.Enum(refs));
             if (choices.Count != 0) alternatives.Add((JsonNode)PlanningHoleRequests.Object(
                 ("role", PlanningHoleRequests.Enum(["governing_property"])), ("parent", PlanningHoleRequests.Enum([parent.Id])),
-                ("governingKind", PlanningHoleRequests.Enum(GoverningKinds)), ("evidence", new JsonObject { ["anyOf"] = choices })));
+                ("governingKind", PlanningHoleRequests.Enum([kind])), ("evidence", new JsonObject { ["anyOf"] = choices })));
         }
-        var schema = new JsonObject { ["$defs"] = definitions, ["anyOf"] = new JsonArray(
+        // Share identical evidence domains across compatible kinds. This keeps
+        // pre-dispatch filtering bounded without repeating the same range table.
+        alternatives = new JsonArray(alternatives.GroupBy(a => a!["properties"]!["parent"]!.ToJsonString() + ":" +
+            a["properties"]!["evidence"]!.ToJsonString()).Select(group =>
+            {
+                var value = group.First()!.DeepClone().AsObject();
+                value["properties"]!["governingKind"] = PlanningHoleRequests.Enum(group.Select(a => a!["properties"]!["governingKind"]!["enum"]![0]!.ToString()).ToArray());
+                return (JsonNode)value;
+            }).ToArray());
+        var schema = new JsonObject { ["anyOf"] = new JsonArray(
             PlanningHoleRequests.Object(("status", PlanningHoleRequests.Enum(["unresolved"]))),
             PlanningHoleRequests.Object(("status", PlanningHoleRequests.Enum(["qualified"])),
-                ("units", new JsonObject { ["type"] = "array", ["minItems"] = 0, ["maxItems"] = MaxContributionUnits - parents.Length,
-                    ["items"] = new JsonObject { ["anyOf"] = alternatives } }))) };
+                ("residual", ResidualSchema(portions)),
+                ("units", new JsonObject { ["type"] = "array", ["minItems"] = 0, ["maxItems"] = alternatives.Count == 0 ? 0 : MaxContributionUnits - parents.Length,
+                    ["items"] = alternatives.Count == 0 ? PlanningHoleRequests.Enum(["unavailable"]) : new JsonObject { ["anyOf"] = alternatives } }))) };
         var context = new JsonObject
         {
             ["stage"] = "execution_contribution", ["scope"] = scope.Clause.Id,
-            ["task"] = "Qualify remaining governing rules, conditions, runtime fallbacks, descriptive properties and irrelevant evidence. Executable support is fixed by canonical execution-request authority and cannot be created, extended, retired or retargeted here. Account for the complete clause using fixed support, qualified units and canonical contracts. Nested properties select an issued parent; nesting never proves applicability. Unknown semantics or incomplete accounting requires unresolved.",
+            ["task"] = "Qualify remaining governing rules, conditions, runtime fallbacks, descriptive properties and irrelevant evidence. Executable support is fixed by canonical execution-request authority and cannot be created, extended, retired or retargeted here. Every residual key requires a semantic kind and a response-local group. Group adjacent portions only when they form one meaning; ownership boundaries remain separate. Excluded means no operation relevance, never an unknown meaning. Fixed support, canonical contracts and required residual answers account for the complete clause. Nested properties select an issued parent; nesting never proves applicability. Unknown semantics or incomplete accounting requires unresolved.",
+            ["residual"] = ResidualContext(scope, portions),
             ["clause"] = PlanningChoiceEvidence.Text(state, scope.Clause.Id), ["boundaries"] = scope.Words.DeepClone(),
             ["requests"] = JsonSerializer.SerializeToNode(parents.ToList(), PlanningJsonContext.Default.ListPlanningContributionUnit),
             ["contracts"] = CoverageStrings(ContractCoverage(state).Where(c => Overlaps(scope.Clause, c.Span)).Select(c => c.Span.Id)),
-            ["semanticEvidence"] = new JsonArray(ContributionObligations(state, scope).Select(o => (JsonNode)new JsonObject
+            ["semanticEvidence"] = new JsonArray(obligations.Select(o => (JsonNode)new JsonObject
                 { ["id"] = o.Id, ["kind"] = o.Kind, ["references"] = CoverageStrings(o.EvidenceReferences), ["grounding"] = o.Grounding!.Fingerprint }).ToArray()),
             ["provenance"] = new JsonObject(members.Select(s => new KeyValuePair<string, JsonNode?>(s.Evidence!.Id,
                 new JsonObject { ["reference"] = s.Evidence.ActionReference, ["kind"] = s.Evidence.Kind })))
         };
-        return new(ContributionDecisionId(scope), schema, context, PlanningGraphCompiler.Fingerprint("execution-contribution-v7:" + EvidenceFingerprint(state) + ":" +
+        return new(ContributionDecisionId(scope), schema, context, PlanningGraphCompiler.Fingerprint("execution-contribution-v8:" + EvidenceFingerprint(state) + ":" +
             string.Join('|', proofs.Select(p => p.ProofFingerprint)) + ":" + schema.ToJsonString() + ":" + context.ToJsonString()),
             SourceDecisionIds: members.Select(s => "contribution_" + s.Evidence!.Id).Append(ContributionDecisionId(scope))
-                .Concat(ContributionObligations(state, scope).Where(o => o.Kind is "runtime_condition" or "runtime_fallback").Select(o => "contribution_" + o.Id))
+                .Concat(obligations.Where(o => o.Kind is "runtime_condition" or "runtime_fallback").Select(o => "contribution_" + o.Id))
                 .Distinct().Order(StringComparer.Ordinal).ToArray());
     }
 
@@ -103,8 +111,8 @@ internal static partial class PlanningOperations
                     ["effect"] = parent.EffectId, ["basis"] = parent.Basis, ["owner"] = parent.OwnerReference, ["boundary"] = parent.BoundaryReference },
                 ["qualifiers"] = new JsonArray(answer["units"]!.AsArray().Where(u => u!["parent"]?.ToString() == parent.Id)
                     .Select(u => (JsonNode)new JsonObject { ["evidence"] = u!["evidence"]!.DeepClone(), ["governingKind"] = u["governingKind"]!.DeepClone() }).ToArray()) });
-        foreach (var unit in answer["units"]!.AsArray().Where(u => u!["parent"] is null)) units.Add(unit!.DeepClone());
-        return ProjectContributionUnits(state, scope, new JsonObject { ["units"] = units }, decision);
+        var derived = ProjectResidual(state, scope, requests, answer, units);
+        return ProjectContributionUnits(state, scope, new JsonObject { ["units"] = units }, decision, derived: derived);
     }
 
     private static (JsonObject Context, JsonObject Schema, Func<string, string, PlanningReference> Select) ContributionBoundaries(PlanningSnapshot state, Scope scope)
@@ -125,7 +133,7 @@ internal static partial class PlanningOperations
     }
 
     private static PlanningExecutionContributionProof ProjectContributionUnits(PlanningSnapshot state, Scope scope,
-        JsonObject answer, PlanningDecisionPages.Decision decision, bool requestStage = false, string? requestId = null)
+        JsonObject answer, PlanningDecisionPages.Decision decision, bool requestStage = false, string? requestId = null, Dictionary<string, PlanningReference>? derived = null)
     {
         if (answer["units"]!.AsArray().Sum(u => 1 + (u!["qualifiers"]?.AsArray().Count ?? 0)) > MaxContributionUnits)
             throw Failure(scope.Clause.Id, "Clause qualification exceeds its complete semantic-unit allowance.");
@@ -138,7 +146,7 @@ internal static partial class PlanningOperations
         PlanningReference Select(JsonNode value, bool execution = false)
         {
             var span = value is JsonObject range ? scope.Select(range["start"]!.ToString(), range["end"]!.ToString())
-                : state.References.Single(r => r.Id == value.ToString());
+                : derived?.GetValueOrDefault(value.ToString()) ?? state.References.Single(r => r.Id == value.ToString());
             var owners = members.Where(s => ContainsSpan(state.References.Single(r => r.Id == s.Evidence!.ActionReference), span)).ToArray();
             if (!ContainsSpan(scope.Clause, span) || !SameSource(scope.Clause, span) ||
                 contracts.Any(c => Overlaps(c.Span, span)))
@@ -243,8 +251,11 @@ internal static partial class PlanningOperations
             property.Role == "governing_property" && support.Role == "supports" &&
             units.First(u => u.Id == property.UnitId).ParentRequestUnitId == support.UnitId;
         foreach (var span in selected.Values)
+            if (state.References.SingleOrDefault(r => r.Id == span.Id) is { } retained && retained != span)
+                throw Failure(span.Id, "A selected contribution reference changed its owned coordinates.");
+        foreach (var span in selected.Values)
             if (!state.References.Any(r => r.Id == span.Id)) state.References.Add(span);
-        return SealContributionProof(new(7, members.FirstOrDefault()?.Evidence!.Id, decision.Id, decision.EvidenceFingerprint,
+        return SealContributionProof(new(8, members.FirstOrDefault()?.Evidence!.Id, decision.Id, decision.EvidenceFingerprint,
             contributions.DistinctBy(c => c.Id).OrderBy(c => c.Id, StringComparer.Ordinal).ToList(), "")
         { ClauseReference = scope.Clause.Id, RuntimeEvidenceIds = members.Select(s => s.Evidence!.Id).ToList(),
             Units = units.DistinctBy(u => u.Id).OrderBy(u => u.Id, StringComparer.Ordinal).ToList(),
@@ -280,7 +291,7 @@ internal static partial class PlanningOperations
             structural ? anchor?.Key : null, basis, anchor?.Value.OwnerReference, anchor?.Value.BoundaryReference,
             excluded ? PlanningContributionOrigin.DeterministicExclusion : PlanningContributionOrigin.DeterministicBaseline)
         { ExecutionRequestId = unit.ExecutionRequestId, UnitId = unit.Id, RuntimeEvidenceIds = [evidence.Id], SourceBindings = sourceBindings, GoverningKind = unit.GoverningKind });
-        return SealContributionProof(new(7, evidence.Id, null, PlanningGraphCompiler.Fingerprint("execution-contribution-v7:" +
+        return SealContributionProof(new(8, evidence.Id, null, PlanningGraphCompiler.Fingerprint("execution-contribution-v8:" +
             EvidenceFingerprint(state) + ":" + evidence.ProofFingerprint + ":" + state.DeclarationFingerprint), [item], "")
         { ClauseReference = evidence.ClauseReference, RuntimeEvidenceIds = [evidence.Id], Units = [unit], SourceBindings = sourceBindings });
     }

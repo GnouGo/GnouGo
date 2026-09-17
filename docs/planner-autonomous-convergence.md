@@ -2,8 +2,9 @@
 
 ## Mission and baseline
 
-Current outcome: **HARD STOP — repeated source-only fallback ownership failure
-after redesign**. Intent remains open; no workflow tier is accepted. See checkpoint 2.
+Current outcome: **OFFLINE PASS — fresh residual-ownership live gates pending**.
+The latest live gate remains stopped as recorded in checkpoint 2; Intent is open
+and no workflow tier is accepted. See the authorized continuation below.
 
 Branch: `feat/deterministic-planner-v2`. Starting and accepted production commit:
 `741b071a45df7a0b6554bd42bae946b980642c8e`. The checkout was clean and synchronized
@@ -15,13 +16,13 @@ artifact approval. The three complete workflow tiers require 6, 9 and 18 executi
 cases. No merge, release, package publication or external review publication is
 part of this mission; MCP execution effects remain isolated fixture observations.
 
-The current implementation is the canonical execution-request redesign documented
-in [its accepted report](planner-execution-request-authority.md). The previously
-stopped fallback-ownership LOCAL remains historical evidence. A verified recurrence
-of the same execution-authority failure after this redesign is a mandatory hard
-stop, not permission for another targeted fix.
+The accepted starting implementation is documented in the [execution-request
+report](planner-execution-request-authority.md). The authorized residual-ownership
+redesign has passed its full offline gate; both earlier stopped campaigns remain historical
+evidence. A verified recurrence of this ownership failure after the new redesign
+is a mandatory hard stop.
 
-Current proof versions: execution request 1; contribution 7; admission 17;
+Current implementation proof versions: execution request 1; contribution 8; admission 18;
 coverage 3; governing applicability 2; effect 7; runtime 7; source 6; declaration 5;
 occurrence/dependency/baseline projection 1. Storage remains Schema-5.
 
@@ -202,6 +203,113 @@ mission acceptance. Required final-SHA CI and its attestation are not reached.
 Next action: commit/push the durable blocker checkpoint, then request explicit
 direction before any further production redesign or live campaign. **MISSION
 COMPLETE is not claimed.**
+
+## Authorized continuation — required governing ownership
+
+The user explicitly authorized another redesign after checkpoint 2, then approved
+the required governing-evidence ownership implementation plan. Historical starts,
+receipts and allowances remain consumed. A new recurrence after this redesign
+still invokes the hard stop.
+
+Pre-patch authority review: (1) complete governing coverage failed; (2) contribution
+qualification owns it; (3) the engine already knows uncovered coordinates; (4) the
+old optional array permits omission; (5) required keyed residual answers remove
+that choice; (6) derivation uses coordinates and current contracts only; (7) fixed
+requests, declaration exclusions, contained qualifiers, semantic grounding and
+applicability must not weaken; (8) independently owned overlapping executions and
+source-only properties will exercise multiplicity; (9) the engine takes coverage
+enumeration authority, while bounded answers retain meaning and grouping; (10)
+another verified recurrence stops the mission again.
+
+The three structural options in checkpoint 2 were reconsidered. Required residual
+ownership is selected: it preserves the established request boundary, unlike a
+joint request/property redesign, and confines changes to property qualification,
+unlike an earlier full-clause partition. Contribution proof advances to 8 and
+admission to 18; request proof remains 1 and persistence remains Schema-5.
+
+Offline review found a **class D authority-reuse integration issue**, before any
+live dispatch: policy
+applicability reuse compared reference IDs, so lexical trimming or multiple residual
+portions could trigger a second semantic relationship request. The original
+no-redispatch policy invariant remains required. Pre-patch review: (1) reuse lost
+exact covered policy evidence; (2) applicability owns that fact; (3) source bindings
+already identify the policy and grounding; (4) ID equality ignores normalized
+coverage; (5) reuse the union of current active, policy-bound portions; (6) use exact
+coordinates only; (7) require all non-whitespace evidence, current grounding and the
+same target; (8) test partial/foreign/inactive coverage rejection; (9) no new meaning
+or relationship authority is added; (10) this is an offline integration correction
+within the authorized redesign, with no new live allowance. Alternatives were
+whitespace-only ID normalization, complete grounded coverage reuse, or another
+relationship dispatch. Complete grounded coverage reuse preserves the existing
+single semantic applicability owner across explicit grouping boundaries.
+
+Offline evidence selection: a preliminary MIXED measurement used the older
+`schema5-governing-applicability-mixed-diagnostics-1:mixed` shape. Its synthetic
+answers lacked explicit fallback qualification; the extended independent review
+correctly rejected it. This is neither live evidence nor a production acceptance.
+The final MIXED fixture uses
+`schema5-joint-clause-qualification-mixed-diagnostics-1:mixed`, the source identity
+of the preceding accepted execution-request offline report, with its explicitly
+synthetic source-only fallback answer. Original receipts remain untouched.
+
+The required offline gate is complete as recorded in checkpoint 3. The next frozen
+campaign is `schema5-autonomous-residual-ownership-1`. No new live request has
+dispatched.
+
+## Checkpoint 3 — residual ownership implemented and offline validated
+
+Required keyed residual ownership preserves fixed request/declaration coverage and
+uses exact lexical, ownership and grounding boundaries. Response-local grouping
+does not enter persistent identities. Established condition/fallback meanings
+exclude invalid answer kinds before dispatch; unknown meaning can remain unresolved.
+Nested properties stay within fixed support, and all projected units retain the
+six-unit clause limit. Proof versions are request 1, contribution 8 and admission
+18, with Schema-5 unchanged. Independent review checks residual coverage, lack of
+execution authority on properties, and exact fallback applicability. Mission
+re-entry reconciles existing reservations, rejects ambiguous dispatch state and
+returns completed results without calls or checkpoint writes.
+
+The final complete solution run passed **3,839 tests** (1,157 planner; 627
+host), zero failures and one existing opt-in external-publication skip. Solution
+and harness builds, affected packages, both frontends, Python checks, Native AOT
+encrypted restart, trimmed EF persistence and desktop packaging passed. No warnings
+remain under the existing documented exceptions. Both diagnostic selfchecks and
+reference execution selfchecks passed. Earlier failed offline runs remain labelled
+in the evidence; test fixtures using the obsolete optional answer shape were
+updated before the final suite.
+
+| Explicit synthetic fixture | Nominal calls | Projected units | Property pages | Largest estimated input |
+|---|---:|---:|---:|---:|
+| LOCAL retained failure | 12 | 4 | 1 | 4,751 |
+| MIXED retained qualification shape | 15 | 5 | 1 | 4,600 |
+
+MIXED includes one downstream relationship call after 14 admission-path calls.
+Both fixtures pass exact fallback review and preserve action references, archives,
+operation IDs and proof fingerprints on zero-call/zero-write restart. They use
+explicit synthetic answers, never imported into fresh sessions. Limits, model and
+reasoning remain unchanged.
+
+[Redesign and validation](planner-residual-ownership.md) and
+[hash-bound evidence](planner-residual-ownership.json) record
+121 source hashes, 23 DLL hashes and 71 validation artifacts. The original
+22 production DLLs, frozen harness, 29 earlier validation artifacts and ten-call
+journal remain unchanged. The frozen original binary reproduces its original
+failure; current code rejects those property receipts as stale proof authority.
+Both audits preserve their encrypted checkpoint and dispatch no provider request.
+
+Cumulative live accounting is unchanged: **10 calls / 10 reservations**, 30,230
+input, 2,815 output and 1,570 reasoning tokens; zero partitions, escalations, repairs
+or retries. New live calls in this checkpoint: **0**. LOCAL, MIXED and all 6 / 9 / 18
+workflow execution cases remain unaccepted on the new implementation.
+
+Git: prepared from clean pushed `2e4a95a`; this implementation, tests and evidence
+form the next semantic commit. Commit/push it before pinning the campaign's
+production SHA and frozen binaries in a separate harness preparation checkpoint.
+PR #99 remains open. Prior baseline CI is historical, not validation of this new
+implementation. Required final-SHA CI and its separate attestation remain pending.
+
+Next action: commit/push the validated redesign, prepare and freeze
+`schema5-autonomous-residual-ownership-1`, then consume its one fresh LOCAL start.
 
 ## Completion protocol
 

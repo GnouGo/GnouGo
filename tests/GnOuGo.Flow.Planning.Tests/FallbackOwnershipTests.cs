@@ -58,7 +58,7 @@ public sealed class FallbackOwnershipTests
         await PlanningOperations.ResolveAsync(state, Rejecting(), TestContext.Current.CancellationToken);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
         Assert.Equal("local_processing", operation.Kind); Assert.True(operation.Required);
-        Assert.Equal(17, operation.OperationAdmission!.Version);
+        Assert.Equal(18, operation.OperationAdmission!.Version);
         var attached = Assert.Single(operation.OperationAdmission.Assignments, a => a.Disposition == "attach");
         Assert.Null(attached.RuntimeEvidenceId); Assert.Empty(attached.RuntimeEvidenceIds);
         Assert.Equal(PlanningOperationNecessity.Unspecified, attached.Necessity);
@@ -80,7 +80,7 @@ public sealed class FallbackOwnershipTests
         var state = State(); var scope = Action(state);
         var answer = OperationEffectFixtures.ContributionAnswer(state, scope);
         var error = Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.ParseQualification(state, scope, answer));
-        Assert.Contains("all owned source", error.Message);
+        Assert.Contains("issued governing domain", error.Message);
         answer["units"]![0]!["request"]!["evidence"] = new JsonArray((JsonNode)new JsonObject { ["start"] = "b4", ["end"] = "b5" });
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(answer, OperationEffectFixtures.PropertyDecision(state, scope).Schema));
     }

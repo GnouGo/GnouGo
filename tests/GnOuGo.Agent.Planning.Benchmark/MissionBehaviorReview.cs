@@ -7,16 +7,17 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 // These names and expectations never participate in production planning.
 internal static class MissionBehaviorReview
 {
-    internal static void Require(PlanningSnapshot state, int stage)
+    internal static void Require(PlanningSnapshot state, int stage, IReadOnlyDictionary<string, string>? sources = null)
     {
         Check(stage is >= 1 and <= 3 && state.BehaviorPlan is not null && state.Preparation is not null,
             "A current behavior and locked preparation are required.");
         var plan = state.BehaviorPlan!; var preparation = state.Preparation!;
         Check(!PlanningBehaviorPlans.Validate(plan, preparation).Any(d => d.Required), "Behavior contracts must validate.");
         var operations = state.Obligations.Where(o => o.OperationAdmission is not null).ToArray();
+        RequireResidualOwnership(state, sources ?? new Dictionary<string, string> { ["request"] = state.Request.Prompt });
         Check(!string.IsNullOrEmpty(state.OperationAdmissionFingerprint) && operations.Length != 0, "Canonical operation admission is required.");
         var nodes = plan.Workflows.SelectMany(w => PlanningBehaviorPlans.Enumerate(w.Steps.Concat(w.Finally))).ToArray();
-        Check(operations.All(o => o.OperationAdmission is { Version: 17 } && o.Disposition == "admitted" &&
+        Check(operations.All(o => o.OperationAdmission is { Version: 18 } && o.Disposition == "admitted" &&
             (!o.Required || nodes.Any(n => n.OperationIds.Contains(o.Id)))), "All required current effects must be represented.");
         foreach (var operation in operations.Where(o => o.Required)) RuntimeAdmissionDiagnosticRules.RequirePositiveSupports(operation);
         foreach (var workflow in plan.Workflows)
@@ -35,6 +36,7 @@ internal static class MissionBehaviorReview
             const string description = "This is deterministic, local, in-memory business processing.";
             const string preservation = "Preserve the original id and amount.";
             RuntimeAdmissionDiagnosticRules.RequireSemanticEvidence(state, local, "request", state.Request.Prompt.IndexOf(rules, StringComparison.Ordinal), rules.Length);
+            RuntimeAdmissionDiagnostic.RequireFallbackOwnership(state, local, "request", state.Request.Prompt.IndexOf("otherwise.", StringComparison.Ordinal), "otherwise.".Length);
             RuntimeAdmissionDiagnosticRules.RequireGoverningOnly(state, local, "request", state.Request.Prompt.IndexOf(description, StringComparison.Ordinal), description.Length);
             RuntimeAdmissionDiagnosticRules.RequireNoSupportOverlap(state, operations, "request", state.Request.Prompt.IndexOf(preservation, StringComparison.Ordinal), preservation.Length);
         }
@@ -42,6 +44,45 @@ internal static class MissionBehaviorReview
             RequireBatchTopology(plan, preparation);
         else
             RequireCodeReviewTopology(plan, preparation, operations);
+    }
+
+    internal static void RequireResidualOwnership(PlanningSnapshot state, IReadOnlyDictionary<string, string> sources)
+    {
+        var operations = state.Obligations.Where(o => o.OperationAdmission is not null).ToArray();
+        var proofs = operations.SelectMany(o => o.OperationAdmission!.ExecutionContributions).DistinctBy(p => p.ProofFingerprint).ToArray();
+        var candidates = state.Obligations.Where(o => o.Kind is "declaration_candidate" or "omission_default" or "declaration_constraint").ToDictionary(c => c.Id, StringComparer.Ordinal);
+        var contracts = state.DeclarationAssignments.Where(a => a.Disposition is "distinct_input" or "distinct_output" or "same_as" or "modifier_of")
+            .SelectMany(a => candidates[a.CandidateId].EvidenceReferences).Distinct().Select(id => state.References.Single(r => r.Id == id)).ToArray();
+        var requests = operations.SelectMany(o => o.OperationAdmission!.ExecutionRequests).DistinctBy(p => p.ProofFingerprint).SelectMany(p => p.Units)
+            .Where(u => u.Role == "requested_execution").ToArray();
+        foreach (var proof in proofs.Where(p => p.DecisionId is not null))
+        {
+            Check(proof.Version == 8, "Residual ownership requires current contribution proof 8.");
+            var clause = state.References.Single(r => r.Id == proof.ClauseReference);
+            Check(sources.TryGetValue(clause.SourceId, out var text) && PlanningGraphCompiler.Fingerprint(text!) == clause.SourceFingerprint, "Residual review requires the exact owned source.");
+            var source = text!.Substring(clause.Start, clause.Length);
+            bool Contains(PlanningReference r, int position) => r.Owner == clause.Owner && r.SourceId == clause.SourceId &&
+                r.SourceFingerprint == clause.SourceFingerprint && r.Start <= position && position < r.Start + r.Length;
+            var supports = requests.Where(u => u.ScopeReference == clause.Id).SelectMany(u => u.EvidenceReferences)
+                .Select(id => state.References.Single(r => r.Id == id)).ToArray();
+            for (var i = 0; i < source.Length; i++)
+            {
+                var position = clause.Start + i;
+                if (char.IsWhiteSpace(source[i]) || contracts.Any(r => Contains(r, position)) || supports.Any(r => Contains(r, position))) continue;
+                Check(proof.Contributions.Any(c => c.Role is "governing_property" or "excluded" && c.EffectId is null &&
+                    Contains(state.References.Single(r => r.Id == c.EvidenceReference), position) &&
+                    c.SourceBindings.Any(b => b.ScopeReference == clause.Id && b.EvidenceReference == c.EvidenceReference)),
+                    "Every residual source position requires exact non-executable ownership.");
+            }
+            foreach (var property in proof.Contributions.Where(c => c.Role == "governing_property"))
+            {
+                Check(property.EffectId is null && property.ExecutionRequestId is null,
+                    "Governing evidence cannot acquire execution-request authority.");
+                Check(operations.Any(o => o.OperationAdmission!.GoverningApplicability.Any(a => a.ContributionId == property.Id &&
+                    a.EvidenceReference == property.EvidenceReference && a.Version == 2 && !string.IsNullOrEmpty(a.ProofFingerprint))),
+                    "Governing evidence requires current realized applicability accounting.");
+            }
+        }
     }
 
     internal static void RequireBatchTopology(PlanningBehaviorPlan plan, PlanningPreparation preparation)

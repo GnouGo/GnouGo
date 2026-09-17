@@ -201,9 +201,30 @@ internal static class OperationEffectFixtures
         var parents = PlanningOperations.ReadExecutionRequests(state).SelectMany(p => p.Units)
             .Where(u => u.ScopeReference == scope.Clause.Id && u.Role == "requested_execution").ToArray();
         var units = new JsonArray();
+        var residual = new JsonObject();
+        PlanningReference ResolveProperty(JsonNode n) => n is JsonObject range ? scope.Select(range["start"]!.ToString(), range["end"]!.ToString()) : state.References.Single(r => r.Id == n.ToString());
+        var properties = joint["units"]!.AsArray().Where(u => u!["role"]!.ToString() != "requested_execution").ToArray();
+        var portions = PlanningOperations.ResidualPortions(state, scope);
+        foreach (var portion in portions)
+        {
+            var selected = Array.FindIndex(properties, u => ResolveProperty(u!["evidence"]!) is var span &&
+                span.Start <= portion.Reference.Start && span.Start + span.Length >= portion.Reference.Start + portion.Reference.Length);
+            // Deliberately retain omissions in malformed synthetic answers.
+            if (selected < 0) continue;
+            var property = properties[selected]!;
+            residual[portion.Key] = new JsonObject { ["kind"] = property["role"]!.ToString() == "excluded" ? "excluded" : property["governingKind"]?.ToString(),
+                ["group"] = "g" + selected };
+        }
         foreach (var unit in joint["units"]!.AsArray())
         {
-            if (unit!["role"]!.ToString() != "requested_execution") { units.Add(unit.DeepClone()); continue; }
+            if (unit!["role"]!.ToString() != "requested_execution")
+            {
+                var span = ResolveProperty(unit["evidence"]!);
+                // Preserve invalid cross-authority fixture proposals for rejection.
+                if (Enumerable.Range(span.Start, span.Length).Any(i => !char.IsWhiteSpace(scope.Source.Text[i]) &&
+                    !portions.Any(p => p.Reference.Start <= i && i < p.Reference.Start + p.Reference.Length))) units.Add(unit.DeepClone());
+                continue;
+            }
             var request = unit["request"]!;
             if (unit["qualifiers"] is not JsonArray qualifiers || qualifiers.Count == 0) continue;
             PlanningReference Resolve(JsonNode n) => n is JsonObject range ? scope.Select(range["start"]!.ToString(), range["end"]!.ToString()) : state.References.Single(r => r.Id == n.ToString());
@@ -215,7 +236,7 @@ internal static class OperationEffectFixtures
                 units.Add((JsonNode)value);
             }
         }
-        return new() { ["status"] = "qualified", ["units"] = units };
+        return new() { ["status"] = "qualified", ["residual"] = residual, ["units"] = units };
     }
 
     internal static JsonObject SeparateRequestAuthority(PlanningSnapshot state, JsonObject joint)

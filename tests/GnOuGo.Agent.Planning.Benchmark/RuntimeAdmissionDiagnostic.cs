@@ -156,11 +156,53 @@ internal static partial class RuntimeAdmissionDiagnostic
         using var ratesHttp = new HttpClient();
         var caseId = Identity + ":" + caseName;
         await using (var db = await ((IDbContextFactory<PlanningDbContext>)contexts).CreateDbContextAsync(ct))
-            RuntimeAdmissionDiagnosticRules.RequireFreshStart(
-                await records.GetAsync(Collection, Tenant, caseId + ":checkpoint", Author, ct) is not null,
-                await records.GetAsync(Collection, Tenant, caseId + ":report", Author, ct) is not null,
-                await records.GetAsync(PlanningBudgetSink.Collection, Tenant, caseId, EfPlanningSessionStore.Author, ct) is not null,
-                await db.Calls.AnyAsync(c => c.TenantId == Tenant && c.SessionId == caseId, ct));
+        {
+            var checkpoint = await records.GetAsync(Collection, Tenant, caseId + ":checkpoint", Author, ct);
+            var report = await records.GetAsync(Collection, Tenant, caseId + ":report", Author, ct);
+            var budget = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, caseId, EfPlanningSessionStore.Author, ct);
+            var calls = await db.Calls.AsNoTracking().Where(c => c.TenantId == Tenant && c.SessionId == caseId).ToListAsync(ct);
+            if (MissionCampaign.Current is null)
+                RuntimeAdmissionDiagnosticRules.RequireFreshStart(checkpoint is not null, report is not null, budget is not null, calls.Count != 0);
+            else
+            {
+                var envelope = checkpoint is null ? null : JsonNode.Parse(checkpoint.Value)!.AsObject();
+                var saved = envelope is null ? null : JsonSerializer.Deserialize(envelope["snapshot"], PlanningJsonContext.Default.PlanningSnapshot)!;
+                if (saved is not null && (saved.Request.SessionId != caseId || saved.Request.TenantId != Tenant))
+                    throw new InvalidOperationException("The mission checkpoint has foreign ownership.");
+                var missingReceipts = 0;
+                foreach (var call in calls)
+                {
+                    var request = await records.GetAsync(PlanningModelJournal.RequestCollection, Tenant, call.PayloadKey, EfPlanningSessionStore.Author, ct);
+                    var receipt = await records.GetAsync(PlanningModelJournal.Collection, Tenant, call.PayloadKey, EfPlanningSessionStore.Author, ct);
+                    if (request is null || receipt is null) { missingReceipts++; continue; }
+                    if (call.PayloadKey != caseId + ":" + call.RequestHash || saved?.RequestAccounting.Any(a => a.Id == call.RequestHash) != true)
+                        throw new InvalidOperationException("The journal reservation is not owned by the retained checkpoint.");
+                    var issued = JsonSerializer.Deserialize(request.Value, PlanningJsonContext.Default.LLMRequest)!;
+                    if (issued.ClientRequestId != call.RequestHash) throw new InvalidOperationException("The issued request identity changed.");
+                    issued.ClientRequestId = null;
+                    if (!call.RequestHash.EndsWith(":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest)), StringComparison.Ordinal))
+                        throw new InvalidOperationException("The retained request fingerprint changed.");
+                    _ = JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMResponse)
+                        ?? throw new InvalidOperationException("The retained receipt is invalid.");
+                }
+                var entry = MissionCampaign.RequireEntry(checkpoint is not null, report is not null, budget is not null, calls.Count,
+                    budget is null ? null : JsonSerializer.Deserialize(budget.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)!.Calls, missingReceipts,
+                    saved?.RequestAccounting.Select(a => a.Id).Distinct(StringComparer.Ordinal).Count() ?? 0);
+                if (entry == "completed")
+                {
+                    var completed = JsonNode.Parse(report!.Value)!.AsObject();
+                    if (completed["session"]?.ToString() != caseId || completed["case"]?.ToString() != caseName ||
+                        envelope!["phase"]?.ToString() is not ("completed" or "stopped"))
+                        throw new InvalidOperationException("The terminal report does not match its retained checkpoint.");
+                    if (completed["status"]?.ToString() == "passed")
+                    {
+                        MissionCampaign.RequireAcceptedIntent(completed, caseName);
+                        _ = await VerifyReadOnlyRestartAsync(saved!, PlanningContext.Clone(saved!), ct);
+                    }
+                    Console.WriteLine((await ReportAsync(records, ct)).ToJsonString()); return;
+                }
+            }
+        }
         await RunCaseAsync(caseName, source, contexts, records, transport.LlmClient, capabilities,
             new ModelMetadataUsageCostEstimator(transport.Options), new EcbExchangeRateProvider(ratesHttp), ct);
         if (archive != await ArchiveAsync(records, CancellationToken.None)) throw new InvalidOperationException("Archived accounting changed.");
@@ -247,13 +289,14 @@ internal static partial class RuntimeAdmissionDiagnostic
                 envelope["phase"] = "admission"; await Save(state, ct);
             }
             await PlanningOperations.ResolveAsync(state, runtime, ct); PlanningOperations.RequireExecutableIntent(state);
+            if (MissionCampaign.Current is not null) MissionBehaviorReview.RequireResidualOwnership(state, PlanningSourceDecisions.Sources(state));
             admissionBudgetCalls = budget.Snapshot.Calls;
             var operations = state.Obligations.Where(PlanningSourceDecisions.IsOperation).ToArray();
             if (operations.Count(o => o.Kind == "local_processing") != 1 || operations.Count(o => o.Kind == "external_read") != (name == "mixed" ? 1 : 0) ||
                 operations.Any(o => !o.Required || o.Kind is not ("local_processing" or "external_read")))
                 throw new WorkflowRuntimeException("DIAGNOSTIC_ADMISSION_MISMATCH", "The isolated fixture's expected runtime actions were not established.");
             CheckEffectFixture(name, state, operations);
-            if (name == "local") CheckLocalFallbackGate(state, operations.Single(o => o.Kind == "local_processing"));
+            CheckLocalFallbackGate(state, operations.Single(o => o.Kind == "local_processing"));
             // Chronology belongs to this fresh campaign. Detached synthetic replay
             // retains historical pages and validates current proofs separately.
             CheckApplicabilitySequence(state, operations);

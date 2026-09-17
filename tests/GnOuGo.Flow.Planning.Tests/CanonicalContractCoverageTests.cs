@@ -57,7 +57,7 @@ public sealed class CanonicalContractCoverageTests
         Assert.Equal("local_processing", operation.Kind);
         Assert.DoesNotContain(operation.OperationAdmission!.Assignments, a => a.RuntimeEvidenceId == covered.Id);
         var exclusion = Assert.Single(PlanningOperations.ReadContributions(state), p => p.RuntimeEvidenceId == covered.Id);
-        Assert.Null(exclusion.DecisionId); Assert.Equal(7, exclusion.Version);
+        Assert.Null(exclusion.DecisionId); Assert.Equal(8, exclusion.Version);
         Assert.Equal(PlanningContributionOrigin.DeterministicExclusion, Assert.Single(exclusion.Contributions).Origin);
         Assert.Equal(retained, JsonSerializer.Serialize(state.RuntimeEvidence, PlanningJsonContext.Default.ListPlanningRuntimeEvidence));
         var clone = PlanningContext.Clone(state); var fingerprint = JsonSerializer.Serialize(clone, PlanningJsonContext.Default.PlanningSnapshot);
@@ -193,7 +193,7 @@ public sealed class CanonicalContractCoverageTests
         PlanningFixtures.Runtime(state, Span(state, "Transform the value."), independentBoundary: false);
         OperationEffectFixtures.Seed(state); await PlanningOperations.ResolveAsync(state, RejectCalls(), Ct);
         var current = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
-        Assert.Equal(17, current.OperationAdmission!.Version);
+        Assert.Equal(18, current.OperationAdmission!.Version);
         var clone = PlanningContext.Clone(state); var index = clone.Obligations.FindIndex(o => o.Id == current.Id);
         clone.Obligations[index] = clone.Obligations[index] with { OperationAdmission = clone.Obligations[index].OperationAdmission! with { Version = 12 } };
         var accounting = JsonSerializer.Serialize(clone.RequestAccounting);

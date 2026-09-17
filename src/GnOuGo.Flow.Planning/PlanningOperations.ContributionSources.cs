@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Planning;
@@ -30,36 +29,6 @@ internal static partial class PlanningOperations
             .OrderBy(o => o.Id, StringComparer.Ordinal).ToArray();
         foreach (var value in values) PlanningSourceGroundingRules.Validate(state, value);
         return values;
-    }
-
-    // The clause issues coordinates for governing qualification only. It never
-    // expands the independent, runtime-owned support domain.
-    private static JsonObject ContributionSourceSchema(PlanningSnapshot state, Scope scope, Scope[] members)
-    {
-        var contracts = ContractCoverage(state);
-        var starts = scope.Boundaries["properties"]!["start"]!["enum"]!.AsArray().Select(n => n!.ToString()).ToArray();
-        var ends = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Select(n => n!.ToString()).ToArray();
-        var choices = new JsonArray();
-        var startRun = new List<string>(); var endRun = new List<string>();
-        void Flush()
-        {
-            if (startRun.Count != 0) choices.Add((JsonNode)PlanningHoleRequests.Object(
-                ("start", PlanningHoleRequests.Enum(startRun.ToArray())), ("end", PlanningHoleRequests.Enum(endRun.ToArray()))));
-            startRun.Clear(); endRun.Clear();
-        }
-        for (var i = 0; i < starts.Length; i++)
-        {
-            var word = scope.Select(starts[i], ends[i]);
-            if (contracts.Any(c => Overlaps(c.Span, word))) { Flush(); continue; }
-            startRun.Add(starts[i]); endRun.Add(ends[i]);
-        }
-        Flush();
-        var references = members.Select(s => s.Evidence!.ActionReference!).Concat(ContributionObligations(state, scope).SelectMany(o => o.EvidenceReferences))
-            .Append(scope.Clause.Id).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)
-            .Where(id => state.References.Single(r => r.Id == id) is { } span && ContainsSpan(scope.Clause, span) &&
-                !contracts.Any(c => Overlaps(c.Span, span))).ToArray();
-        if (references.Length != 0) choices.Add((JsonNode)PlanningHoleRequests.Enum(references));
-        return new() { ["anyOf"] = choices };
     }
 
     private static List<PlanningContributionSourceBinding> SourceBindings(PlanningSnapshot state, Scope scope, IEnumerable<PlanningReference> spans,

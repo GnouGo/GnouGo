@@ -242,7 +242,7 @@ internal static partial class PlanningOperations
             var diagnostic = supports.OrderBy(a => a.ActionReference, StringComparer.Ordinal).First();
             var operation = new PlanningObligation(g.Key!, [diagnostic.ActionReference], diagnostic.Kind == "local_processing" ? "workflow" : "capability_contract", diagnostic.Kind,
                 ResolveRequiredness(state, assignments)) { Disposition = "admitted" };
-            return Prove(state, operation, new(17, operation.Id, diagnostic.ActionReference, diagnostic.BaselineReference, assignments, EvidenceFingerprint(state), "")
+            return Prove(state, operation, new(18, operation.Id, diagnostic.ActionReference, diagnostic.BaselineReference, assignments, EvidenceFingerprint(state), "")
             { ExecutionRequests = ReadExecutionRequests(state).ToList(), ExecutionContributions = ReadContributions(state).ToList(), RealizationCoverage = proofs.SingleOrDefault(p => p.SelectedEffects.Contains(operation.Id)) });
         }).ToList();
     }

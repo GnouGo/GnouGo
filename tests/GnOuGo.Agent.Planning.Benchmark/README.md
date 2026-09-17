@@ -1,52 +1,40 @@
 ## Autonomous convergence mission
 
-Append `--campaign schema5-autonomous-execution-request-1` to the existing
-`diagnose-runtime-admission` and `campaign` commands to select the current mission.
-Unselected commands retain historical identities and start restrictions. Mission
-identities use a separate `schema5-autonomous-` prefix; historical evidence is never
-refrozen or imported as current answers.
+The authorized next campaign is `schema5-autonomous-residual-ownership-1`.
+Append `--campaign ID` to the existing `diagnose-runtime-admission` and `campaign`
+commands. The preceding execution-request campaign is stopped and immutable;
+its ten calls remain consumed. See [the cumulative journal](../../docs/planner-autonomous-convergence.md).
 
-The mission embeds the accepted execution-request validation report and pins
-production to `741b071a45df7a0b6554bd42bae946b980642c8e`. Build the harness and host
-tests with `-p:BuildProjectReferences=false -p:SkipClientBuild=true`, verify the 22
-production DLL hashes, and preserve the frozen harness after campaign freeze.
-Each freeze binds the mission definition, production and harness hashes, model,
-configuration, policies, fixture/catalog fingerprints and permitted gates.
+Before live dispatch, embed the completed residual-ownership validation report,
+pin its production commit, verify the production DLL hashes, and commit/push the
+stable checkpoint. Preserve that frozen harness. Each manifest binds production
+and harness hashes, model/configuration, fixture/catalog fingerprints and gates.
+The harness fails closed while its embedded evidence differs from the checkout.
 
-After offline validation and a committed/pushed harness checkpoint:
-
-```bash
-dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll diagnose-runtime-admission freeze 741b071a45df7a0b6554bd42bae946b980642c8e --campaign schema5-autonomous-execution-request-1
-dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll diagnose-runtime-admission run-local --campaign schema5-autonomous-execution-request-1
-dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll diagnose-runtime-admission run-mixed --campaign schema5-autonomous-execution-request-1
-```
-
-MIXED requires accepted LOCAL with request/contribution/admission proofs 1/7/17,
-verified receipts and zero-call/zero-write completed re-entry. `campaign freeze`
-requires both accepted Intent gates, including MIXED relationship projection.
-The progressive commands then retain their existing `start STAGE`,
+MIXED requires accepted LOCAL with request/contribution/admission proofs 1/8/18,
+complete receipts and zero-call/zero-write restart. Progressive freeze requires
+both Intent gates, including MIXED relationships. Existing `start STAGE`,
 `accept STAGE REVISION HASH`, `advance STAGE`, `execute STAGE` and
-`approve STAGE REVISION HASH` arguments, with the same mission selector appended.
+`approve STAGE REVISION HASH` commands retain their arguments and exact approvals.
 Stages 1, 2 and 3 require 6, 9 and 18 independent execution cases respectively.
-Stage 3 execution also requires its two canonical public input port names.
+CodeReview execution remains inside isolated MCP fixtures.
 
-Mission behavior review checks current proof ownership and the frozen scenario's
-ports, effects, workflow boundaries, iteration, finalizers and permission contracts.
-Execution fixtures independently verify exact results, defaults, rejection,
-cleanup and original-error preservation before artifact approval. Unsupported or
-clarification outcomes cannot count as mission success.
+A checkpoint is a durable diagnostic start. Mission re-entry returns completed
+results without writes or dispatch; interrupted state reconciles existing journal
+receipts and cumulative budget before resuming the same checkpoint. Missing or
+ambiguous dispatch evidence cannot obtain another allowance. Historical unselected
+commands retain their original no-resume restrictions. Use `diagnose-runtime-admission
+report --campaign ID` and `audit-runtime-admission ID-intent:local` for inspection.
+Never manufacture another identity to retry a consumed gate.
 
-An existing checkpoint, report, budget or reservation consumes a diagnostic start.
-Inspect with `diagnose-runtime-admission report --campaign ID` and use
-`audit-runtime-admission ID-intent:local` (or `:mixed`) for receipt-only inspection;
-never manufacture a new identity to retry a consumed gate. Progressive recovery
-uses its existing session and accounting. Keep 16 diagnostic calls, 100 planning
-session calls, existing execution-case budgets, low reasoning and all token limits.
+Independent review checks residual source ownership, current governing applicability,
+ports, effects, iteration, finalizers and confirmations. Execution cases verify
+results, defaults, rejection, cleanup and original-error preservation. Clarification
+or unsupported outcomes cannot satisfy mission completion. Limits remain 16 calls
+per diagnostic, 100 per planning session, unchanged execution-case budgets,
+low reasoning and existing token ceilings.
 
-See [the mission journal](../../docs/planner-autonomous-convergence.md) for gate
-outcomes, bounded iteration rules and final CI evidence.
-
-## Fresh LOCAL: canonical contract coverage
+## Historical LOCAL: canonical contract coverage
 
 `schema5-canonical-contract-coverage-diagnostics-1` authorizes one fresh LOCAL on production `ada9dbe35424f85e2e45ff1161bfd890960ce468`. It compares settings and fixtures with `schema5-governing-applicability-diagnostics-1`, while production DLLs must match the separate accepted contract-coverage offline report. The harness has no authorization for MIXED, relationships, replacement starts or Stage 1.
 
@@ -64,7 +52,7 @@ Use the retained `schema5-governing-applicability-diagnostics-1:local` and `sche
 
 # CodeReview convergence benchmark
 
-## Governing-applicability MIXED admission gate
+## Historical governing-applicability MIXED admission gate
 
 `schema5-governing-applicability-mixed-diagnostics-1` authorizes one fresh MIXED on production `23bce4bc842e598d19866d92d497772e1f3c0538`. It compares settings and fixtures with `schema5-governing-applicability-diagnostics-1` and requires the separate [accepted LOCAL adjudication](../../docs/planner-local-support-adjudication.md). The original LOCAL report stays stopped; its checkpoint, report and budget must still match the adjudication fingerprints.
 
@@ -74,7 +62,7 @@ Acceptance requires one externally owned read, one local result realization, val
 
 This campaign consumed its single start and stopped at `DIAGNOSTIC_GOVERNING_EVIDENCE` after sixteen verified calls. Retained-evidence review found an earlier qualification defect: declaration-covered preservation was accepted as external-read support. Do not repeat the live command. See the [MIXED result](../../docs/planner-governing-applicability-mixed.md); the next gate is architecture review.
 
-## Canonical-root validation campaign
+## Historical canonical-root validation campaign
 
 `schema5-canonical-roots-stage1-1` permits exactly one fresh Stage-1 start after
 canonical-identity and bounded duplicate-correction offline checks. Its comparison
@@ -622,4 +610,4 @@ have verified receipts. Do not repeat its live command. See the
 [LOCAL report](../../docs/planner-fallback-ownership-local-1.md). The next gate is
 architecture review, not MIXED.
 
-Execution-request authority offline validation uses the existing `audit-fallback-ownership-fixture` command with explicitly synthetic request-cohort and property answers. Reports count request adjudication separately from deterministic support projection, property qualification, coverage and applicability. Current acceptance requires request proof 1, contribution 7 and admission 17. Original-schema replay remains separate; historical receipts do not authorize the new request domain. No live campaign is authorized by these fixture commands. See [validation report](../../docs/planner-execution-request-authority.md).
+Current residual-ownership offline validation uses the existing `audit-fallback-ownership-fixture` command with explicitly synthetic request-cohort and property answers. Reports count request adjudication separately from deterministic support projection, property qualification, coverage and applicability. Current acceptance requires request proof 1, contribution 8 and admission 18. Original-schema replay remains separate; historical receipts do not authorize the new request domain. No live campaign is authorized by these fixture commands. See [current validation report](../../docs/planner-residual-ownership.md).

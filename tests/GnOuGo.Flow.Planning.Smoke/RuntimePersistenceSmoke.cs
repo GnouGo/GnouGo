@@ -211,8 +211,8 @@ internal static class RuntimePersistenceSmoke
                 if (restart == 0 && client.Calls == identityCalls + 2) identityCalls = client.Calls;
                 var operation = resumed.Snapshot.Obligations.Single(PlanningSourceDecisions.IsOperation);
                 if (client.Calls != identityCalls || !operation.Required || resumed.Snapshot.RuntimeEvidence.Count != 3 || operation.OperationAdmission!.Assignments.Count != 5 || resumed.Snapshot.RepairAllowances.Count != 0 ||
-                    operation.OperationAdmission.Version != 17 || operation.OperationAdmission.ExecutionRequests.Any(p => p.Version != 1 || p.Units.Count == 0) || operation.OperationAdmission.ExecutionRequests.Count == 0 || operation.OperationAdmission.RealizationCoverage?.Version != 3 ||
-                    operation.OperationAdmission.ExecutionContributions.Any(p => p.Version != 7 || p.Units.Count == 0 || p.RuntimeEvidenceIds.Count == 0) ||
+                    operation.OperationAdmission.Version != 18 || operation.OperationAdmission.ExecutionRequests.Any(p => p.Version != 1 || p.Units.Count == 0) || operation.OperationAdmission.ExecutionRequests.Count == 0 || operation.OperationAdmission.RealizationCoverage?.Version != 3 ||
+                    operation.OperationAdmission.ExecutionContributions.Any(p => p.Version != 8 || p.Units.Count == 0 || p.RuntimeEvidenceIds.Count == 0) ||
                     operation.OperationAdmission.Assignments.Count(a => a.Disposition == "supports") != 2 ||
                     operation.OperationAdmission.ExecutionContributions.SelectMany(p => p.Units).Count(u => u.ParentRequestUnitId is not null) != 1 ||
                     operation.OperationAdmission.Assignments.Count(a => a.Disposition == "attach") != 3 ||

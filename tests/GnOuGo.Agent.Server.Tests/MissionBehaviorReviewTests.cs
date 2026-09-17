@@ -1,11 +1,47 @@
 using System.Text.Json;
 using GnOuGo.Agent.Planning.Benchmark;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Planning;
 
 namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class MissionBehaviorReviewTests
 {
+    [Theory]
+    [InlineData("valid")]
+    [InlineData("missing")]
+    [InlineData("executable")]
+    [InlineData("stale")]
+    [InlineData("foreign")]
+    [InlineData("applicability")]
+    [InlineData("source")]
+    public void ResidualReviewIndependentlyChecksCoverageAndAuthority(string defect)
+    {
+        var state = new PlanningSnapshot(); state.Request.Prompt = "Transform otherwise.";
+        var fingerprint = PlanningGraphCompiler.Fingerprint(state.Request.Prompt);
+        state.References.Add(new("clause", "owner", 0, "request", fingerprint, "clause", 0, 20));
+        state.References.Add(new("action", "owner", 0, "request", fingerprint, "span", 0, 9));
+        state.References.Add(new("fallback", "owner", 0, "request", fingerprint, "span", 10, 10));
+        var contribution = new PlanningExecutionContribution("property", "fallback", "governing_property",
+            defect == "executable" ? "operation" : null, "governing_property", null, null, PlanningContributionOrigin.ModelQualification)
+        { GoverningKind = "runtime_fallback", SourceBindings = [new("fallback", defect == "foreign" ? "foreign" : "clause", null, null)] };
+        var proof = new PlanningExecutionContributionProof(defect == "stale" ? 7 : 8, "runtime", "qualification", "domain",
+            defect == "missing" ? [] : [contribution], "proof") { ClauseReference = "clause" };
+        var admission = new PlanningOperationAdmission(18, "operation", "action", null, [], "domain", "proof")
+        {
+            ExecutionContributions = [proof], ExecutionRequests = [new(1, "request", "decision", "domain",
+                [new("unit", "requested_execution", "clause", "action", ["action"], ["runtime"], "operation", "requested_result_production", null, null)], "model", "proof")],
+            GoverningApplicability = defect == "applicability" ? [] : [new(2, "property", null, "fallback", "active", ["operation"], null,
+                [], [], null, PlanningApplicabilityOrigin.ModelApplicability, "decision", "realized", "domain", "proof")]
+        };
+        state.Obligations.Add(new("operation", ["action"], "main", "local_processing", true) { OperationAdmission = admission });
+        var sources = new Dictionary<string, string> { ["request"] = defect == "source" ? "Changed." : state.Request.Prompt };
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot);
+        void Review() => MissionBehaviorReview.RequireResidualOwnership(state, sources);
+        if (defect == "valid") Review(); else Assert.Throws<InvalidOperationException>(Review);
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot));
+    }
+
     private static (PlanningBehaviorPlan Plan, PlanningPreparation Preparation) Batch() => (new()
     {
         Workflows =

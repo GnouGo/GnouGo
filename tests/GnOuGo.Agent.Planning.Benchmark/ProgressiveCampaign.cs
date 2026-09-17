@@ -191,7 +191,8 @@ internal static class ProgressiveCampaign
             Options.Create(new WorkflowPlanningBudgetSettings()), Options.Create(ProgressiveRules.Settings()),
             Options.Create(new OpenTelemetrySettings { TenantId = Tenant }), NullLogger<PlanningSessionService>.Instance);
         PlanningSnapshot state;
-        if (args[0] == "start")
+        var entryMode = MissionCampaign.Current is null ? null : MissionCampaign.StageEntry(stageEntry);
+        if (args[0] == "start" && (entryMode is null or "new"))
         {
             ProgressiveRules.RequireStart(stages, stage, MaximumStage);
             if (MissionCampaign.Current is not null && stage > 1) MissionCampaign.RequireApprovedWorkflow(stages[stage - 2]!.AsObject());
@@ -210,6 +211,23 @@ internal static class ProgressiveCampaign
                 stageEntry["session"] = recovered[0].Request.SessionId; await SaveAsync(records, manifest, ct);
             }
             state = await service.GetAsync(stageEntry["session"]!.ToString(), ct) ?? throw new InvalidOperationException("Owned session missing.");
+            if (MissionCampaign.Current is not null)
+            {
+                await RequireJournalAsync(state, contexts, records, ct);
+                if (entryMode == "completed")
+                {
+                    if (stageEntry["status"]!.ToString() == "passed")
+                    {
+                        MissionCampaign.RequireApprovedWorkflow(stageEntry);
+                        var verified = stageEntry.DeepClone().AsObject();
+                        await RecordApprovedRestartAsync(state, verified, store, records, ct);
+                        if (!JsonNode.DeepEquals(verified, stageEntry))
+                            throw new InvalidOperationException("The completed gate differs from its exact retained approval.");
+                    }
+                    Console.WriteLine(await ReportAsync(manifest, contexts, records, store, ct));
+                    return;
+                }
+            }
             ProgressiveRules.RequireOpen(stageEntry);
             if (ProgressiveRules.RecoverBehaviorCheckpoint(stageEntry, state))
             {
@@ -250,7 +268,7 @@ internal static class ProgressiveCampaign
                 if (args[0] == "accept")
                 {
                     ProgressiveRules.RequireReview(state, revision, hash, PlanningStatus.BehaviorReview);
-                    if (MissionCampaign.Current is not null) MissionBehaviorReview.Require(state, stage);
+                    if (MissionCampaign.Current is not null) MissionBehaviorReview.Require(state, stage, PlanningSourceDecisions.Sources(state));
                     if (stage == 1) { ProgressiveRules.RequireStageOneDeclarations(state); ProgressiveRules.RequireStageOneOperations(state); }
                     if (stage == 3 && !new[] { "git_compare_refs", "copilot_review" }.All(m => state.Preparation!.Capabilities.Any(c => c.Method == m))) throw new InvalidOperationException("The benchmark implementation restriction is missing.");
                 }
@@ -311,6 +329,34 @@ internal static class ProgressiveCampaign
             Console.WriteLine("Campaign stopped: " + error.GetType().Name + "; private evidence encrypted.");
         }
         Console.WriteLine(await ReportAsync(manifest, contexts, records, store, CancellationToken.None));
+    }
+
+    private static async Task RequireJournalAsync(PlanningSnapshot state, Contexts contexts, IKeyVaultRecordStore records, CancellationToken ct)
+    {
+        if (state.Request.TenantId != Tenant) throw new InvalidOperationException("Foreign mission checkpoint.");
+        var session = state.Request.SessionId;
+        await using var db = contexts.CreateDbContext();
+        var calls = await db.Calls.AsNoTracking().Where(c => c.TenantId == Tenant && c.SessionId == session).ToListAsync(ct);
+        var budget = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, session, EfPlanningSessionStore.Author, ct);
+        var missing = 0;
+        foreach (var call in calls)
+        {
+            var issued = await records.GetAsync(PlanningModelJournal.RequestCollection, Tenant, call.PayloadKey, EfPlanningSessionStore.Author, ct);
+            var receipt = await records.GetAsync(PlanningModelJournal.Collection, Tenant, call.PayloadKey, EfPlanningSessionStore.Author, ct);
+            if (issued is null || receipt is null) { missing++; continue; }
+            var request = JsonSerializer.Deserialize(issued.Value, PlanningJsonContext.Default.LLMRequest)!;
+            if (call.PayloadKey != session + ":" + call.RequestHash || request.ClientRequestId != call.RequestHash ||
+                !state.RequestAccounting.Any(a => a.Id == call.RequestHash))
+                throw new InvalidOperationException("The retained journal has foreign request ownership.");
+            request.ClientRequestId = null;
+            if (!call.RequestHash.EndsWith(":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)), StringComparison.Ordinal))
+                throw new InvalidOperationException("The retained request fingerprint changed.");
+            _ = JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMResponse)
+                ?? throw new InvalidOperationException("The retained receipt is invalid.");
+        }
+        MissionCampaign.RequireEntry(true, false, budget is not null, calls.Count,
+            budget is null ? null : JsonSerializer.Deserialize(budget.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)!.Calls, missing,
+            state.RequestAccounting.Select(a => a.Id).Distinct(StringComparer.Ordinal).Count());
     }
 
     private static async Task RecordApprovedRestartAsync(PlanningSnapshot state, JsonObject stage, EfPlanningSessionStore store, IKeyVaultRecordStore records, CancellationToken ct)
