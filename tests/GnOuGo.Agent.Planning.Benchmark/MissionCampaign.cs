@@ -9,7 +9,7 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 // reopens a consumed historical campaign. The accepted report is build-bound.
 internal sealed class MissionCampaign
 {
-    internal const string ValidatedProductionCommit = "741b071a45df7a0b6554bd42bae946b980642c8e";
+    internal const string ValidatedProductionCommit = "e86ce7802f454577bb8c5f052f6d64f87ae12501";
     internal static MissionCampaign? Current { get; private set; }
     internal string Id { get; }
     internal string DiagnosticIdentity => Id + "-intent";

@@ -5,11 +5,18 @@ Append `--campaign ID` to the existing `diagnose-runtime-admission` and `campaig
 commands. The preceding execution-request campaign is stopped and immutable;
 its ten calls remain consumed. See [the cumulative journal](../../docs/planner-autonomous-convergence.md).
 
-Before live dispatch, embed the completed residual-ownership validation report,
-pin its production commit, verify the production DLL hashes, and commit/push the
-stable checkpoint. Preserve that frozen harness. Each manifest binds production
+The completed residual-ownership validation report is embedded and production is
+pinned to `e86ce7802f454577bb8c5f052f6d64f87ae12501`. Rebuild only the harness with
+`-p:BuildProjectReferences=false`, verify the production DLL hashes, and commit/push
+the stable preparation before live dispatch. Preserve that frozen harness. Each manifest binds production
 and harness hashes, model/configuration, fixture/catalog fingerprints and gates.
 The harness fails closed while its embedded evidence differs from the checkout.
+
+From the preserved harness, run `diagnose-runtime-admission freeze
+e86ce7802f454577bb8c5f052f6d64f87ae12501 --campaign schema5-autonomous-residual-ownership-1`,
+then `diagnose-runtime-admission run-local --campaign schema5-autonomous-residual-ownership-1`
+once. After accepted LOCAL, the same campaign may use `run-mixed`. Never reuse an
+earlier campaign's binary directory or overwrite its manifest.
 
 MIXED requires accepted LOCAL with request/contribution/admission proofs 1/8/18,
 complete receipts and zero-call/zero-write restart. Progressive freeze requires

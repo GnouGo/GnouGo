@@ -1,0 +1,208 @@
+{
+  "outcome": "CAMPAIGN PREPARATION VALIDATED; NO LIVE DISPATCH",
+  "campaign": "schema5-autonomous-residual-ownership-1",
+  "productionCommit": "e86ce7802f454577bb8c5f052f6d64f87ae12501",
+  "productionValidationReport": "docs/planner-residual-ownership.json",
+  "productionValidationSha256": "17a5c987a6638c66cbf061ff2fb5e541534e752e7d936cd73dde71b070e5dd6a",
+  "productionSourcesUnchanged": 121,
+  "productionDllsUnchanged": 22,
+  "frozenBinaryDirectory": "/tmp/residual-ownership-validation/frozen-bin",
+  "binaryHashes": {
+    "GnOuGo.AI.Core.dll": "57eebfad0081a8a2adb2eb8b889d38d5222dfff52f697c57aa8ce7b59ce3cf3c",
+    "GnOuGo.AI.Local.dll": "99d03bd5801c722ab38bcd2d197cfe8fbcb43d208629dd9f48b86bfb39349ed3",
+    "GnOuGo.Agent.Mcp.dll": "24e9f95732ddc18e349ac85d145b7e7c203e28937268506f8dc6d93dbf0a2e38",
+    "GnOuGo.Agent.Planning.Benchmark.dll": "0ae9a2f91f37138cd19e4d9bdfb9c3b8cf04ccc7e7983149a58e4ecdf8b9eba6",
+    "GnOuGo.Agent.Server.dll": "d963305b0fc3659fef4890007e6209f62bad037f610b80acbc9150e41a6bdea3",
+    "GnOuGo.Agent.Shared.dll": "7b76e5157570caa849986b6ba24433c1107553d80f1aa0d0abaefafaf2bd1585",
+    "GnOuGo.Assets.Animation.dll": "c637b6aa41db98368a44ba6e7827a146e06fc981e1a29755c2f3e8fc7b9aaa58",
+    "GnOuGo.Assets.Bears.dll": "83e76171ce31595d4fbd0d3dc9be26fa64ae69dae1b64b7aaf4158c29d6f6d79",
+    "GnOuGo.Auth.Core.dll": "9c5f2f2f07ba939d084515ed86a042963b13d5c30eaf9e3c77b67971039ec67b",
+    "GnOuGo.Diff.Core.dll": "2578da78707429474e652024559aae15eacddaae156eecd192c2b599d85c8491",
+    "GnOuGo.DocIngestor.Core.dll": "06b23e88ef578de281e26cd84aef60f6446908eefb0fb23e56262d1c1067f788",
+    "GnOuGo.DocIngestor.Mcp.dll": "d978e0c286f9a5f5402c0aa95f5fb5f25028efb75c85097d035252a77cee997b",
+    "GnOuGo.Files.Server.dll": "f11a9c419ecc9e55c98859333b7cd596c6f295311ae81eb31f79594491288e61",
+    "GnOuGo.Flow.Core.dll": "af93c987d459749f504a5e6eb9d5017759fa6170d03290bc30436877a53b4874",
+    "GnOuGo.Flow.Integrations.dll": "18b8da4763a39b9d75f00a88981418d2f492b52ed910ddcedd1485b732ef9419",
+    "GnOuGo.Flow.Mermaid.dll": "2aa261c31a6842b896ac86ea23abed4f1b18f9799b73adf64ad260920db52b5e",
+    "GnOuGo.Flow.Planning.dll": "b278419b9eebd9b030aa95c676a088e70d20d55fda51c5c10d13acb6d96c34c0",
+    "GnOuGo.KeyVault.Core.dll": "b20b46d3740f16354f3a856cd0c96a4aca02a80baf47cd059f035798509c3689",
+    "GnOuGo.KeyVault.Mcp.dll": "6c3127ecc67c4e50839ac770d2f2f61b3cda2e3afdbb3fe8a198bf5511cde5fe",
+    "GnOuGo.Mcp.Core.dll": "eb6c175809b9427d60f9e4a571a6aef1961e8927e8db10b518b092ab63def09c",
+    "GnOuGo.Observability.Core.dll": "15f53ac7b5a800d2d8986974890713822ea70545a8b9c2360fd27933c524d086",
+    "GnOuGo.OtlpCollector.Server.dll": "8e61b68f5638fd207d5df8d00a059cf5edbed5fba518a98888259bb30af1d435",
+    "GnOuGo.Workspace.dll": "e7bbbf8750d4dd0854ce097a83b3ee750fb087cabd3980b256182d261bc521bd"
+  },
+  "hostTests": {
+    "passed": 627,
+    "failed": 0,
+    "skipped": 0
+  },
+  "diagnosticSelfcheck": {
+    "evidence": "synthetic fixture selfcheck",
+    "cases": [
+      {
+        "case": "local",
+        "passed": true,
+        "preflight": {
+          "interpretationPages": 8,
+          "sourceDecisions": 8,
+          "modelRuntimeDecisionsRemoved": 0,
+          "declarationFixtureValidated": true
+        },
+        "modelCalls": 0,
+        "readOnlyRestart": {
+          "passed": true,
+          "providerCalls": 0,
+          "checkpointWrites": 0,
+          "snapshotFingerprint": "99ed834dca203ca80d3ab62c5e62b2583e5fffed08f34e3e40373bbe51820aad",
+          "admissionFingerprint": "35884c0b9ca7d3680596bf4d7f389f17b01747eb4faf18cdb9b7755d4ce51039",
+          "executionRequestProofVersions": [
+            1
+          ],
+          "executionRequestFingerprints": [
+            "5fc17c05d1152ddc0edaddb8de9a8cd5faafc4ce00cabfbbb998f3c85eced68d"
+          ],
+          "operationIds": [
+            "operation_e226ff9ed819b5a645e7d9de"
+          ],
+          "contributionProofVersions": [
+            8
+          ],
+          "effectProofVersions": [
+            7
+          ],
+          "admissionProofVersions": [
+            18
+          ],
+          "applicabilityProofVersions": [],
+          "applicabilityFingerprints": [],
+          "contributionFingerprints": [
+            "0655f407acb734269203bcc1fef378eb1122019bd916aa23c1dcc4e3a0ca94ed",
+            "22d993d1e597aacb01113660a41a88a06d09b508825bca3a5de9b3d4509e18be",
+            "285453823de1b9ce2bcf7bbddab74306402757aa36e0979d2f04e76641b5724b",
+            "8dc0ff3ddad5e26c65e1b1921d3aeda0fd1467e759c60969f24d3e0091726b1e",
+            "0b191e78953fefa072ad3bcf6a7c15a8ef6377d2438752b7987344d79123ca75",
+            "f3d41368597af3443a9bb7e95490a667415bd8cc0c8cfa90f5194597ef586476",
+            "531e01096669916c460c86966e1f8a8b8ec98cd0e821baf8751b6cfa5d066941",
+            "f598e4c85d19681cb7232b8f1fe696a6acf73f9c5eb8008000b6dc2fee2e220f",
+            "f62fe8aa261bf49982511cc2a9b6ea24976cef14ea8cb0053dc0cdb9e463e5cf",
+            "0092333d2841b0f8338cba72cbf5fc11c616e6e0940ba4b19de0e386b95b63f1",
+            "b95150f00d92ef93e36e2e59f03cc96fb126021c75ba6b806085f75a445708aa",
+            "063ea25a38b8d8591786641cf85225dbc1a1ea658ee121bfbacf14be9df59098",
+            "b4703d0358bdc1b55b25cb1f9298bc5134aa3050f056c7f40ca16ce8e016934c",
+            "2028d4a65d8bfee6cb67e08de986872fdd59634050abab7856a93dc24432fdb5",
+            "09e1a4a56545e1412e0e2d8b265198bcb96d0da6389422a0a425af6aa188f316"
+          ],
+          "coverageProofVersions": [
+            3
+          ],
+          "coverageFingerprints": [
+            "95dc481485fe92d3f67e0e5cfec7157d4ec58f19a4b07e9c720e7723cab6929f"
+          ],
+          "dependencyFingerprints": [
+            "dfc2481fb9cb1c970edabddf3fe1f78e8b61c15a8ff1ba8773642c786d3f9fe1"
+          ],
+          "dependencyProofVersions": [
+            1
+          ]
+        }
+      },
+      {
+        "case": "mixed",
+        "passed": true,
+        "preflight": {
+          "interpretationPages": 9,
+          "sourceDecisions": 9,
+          "modelRuntimeDecisionsRemoved": 0,
+          "declarationFixtureValidated": true
+        },
+        "modelCalls": 0,
+        "readOnlyRestart": {
+          "passed": true,
+          "providerCalls": 0,
+          "checkpointWrites": 0,
+          "snapshotFingerprint": "8fff402ffdd0a484a1e4da9c8ed58f5c210ca44aac978a46ddfe4cfc9b56132b",
+          "admissionFingerprint": "99e9939782dcb652786fca8a63b23fa2779a5b70e76ace5f4b8ca7789833ff0c",
+          "executionRequestProofVersions": [
+            1
+          ],
+          "executionRequestFingerprints": [
+            "4c7d67a404c2e1f237ed5f9a372a21e113f39e83b2edf3fd302046bf224c2c32",
+            "5ac485beb4592b400755653414e9f1f64a17a81fb380f4adab8f381eb2e3d7ca"
+          ],
+          "operationIds": [
+            "operation_6b515f252d71b693829d2fe4",
+            "operation_e226ff9ed819b5a645e7d9de"
+          ],
+          "contributionProofVersions": [
+            8
+          ],
+          "effectProofVersions": [
+            7
+          ],
+          "admissionProofVersions": [
+            18
+          ],
+          "applicabilityProofVersions": [],
+          "applicabilityFingerprints": [],
+          "contributionFingerprints": [
+            "704ca727851f2711b24920eb36703d413ed79d1c3d3c7500dcbed8dc95ca9ba4",
+            "04c9b56b68d9c7c6ae7b2f29291a251b6ae86153402424236f929e2cc8d50de3",
+            "e7723a8babd09edecc401f72b55572f278518c94d8cb7cdac84b40fb438b65e2",
+            "f78c83c0bb905caae1ff92df1b95de6424e6709e1dbdf93bb5c1eefacc315c55",
+            "ca6de4f1760490449bc015838ebd905eb94a87c09c75bb237aaabab89850813c",
+            "13ba6be747bc61151f9db179e3319e9567369691ff8cd585d25e144de8804043",
+            "9efe6f0adea8a6566d1318608f152dab6649132ab46a613102110cb6d4b5b3c6",
+            "8dc873aebec8a0049333acdb1ff89cc14cb3901cffbc65e1aa76ea022fd7971d",
+            "5a7569383ee4dfc1a0fa813a0d258514f5a28da7adadcbdd483425175b1189b1",
+            "b14613f24cd91b12f34f914272a0eac9be4627426540edccbfce96f68f649afc",
+            "3f75fe8ad877d10b3645ad491c582bbd8465793af1d87fcd9c635c7b0d7de397",
+            "912f3cb281a36ff4f147e2d9217d3143157a78f267a3e8c6c7598b31ff29cc3e",
+            "ee75474663f767275168f961342a09a860e2b0a8770fc2b98bf19727d7a09e23",
+            "8ab6c92fe082df0f823a2d444ab15dd99c2b17761f80c786bdb1404cb2e0368b",
+            "b3cabba9efe6e65283c9f6a6d140e3f8a7afc6fb7a48bddfa83025bab09d7d1c",
+            "f6352938157405b30ad96d7cdd407612c38c88ebd0012f8af6dc37b405787f61",
+            "b65322f2b5931a4bbb7595d2ed6fcd52345337c34415eb49a13a67508b84c2cd"
+          ],
+          "coverageProofVersions": [
+            3
+          ],
+          "coverageFingerprints": [
+            "a489d9159dea0b3dfae00231f2fef02d0ca72997e74947087fe13932f3437d16",
+            "41947cd200c3c62adb5771c29057fc8e1bd89524be245d6f81064635e7ccac25"
+          ],
+          "dependencyFingerprints": [
+            "4f923099ce9d2fa373871b10278b86cf76ffe8b14fcdd100d3309c8d06f4b5ef",
+            "9c231f20c2382f7e7cc3a4d4a05b4865ee19ab671ba634eefb3b11aab8107112"
+          ],
+          "dependencyProofVersions": [
+            1
+          ]
+        }
+      }
+    ]
+  },
+  "referenceSelfcheck": "6 classifier/batch reference cases and 18 isolated CodeReview cases; zero model or business transport calls",
+  "newProviderCalls": 0,
+  "historicalCallsRetained": 10,
+  "proofs": {
+    "executionRequest": 1,
+    "contribution": 8,
+    "admission": 18
+  },
+  "permittedGates": [
+    "local",
+    "mixed",
+    "stage1",
+    "stage2",
+    "stage3"
+  ],
+  "artifactHashes": {
+    "tests/GnOuGo.Agent.Server.Tests/TestResults/residual-campaign_net10.0_20260918002101.trx": "4e17ba988e35547e07ced4818dae1a0e3dda281db2d9317ed8779676ffe729d5",
+    "/tmp/residual-campaign-harness-build.log": "5ae1d050f7749c451f729697c122dd0eb8ccc3452cc045fff18a0cd26d8418ec",
+    "/tmp/residual-campaign-host-tests.log": "fa35eac3d52ba8576124aae7bb9f1aab0e416f85807ce5bfdd755ab1f8dae6d2",
+    "/tmp/residual-campaign-reference-selfcheck.log": "9f686a870f72a700efbe21e3d94c0d71eae57b32ae676ab697fde5460eeb65ba",
+    "/tmp/residual-campaign-diagnostic-selfcheck.json": "c28e66eb34ed52c8c916be406d7aba4709cbe2a6761cc4cfaa4c7010230f193b"
+  },
+  "nextAction": "Commit and push preparation, freeze the encrypted manifest, run exactly one fresh LOCAL."
+}

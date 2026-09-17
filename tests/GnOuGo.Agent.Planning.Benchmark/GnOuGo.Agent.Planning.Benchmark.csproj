@@ -11,7 +11,7 @@
     <None Include="CodeReviewPolicy.txt" CopyToOutputDirectory="PreserveNewest" />
     <EmbeddedResource Include="CodeReviewExecutionFixture.cs" />
     <EmbeddedResource Include="RuntimeEvidenceDeclarations.json" />
-    <EmbeddedResource Include="../../docs/planner-execution-request-authority.json" LogicalName="MissionProductionValidation" />
+    <EmbeddedResource Include="../../docs/planner-residual-ownership.json" LogicalName="MissionProductionValidation" />
     <EmbeddedResource Include="../../docs/planner-joint-clause-qualification-local-rerun-1.json" LogicalName="AcceptedLocalReport" />
   </ItemGroup>
   <ItemGroup><Compile Include="../GnOuGo.Flow.Planning.Tests/OperationEffectFixtures.cs" Link="Fixtures/OperationEffectFixtures.cs" /></ItemGroup>

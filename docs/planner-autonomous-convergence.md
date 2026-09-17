@@ -311,6 +311,34 @@ implementation. Required final-SHA CI and its separate attestation remain pendin
 Next action: commit/push the validated redesign, prepare and freeze
 `schema5-autonomous-residual-ownership-1`, then consume its one fresh LOCAL start.
 
+## Checkpoint 4 — campaign pinned before live dispatch
+
+The redesign is committed and pushed as
+`e86ce7802f454577bb8c5f052f6d64f87ae12501`. The harness now embeds its immutable
+validation report and pins that production commit for
+`schema5-autonomous-residual-ownership-1`. Only harness resource/pin/documentation
+changes follow the production checkpoint. All 121 production sources and 22
+production DLLs still match the accepted hashes.
+
+The harness-only warning-as-error build passed with zero warnings/errors. All 627
+host tests, both diagnostic selfchecks and the 6 reference / 18 isolated CodeReview
+fixture checks passed again. Preparation makes zero provider calls. The new frozen
+harness is preserved at `/tmp/residual-ownership-validation/frozen-bin`; the earlier
+stopped campaign's frozen directory is untouched. The
+[preparation evidence](planner-residual-ownership-campaign.json) records its hashes,
+proof versions, artifacts and permitted gate order.
+
+Git: commit/push this stable harness preparation before the encrypted freeze and
+single fresh LOCAL command. Freeze binds the production commit, actual frozen
+binaries, fixture/catalog hashes, unchanged configuration and permitted gates.
+Completed re-entry must reuse the retained result; an interrupted gate cannot
+acquire another start. Historical accounting remains ten calls and ten consumed
+reservations. No live gate or workflow tier is accepted on the new implementation.
+
+Next: freeze the selected campaign and run LOCAL exactly once. MIXED remains gated
+on LOCAL acceptance, followed by all three full workflow tiers in order. A verified
+recurrence of the ownership class invokes the hard stop again.
+
 ## Completion protocol
 
 At each stable checkpoint record the first meaningful blocker, failure category,
