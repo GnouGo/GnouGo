@@ -64,10 +64,21 @@ internal static partial class RuntimeAdmissionDiagnostic
         var after = await records.GetAsync(Collection, Tenant, id + ":checkpoint", Author, ct);
         var afterBudget = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, id, EfPlanningSessionStore.Author, ct);
         if (after?.Value != captured.Value || afterBudget?.Value != budget?.Value) throw new InvalidOperationException("Archived evidence changed during audit.");
+        // Coordinates allow source-ownership inspection without exporting source
+        // text. Keep the frozen checkpoint and provider journal read-only.
+        var selectedJson = selections.ToJsonString();
+        var coordinates = new JsonArray(state.References.Where(r =>
+            selectedJson.Contains('"' + r.Id + '"', StringComparison.Ordinal) || location?.EndsWith("@" + r.Id, StringComparison.Ordinal) == true)
+            .OrderBy(r => r.Id, StringComparer.Ordinal).Select(r => (JsonNode)new JsonObject
+            {
+                ["id"] = r.Id, ["sourceId"] = r.SourceId, ["sourceFingerprint"] = r.SourceFingerprint,
+                ["start"] = r.Start, ["length"] = r.Length
+            }).ToArray());
         Console.WriteLine(new JsonObject { ["identity"] = id, ["providerDispatches"] = 0, ["sourceUnchanged"] = true,
             ["checkpointFingerprint"] = PlanningGraphCompiler.Fingerprint(captured.Value), ["receiptChecks"] = checks,
             ["historicalSubjectSelections"] = subjectSelections.Count,
             ["replayedReceipts"] = client.Replayed.Count, ["blocker"] = code, ["location"] = location,
-            ["blockerMessage"] = message, ["originalBoundedSelections"] = selections }.ToJsonString());
+            ["blockerMessage"] = message, ["originalBoundedSelections"] = selections,
+            ["selectedReferenceCoordinates"] = coordinates }.ToJsonString());
     }
 }

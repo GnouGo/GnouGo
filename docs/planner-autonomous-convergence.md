@@ -2,6 +2,9 @@
 
 ## Mission and baseline
 
+Current outcome: **HARD STOP — repeated source-only fallback ownership failure
+after redesign**. Intent remains open; no workflow tier is accepted. See checkpoint 2.
+
 Branch: `feat/deterministic-planner-v2`. Starting and accepted production commit:
 `741b071a45df7a0b6554bd42bae946b980642c8e`. The checkout was clean and synchronized
 with origin at implementation startup. Existing PR: https://github.com/GnouGo/GnouGo/pull/99.
@@ -82,6 +85,123 @@ running during initial inspection; no final-code CI acceptance is claimed.
 
 Next autonomous action: commit/push this validated harness-only
 checkpoint, freeze `schema5-autonomous-execution-request-1`, then run one fresh LOCAL.
+
+## Checkpoint 2 — fresh LOCAL and durable blocker
+
+Preparation was committed and pushed as
+`27594dfe454d941cb721f728c5df3d3e73c63ab6`. Its frozen harness ran exactly one fresh
+LOCAL in `schema5-autonomous-execution-request-1-intent:local`, against unchanged
+production `741b071a45df7a0b6554bd42bae946b980642c8e`. The encrypted manifest binds
+23 DLLs, fixture/catalog/configuration fingerprints and the unchanged limits.
+The exchange-rate prerequisite passed with one quote check and zero model calls.
+
+Outcome: **STOPPED**, `INTENT_OPERATION_UNRESOLVED`, `intent_operations`,
+`/operations/@r_aa723dffce157ed7b0307912`. The first terminal message is
+“Clause qualification did not account for all owned source evidence.” All ten
+original responses satisfy their issued schemas. Receipt-only re-entry reproduces
+the same rejection, with zero provider calls and unchanged checkpoint/accounting.
+Completed-admission restart acceptance is not claimed: admission never committed.
+
+The bounded request answer selects execution support `[325,432)`, ending at
+`standard`, for the issued classifier effect. The complete clause is `[325,443)`.
+Property qualification selects two nested conditions and `standard` at `[424,432)`
+as `runtime_fallback`; it leaves `otherwise.` at `[433,443)` unowned. Fixed support
+is preserved and nested selections are contained. The descriptive clause is
+explicitly non-requested, then receives a descriptive-property selection.
+These are proposed selections, not admitted operations or proved applicability.
+
+Classification: **E — missing semantic ownership**, manifested by a **C —
+schema-valid, semantically incomplete answer**. This is not a transport, budget,
+identity or structured-output incompatibility failure. No provider replay is
+justified. The [fallback-ownership redesign](planner-fallback-ownership.md) already
+addressed this exact authority class: an action ending at `standard` while a
+source-only `otherwise.` remains outside executable support. The current request
+redesign retained that complete-clause invariant and source-only property domain.
+The new execution-request separation and fixed-parent containment are not shown
+to have regressed; the previously redesigned governing-ownership class has recurred.
+The user's post-redesign hard-stop rule applies to that recurrence.
+
+No production patch, replacement campaign, retry, MIXED dispatch, full workflow
+session, artifact approval or external execution followed. Intent is **not CLOSED**.
+All three workflow tiers remain **not run**. CodeReview has only the earlier
+18-case isolated fixture selfcheck; there is no live model workflow execution or
+live external effect to report.
+
+### Authority review at the stop
+
+1. Failed invariant: every non-whitespace source position needs exact contract,
+   fixed request support or qualified governing/exclusion ownership before admission.
+2. Owner: clause contribution qualification and its deterministic complete-coverage
+   validator in Flow.Planning; runtime extraction and request selection cannot
+   silently absorb missing governing text.
+3. Engine knowledge: exact clause, support and contract coordinates already prove
+   the residual source range. They do not prove its semantic role or applicability.
+4. Remaining bad choice: a variable-length property array can be schema-valid while
+   omitting a residual range. Completeness is checked only after the answer.
+5. Prevention opportunity: require explicit bounded ownership for deterministic
+   residual ranges before dispatch; keep semantic roles and applicability separate.
+6. Generic boundary: derive ranges from current references/proofs, never fixture
+   words, tool names, provider names or domain-specific heuristics.
+7. Invariants at risk: declaration exclusions, immutable request support, exact
+   provenance, contained children, non-executable fallback, unique dependency
+   authority and fail-closed admission must all remain intact.
+8. Independent multiplicity case: separately owned executions with overlapping
+   clause evidence must retain distinct effect/occurrence ownership while a
+   source-only governing range receives explicit applicability adjudication.
+9. Desired authority change: eliminate the model's ability to omit engine-known
+   coverage without letting the engine invent the residual range's meaning.
+10. Recurrence policy: the source-only ownership architecture was already redesigned;
+    another autonomous patch would exceed the mission's authorized loop.
+
+Three structural options for a separately authorized continuation:
+
+| Option | Boundary and tradeoff |
+|---|---|
+| Exact clause partition before request adjudication | Establish exhaustive source units first, then adjudicate execution/property roles; affects interpretation, multiplicity and several proof domains. |
+| Required residual ownership after fixed requests | Derive uncovered ranges from immutable support/contracts and require an explicit bounded outcome for each; directly removes omission authority while preserving the current request boundary. Preferred direction for review, not implemented. |
+| Joint exhaustive request/property construction | Encode complete coverage while jointly selecting execution and governing units; larger response domains and risk of reintroducing the competing authority removed by the request redesign. |
+
+Prompt-only repair, widening support, accepting incomplete coverage or importing
+synthetic fallback answers cannot satisfy the accepted authority invariants.
+No structural option has been authorized past this hard stop or claimed validated.
+
+### Cumulative mission accounting and integrity
+
+| Phase | Calls / reservations | Input | Output | Reasoning |
+|---|---:|---:|---:|---:|
+| Interpretation | 8 / 8 | 24,804 | 1,573 | 786 |
+| Canonical execution request | 1 / 1 | 2,387 | 458 | 272 |
+| Property qualification | 1 / 1 | 3,039 | 784 | 512 |
+| Coverage, applicability, dependencies, downstream relationships, full tiers | 0 / 0 | 0 | 0 | 0 |
+| **Mission total** | **10 / 10** | **30,230** | **2,815** | **1,570** |
+
+Reasoning is the reported output subset, not an additional token total. There are
+zero partitions, escalations, semantic repairs, retries, missing receipts or unknown
+usage. Six diagnostic calls remain unused; the consumed start and ten reservations
+are retained. Preparation, synthetic fixtures and read-only audits used zero model
+calls. Historical usage remains in its original campaigns and reports.
+
+All 120 production-source hashes, 22 production DLLs in both working and frozen
+directories, all 23 frozen live DLLs, and 29 prior validation artifact hashes were
+rechecked unchanged. The live report's archive check is unchanged. Source-coordinate
+audit instrumentation was added only to the working harness after the run; the
+frozen live harness was not replaced. Its warning-as-error build passed with zero
+warnings/errors. All 16 focused execution-request and fallback-ownership tests
+passed again with zero failures/skips. The audit exports reference coordinates and bounded selections,
+never source text, prompts or reasoning. Encrypted records remain in existing
+Schema-5 namespaces behind the public KeyVault API.
+
+[Machine-readable live evidence, original-schema audit and integrity](planner-autonomous-local-1.json).
+
+Git: this blocker journal, audit instrumentation and redacted evidence form the
+next semantic checkpoint to commit/push. PR #99 stays open. No production code
+changed. The preparation SHA's planner/main CI runs were still in progress when
+the blocker was established (runs `35264592533` / `35264592967`); these are not final
+mission acceptance. Required final-SHA CI and its attestation are not reached.
+
+Next action: commit/push the durable blocker checkpoint, then request explicit
+direction before any further production redesign or live campaign. **MISSION
+COMPLETE is not claimed.**
 
 ## Completion protocol
 
