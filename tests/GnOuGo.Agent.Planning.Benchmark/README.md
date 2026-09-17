@@ -1,3 +1,51 @@
+## Autonomous convergence mission
+
+Append `--campaign schema5-autonomous-execution-request-1` to the existing
+`diagnose-runtime-admission` and `campaign` commands to select the current mission.
+Unselected commands retain historical identities and start restrictions. Mission
+identities use a separate `schema5-autonomous-` prefix; historical evidence is never
+refrozen or imported as current answers.
+
+The mission embeds the accepted execution-request validation report and pins
+production to `741b071a45df7a0b6554bd42bae946b980642c8e`. Build the harness and host
+tests with `-p:BuildProjectReferences=false -p:SkipClientBuild=true`, verify the 22
+production DLL hashes, and preserve the frozen harness after campaign freeze.
+Each freeze binds the mission definition, production and harness hashes, model,
+configuration, policies, fixture/catalog fingerprints and permitted gates.
+
+After offline validation and a committed/pushed harness checkpoint:
+
+```bash
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll diagnose-runtime-admission freeze 741b071a45df7a0b6554bd42bae946b980642c8e --campaign schema5-autonomous-execution-request-1
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll diagnose-runtime-admission run-local --campaign schema5-autonomous-execution-request-1
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll diagnose-runtime-admission run-mixed --campaign schema5-autonomous-execution-request-1
+```
+
+MIXED requires accepted LOCAL with request/contribution/admission proofs 1/7/17,
+verified receipts and zero-call/zero-write completed re-entry. `campaign freeze`
+requires both accepted Intent gates, including MIXED relationship projection.
+The progressive commands then retain their existing `start STAGE`,
+`accept STAGE REVISION HASH`, `advance STAGE`, `execute STAGE` and
+`approve STAGE REVISION HASH` arguments, with the same mission selector appended.
+Stages 1, 2 and 3 require 6, 9 and 18 independent execution cases respectively.
+Stage 3 execution also requires its two canonical public input port names.
+
+Mission behavior review checks current proof ownership and the frozen scenario's
+ports, effects, workflow boundaries, iteration, finalizers and permission contracts.
+Execution fixtures independently verify exact results, defaults, rejection,
+cleanup and original-error preservation before artifact approval. Unsupported or
+clarification outcomes cannot count as mission success.
+
+An existing checkpoint, report, budget or reservation consumes a diagnostic start.
+Inspect with `diagnose-runtime-admission report --campaign ID` and use
+`audit-runtime-admission ID-intent:local` (or `:mixed`) for receipt-only inspection;
+never manufacture a new identity to retry a consumed gate. Progressive recovery
+uses its existing session and accounting. Keep 16 diagnostic calls, 100 planning
+session calls, existing execution-case budgets, low reasoning and all token limits.
+
+See [the mission journal](../../docs/planner-autonomous-convergence.md) for gate
+outcomes, bounded iteration rules and final CI evidence.
+
 ## Fresh LOCAL: canonical contract coverage
 
 `schema5-canonical-contract-coverage-diagnostics-1` authorizes one fresh LOCAL on production `ada9dbe35424f85e2e45ff1161bfd890960ce468`. It compares settings and fixtures with `schema5-governing-applicability-diagnostics-1`, while production DLLs must match the separate accepted contract-coverage offline report. The harness has no authorization for MIXED, relationships, replacement starts or Stage 1.

@@ -46,23 +46,25 @@ internal static partial class RuntimeAdmissionDiagnostic
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancel.Cancel(); }; var ct = cancel.Token;
         var directory = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-diagnostics/{Identity}/gnougo-planning-v5.db");
         if (command is not ("freeze" or "run-local" or "run-mixed" or "report")) throw new ArgumentException("diagnose-runtime-admission freeze COMMIT | run-local | run-mixed | report | selfcheck");
-        if (command.StartsWith("run-", StringComparison.Ordinal) && command != "run-local")
+        if (MissionCampaign.Current is null && command.StartsWith("run-", StringComparison.Ordinal) && command != "run-local")
             throw new InvalidOperationException("Only one fresh LOCAL is authorized.");
         if (command == "report")
         {
             Console.WriteLine((await ReportAsync(records, ct)).ToJsonString()); return;
         }
-        RuntimeAdmissionDiagnosticRules.RequireCase("local", null);
+        var caseName = command == "run-mixed" ? "mixed" : "local";
+        var localResult = await records.GetAsync(Collection, Tenant, Identity + ":local:report", Author, ct);
+        RuntimeAdmissionDiagnosticRules.RequireCase(caseName, localResult is null ? null : JsonNode.Parse(localResult.Value)!.AsObject());
         Directory.CreateDirectory(Path.GetDirectoryName(directory)!);
         using var lease = new FileStream(directory + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         var contexts = new Contexts(directory);
         await using (var db = await ((IDbContextFactory<PlanningDbContext>)contexts).CreateDbContextAsync(ct))
         { await db.Database.EnsureCreatedAsync(ct); if (await db.Sessions.AnyAsync(ct)) throw new InvalidOperationException("Diagnostics cannot own planning sessions."); }
         var archive = await ArchiveAsync(records, ct);
-        var prior = await records.GetAsync(ProgressiveCampaign.CampaignCollection, ProgressiveCampaign.Tenant, ProgressiveCampaign.CampaignId, ProgressiveCampaign.Author, ct)
+        var prior = await records.GetAsync(ProgressiveCampaign.CampaignCollection, ProgressiveCampaign.Tenant, ProgressiveCampaign.RetainedCampaignId, ProgressiveCampaign.Author, ct)
             ?? throw new InvalidOperationException("The retained comparison campaign is required.");
         var campaign = JsonNode.Parse(prior.Value)!;
-        var sourcePath = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-progressive/{ProgressiveCampaign.CampaignId}/gnougo-planning-v5.db");
+        var sourcePath = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-progressive/{ProgressiveCampaign.RetainedCampaignId}/gnougo-planning-v5.db");
         var source = await new EfPlanningSessionStore(new Contexts(sourcePath, readOnly: true), records).LoadAsync(ProgressiveCampaign.Tenant,
             campaign["stages"]![0]!["session"]!.ToString(), ct) ?? throw new InvalidOperationException("Retained settings are required.");
         source.Request.Options = RuntimeAdmissionDiagnosticRules.WithTypedPolicy(source.Request.Options);
@@ -122,7 +124,8 @@ internal static partial class RuntimeAdmissionDiagnostic
                 ["comparisonSourceOptionsFingerprint"] = comparisonOptionsFingerprint,
                 ["expectedConfigurationAddition"] = "None; effective typed host policy and existing options unchanged from the comparison campaign.",
                 ["exchangeRatePrerequisite"] = exchangeRatePrerequisite,
-                ["authorizedCases"] = new JsonArray("local"),
+                ["authorizedCases"] = MissionCampaign.Current?.AuthorizedCases ?? new JsonArray("local"),
+                ["mission"] = MissionCampaign.Current?.Definition(),
                 ["productionBinariesFingerprint"] = RuntimeAdmissionDiagnosticRules.ProductionBinariesFingerprint,
                 ["historicalLocalStatus"] = "All historical campaigns retain their original status. No answers or receipts are imported.",
                 ["model"] = campaign["model"]!.DeepClone(), ["sourceOptionsFingerprint"] = PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()),
@@ -136,11 +139,12 @@ internal static partial class RuntimeAdmissionDiagnostic
             await records.UpsertAsync(Collection, Tenant, Identity, manifest.ToJsonString(), Author, ct); Console.WriteLine(manifest.ToJsonString()); return;
         }
         if (manifest is null || manifest["commit"]?.ToString() != RuntimeAdmissionDiagnosticRules.ProductionCommit ||
-            !JsonNode.DeepEquals(manifest["authorizedCases"], new JsonArray("local")) ||
+            !JsonNode.DeepEquals(manifest["authorizedCases"], MissionCampaign.Current?.AuthorizedCases ?? new JsonArray("local")) ||
             !JsonNode.DeepEquals(manifest["binaries"], binaries) || manifest["archiveFingerprint"]!.ToString() != archive ||
             manifest["transportConfigurationFingerprint"]!.ToString() != transportFingerprint ||
             manifest["sourceOptionsFingerprint"]!.ToString() != PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()))
             throw new InvalidOperationException("Frozen inputs, binaries or archive accounting changed.");
+        MissionCampaign.Current?.RequireDefinition(manifest);
         foreach (var frozen in manifest["cases"]!.AsArray())
         {
             var name = frozen!["name"]!.ToString();
@@ -150,7 +154,6 @@ internal static partial class RuntimeAdmissionDiagnostic
                 throw new InvalidOperationException("A frozen diagnostic precondition changed.");
         }
         using var ratesHttp = new HttpClient();
-        var caseName = command == "run-local" ? "local" : "mixed";
         var caseId = Identity + ":" + caseName;
         await using (var db = await ((IDbContextFactory<PlanningDbContext>)contexts).CreateDbContextAsync(ct))
             RuntimeAdmissionDiagnosticRules.RequireFreshStart(
@@ -164,6 +167,24 @@ internal static partial class RuntimeAdmissionDiagnostic
         if (!JsonNode.DeepEquals(binaries, Binaries())) throw new InvalidOperationException("Frozen binaries changed during the diagnostics.");
         await records.UpsertAsync(Collection, Tenant, Identity + ":archive-check", "unchanged", Author, CancellationToken.None);
         Console.WriteLine((await ReportAsync(records, CancellationToken.None)).ToJsonString());
+    }
+
+    internal static async Task<JsonObject> RequireMissionIntentAsync(IKeyVaultRecordStore records, CancellationToken ct)
+    {
+        var mission = MissionCampaign.Current ?? throw new InvalidOperationException("A mission must be selected.");
+        var record = await records.GetAsync(Collection, Tenant, Identity, Author, ct)
+            ?? throw new InvalidOperationException("Intent has not been frozen.");
+        mission.RequireDefinition(JsonNode.Parse(record.Value)!.AsObject());
+        var fingerprints = new JsonObject();
+        foreach (var name in RuntimeAdmissionDiagnosticRules.Cases)
+        {
+            var result = await records.GetAsync(Collection, Tenant, Identity + ":" + name + ":report", Author, ct);
+            MissionCampaign.RequireAcceptedIntent(result is null ? null : JsonNode.Parse(result.Value)!.AsObject(), name);
+            fingerprints[name] = PlanningGraphCompiler.Fingerprint(result!.Value);
+        }
+        if ((await records.GetAsync(Collection, Tenant, Identity + ":archive-check", Author, ct))?.Value != "unchanged")
+            throw new InvalidOperationException("Intent archive integrity was not verified.");
+        return fingerprints;
     }
 
     private static PlanningGraph Ports(string name) => new() { Workflows = [new()

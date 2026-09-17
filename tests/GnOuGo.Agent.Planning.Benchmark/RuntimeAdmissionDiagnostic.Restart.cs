@@ -8,7 +8,7 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static partial class RuntimeAdmissionDiagnostic
 {
-    private static async Task<JsonObject> VerifyReadOnlyRestartAsync(PlanningSnapshot expected, PlanningSnapshot restored, CancellationToken ct)
+    internal static async Task<JsonObject> VerifyReadOnlyRestartAsync(PlanningSnapshot expected, PlanningSnapshot restored, CancellationToken ct)
     {
         static string Fingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot));
         var before = Fingerprint(restored);

@@ -9,14 +9,15 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-fallback-ownership-diagnostics-1";
-    internal const string ComparisonIdentity = "schema5-joint-clause-qualification-mixed-diagnostics-1";
-    internal const string ProductionCommit = "e1fe4687574936d5ce2632d7e30b84f70adbeb19";
-    internal const string ComparisonProductionCommit = "d2ceac7cd85793baea732721f4e2b092c94be210";
+    internal static string Identity => MissionCampaign.Current?.DiagnosticIdentity ?? "schema5-fallback-ownership-diagnostics-1";
+    internal static string ComparisonIdentity => MissionCampaign.Current is null ? "schema5-joint-clause-qualification-mixed-diagnostics-1" : "schema5-fallback-ownership-diagnostics-1";
+    internal static string ProductionCommit => MissionCampaign.Current is null ? "e1fe4687574936d5ce2632d7e30b84f70adbeb19" : MissionCampaign.ValidatedProductionCommit;
+    internal static string ComparisonProductionCommit => MissionCampaign.Current is null ? "d2ceac7cd85793baea732721f4e2b092c94be210" : "e1fe4687574936d5ce2632d7e30b84f70adbeb19";
     // Sorted production DLL hashes from the accepted offline implementation report.
-    internal const string ProductionBinariesFingerprint = "8e6b5b529472e0d379ed9f7252d002f6cabc1a5cb051d7468aae9955bf5d1d83";
+    internal static string ProductionBinariesFingerprint => MissionCampaign.Current?.ProductionFingerprint ?? "8e6b5b529472e0d379ed9f7252d002f6cabc1a5cb051d7468aae9955bf5d1d83";
     internal static void RequireFrozenProduction(JsonObject binaries)
     {
+        if (MissionCampaign.Current is { } mission) { mission.RequireProduction(binaries); MissionCampaign.RequireProductionSources(); return; }
         var production = new JsonObject(binaries.Where(p => p.Key != "GnOuGo.Agent.Planning.Benchmark.dll")
             .OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => new KeyValuePair<string, JsonNode?>(p.Key, p.Value?.DeepClone())));
         if (PlanningGraphCompiler.Fingerprint(production.ToJsonString()) != ProductionBinariesFingerprint)
@@ -46,6 +47,12 @@ internal static class RuntimeAdmissionDiagnosticRules
     }
     internal static void RequireCase(string name, JsonObject? previous)
     {
+        if (MissionCampaign.Current is not null)
+        {
+            if (name == "mixed") MissionCampaign.RequireAcceptedIntent(previous, "local");
+            else if (name != "local") throw new InvalidOperationException("Unknown Intent diagnostic case.");
+            return;
+        }
         // Prior results cannot authorize any additional case in this LOCAL-only gate.
         if (name != "local")
             throw new InvalidOperationException("Only one fresh LOCAL is authorized; MIXED, replacements and Stage 1 are forbidden.");

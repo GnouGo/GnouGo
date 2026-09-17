@@ -18,6 +18,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
+args = MissionCampaign.Select(args);
 if (args.Length < 2) throw new ArgumentException("Use capture <source-session>, start <name>, inspect <session>, or command <session> <kind> [hash].");
 const string tenant = "planner-benchmark";
 const string evidenceKey = "codereview-bc72dd6";

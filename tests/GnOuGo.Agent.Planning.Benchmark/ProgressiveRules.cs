@@ -11,7 +11,7 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class ProgressiveRules
 {
-    internal const string ProductionCommit = "4941985d0d41b8a4e8d9596621a8f202dd2bfa86";
+    internal static string ProductionCommit => MissionCampaign.Current is null ? "4941985d0d41b8a4e8d9596621a8f202dd2bfa86" : MissionCampaign.ValidatedProductionCommit;
     internal static TypedWorkflowPlanningSettings Settings() => new()
     {
         BackgroundProcessingEnabled = false,
@@ -72,13 +72,14 @@ internal static class ProgressiveRules
     {
         var actions = state.Obligations.Where(o => o.OperationAdmission is not null).ToArray();
         var rules = "Classify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise.";
-        if (string.IsNullOrEmpty(state.OperationAdmissionFingerprint) || actions.Length == 0 || actions.Any(o => o.Kind != "local_processing" ||
-            o.Disposition != "admitted" || o.OperationAdmission is not { Version: 1 } || o.OperationAdmission.CanonicalId != o.Id ||
+        if (string.IsNullOrEmpty(state.OperationAdmissionFingerprint) || actions.Length != 1 || actions.Any(o => o.Kind != "local_processing" ||
+            o.Disposition != "admitted" || o.OperationAdmission is not { Version: 17 } || o.OperationAdmission.CanonicalId != o.Id ||
             o.Grounding?.Authority != PlanningSourceAuthority.RequestedBehavior) ||
             !actions.Any(o => o.Required && o.OperationAdmission!.Assignments.Any(a => SourceText(state, a.ClauseReference) == rules)) ||
             state.BehaviorPlan is null || actions.Where(o => o.Required).Any(o => !state.BehaviorPlan.Workflows.Any(w =>
                 PlanningBehaviorPlans.Enumerate(w.Steps.Concat(w.Finally)).Any(n => n.OperationIds.Contains(o.Id)))))
             throw new InvalidOperationException("STAGE1_OPERATION_REVIEW_MISMATCH");
+        foreach (var action in actions) RuntimeAdmissionDiagnosticRules.RequirePositiveSupports(action);
     }
 
     internal static void RequireStageOneDeclarations(PlanningSnapshot state)

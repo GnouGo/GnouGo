@@ -21,6 +21,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         var state = JsonSerializer.Deserialize(JsonNode.Parse(captured.Value)!["snapshot"], PlanningJsonContext.Default.PlanningSnapshot)!;
         var evidence = new Dictionary<string, (LLMRequest, LLMResponse?)>(StringComparer.Ordinal);
         var checks = new JsonArray();
+        var selections = new JsonObject();
         var subjectSelections = new HashSet<string>(StringComparer.Ordinal);
         foreach (var call in state.RequestAccounting.DistinctBy(c => c.Id))
         {
@@ -39,24 +40,34 @@ internal static partial class RuntimeAdmissionDiagnostic
                     if (answer.Value is JsonObject body && body["runtime"] is JsonArray runtimeEvidence)
                         for (var i = 0; i < runtimeEvidence.Count; i++)
                             if (runtimeEvidence[i]?["subject"] is not null) subjectSelections.Add(answer.Key + ":" + i);
+            var findings = candidate is null ? (int?)null : PlanningContractValidation.ValidateInstance(candidate, issued.StructuredOutputSchema!).Count;
+            // These original-schema domains contain only issued references and
+            // finite semantic choices. Do not export prompts, interpretation
+            // prose, model reasoning or arbitrary typed-hole values.
+            if (findings == 0 && candidate is JsonObject selected)
+                foreach (var answer in selected.Where(p => p.Key.StartsWith("execution_request_", StringComparison.Ordinal) ||
+                    p.Key.StartsWith("contribution_", StringComparison.Ordinal) || p.Key.StartsWith("coverage_", StringComparison.Ordinal) ||
+                    p.Key.StartsWith("applicability_", StringComparison.Ordinal) || p.Key.StartsWith("data_", StringComparison.Ordinal)))
+                    selections[call.Id + ":" + answer.Key] = answer.Value?.DeepClone();
             checks.Add(new JsonObject { ["requestId"] = call.Id, ["requestFingerprint"] = PlanningGraphCompiler.Fingerprint(request.Value),
                 ["receiptFingerprint"] = receipt is null ? null : PlanningGraphCompiler.Fingerprint(receipt.Value),
                 ["completionStatus"] = response?.CompletionStatus, ["malformedJson"] = malformed,
-                ["schemaFindings"] = candidate is null ? null : PlanningContractValidation.ValidateInstance(candidate, issued.StructuredOutputSchema!).Count });
+                ["schemaFindings"] = findings });
         }
         var manifest = await records.GetAsync(Collection, Tenant, id[..id.LastIndexOf(':')], Author, ct);
         var frozenModel = manifest is null ? null : JsonNode.Parse(manifest.Value)?["model"] as JsonObject;
         var client = new ReceiptOnlyClient(id, evidence, frozenModel);
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = client, LLMCapabilities = client }, (_, _) => Task.CompletedTask);
-        string? code = null, location = null;
+        string? code = null, location = null, message = null;
         try { await PlanningOperations.ResolveAsync(state, runtime, ct); }
-        catch (WorkflowRuntimeException error) { code = error.Code; location = error.Details?["location"]?.ToString(); }
+        catch (WorkflowRuntimeException error) { code = error.Code; location = error.Details?["location"]?.ToString(); message = error.Message; }
         var after = await records.GetAsync(Collection, Tenant, id + ":checkpoint", Author, ct);
         var afterBudget = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, id, EfPlanningSessionStore.Author, ct);
         if (after?.Value != captured.Value || afterBudget?.Value != budget?.Value) throw new InvalidOperationException("Archived evidence changed during audit.");
         Console.WriteLine(new JsonObject { ["identity"] = id, ["providerDispatches"] = 0, ["sourceUnchanged"] = true,
             ["checkpointFingerprint"] = PlanningGraphCompiler.Fingerprint(captured.Value), ["receiptChecks"] = checks,
             ["historicalSubjectSelections"] = subjectSelections.Count,
-            ["replayedReceipts"] = client.Replayed.Count, ["blocker"] = code, ["location"] = location }.ToJsonString());
+            ["replayedReceipts"] = client.Replayed.Count, ["blocker"] = code, ["location"] = location,
+            ["blockerMessage"] = message, ["originalBoundedSelections"] = selections }.ToJsonString());
     }
 }

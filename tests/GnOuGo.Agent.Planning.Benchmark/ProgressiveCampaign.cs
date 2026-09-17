@@ -28,10 +28,11 @@ internal static class ProgressiveCampaign
 {
     internal const string Tenant = "planner-progressive", Author = "GnOuGo.Agent.Planning.Benchmark";
     internal const string EvidenceCollection = "agent-planning-progressive-evidence-v5", CampaignCollection = "agent-planning-progressive-campaigns-v5";
-    internal const string CampaignId = "schema5-canonical-operations-stage1-1";
-    private const string PreviousCampaignId = "schema5-canonical-roots-stage1-1";
+    internal const string RetainedCampaignId = "schema5-canonical-operations-stage1-1";
+    internal static string CampaignId => MissionCampaign.Current?.WorkflowIdentity ?? RetainedCampaignId;
+    private static string PreviousCampaignId => MissionCampaign.Current is null ? "schema5-canonical-roots-stage1-1" : RetainedCampaignId;
     private const string ArchivedCampaignId = "schema5-ee487c8";
-    private const int MaximumStage = 1;
+    private static int MaximumStage => MissionCampaign.Current is null ? 1 : 3;
 
     internal static async Task RunAsync(string[] args, IKeyVaultRecordStore records, string root)
     {
@@ -102,6 +103,7 @@ internal static class ProgressiveCampaign
         if (args[0] == "ab") throw new InvalidOperationException("This campaign authorizes no reasoning A/B request.");
         ProgressiveRules.RequirePreflight(manifest);
         RequireFrozenProduction();
+        var intentGates = MissionCampaign.Current is null ? null : await RuntimeAdmissionDiagnostic.RequireMissionIntentAsync(records, ct);
         var services = new ServiceCollection().AddLogging();
         services.AddKeyVaultMcpPersistence(KeyVaultDatabasePathResolver.Resolve(null, root));
         services.AddAgentMcpPersistence(AgentMcpHostingExtensions.ResolveDatabasePath(null, root));
@@ -147,19 +149,27 @@ internal static class ProgressiveCampaign
         var model = new JsonObject { ["provider"] = runtime.Options.DefaultProvider, ["model"] = runtime.Options.DefaultModel,
             ["reasoningLevels"] = new JsonArray(levels.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()), ["structuredOutput"] = structured };
         var binaries = BinaryHashes(root);
+        MissionCampaign.Current?.RequireProduction(binaries);
         var policy = await File.ReadAllTextAsync(Path.Combine(root, "CodeReviewPolicy.txt"), ct);
         if (args[0] == "freeze")
         {
             var candidate = CreateManifest(evidence, frozen.Value, policy, binaries, model);
+            candidate["intentGates"] = intentGates?.DeepClone();
             var priorRecord = await records.GetAsync(CampaignCollection, Tenant, PreviousCampaignId, Author, ct) ?? throw new InvalidOperationException("The comparison campaign is missing.");
             var prior = JsonNode.Parse(priorRecord.Value)!;
-            foreach (var field in new[] { "model", "evidenceHash", "policyHash", "limits" })
+            foreach (var field in new[] { "model", "evidenceHash", "policyHash" })
                 if (!JsonNode.DeepEquals(prior[field], candidate[field])) throw new InvalidOperationException("Benchmark configuration drift: " + field);
+            var previousLimits = prior["limits"]!.DeepClone().AsObject();
+            if (MissionCampaign.Current is not null) previousLimits["maximumStage"] = MaximumStage;
+            if (!JsonNode.DeepEquals(previousLimits, candidate["limits"])) throw new InvalidOperationException("Benchmark budget or generation configuration drift.");
             foreach (var field in new[] { "promptHash", "catalogHash" })
                 if (!JsonNode.DeepEquals(prior["stages"]![0]![field], candidate["stages"]![0]![field])) throw new InvalidOperationException("Stage-1 input drift: " + field);
             var previousPath = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-progressive/{PreviousCampaignId}/gnougo-planning-v5.db");
             var previousState = await new EfPlanningSessionStore(new Contexts(previousPath, readOnly: true), records).LoadAsync(Tenant, prior["stages"]![0]!["session"]!.ToString(), ct)
                 ?? throw new InvalidOperationException("The comparison session is missing.");
+            // The current host projects the same policy through declared evidence.
+            // Normalize this typed overlay in memory, never in the retained session.
+            if (MissionCampaign.Current is not null) previousState.Request.Options = RuntimeAdmissionDiagnosticRules.WithTypedPolicy(previousState.Request.Options);
             candidate["requestConfigurationHash"] = RequestConfigurationHash(previousState);
             candidate["hostPolicyHash"] = PlanningGraphCompiler.Fingerprint(previousState.Request.Options["policy"]!.ToJsonString());
             candidate["previousCampaign"] = PreviousCampaignId;
@@ -168,6 +178,9 @@ internal static class ProgressiveCampaign
             await SaveAsync(records, candidate, ct); Console.WriteLine(candidate.ToJsonString()); return;
         }
         if (manifest is null) throw new InvalidOperationException("Freeze the campaign before any start.");
+        MissionCampaign.Current?.RequireDefinition(manifest);
+        if (MissionCampaign.Current is not null && !JsonNode.DeepEquals(manifest["intentGates"], intentGates))
+            throw new InvalidOperationException("Accepted Intent gate evidence changed.");
         if (!JsonNode.DeepEquals(manifest["binaries"], binaries) || !JsonNode.DeepEquals(manifest["model"], model) || manifest["evidenceHash"]!.ToString() != PlanningGraphCompiler.Fingerprint(frozen.Value) || manifest["policyHash"]!.ToString() != PlanningGraphCompiler.Fingerprint(policy))
             throw new InvalidOperationException("Frozen binaries, model or evidence changed; no dispatch authorized.");
         var stages = manifest["stages"]!.AsArray(); var stageEntry = stages[stage - 1]!.AsObject();
@@ -181,6 +194,7 @@ internal static class ProgressiveCampaign
         if (args[0] == "start")
         {
             ProgressiveRules.RequireStart(stages, stage, MaximumStage);
+            if (MissionCampaign.Current is not null && stage > 1) MissionCampaign.RequireApprovedWorkflow(stages[stage - 2]!.AsObject());
             stageEntry["status"] = "starting"; stageEntry["name"] = CampaignId + "-stage-" + stage;
             await SaveAsync(records, manifest, ct); // A crash never grants a second start.
             state = await service.StartAsync(stageEntry["name"]!.ToString(), ProgressiveScenarios.Prompt(stage, evidence, policy), false, ct);
@@ -212,6 +226,13 @@ internal static class ProgressiveCampaign
         {
             if (RequestConfigurationHash(state) != manifest["requestConfigurationHash"]?.ToString())
                 throw new InvalidOperationException("Effective host policy, model or budget settings differ from the frozen comparison session.");
+            if (MissionCampaign.Current is not null && state.Status == PlanningStatus.Approved)
+            {
+                await RecordApprovedRestartAsync(state, stageEntry, store, records, ct);
+                await SaveAsync(records, manifest, ct);
+                Console.WriteLine(await ReportAsync(manifest, contexts, records, store, ct));
+                return;
+            }
             if (args[0] == "ab") await ProgressiveDiagnostic.RunAsync(manifest, state, args[2], contexts, records, runtime, rates, ct);
             else if (args[0] == "execute")
             {
@@ -229,6 +250,7 @@ internal static class ProgressiveCampaign
                 if (args[0] == "accept")
                 {
                     ProgressiveRules.RequireReview(state, revision, hash, PlanningStatus.BehaviorReview);
+                    if (MissionCampaign.Current is not null) MissionBehaviorReview.Require(state, stage);
                     if (stage == 1) { ProgressiveRules.RequireStageOneDeclarations(state); ProgressiveRules.RequireStageOneOperations(state); }
                     if (stage == 3 && !new[] { "git_compare_refs", "copilot_review" }.All(m => state.Preparation!.Capabilities.Any(c => c.Method == m))) throw new InvalidOperationException("The benchmark implementation restriction is missing.");
                 }
@@ -240,6 +262,7 @@ internal static class ProgressiveCampaign
                 var priorRequests = state.RequestAccounting.Select(r => r.Id).Distinct(StringComparer.Ordinal).Count();
                 state = await service.SubmitAsync(state.Request.SessionId, new() { Kind = args[0] == "accept" ? "accept_behavior" : "approve", ExpectedRevision = revision, ArtifactHash = hash }, ct);
                 if (args[0] == "accept") ProgressiveRules.RecordBehaviorCheckpoint(stageEntry, state, hash, priorRequests);
+                else if (MissionCampaign.Current is not null) await RecordApprovedRestartAsync(state, stageEntry, store, records, ct);
             }
             else if (args[0] == "reject")
             {
@@ -251,6 +274,7 @@ internal static class ProgressiveCampaign
             }
             else if (args[0] == "justify")
             {
+                if (MissionCampaign.Current is not null) throw new InvalidOperationException("Mission stages require exact approved workflows; unsupported or clarification outcomes cannot pass.");
                 if (args.Length != 4 || state.Revision != long.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) || string.IsNullOrWhiteSpace(args[3])) throw new ArgumentException("campaign justify STAGE REVISION JUSTIFICATION");
                 if (!ProgressiveRules.CanPass(stage, state, true)) throw new InvalidOperationException("This outcome cannot pass the stage.");
                 stageEntry["justification"] = args[3];
@@ -287,6 +311,26 @@ internal static class ProgressiveCampaign
             Console.WriteLine("Campaign stopped: " + error.GetType().Name + "; private evidence encrypted.");
         }
         Console.WriteLine(await ReportAsync(manifest, contexts, records, store, CancellationToken.None));
+    }
+
+    private static async Task RecordApprovedRestartAsync(PlanningSnapshot state, JsonObject stage, EfPlanningSessionStore store, IKeyVaultRecordStore records, CancellationToken ct)
+    {
+        if (state.Status != PlanningStatus.Approved || state.ArtifactHash is null || state.ApprovedHash != state.ArtifactHash ||
+            state.Outcome is not PlanningValidWorkflow valid || valid.ArtifactHash != state.ArtifactHash)
+            throw new InvalidOperationException("The workflow does not own an exact artifact approval.");
+        var session = state.Request.SessionId;
+        var budget = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, session, EfPlanningSessionStore.Author, ct);
+        var restored = await store.LoadAsync(Tenant, session, ct) ?? throw new InvalidOperationException("Approved session is missing.");
+        var restart = await RuntimeAdmissionDiagnostic.VerifyReadOnlyRestartAsync(state, restored, ct);
+        PlanningArtifactApproval.Verify(restored);
+        var reloaded = await store.LoadAsync(Tenant, session, ct);
+        if (reloaded is null ||
+            JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSnapshot) != JsonSerializer.Serialize(reloaded, PlanningJsonContext.Default.PlanningSnapshot) ||
+            (await records.GetAsync(PlanningBudgetSink.Collection, Tenant, session, EfPlanningSessionStore.Author, ct))?.Value != budget?.Value)
+            throw new InvalidOperationException("Approved artifact re-entry changed persisted snapshot or accounting.");
+        restart["artifactHash"] = state.ArtifactHash;
+        stage["readOnlyRestart"] = restart; stage["approvedArtifactHash"] = state.ArtifactHash;
+        stage["status"] = "passed"; stage["outcome"] = "valid_workflow"; stage["revision"] = state.Revision;
     }
 
     private static async Task ObserveRepairAsync(PlanningSnapshot state, JsonObject stage, IKeyVaultRecordStore records, CancellationToken ct)
@@ -358,6 +402,7 @@ internal static class ProgressiveCampaign
     private static JsonObject CreateManifest(JsonObject evidence, string frozen, string policy, JsonObject binaries, JsonObject model) => new()
     {
         ["productionCommit"] = ProgressiveRules.ProductionCommit, ["binaries"] = binaries,
+        ["mission"] = MissionCampaign.Current?.Definition(),
         ["model"] = model, ["evidenceHash"] = PlanningGraphCompiler.Fingerprint(frozen),
         ["policyHash"] = PlanningGraphCompiler.Fingerprint(policy), ["abUsed"] = false,
         ["limits"] = new JsonObject { ["maximumStage"] = MaximumStage, ["stopAfterBehaviorAcceptance"] = false, ["diagnosticAbAllowed"] = false,
@@ -385,6 +430,7 @@ internal static class ProgressiveCampaign
     }
     private static void RequireFrozenProduction()
     {
+        if (MissionCampaign.Current is not null) { MissionCampaign.RequireProductionSources(); return; }
         using var process = Process.Start(new ProcessStartInfo("git") { ArgumentList = { "diff", "--quiet", ProgressiveRules.ProductionCommit, "--", "src" }, UseShellExecute = false })!;
         process.WaitForExit(); if (process.ExitCode != 0) throw new InvalidOperationException("Production code differs from the frozen commit.");
     }
