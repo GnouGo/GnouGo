@@ -61,15 +61,14 @@ public sealed class RuntimeAdmissionDiagnosticTests
     }
 
     [Theory]
-    [InlineData("local", null, true)]
-    [InlineData("local", "RETAINED LOCAL ACCEPTED", true)]
-    [InlineData("mixed", "RETAINED LOCAL ACCEPTED", false)]
+    [InlineData("mixed", "LOCAL PASS", true)]
     [InlineData("mixed", "stopped", false)]
     [InlineData("mixed", null, false)]
-    [InlineData("stage1", "RETAINED LOCAL ACCEPTED", false)]
-    [InlineData("stage2", "RETAINED LOCAL ACCEPTED", false)]
-    [InlineData("replacement", "RETAINED LOCAL ACCEPTED", false)]
-    public void OnlyLocalIsAuthorizedRegardlessOfPriorSuccess(string name, string? previous, bool allowed)
+    [InlineData("local", "LOCAL PASS", false)]
+    [InlineData("stage1", "LOCAL PASS", false)]
+    [InlineData("stage2", "LOCAL PASS", false)]
+    [InlineData("replacement", "LOCAL PASS", false)]
+    public void OnlyMixedIsAuthorizedWithCurrentAcceptedLocal(string name, string? previous, bool allowed)
     {
         var report = previous is null ? null : AcceptedLocal();
         if (report is not null) report["outcome"] = previous;
@@ -79,21 +78,31 @@ public sealed class RuntimeAdmissionDiagnosticTests
 
     private static JsonObject AcceptedLocal() => new()
     {
-        ["identity"] = RuntimeAdmissionDiagnosticRules.ComparisonIdentity + ":local", ["originalStatus"] = "stopped",
-        ["productionCommit"] = RuntimeAdmissionDiagnosticRules.ProductionCommit, ["outcome"] = "RETAINED LOCAL ACCEPTED",
-        ["canonicalResult"] = new JsonObject { ["kind"] = "local_processing", ["required"] = true },
-        ["snapshotFingerprintBefore"] = "snapshot", ["snapshotFingerprintAfter"] = "snapshot",
-        ["readOnlyRestart"] = new JsonObject { ["passed"] = true, ["providerCalls"] = 0, ["checkpointWrites"] = 0,
-            ["admissionFingerprint"] = "proof", ["snapshotFingerprint"] = "snapshot" }
+        ["campaignIdentity"] = RuntimeAdmissionDiagnosticRules.ComparisonIdentity,
+        ["productionCommit"] = RuntimeAdmissionDiagnosticRules.ProductionCommit, ["outcome"] = "LOCAL PASS",
+        ["liveEvidence"] = new JsonObject
+        {
+            ["manifest"] = new JsonObject { ["productionBinariesFingerprint"] = RuntimeAdmissionDiagnosticRules.ProductionBinariesFingerprint },
+            ["cases"] = new JsonArray(new JsonObject
+            {
+                ["case"] = "local", ["session"] = RuntimeAdmissionDiagnosticRules.ComparisonIdentity + ":local", ["status"] = "passed",
+                ["admissionCommitted"] = true, ["effectValidationPassed"] = true, ["admissionFingerprint"] = "proof",
+                ["readOnlyRestart"] = new JsonObject
+                {
+                    ["passed"] = true, ["providerCalls"] = 0, ["checkpointWrites"] = 0, ["snapshotFingerprint"] = "snapshot",
+                    ["admissionFingerprint"] = "proof", ["admissionProofVersions"] = new JsonArray(14),
+                    ["contributionProofVersions"] = new JsonArray(4), ["coverageProofVersions"] = new JsonArray(3),
+                    ["effectProofVersions"] = new JsonArray(7), ["dependencyProofVersions"] = new JsonArray(1)
+                }
+            })
+        }
     };
 
     [Theory]
-    [InlineData("canonicalResult")]
-    [InlineData("readOnlyRestart")]
-    [InlineData("identity")]
+    [InlineData("liveEvidence")]
+    [InlineData("campaignIdentity")]
     [InlineData("productionCommit")]
     [InlineData("outcome")]
-    [InlineData("snapshotFingerprintBefore")]
     public void IncompleteLocalEvidenceDoesNotAuthorizeMixed(string missing)
     {
         var report = AcceptedLocal(); report.Remove(missing);
@@ -103,17 +112,27 @@ public sealed class RuntimeAdmissionDiagnosticTests
     [Theory]
     [InlineData("providerCalls")]
     [InlineData("checkpointWrites")]
-    public void PriorRestartEvidenceCannotAuthorizeMixed(string field)
+    public void PriorRestartMustHaveZeroCallsAndWrites(string field)
     {
-        var report = AcceptedLocal(); report["readOnlyRestart"]![field] = 1;
+        var report = AcceptedLocal(); report["liveEvidence"]!["cases"]![0]!["readOnlyRestart"]![field] = 1;
         Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireCase("mixed", report));
     }
 
     [Theory]
-    [InlineData("originalStatus", "passed")]
-    [InlineData("snapshotFingerprintAfter", "changed")]
+    [InlineData("admissionProofVersions", 13)]
+    [InlineData("contributionProofVersions", 3)]
+    [InlineData("coverageProofVersions", 2)]
+    [InlineData("effectProofVersions", 6)]
+    [InlineData("dependencyProofVersions", 0)]
+    public void StaleAcceptedLocalProofCannotAuthorizeMixed(string field, int version)
+    {
+        var report = AcceptedLocal(); report["liveEvidence"]!["cases"]![0]!["readOnlyRestart"]![field] = new JsonArray(version);
+        Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireCase("mixed", report));
+    }
+
+    [Theory]
     [InlineData("productionCommit", "foreign")]
-    [InlineData("identity", "another:local")]
+    [InlineData("campaignIdentity", "another")]
     public void AlteredPriorEvidenceCannotAuthorizeMixed(string field, string value)
     {
         var report = AcceptedLocal(); report[field] = value;
@@ -136,8 +155,8 @@ public sealed class RuntimeAdmissionDiagnosticTests
     [InlineData(17, "intent", "low", true)] // Checkpoint accounting cannot masquerade as a dispatch limit.
     [InlineData(1, "intent_operations", "low", true)]
     [InlineData(1, "intent_operations_repair", "low", true)]
-    [InlineData(1, "intent_relations", "low", false)]
-    [InlineData(1, "intent_relations_repair", "low", false)]
+    [InlineData(1, "intent_relations", "low", true)]
+    [InlineData(1, "intent_relations_repair", "low", true)]
     [InlineData(1, "behavior", "low", false)]
     [InlineData(1, "construction", "low", false)]
     [InlineData(1, "intent", "medium", false)]

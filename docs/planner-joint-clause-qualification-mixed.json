@@ -1,0 +1,2248 @@
+{
+  "outcome": "VERIFIED BLOCKER \u2014 category C",
+  "campaignIdentity": "schema5-joint-clause-qualification-mixed-diagnostics-1",
+  "productionCommit": "d2ceac7cd85793baea732721f4e2b092c94be210",
+  "productionChanged": false,
+  "mixedStarts": 1,
+  "localRun": false,
+  "stage1Run": false,
+  "nextGate": "architecture review",
+  "scope": "Fresh MIXED admission diagnostic; no production patch, retry, replacement or live follow-up.",
+  "firstMeaningfulBlocker": {
+    "code": "INTENT_OPERATION_UNRESOLVED",
+    "message": "Clause semantic units give contradictory authority to overlapping evidence.",
+    "phase": "intent_operations",
+    "location": "/operations/@r_18bfa390e735cc81df86b716",
+    "firstInvalidRequest": 10,
+    "terminalDetectionAfterRequest": 11,
+    "decision": "contribution_clause_0799b094930035113a140f1e",
+    "clause": {
+      "reference": "r_18bfa390e735cc81df86b716",
+      "sourceId": "request",
+      "sourceFingerprint": "4d9621fb3038a45e153bca3b2d0af7b1cd7e9a0f08e0501d7f98b4aecb13150a",
+      "start": 179,
+      "endExclusive": 254,
+      "text": "Read the record identified by sourceId once from the external record store."
+    },
+    "requestedExecutionEvidence": {
+      "reference": "r_7e18d297f0b007fde1354f96",
+      "sourceId": "request",
+      "sourceFingerprint": "4d9621fb3038a45e153bca3b2d0af7b1cd7e9a0f08e0501d7f98b4aecb13150a",
+      "start": 179,
+      "endExclusive": 247,
+      "text": "Read the record identified by sourceId once from the external record"
+    },
+    "governingEvidence": {
+      "reference": "r_d6e6f485b36a24f5f68d858a",
+      "sourceId": "request",
+      "sourceFingerprint": "4d9621fb3038a45e153bca3b2d0af7b1cd7e9a0f08e0501d7f98b4aecb13150a",
+      "start": 218,
+      "endExclusive": 222,
+      "text": "once"
+    },
+    "originalSchemaValid": true,
+    "authorityOwner": "Joint clause contribution qualification: issued unit domain and deterministic overlap validator",
+    "knownFacts": "Owned coordinates and the rule prohibiting different contribution roles on overlapping spans were known to the engine. The issued independent unit alternatives still permitted this combined assignment.",
+    "semanticLimit": "The finding proves a mismatch with the current overlap contract. It does not by itself prove that describing the requested read as occurring once is semantically wrong. Review whether request containment and contradictory authority need distinct representations."
+  },
+  "stagedQualificationAnswers": [
+    {
+      "id": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:10:intent_operations:response_contract:93beceaf3191e878:page_ececf6a6ca83f7e47e85a5a47f6cdabcc3c14c6089d7992e76cd29921c38438f:86cdafc97bdd17440a91eedff622bf3bf0126b44f88a6e3e2596fc0675c46bca",
+      "answer": {
+        "contribution_clause_0799b094930035113a140f1e": {
+          "status": "qualified",
+          "units": [
+            {
+              "role": "requested_execution",
+              "scope": "r_18bfa390e735cc81df86b716",
+              "predicate": {
+                "start": "b0",
+                "end": "b11"
+              },
+              "evidence": [
+                "r_7e18d297f0b007fde1354f96",
+                {
+                  "start": "b0",
+                  "end": "b11"
+                }
+              ],
+              "effect": "operation_1169739a01f8b1ee16abd853",
+              "basis": "requested_owned_occurrence",
+              "owner": "r_7e18d297f0b007fde1354f96",
+              "boundary": "r_7e18d297f0b007fde1354f96"
+            },
+            {
+              "role": "governing_property",
+              "scope": "r_18bfa390e735cc81df86b716",
+              "evidence": {
+                "start": "b6",
+                "end": "b7"
+              }
+            }
+          ]
+        }
+      },
+      "requestKeys": [
+        "clientRequestId",
+        "provider",
+        "model",
+        "prompt",
+        "temperature",
+        "structuredOutputSchema",
+        "structuredOutputStrict",
+        "reasoning",
+        "useBackgroundMode",
+        "tools",
+        "maxTokens",
+        "requireOutputTokenLimit",
+        "disableTransportRetries"
+      ]
+    },
+    {
+      "id": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:11:intent_operations:response_contract:93beceaf3191e878:page_55dfe496881117846c5fcf6861851b74b4e3200f0f26ea6f193fc608a9720014:557c9b256bab256ca8fc2c694c1847a21ae8448477b8f58b23e5c67e7239fa2b",
+      "answer": {
+        "contribution_clause_53293919d52358ced7249623": {
+          "status": "qualified",
+          "units": [
+            {
+              "role": "requested_execution",
+              "scope": "r_d5142136f2b28a2fe1254696",
+              "predicate": {
+                "start": "b0",
+                "end": "b17"
+              },
+              "evidence": [
+                "r_b9c04327d386cd99d682be02"
+              ],
+              "effect": "operation_e226ff9ed819b5a645e7d9de",
+              "basis": "requested_result_production",
+              "owner": "decl_e10c86997aef941cbd55d2f1",
+              "boundary": "decl_e10c86997aef941cbd55d2f1"
+            }
+          ]
+        }
+      },
+      "requestKeys": [
+        "clientRequestId",
+        "provider",
+        "model",
+        "prompt",
+        "temperature",
+        "structuredOutputSchema",
+        "structuredOutputStrict",
+        "reasoning",
+        "useBackgroundMode",
+        "tools",
+        "maxTokens",
+        "requireOutputTokenLimit",
+        "disableTransportRetries"
+      ]
+    }
+  ],
+  "admission": {
+    "committed": false,
+    "canonicalOperations": [],
+    "dependencyEdges": [],
+    "supportingContributionsValidated": false,
+    "governingAttachments": 0,
+    "requestedExecutionUnitsSelected": 2,
+    "propertyUnitsSelected": 1,
+    "coverageReached": false,
+    "applicabilityReached": false,
+    "dependenciesReached": false,
+    "downstreamRelationsReached": false,
+    "completedAdmissionRestart": "not reached; no committed admission exists"
+  },
+  "offlineValidation": {
+    "solutionPassed": 3695,
+    "solutionSkipped": 1,
+    "solutionFailed": 0,
+    "assemblies": 29,
+    "plannerPassed": 1092,
+    "agentPassed": 550,
+    "focusedHarnessPassed": 152,
+    "publishedAotSmokePassed": true,
+    "publishedTrimmedSmokePassed": true,
+    "referenceCases": 24,
+    "syntheticHarnessCases": 2,
+    "providerDispatches": 0,
+    "retainedBuildFrontendPackageEvidenceHashVerified": true,
+    "logs": {
+      "harness-build.log": {
+        "path": "/tmp/joint-clause-mixed-1/harness-build.log",
+        "sha256": "fed2f31b545e5ecce4b4c747acb3bb527f9d7864c0d106e9c7c281b35697e498"
+      },
+      "test-build.log": {
+        "path": "/tmp/joint-clause-mixed-1/test-build.log",
+        "sha256": "b1e91e783fd43be23766f8fa0fdf444ff6a3581386d2ceb41bf6b64ee18318fa"
+      },
+      "focused-tests.log": {
+        "path": "/tmp/joint-clause-mixed-1/focused-tests.log",
+        "sha256": "48994dab57895662c674a01cdef8221eabddfaa64d87a1e37af55c3c368050d1"
+      },
+      "aot-smoke.log": {
+        "path": "/tmp/joint-clause-mixed-1/aot-smoke.log",
+        "sha256": "cc4974b912f47ba80759bf415865058edd130243b5b065b8d55ad33b0c7cb3c9"
+      },
+      "trim-smoke.log": {
+        "path": "/tmp/joint-clause-mixed-1/trim-smoke.log",
+        "sha256": "5f54ccaa81322a2a9eb53cbb28b18f962f3eb3e4f87760fae6527699ebf9746a"
+      },
+      "reference-selfcheck.log": {
+        "path": "/tmp/joint-clause-mixed-1/reference-selfcheck.log",
+        "sha256": "9f686a870f72a700efbe21e3d94c0d71eae57b32ae676ab697fde5460eeb65ba"
+      },
+      "harness-selfcheck.json": {
+        "path": "/tmp/joint-clause-mixed-1/harness-selfcheck.json",
+        "sha256": "8c35561fa02fde1ed8778d53425bb4646311e4b7c0550eaf2094fbb93257725c"
+      },
+      "historical-before.json": {
+        "path": "/tmp/joint-clause-mixed-1/historical-before.json",
+        "sha256": "1d51264a57031469099a3a8bb94882c81351be641428f9ca158d3c052344ce37"
+      },
+      "solution-tests.log": {
+        "path": "/tmp/joint-clause-mixed-1/solution-tests.log",
+        "sha256": "cf9738416e0ec17fbe8f3dd6b2bc9d34f96eb4a9219f544f4ff4d61fd0fb1596"
+      }
+    }
+  },
+  "preparedHarness": {
+    "campaignIdentity": "schema5-joint-clause-qualification-mixed-diagnostics-1",
+    "productionCommit": "d2ceac7cd85793baea732721f4e2b092c94be210",
+    "harnessBinaryHash": "1372ad0c77880a4b0e8633d7543fd7d8459d66412bce9a7eefd41e2aba5a7296",
+    "sourceHashes": {
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnosticRules.cs": "c6cf9851b2790c002635912759ee6fe4557cdc13f8559d9bf667b7ffe63773c3",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.MixedAuthorization.cs": "393eb236757dd942560c385e0e40de2b45deac901a85ed6bc844b1ba76cee789",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.cs": "b01eaba12ec4dde85d393efe5cd323833ed1ad081ddb435b44d3ce124cbd1d20",
+      "tests/GnOuGo.Agent.Planning.Benchmark/GnOuGo.Agent.Planning.Benchmark.csproj": "b813c8cdf3e45ca85e0bf478f13a732e2048f427441828606730b2cb89cf83a8",
+      "tests/GnOuGo.Agent.Server.Tests/RuntimeAdmissionDiagnosticTests.cs": "9dd6b221760fae058048e73eec6273e4e9b35d647bac7749266765e68bcceb9b"
+    }
+  },
+  "integrity": {
+    "productionCommit": "d2ceac7cd85793baea732721f4e2b092c94be210",
+    "productionSources": 17,
+    "productionDlls": 22,
+    "historicalReportHashes": 82,
+    "harnessBinaryHash": "1372ad0c77880a4b0e8633d7543fd7d8459d66412bce9a7eefd41e2aba5a7296",
+    "allHashesMatch": true,
+    "productionDiffEmpty": true,
+    "acceptedLocalAuditUnchanged": true,
+    "archiveFingerprint": "21bd71c8da95e7ce5799a69acbff2a62e02245834532dc503a10663b2c1bd718",
+    "archiveCheck": "unchanged",
+    "currentCheckpointFingerprint": "7a754d36d480f1a54dc68dfcc50d45344b698e030c67b6760dbf4b89460311c3"
+  },
+  "frozenEvidence": {
+    "productionSourceHashes": {
+      "src/GnOuGo.Agent.Server/Planning/PlanningPersistenceSmoke.cs": "56556a4ed65af1d20322398f7b87a822e932fc68eddbaaf0166be6fda73d86b4",
+      "src/GnOuGo.Flow.Core/Planning/PlanningContracts.cs": "41de47ff5e52c5f73c64ee495a87814b0bc5997e3691a6d6b292f5afa4e60040",
+      "src/GnOuGo.Flow.Core/Planning/PlanningDecisionState.cs": "0354330e6245e60fb748850a1fe60f81a6610f03eaf9143b90480cd3d9db9e68",
+      "src/GnOuGo.Flow.Planning/PlanningBaselineProjection.cs": "9206057129d12d35de7e1f40b103b99499ac731c9afe20f92528c25fe97aec00",
+      "src/GnOuGo.Flow.Planning/PlanningOperations.Applicability.cs": "0c2b0b09f5cd306a2fad67ce10d1266e19fef3457be6ab7ed43d9f60d7dacd92",
+      "src/GnOuGo.Flow.Planning/PlanningOperations.Contributions.cs": "370ab2838ebc305d2164abf24721b73d42fb5f0089d352b04489f1d8b30296c9",
+      "src/GnOuGo.Flow.Planning/PlanningOperations.Coverage.cs": "2b16e8139cbeffbe0ef517e06c3d58771a6ab0fb441d64395d7d267c9caefc40",
+      "src/GnOuGo.Flow.Planning/PlanningOperations.Decisions.cs": "7e86af97df3cdb04e3fe0a7cbee52029afec219f974a8d992bc14f4e64f1ee0b",
+      "src/GnOuGo.Flow.Planning/PlanningOperations.Dependencies.cs": "c40f2cae6722722798759b9a4b66e95f61570c2351b0914bd5290da53b922155",
+      "src/GnOuGo.Flow.Planning/PlanningOperations.Effects.cs": "254eaf36cffd41651f858cd7c8fc805ef4f4024165a82e9887acb26cb90738f5",
+      "src/GnOuGo.Flow.Planning/PlanningOperations.Evidence.cs": "92373993ddfad8d138322e6898b8ffb35f7e4940fd897bef11c5b92cb261ac44",
+      "src/GnOuGo.Flow.Planning/PlanningOperations.Governing.cs": "647e941eb5b3d7133d9f4a5c22dc80806e04346846d16901b4ae6d06a89056e9",
+      "src/GnOuGo.Flow.Planning/PlanningOperations.Necessity.cs": "f8c820e485089cd419b369757583f0e909149a143106ce1a701e7c3d8c6daa87",
+      "src/GnOuGo.Flow.Planning/PlanningOperations.Occurrences.cs": "c92b29877e6fecd53c7c93136182ebc5f33dbb4f23c8363a13f1eb2eccb19147",
+      "src/GnOuGo.Flow.Planning/PlanningOperations.RealizationCoverage.cs": "51ac72ff0a89937be0e0dd3ec1cf003925a7ed0dd8cf338a070826054977a853",
+      "src/GnOuGo.Flow.Planning/PlanningOperations.cs": "5146fcd4b5a265116a2f6f8d48d9175617d0d30f942a2a2c0940b93e982354ba",
+      "src/GnOuGo.Flow.Planning/PlanningSourceDecisions.cs": "291fcf31c8976b696a73a63d8f74204cec3850c531abd41a8d918cc85a483d55"
+    },
+    "testedBinaryHashes": {
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.AI.Core.dll": "eac617674166194813358057c1fb242b63fecb635f2911ad48c594cdb731962e",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.AI.Local.dll": "c3ed07e16374cb9f79244ee8e1fc468963092ba55d4a56fcdcaa4d0dfb39dbb6",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Mcp.dll": "67c67d3aa77e7858b4e02d8f0b26213459fe394a1e4da63c15d1b42db2d42dd3",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Server.dll": "c102df34973b1fa54ad45de99164e89ba8d8645246e35c5e2d4d61d0ea6c4e8c",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Shared.dll": "870b4617fda755f40622a65bca468ec5a917174cc5d41f1e66b0d985825189b4",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Assets.Animation.dll": "73bc9174600bf1e2a5aa4d6458b115f891174adbd15d7c3a4b58c286ea11572b",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Assets.Bears.dll": "2dc1eaeb6ccb465a398d9dd25cd43016527d03a0ef7007a1c308fef905a269d0",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Auth.Core.dll": "c69923a8cd7d69ed3abfcff3fc010a634175591951de362d12e68669515e5c7f",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Diff.Core.dll": "651a2303a636d11367453b78c88902fe3193934eee892afb614527830731be7f",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.DocIngestor.Core.dll": "9d28890452ae3f8c8ba1a1cde91eab5b9cbda2cf6cd142e88e487d2fa98ce659",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.DocIngestor.Mcp.dll": "8043092f057d35909cdc48b550dc4e25258804e8aa45b5bd93d5af192a0cfa6f",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Files.Server.dll": "75fe31d322d275f6cf20a80ce5147af95fdc0980631928ef941e96081e4b8f9a",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Core.dll": "86da97cbf1dc3436b33b153f123c7bcd730b9217ce94b3f77caebebc3d720d37",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Integrations.dll": "86daff7d3d292b8a9c6a16ae1a7ec6b4128bc7034d48afe8c477dffcfbc287d4",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Mermaid.dll": "1eff3bd3139154016fdd8d9feebbaae43a811de1d857bdb14ace3e9c9b5f9185",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll": "33e11aed107a347d2d74650b80ae1978e2b7abd137d3642ae43109701f2b834d",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.KeyVault.Core.dll": "8f0b07bf780e6836efe8b03198a85844319da6d6e1b35b711835b4b52d2feed4",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.KeyVault.Mcp.dll": "987c1f89eab5e0c04ed799c88da00676d3b17670a126e87206b852e64834279b",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Mcp.Core.dll": "18346311875627d6aa85c05e46f38cad4860d181d75e4cc9c634bd285be4bfd5",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Observability.Core.dll": "614717a33cf2329b893c0eedea7c89cf944ccde367ded0bbd8ee69938a907aca",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.OtlpCollector.Server.dll": "e924957f4fccefd00db8e954df489d603eafc5a15a8516a748d3f49f4ffcb204",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Workspace.dll": "c50e7b1fb6ad278eeb632c7f0c496e93a5d08274a0471330bb0268b2133069dc"
+    },
+    "unchangedFixtureSourceHashes": {
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeEvidenceDeclarations.json": "8644cd23ddc65e0a7545caaacb660cbeb80d5989c6e8f5e8c72258b1e50bfd32",
+      "tests/GnOuGo.Flow.Planning.Tests/Fixtures/operation-admission-stage1.json": "890cdd12f85a420722887aaf12a00a4db5e8186e996613a22d18fed2a33cb373"
+    }
+  },
+  "historicalLocalAudit": {
+    "identity": "schema5-joint-clause-qualification-diagnostics-rerun-1:local",
+    "providerDispatches": 0,
+    "sourceUnchanged": true,
+    "checkpointFingerprint": "2691daaebc9decc3ce468eff0aabbdf3ac4a0f27d868e9176ae846739ff80119",
+    "receiptChecks": [
+      {
+        "requestId": "schema5-joint-clause-qualification-diagnostics-rerun-1:local:0:1:intent:response_contract:93beceaf3191e878:page_cc305cd9ee8eba9ccc49a773393d3bd492f50cf0a3623044d5d30ddedeb05644:9880b51962952fd4bfb11937a6d795915659d7aef2f5b06d25cb127cd6120e4e",
+        "requestFingerprint": "243ea1ff6d89d39851f2e29291f008ddd8abbe3aa9f85a89fa31c1c5fa963064",
+        "receiptFingerprint": "51cab40a61412eb2776a4736e89ee29a147875a86f1743945d3bb71bc6c9e841",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-diagnostics-rerun-1:local:0:2:intent:response_contract:93beceaf3191e878:page_933b32031f9ebfc9b510eec8eb4861d826afe644cfa8f7cf861c03604f799ed7:7d2cff86fa4f60bc1c555a8d223c7e20e627105e94f607594377af3e078e8a47",
+        "requestFingerprint": "ea962321ee0985b5c4ce03108e02122bfa3b2ad568f573e1e494a34dc87ed921",
+        "receiptFingerprint": "7cc217103209bee5876fd43272201ace54528736f4f34a5b8de435130eb924f2",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-diagnostics-rerun-1:local:0:3:intent:response_contract:93beceaf3191e878:page_371b3af07b1f958bd952f57eef360d40481dacd1fe2c885d6966b4d1b183312a:09b98f09fe5b4c4f9af7916aaf2530ff7011bec8423af9e3d4eae42fed6618c5",
+        "requestFingerprint": "e7ef20bfc804a53da607f8ae10a5a3e74646b5b29ff5191d57f1de6320935157",
+        "receiptFingerprint": "77d5a2979271ea7800cbe7dd6e1d5ee8f97512622f7eca51ca32991e78e404e9",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-diagnostics-rerun-1:local:0:4:intent:response_contract:93beceaf3191e878:page_32efbe49ce4111653638cb9dc01c375ccbf74ce55ebbadca48febc6b49167b06:b8dd51227cb43ffa7c37f60b22a84c673cc5c9e4929f2175f7202e8be10f943b",
+        "requestFingerprint": "d34ac6563f091384b863f7a9b0c5d1117a47a32b80886a279598b5bfab65b22b",
+        "receiptFingerprint": "4d12b050b52c68c99d35f7ee420547ba869911b8d068cd59ab7c7dced4ac72d5",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-diagnostics-rerun-1:local:0:5:intent:response_contract:93beceaf3191e878:page_0baf184a70dc66621e29163dfd207bc547194e6135f31bf9a5fc8ec7bd08a0b2:abcbb39135e5225fe3791062736fd476bd4406017f914a939efc944a96e05ada",
+        "requestFingerprint": "65f6f837d4550b60bbdefe9a7aab85a494da87e6fbc50aa275c6d79f23aa26f2",
+        "receiptFingerprint": "739e098e0af50c314488b31391a39e702b372f911a55ab3d61e4f56606720421",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-diagnostics-rerun-1:local:0:6:intent:response_contract:93beceaf3191e878:page_891e8820c5d3ccf0fc91e840805d3f55e2ee992e698057fdc9077b34a7eb578a:9f6797208928e7d5283a7862db1f1908c8e19aa8f18dcfc3c9ff659eda530514",
+        "requestFingerprint": "e61f16803773dde216b8fab0ff3a39a875252b9ca322b649231493f850aa4d7c",
+        "receiptFingerprint": "ca61fc1c6597513493834c8a441ff0c1ee2ffe5c6d21b74c066aeba7dd239827",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-diagnostics-rerun-1:local:0:7:intent:response_contract:93beceaf3191e878:page_dbc83fd8cd80c89d7f949b4c2e36874640a33700f793b1bd75539575064c3a10:e26694291ad12297de77a05d067a0456f6d90a82e474c7cee6528e2332ed178f",
+        "requestFingerprint": "84167f9b4ccc54c3e0304ce9f2a9d3daa9ae12a5661570c5c84dd63bd9944ae0",
+        "receiptFingerprint": "151b50e7ed715bb91d37534c47ba91ddcf28e0711576407a80894d75e64622eb",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-diagnostics-rerun-1:local:0:8:intent:response_contract:93beceaf3191e878:page_37c8265fbd859129984cd9862dce3fadd099d89ea650fcc1054e390e28aff7c7:eac6c0ea86eafb068babff8dfcbbaf3e668d8970ef061eec68bbc0716f50e5fd",
+        "requestFingerprint": "e0ee64aa59e9044f934117dfc011748a77503dc03d306a38fb0a8ddacfc6df64",
+        "receiptFingerprint": "6cba7084799538d2472c403870682c066ce69f3549247655c92b1badb4b41d2d",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-diagnostics-rerun-1:local:0:9:intent_operations:response_contract:93beceaf3191e878:page_656d8f25f4e31a23896c33394de8b6e95b1633ab52ba350e193e586bf8faf08e:553e4027be374b3a384a19576190fbce4b44af963caa3ec75ba68b6487db64cc",
+        "requestFingerprint": "0c62edbb1aa6947b54a0a279b8452ebe7185ad7f4d53110767722357357d0c21",
+        "receiptFingerprint": "dbc8db60a15b2602868c935f3fa759e2d55e0cac7ab62a9a666251c1acd4a4db",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-diagnostics-rerun-1:local:0:10:intent_operations:response_contract:93beceaf3191e878:page_fe1b9876bf98f732f0721db217ade74160e76a52762611f02214964e41e9010f:b28a53a3e15af965839ff65c50a60d83faa99f5e2a12be1ea38e7d5d76739aec",
+        "requestFingerprint": "733f4ad55a57f99eaefff4ea65f7566c3bea82c6c3e19ad4a4e7f9195449f00c",
+        "receiptFingerprint": "666c0ddcd63d0dbf207a82051e26137bca890f5a8a285387907e9722834afa15",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-diagnostics-rerun-1:local:0:11:intent_operations:response_contract:93beceaf3191e878:page_62742ed41b24bef3c39f54338b6a18217dcdd48fceb86bca978f760773e0cd9f:b3d8431c6d2ac29e17120c65c99dcd597de02c5667ab368de60e5440d6b55658",
+        "requestFingerprint": "070b949f822ec64466f33cb52f3789f8476865e5d6716e4981d3345f3282dfec",
+        "receiptFingerprint": "3978dec5533bc08e4d371fb9b3cbbb9e8720a633bec9d9a7e2ead3b24273af1b",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-diagnostics-rerun-1:local:0:12:intent_operations:response_contract:93beceaf3191e878:page_1eecce64148130c49d5f8a60b5979a366e70fe6d0cb073a883222edc500b7564:36a59174b3ede60cb18dc8ebe40e2f628efff70034625bff3c17fe85433aa559",
+        "requestFingerprint": "29ee3018c3c1ba7ed754c4a3d1499fa59446911be080402e11726a6ed34fab2a",
+        "receiptFingerprint": "da42bfd2180af0b201248a2de91849ec863b763a720eaafad4ddd9872db37d4e",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      }
+    ],
+    "historicalSubjectSelections": 0,
+    "replayedReceipts": 0,
+    "blocker": null,
+    "location": null
+  },
+  "currentOriginalSchemaReplay": {
+    "identity": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed",
+    "providerDispatches": 0,
+    "sourceUnchanged": true,
+    "checkpointFingerprint": "7a754d36d480f1a54dc68dfcc50d45344b698e030c67b6760dbf4b89460311c3",
+    "receiptChecks": [
+      {
+        "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:1:intent:response_contract:93beceaf3191e878:page_c565c6d9f53e13484ecf23d68c6154986f6f641a4093eceaa1c2ee365a13f7c3:edc37aff915b8110c5e2902ed8cfd46ce229df2d107a39f3c846b41d10446ffc",
+        "requestFingerprint": "5fe2d0987d7dad5259708af680211ecac35f86c839931ecc234ed455e112c54e",
+        "receiptFingerprint": "9697509e2c93e0eb5314161d1e1bd052aa9840cc381575294a3a46ed7dec327b",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:2:intent:response_contract:93beceaf3191e878:page_29071ca238b61b481f3d65686c7e3f1d027aa3400ce61bdc4b133a55201cbc36:0b67a0a3965be2e18da31e72ec7a18510ba5b24cf0f3c3ee4375ef1a12a96cf4",
+        "requestFingerprint": "8eb58c931c09fd599cfab258b2093941f36021c33bc4b281ecd8b6690bddf920",
+        "receiptFingerprint": "07f4e0a9ae64bcecd56796f28e68ba3793ac74eca789ab8bf51a07263038c1f9",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:3:intent:response_contract:93beceaf3191e878:page_8406a9fae90c40d183081860ef6149a0b5ae5b8e92ae9cba0f0da2462e93cbbd:926473827fe144b4710cba9a9d156509633a75ba038e646daf542bebc63e5374",
+        "requestFingerprint": "b15662511ddde13a6daf3ec2574c1569b8c55cbd0dc9bd4468b25432015bffcb",
+        "receiptFingerprint": "00e4e19a27112085554a0cdd676002c5d352fc74e3038d4d24d70d4e2db96ba8",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:4:intent:response_contract:93beceaf3191e878:page_c90a54dc70b8f1c24f87a07d1cf4e58e36473ecdbecb4c94aa0938da84ff784a:ad501fcd02b51159ef766e32008d9220437e06db58bca7f477a3f9f523947ded",
+        "requestFingerprint": "274aae2a222634e004a47ef950b70a089f6ee39d6172189953290853e080163c",
+        "receiptFingerprint": "456696649789e1a28cf9a423f721f08f89654cf0773f32f373c7cf7a802c4c2f",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:5:intent:response_contract:93beceaf3191e878:page_8e69ed4d1e3d4ed8499a2bde247d4f7aed6cf9b49723c3baa08ce693a4a322c0:9bdaf08ba429e71c7455852f03e58516445333a26867f4f677e9ba52a51b43a1",
+        "requestFingerprint": "f63e87a3c7f2e71239919d0bdb3c189083cb26bdfbe9b31f0df3201ad129ca12",
+        "receiptFingerprint": "91aec7b2a950165f4ebd432a555bbf00572266d8fa9598ff0205e67ef6df6be5",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:6:intent:response_contract:93beceaf3191e878:page_1e7671b93018eb42cc9bbb467a249a85fa0a4cebc3dccedea72e354c1f408ec5:be939aed900989fd3314bfe15631766f3dbcdbb408d6c8ed73cfd7d25ceeaa3b",
+        "requestFingerprint": "b570d2de53ebd8faf8f72d3c610aa7a6d352fd73aa45b03d49f9e87e61d9aa74",
+        "receiptFingerprint": "fee8567a067b2862de8d4e297fa428b8a0e44ae8c9dad6d3c1bc7d2c535b15b7",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:7:intent:response_contract:93beceaf3191e878:page_3cf914f16d07ace126230e78081690b46cede13db402605d2bfd897991641c07:a64009bfd1f03465bb61986cd791c3911c0e5ace1e22029df50b0fe0a216018a",
+        "requestFingerprint": "833c16475e324e2db500ee98bbb10929b4db71ffb813f7be0b2733cd3ed20c91",
+        "receiptFingerprint": "eb3eb3b8a7963d2760c4c683177eb5f64ba676dc353358e93054b51cb7198d7d",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:8:intent:response_contract:93beceaf3191e878:page_773b1b0a302298d60882a9ab25706033c594acb6e409aa0a74834c2a9586a326:3b78fd0f2840c30ac7c5264b821ac77fe9b1490ed924318c1e6acf436d287aff",
+        "requestFingerprint": "0765a10a83fdb4a6f6ccf942864494f4f05d569f97877f8e525df9bbe961c3d6",
+        "receiptFingerprint": "6d35a0a3dc4a950493451374936bee57cb23af11361c3d8d44a3178ffe00116e",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:9:intent:response_contract:93beceaf3191e878:page_a7246f8950ee4618efa23602d8056b80113082e6ad934e3bc084fe311963764c:c4d3aaff051a8067b7f06b974dec64023b6cd22cf71297e09d05bff50a59f4e5",
+        "requestFingerprint": "cce5a314070ba7cc6d2ef8425253bd1b67eb4f76ac56d92b739c1ddbd83d696d",
+        "receiptFingerprint": "aeecf2821df1953bbcbefbb9f88a593c00f098feeeec6df1d459dec66fdda730",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:10:intent_operations:response_contract:93beceaf3191e878:page_ececf6a6ca83f7e47e85a5a47f6cdabcc3c14c6089d7992e76cd29921c38438f:86cdafc97bdd17440a91eedff622bf3bf0126b44f88a6e3e2596fc0675c46bca",
+        "requestFingerprint": "f2c0f6ea3d18ed4450c92c26b3e4c5447bcd740942295caf6a0ebda55edd5d6c",
+        "receiptFingerprint": "1c67264ff210cffe615418c48d5e542a8e83b38249f175a422e4bea68cbc4b74",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:11:intent_operations:response_contract:93beceaf3191e878:page_55dfe496881117846c5fcf6861851b74b4e3200f0f26ea6f193fc608a9720014:557c9b256bab256ca8fc2c694c1847a21ae8448477b8f58b23e5c67e7239fa2b",
+        "requestFingerprint": "bdf42aa9651440318c293276b7b527527e39a103bb37713d753e1227261044a5",
+        "receiptFingerprint": "768b5ab7f45dd17b85f1b1073adacb29c4d8b63a7936fb0cd0588f8ed43f0dba",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      }
+    ],
+    "historicalSubjectSelections": 0,
+    "replayedReceipts": 0,
+    "blocker": "INTENT_OPERATION_UNRESOLVED",
+    "location": "/operations/@r_18bfa390e735cc81df86b716"
+  },
+  "accountingClarification": {
+    "runtimeFacetsEmbeddedInInterpretation": true,
+    "admissionCallHeadroom": null,
+    "remainingDurableCallAllowanceAtStop": 5,
+    "unknownUsage": false,
+    "occurrenceAndDependencyZeroIsEarlyStopNotConvergence": true,
+    "firstInvalidAssignmentPrecededTerminalValidation": "All contribution pages were collected before joint contribution validation; request 11 was already completed when request 10 overlap failed validation.",
+    "providerCallSavingsClaimed": false
+  },
+  "liveEvidence": {
+    "identity": "schema5-joint-clause-qualification-mixed-diagnostics-1",
+    "manifest": {
+      "commit": "d2ceac7cd85793baea732721f4e2b092c94be210",
+      "binaries": {
+        "GnOuGo.AI.Core.dll": "eac617674166194813358057c1fb242b63fecb635f2911ad48c594cdb731962e",
+        "GnOuGo.AI.Local.dll": "c3ed07e16374cb9f79244ee8e1fc468963092ba55d4a56fcdcaa4d0dfb39dbb6",
+        "GnOuGo.Agent.Mcp.dll": "67c67d3aa77e7858b4e02d8f0b26213459fe394a1e4da63c15d1b42db2d42dd3",
+        "GnOuGo.Agent.Planning.Benchmark.dll": "1372ad0c77880a4b0e8633d7543fd7d8459d66412bce9a7eefd41e2aba5a7296",
+        "GnOuGo.Agent.Server.dll": "c102df34973b1fa54ad45de99164e89ba8d8645246e35c5e2d4d61d0ea6c4e8c",
+        "GnOuGo.Agent.Shared.dll": "870b4617fda755f40622a65bca468ec5a917174cc5d41f1e66b0d985825189b4",
+        "GnOuGo.Assets.Animation.dll": "73bc9174600bf1e2a5aa4d6458b115f891174adbd15d7c3a4b58c286ea11572b",
+        "GnOuGo.Assets.Bears.dll": "2dc1eaeb6ccb465a398d9dd25cd43016527d03a0ef7007a1c308fef905a269d0",
+        "GnOuGo.Auth.Core.dll": "c69923a8cd7d69ed3abfcff3fc010a634175591951de362d12e68669515e5c7f",
+        "GnOuGo.Diff.Core.dll": "651a2303a636d11367453b78c88902fe3193934eee892afb614527830731be7f",
+        "GnOuGo.DocIngestor.Core.dll": "9d28890452ae3f8c8ba1a1cde91eab5b9cbda2cf6cd142e88e487d2fa98ce659",
+        "GnOuGo.DocIngestor.Mcp.dll": "8043092f057d35909cdc48b550dc4e25258804e8aa45b5bd93d5af192a0cfa6f",
+        "GnOuGo.Files.Server.dll": "75fe31d322d275f6cf20a80ce5147af95fdc0980631928ef941e96081e4b8f9a",
+        "GnOuGo.Flow.Core.dll": "86da97cbf1dc3436b33b153f123c7bcd730b9217ce94b3f77caebebc3d720d37",
+        "GnOuGo.Flow.Integrations.dll": "86daff7d3d292b8a9c6a16ae1a7ec6b4128bc7034d48afe8c477dffcfbc287d4",
+        "GnOuGo.Flow.Mermaid.dll": "1eff3bd3139154016fdd8d9feebbaae43a811de1d857bdb14ace3e9c9b5f9185",
+        "GnOuGo.Flow.Planning.dll": "33e11aed107a347d2d74650b80ae1978e2b7abd137d3642ae43109701f2b834d",
+        "GnOuGo.KeyVault.Core.dll": "8f0b07bf780e6836efe8b03198a85844319da6d6e1b35b711835b4b52d2feed4",
+        "GnOuGo.KeyVault.Mcp.dll": "987c1f89eab5e0c04ed799c88da00676d3b17670a126e87206b852e64834279b",
+        "GnOuGo.Mcp.Core.dll": "18346311875627d6aa85c05e46f38cad4860d181d75e4cc9c634bd285be4bfd5",
+        "GnOuGo.Observability.Core.dll": "614717a33cf2329b893c0eedea7c89cf944ccde367ded0bbd8ee69938a907aca",
+        "GnOuGo.OtlpCollector.Server.dll": "e924957f4fccefd00db8e954df489d603eafc5a15a8516a748d3f49f4ffcb204",
+        "GnOuGo.Workspace.dll": "c50e7b1fb6ad278eeb632c7f0c496e93a5d08274a0471330bb0268b2133069dc"
+      },
+      "archiveFingerprint": "21bd71c8da95e7ce5799a69acbff2a62e02245834532dc503a10663b2c1bd718",
+      "comparisonIdentity": "schema5-joint-clause-qualification-diagnostics-rerun-1",
+      "comparisonProductionCommit": "d2ceac7cd85793baea732721f4e2b092c94be210",
+      "comparisonSourceOptionsFingerprint": "848c034ddf61d6acbbf90b2b04cb9a1744394b3d5b6cc06f8b8a842e0af7c51d",
+      "expectedConfigurationAddition": "None; effective typed host policy and existing options unchanged from the comparison LOCAL.",
+      "exchangeRatePrerequisite": {
+        "status": "passed",
+        "checkedAtUtc": "2026-09-17T09:43:24.770179+00:00",
+        "sourceCurrency": "USD",
+        "targetCurrency": "EUR",
+        "quoteChecks": 1,
+        "modelCalls": 0,
+        "quotePresent": true,
+        "quoteDateUtc": "2026-09-16T00:00:00+00:00"
+      },
+      "authorizedCases": [
+        "mixed"
+      ],
+      "acceptedLocalEvidence": {
+        "identity": "schema5-joint-clause-qualification-diagnostics-rerun-1:local",
+        "outcome": "LOCAL PASS",
+        "manifestFingerprint": "939d9737a9c98ed4598a95fc88ee401ac918c98117ccbecf616b93d6964fdd5b",
+        "reportFingerprint": "5a61d9c980d449f26fbd98035c13bdcd43bff5e039345bf84c9ef42f5cf30873",
+        "checkpointFingerprint": "2691daaebc9decc3ce468eff0aabbdf3ac4a0f27d868e9176ae846739ff80119",
+        "budgetFingerprint": "f05aa96ee2f5b3e841254914c2e18cdf4e8215d8b63b52b1b73b9f7ec2d81778",
+        "snapshotFingerprint": "f50b3f708bf4c7751e3d263d416432488cecb640b640cd7b862309cf83184db7"
+      },
+      "productionBinariesFingerprint": "2f10e8ca79f6d3e6c159680acbd0a009d1acd5d8d99dc976e6f8e9c174c4f962",
+      "historicalLocalStatus": "Comparison LOCAL passed; all earlier stopped archives remain unchanged. No answers or receipts are imported.",
+      "model": {
+        "provider": "OpenAi",
+        "model": "gpt-5.5-2026-04-24",
+        "reasoningLevels": [
+          "low",
+          "medium",
+          "high",
+          "max"
+        ],
+        "structuredOutput": true
+      },
+      "sourceOptionsFingerprint": "848c034ddf61d6acbbf90b2b04cb9a1744394b3d5b6cc06f8b8a842e0af7c51d",
+      "transportConfigurationFingerprint": "47c745160512a0664b07c867827b1a9547a47df55e7cefcbaa18ebc00ed618ac",
+      "catalogFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "cases": [
+        {
+          "name": "local",
+          "promptHash": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+          "declarationFixtureHash": "3120759bcc1a5590d8b7f6ee612a6f350bfd587c626c27f96c80868de47fe6fb",
+          "preflight": {
+            "interpretationPages": 8,
+            "sourceDecisions": 8,
+            "modelRuntimeDecisionsRemoved": 0,
+            "declarationFixtureValidated": true
+          },
+          "status": "not_run"
+        },
+        {
+          "name": "mixed",
+          "promptHash": "4d9621fb3038a45e153bca3b2d0af7b1cd7e9a0f08e0501d7f98b4aecb13150a",
+          "declarationFixtureHash": "5c9ed2adcc85b892ee5022b9e7218fd2512f4415e6785cdea19748631f7dbbf5",
+          "preflight": {
+            "interpretationPages": 9,
+            "sourceDecisions": 9,
+            "modelRuntimeDecisionsRemoved": 0,
+            "declarationFixtureValidated": true
+          },
+          "status": "not_run"
+        }
+      ],
+      "limits": {
+        "callsPerCase": 16,
+        "reasoning": "low",
+        "input": 12000,
+        "dispatchTarget": 9600,
+        "output": 8192,
+        "singletonOutput": 16384
+      },
+      "declarationEvidence": "Supplied canonical ports and exact owned attachment fixtures; no live declaration convergence claimed."
+    },
+    "cases": [
+      {
+        "case": "local",
+        "status": "not_run"
+      },
+      {
+        "session": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed",
+        "revision": 0,
+        "status": "stopped",
+        "outcome": null,
+        "phase": "intent",
+        "artifactHash": null,
+        "approvedHash": null,
+        "finalArtifactHash": null,
+        "modelCalls": 11,
+        "reservations": 11,
+        "unverifiableDispatches": 0,
+        "journalReservationsWithoutReceipt": 0,
+        "decisionPages": 11,
+        "pagesByPhase": [
+          {
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "pages": 9,
+            "splitChildren": 0
+          },
+          {
+            "phase": "intent_operations",
+            "status": "completed",
+            "correction": false,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "pages": 2,
+            "splitChildren": 0
+          }
+        ],
+        "outputPartitions": 0,
+        "outputEscalations": 0,
+        "semanticCorrectionPages": 0,
+        "pageLineage": [
+          {
+            "id": "page_c565c6d9f53e13484ecf23d68c6154986f6f641a4093eceaa1c2ee365a13f7c3",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:1:intent:response_contract:93beceaf3191e878:page_c565c6d9f53e13484ecf23d68c6154986f6f641a4093eceaa1c2ee365a13f7c3:edc37aff915b8110c5e2902ed8cfd46ce229df2d107a39f3c846b41d10446ffc",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_0a5d7ec4399b74f67a7de145"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_29071ca238b61b481f3d65686c7e3f1d027aa3400ce61bdc4b133a55201cbc36",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:2:intent:response_contract:93beceaf3191e878:page_29071ca238b61b481f3d65686c7e3f1d027aa3400ce61bdc4b133a55201cbc36:0b67a0a3965be2e18da31e72ec7a18510ba5b24cf0f3c3ee4375ef1a12a96cf4",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_4438352afa24e792b3ca96a7"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_8406a9fae90c40d183081860ef6149a0b5ae5b8e92ae9cba0f0da2462e93cbbd",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:3:intent:response_contract:93beceaf3191e878:page_8406a9fae90c40d183081860ef6149a0b5ae5b8e92ae9cba0f0da2462e93cbbd:926473827fe144b4710cba9a9d156509633a75ba038e646daf542bebc63e5374",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_4cb8bc9a623777c085c844ff"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_c90a54dc70b8f1c24f87a07d1cf4e58e36473ecdbecb4c94aa0938da84ff784a",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:4:intent:response_contract:93beceaf3191e878:page_c90a54dc70b8f1c24f87a07d1cf4e58e36473ecdbecb4c94aa0938da84ff784a:ad501fcd02b51159ef766e32008d9220437e06db58bca7f477a3f9f523947ded",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_6a3974e4c09dcae08c8a50ad"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_8e69ed4d1e3d4ed8499a2bde247d4f7aed6cf9b49723c3baa08ce693a4a322c0",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:5:intent:response_contract:93beceaf3191e878:page_8e69ed4d1e3d4ed8499a2bde247d4f7aed6cf9b49723c3baa08ce693a4a322c0:9bdaf08ba429e71c7455852f03e58516445333a26867f4f677e9ba52a51b43a1",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_7f6b5bc18bd6368f38f29518"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_1e7671b93018eb42cc9bbb467a249a85fa0a4cebc3dccedea72e354c1f408ec5",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:6:intent:response_contract:93beceaf3191e878:page_1e7671b93018eb42cc9bbb467a249a85fa0a4cebc3dccedea72e354c1f408ec5:be939aed900989fd3314bfe15631766f3dbcdbb408d6c8ed73cfd7d25ceeaa3b",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_a218b18a55a80a681f0ae364"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_3cf914f16d07ace126230e78081690b46cede13db402605d2bfd897991641c07",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:7:intent:response_contract:93beceaf3191e878:page_3cf914f16d07ace126230e78081690b46cede13db402605d2bfd897991641c07:a64009bfd1f03465bb61986cd791c3911c0e5ace1e22029df50b0fe0a216018a",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_be79de32c219c5e76d284999"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_773b1b0a302298d60882a9ab25706033c594acb6e409aa0a74834c2a9586a326",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:8:intent:response_contract:93beceaf3191e878:page_773b1b0a302298d60882a9ab25706033c594acb6e409aa0a74834c2a9586a326:3b78fd0f2840c30ac7c5264b821ac77fe9b1490ed924318c1e6acf436d287aff",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_c3aab85ebc605a856c1c0817"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_a7246f8950ee4618efa23602d8056b80113082e6ad934e3bc084fe311963764c",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:9:intent:response_contract:93beceaf3191e878:page_a7246f8950ee4618efa23602d8056b80113082e6ad934e3bc084fe311963764c:c4d3aaff051a8067b7f06b974dec64023b6cd22cf71297e09d05bff50a59f4e5",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_d40223813077d626a8f5282c"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_ececf6a6ca83f7e47e85a5a47f6cdabcc3c14c6089d7992e76cd29921c38438f",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent_operations",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:10:intent_operations:response_contract:93beceaf3191e878:page_ececf6a6ca83f7e47e85a5a47f6cdabcc3c14c6089d7992e76cd29921c38438f:86cdafc97bdd17440a91eedff622bf3bf0126b44f88a6e3e2596fc0675c46bca",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "contribution_clause_0799b094930035113a140f1e"
+            ],
+            "sourceDecisionIds": [
+              "contribution_clause_0799b094930035113a140f1e",
+              "contribution_runtime_60aff681a7f5a1f8657928ac"
+            ],
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_55dfe496881117846c5fcf6861851b74b4e3200f0f26ea6f193fc608a9720014",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent_operations",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:11:intent_operations:response_contract:93beceaf3191e878:page_55dfe496881117846c5fcf6861851b74b4e3200f0f26ea6f193fc608a9720014:557c9b256bab256ca8fc2c694c1847a21ae8448477b8f58b23e5c67e7239fa2b",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "contribution_clause_53293919d52358ced7249623"
+            ],
+            "sourceDecisionIds": [
+              "contribution_clause_53293919d52358ced7249623",
+              "contribution_runtime_d49eb5d4c9e144441d077fca"
+            ],
+            "children": [],
+            "singletonOutputLimit": false
+          }
+        ],
+        "engineResolvedExecutableDecisions": 0,
+        "otherEngineDecisions": null,
+        "modelDecisionIds": [
+          "$plan:contribution_clause_0799b094930035113a140f1e",
+          "$plan:contribution_clause_53293919d52358ced7249623",
+          "$plan:interpret_0a5d7ec4399b74f67a7de145",
+          "$plan:interpret_4438352afa24e792b3ca96a7",
+          "$plan:interpret_4cb8bc9a623777c085c844ff",
+          "$plan:interpret_6a3974e4c09dcae08c8a50ad",
+          "$plan:interpret_7f6b5bc18bd6368f38f29518",
+          "$plan:interpret_a218b18a55a80a681f0ae364",
+          "$plan:interpret_be79de32c219c5e76d284999",
+          "$plan:interpret_c3aab85ebc605a856c1c0817",
+          "$plan:interpret_d40223813077d626a8f5282c"
+        ],
+        "approvedBehaviorHash": null,
+        "declarationProof": "ed08f980b233d64f86ae4e03ee54d49597f28ed51681c3ba69ca1a3a8b481659",
+        "operationAdmissionProof": null,
+        "canonicalOperationCount": null,
+        "canonicalOperations": null,
+        "canonicalDeclarations": [
+          {
+            "id": "decl_ac2e0341e95f1ef8b71ef643",
+            "direction": "input",
+            "scope": "main",
+            "candidateCount": 1,
+            "name": null,
+            "required": true,
+            "default100": false,
+            "clauseReferences": [
+              "r_4aab5a0e82f4fc2b7512b010"
+            ],
+            "proofFingerprint": "bd117cbe542e6c1b3424c6ac09f3060402400f847588b8201e09df03f1ef7247",
+            "aliases": 1,
+            "modifierReferences": 0,
+            "baseline": true
+          },
+          {
+            "id": "decl_d9dced873ca13886d395895e",
+            "direction": "input",
+            "scope": "main",
+            "candidateCount": 1,
+            "name": null,
+            "required": false,
+            "default100": true,
+            "clauseReferences": [
+              "r_a19678100197ddb8caef9f29",
+              "r_b46821953d56ce10361783f0"
+            ],
+            "proofFingerprint": "238a1937e75aa8460f872f5a757e525006917a805b1e7c6e7e81d1a3adc913ee",
+            "aliases": 1,
+            "modifierReferences": 2,
+            "baseline": true
+          },
+          {
+            "id": "decl_e10c86997aef941cbd55d2f1",
+            "direction": "output",
+            "scope": "main",
+            "candidateCount": 1,
+            "name": null,
+            "required": true,
+            "default100": false,
+            "clauseReferences": [
+              "r_2437835f7084107f1b28bc87",
+              "r_d081c9733a2a243932d40f61",
+              "r_fe8d9edee954f1f005fe72ab"
+            ],
+            "proofFingerprint": "c4808ec2c5af749a608779596ad8119023301d51347a0287be47db604b0a454a",
+            "aliases": 1,
+            "modifierReferences": 2,
+            "baseline": true
+          }
+        ],
+        "declarationDispositions": {
+          "same_as": 3,
+          "modifier_of": 4
+        },
+        "declarationModifiers": [
+          {
+            "candidateId": "fixture_declaration_6f4b8689c38d733fd1a6c2f0",
+            "targetId": "decl_e10c86997aef941cbd55d2f1",
+            "kind": "declaration_constraint",
+            "clauseReference": "r_fe8d9edee954f1f005fe72ab"
+          },
+          {
+            "candidateId": "fixture_declaration_8de99f2d3659145dd896042f",
+            "targetId": "decl_d9dced873ca13886d395895e",
+            "kind": "omission_default",
+            "clauseReference": "r_b46821953d56ce10361783f0"
+          },
+          {
+            "candidateId": "fixture_declaration_c270f57247b7ff7f0717bfb4",
+            "targetId": "decl_d9dced873ca13886d395895e",
+            "kind": "declaration_constraint",
+            "clauseReference": "r_a19678100197ddb8caef9f29"
+          },
+          {
+            "candidateId": "fixture_declaration_cf3aa55c327a8293e4b615b1",
+            "targetId": "decl_e10c86997aef941cbd55d2f1",
+            "kind": "declaration_constraint",
+            "clauseReference": "r_d081c9733a2a243932d40f61"
+          }
+        ],
+        "modelExecutableDecisions": 0,
+        "executableHoleExposures": 0,
+        "userClarifications": 0,
+        "answeredForms": 0,
+        "clarificationDecision": null,
+        "largestEstimatedInput": 5631,
+        "largestActualInput": 4127,
+        "inputTokens": 29195,
+        "outputTokens": 3427,
+        "reasoningTokens": 2114,
+        "allDispatchUsageKnown": true,
+        "effectiveReasoning": [
+          "low"
+        ],
+        "requestsByPhase": [
+          {
+            "workflow": "$plan",
+            "phase": "intent",
+            "gate": "response_contract",
+            "reservations": 9,
+            "calls": 9,
+            "repairReservations": 0,
+            "outputEscalations": 0,
+            "allDispatchUsageKnown": true,
+            "inputTokens": 26364,
+            "outputTokens": 2715
+          },
+          {
+            "workflow": "$plan",
+            "phase": "intent_operations",
+            "gate": "response_contract",
+            "reservations": 2,
+            "calls": 2,
+            "repairReservations": 0,
+            "outputEscalations": 0,
+            "allDispatchUsageKnown": true,
+            "inputTokens": 2831,
+            "outputTokens": 712
+          }
+        ],
+        "repairAllowances": [],
+        "failuresByGate": [],
+        "firstFailure": {
+          "code": "INTENT_OPERATION_UNRESOLVED",
+          "phase": "intent_operations",
+          "location": "/operations/@r_18bfa390e735cc81df86b716",
+          "unverifiable": false
+        },
+        "diagnostics": [],
+        "modelDecisions": 11,
+        "readOnlyRestart": null,
+        "admissionCommitted": false,
+        "admissionFingerprint": null,
+        "relationshipProjectionVerified": false,
+        "durableBudgetCalls": 11,
+        "durableBudgetCallsAtAdmission": null,
+        "remainingCallBudgetAtAdmission": null,
+        "remainingCallBudget": 5,
+        "journalRequests": 11,
+        "coordinatorReservationsWithoutJournalRequest": 0,
+        "interpretationInitialPages": 9,
+        "runtimeFacetDecisions": 9,
+        "runtimeFacetCallsAreEmbeddedInInterpretation": true,
+        "typedHostPolicy": {
+          "modelInterpretationDecisions": 0,
+          "engineClauses": 8,
+          "projectedObligations": 9,
+          "metadataFingerprint": "40a2b807c05827519b52e4d3f4b7634c2be5462389bda8503657e505b40a75de"
+        },
+        "baselineProjection": {
+          "structuralUnits": 5,
+          "baselineModelDecisionsInDomain": 0,
+          "engineEvidence": 5,
+          "baselineOperations": 0,
+          "interpretationDecisionsInDomain": 9
+        },
+        "declarationCoveredOccurrences": null,
+        "declarationExclusions": null,
+        "dependencies": [],
+        "fixtureDeclarations": [
+          {
+            "name": "sourceId",
+            "direction": "input",
+            "required": true,
+            "default": null,
+            "modifiers": 0
+          },
+          {
+            "name": "threshold",
+            "direction": "input",
+            "required": false,
+            "default": {
+              "kind": "number",
+              "text": null,
+              "number": 100,
+              "boolean": null,
+              "source": null,
+              "resultChannel": null,
+              "path": [],
+              "members": [],
+              "items": []
+            },
+            "modifiers": 2
+          },
+          {
+            "name": "classifiedResult",
+            "direction": "output",
+            "required": true,
+            "default": null,
+            "modifiers": 2
+          }
+        ],
+        "case": "mixed",
+        "firstBlocker": "INTENT_OPERATION_UNRESOLVED",
+        "runtimeRoles": {
+          "contract": 9,
+          "policy": 8,
+          "planning_directive": 1,
+          "runtime_action": 1,
+          "local_behavior": 3
+        },
+        "runtimeEvidence": [
+          {
+            "id": "runtime_ea3c2a426abff70ca96535db",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "EngineBaseline",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_b3d8354628fdddebe93c2f81",
+            "proofFingerprint": "856885b31e1008a8a811feff12f161cb7d622147d3cdd7a8541e0e8da20570c7"
+          },
+          {
+            "id": "runtime_c0de486bf11980925ce7e129",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "EngineBaseline",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_e80403a52a909078bb0d210c",
+            "proofFingerprint": "cdec83e08101f2780758132713c3d98cc54c383ae83f550764510011ac457d8f"
+          },
+          {
+            "id": "runtime_c58bead980cbafb3657d66fd",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "EngineBaseline",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_c8830d0d96bac2c4c5d90649",
+            "proofFingerprint": "8504544ebc08b58936a635665b0f753855df7150b333af79286dfd4b623c5bbd"
+          },
+          {
+            "id": "runtime_04f42dc1983e58fc5dffd279",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "EngineBaseline",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_df834f299fa446e533e72753",
+            "proofFingerprint": "e075196aebeeaad68ee7acb03ef1fcd536939bfebfb9698eb2400debfdb4d4ec"
+          },
+          {
+            "id": "runtime_8fd6bdf36e3fcef1b7ad475a",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "EngineBaseline",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_87193777fb9cb35e28adc70c",
+            "proofFingerprint": "0492470f3516a988d3fef53f4c78ccdeec0c99ee18c9f51488b21a787f010963"
+          },
+          {
+            "id": "runtime_2e909e348caeecbd3a5f0d50",
+            "role": "policy",
+            "scope": "Policy",
+            "origin": "EngineSourceAuthority",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_4e51b8710b480c6c8136e323",
+            "proofFingerprint": "9827e68f053148c4018ff3c244f2a5d0e94fce0b1f36ad899732349197a318ad"
+          },
+          {
+            "id": "runtime_40461486346314114f388aef",
+            "role": "policy",
+            "scope": "Policy",
+            "origin": "EngineSourceAuthority",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_dbf6dbdc32f9b6b203468e95",
+            "proofFingerprint": "fb0a4033b7f0a570153f43c7e86374484e77f5da8186d65258c4fcfb38995e10"
+          },
+          {
+            "id": "runtime_b2562d21a60ae4358a9b9192",
+            "role": "policy",
+            "scope": "Policy",
+            "origin": "EngineSourceAuthority",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_c736e46c3b99c0a77a799d49",
+            "proofFingerprint": "c22d31cc9a735844b77e2285c7bad3f51f4596ff6802a493e23aa47c236f816b"
+          },
+          {
+            "id": "runtime_b2ebc5e765f8fa574068a0b0",
+            "role": "policy",
+            "scope": "Policy",
+            "origin": "EngineSourceAuthority",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_cda27792b7494e2b7220d5eb",
+            "proofFingerprint": "d4ba1a0ccb32b3d613c8c1158d06241f081f0d4ab73d4bd4856f53b3de699fed"
+          },
+          {
+            "id": "runtime_dee628066042be8984a9eb12",
+            "role": "policy",
+            "scope": "Policy",
+            "origin": "EngineSourceAuthority",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_c33528002ac34a8ac342c199",
+            "proofFingerprint": "cfefb0cda2f843ff8c689c7a2c903c681720ba844f31d11d788d323077c8f0a3"
+          },
+          {
+            "id": "runtime_fa14fbf8a3e7a26708f5bc83",
+            "role": "policy",
+            "scope": "Policy",
+            "origin": "EngineSourceAuthority",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_95bdadda1b9ff7a999d16df1",
+            "proofFingerprint": "d9f061eeb4f60ec7f80e71e9646cb6e7da0b32e44e86c2f41bf17accb51b4ff6"
+          },
+          {
+            "id": "runtime_688486bcec48f02afc0fc5e1",
+            "role": "policy",
+            "scope": "Policy",
+            "origin": "EngineSourceAuthority",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_5dfc0fb18eb7c3e432a50959",
+            "proofFingerprint": "7cc65202615eb9db1cfd395e2fe5ea399f5b8cf2559dddb8e961e5edbaaf5767"
+          },
+          {
+            "id": "runtime_0c6db6c0702e10f460c9ea3f",
+            "role": "policy",
+            "scope": "Policy",
+            "origin": "EngineSourceAuthority",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_7992e960809a6671b5b1c664",
+            "proofFingerprint": "d844086c7ef1d69af4e1666594532dfbd07f8d8bab4de13c4d08f9f45b11b90b"
+          },
+          {
+            "id": "runtime_4f7fa08120e6328d98cdcd39",
+            "role": "planning_directive",
+            "scope": "PlanningArtifact",
+            "origin": "SourceInterpretation",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_154cdfc2bf3fe34d9ec66ee7",
+            "proofFingerprint": "63639834011e9180fce4de99bc5f015a7c5727a46e6a2ec03944572732c56d77"
+          },
+          {
+            "id": "runtime_63ed2ce6bada4d46aae65f3d",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "SourceInterpretation",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_4aab5a0e82f4fc2b7512b010",
+            "proofFingerprint": "d6a609ec0e67a958ba37ae4406e7bfd48fd3ac89b686471f18619c97eda09fc4"
+          },
+          {
+            "id": "runtime_e04c038c9e9933ee95685948",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "SourceInterpretation",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_b46821953d56ce10361783f0",
+            "proofFingerprint": "d5b3a3943c980723f605c54d88a14784a2fed70cdc280b8b6273d69efc705f3c"
+          },
+          {
+            "id": "runtime_eccd87030901c8e321c9af2f",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "SourceInterpretation",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_a19678100197ddb8caef9f29",
+            "proofFingerprint": "16f60c563c3317c48e2380ddea759de9108755320fed8ea9668c77b3dbc2ac91"
+          },
+          {
+            "id": "runtime_60aff681a7f5a1f8657928ac",
+            "role": "runtime_action",
+            "scope": "GeneratedWorkflow",
+            "origin": "SourceInterpretation",
+            "kind": "external_read",
+            "necessity": "Required",
+            "necessityReference": "r_7e18d297f0b007fde1354f96",
+            "evidenceRole": null,
+            "actionReference": "r_7e18d297f0b007fde1354f96",
+            "resourceReference": null,
+            "clauseReference": "r_18bfa390e735cc81df86b716",
+            "proofFingerprint": "b0d7d032b9acc936f5226b94cbff6d674ace7c88f7edfb2e9a23ba0da7a223c2"
+          },
+          {
+            "id": "runtime_d49eb5d4c9e144441d077fca",
+            "role": "local_behavior",
+            "scope": "GeneratedWorkflow",
+            "origin": "SourceInterpretation",
+            "kind": "local_processing",
+            "necessity": "Required",
+            "necessityReference": "r_b9c04327d386cd99d682be02",
+            "evidenceRole": null,
+            "actionReference": "r_b9c04327d386cd99d682be02",
+            "resourceReference": null,
+            "clauseReference": "r_d5142136f2b28a2fe1254696",
+            "proofFingerprint": "fcd28f4497b681c6ad14c93735c450f35db547371f3320576b3288643b7a28e6"
+          },
+          {
+            "id": "runtime_3624de6d7e1710e89e68156b",
+            "role": "local_behavior",
+            "scope": "GeneratedWorkflow",
+            "origin": "SourceInterpretation",
+            "kind": "local_processing",
+            "necessity": "Required",
+            "necessityReference": "r_75a1ccd7a60fe196b56ef09d",
+            "evidenceRole": null,
+            "actionReference": "r_75a1ccd7a60fe196b56ef09d",
+            "resourceReference": null,
+            "clauseReference": "r_2437835f7084107f1b28bc87",
+            "proofFingerprint": "2b86d8c2bccf51d3114254ad1d5f640157b44ba9cdd6de4f9c5885e4a8f665c8"
+          },
+          {
+            "id": "runtime_573aa8f57af6c1fe990b7d06",
+            "role": "local_behavior",
+            "scope": "GeneratedWorkflow",
+            "origin": "SourceInterpretation",
+            "kind": "local_processing",
+            "necessity": "Required",
+            "necessityReference": "r_07a4f2b87130545e8194647f",
+            "evidenceRole": null,
+            "actionReference": "r_07a4f2b87130545e8194647f",
+            "resourceReference": null,
+            "clauseReference": "r_d081c9733a2a243932d40f61",
+            "proofFingerprint": "fbe3609fc8e8e4e3aa6b6941270b7fc0a8a9fa204170977ec297cd5116d74a97"
+          },
+          {
+            "id": "runtime_7e8faeb1a5642bcf74bf99da",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "SourceInterpretation",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_fe8d9edee954f1f005fe72ab",
+            "proofFingerprint": "0ce72684e858f3d5da5ecbb1311043bf8c44786c4e4cc555a65a67d7818b046f"
+          }
+        ],
+        "preliminaryExecutableCandidates": 4,
+        "historicalEvidenceRoleAuthority": "none; current contribution proofs alone qualify support",
+        "identityModelDecisions": 0,
+        "identityDeterministicDecisions": 0,
+        "governingAttachmentsByOperation": null,
+        "governingModelDecisions": 0,
+        "governingDeterministicAttachments": 0,
+        "retiredActionCandidates": 0,
+        "engineAdmittedLocalActions": null,
+        "engineAdmittedExternalActions": null,
+        "admissionModelCalls": 2,
+        "fixturePreconditions": "Canonical declarations supplied; interpretation obligations retained encrypted but not adjudicated in this diagnostic.",
+        "requestDomains": [
+          {
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:1:intent:response_contract:93beceaf3191e878:page_c565c6d9f53e13484ecf23d68c6154986f6f641a4093eceaa1c2ee365a13f7c3:edc37aff915b8110c5e2902ed8cfd46ce229df2d107a39f3c846b41d10446ffc",
+            "requestFingerprint": "5fe2d0987d7dad5259708af680211ecac35f86c839931ecc234ed455e112c54e",
+            "schemaFingerprint": "b139f92ca66a02e98f4297874094a29cd5f9aedd7f649626b5d28c29fb14bd45",
+            "contextFingerprint": "d138fd623e38725a0e8e7b804d121c80358287df0b8c1878e79c204179d5314d",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_0a5d7ec4399b74f67a7de145"
+            ],
+            "receiptFingerprint": "9697509e2c93e0eb5314161d1e1bd052aa9840cc381575294a3a46ed7dec327b"
+          },
+          {
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:2:intent:response_contract:93beceaf3191e878:page_29071ca238b61b481f3d65686c7e3f1d027aa3400ce61bdc4b133a55201cbc36:0b67a0a3965be2e18da31e72ec7a18510ba5b24cf0f3c3ee4375ef1a12a96cf4",
+            "requestFingerprint": "8eb58c931c09fd599cfab258b2093941f36021c33bc4b281ecd8b6690bddf920",
+            "schemaFingerprint": "3439367291e32185d7b927424da76e50c06c0a9e213a05c09c86c38a072d276c",
+            "contextFingerprint": "cfb9b91cdcf439fcb6f92789214642b934445bd7f03406b297a12744b9e6bc11",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_4438352afa24e792b3ca96a7"
+            ],
+            "receiptFingerprint": "07f4e0a9ae64bcecd56796f28e68ba3793ac74eca789ab8bf51a07263038c1f9"
+          },
+          {
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:3:intent:response_contract:93beceaf3191e878:page_8406a9fae90c40d183081860ef6149a0b5ae5b8e92ae9cba0f0da2462e93cbbd:926473827fe144b4710cba9a9d156509633a75ba038e646daf542bebc63e5374",
+            "requestFingerprint": "b15662511ddde13a6daf3ec2574c1569b8c55cbd0dc9bd4468b25432015bffcb",
+            "schemaFingerprint": "95c11a3aaf4c2358fcaf26b423ce904e7f3afea7aa8bc83fab3ad16d97db8906",
+            "contextFingerprint": "bdca52a168e06afb4188d39a188a8161b281d080a67ee8d871349aca12a46797",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_4cb8bc9a623777c085c844ff"
+            ],
+            "receiptFingerprint": "00e4e19a27112085554a0cdd676002c5d352fc74e3038d4d24d70d4e2db96ba8"
+          },
+          {
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:4:intent:response_contract:93beceaf3191e878:page_c90a54dc70b8f1c24f87a07d1cf4e58e36473ecdbecb4c94aa0938da84ff784a:ad501fcd02b51159ef766e32008d9220437e06db58bca7f477a3f9f523947ded",
+            "requestFingerprint": "274aae2a222634e004a47ef950b70a089f6ee39d6172189953290853e080163c",
+            "schemaFingerprint": "c3adc7d505288a4db2df593f4f8862257870e1920a1cdb8453de2161e53fda6f",
+            "contextFingerprint": "db6c60e62aa052c28c7336b49ad55dca0dd35ea256c3112c9107279ad8fa3c34",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_6a3974e4c09dcae08c8a50ad"
+            ],
+            "receiptFingerprint": "456696649789e1a28cf9a423f721f08f89654cf0773f32f373c7cf7a802c4c2f"
+          },
+          {
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:5:intent:response_contract:93beceaf3191e878:page_8e69ed4d1e3d4ed8499a2bde247d4f7aed6cf9b49723c3baa08ce693a4a322c0:9bdaf08ba429e71c7455852f03e58516445333a26867f4f677e9ba52a51b43a1",
+            "requestFingerprint": "f63e87a3c7f2e71239919d0bdb3c189083cb26bdfbe9b31f0df3201ad129ca12",
+            "schemaFingerprint": "f9a643b1200ecf72275ba127899f4edd5d07f6521bd114c7d850cd7952547050",
+            "contextFingerprint": "b1fcffec2ed2045737c34e90d043e7727caf2125d4f7ac3d2debde9d45ace4ae",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_7f6b5bc18bd6368f38f29518"
+            ],
+            "receiptFingerprint": "91aec7b2a950165f4ebd432a555bbf00572266d8fa9598ff0205e67ef6df6be5"
+          },
+          {
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:6:intent:response_contract:93beceaf3191e878:page_1e7671b93018eb42cc9bbb467a249a85fa0a4cebc3dccedea72e354c1f408ec5:be939aed900989fd3314bfe15631766f3dbcdbb408d6c8ed73cfd7d25ceeaa3b",
+            "requestFingerprint": "b570d2de53ebd8faf8f72d3c610aa7a6d352fd73aa45b03d49f9e87e61d9aa74",
+            "schemaFingerprint": "7c63efd0c5b1eb13d2426affaf570373ca1aa8cc5a9837f994477b005d6e728b",
+            "contextFingerprint": "ef5a2fef100a8f0891aa29f3da2f4282063f77f45d690ea5e97f51ec726ba847",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_a218b18a55a80a681f0ae364"
+            ],
+            "receiptFingerprint": "fee8567a067b2862de8d4e297fa428b8a0e44ae8c9dad6d3c1bc7d2c535b15b7"
+          },
+          {
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:7:intent:response_contract:93beceaf3191e878:page_3cf914f16d07ace126230e78081690b46cede13db402605d2bfd897991641c07:a64009bfd1f03465bb61986cd791c3911c0e5ace1e22029df50b0fe0a216018a",
+            "requestFingerprint": "833c16475e324e2db500ee98bbb10929b4db71ffb813f7be0b2733cd3ed20c91",
+            "schemaFingerprint": "0b96f65148003f1613f7f7900f246b1a3caa70e638b9304af080462417d50d5d",
+            "contextFingerprint": "2025e9f2715ee17075f981a00710808a81d3db21c11cae812fa1f21a58b0f33a",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_be79de32c219c5e76d284999"
+            ],
+            "receiptFingerprint": "eb3eb3b8a7963d2760c4c683177eb5f64ba676dc353358e93054b51cb7198d7d"
+          },
+          {
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:8:intent:response_contract:93beceaf3191e878:page_773b1b0a302298d60882a9ab25706033c594acb6e409aa0a74834c2a9586a326:3b78fd0f2840c30ac7c5264b821ac77fe9b1490ed924318c1e6acf436d287aff",
+            "requestFingerprint": "0765a10a83fdb4a6f6ccf942864494f4f05d569f97877f8e525df9bbe961c3d6",
+            "schemaFingerprint": "6ffe777a90c829931b821926fd7ffccfc2323c165fc546f2b9b80564add005b3",
+            "contextFingerprint": "28c50f8be7575fb57f27ca19db3067d2fc2de0cca89ccd1cd11488b5725d4572",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_c3aab85ebc605a856c1c0817"
+            ],
+            "receiptFingerprint": "6d35a0a3dc4a950493451374936bee57cb23af11361c3d8d44a3178ffe00116e"
+          },
+          {
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:9:intent:response_contract:93beceaf3191e878:page_a7246f8950ee4618efa23602d8056b80113082e6ad934e3bc084fe311963764c:c4d3aaff051a8067b7f06b974dec64023b6cd22cf71297e09d05bff50a59f4e5",
+            "requestFingerprint": "cce5a314070ba7cc6d2ef8425253bd1b67eb4f76ac56d92b739c1ddbd83d696d",
+            "schemaFingerprint": "0f57d855ae7da4a85352fa52386eea570d81dba41dd4281a9da2b286c14bfba2",
+            "contextFingerprint": "f7a5d65ab64e782cc949d811a525fb3d9150a4588010789b554f71a263d3cf81",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_d40223813077d626a8f5282c"
+            ],
+            "receiptFingerprint": "aeecf2821df1953bbcbefbb9f88a593c00f098feeeec6df1d459dec66fdda730"
+          },
+          {
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:10:intent_operations:response_contract:93beceaf3191e878:page_ececf6a6ca83f7e47e85a5a47f6cdabcc3c14c6089d7992e76cd29921c38438f:86cdafc97bdd17440a91eedff622bf3bf0126b44f88a6e3e2596fc0675c46bca",
+            "requestFingerprint": "f2c0f6ea3d18ed4450c92c26b3e4c5447bcd740942295caf6a0ebda55edd5d6c",
+            "schemaFingerprint": "4e395320ca0a0de018333d3ee638861b3d660c44e9b25079a84a4191e242328f",
+            "contextFingerprint": "6541127b37d1782cfec7e42210d442243644b1189c93246c0abf4442b532f982",
+            "outputCeiling": 8192,
+            "domains": {
+              "status": [
+                "qualified",
+                "unresolved"
+              ],
+              "role": [
+                "excluded",
+                "governing_property",
+                "requested_execution"
+              ]
+            },
+            "decisions": [
+              "contribution_clause_0799b094930035113a140f1e"
+            ],
+            "receiptFingerprint": "1c67264ff210cffe615418c48d5e542a8e83b38249f175a422e4bea68cbc4b74"
+          },
+          {
+            "requestId": "schema5-joint-clause-qualification-mixed-diagnostics-1:mixed:0:11:intent_operations:response_contract:93beceaf3191e878:page_55dfe496881117846c5fcf6861851b74b4e3200f0f26ea6f193fc608a9720014:557c9b256bab256ca8fc2c694c1847a21ae8448477b8f58b23e5c67e7239fa2b",
+            "requestFingerprint": "bdf42aa9651440318c293276b7b527527e39a103bb37713d753e1227261044a5",
+            "schemaFingerprint": "c4ddde275be061c5ff677ef3ec53e6734363e1891f599e8a82b54381a8af23d2",
+            "contextFingerprint": "d12bc3eb16920a9d608ec96db2aa9120151c701873e03d378791c50a92253e5b",
+            "outputCeiling": 8192,
+            "domains": {
+              "status": [
+                "qualified",
+                "unresolved"
+              ],
+              "role": [
+                "excluded",
+                "governing_property",
+                "requested_execution"
+              ]
+            },
+            "decisions": [
+              "contribution_clause_53293919d52358ced7249623"
+            ],
+            "receiptFingerprint": "768b5ab7f45dd17b85f1b1073adacb29c4d8b63a7936fb0cd0588f8ed43f0dba"
+          }
+        ],
+        "decisionClasses": [
+          {
+            "category": "interpretation",
+            "journalRequests": 9,
+            "verifiedCalls": 9,
+            "distinctExposedDecisions": 9,
+            "inputTokens": 26364,
+            "outputTokens": 2715,
+            "reasoningTokens": 1758,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "execution_contribution",
+            "journalRequests": 2,
+            "verifiedCalls": 2,
+            "distinctExposedDecisions": 2,
+            "inputTokens": 2831,
+            "outputTokens": 712,
+            "reasoningTokens": 356,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "realization_coverage",
+            "journalRequests": 0,
+            "verifiedCalls": 0,
+            "distinctExposedDecisions": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "governing_applicability",
+            "journalRequests": 0,
+            "verifiedCalls": 0,
+            "distinctExposedDecisions": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "effect_realizations",
+            "journalRequests": 0,
+            "verifiedCalls": 0,
+            "distinctExposedDecisions": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "effect_governing",
+            "journalRequests": 0,
+            "verifiedCalls": 0,
+            "distinctExposedDecisions": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "boundary_scope",
+            "journalRequests": 0,
+            "verifiedCalls": 0,
+            "distinctExposedDecisions": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "occurrence_identity",
+            "journalRequests": 0,
+            "verifiedCalls": 0,
+            "distinctExposedDecisions": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "operation_dependencies",
+            "journalRequests": 0,
+            "verifiedCalls": 0,
+            "distinctExposedDecisions": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "relationships_or_other",
+            "journalRequests": 0,
+            "verifiedCalls": 0,
+            "distinctExposedDecisions": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "unverifiableUsage": 0
+          }
+        ],
+        "decisionClassUsageOverlapsIfRequestContainsSeveralClasses": true,
+        "effectMappings": null,
+        "contributionProofsAvailable": false,
+        "contributionProofUnavailableCode": "INTENT_OPERATION_UNRESOLVED",
+        "qualifiedContributions": null,
+        "effectValidationPassed": false,
+        "applicabilitySequenceAndDomainsVerified": false,
+        "preliminaryKindApplicabilityAuthority": "none; applicability is validated against realized operations and owned property evidence",
+        "fullStageOneSuccess": false
+      }
+    ],
+    "archiveCheck": "unchanged"
+  }
+}

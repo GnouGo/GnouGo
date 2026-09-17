@@ -46,11 +46,13 @@ internal static partial class RuntimeAdmissionDiagnostic
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancel.Cancel(); }; var ct = cancel.Token;
         var directory = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-diagnostics/{Identity}/gnougo-planning-v5.db");
         if (command is not ("freeze" or "run-local" or "run-mixed" or "report")) throw new ArgumentException("diagnose-runtime-admission freeze COMMIT | run-local | run-mixed | report | selfcheck");
-        if (command.StartsWith("run-", StringComparison.Ordinal)) RuntimeAdmissionDiagnosticRules.RequireCase(command[4..], null);
+        if (command.StartsWith("run-", StringComparison.Ordinal) && command != "run-mixed")
+            throw new InvalidOperationException("Only one fresh MIXED is authorized.");
         if (command == "report")
         {
             Console.WriteLine((await ReportAsync(records, ct)).ToJsonString()); return;
         }
+        var acceptedLocal = await RequireAcceptedLocalAsync(records, ct);
         Directory.CreateDirectory(Path.GetDirectoryName(directory)!);
         using var lease = new FileStream(directory + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         var contexts = new Contexts(directory);
@@ -113,16 +115,16 @@ internal static partial class RuntimeAdmissionDiagnostic
                     new EcbExchangeRateProvider(prerequisiteHttp), ct);
             Console.WriteLine(new JsonObject { ["exchangeRatePrerequisite"] = exchangeRatePrerequisite.DeepClone() }.ToJsonString());
             if (exchangeRatePrerequisite["status"]!.ToString() != "passed")
-                throw new InvalidOperationException("Currency-conversion preflight failed; LOCAL was not started.");
+                throw new InvalidOperationException("Currency-conversion preflight failed; MIXED was not started.");
             manifest = new() { ["commit"] = commit, ["binaries"] = binaries, ["archiveFingerprint"] = archive,
                 ["comparisonIdentity"] = RuntimeAdmissionDiagnosticRules.ComparisonIdentity,
                 ["comparisonProductionCommit"] = previousManifest["commit"]!.DeepClone(),
                 ["comparisonSourceOptionsFingerprint"] = comparisonOptionsFingerprint,
                 ["expectedConfigurationAddition"] = "None; effective typed host policy and existing options unchanged from the comparison LOCAL.",
                 ["exchangeRatePrerequisite"] = exchangeRatePrerequisite,
-                ["authorizedCases"] = new JsonArray("local"),
+                ["authorizedCases"] = new JsonArray("mixed"), ["acceptedLocalEvidence"] = acceptedLocal.DeepClone(),
                 ["productionBinariesFingerprint"] = RuntimeAdmissionDiagnosticRules.ProductionBinariesFingerprint,
-                ["historicalLocalStatus"] = "stopped on an unverifiable provider request; unchanged; isolated receipt is not imported into this fresh campaign",
+                ["historicalLocalStatus"] = "Comparison LOCAL passed; all earlier stopped archives remain unchanged. No answers or receipts are imported.",
                 ["model"] = campaign["model"]!.DeepClone(), ["sourceOptionsFingerprint"] = PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()),
                 ["transportConfigurationFingerprint"] = transportFingerprint,
                 ["catalogFingerprint"] = campaign["stages"]![0]!["catalogHash"]!.DeepClone(),
@@ -134,6 +136,7 @@ internal static partial class RuntimeAdmissionDiagnostic
             await records.UpsertAsync(Collection, Tenant, Identity, manifest.ToJsonString(), Author, ct); Console.WriteLine(manifest.ToJsonString()); return;
         }
         if (manifest is null || manifest["commit"]?.ToString() != RuntimeAdmissionDiagnosticRules.ProductionCommit ||
+            !JsonNode.DeepEquals(manifest["acceptedLocalEvidence"], acceptedLocal) ||
             !JsonNode.DeepEquals(manifest["binaries"], binaries) || manifest["archiveFingerprint"]!.ToString() != archive ||
             manifest["transportConfigurationFingerprint"]!.ToString() != transportFingerprint ||
             manifest["sourceOptionsFingerprint"]!.ToString() != PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()))
@@ -148,7 +151,6 @@ internal static partial class RuntimeAdmissionDiagnostic
         }
         using var ratesHttp = new HttpClient();
         var caseName = command == "run-local" ? "local" : "mixed";
-        RuntimeAdmissionDiagnosticRules.RequireCase(caseName, null);
         var caseId = Identity + ":" + caseName;
         await using (var db = await ((IDbContextFactory<PlanningDbContext>)contexts).CreateDbContextAsync(ct))
             RuntimeAdmissionDiagnosticRules.RequireFreshStart(

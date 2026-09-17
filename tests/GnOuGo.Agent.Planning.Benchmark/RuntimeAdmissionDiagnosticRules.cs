@@ -9,8 +9,8 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-joint-clause-qualification-diagnostics-rerun-1";
-    internal const string ComparisonIdentity = "schema5-joint-clause-qualification-diagnostics-1";
+    internal const string Identity = "schema5-joint-clause-qualification-mixed-diagnostics-1";
+    internal const string ComparisonIdentity = "schema5-joint-clause-qualification-diagnostics-rerun-1";
     internal const string ProductionCommit = "d2ceac7cd85793baea732721f4e2b092c94be210";
     internal const string ComparisonProductionCommit = "d2ceac7cd85793baea732721f4e2b092c94be210";
     // Sorted production DLL hashes from the accepted offline implementation report.
@@ -46,18 +46,32 @@ internal static class RuntimeAdmissionDiagnosticRules
     }
     internal static void RequireCase(string name, JsonObject? previous)
     {
-        // Prior success never authorizes another gate. This identity permits LOCAL once.
-        if (name != "local")
-            throw new InvalidOperationException("Only one fresh LOCAL is authorized; MIXED, replacements and later gates are forbidden.");
+        // This separately authorized gate requires the immutable accepted LOCAL.
+        var local = previous?["liveEvidence"]?["cases"]?.AsArray().SingleOrDefault(c => c?["case"]?.ToString() == "local");
+        var restart = local?["readOnlyRestart"];
+        if (name != "mixed" || previous?["outcome"]?.ToString() != "LOCAL PASS" ||
+            previous["campaignIdentity"]?.ToString() != ComparisonIdentity || previous["productionCommit"]?.ToString() != ProductionCommit ||
+            previous["liveEvidence"]?["manifest"]?["productionBinariesFingerprint"]?.ToString() != ProductionBinariesFingerprint ||
+            local?["session"]?.ToString() != ComparisonIdentity + ":local" || local["status"]?.ToString() != "passed" ||
+            local["admissionCommitted"]?.GetValue<bool>() != true || local["effectValidationPassed"]?.GetValue<bool>() != true ||
+            restart?["passed"]?.GetValue<bool>() != true || restart["providerCalls"]?.GetValue<int>() != 0 || restart["checkpointWrites"]?.GetValue<int>() != 0 ||
+            string.IsNullOrEmpty(restart["snapshotFingerprint"]?.ToString()) ||
+            restart["admissionFingerprint"]?.ToString() != local["admissionFingerprint"]?.ToString() ||
+            !JsonNode.DeepEquals(restart["admissionProofVersions"], new JsonArray(14)) ||
+            !JsonNode.DeepEquals(restart["contributionProofVersions"], new JsonArray(4)) ||
+            !JsonNode.DeepEquals(restart["coverageProofVersions"], new JsonArray(3)) ||
+            !JsonNode.DeepEquals(restart["effectProofVersions"], new JsonArray(7)) ||
+            !JsonNode.DeepEquals(restart["dependencyProofVersions"], new JsonArray(1)))
+            throw new InvalidOperationException("Only one fresh MIXED is authorized, gated by accepted LOCAL on the frozen production; LOCAL, replacements and later gates are forbidden.");
     }
     internal static void RequireFreshStart(bool checkpoint, bool report, bool budget, bool reservations)
     {
         if (checkpoint || report || budget || reservations)
-            throw new InvalidOperationException("This LOCAL has already started. Read its report; do not start or resume it again.");
+            throw new InvalidOperationException("This MIXED has already started. Read its report; do not start or resume it again.");
     }
     internal static void RequireRequest(PlanningSnapshot state)
     {
-        if (state.RequestAccounting.Any(c => c.Phase is not ("intent" or "intent_repair" or "intent_operations" or "intent_operations_repair") || c.Reasoning != "low"))
+        if (state.RequestAccounting.Any(c => c.Phase is not ("intent" or "intent_repair" or "intent_operations" or "intent_operations_repair" or "intent_relations" or "intent_relations_repair") || c.Reasoning != "low"))
             throw new InvalidOperationException("This diagnostic cannot dispatch other phases or reasoning profiles.");
         if (state.Graph is not null || state.BehaviorPlan is not null || state.ApprovedBehaviorHash is not null || state.ApprovedHash is not null)
             throw new InvalidOperationException("An admission diagnostic cannot construct or approve a workflow.");
