@@ -39,8 +39,8 @@ public sealed class JointClauseQualificationTests
         Assert.Equal(3, decision.Context["provenance"]!.AsObject().Count);
         Assert.Equal(4, decision.SourceDecisionIds!.Count);
         var answer = OperationEffectFixtures.ContributionAnswer(state, scope);
-        answer["units"]![0]!["predicate"] = Range("b0", "b2");
-        answer["units"]![0]!["evidence"] = new JsonArray((JsonNode)Range("b0", "b2"), Range("b2", "b5"), Range("b5", "b8"));
+        answer["units"]![0]!["request"]!["predicate"] = Range("b0", "b2");
+        answer["units"]![0]!["request"]!["evidence"] = new JsonArray((JsonNode)Range("b0", "b2"), Range("b2", "b5"), Range("b5", "b8"));
         var proof = PlanningOperations.ParseContributions(state, scope, answer);
         var unit = Assert.Single(proof.Units);
         Assert.Equal("requested_execution", unit.Role); Assert.Equal(3, proof.Contributions.Count);
@@ -48,7 +48,7 @@ public sealed class JointClauseQualificationTests
         Assert.Equal(3, proof.RuntimeEvidenceIds.Count);
         Assert.NotNull(unit.PredicateReference); Assert.Equal(clause.Clause.Id, unit.ScopeReference);
         var reversed = PlanningContext.Clone(state); reversed.RuntimeEvidence.Reverse(); reversed.References.Reverse();
-        answer["units"]![0]!["evidence"] = new JsonArray(answer["units"]![0]!["evidence"]!.AsArray().Reverse().Select(v => v!.DeepClone()).ToArray());
+        answer["units"]![0]!["request"]!["evidence"] = new JsonArray(answer["units"]![0]!["request"]!["evidence"]!.AsArray().Reverse().Select(v => v!.DeepClone()).ToArray());
         Assert.Equal(proof.ProofFingerprint, PlanningOperations.ParseContributions(reversed, PlanningOperations.Scopes(reversed).First(s => s.Evidence!.Id == scope.Evidence!.Id), answer).ProofFingerprint);
     }
 
@@ -62,12 +62,12 @@ public sealed class JointClauseQualificationTests
         PlanningFixtures.Runtime(state, PlanningOperations.SourceScopes(state).Single(s => s.Source.Id == "request").Clause, independentBoundary: false);
         var scope = Assert.Single(PlanningOperations.Scopes(state));
         var answer = OperationEffectFixtures.ContributionAnswer(state, scope);
-        if (failure == "missing") answer["units"]![0]!.AsObject().Remove("predicate");
-        if (failure == "foreign") answer["units"]![0]!["predicate"] = "foreign";
+        if (failure == "missing") answer["units"]![0]!["request"]!.AsObject().Remove("predicate");
+        if (failure == "foreign") answer["units"]![0]!["request"]!["predicate"] = "foreign";
         if (failure == "contradictory")
         {
-            answer["units"]![0]!["predicate"] = Range("b4", "b6");
-            answer["units"]![0]!["evidence"] = new JsonArray((JsonNode)Range("b0", "b4"));
+            answer["units"]![0]!["request"]!["predicate"] = Range("b4", "b6");
+            answer["units"]![0]!["request"]!["evidence"] = new JsonArray((JsonNode)Range("b0", "b4"));
             answer["units"]!.AsArray().Add((JsonNode)new JsonObject { ["role"] = "governing_property", ["scope"] = scope.Clause.Id, ["evidence"] = Range("b4", "b6") });
         }
         Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, answer));

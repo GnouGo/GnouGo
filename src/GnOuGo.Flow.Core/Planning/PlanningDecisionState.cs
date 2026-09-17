@@ -135,7 +135,12 @@ public sealed record PlanningExecutionContributionProof(int Version, string Runt
 /// Requested execution binds its predicate and projections; properties have no support projections.</summary>
 public sealed record PlanningContributionUnit(string Id, string Role, string ScopeReference,
     string? PredicateReference, List<string> EvidenceReferences, List<string> RuntimeEvidenceIds,
-    string? EffectId, string Basis, string? OwnerReference, string? BoundaryReference);
+    string? EffectId, string Basis, string? OwnerReference, string? BoundaryReference)
+{
+    /// <summary>Engine-derived statement composition, never execution or applicability authority.
+    /// Only a governing qualifier may refer to its containing requested-execution unit.</summary>
+    public string? ParentRequestUnitId { get; init; }
+}
 public sealed record PlanningExecutionContribution(string Id, string EvidenceReference, string Role,
     string? EffectId, string Basis, string? OwnerReference, string? BoundaryReference,
     PlanningContributionOrigin Origin)

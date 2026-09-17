@@ -13,7 +13,7 @@ internal static partial class RuntimeAdmissionDiagnostic
 {
     // Explicit synthetic corrected mappings on detached archive input. No provider,
     // durable budget writer, checkpoint writer, or session advancement is installed.
-    internal static async Task CoverageFixtureAsync(string id, IKeyVaultRecordStore records, bool contractEligibility = false, bool jointClause = false)
+    internal static async Task CoverageFixtureAsync(string id, IKeyVaultRecordStore records, bool contractEligibility = false, bool jointClause = false, bool nestedQualifiers = false)
     {
         var archiveBefore = await ArchiveAsync(records, CancellationToken.None);
         var captured = await records.GetAsync(Collection, Tenant, id + ":checkpoint", Author) ?? throw new InvalidOperationException("Missing retained checkpoint.");
@@ -54,14 +54,19 @@ internal static partial class RuntimeAdmissionDiagnostic
                 if (!semanticFixtures.TryGetValue(decision.Id, out var fixture) || PlanningContractValidation.ValidateInstance(fixture, decision.Schema).Count != 0)
                     throw new InvalidOperationException("An eligible retained-shape semantic fixture no longer fits its explicitly new domain.");
         }
-        var client = new CoverageFixtureClient(state, semanticFixtures);
+        var client = new CoverageFixtureClient(state, semanticFixtures, nestedQualifiers);
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = client, LLMCapabilities = client }, (_, _) => Task.CompletedTask);
         await PlanningOperations.ResolveAsync(state, runtime, CancellationToken.None);
         var groups = PlanningOperations.CoverageGroups(state);
         if (groups.Length != (name == "mixed" ? 2 : 1)) throw new InvalidOperationException("Captured coverage groups changed.");
         PlanningOperations.RequireCurrent(state); PlanningOperations.RequireExecutableIntent(state);
         var operations = state.Obligations.Where(PlanningSourceDecisions.IsOperation).ToArray();
-        CheckEffectFixture(name, state, operations);
+        // A corrected qualification is not authority to fill missing historical
+        // runtime spans. Report further fixture gaps without relabelling the archive.
+        JsonObject? acceptanceFinding = null;
+        try { CheckEffectFixture(name, state, operations); }
+        catch (GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException error) when (nestedQualifiers)
+        { acceptanceFinding = new() { ["code"] = error.Code, ["message"] = error.Message }; }
         var inputs = state.Declarations.ToDictionary(d => d.Id, d => PlanningDeclarations.Name(state, d));
         var local = operations.Single(o => o.Kind == "local_processing");
         var localInputs = local.OperationAdmission!.Assignments.SelectMany(a => a.Effect!.Inputs).Distinct().Select(r => inputs[r]).Order().ToArray();
@@ -100,7 +105,9 @@ internal static partial class RuntimeAdmissionDiagnostic
             ["interpretationInitialPages"] = PlanningDecisionPages.PackedPageCount(state, interpretation),
             ["independentContributionStatusDecisions"] = 0,
             ["canonicalContributionDecisions"] = qualifications.Length,
-            ["jointClauseQualification"] = jointClause,
+            ["fixtureAcceptancePassed"] = acceptanceFinding is null, ["fixtureAcceptanceFinding"] = acceptanceFinding,
+            ["jointClauseQualification"] = jointClause, ["nestedQualifierFixture"] = nestedQualifiers,
+            ["nestedQualifiers"] = PlanningOperations.ReadContributions(state).Sum(p => p.Units.Count(u => u.ParentRequestUnitId is not null)),
             ["eligibleRuntimeRecords"] = PlanningOperations.Scopes(state).Length,
             ["clauseMembership"] = new JsonArray(qualifications.Select(d => (JsonNode)new JsonObject { ["decision"] = d.Id, ["members"] = d.Context["provenance"]!.AsObject().Count }).ToArray()),
             ["semanticUnits"] = PlanningOperations.ReadContributions(state).Where(p => p.DecisionId is not null).Sum(p => p.Units.Count),
@@ -136,7 +143,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         }.ToJsonString());
     }
 
-    private sealed class CoverageFixtureClient(PlanningSnapshot state, IReadOnlyDictionary<string, JsonObject> semanticFixtures) : ILLMClient, ILLMCapabilityResolver
+    private sealed class CoverageFixtureClient(PlanningSnapshot state, IReadOnlyDictionary<string, JsonObject> semanticFixtures, bool nestedQualifiers) : ILLMClient, ILLMCapabilityResolver
     {
         public List<LLMRequest> Requests { get; } = [];
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
@@ -151,7 +158,7 @@ internal static partial class RuntimeAdmissionDiagnostic
             return OperationEffectFixtures.Answer(snapshot, scope, contribution: role,
                 inputs: snapshot.Declarations.Where(d => d.Direction == "input" && names.Contains(PlanningDeclarations.Name(snapshot, d))).Select(d => d.Id));
         }
-        private static JsonObject SyntheticQualification(PlanningSnapshot snapshot, PlanningOperations.Scope[] members)
+        private JsonObject SyntheticQualification(PlanningSnapshot snapshot, PlanningOperations.Scope[] members)
         {
             // Complete-clause semantic answers are explicitly synthetic; no historical
             // fragment answer is interpreted as a clause-level request proof.
@@ -163,7 +170,10 @@ internal static partial class RuntimeAdmissionDiagnostic
                     { ["role"] = "governing_property", ["scope"] = scope.Clause.Id, ["evidence"] = scope.Evidence!.ActionReference }) };
             var answer = OperationEffectFixtures.ContributionAnswer(snapshot, scope, SyntheticMapping(snapshot, scope));
             if (text.StartsWith("Classify as rejected", StringComparison.Ordinal))
-                answer["units"]![0]!["predicate"] = new JsonObject { ["start"] = "b0", ["end"] = "b2" };
+                answer["units"]![0]!["request"]!["predicate"] = new JsonObject { ["start"] = "b0", ["end"] = "b2" };
+            if (nestedQualifiers && text == "Read the record identified by sourceId once from the external record store.")
+                answer["units"]![0]!["qualifiers"] = new JsonArray((JsonNode)new JsonObject
+                    { ["evidence"] = new JsonObject { ["start"] = "b6", ["end"] = "b7" } });
             return answer;
         }
 
@@ -203,7 +213,9 @@ internal static partial class RuntimeAdmissionDiagnostic
                     result[field.Key] = field.Value!["enum"]!.AsArray().Any(v => v!.ToString() == "policy") ? "policy" : "none";
                 }
                 else throw new InvalidOperationException("Unexpected synthetic decision: " + field.Key);
-                if (PlanningContractValidation.ValidateInstance(result[field.Key], field.Value!.AsObject()).Count != 0)
+                var fieldSchema = field.Value!.DeepClone().AsObject();
+                if (request.StructuredOutputSchema["$defs"] is { } definitions) fieldSchema["$defs"] = definitions.DeepClone();
+                if (PlanningContractValidation.ValidateInstance(result[field.Key], fieldSchema).Count != 0)
                     throw new InvalidOperationException("Synthetic coverage did not satisfy the issued schema.");
             }
             return Task.FromResult(new LLMResponse { Json = result, CompletionStatus = "completed" });

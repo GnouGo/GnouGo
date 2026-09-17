@@ -177,7 +177,7 @@ internal static class RuntimePersistenceSmoke
                 await PlanningDeclarations.ResolveAsync(resumed.Snapshot, resumed.Runtime, CancellationToken.None);
                 if (client.Calls != correctedCalls + 1) throw new InvalidOperationException("Published duplicate-root replay dispatched again.");
             }
-            PlanningSnapshot Operations() => new() { Request = new() { TenantId = "smoke", Prompt = "Transform the value. Transform according to the rules. This processing is deterministic.", MaxRepairsPerWorkflowGate = 0 } };
+            PlanningSnapshot Operations() => new() { Request = new() { TenantId = "smoke", Prompt = "Transform the value once. Transform according to the rules. This processing is deterministic.", MaxRepairsPerWorkflowGate = 0 } };
             client.OperationAnswers = true;
             await using (var opened = await Factory().OpenAsync(Context("operations"), Operations(), CancellationToken.None))
             {
@@ -209,11 +209,12 @@ internal static class RuntimePersistenceSmoke
                 await PlanningOperations.ResolveAsync(resumed.Snapshot, resumed.Runtime, CancellationToken.None);
                 if (restart == 0 && client.Calls == identityCalls + 2) identityCalls = client.Calls;
                 var operation = resumed.Snapshot.Obligations.Single(PlanningSourceDecisions.IsOperation);
-                if (client.Calls != identityCalls || !operation.Required || resumed.Snapshot.RuntimeEvidence.Count != 3 || operation.OperationAdmission!.Assignments.Count != 3 || resumed.Snapshot.RepairAllowances.Count != 0 ||
-                    operation.OperationAdmission.Version != 14 || operation.OperationAdmission.RealizationCoverage?.Version != 3 ||
-                    operation.OperationAdmission.ExecutionContributions.Any(p => p.Version != 4 || p.Units.Count == 0 || p.RuntimeEvidenceIds.Count == 0) ||
+                if (client.Calls != identityCalls || !operation.Required || resumed.Snapshot.RuntimeEvidence.Count != 3 || operation.OperationAdmission!.Assignments.Count != 4 || resumed.Snapshot.RepairAllowances.Count != 0 ||
+                    operation.OperationAdmission.Version != 15 || operation.OperationAdmission.RealizationCoverage?.Version != 3 ||
+                    operation.OperationAdmission.ExecutionContributions.Any(p => p.Version != 5 || p.Units.Count == 0 || p.RuntimeEvidenceIds.Count == 0) ||
                     operation.OperationAdmission.Assignments.Count(a => a.Disposition == "supports") != 2 ||
-                    operation.OperationAdmission.Assignments.Count(a => a.Disposition == "attach") != 1 ||
+                    operation.OperationAdmission.ExecutionContributions.SelectMany(p => p.Units).Count(u => u.ParentRequestUnitId is not null) != 1 ||
+                    operation.OperationAdmission.Assignments.Count(a => a.Disposition == "attach") != 2 ||
                     operationFingerprint is not null && operationFingerprint != resumed.Snapshot.OperationAdmissionFingerprint)
                     throw new InvalidOperationException("Published encrypted operation identity/attachment replay failed.");
                 operationFingerprint = resumed.Snapshot.OperationAdmissionFingerprint;
@@ -290,7 +291,14 @@ internal static class RuntimePersistenceSmoke
                         if (field.Key.StartsWith("contribution_", StringComparison.Ordinal))
                         {
                             var scopes = PlanningOperations.Scopes(state).Where(s => PlanningOperations.ContributionDecisionId(s.Evidence!) == field.Key);
-                            return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.CombineQualifications(scopes.Select(s => OperationEffectFixtures.ContributionAnswer(state, s, Mapping(s)))));
+                            return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.CombineQualifications(scopes.Select(s =>
+                            {
+                                var answer = OperationEffectFixtures.ContributionAnswer(state, s, Mapping(s));
+                                if (PlanningChoiceEvidence.Text(state, s.Clause.Id).Trim() == "Transform the value once.")
+                                    answer["units"]![0]!["qualifiers"] = new JsonArray((JsonNode)new JsonObject
+                                        { ["evidence"] = new JsonObject { ["start"] = "b3", ["end"] = "b4" } });
+                                return answer;
+                            })));
                         }
                         if (field.Key.StartsWith("applicability_", StringComparison.Ordinal))
                             return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.ApplicabilityAnswer(

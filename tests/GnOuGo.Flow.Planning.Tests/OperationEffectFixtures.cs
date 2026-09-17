@@ -67,10 +67,15 @@ internal static class OperationEffectFixtures
             if (role == "supports")
             {
                 item["predicate"] = scope.Evidence!.ActionReference;
+                item["qualifiers"] = new JsonArray();
                 item["evidence"] = Strings([scope.Evidence.ActionReference!]);
                 var anchor = domain[id];
                 item["basis"] = anchor.BoundaryKind == "result_realization" ? "requested_result_production" : "requested_owned_occurrence";
                 item["owner"] = anchor.OwnerReference; item["boundary"] = anchor.BoundaryReference;
+                var request = new JsonObject();
+                foreach (var field in new[] { "predicate", "evidence", "effect", "basis", "owner", "boundary" })
+                { request[field] = item[field]?.DeepClone(); item.Remove(field); }
+                item["request"] = request; item.Remove("scope");
             }
             items.Add((JsonNode)item);
         }
@@ -88,7 +93,7 @@ internal static class OperationEffectFixtures
     internal static JsonObject SplitProperty(PlanningSnapshot state, PlanningOperations.Scope scope, int boundary)
     {
         var answer = ContributionAnswer(state, scope);
-        var support = answer["units"]![0]!;
+        var support = answer["units"]![0]!["request"]!;
         support["predicate"] = new JsonObject { ["start"] = "b0", ["end"] = "b" + boundary };
         support["evidence"] = new JsonArray(support["predicate"]!.DeepClone());
         var last = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.ToString();

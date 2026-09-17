@@ -169,9 +169,22 @@ public sealed class OperationDependencyTests
         var expectedState = PlanningContext.Clone(state); var expectedOps = OperationEffectFixtures.Staged(expectedState);
         Install(expectedState, expectedOps, PlanningOperations.DependencyDecisions(expectedState, expectedOps), answers);
         // Change only test packing, never evidence or production limits.
-        state.Request.Generation.MaxInputTokensPerRequest = 3500;
+        var initialPages = PlanningDecisionPages.PackedPageCount(state, domain.Decisions);
+        var coverageDecisions = PlanningOperations.CoverageGroups(state).Select(g => g.Decision).ToArray();
+        var repacked = false;
+        for (var limit = 11900; limit >= 1000; limit -= 100)
+        {
+            state.Request.Generation.MaxInputTokensPerRequest = limit;
+            try
+            {
+                _ = PlanningDecisionPages.PackedPageCount(state, PlanningOperations.ContributionDecisions(state));
+                _ = PlanningDecisionPages.PackedPageCount(state, coverageDecisions);
+                if (PlanningDecisionPages.PackedPageCount(state, domain.Decisions) > initialPages) { repacked = true; break; }
+            }
+            catch (WorkflowRuntimeException error) when (error.Code == "DECISION_SIZE_UNSUPPORTED") { }
+        }
+        Assert.True(repacked);
         OperationEffectFixtures.Seed(state, seedDependencies: false);
-        Assert.True(PlanningDecisionPages.PackedPageCount(state, domain.Decisions) > 1);
         PlanningSnapshot? checkpoint = null;
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, request, _) => Task.FromResult(new LLMResponse
         { CompletionStatus = "completed", Json = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>

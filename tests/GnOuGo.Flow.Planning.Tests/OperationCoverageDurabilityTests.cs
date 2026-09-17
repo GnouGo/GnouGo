@@ -19,17 +19,19 @@ public sealed class OperationCoverageDurabilityTests
     [Fact]
     public async Task PackingAndEnumerationDoNotChangeCanonicalCoverageOrDependencyProof()
     {
-        var state = Independent(true); OperationEffectFixtures.SeedContributions(state); var other = PlanningContext.Clone(state);
+        var state = OperationAdmissionTests.State(string.Join(" ", Enumerable.Range(1, 6).Select(i => $"Independently perform transformation number {i}.")));
+        foreach (var scope in PlanningOperations.SourceScopes(state)) PlanningFixtures.Runtime(state, scope.Clause);
+        OperationEffectFixtures.SeedContributions(state); var other = PlanningContext.Clone(state);
         var decisions = OperationEffectFixtures.Groups(state).Select(g => g.Decision).ToArray();
-        Assert.Equal(1, PlanningDecisionPages.PackedPageCount(state, decisions));
+        var initialPages = PlanningDecisionPages.PackedPageCount(state, decisions);
         // Find a supported smaller target that changes packing, not semantics.
         for (var limit = 500; limit < 12000; limit += 100)
         {
             other.Request.Generation.MaxInputTokensPerRequest = limit;
-            try { _ = PlanningDecisionPages.PackedPageCount(other, PlanningOperations.ContributionDecisions(other)); if (PlanningDecisionPages.PackedPageCount(other, decisions) == 2) break; }
+            try { _ = PlanningDecisionPages.PackedPageCount(other, PlanningOperations.ContributionDecisions(other)); if (PlanningDecisionPages.PackedPageCount(other, decisions) > initialPages) break; }
             catch (WorkflowRuntimeException e) when (e.Code == "DECISION_SIZE_UNSUPPORTED") { }
         }
-        Assert.Equal(2, PlanningDecisionPages.PackedPageCount(other, decisions));
+        Assert.True(PlanningDecisionPages.PackedPageCount(other, decisions) > initialPages);
         other.RuntimeEvidence.Reverse(); other.References.Reverse();
         OperationEffectFixtures.Seed(state); OperationEffectFixtures.Seed(other);
         await PlanningOperations.ResolveAsync(state, NoCalls(), Ct); await PlanningOperations.ResolveAsync(other, NoCalls(), Ct);
@@ -40,7 +42,7 @@ public sealed class OperationCoverageDurabilityTests
     [Fact]
     public async Task PartialCoverageCheckpointDoesNotCommitAndResumesExactRemainingPages()
     {
-        var state = Independent(); state.Request.Generation.MaxInputTokensPerRequest = 2500;
+        var state = Independent();
         var decisions = OperationEffectFixtures.Groups(state).Select(g => g.Decision).ToArray();
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, request, _) => Task.FromResult(new LLMResponse
             { Json = OperationEffectFixtures.Response(state, request), CompletionStatus = "completed" }) };

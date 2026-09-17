@@ -6,6 +6,7 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningOperations
 {
+    private const int MaxContributionUnits = 6;
     // A clause is the indivisible semantic scope. Runtime records remain preliminary provenance.
     internal static string ContributionDecisionId(PlanningRuntimeEvidence evidence) => "contribution_clause_" +
         PlanningGraphCompiler.Fingerprint(evidence.ClauseReference)[..24];
@@ -30,7 +31,8 @@ internal static partial class PlanningOperations
         var members = ContributionMembers(state, scope);
         if (members.Length == 0) throw new InvalidOperationException("Exact baseline execution is engine qualified.");
         foreach (var member in members) RequireEligibleContribution(state, member.Evidence!);
-        var owned = ContributionOwnedSchema(state, members);
+        var definitions = new JsonObject { ["owned"] = ContributionOwnedSchema(state, members) };
+        var owned = new JsonObject { ["$ref"] = "#/$defs/owned" };
         var alternatives = new JsonArray(
             PlanningHoleRequests.Object(("role", PlanningHoleRequests.Enum(["excluded"])),
                 ("scope", PlanningHoleRequests.Enum([scope.Clause.Id])), ("basis", PlanningHoleRequests.Enum(["no_operation_relevance"])), ("evidence", owned.DeepClone().AsObject())),
@@ -39,26 +41,56 @@ internal static partial class PlanningOperations
         var domains = members.ToDictionary(s => s.Evidence!.Id, s => EffectDomain(state, s.Evidence!), StringComparer.Ordinal);
         var domain = domains.Values.SelectMany(d => d).GroupBy(p => p.Key, StringComparer.Ordinal)
             .OrderBy(g => g.Key, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First().Value, StringComparer.Ordinal);
+        var requests = new JsonArray();
+        var domainIndex = 0;
         foreach (var (id, anchor) in domain)
         {
             if (anchor.BoundaryKind != "result_realization" && anchor.OccurrenceProof is null) continue;
             var eligible = members.Where(s => domains[s.Evidence!.Id].ContainsKey(id)).ToArray();
-            var support = ContributionOwnedSchema(state, eligible);
-            alternatives.Add((JsonNode)PlanningHoleRequests.Object(("role", PlanningHoleRequests.Enum(["requested_execution"])),
-                ("scope", PlanningHoleRequests.Enum([scope.Clause.Id])), ("predicate", support.DeepClone().AsObject()),
+            var supportName = "e" + domainIndex++;
+            definitions[supportName] = ContributionOwnedSchema(state, eligible);
+            var support = new JsonObject { ["$ref"] = "#/$defs/" + supportName };
+            requests.Add((JsonNode)PlanningHoleRequests.Object(
+                ("predicate", support.DeepClone().AsObject()),
                 ("evidence", new JsonObject { ["type"] = "array", ["minItems"] = 1, ["maxItems"] = 4, ["items"] = support }),
                 ("effect", PlanningHoleRequests.Enum([id])),
                 ("basis", PlanningHoleRequests.Enum([anchor.BoundaryKind == "result_realization" ? "requested_result_production" : "requested_owned_occurrence"])),
                 ("owner", PlanningHoleRequests.Enum([anchor.OwnerReference])), ("boundary", PlanningHoleRequests.Enum([anchor.BoundaryReference]))));
         }
-        var schema = new JsonObject { ["anyOf"] = new JsonArray(
+        if (requests.Count != 0)
+        {
+            definitions["request"] = new JsonObject { ["anyOf"] = requests };
+            alternatives.Add((JsonNode)PlanningHoleRequests.Object(("role", PlanningHoleRequests.Enum(["requested_execution"])),
+                ("request", new JsonObject { ["$ref"] = "#/$defs/request" }),
+                ("qualifiers", new JsonObject { ["type"] = "array", ["minItems"] = 0, ["maxItems"] = MaxContributionUnits - 1,
+                    ["items"] = PlanningHoleRequests.Object(("evidence", owned.DeepClone().AsObject())) })));
+        }
+        // Bound each cardinality alternative without multiplying six parents by five
+        // children. The parser additionally enforces the shared six-unit allowance.
+        definitions["excluded"] = alternatives[0]!.DeepClone();
+        definitions["property"] = alternatives[1]!.DeepClone();
+        alternatives[0] = new JsonObject { ["$ref"] = "#/$defs/excluded" };
+        alternatives[1] = new JsonObject { ["$ref"] = "#/$defs/property" };
+        var shapes = new JsonArray();
+        for (var count = domain.Count == 0 ? MaxContributionUnits : 1; count <= MaxContributionUnits; count++)
+        {
+            var choices = alternatives.DeepClone().AsArray();
+            foreach (var choice in choices.OfType<JsonObject>())
+                if (choice["properties"]?["qualifiers"] is JsonObject qualifiers)
+                    qualifiers["maxItems"] = MaxContributionUnits - count;
+            definitions["units_" + count] = new JsonObject { ["anyOf"] = choices };
+            shapes.Add((JsonNode)new JsonObject { ["type"] = "array", ["minItems"] = domain.Count == 0 ? 1 : count, ["maxItems"] = count,
+                ["items"] = new JsonObject { ["$ref"] = "#/$defs/units_" + count } });
+        }
+        var schema = new JsonObject { ["$defs"] = definitions, ["anyOf"] = new JsonArray(
             PlanningHoleRequests.Object(("status", PlanningHoleRequests.Enum(["unresolved"]))),
-            PlanningHoleRequests.Object(("status", PlanningHoleRequests.Enum(["qualified"])), ("units", new JsonObject
-            { ["type"] = "array", ["minItems"] = 1, ["maxItems"] = 6, ["items"] = new JsonObject { ["anyOf"] = alternatives } }))) };
+            PlanningHoleRequests.Object(("status", PlanningHoleRequests.Enum(["qualified"])),
+                ("units", new JsonObject { ["anyOf"] = shapes }))) };
         var context = new JsonObject
         {
             ["stage"] = "execution_contribution", ["scope"] = scope.Clause.Id,
             ["task"] = "Qualify the complete clause jointly. Requested execution must bind its owned request/predicate to its execution and subordinate result-selection evidence, effect and positive basis. Fragments cannot independently request execution. Retain the relationship between the complete statement and its parts. Governing properties and irrelevant units have no execution authority. These units can coexist; account for all issued evidence without contradictory overlaps. Semantic labels are nonexclusive context. Execution facts, necessity, an output or a candidate boundary alone do not prove requested performance. Governing qualification is unbound; applicability is resolved after realization. Unknown meaning or incomplete accounting requires unresolved.",
+            ["composition"] = "A requested execution may retain its complete evidence and contain governing qualifiers. List contained properties in its qualifiers, not as overlapping peer units. Each qualifier must be properly contained in an owned support reference; their union cannot exhaust the request predicate or execution evidence. Qualifiers supply no executable support. Nesting records composition only, not applicability. Standalone properties remain unbound. At most six units total, including qualifiers.",
             ["clause"] = PlanningChoiceEvidence.Text(state, scope.Clause.Id), ["boundaries"] = scope.Words.DeepClone(),
             ["provenance"] = new JsonObject(members.Select(s => new KeyValuePair<string, JsonNode?>(s.Evidence!.Id, new JsonObject
             { ["reference"] = s.Evidence.ActionReference, ["span"] = PlanningChoiceEvidence.Text(state, s.Evidence.ActionReference!),
@@ -70,7 +102,7 @@ internal static partial class PlanningOperations
                 ["result"] = state.Declarations.SingleOrDefault(d => d.Id == p.Value.OwnerReference) is { } declaration ? PlanningDeclarations.Name(state, declaration) : null })))
         };
         return new(ContributionDecisionId(scope.Evidence!), schema, context,
-            PlanningGraphCompiler.Fingerprint("execution-contribution-v4:" + EvidenceFingerprint(state) + ":" +
+            PlanningGraphCompiler.Fingerprint("execution-contribution-v5:" + EvidenceFingerprint(state) + ":" +
                 string.Join('|', members.Select(s => s.Evidence!.ProofFingerprint)) + ":" + schema.ToJsonString() + ":" + context.ToJsonString()),
             SourceDecisionIds: members.Select(s => "contribution_" + s.Evidence!.Id).Append(ContributionDecisionId(scope.Evidence!)).Order(StringComparer.Ordinal).ToArray());
     }
@@ -98,6 +130,8 @@ internal static partial class PlanningOperations
         if (PlanningContractValidation.ValidateInstance(answer, decision.Schema).Count != 0)
             throw Failure(scope.Clause.Id, "Clause qualification changed its request links, owned evidence, effect bindings or support bases.");
         if (answer["status"]!.ToString() != "qualified") throw Failure(scope.Clause.Id, "Executable contribution authority is unresolved.");
+        if (answer["units"]!.AsArray().Sum(u => 1 + (u!["qualifiers"]?.AsArray().Count ?? 0)) > MaxContributionUnits)
+            throw Failure(scope.Clause.Id, "Clause qualification exceeds its complete semantic-unit allowance.");
         var members = ContributionMembers(state, scope);
         var selected = new Dictionary<string, PlanningReference>(StringComparer.Ordinal);
         PlanningReference Select(JsonNode value)
@@ -120,8 +154,9 @@ internal static partial class PlanningOperations
         {
             var value = node!;
             var execution = value["role"]!.ToString() == "requested_execution";
-            var spans = execution ? value["evidence"]!.AsArray().Select(v => Select(v!)).DistinctBy(r => r.Id).OrderBy(r => r.Id, StringComparer.Ordinal).ToArray() : [Select(value["evidence"]!)];
-            var predicate = execution ? Select(value["predicate"]!) : null;
+            var facts = execution ? value["request"]! : value;
+            var spans = execution ? facts["evidence"]!.AsArray().Select(v => Select(v!)).DistinctBy(r => r.Id).OrderBy(r => r.Id, StringComparer.Ordinal).ToArray() : [Select(facts["evidence"]!)];
+            var predicate = execution ? Select(facts["predicate"]!) : null;
             if (predicate is not null && !Enumerable.Range(predicate.Start, predicate.Length).All(i => char.IsWhiteSpace(scope.Source.Text[i]) || spans.Any(r => r.Start <= i && i < r.Start + r.Length)))
                 throw Failure(scope.Clause.Id, "Requested execution must account for its predicate in its support projections.");
             var parents = members.Where(s => spans.Any(r => Overlaps(state.References.Single(p => p.Id == s.Evidence!.ActionReference), r))).ToArray();
@@ -130,21 +165,48 @@ internal static partial class PlanningOperations
                 // A separately owned occurrence may overlap the same source clause.
                 // Bind every compatible record for this effect; other occurrences must
                 // still receive their own complete accounting below.
-                parents = parents.Where(p => EffectDomain(state, p.Evidence!).ContainsKey(value["effect"]!.ToString())).ToArray();
+                parents = parents.Where(p => EffectDomain(state, p.Evidence!).ContainsKey(facts["effect"]!.ToString())).ToArray();
                 if (!spans.Append(predicate!).All(r => parents.Any(p => ContainsSpan(state.References.Single(x => x.Id == p.Evidence!.ActionReference), r))))
                     throw Failure(scope.Clause.Id, "Requested execution has no owned provenance for its selected effect.");
                 RequireCompatibleContributionFacts(parents.Select(s => s.Evidence!).ToArray(), scope.Clause.Id);
             }
             var bindings = parents.Select(s => s.Evidence!.Id).Order(StringComparer.Ordinal).ToList();
             var unit = new PlanningContributionUnit("", value["role"]!.ToString(), scope.Clause.Id, predicate?.Id,
-                spans.Select(r => r.Id).ToList(), bindings, value["effect"]?.ToString(),
-                value["basis"]?.ToString() ?? "governing_property", value["owner"]?.ToString(), value["boundary"]?.ToString());
-            unit = unit with { Id = "unit_" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(unit, PlanningJsonContext.Default.PlanningContributionUnit))[..24] };
+                spans.Select(r => r.Id).ToList(), bindings, facts["effect"]?.ToString(),
+                facts["basis"]?.ToString() ?? "governing_property", facts["owner"]?.ToString(), facts["boundary"]?.ToString());
+            unit = SealContributionUnit(unit);
             units.Add(unit);
             foreach (var span in spans)
                 contributions.Add(SealContribution(scope.Clause.Id, new("", span.Id, execution ? "supports" : unit.Role,
                     unit.EffectId, unit.Basis, unit.OwnerReference, unit.BoundaryReference, PlanningContributionOrigin.ModelQualification)
                 { UnitId = unit.Id, RuntimeEvidenceIds = bindings }));
+            if (!execution) continue;
+            var qualifiers = value["qualifiers"]!.AsArray().Select(q => Select(q!["evidence"]!))
+                .DistinctBy(r => r.Id).OrderBy(r => r.Id, StringComparer.Ordinal).ToArray();
+            foreach (var a in qualifiers)
+            foreach (var b in qualifiers)
+                if (Overlaps(a, b) && !ContainsSpan(a, b) && !ContainsSpan(b, a))
+                    throw Failure(scope.Clause.Id, "Governing qualifier composition cannot contain crossing evidence.");
+            foreach (var qualifier in qualifiers)
+            {
+                if (!spans.Any(r => ContainsSpan(r, qualifier) && r.Length > qualifier.Length))
+                    throw Failure(scope.Clause.Id, "A governing qualifier must be properly contained in its parent request evidence.");
+                // Property provenance is exact containment, independent of preliminary kind.
+                // The parent still has to own the child; overlapping unrelated records cannot supply ownership.
+                var provenance = members.Where(p => ContainsSpan(state.References.Single(r => r.Id == p.Evidence!.ActionReference), qualifier))
+                    .Select(p => p.Evidence!.Id).Order(StringComparer.Ordinal).ToList();
+                if (provenance.Count == 0) throw Failure(scope.Clause.Id, "A governing qualifier has no owned parent provenance.");
+                var child = SealContributionUnit(new("", "governing_property", scope.Clause.Id, null, [qualifier.Id], provenance,
+                    null, "governing_property", null, null) { ParentRequestUnitId = unit.Id });
+                units.Add(child);
+                contributions.Add(SealContribution(scope.Clause.Id, new("", qualifier.Id, "governing_property", null,
+                    "governing_property", null, null, PlanningContributionOrigin.ModelQualification)
+                { UnitId = child.Id, RuntimeEvidenceIds = provenance }));
+            }
+            bool Exhausts(PlanningReference reference) => Enumerable.Range(reference.Start, reference.Length)
+                .Where(i => !char.IsWhiteSpace(scope.Source.Text[i])).All(i => qualifiers.Any(q => q.Start <= i && i < q.Start + q.Length));
+            if (qualifiers.Length != 0 && (Exhausts(predicate!) || spans.All(Exhausts)))
+                throw Failure(scope.Clause.Id, "Governing qualifiers cannot exhaust or replace their parent execution request.");
         }
         foreach (var member in members)
         {
@@ -154,15 +216,23 @@ internal static partial class PlanningOperations
         }
         foreach (var a in contributions)
         foreach (var b in contributions.Where(b => b.Role != a.Role))
-            if (Overlaps(selected[a.EvidenceReference], selected[b.EvidenceReference]))
+            if (Overlaps(selected[a.EvidenceReference], selected[b.EvidenceReference]) &&
+                !NestedProperty(a, b) && !NestedProperty(b, a))
                 throw Failure(scope.Clause.Id, "Clause semantic units give contradictory authority to overlapping evidence.");
+        bool NestedProperty(PlanningExecutionContribution property, PlanningExecutionContribution support) =>
+            property.Role == "governing_property" && support.Role == "supports" &&
+            units.First(u => u.Id == property.UnitId).ParentRequestUnitId == support.UnitId;
         foreach (var span in selected.Values)
             if (!state.References.Any(r => r.Id == span.Id)) state.References.Add(span);
-        return SealContributionProof(new(4, members[0].Evidence!.Id, decision.Id, decision.EvidenceFingerprint,
+        return SealContributionProof(new(5, members[0].Evidence!.Id, decision.Id, decision.EvidenceFingerprint,
             contributions.DistinctBy(c => c.Id).OrderBy(c => c.Id, StringComparer.Ordinal).ToList(), "")
         { ClauseReference = scope.Clause.Id, RuntimeEvidenceIds = members.Select(s => s.Evidence!.Id).ToList(),
             Units = units.DistinctBy(u => u.Id).OrderBy(u => u.Id, StringComparer.Ordinal).ToList() });
     }
+
+    // The parent identity does not depend on child enumeration or child identities.
+    private static PlanningContributionUnit SealContributionUnit(PlanningContributionUnit unit) => unit with
+    { Id = "unit_" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(unit with { Id = "" }, PlanningJsonContext.Default.PlanningContributionUnit))[..24] };
 
     private static PlanningExecutionContribution SealContribution(string parent, PlanningExecutionContribution value) => value with
     { Id = "contribution_" + PlanningGraphCompiler.Fingerprint(parent + ":" + JsonSerializer.Serialize(value with { Id = "" }, PlanningJsonContext.Default.PlanningExecutionContribution))[..24] };
@@ -182,7 +252,7 @@ internal static partial class PlanningOperations
             structural ? anchor?.Key : null, basis, anchor?.Value.OwnerReference, anchor?.Value.BoundaryReference,
             excluded ? PlanningContributionOrigin.DeterministicExclusion : PlanningContributionOrigin.DeterministicBaseline)
         { UnitId = unit.Id, RuntimeEvidenceIds = [evidence.Id] });
-        return SealContributionProof(new(4, evidence.Id, null, PlanningGraphCompiler.Fingerprint("execution-contribution-v4:" +
+        return SealContributionProof(new(5, evidence.Id, null, PlanningGraphCompiler.Fingerprint("execution-contribution-v5:" +
             EvidenceFingerprint(state) + ":" + evidence.ProofFingerprint + ":" + state.DeclarationFingerprint), [item], "")
         { ClauseReference = evidence.ClauseReference, RuntimeEvidenceIds = [evidence.Id], Units = [unit] });
     }
