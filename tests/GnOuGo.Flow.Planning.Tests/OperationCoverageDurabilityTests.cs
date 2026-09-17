@@ -28,7 +28,7 @@ public sealed class OperationCoverageDurabilityTests
         for (var limit = 500; limit < 12000; limit += 100)
         {
             other.Request.Generation.MaxInputTokensPerRequest = limit;
-            try { _ = PlanningDecisionPages.PackedPageCount(other, PlanningOperations.ContributionDecisions(other)); if (PlanningDecisionPages.PackedPageCount(other, decisions) > initialPages) break; }
+            try { _ = PlanningDecisionPages.PackedPageCount(other, OperationEffectFixtures.PropertyDecisions(other)); if (PlanningDecisionPages.PackedPageCount(other, decisions) > initialPages) break; }
             catch (WorkflowRuntimeException e) when (e.Code == "DECISION_SIZE_UNSUPPORTED") { }
         }
         Assert.True(PlanningDecisionPages.PackedPageCount(other, decisions) > initialPages);

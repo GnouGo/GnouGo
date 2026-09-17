@@ -9,12 +9,12 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-joint-clause-qualification-mixed-diagnostics-1";
-    internal const string ComparisonIdentity = "schema5-joint-clause-qualification-diagnostics-rerun-1";
-    internal const string ProductionCommit = "d2ceac7cd85793baea732721f4e2b092c94be210";
+    internal const string Identity = "schema5-fallback-ownership-diagnostics-1";
+    internal const string ComparisonIdentity = "schema5-joint-clause-qualification-mixed-diagnostics-1";
+    internal const string ProductionCommit = "e1fe4687574936d5ce2632d7e30b84f70adbeb19";
     internal const string ComparisonProductionCommit = "d2ceac7cd85793baea732721f4e2b092c94be210";
     // Sorted production DLL hashes from the accepted offline implementation report.
-    internal const string ProductionBinariesFingerprint = "2f10e8ca79f6d3e6c159680acbd0a009d1acd5d8d99dc976e6f8e9c174c4f962";
+    internal const string ProductionBinariesFingerprint = "8e6b5b529472e0d379ed9f7252d002f6cabc1a5cb051d7468aae9955bf5d1d83";
     internal static void RequireFrozenProduction(JsonObject binaries)
     {
         var production = new JsonObject(binaries.Where(p => p.Key != "GnOuGo.Agent.Planning.Benchmark.dll")
@@ -46,28 +46,15 @@ internal static class RuntimeAdmissionDiagnosticRules
     }
     internal static void RequireCase(string name, JsonObject? previous)
     {
-        // This separately authorized gate requires the immutable accepted LOCAL.
-        var local = previous?["liveEvidence"]?["cases"]?.AsArray().SingleOrDefault(c => c?["case"]?.ToString() == "local");
-        var restart = local?["readOnlyRestart"];
-        if (name != "mixed" || previous?["outcome"]?.ToString() != "LOCAL PASS" ||
-            previous["campaignIdentity"]?.ToString() != ComparisonIdentity || previous["productionCommit"]?.ToString() != ProductionCommit ||
-            previous["liveEvidence"]?["manifest"]?["productionBinariesFingerprint"]?.ToString() != ProductionBinariesFingerprint ||
-            local?["session"]?.ToString() != ComparisonIdentity + ":local" || local["status"]?.ToString() != "passed" ||
-            local["admissionCommitted"]?.GetValue<bool>() != true || local["effectValidationPassed"]?.GetValue<bool>() != true ||
-            restart?["passed"]?.GetValue<bool>() != true || restart["providerCalls"]?.GetValue<int>() != 0 || restart["checkpointWrites"]?.GetValue<int>() != 0 ||
-            string.IsNullOrEmpty(restart["snapshotFingerprint"]?.ToString()) ||
-            restart["admissionFingerprint"]?.ToString() != local["admissionFingerprint"]?.ToString() ||
-            !JsonNode.DeepEquals(restart["admissionProofVersions"], new JsonArray(14)) ||
-            !JsonNode.DeepEquals(restart["contributionProofVersions"], new JsonArray(4)) ||
-            !JsonNode.DeepEquals(restart["coverageProofVersions"], new JsonArray(3)) ||
-            !JsonNode.DeepEquals(restart["effectProofVersions"], new JsonArray(7)) ||
-            !JsonNode.DeepEquals(restart["dependencyProofVersions"], new JsonArray(1)))
-            throw new InvalidOperationException("Only one fresh MIXED is authorized, gated by accepted LOCAL on the frozen production; LOCAL, replacements and later gates are forbidden.");
+        // Prior results cannot authorize any additional case in this LOCAL-only gate.
+        if (name != "local")
+            throw new InvalidOperationException("Only one fresh LOCAL is authorized; MIXED, replacements and Stage 1 are forbidden.");
     }
+
     internal static void RequireFreshStart(bool checkpoint, bool report, bool budget, bool reservations)
     {
         if (checkpoint || report || budget || reservations)
-            throw new InvalidOperationException("This MIXED has already started. Read its report; do not start or resume it again.");
+            throw new InvalidOperationException("This LOCAL has already started. Read its report; do not start or resume it again.");
     }
     internal static void RequireRequest(PlanningSnapshot state)
     {
@@ -97,13 +84,13 @@ internal static class RuntimeAdmissionDiagnosticRules
         void Require(bool condition, string code, string message)
         { if (!condition) throw new WorkflowRuntimeException(code, message); }
         Require(identityDecisions == 0, "DIAGNOSTIC_IDENTITY_DECISION", "The fixture requires deterministic occurrence identity after effect grounding.");
-        Require(operations.Count == (name == "local" ? 1 : 2) && operations.All(o => o.Required && o.OperationAdmission is { Version: 16, Dependencies.Version: 1 }) &&
+        Require(operations.Count == (name == "local" ? 1 : 2) && operations.All(o => o.Required && o.OperationAdmission is { Version: 17, Dependencies.Version: 1 }) &&
             operations.Count(o => o.Kind == "local_processing") == 1 && operations.Count(o => o.Kind == "external_read") == (name == "mixed" ? 1 : 0),
             "DIAGNOSTIC_ADMISSION_MISMATCH", "The frozen fixture requires exactly its declared runtime effects.");
         var local = operations.Single(o => o.Kind == "local_processing");
         foreach (var operation in operations) RequirePositiveSupports(operation);
         Require(operations.All(o => o.OperationAdmission!.ExecutionContributions.Count > 0 &&
-            o.OperationAdmission.ExecutionContributions.All(p => p.Version == 6 && !string.IsNullOrEmpty(p.ProofFingerprint)) &&
+            o.OperationAdmission.ExecutionContributions.All(p => p.Version == 7 && !string.IsNullOrEmpty(p.ProofFingerprint)) &&
             o.OperationAdmission.Assignments.All(a => o.OperationAdmission.ExecutionContributions.Any(p => (a.RuntimeEvidenceId is null || p.RuntimeEvidenceIds.Contains(a.RuntimeEvidenceId)) &&
                 p.Contributions.Any(c => c.Id == a.ContributionId && c.EvidenceReference == a.ActionReference &&
                     (a.Disposition == "supports" ? c.Role == "supports" && c.EffectId == o.Id : c.Role == "governing_property" && c.EffectId is null &&
@@ -171,14 +158,15 @@ internal static class RuntimeAdmissionDiagnosticRules
             if (admission is null || assignment.EffectId != operation.Id || assignment.TargetId != operation.Id ||
                 assignment.Kind != operation.Kind || assignment.BaselineReference != admission.BaselineReference ||
                 assignment.Effect is not { Version: 7 } effect) return false;
-            var matches = admission.ExecutionContributions.Where(p => p.Version == 6 &&
+            var matches = admission.ExecutionContributions.Where(p => p.Version == 7 &&
                     !string.IsNullOrEmpty(p.ProofFingerprint) && p.RuntimeEvidenceIds.Contains(assignment.RuntimeEvidenceId!))
                 .SelectMany(p => p.Contributions).Where(c => c.Id == assignment.ContributionId).ToArray();
             if (matches.Length != 1) return false;
             var contribution = matches[0];
             var owner = admission.ExecutionContributions.Single(p => p.Contributions.Any(c => c.Id == contribution.Id));
             var unit = owner.Units.SingleOrDefault(u => u.Id == contribution.UnitId);
-            return unit is { Role: "requested_execution", PredicateReference: not null } && unit.EffectId == operation.Id &&
+            return unit is { Role: "requested_execution", PredicateReference: not null, ExecutionRequestId: not null } && unit.EffectId == operation.Id &&
+                contribution.ExecutionRequestId == unit.ExecutionRequestId && admission.ExecutionRequests.Any(p => p.Version == 1 && p.Id == unit.ExecutionRequestId && p.Units.Any(u => u.Id == unit.Id && u.EvidenceReferences.Contains(contribution.EvidenceReference))) &&
                 unit.Basis == contribution.Basis && unit.OwnerReference == contribution.OwnerReference && unit.BoundaryReference == contribution.BoundaryReference &&
                 unit.EvidenceReferences.Contains(contribution.EvidenceReference) && contribution.RuntimeEvidenceIds.SequenceEqual(assignment.RuntimeEvidenceIds) &&
                 contribution.Role == "supports" && contribution.EffectId == operation.Id &&
@@ -224,7 +212,7 @@ internal static class RuntimeAdmissionDiagnosticRules
         string sourceId, int start, int length)
     {
         var proof = operation.OperationAdmission!;
-        var qualified = proof.ExecutionContributions.Where(p => p.Version == 6).SelectMany(p => p.Contributions).ToArray();
+        var qualified = proof.ExecutionContributions.Where(p => p.Version == 7).SelectMany(p => p.Contributions).ToArray();
         var references = proof.Assignments.Where(a => a.EffectId == operation.Id && a.TargetId == operation.Id && qualified.Any(c =>
             c.Id == a.ContributionId && c.EvidenceReference == a.ActionReference &&
             (a.Disposition == "supports" && c.Role == "supports" && c.EffectId == operation.Id &&

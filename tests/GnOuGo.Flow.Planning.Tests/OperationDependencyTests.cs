@@ -177,7 +177,7 @@ public sealed class OperationDependencyTests
             state.Request.Generation.MaxInputTokensPerRequest = limit;
             try
             {
-                _ = PlanningDecisionPages.PackedPageCount(state, PlanningOperations.ContributionDecisions(state));
+                _ = PlanningDecisionPages.PackedPageCount(state, OperationEffectFixtures.PropertyDecisions(state));
                 _ = PlanningDecisionPages.PackedPageCount(state, coverageDecisions);
                 if (PlanningDecisionPages.PackedPageCount(state, domain.Decisions) > initialPages) { repacked = true; break; }
             }

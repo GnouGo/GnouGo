@@ -48,7 +48,8 @@ public sealed class OperationRealizedGoverningTests
         OperationEffectFixtures.SeedBoundaries(state);
         var scope = Assert.Single(PlanningOperations.Scopes(state));
         var qualification = OperationEffectFixtures.SplitProperty(state, scope, 3);
-        OperationEffectFixtures.SeedPages(state, PlanningOperations.ContributionDecisions(state), new() { [PlanningOperations.ContributionDecisionId(scope.Evidence!)] = qualification });
+        var properties = OperationEffectFixtures.SeparateRequestAuthority(state, new() { [PlanningOperations.ContributionDecisionId(scope.Evidence!)] = qualification });
+        OperationEffectFixtures.SeedPages(state, PlanningOperations.ContributionDecisions(state), properties);
         var group = Assert.Single(PlanningOperations.CoverageGroups(state));
         var mapping = Assert.Single(group.Plans);
         var effect = Assert.Single(group.Effects).Key;

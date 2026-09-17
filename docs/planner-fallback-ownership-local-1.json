@@ -1,0 +1,2501 @@
+{
+  "outcome": "VERIFIED BLOCKER \u2014 category C; architecture review required",
+  "campaignIdentity": "schema5-fallback-ownership-diagnostics-1",
+  "productionCommit": "e1fe4687574936d5ce2632d7e30b84f70adbeb19",
+  "localStarts": 1,
+  "mixedRun": false,
+  "stage1Run": false,
+  "productionModified": false,
+  "replacementOrProbe": false,
+  "firstSemanticFinding": {
+    "requestNumber": 11,
+    "decision": "contribution_clause_119de8a260204d9029e70e98",
+    "reference": "r_b34a1b0af0038859be7f250e",
+    "span": [
+      539,
+      599
+    ],
+    "text": "This is deterministic, local, in-memory business processing.",
+    "selectedRole": "requested_execution",
+    "basis": "requested_result_production",
+    "candidateEffect": "operation_e226ff9ed819b5a645e7d9de",
+    "finding": "A descriptive property statement was proposed as requested execution. It establishes no requested performance or result production.",
+    "admitted": false
+  },
+  "firstTerminalBlocker": {
+    "requestNumber": 13,
+    "decision": "contribution_clause_fd44720f614f30715b056927",
+    "phase": "intent_operations",
+    "code": "INTENT_OPERATION_UNRESOLVED",
+    "location": "/operations/@r_7d1a18cc64428840c406b35b",
+    "message": "A governing qualifier must be properly contained in its parent request evidence.",
+    "parent": {
+      "reference": "r_c4dda3460aad9754e8302e65",
+      "span": [
+        29,
+        57
+      ],
+      "text": "classifying a single record."
+    },
+    "qualifier": {
+      "issuedBounds": [
+        "b1",
+        "b4"
+      ],
+      "span": [
+        7,
+        28
+      ],
+      "text": "one reusable workflow"
+    },
+    "observedAfterAllThreeQualificationPagesCompleted": true
+  },
+  "fallbackObservation": {
+    "requestNumber": 12,
+    "decision": "contribution_clause_e2dd522c748ea669b727d15d",
+    "issuedBounds": [
+      "b16",
+      "b17"
+    ],
+    "reference": "r_52fa4fe87382cec8a5f71f08",
+    "span": [
+      433,
+      443
+    ],
+    "text": "otherwise.",
+    "selectedKind": "runtime_fallback",
+    "nestedQualifier": true,
+    "applicabilityReached": false,
+    "committed": false
+  },
+  "authorityAnalysis": {
+    "semanticSupport": "Canonical clause qualification owns requested-execution qualification; a possible effect or preliminary local kind cannot establish requested performance.",
+    "composition": "The engine already knew parent and child coordinates. A clause-wide governing domain was available inside nested qualifiers; proper containment was enforced after responses rather than excluded in the issued combination.",
+    "stoppingInvariant": "Validation rejected the complete contribution set before realization coverage and atomic admission.",
+    "recurrence": "Repeated contribution/support authority failures trigger architecture review, not another targeted filter or prompt/retry change."
+  },
+  "accounting": {
+    "interpretationDecisions": 8,
+    "initialInterpretationPages": 8,
+    "interpretationCalls": 10,
+    "clauseQualificationDecisions": 3,
+    "clauseQualificationCalls": 3,
+    "coverageDecisions": 0,
+    "coverageCalls": 0,
+    "applicabilityDecisions": 0,
+    "applicabilityCalls": 0,
+    "identityDecisions": 0,
+    "identityCalls": 0,
+    "dependencyDecisions": 0,
+    "dependencyCalls": 0,
+    "boundaryDecisions": 0,
+    "boundaryCalls": 0,
+    "proposedRequestedExecutionUnits": 3,
+    "proposedSupportCitations": 4,
+    "proposedNestedGoverningQualifiers": 7,
+    "proposedStandaloneGoverningProperties": 2,
+    "proposedFallbacks": 1,
+    "validatedCompleteContributionProof": false,
+    "admittedOperations": 0,
+    "admittedSupports": 0,
+    "committedAttachments": 0,
+    "durableCalls": 13,
+    "journalRequests": 13,
+    "coordinatorReservations": 13,
+    "remainingDurableAllowance": 3,
+    "inputTokens": 39478,
+    "outputTokens": 20952,
+    "reasoningTokens": 19436,
+    "finalAnswerTokens": 1516,
+    "partitions": 0,
+    "singletonEscalations": 2,
+    "semanticRepairs": 0,
+    "unverifiableRequests": 0,
+    "unknownUsage": false,
+    "largestActualInput": 4005,
+    "largestEstimatedInput": 5549,
+    "typedPolicyClauses": 8,
+    "typedPolicyObligations": 9,
+    "baselineStructuralUnits": 5,
+    "hostOrBaselineInterpretationDecisions": 0,
+    "operationIdentityDeterministicAssignments": 0,
+    "newPlannerDecisionsIntroduced": 0,
+    "plannerDecisionsRemoved": 0,
+    "providerCallSavingsClaimed": false
+  },
+  "acceptance": {
+    "passed": false,
+    "zeroUnresolvedRuntimeEvidence": true,
+    "canonicalClassifierNotEstablished": true,
+    "coverageApplicabilityDependenciesNotReached": true,
+    "admissionCommitted": false,
+    "contributionVersion": 6,
+    "applicabilityVersion": 2,
+    "admissionVersion": 16,
+    "completedAdmissionRestart": "not reached",
+    "declarationFixtureUnchanged": true,
+    "thresholdOmissionDefault": 100,
+    "thresholdRequired": false,
+    "supportMultiplicityDoesNotCreateAuthority": true
+  },
+  "validation": {
+    "integrity": {
+      "productionSources": true,
+      "productionBinaries": true,
+      "fixtures": true,
+      "archivedReports": true,
+      "artifactHashes": true
+    },
+    "retainedBuildPackageFrontendEvidence": true,
+    "currentAgentTests": 561,
+    "optionalProviderTestsNotEnabled": true,
+    "publishedSmokesPassed": true,
+    "referenceSelfcheckPassed": true,
+    "harnessSha256": "2e5cad3111e7aade0f142ce32842cc1f996f54f7dc357b2869ba283dcaa0475c",
+    "exchangeRatePrerequisite": {
+      "status": "passed",
+      "checkedAtUtc": "2026-09-17T15:30:23.906226+00:00",
+      "sourceCurrency": "USD",
+      "targetCurrency": "EUR",
+      "quoteChecks": 1,
+      "modelCalls": 0,
+      "quotePresent": true,
+      "quoteDateUtc": "2026-09-17T00:00:00+00:00"
+    },
+    "preflight": {
+      "interpretationPages": 8,
+      "sourceDecisions": 8,
+      "modelRuntimeDecisionsRemoved": 0,
+      "declarationFixtureValidated": true
+    },
+    "newHarnessSources": {
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.EffectValidation.cs": "9844590d01c7e22d2a6449097857ddae9c2d704eabcd03f944f728dc904e111e",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.Occurrences.cs": "a6d2317aeeb007c087b635fe60115df54d917f758b095dbf3ad6f11fae95cc1e",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.CoverageFixture.cs": "faaf8425d5295350f0b51c37f7b7e899c0c0540e9f974702c0a265f162b0f8f7",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.ApplicabilityValidation.cs": "c5b08a65576e90cdd84df63768a1141e8c78e3d17c118908184a7aa7e4bb44b9",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.Prerequisites.cs": "1d216af30e3be2d44b1059cd64f7a9f122b9ada91a7018bae5012319961459d9",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.SupportAdjudication.cs": "882715b510fea30269bea751dc6d00c7eaaacf73d238a3bc4d7406f1bc8e67ba",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.ContributionReport.cs": "40b96148d8a3add645578a9a6476e709cdcd78afb772db724a0758961c095754",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.Declarations.cs": "043db81e462956dbc0d9fc187fad2549d31995e4f226e9287666c142075346e0",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.FallbackGate.cs": "56f445b641900ea6644ddcb0ecfbf89fab91b3f641670b93b35ca1fd8ffc23c5",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnosticRules.cs": "bd17a78f931f0254293123540b4df81148add32c76ad8634361370349a9bc1db",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.MixedAuthorization.cs": "393eb236757dd942560c385e0e40de2b45deac901a85ed6bc844b1ba76cee789",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.Audit.cs": "f9d1dd72cc63748f584d90f57cfe4e98b205899726fb599afb3dafcea78effe6",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.cs": "400c2dcc0172f1f6469f9da4d7c78cc850531ed58c9d0d486910e5bb539273be",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.BaselineProjection.cs": "800b3def34d683ec3293cf152220a3b3b2f5d3a8928aaf57eb01093440cc34c6",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.Restart.cs": "ac326f808f4d7490de5b0b7cfecbd4562321e4a77417bdcd79e434fb7f7d7163",
+      "tests/GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.EffectFixture.cs": "e4005b83321feb3b3879e09fc88f2b1b14848e69da7ac8d2abcbffa0ca84c52d"
+    },
+    "harnessSelfcheck": {
+      "evidence": "synthetic fixture selfcheck",
+      "cases": [
+        {
+          "case": "local",
+          "passed": true,
+          "preflight": {
+            "interpretationPages": 8,
+            "sourceDecisions": 8,
+            "modelRuntimeDecisionsRemoved": 0,
+            "declarationFixtureValidated": true
+          },
+          "modelCalls": 0,
+          "readOnlyRestart": {
+            "passed": true,
+            "providerCalls": 0,
+            "checkpointWrites": 0,
+            "snapshotFingerprint": "4c59035a1746fdeef4767a4c7b37b0e4d0147d973518a990a107e38e81f8cf9c",
+            "admissionFingerprint": "2e39574cc2016bbcf1065003cdf92a8ff2467b869c4dc6f93a5ccb5198ffe4d7",
+            "operationIds": [
+              "operation_e226ff9ed819b5a645e7d9de"
+            ],
+            "contributionProofVersions": [
+              6
+            ],
+            "effectProofVersions": [
+              7
+            ],
+            "admissionProofVersions": [
+              16
+            ],
+            "applicabilityProofVersions": [],
+            "applicabilityFingerprints": [],
+            "contributionFingerprints": [
+              "60586d172587b7f0be71783cf98041a3ef1d2f841f66646745aaa1ac3e117a5c",
+              "5e915d3cceef4477e31c958090d8d494c3004ed12504189df1cf4162c977746e",
+              "720983e37e89f91d8cb4b81b8fc7845dabc7972580885108bfaa64a9e795ff46",
+              "a4409e39e2bf51527e9d66aef7fffaab54968f2a7c235e1b2068c84c63ad6ec9",
+              "c9e9dc9fe08d260a7a919dd8f514d5e4e927df1b8ef6d0a825dfeec116d7dab9",
+              "f70f3b72f46329265155a17cc3506787bd0af7aab1008c3f41c296269e605fc2",
+              "f0dc85a7feca232a43f9b34e700bda6c3bf24883bb129be27cb1e38f92a57068",
+              "0a40e15f0601f98b6f1c85e7bf55a4d03ae588742bbaebb9eb11894776e1409e",
+              "67b4c7238d9cd76457f20d0f4e359644a8c26ff3cc82621dbcba054a8448f12c",
+              "1e2f7cbac593d4ec2c5fb3c4732d38f9ca33e55fb1d2705d71b4c2f6c89a7c88",
+              "bc1a0d21562d6056005df87d10fb278f6639d1d13eb6c18e8f8178cd01ff5278",
+              "20ef1f3e180bb4777f9e84fce54642713d4c993084112807ef71db5eac766d43",
+              "4cb56058464a2b42f25e34a2e7c727c3e1ab2c9e447cac80d4e4c8a6877b7c02",
+              "f4f2f71f81a155c8e7d2ef5b02ab65cda8caf5b03ef63207a61ba82cfa2ea060",
+              "216e66417fa7c82b12832c013dbdf8830936badaa5f6d7d5a40f32a4428cbc27"
+            ],
+            "coverageProofVersions": [
+              3
+            ],
+            "coverageFingerprints": [
+              "c806196bfc4f690eed3eb619a092149b6150ebf9ac5bdfabfc36b6fe321ba7fd"
+            ],
+            "dependencyFingerprints": [
+              "bf37f75c84a71bf45a843705d6ebfe9bf158fb176a59d4994a4c9ca9734b1853"
+            ],
+            "dependencyProofVersions": [
+              1
+            ]
+          }
+        },
+        {
+          "case": "mixed",
+          "passed": true,
+          "preflight": {
+            "interpretationPages": 9,
+            "sourceDecisions": 9,
+            "modelRuntimeDecisionsRemoved": 0,
+            "declarationFixtureValidated": true
+          },
+          "modelCalls": 0,
+          "readOnlyRestart": {
+            "passed": true,
+            "providerCalls": 0,
+            "checkpointWrites": 0,
+            "snapshotFingerprint": "20e5bd24a76aa652230fb871b5f636ce8861cd50dd070971b96ce9ef29617883",
+            "admissionFingerprint": "04bac9fb9344e078faf3c35ff4ae05d41c6be6ebec7fb36deccb7d52c2434c7e",
+            "operationIds": [
+              "operation_6b515f252d71b693829d2fe4",
+              "operation_e226ff9ed819b5a645e7d9de"
+            ],
+            "contributionProofVersions": [
+              6
+            ],
+            "effectProofVersions": [
+              7
+            ],
+            "admissionProofVersions": [
+              16
+            ],
+            "applicabilityProofVersions": [],
+            "applicabilityFingerprints": [],
+            "contributionFingerprints": [
+              "ac90d7b27989d01f76b4306a5c2c23cf83440760e1950e1989feb3123cc02399",
+              "5289d33b6831b4b6d28a2e40d59cfacb7f4e8d19faea493751573b6462ae2b50",
+              "223f402d793bf3e7dde405c2052953d9e7612c790ed140145fdefef1a04af59f",
+              "e7e8b3747dda9d8ed06ff565665c2b37d42df1921906a2356230049d7fc23abc",
+              "eb2a3febfbb57cc5c24c2be8c1d6d6a85351ee8a286ead1d0ed9e7be96ba9fd3",
+              "ea5e26fb20ef1da502d367bc7eeb8a25d53f04337f32edf30f5acbc13b0e9338",
+              "efef9f33465c0e1127c70c2bef0eb694ad8a5ea3d98daa3a46e97fa85bda4c94",
+              "6b1dfa1ad2cd1690d6a8dfda836deccb1f8367132156ee287d5f9e972cca210e",
+              "8a1ff3946b41a95752c9e7e79ff30327fa8a82fd189cc68688dc33b28f9ba00e",
+              "05bfe5de36208c7bafb44c5816d1a8892c3417b5c69451e164db8e1b085d4be2",
+              "e1376ab81833aa48c492a02cf467d790da6cc2737ffa8e5df3f1eea67a93f504",
+              "b091dd2f69713713a9baf5ee0365439856003e7da94d518b8adc704854383b9f",
+              "7280cea2576311912b2033a5d1ce71f23436934eaa405a1f25d12d2f835876f3",
+              "cd0d0cf322f826a3c7402414f698295046ff2faa538fa8cb0147d43f0ac5d6a3",
+              "a9d0cdbc2f4245fee7032550d747659635cd9b325de5740de14944236c1b9b50",
+              "7dde0f86282b6b391c2e909d4478251600e636de190cf584f23638185a07db74",
+              "ef8947ce018f6c7adb11daeeae3b8751f477078a0345bf719671f6f5782b4b19"
+            ],
+            "coverageProofVersions": [
+              3
+            ],
+            "coverageFingerprints": [
+              "0bef0a50e9534517c4999db52946eb6c6fda17c94de507328a6e97d5e9364746",
+              "f7a24ae9e29b6a727315c1cffab3764a14e7a1c1db0e063d805d5f28c89c2094"
+            ],
+            "dependencyFingerprints": [
+              "ad1fbe8328e141ecd49267538998326843b349ec0fc0e58ed930c33a5d7e4fcb",
+              "8eee7f861dcd86eebf7605827c142e4157cb7a55372a8ad8e61bda9f40c3b296"
+            ],
+            "dependencyProofVersions": [
+              1
+            ]
+          }
+        }
+      ]
+    },
+    "fullSolutionComponents": {
+      "GnOuGo.Browser.Mcp.Tests.dll": {
+        "failed": 0,
+        "passed": 43,
+        "skipped": 0
+      },
+      "GnOuGo.Diff.Tests.dll": {
+        "failed": 0,
+        "passed": 52,
+        "skipped": 0
+      },
+      "GnOuGo.AI.Local.Tests.dll": {
+        "failed": 0,
+        "passed": 14,
+        "skipped": 0
+      },
+      "GnOuGo.DocIngestor.Tests.dll": {
+        "failed": 0,
+        "passed": 89,
+        "skipped": 0
+      },
+      "GnOuGo.AI.Core.Tests.dll": {
+        "failed": 0,
+        "passed": 193,
+        "skipped": 0
+      },
+      "GnOuGo.KeyVault.Mcp.Tests.dll": {
+        "failed": 0,
+        "passed": 9,
+        "skipped": 0
+      },
+      "GnOuGo.Document.Mcp.Tests.dll": {
+        "failed": 0,
+        "passed": 63,
+        "skipped": 0
+      },
+      "GnOuGo.KeyVault.Core.Tests.dll": {
+        "failed": 0,
+        "passed": 12,
+        "skipped": 0
+      },
+      "GnOuGo.Files.Server.Tests.dll": {
+        "failed": 0,
+        "passed": 10,
+        "skipped": 0
+      },
+      "GnOuGo.Flow.Tests.dll": {
+        "failed": 0,
+        "passed": 857,
+        "skipped": 0
+      },
+      "GnOuGo.Flow.Integrations.Tests.dll": {
+        "failed": 0,
+        "passed": 67,
+        "skipped": 0
+      },
+      "GnOuGo.Agent.Mcp.Tests.dll": {
+        "failed": 0,
+        "passed": 103,
+        "skipped": 0
+      },
+      "GnOuGo.Workspace.Tests.dll": {
+        "failed": 0,
+        "passed": 30,
+        "skipped": 0
+      },
+      "GnOuGo.Mcp.Core.Tests.dll": {
+        "failed": 0,
+        "passed": 31,
+        "skipped": 0
+      },
+      "GnOuGo.OtlpCollector.Server.Tests.dll": {
+        "failed": 0,
+        "passed": 7,
+        "skipped": 0
+      },
+      "GnOuGo.Observability.Core.Tests.dll": {
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      "GnOuGo.Flow.Mermaid.Tests.dll": {
+        "failed": 0,
+        "passed": 12,
+        "skipped": 0
+      },
+      "GnOuGo.GithubCopilot.E2E.Tests.dll": {
+        "failed": 0,
+        "passed": 0,
+        "skipped": 1
+      },
+      "GnOuGo.GithubCopilot.Core.Tests.dll": {
+        "failed": 0,
+        "passed": 84,
+        "skipped": 0
+      },
+      "GnOuGo.DocIngestor.Mcp.Tests.dll": {
+        "failed": 0,
+        "passed": 7,
+        "skipped": 0
+      },
+      "GnOuGo.Assets.Animation.Tests.dll": {
+        "failed": 0,
+        "passed": 38,
+        "skipped": 0
+      },
+      "GnOuGo.Assets.Bears.Server.Tests.dll": {
+        "failed": 0,
+        "passed": 28,
+        "skipped": 0
+      },
+      "GnOuGo.Git.Mcp.Tests.dll": {
+        "failed": 0,
+        "passed": 48,
+        "skipped": 0
+      },
+      "GnOuGo.GithubCopilot.Mcp.Tests.dll": {
+        "failed": 0,
+        "passed": 110,
+        "skipped": 0
+      },
+      "GnOuGo.Cmd.Mcp.Tests.dll": {
+        "failed": 0,
+        "passed": 41,
+        "skipped": 0
+      },
+      "GnOuGo.Assets.Animation.Server.Tests.dll": {
+        "failed": 0,
+        "passed": 13,
+        "skipped": 0
+      },
+      "GnOuGo.Assets.Bears.Tests.dll": {
+        "failed": 0,
+        "passed": 91,
+        "skipped": 0
+      },
+      "GnOuGo.Agent.Server.Tests.dll": {
+        "passed": 561,
+        "failed": 0,
+        "skipped": 0
+      },
+      "GnOuGo.Flow.Planning.Tests.dll": {
+        "failed": 0,
+        "passed": 1128,
+        "skipped": 0
+      }
+    },
+    "currentTotalPassed": 3744,
+    "skipped": 1,
+    "solutionRunPassed": 3733,
+    "agentRunSupersedes550With561": true,
+    "finalHarnessFingerprint": "2e5cad3111e7aade0f142ce32842cc1f996f54f7dc357b2869ba283dcaa0475c",
+    "logHashes": {
+      "/tmp/fallback-ownership-local-1/solution-tests.log": "3f3e959895f3e1bdacf5708f8c47ebf508224bbe75fbc6580a541ebff71dd5e0",
+      "/tmp/fallback-ownership-local-1/agent-tests-current.log": "22d32cdb0d380e20bdd490f7fc7d18a1a12a2d0ca037ef7bfa5a9c806d708505",
+      "/tmp/fallback-ownership-local-1/live.log": "021020cb325cf2a543c1466b5a0234a643848dd8f4ca7697780b8e1a16eb4b9a",
+      "/tmp/fallback-ownership-local-1/harness-build.log": "00ad416c6f1cb382e1c9c8cad06660e813af12316043cbab468662861b243f76",
+      "/tmp/fallback-ownership-local-1/test-build.log": "ae2bdfce96ab064aa9f7a826f46140c6483391e50f92d035fd68f32d861b487b",
+      "/tmp/fallback-ownership-local-1/reader-build.log": "800463ca767adb82a47aa6d8fa0883766ee7412fea698b7fac4abe560b2e1707",
+      "/tmp/fallback-ownership-local-1/harness-build-final.log": "b531c322cf414eda0c4dd28e66150c2bf8411ef4bca03eef84c6bfc558948c9f",
+      "/tmp/fallback-ownership-local-1/aot-smoke.log": "cc4974b912f47ba80759bf415865058edd130243b5b065b8d55ad33b0c7cb3c9",
+      "/tmp/fallback-ownership-local-1/trimmed-smoke.log": "5f54ccaa81322a2a9eb53cbb28b18f962f3eb3e4f87760fae6527699ebf9746a",
+      "/tmp/fallback-ownership-local-1/reader-error.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "/tmp/fallback-ownership-local-1/reference-selfcheck.log": "9f686a870f72a700efbe21e3d94c0d71eae57b32ae676ab697fde5460eeb65ba"
+    }
+  },
+  "readOnlyReplay": {
+    "identity": "schema5-fallback-ownership-diagnostics-1:local",
+    "providerDispatches": 0,
+    "sourceUnchanged": true,
+    "checkpointFingerprint": "c332b70e6ce2597a2da50da69413e46cbd13cc0e712eef7f78535e6ed609edad",
+    "receiptChecks": [
+      {
+        "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:1:intent:response_contract:93beceaf3191e878:page_93c99e0cfa9447fbb97614a3d961eaf1fa4258cddb94af015359a3a8401bada9:237e3f343c772447b8bd137240a6401a6077167e452e19a9a59deb40f81edf3e",
+        "requestFingerprint": "bb1bcf61159b3fb3af495650545157e864e7101968cbe6c2884616fe0ae9b87f",
+        "receiptFingerprint": "a2f628bfaf2deee6fc773a8a45ad629369f917a58baea7fc5dc5c6810b0c2f2b",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:2:intent:response_contract:93beceaf3191e878:page_fddc455c103c1455abb280f8fc4225dbfcda53c935f3851d3dd3c5dcfa8ff465:5a5c7d0770367e6105cb4a21d7a7262195f172d96f0133643f25ac45a36268e6",
+        "requestFingerprint": "2ae288f390c3ca6f21dbb9a3dc5a0d554bb7256d9ef7cd43178c704004b3445f",
+        "receiptFingerprint": "960b44eaf438cd2ab140dd8d26ac08d23bf4cb274fe8d3c2f621b2cd46a74c33",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:3:intent:response_contract:93beceaf3191e878:page_74f51f51b4f020eb012f4fa4fe98bca56108c51c11613a21adfcceb868cbec1d:92d9aed1aa1bfa5ffbf03ab72ac619531d506e2e550d4b04586d9ab973430b5c",
+        "requestFingerprint": "d5a65b9e7d5bdb6799bf215c46b379472f7dade49aa934b946369b0741f7d1a9",
+        "receiptFingerprint": "a1650f9111c458c84a844003050f6ccf82bab2a55fc2ef7994860296f8410e5a",
+        "completionStatus": "output_limit",
+        "malformedJson": false,
+        "schemaFindings": null
+      },
+      {
+        "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:4:intent:response_contract:93beceaf3191e878:page_64462a7ea952ac3df0c871450a20b30a5e46d65d752d7b394474f7960ce36792:8b2509aeb1704269203b8f3c3e2c88b5717309cb4cd23613b0b045edf6276595",
+        "requestFingerprint": "19c29f21d68af8f94b69a97f0a228efede6242dc3a9ff095d878504519fcf8fc",
+        "receiptFingerprint": "f4458a04d9ddfdd649a179af2e406f5cba33306db2546ca233dd9cb2fcf29191",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:5:intent:response_contract:93beceaf3191e878:page_06b2134cef50f354d6bcd05a10dc645cd40987ece0d7f6e2a1719403756268a1:480a91150d1c1531d7943dc9f0ddb432bb08b00be62495340a4b906248ae7219",
+        "requestFingerprint": "10c2b2d510e3c115608a6662f20dbc3fcdfbbb2e3aaabfc4ed6ff8e7e927a70e",
+        "receiptFingerprint": "f224fbd3f0577828b8f91ef826f649515df23b703a45be3a7ba08c69cb297c34",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:6:intent:response_contract:93beceaf3191e878:page_41d354846cfdc0728ff2ecf0b47a6c41718a9b6be5af64420fde0d3b91a47382:b4e9bb16c7bb80c066a2b0294ea1b03f56aa23b296afce4b4b69e346d9b98c8e",
+        "requestFingerprint": "a8d0f8f17cf2bb577ba568e7a4dc6635fe908a98b16662a37771e4cfaf32d1a8",
+        "receiptFingerprint": "56c73f4dc566d0cc943d62bd7c4108b14a943546c137f12e330f9994aad269c3",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:7:intent:response_contract:93beceaf3191e878:page_eb8bd9530f9bbe6156e6b24b37bd6472979c312ba1ac4ac7dc53a4a1d4c850ee:decd4271e6d5ae4fcb34406f138392732fd568bc1ac08550b74fac12d3d0263c",
+        "requestFingerprint": "c8172a63ef6075c81998f2cf401a0ad02abde7acde851696d9dcaeafb592f13a",
+        "receiptFingerprint": "ea0a58ceedc7e325f79c251355f6e4dd60766768e2f71dd472f1a7749132d2ea",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:8:intent:response_contract:93beceaf3191e878:page_23b408c1a8dcba1d1c863834857cfb1e145986c34797098df0d65c4ea6ae5f81:c8592081d7d455b27d61b54417ad257228bac28490d89cbb09d89f04123b899a",
+        "requestFingerprint": "8c407003bcc56341eab0084080b5b4e35750f1db3b8d97929c3590cdbd150ec7",
+        "receiptFingerprint": "adf5e574478ed5f5d156dcad9cf84c4665c188b3d9f07898ea9bf7a795dea4fb",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:9:intent:response_contract:93beceaf3191e878:page_f7e5aad969b3f6fc60e962b6a090e5c90b7c4678fb8bfe05dc7fa2ef3740bdcc:18ef38004008633260aca891898bb87ec9132329f69af0e989c47f8bb8043e5d",
+        "requestFingerprint": "d10a317224b18f5f60558fe466b3855f48bcb871f78c78bc461cd68caa4008c4",
+        "receiptFingerprint": "94682d8bb760be3df127a0140c53378bc7f1bbf2c4f06b08661a68ed70deda0a",
+        "completionStatus": "output_limit",
+        "malformedJson": false,
+        "schemaFindings": null
+      },
+      {
+        "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:10:intent:response_contract:93beceaf3191e878:page_d9e726e531fe95fd81a49fcf7cf0f1af1b3684eb23d05d4de9f4afd52d6e6256:6b52fff3475ca6edae8ebc0a8d83e21f4c29eae32c3880525e5c0a738ce29654",
+        "requestFingerprint": "f1dcf369f65abb9ea16c6b0ad89de99e060d1494a8dc83e7ff870f894d28d7ae",
+        "receiptFingerprint": "164f8edca0b08dec5394f2a490288edaf65ddaaaedff02a42ebb84cf7e2eaeac",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:11:intent_operations:response_contract:93beceaf3191e878:page_cff49477dd79b700c84645fc93b6a167e36690fc04e0ec3d78a59da8d85e1235:93d921ca4e3c72504356ac4cadbabee9a9e2f6fd173994f8a434ac8eacfc8f2f",
+        "requestFingerprint": "5025f654637d8f79f72ffc49b8db7653bc4dd74c0a4de21d8bbbe5d55587b2b8",
+        "receiptFingerprint": "62f5b5bbc1b46330a2a8f3eb513bd13a55e846298f78eef4810795f81a4e2243",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:12:intent_operations:response_contract:93beceaf3191e878:page_066078dec9094a255f548f52b1f8cfc917d4ef4fe0ae8011a32bce33a468f93d:a2bee1d69f693377e454c69824559f316c673c8aa47061bdb2327c49b8f2dc69",
+        "requestFingerprint": "391082ecedfa233c9d6d6eddfd96399e8ae425044fa957159513367e24ab3c35",
+        "receiptFingerprint": "6c11bd2861a4ee451dbb0e0fc9d7b4cb700cd06fadcf5094fae4a0c699bfa335",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      },
+      {
+        "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:13:intent_operations:response_contract:93beceaf3191e878:page_e834c418af7ee352dfe0b80ed2bccae8fc43e091eef7dcfdc1fb8bd620573b4f:921fc07711ebe92eee3db7cff426c79830d8455d1cb1c52f4d5f79bf53e2f8f7",
+        "requestFingerprint": "60bbb2ebf398ae124c0c528bcd01e94ca824daba76990317824e2acc7ab0efe4",
+        "receiptFingerprint": "1b44479999d60f1bd11637ef618688dc366ad33285b1ab440c2282c335feb706",
+        "completionStatus": null,
+        "malformedJson": false,
+        "schemaFindings": 0
+      }
+    ],
+    "historicalSubjectSelections": 0,
+    "replayedReceipts": 0,
+    "blocker": "INTENT_OPERATION_UNRESOLVED",
+    "location": "/operations/@r_7d1a18cc64428840c406b35b"
+  },
+  "liveEvidence": {
+    "identity": "schema5-fallback-ownership-diagnostics-1",
+    "manifest": {
+      "commit": "e1fe4687574936d5ce2632d7e30b84f70adbeb19",
+      "binaries": {
+        "GnOuGo.AI.Core.dll": "52fbb9cc6befe245454978d10ffd88ea786d8ec23a7f039fd7de5e62f19a4db0",
+        "GnOuGo.AI.Local.dll": "b947d86f87dbb850362cd3fda885162eed345b27c067515ddd9553b808288583",
+        "GnOuGo.Agent.Mcp.dll": "423e86f52084389caf95386bc3bada1be3a97783991c6d2fb6bed6f3ed83a9a2",
+        "GnOuGo.Agent.Planning.Benchmark.dll": "2e5cad3111e7aade0f142ce32842cc1f996f54f7dc357b2869ba283dcaa0475c",
+        "GnOuGo.Agent.Server.dll": "c4565ec26be6d3057cd1581b8800aa34914409afcf0fdc910e87dafe3a713126",
+        "GnOuGo.Agent.Shared.dll": "7d91accc9aa336b09a6cd856323559be7088be083974407e199cbde9973a81b2",
+        "GnOuGo.Assets.Animation.dll": "9923f91b05e6d8f5e7e61d30a6e21e87a783e2c2acc8608cc6dbc9a4265d34e1",
+        "GnOuGo.Assets.Bears.dll": "6034cf0cf333e251ac2c2898c5c5c3b849eddb6910cedca73da89bd3caf5b31a",
+        "GnOuGo.Auth.Core.dll": "4d99fead49ab7e6d6571be9f8a4b628f489b1628909a4474bb3f00e98209d828",
+        "GnOuGo.Diff.Core.dll": "3346fcc04cebc5b568387cc4336078c4f4f244f2cc40c31b3e8a5175bb64cc80",
+        "GnOuGo.DocIngestor.Core.dll": "1c64afe7a36fe237f78a4103afed0e42456ddabe59e206897390afd68c02182d",
+        "GnOuGo.DocIngestor.Mcp.dll": "7364853d84a054332c9bee24958de407a63e60a1e4865af523e34a12fd53c4ae",
+        "GnOuGo.Files.Server.dll": "0e4fd92b39584d28a44ebf54213e71eacbded993905fca97a3390f4ce00635a7",
+        "GnOuGo.Flow.Core.dll": "471cf5ab9aaf01adeed351e85aeff43ab4762674e476a8206caf4876c7488fa6",
+        "GnOuGo.Flow.Integrations.dll": "0459b02f95cfe63ffde3d7c8d00da9a7501bacfae30521945671442102095b59",
+        "GnOuGo.Flow.Mermaid.dll": "556368ae6818652b9d7e9164638e9dd26b6f8e94d4a7b6afad186dbb3ef0cb06",
+        "GnOuGo.Flow.Planning.dll": "50a4922072cea249547d8e24817ba61cf67fc51b286fde8b7c048f00788a8a4a",
+        "GnOuGo.KeyVault.Core.dll": "701345582042335a42100b5c2f9cfee6eeb8b312177832f9973da0f424773778",
+        "GnOuGo.KeyVault.Mcp.dll": "6ada5cb92e4dcd2e339509b292a45c0268a8e063e9bf52c1a63734f4c1d4cf52",
+        "GnOuGo.Mcp.Core.dll": "9036940e6cf899506d95a6f8c2a0224ed18bd495332e5f9f6f579490f8f5b071",
+        "GnOuGo.Observability.Core.dll": "0e7c3899e599a0b6f097c724ab834d16e6f34f864adcff2c26aab533b5596560",
+        "GnOuGo.OtlpCollector.Server.dll": "ade67a9cd5ee3ae63d9e6993d276adf999cc5b3aad798cb5df89f5b6b9ad92a0",
+        "GnOuGo.Workspace.dll": "016987f61cad4aad776270d2018cea0f90fa7256e4c914232eea6a1c88699863"
+      },
+      "archiveFingerprint": "cf56f7de9e4153978c54d614ad774936d6ecfdc9e98c72d312bcac4f7cb450c4",
+      "comparisonIdentity": "schema5-joint-clause-qualification-mixed-diagnostics-1",
+      "comparisonProductionCommit": "d2ceac7cd85793baea732721f4e2b092c94be210",
+      "comparisonSourceOptionsFingerprint": "848c034ddf61d6acbbf90b2b04cb9a1744394b3d5b6cc06f8b8a842e0af7c51d",
+      "expectedConfigurationAddition": "None; effective typed host policy and existing options unchanged from the comparison campaign.",
+      "exchangeRatePrerequisite": {
+        "status": "passed",
+        "checkedAtUtc": "2026-09-17T15:30:23.906226+00:00",
+        "sourceCurrency": "USD",
+        "targetCurrency": "EUR",
+        "quoteChecks": 1,
+        "modelCalls": 0,
+        "quotePresent": true,
+        "quoteDateUtc": "2026-09-17T00:00:00+00:00"
+      },
+      "authorizedCases": [
+        "local"
+      ],
+      "productionBinariesFingerprint": "8e6b5b529472e0d379ed9f7252d002f6cabc1a5cb051d7468aae9955bf5d1d83",
+      "historicalLocalStatus": "All historical campaigns retain their original status. No answers or receipts are imported.",
+      "model": {
+        "provider": "OpenAi",
+        "model": "gpt-5.5-2026-04-24",
+        "reasoningLevels": [
+          "low",
+          "medium",
+          "high",
+          "max"
+        ],
+        "structuredOutput": true
+      },
+      "sourceOptionsFingerprint": "848c034ddf61d6acbbf90b2b04cb9a1744394b3d5b6cc06f8b8a842e0af7c51d",
+      "transportConfigurationFingerprint": "47c745160512a0664b07c867827b1a9547a47df55e7cefcbaa18ebc00ed618ac",
+      "catalogFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "cases": [
+        {
+          "name": "local",
+          "promptHash": "f0479816c14ebb7fd57d6a30d5ea88bcc40b80c6c15bfd5502a6fd0e7a38a1f9",
+          "declarationFixtureHash": "3120759bcc1a5590d8b7f6ee612a6f350bfd587c626c27f96c80868de47fe6fb",
+          "preflight": {
+            "interpretationPages": 8,
+            "sourceDecisions": 8,
+            "modelRuntimeDecisionsRemoved": 0,
+            "declarationFixtureValidated": true
+          },
+          "status": "not_run"
+        },
+        {
+          "name": "mixed",
+          "promptHash": "4d9621fb3038a45e153bca3b2d0af7b1cd7e9a0f08e0501d7f98b4aecb13150a",
+          "declarationFixtureHash": "5c9ed2adcc85b892ee5022b9e7218fd2512f4415e6785cdea19748631f7dbbf5",
+          "preflight": {
+            "interpretationPages": 9,
+            "sourceDecisions": 9,
+            "modelRuntimeDecisionsRemoved": 0,
+            "declarationFixtureValidated": true
+          },
+          "status": "not_run"
+        }
+      ],
+      "limits": {
+        "callsPerCase": 16,
+        "reasoning": "low",
+        "input": 12000,
+        "dispatchTarget": 9600,
+        "output": 8192,
+        "singletonOutput": 16384
+      },
+      "declarationEvidence": "Supplied canonical ports and exact owned attachment fixtures; no live declaration convergence claimed."
+    },
+    "cases": [
+      {
+        "session": "schema5-fallback-ownership-diagnostics-1:local",
+        "revision": 0,
+        "status": "stopped",
+        "outcome": null,
+        "phase": "intent",
+        "artifactHash": null,
+        "approvedHash": null,
+        "finalArtifactHash": null,
+        "modelCalls": 13,
+        "reservations": 13,
+        "unverifiableDispatches": 0,
+        "journalReservationsWithoutReceipt": 0,
+        "decisionPages": 13,
+        "pagesByPhase": [
+          {
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "pages": 8,
+            "splitChildren": 0
+          },
+          {
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "origin": "OutputBudgetEscalation",
+            "gate": "response_contract",
+            "pages": 2,
+            "splitChildren": 0
+          },
+          {
+            "phase": "intent_operations",
+            "status": "completed",
+            "correction": false,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "pages": 3,
+            "splitChildren": 0
+          }
+        ],
+        "outputPartitions": 0,
+        "outputEscalations": 2,
+        "semanticCorrectionPages": 0,
+        "pageLineage": [
+          {
+            "id": "page_93c99e0cfa9447fbb97614a3d961eaf1fa4258cddb94af015359a3a8401bada9",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:1:intent:response_contract:93beceaf3191e878:page_93c99e0cfa9447fbb97614a3d961eaf1fa4258cddb94af015359a3a8401bada9:237e3f343c772447b8bd137240a6401a6077167e452e19a9a59deb40f81edf3e",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_18c0d21d694e2864b225fc5a"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_fddc455c103c1455abb280f8fc4225dbfcda53c935f3851d3dd3c5dcfa8ff465",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:2:intent:response_contract:93beceaf3191e878:page_fddc455c103c1455abb280f8fc4225dbfcda53c935f3851d3dd3c5dcfa8ff465:5a5c7d0770367e6105cb4a21d7a7262195f172d96f0133643f25ac45a36268e6",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_1cd93e9b1495d784622a88b2"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_74f51f51b4f020eb012f4fa4fe98bca56108c51c11613a21adfcceb868cbec1d",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:3:intent:response_contract:93beceaf3191e878:page_74f51f51b4f020eb012f4fa4fe98bca56108c51c11613a21adfcceb868cbec1d:92d9aed1aa1bfa5ffbf03ab72ac619531d506e2e550d4b04586d9ab973430b5c",
+            "escalationChildId": "page_64462a7ea952ac3df0c871450a20b30a5e46d65d752d7b394474f7960ce36792",
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": "output_limit",
+            "decisions": [
+              "interpret_215492898ea19776c246df61"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_64462a7ea952ac3df0c871450a20b30a5e46d65d752d7b394474f7960ce36792",
+            "parent": "page_74f51f51b4f020eb012f4fa4fe98bca56108c51c11613a21adfcceb868cbec1d",
+            "origin": "OutputBudgetEscalation",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:4:intent:response_contract:93beceaf3191e878:page_64462a7ea952ac3df0c871450a20b30a5e46d65d752d7b394474f7960ce36792:8b2509aeb1704269203b8f3c3e2c88b5717309cb4cd23613b0b045edf6276595",
+            "escalationChildId": null,
+            "parentRequestId": "schema5-fallback-ownership-diagnostics-1:local:0:3:intent:response_contract:93beceaf3191e878:page_74f51f51b4f020eb012f4fa4fe98bca56108c51c11613a21adfcceb868cbec1d:92d9aed1aa1bfa5ffbf03ab72ac619531d506e2e550d4b04586d9ab973430b5c",
+            "escalationLevel": 1,
+            "canonicalDecisionId": "interpret_215492898ea19776c246df61",
+            "effectiveOutputTokens": 16384,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_215492898ea19776c246df61"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_06b2134cef50f354d6bcd05a10dc645cd40987ece0d7f6e2a1719403756268a1",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:5:intent:response_contract:93beceaf3191e878:page_06b2134cef50f354d6bcd05a10dc645cd40987ece0d7f6e2a1719403756268a1:480a91150d1c1531d7943dc9f0ddb432bb08b00be62495340a4b906248ae7219",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_22b1fd0bae7808c2b20f3f54"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_41d354846cfdc0728ff2ecf0b47a6c41718a9b6be5af64420fde0d3b91a47382",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:6:intent:response_contract:93beceaf3191e878:page_41d354846cfdc0728ff2ecf0b47a6c41718a9b6be5af64420fde0d3b91a47382:b4e9bb16c7bb80c066a2b0294ea1b03f56aa23b296afce4b4b69e346d9b98c8e",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_34ad70a00d4993d1b7232fc2"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_eb8bd9530f9bbe6156e6b24b37bd6472979c312ba1ac4ac7dc53a4a1d4c850ee",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:7:intent:response_contract:93beceaf3191e878:page_eb8bd9530f9bbe6156e6b24b37bd6472979c312ba1ac4ac7dc53a4a1d4c850ee:decd4271e6d5ae4fcb34406f138392732fd568bc1ac08550b74fac12d3d0263c",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_c683405371892c3e7aed2977"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_23b408c1a8dcba1d1c863834857cfb1e145986c34797098df0d65c4ea6ae5f81",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:8:intent:response_contract:93beceaf3191e878:page_23b408c1a8dcba1d1c863834857cfb1e145986c34797098df0d65c4ea6ae5f81:c8592081d7d455b27d61b54417ad257228bac28490d89cbb09d89f04123b899a",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_d1cc1c7e756092534d81255a"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_f7e5aad969b3f6fc60e962b6a090e5c90b7c4678fb8bfe05dc7fa2ef3740bdcc",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:9:intent:response_contract:93beceaf3191e878:page_f7e5aad969b3f6fc60e962b6a090e5c90b7c4678fb8bfe05dc7fa2ef3740bdcc:18ef38004008633260aca891898bb87ec9132329f69af0e989c47f8bb8043e5d",
+            "escalationChildId": "page_d9e726e531fe95fd81a49fcf7cf0f1af1b3684eb23d05d4de9f4afd52d6e6256",
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": "output_limit",
+            "decisions": [
+              "interpret_d71db0f195b773abf5a0c4ae"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_d9e726e531fe95fd81a49fcf7cf0f1af1b3684eb23d05d4de9f4afd52d6e6256",
+            "parent": "page_f7e5aad969b3f6fc60e962b6a090e5c90b7c4678fb8bfe05dc7fa2ef3740bdcc",
+            "origin": "OutputBudgetEscalation",
+            "gate": "response_contract",
+            "phase": "intent",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:10:intent:response_contract:93beceaf3191e878:page_d9e726e531fe95fd81a49fcf7cf0f1af1b3684eb23d05d4de9f4afd52d6e6256:6b52fff3475ca6edae8ebc0a8d83e21f4c29eae32c3880525e5c0a738ce29654",
+            "escalationChildId": null,
+            "parentRequestId": "schema5-fallback-ownership-diagnostics-1:local:0:9:intent:response_contract:93beceaf3191e878:page_f7e5aad969b3f6fc60e962b6a090e5c90b7c4678fb8bfe05dc7fa2ef3740bdcc:18ef38004008633260aca891898bb87ec9132329f69af0e989c47f8bb8043e5d",
+            "escalationLevel": 1,
+            "canonicalDecisionId": "interpret_d71db0f195b773abf5a0c4ae",
+            "effectiveOutputTokens": 16384,
+            "completionStatus": null,
+            "decisions": [
+              "interpret_d71db0f195b773abf5a0c4ae"
+            ],
+            "sourceDecisionIds": null,
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_cff49477dd79b700c84645fc93b6a167e36690fc04e0ec3d78a59da8d85e1235",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent_operations",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:11:intent_operations:response_contract:93beceaf3191e878:page_cff49477dd79b700c84645fc93b6a167e36690fc04e0ec3d78a59da8d85e1235:93d921ca4e3c72504356ac4cadbabee9a9e2f6fd173994f8a434ac8eacfc8f2f",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "contribution_clause_119de8a260204d9029e70e98"
+            ],
+            "sourceDecisionIds": [
+              "contribution_clause_119de8a260204d9029e70e98",
+              "contribution_runtime_1dab436acd816f8ee34849d1"
+            ],
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_066078dec9094a255f548f52b1f8cfc917d4ef4fe0ae8011a32bce33a468f93d",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent_operations",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:12:intent_operations:response_contract:93beceaf3191e878:page_066078dec9094a255f548f52b1f8cfc917d4ef4fe0ae8011a32bce33a468f93d:a2bee1d69f693377e454c69824559f316c673c8aa47061bdb2327c49b8f2dc69",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "contribution_clause_e2dd522c748ea669b727d15d"
+            ],
+            "sourceDecisionIds": [
+              "contribution_clause_e2dd522c748ea669b727d15d",
+              "contribution_runtime_beb7225ad4864d9defcc836c"
+            ],
+            "children": [],
+            "singletonOutputLimit": false
+          },
+          {
+            "id": "page_e834c418af7ee352dfe0b80ed2bccae8fc43e091eef7dcfdc1fb8bd620573b4f",
+            "parent": null,
+            "origin": "Initial",
+            "gate": "response_contract",
+            "phase": "intent_operations",
+            "status": "completed",
+            "correction": false,
+            "partitionDepth": 0,
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:13:intent_operations:response_contract:93beceaf3191e878:page_e834c418af7ee352dfe0b80ed2bccae8fc43e091eef7dcfdc1fb8bd620573b4f:921fc07711ebe92eee3db7cff426c79830d8455d1cb1c52f4d5f79bf53e2f8f7",
+            "escalationChildId": null,
+            "parentRequestId": null,
+            "escalationLevel": null,
+            "canonicalDecisionId": null,
+            "effectiveOutputTokens": 8192,
+            "completionStatus": null,
+            "decisions": [
+              "contribution_clause_fd44720f614f30715b056927"
+            ],
+            "sourceDecisionIds": [
+              "contribution_clause_fd44720f614f30715b056927",
+              "contribution_runtime_05eb03b4a76cda750da07e9f"
+            ],
+            "children": [],
+            "singletonOutputLimit": false
+          }
+        ],
+        "engineResolvedExecutableDecisions": 0,
+        "otherEngineDecisions": null,
+        "modelDecisionIds": [
+          "$plan:contribution_clause_119de8a260204d9029e70e98",
+          "$plan:contribution_clause_e2dd522c748ea669b727d15d",
+          "$plan:contribution_clause_fd44720f614f30715b056927",
+          "$plan:interpret_18c0d21d694e2864b225fc5a",
+          "$plan:interpret_1cd93e9b1495d784622a88b2",
+          "$plan:interpret_215492898ea19776c246df61",
+          "$plan:interpret_22b1fd0bae7808c2b20f3f54",
+          "$plan:interpret_34ad70a00d4993d1b7232fc2",
+          "$plan:interpret_c683405371892c3e7aed2977",
+          "$plan:interpret_d1cc1c7e756092534d81255a",
+          "$plan:interpret_d71db0f195b773abf5a0c4ae"
+        ],
+        "approvedBehaviorHash": null,
+        "declarationProof": "c1e5bb55139e6ff4a69f40a86dab50307ad3c69e17864f1ea51406eec36d7abe",
+        "operationAdmissionProof": null,
+        "canonicalOperationCount": null,
+        "canonicalOperations": null,
+        "canonicalDeclarations": [
+          {
+            "id": "decl_89cf60869b3c67ae8d948cde",
+            "direction": "input",
+            "scope": "main",
+            "candidateCount": 1,
+            "name": null,
+            "required": true,
+            "default100": false,
+            "clauseReferences": [
+              "r_64af67bdbabb7344a73c15f1"
+            ],
+            "proofFingerprint": "f06eb150ad7c627c3e6a6bc6dbbec9de51fb3b3642fd028e02f9f2ee50b7d838",
+            "aliases": 1,
+            "modifierReferences": 0,
+            "baseline": true
+          },
+          {
+            "id": "decl_d9dced873ca13886d395895e",
+            "direction": "input",
+            "scope": "main",
+            "candidateCount": 1,
+            "name": null,
+            "required": false,
+            "default100": true,
+            "clauseReferences": [
+              "r_6d1c2c6b590e283038f04967"
+            ],
+            "proofFingerprint": "a7db40fdbbda5ab5854dd962b76928e1098472a98e424a2c0e3f4971d9a772de",
+            "aliases": 1,
+            "modifierReferences": 1,
+            "baseline": true
+          },
+          {
+            "id": "decl_e10c86997aef941cbd55d2f1",
+            "direction": "output",
+            "scope": "main",
+            "candidateCount": 1,
+            "name": null,
+            "required": true,
+            "default100": false,
+            "clauseReferences": [
+              "r_3af714dfe61ae6715aa74b07",
+              "r_5df4a421d67739f047ef0932",
+              "r_d82bafb29810d0676dbc89c5"
+            ],
+            "proofFingerprint": "143c241374b63b4a69093236c3700e2d1361013716c831977ce930511cfd887b",
+            "aliases": 1,
+            "modifierReferences": 2,
+            "baseline": true
+          }
+        ],
+        "declarationDispositions": {
+          "same_as": 3,
+          "modifier_of": 3
+        },
+        "declarationModifiers": [
+          {
+            "candidateId": "fixture_declaration_949f55b6d5eef0d8f993b60b",
+            "targetId": "decl_d9dced873ca13886d395895e",
+            "kind": "omission_default",
+            "clauseReference": "r_6d1c2c6b590e283038f04967"
+          },
+          {
+            "candidateId": "fixture_declaration_d0651bc6b0d54d699f955a4f",
+            "targetId": "decl_e10c86997aef941cbd55d2f1",
+            "kind": "declaration_constraint",
+            "clauseReference": "r_5df4a421d67739f047ef0932"
+          },
+          {
+            "candidateId": "fixture_declaration_f3ebaa2a326465e69bcb4e9c",
+            "targetId": "decl_e10c86997aef941cbd55d2f1",
+            "kind": "declaration_constraint",
+            "clauseReference": "r_3af714dfe61ae6715aa74b07"
+          }
+        ],
+        "modelExecutableDecisions": 0,
+        "executableHoleExposures": 0,
+        "userClarifications": 0,
+        "answeredForms": 0,
+        "clarificationDecision": null,
+        "largestEstimatedInput": 5549,
+        "largestActualInput": 4005,
+        "inputTokens": 39478,
+        "outputTokens": 20952,
+        "reasoningTokens": 19436,
+        "allDispatchUsageKnown": true,
+        "effectiveReasoning": [
+          "low"
+        ],
+        "requestsByPhase": [
+          {
+            "workflow": "$plan",
+            "phase": "intent",
+            "gate": "response_contract",
+            "reservations": 10,
+            "calls": 10,
+            "repairReservations": 0,
+            "outputEscalations": 2,
+            "allDispatchUsageKnown": true,
+            "inputTokens": 31556,
+            "outputTokens": 18652
+          },
+          {
+            "workflow": "$plan",
+            "phase": "intent_operations",
+            "gate": "response_contract",
+            "reservations": 3,
+            "calls": 3,
+            "repairReservations": 0,
+            "outputEscalations": 0,
+            "allDispatchUsageKnown": true,
+            "inputTokens": 7922,
+            "outputTokens": 2300
+          }
+        ],
+        "repairAllowances": [],
+        "failuresByGate": [],
+        "firstFailure": {
+          "code": "INTENT_OPERATION_UNRESOLVED",
+          "phase": "intent_operations",
+          "location": "/operations/@r_7d1a18cc64428840c406b35b",
+          "unverifiable": false
+        },
+        "diagnostics": [],
+        "modelDecisions": 11,
+        "readOnlyRestart": null,
+        "admissionCommitted": false,
+        "admissionFingerprint": null,
+        "relationshipProjectionVerified": false,
+        "durableBudgetCalls": 13,
+        "durableBudgetCallsAtAdmission": null,
+        "remainingCallBudgetAtAdmission": null,
+        "remainingCallBudget": 3,
+        "journalRequests": 13,
+        "coordinatorReservationsWithoutJournalRequest": 0,
+        "interpretationInitialPages": 8,
+        "runtimeFacetDecisions": 8,
+        "runtimeFacetCallsAreEmbeddedInInterpretation": true,
+        "typedHostPolicy": {
+          "modelInterpretationDecisions": 0,
+          "engineClauses": 8,
+          "projectedObligations": 9,
+          "metadataFingerprint": "40a2b807c05827519b52e4d3f4b7634c2be5462389bda8503657e505b40a75de"
+        },
+        "baselineProjection": {
+          "structuralUnits": 5,
+          "baselineModelDecisionsInDomain": 0,
+          "engineEvidence": 5,
+          "baselineOperations": 0,
+          "interpretationDecisionsInDomain": 8
+        },
+        "declarationCoveredOccurrences": null,
+        "declarationExclusions": null,
+        "dependencies": [],
+        "fixtureDeclarations": [
+          {
+            "name": "record",
+            "direction": "input",
+            "required": true,
+            "default": null,
+            "modifiers": 0
+          },
+          {
+            "name": "threshold",
+            "direction": "input",
+            "required": false,
+            "default": {
+              "kind": "number",
+              "text": null,
+              "number": 100,
+              "boolean": null,
+              "source": null,
+              "resultChannel": null,
+              "path": [],
+              "members": [],
+              "items": []
+            },
+            "modifiers": 1
+          },
+          {
+            "name": "classifiedResult",
+            "direction": "output",
+            "required": true,
+            "default": null,
+            "modifiers": 2
+          }
+        ],
+        "case": "local",
+        "firstBlocker": "INTENT_OPERATION_UNRESOLVED",
+        "runtimeRoles": {
+          "contract": 10,
+          "policy": 8,
+          "planning_directive": 1,
+          "local_behavior": 3
+        },
+        "runtimeEvidence": [
+          {
+            "id": "runtime_4994cec2e50a6df0e97f6a11",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "EngineBaseline",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_21dec6d45342f1ba5d483408",
+            "proofFingerprint": "55f6bcb14c09916d062097049a18c11babc4f3a3594ae54550d055cb4fcb5fc0"
+          },
+          {
+            "id": "runtime_53cce52bfcfab595f6002fdc",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "EngineBaseline",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_ea0b6555af48b3efed33ee66",
+            "proofFingerprint": "d308f8764c8d8ed4d9e3b117bbc67b9b68f76e2e533e73d9d2b58fd5ba21c9a1"
+          },
+          {
+            "id": "runtime_c1bad60b062e8ea0cb39d67a",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "EngineBaseline",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_6435eec69efc3a97397acfea",
+            "proofFingerprint": "51ce90887645258ea0b82eddd673206ac8855f1ee062d1ea5e7d812185a7fc5e"
+          },
+          {
+            "id": "runtime_6bbfe65f8238234ae2c753b6",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "EngineBaseline",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_cb94585cd5a0dcdcf1688369",
+            "proofFingerprint": "ffc3968c4035e44b272b3995cceb502248ef20fe9e9f6200c54d3844cb2a805e"
+          },
+          {
+            "id": "runtime_1aeec92acf14bf65ed73a59e",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "EngineBaseline",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_e3491f2299311e63c846e2db",
+            "proofFingerprint": "5d755b08d65893a37d8528570768446d2790c78fce66fa4db6ae2755aaad4d51"
+          },
+          {
+            "id": "runtime_d4bcd085964a32095410ec59",
+            "role": "policy",
+            "scope": "Policy",
+            "origin": "EngineSourceAuthority",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_4169ab84c2431f4e2b51c100",
+            "proofFingerprint": "3d8a5ae371ce562f3187b0359b5fa5866a5851b1ec262ceeb70f4b701b2df41c"
+          },
+          {
+            "id": "runtime_f2d2009c9c1b8327d768be85",
+            "role": "policy",
+            "scope": "Policy",
+            "origin": "EngineSourceAuthority",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_c9ed94c0fbc5426c4e31ef96",
+            "proofFingerprint": "757c63cd8ebf034e5d571f59d6a00a1e7ff150438173bdb2f0fef219a3b8ee24"
+          },
+          {
+            "id": "runtime_78c609c3dac2bcbc5cd6f10c",
+            "role": "policy",
+            "scope": "Policy",
+            "origin": "EngineSourceAuthority",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_01e8e67e04fda985691abc00",
+            "proofFingerprint": "ac40f4b70ae992e40cc83b2e141d893bd46926218da4522513a0e85e7d6ac962"
+          },
+          {
+            "id": "runtime_2f87c4b72f6d9ba8120e6d81",
+            "role": "policy",
+            "scope": "Policy",
+            "origin": "EngineSourceAuthority",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_f5252d3d2c3ccdcb6d07afb5",
+            "proofFingerprint": "7612955fb9cfde973f21196c36ac5dfa5503c14dc964a9a55c5314c618add0d3"
+          },
+          {
+            "id": "runtime_0e7d6e9b6322b899d0926136",
+            "role": "policy",
+            "scope": "Policy",
+            "origin": "EngineSourceAuthority",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_3eddd43d6d444678baeef86a",
+            "proofFingerprint": "e43012f1aa0bb1a5d2029f7b13faf42a8e78504119e0b31cdf756cc1894142d7"
+          },
+          {
+            "id": "runtime_0d9d05a067a193e16a1ce987",
+            "role": "policy",
+            "scope": "Policy",
+            "origin": "EngineSourceAuthority",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_cad172446e4b6290bc2e9228",
+            "proofFingerprint": "5455f68cd7867262c878b24221d565933177765b85831f69c593e2a712c620b1"
+          },
+          {
+            "id": "runtime_f682fa01c52ff3680d8fbc36",
+            "role": "policy",
+            "scope": "Policy",
+            "origin": "EngineSourceAuthority",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_02a3e7c65c8520f4bb51c1e7",
+            "proofFingerprint": "1eadc9ddf6a7be71a18bb21adb2431439c9b6c4bd38067ab26f34416c8f0281a"
+          },
+          {
+            "id": "runtime_015a6afce831610e55cdd483",
+            "role": "policy",
+            "scope": "Policy",
+            "origin": "EngineSourceAuthority",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_fde713bf0b9930b7d2648593",
+            "proofFingerprint": "98e710f769f4baaae229513714041ca847a483247fb042ef103392fba1733bcb"
+          },
+          {
+            "id": "runtime_ac24231614601dd1b84d5067",
+            "role": "planning_directive",
+            "scope": "PlanningArtifact",
+            "origin": "SourceInterpretation",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_7d1a18cc64428840c406b35b",
+            "proofFingerprint": "53bb567916dec837c44a5c8fd2e8e3dff28f206731e40d4a4e45077b44043ee0"
+          },
+          {
+            "id": "runtime_05eb03b4a76cda750da07e9f",
+            "role": "local_behavior",
+            "scope": "GeneratedWorkflow",
+            "origin": "SourceInterpretation",
+            "kind": "local_processing",
+            "necessity": "Required",
+            "necessityReference": "r_c4dda3460aad9754e8302e65",
+            "evidenceRole": null,
+            "actionReference": "r_c4dda3460aad9754e8302e65",
+            "resourceReference": null,
+            "clauseReference": "r_7d1a18cc64428840c406b35b",
+            "proofFingerprint": "01890cfa795e5598a89dd72f57f38a99475ce672217bc76144feb334c6558ba8"
+          },
+          {
+            "id": "runtime_94bf2b8c267ef0e2d2b772fd",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "SourceInterpretation",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_64af67bdbabb7344a73c15f1",
+            "proofFingerprint": "9ad9daea7724dc8302c9d172fd970b1fd5760ce5b6c2efca2442aae278e09950"
+          },
+          {
+            "id": "runtime_15727a8bcdfcd36bc414206c",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "SourceInterpretation",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_6d1c2c6b590e283038f04967",
+            "proofFingerprint": "305428c2e44a480f546fbda1ebc6e315c9f91ccff42adeaae639f39ef65abdfb"
+          },
+          {
+            "id": "runtime_4aaf3da11a4b14fb80c379eb",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "SourceInterpretation",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_d82bafb29810d0676dbc89c5",
+            "proofFingerprint": "eeacaf4b15caa0ea800ab1ce73faf6edaa12d3df7abb53da0600a754c57c6f7a"
+          },
+          {
+            "id": "runtime_beb7225ad4864d9defcc836c",
+            "role": "local_behavior",
+            "scope": "GeneratedWorkflow",
+            "origin": "SourceInterpretation",
+            "kind": "local_processing",
+            "necessity": "Required",
+            "necessityReference": "r_d66db876c83d79d68195fbac",
+            "evidenceRole": null,
+            "actionReference": "r_d66db876c83d79d68195fbac",
+            "resourceReference": null,
+            "clauseReference": "r_5a88cbead4e51aa149df9bcb",
+            "proofFingerprint": "1d7630d194f4078f00d6e35b046201a8130c56a6f89877f3d81c36a521171d3d"
+          },
+          {
+            "id": "runtime_c5c5bb71272b1aa5c3d1e2f9",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "SourceInterpretation",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_3af714dfe61ae6715aa74b07",
+            "proofFingerprint": "094e9d739aa5cf5d1b2dd6c1796c9734b2aa8f3f65a643648af2454500147365"
+          },
+          {
+            "id": "runtime_9eb675cfd5ae06d695daa834",
+            "role": "contract",
+            "scope": "PublicContract",
+            "origin": "SourceInterpretation",
+            "kind": null,
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": null,
+            "resourceReference": null,
+            "clauseReference": "r_5df4a421d67739f047ef0932",
+            "proofFingerprint": "1677a13616f761b8b6f86026d36bf7ecde6c0b152dd5c15fd26705ff627c9234"
+          },
+          {
+            "id": "runtime_1dab436acd816f8ee34849d1",
+            "role": "local_behavior",
+            "scope": "GeneratedWorkflow",
+            "origin": "SourceInterpretation",
+            "kind": "local_processing",
+            "necessity": "Unspecified",
+            "necessityReference": null,
+            "evidenceRole": null,
+            "actionReference": "r_b34a1b0af0038859be7f250e",
+            "resourceReference": null,
+            "clauseReference": "r_c2039d49b661f09751870a0d",
+            "proofFingerprint": "63393de571784ad61ec97a7900e86e7b551be9daff64cba32353781565ca5a09"
+          }
+        ],
+        "preliminaryExecutableCandidates": 3,
+        "historicalEvidenceRoleAuthority": "none; current contribution proofs alone qualify support",
+        "identityModelDecisions": 0,
+        "identityDeterministicDecisions": 0,
+        "governingAttachmentsByOperation": null,
+        "governingModelDecisions": 0,
+        "governingDeterministicAttachments": 0,
+        "retiredActionCandidates": 0,
+        "engineAdmittedLocalActions": null,
+        "engineAdmittedExternalActions": null,
+        "admissionModelCalls": 3,
+        "fixturePreconditions": "Canonical declarations supplied; interpretation obligations retained encrypted but not adjudicated in this diagnostic.",
+        "requestDomains": [
+          {
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:1:intent:response_contract:93beceaf3191e878:page_93c99e0cfa9447fbb97614a3d961eaf1fa4258cddb94af015359a3a8401bada9:237e3f343c772447b8bd137240a6401a6077167e452e19a9a59deb40f81edf3e",
+            "requestFingerprint": "bb1bcf61159b3fb3af495650545157e864e7101968cbe6c2884616fe0ae9b87f",
+            "schemaFingerprint": "c2296e86ede9a8d0951e32cee7a7ae09fe97a7ea6cdd4bf970a414a7321942ae",
+            "contextFingerprint": "16b83ea7379e6c36af471e7be7614568c31e6ad26f5c4ed509de106f681efd1b",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_18c0d21d694e2864b225fc5a"
+            ],
+            "receiptFingerprint": "a2f628bfaf2deee6fc773a8a45ad629369f917a58baea7fc5dc5c6810b0c2f2b"
+          },
+          {
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:2:intent:response_contract:93beceaf3191e878:page_fddc455c103c1455abb280f8fc4225dbfcda53c935f3851d3dd3c5dcfa8ff465:5a5c7d0770367e6105cb4a21d7a7262195f172d96f0133643f25ac45a36268e6",
+            "requestFingerprint": "2ae288f390c3ca6f21dbb9a3dc5a0d554bb7256d9ef7cd43178c704004b3445f",
+            "schemaFingerprint": "f81432bd0e1ea51dd0d15d068b62f455d8f05fdc8d116cc9857075771d3f6a1e",
+            "contextFingerprint": "0c5b37e9a61304a06531623d82659e4b894d8b0c6304c330c2f165cb385503fa",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_1cd93e9b1495d784622a88b2"
+            ],
+            "receiptFingerprint": "960b44eaf438cd2ab140dd8d26ac08d23bf4cb274fe8d3c2f621b2cd46a74c33"
+          },
+          {
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:3:intent:response_contract:93beceaf3191e878:page_74f51f51b4f020eb012f4fa4fe98bca56108c51c11613a21adfcceb868cbec1d:92d9aed1aa1bfa5ffbf03ab72ac619531d506e2e550d4b04586d9ab973430b5c",
+            "requestFingerprint": "d5a65b9e7d5bdb6799bf215c46b379472f7dade49aa934b946369b0741f7d1a9",
+            "schemaFingerprint": "d116aeea6efbef8be1a7aa1d651e23de5917436d86eda60f2f06662c6d0aaa74",
+            "contextFingerprint": "a74ec0b17af26ca96b4df09282456d8a0fe8c8f739b6fc4aeb8c7f1e17cad5f2",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_215492898ea19776c246df61"
+            ],
+            "receiptFingerprint": "a1650f9111c458c84a844003050f6ccf82bab2a55fc2ef7994860296f8410e5a"
+          },
+          {
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:4:intent:response_contract:93beceaf3191e878:page_64462a7ea952ac3df0c871450a20b30a5e46d65d752d7b394474f7960ce36792:8b2509aeb1704269203b8f3c3e2c88b5717309cb4cd23613b0b045edf6276595",
+            "requestFingerprint": "19c29f21d68af8f94b69a97f0a228efede6242dc3a9ff095d878504519fcf8fc",
+            "schemaFingerprint": "d116aeea6efbef8be1a7aa1d651e23de5917436d86eda60f2f06662c6d0aaa74",
+            "contextFingerprint": "a74ec0b17af26ca96b4df09282456d8a0fe8c8f739b6fc4aeb8c7f1e17cad5f2",
+            "outputCeiling": 16384,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_215492898ea19776c246df61"
+            ],
+            "receiptFingerprint": "f4458a04d9ddfdd649a179af2e406f5cba33306db2546ca233dd9cb2fcf29191"
+          },
+          {
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:5:intent:response_contract:93beceaf3191e878:page_06b2134cef50f354d6bcd05a10dc645cd40987ece0d7f6e2a1719403756268a1:480a91150d1c1531d7943dc9f0ddb432bb08b00be62495340a4b906248ae7219",
+            "requestFingerprint": "10c2b2d510e3c115608a6662f20dbc3fcdfbbb2e3aaabfc4ed6ff8e7e927a70e",
+            "schemaFingerprint": "3c9294e682376f24ced5caadacec175a874a8877b879f353dc1a92cb8fcd908b",
+            "contextFingerprint": "34a3c4348ccb123bbc19e2dfd9ce8453bc25de8606cf88b4a19ac4728ff9c09d",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_22b1fd0bae7808c2b20f3f54"
+            ],
+            "receiptFingerprint": "f224fbd3f0577828b8f91ef826f649515df23b703a45be3a7ba08c69cb297c34"
+          },
+          {
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:6:intent:response_contract:93beceaf3191e878:page_41d354846cfdc0728ff2ecf0b47a6c41718a9b6be5af64420fde0d3b91a47382:b4e9bb16c7bb80c066a2b0294ea1b03f56aa23b296afce4b4b69e346d9b98c8e",
+            "requestFingerprint": "a8d0f8f17cf2bb577ba568e7a4dc6635fe908a98b16662a37771e4cfaf32d1a8",
+            "schemaFingerprint": "ceee4784512660a6195789ed996bf4400455ced83bb3441926ecf247b00c743d",
+            "contextFingerprint": "7d0cbd683770e64789c50562a9b6d1d2f282f0d0370bc1c91945a31e5080a119",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_34ad70a00d4993d1b7232fc2"
+            ],
+            "receiptFingerprint": "56c73f4dc566d0cc943d62bd7c4108b14a943546c137f12e330f9994aad269c3"
+          },
+          {
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:7:intent:response_contract:93beceaf3191e878:page_eb8bd9530f9bbe6156e6b24b37bd6472979c312ba1ac4ac7dc53a4a1d4c850ee:decd4271e6d5ae4fcb34406f138392732fd568bc1ac08550b74fac12d3d0263c",
+            "requestFingerprint": "c8172a63ef6075c81998f2cf401a0ad02abde7acde851696d9dcaeafb592f13a",
+            "schemaFingerprint": "c467febbde73d7207e8cc7e3fc24dc8d21cb0ffa1870a7983cdf61b902aedb32",
+            "contextFingerprint": "7cb9fa509488c44f2cfd486972fe7633b899a0b19cf0c51305a72f2629be2b54",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_c683405371892c3e7aed2977"
+            ],
+            "receiptFingerprint": "ea0a58ceedc7e325f79c251355f6e4dd60766768e2f71dd472f1a7749132d2ea"
+          },
+          {
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:8:intent:response_contract:93beceaf3191e878:page_23b408c1a8dcba1d1c863834857cfb1e145986c34797098df0d65c4ea6ae5f81:c8592081d7d455b27d61b54417ad257228bac28490d89cbb09d89f04123b899a",
+            "requestFingerprint": "8c407003bcc56341eab0084080b5b4e35750f1db3b8d97929c3590cdbd150ec7",
+            "schemaFingerprint": "3708e4dd603dfc6d7963ddb78ae86d1e0a9cd22c7a402acfd6b3b2d932f91674",
+            "contextFingerprint": "9989f38a626c304042e7f4e6b27d56cf5cabc03db785eee43c2b0bff04c0b92a",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_d1cc1c7e756092534d81255a"
+            ],
+            "receiptFingerprint": "adf5e574478ed5f5d156dcad9cf84c4665c188b3d9f07898ea9bf7a795dea4fb"
+          },
+          {
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:9:intent:response_contract:93beceaf3191e878:page_f7e5aad969b3f6fc60e962b6a090e5c90b7c4678fb8bfe05dc7fa2ef3740bdcc:18ef38004008633260aca891898bb87ec9132329f69af0e989c47f8bb8043e5d",
+            "requestFingerprint": "d10a317224b18f5f60558fe466b3855f48bcb871f78c78bc461cd68caa4008c4",
+            "schemaFingerprint": "8a86c9e539ba96be364b794ea6350c1a6eb8ef3f16d0ff1a068774d0623a15ce",
+            "contextFingerprint": "f79370794d36ed91e8c5698cbf1bba9ec49e85d4542af4e63e93a0b34cfa6880",
+            "outputCeiling": 8192,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_d71db0f195b773abf5a0c4ae"
+            ],
+            "receiptFingerprint": "94682d8bb760be3df127a0140c53378bc7f1bbf2c4f06b08661a68ed70deda0a"
+          },
+          {
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:10:intent:response_contract:93beceaf3191e878:page_d9e726e531fe95fd81a49fcf7cf0f1af1b3684eb23d05d4de9f4afd52d6e6256:6b52fff3475ca6edae8ebc0a8d83e21f4c29eae32c3880525e5c0a738ce29654",
+            "requestFingerprint": "f1dcf369f65abb9ea16c6b0ad89de99e060d1494a8dc83e7ff870f894d28d7ae",
+            "schemaFingerprint": "8a86c9e539ba96be364b794ea6350c1a6eb8ef3f16d0ff1a068774d0623a15ce",
+            "contextFingerprint": "f79370794d36ed91e8c5698cbf1bba9ec49e85d4542af4e63e93a0b34cfa6880",
+            "outputCeiling": 16384,
+            "domains": {
+              "kind": [
+                "business_choice",
+                "business_preference",
+                "call",
+                "cleanup",
+                "confirmation_forbidden",
+                "confirmation_required",
+                "declaration_candidate",
+                "declaration_constraint",
+                "exact_denial",
+                "explicit_value",
+                "external_effect",
+                "external_execute",
+                "external_read",
+                "external_write",
+                "human_interaction",
+                "implementation_policy",
+                "information",
+                "interaction",
+                "intermediate_result",
+                "invocation",
+                "iteration",
+                "local_processing",
+                "omission_default",
+                "rejection_condition",
+                "resource_lifecycle",
+                "resource_transition",
+                "runtime_condition",
+                "runtime_fallback",
+                "workflow_boundary",
+                "workflow_policy"
+              ],
+              "role": [
+                "contract",
+                "local_behavior",
+                "planning_directive",
+                "policy",
+                "runtime_action",
+                "unresolved"
+              ],
+              "execution": [
+                "generated_workflow"
+              ],
+              "state": [
+                "optional",
+                "required",
+                "unspecified"
+              ],
+              "ownership": [
+                "workflow_runtime_resource"
+              ],
+              "resourceAction": [
+                "acquire",
+                "create",
+                "delete",
+                "release"
+              ]
+            },
+            "decisions": [
+              "interpret_d71db0f195b773abf5a0c4ae"
+            ],
+            "receiptFingerprint": "164f8edca0b08dec5394f2a490288edaf65ddaaaedff02a42ebb84cf7e2eaeac"
+          },
+          {
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:11:intent_operations:response_contract:93beceaf3191e878:page_cff49477dd79b700c84645fc93b6a167e36690fc04e0ec3d78a59da8d85e1235:93d921ca4e3c72504356ac4cadbabee9a9e2f6fd173994f8a434ac8eacfc8f2f",
+            "requestFingerprint": "5025f654637d8f79f72ffc49b8db7653bc4dd74c0a4de21d8bbbe5d55587b2b8",
+            "schemaFingerprint": "878becc9fe4bc7ef7c60c9853ae46e1dae267a9010aab3c621707c6dc865adc6",
+            "contextFingerprint": "e95a575b73cc0534c33c6ee5db28461293e495b8fa1d50d23fc215b9c2fe5ef2",
+            "outputCeiling": 8192,
+            "domains": {
+              "status": [
+                "qualified",
+                "unresolved"
+              ],
+              "role": [
+                "excluded",
+                "governing_property",
+                "requested_execution"
+              ]
+            },
+            "decisions": [
+              "contribution_clause_119de8a260204d9029e70e98"
+            ],
+            "receiptFingerprint": "62f5b5bbc1b46330a2a8f3eb513bd13a55e846298f78eef4810795f81a4e2243"
+          },
+          {
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:12:intent_operations:response_contract:93beceaf3191e878:page_066078dec9094a255f548f52b1f8cfc917d4ef4fe0ae8011a32bce33a468f93d:a2bee1d69f693377e454c69824559f316c673c8aa47061bdb2327c49b8f2dc69",
+            "requestFingerprint": "391082ecedfa233c9d6d6eddfd96399e8ae425044fa957159513367e24ab3c35",
+            "schemaFingerprint": "57f28c5c2da5dfbeada57448a66642cd7286ae6510ecaf992846a7cb31ae27c5",
+            "contextFingerprint": "464b4c7e9291d7e639cecc0b294b8b904c8aeed8aac7ee34de3fabf9ac1c5340",
+            "outputCeiling": 8192,
+            "domains": {
+              "status": [
+                "qualified",
+                "unresolved"
+              ],
+              "role": [
+                "excluded",
+                "governing_property",
+                "requested_execution"
+              ]
+            },
+            "decisions": [
+              "contribution_clause_e2dd522c748ea669b727d15d"
+            ],
+            "receiptFingerprint": "6c11bd2861a4ee451dbb0e0fc9d7b4cb700cd06fadcf5094fae4a0c699bfa335"
+          },
+          {
+            "requestId": "schema5-fallback-ownership-diagnostics-1:local:0:13:intent_operations:response_contract:93beceaf3191e878:page_e834c418af7ee352dfe0b80ed2bccae8fc43e091eef7dcfdc1fb8bd620573b4f:921fc07711ebe92eee3db7cff426c79830d8455d1cb1c52f4d5f79bf53e2f8f7",
+            "requestFingerprint": "60bbb2ebf398ae124c0c528bcd01e94ca824daba76990317824e2acc7ab0efe4",
+            "schemaFingerprint": "f336f38e16c7b35aa354fb9c1c304c9b87c8c7d50f8acb8f8e817ccfec58a784",
+            "contextFingerprint": "e89fa7e6016604f678ccab90d4f98cc7b0d353c66a9582a168cf22369fdc42a7",
+            "outputCeiling": 8192,
+            "domains": {
+              "status": [
+                "qualified",
+                "unresolved"
+              ],
+              "role": [
+                "excluded",
+                "governing_property",
+                "requested_execution"
+              ]
+            },
+            "decisions": [
+              "contribution_clause_fd44720f614f30715b056927"
+            ],
+            "receiptFingerprint": "1b44479999d60f1bd11637ef618688dc366ad33285b1ab440c2282c335feb706"
+          }
+        ],
+        "decisionClasses": [
+          {
+            "category": "interpretation",
+            "journalRequests": 10,
+            "verifiedCalls": 10,
+            "distinctExposedDecisions": 8,
+            "inputTokens": 31556,
+            "outputTokens": 18652,
+            "reasoningTokens": 17878,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "execution_contribution",
+            "journalRequests": 3,
+            "verifiedCalls": 3,
+            "distinctExposedDecisions": 3,
+            "inputTokens": 7922,
+            "outputTokens": 2300,
+            "reasoningTokens": 1558,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "realization_coverage",
+            "journalRequests": 0,
+            "verifiedCalls": 0,
+            "distinctExposedDecisions": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "governing_applicability",
+            "journalRequests": 0,
+            "verifiedCalls": 0,
+            "distinctExposedDecisions": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "effect_realizations",
+            "journalRequests": 0,
+            "verifiedCalls": 0,
+            "distinctExposedDecisions": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "effect_governing",
+            "journalRequests": 0,
+            "verifiedCalls": 0,
+            "distinctExposedDecisions": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "boundary_scope",
+            "journalRequests": 0,
+            "verifiedCalls": 0,
+            "distinctExposedDecisions": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "occurrence_identity",
+            "journalRequests": 0,
+            "verifiedCalls": 0,
+            "distinctExposedDecisions": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "operation_dependencies",
+            "journalRequests": 0,
+            "verifiedCalls": 0,
+            "distinctExposedDecisions": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "unverifiableUsage": 0
+          },
+          {
+            "category": "relationships_or_other",
+            "journalRequests": 0,
+            "verifiedCalls": 0,
+            "distinctExposedDecisions": 0,
+            "inputTokens": 0,
+            "outputTokens": 0,
+            "reasoningTokens": 0,
+            "unverifiableUsage": 0
+          }
+        ],
+        "decisionClassUsageOverlapsIfRequestContainsSeveralClasses": true,
+        "effectMappings": null,
+        "contributionProofsAvailable": false,
+        "contributionProofUnavailableCode": "INTENT_OPERATION_UNRESOLVED",
+        "qualifiedContributions": null,
+        "effectValidationPassed": false,
+        "applicabilitySequenceAndDomainsVerified": false,
+        "preliminaryKindApplicabilityAuthority": "none; applicability is validated against realized operations and owned property evidence",
+        "fallbackOwnershipGatePassed": false,
+        "qualifiedFallbacks": [],
+        "fullStageOneSuccess": false
+      },
+      {
+        "case": "mixed",
+        "status": "not_run"
+      }
+    ],
+    "archiveCheck": "unchanged"
+  },
+  "integrity": {
+    "productionSourcesUnchanged": true,
+    "productionDllsUnchanged": true,
+    "productionDllCount": 22,
+    "frozenHarnessHash": "2e5cad3111e7aade0f142ce32842cc1f996f54f7dc357b2869ba283dcaa0475c",
+    "archiveFingerprintBefore": "cf56f7de9e4153978c54d614ad774936d6ecfdc9e98c72d312bcac4f7cb450c4",
+    "archiveCheckAfter": "unchanged",
+    "historicalReportsUnchanged": true,
+    "checkpointFingerprint": "c332b70e6ce2597a2da50da69413e46cbd13cc0e712eef7f78535e6ed609edad",
+    "budgetFingerprint": "43ff03b2d6c9b44d7a3bd15cff238a624f6226c7b0d448589738b737957748f6",
+    "readOnlyAuditNoDispatch": true,
+    "originalRequestsSchemasReceiptsRetainedEncrypted": true,
+    "currentReportReadbackIdentical": true
+  },
+  "nextGate": "architecture review"
+}

@@ -26,7 +26,7 @@ internal static partial class RuntimeAdmissionDiagnostic
             ["proofFingerprint"] = p.ProofFingerprint,
             ["units"] = new JsonArray(p.Units.Select(u => (JsonNode)new JsonObject
             {
-                ["id"] = u.Id, ["role"] = u.Role, ["scopeReference"] = u.ScopeReference,
+                ["id"] = u.Id, ["role"] = u.Role, ["governingKind"] = u.GoverningKind, ["scopeReference"] = u.ScopeReference,
                 ["parentRequestUnitId"] = u.ParentRequestUnitId, ["predicateReference"] = u.PredicateReference, ["effectId"] = u.EffectId, ["basis"] = u.Basis,
                 ["evidenceReferences"] = new JsonArray(u.EvidenceReferences.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
                 ["runtimeEvidenceIds"] = new JsonArray(u.RuntimeEvidenceIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray())
@@ -43,7 +43,8 @@ internal static partial class RuntimeAdmissionDiagnostic
                     new KeyValuePair<string, JsonNode?>(id, JsonValue.Create(state.RuntimeEvidence.Single(e => e.Id == id).Kind)))),
                 ["ownedReference"] = c.EvidenceReference, ["sourceId"] = r.SourceId,
                 ["sourceStart"] = r.Start, ["sourceLength"] = r.Length,
-                ["qualifiedRole"] = c.Role, ["basis"] = c.Basis,
+                ["qualifiedRole"] = c.Role, ["governingKind"] = c.GoverningKind, ["basis"] = c.Basis,
+                ["sourceBindings"] = System.Text.Json.JsonSerializer.SerializeToNode(c.SourceBindings, PlanningJsonContext.Default.ListPlanningContributionSourceBinding),
                 ["supportBasis"] = c.Role == "supports" ? c.Basis : null,
                 ["effectId"] = c.EffectId, ["ownerReference"] = c.OwnerReference,
                 ["boundaryReference"] = c.BoundaryReference, ["origin"] = c.Origin.ToString(),

@@ -8,6 +8,15 @@ namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static partial class RuntimeAdmissionDiagnostic
 {
+    private static void CheckLocalFallbackGate(PlanningSnapshot state, PlanningObligation operation)
+    {
+        const string fallback = "otherwise.";
+        RequireFallbackOwnership(state, operation, "request", state.Request.Prompt.IndexOf(fallback, StringComparison.Ordinal), fallback.Length);
+        var threshold = state.Declarations.Single(d => d.Direction == "input" && PlanningDeclarations.Name(state, d) == "threshold");
+        if (threshold.Required || PlanningDeclarations.Default(state, threshold) is not { Kind: "number", Number: 100 })
+            throw new WorkflowRuntimeException("DIAGNOSTIC_DECLARATION_DEFAULT", "The omission default must remain on the optional canonical input.");
+    }
+
     // Frozen business-case assertions belong only to the isolated harness.
     private static void CheckEffectFixture(string name, PlanningSnapshot state, PlanningObligation[] operations)
     {
@@ -53,6 +62,7 @@ internal static partial class RuntimeAdmissionDiagnostic
     private static void AddEffectReport(JsonObject report, PlanningSnapshot state, IReadOnlyDictionary<string, LLMResponse?> receipts, JsonArray domains)
     {
         static string Category(string decision) => decision.StartsWith("interpret_", StringComparison.Ordinal) ? "interpretation" :
+            decision.StartsWith("execution_request_", StringComparison.Ordinal) ? "execution_request" :
             decision.StartsWith("contribution_", StringComparison.Ordinal) ? "execution_contribution" :
             decision.StartsWith("applicability_", StringComparison.Ordinal) ? "governing_applicability" :
             decision.StartsWith("coverage_", StringComparison.Ordinal) ? "realization_coverage" :
@@ -63,7 +73,7 @@ internal static partial class RuntimeAdmissionDiagnostic
             decision.StartsWith("data_", StringComparison.Ordinal) ? "operation_dependencies" : "relationships_or_other";
         long? Sum(IEnumerable<long?> values)
         { var all = values.ToArray(); return all.Any(v => v is null) ? null : all.Sum(v => v!.Value); }
-        report["decisionClasses"] = new JsonArray(new[] { "interpretation", "execution_contribution", "realization_coverage", "governing_applicability", "effect_realizations", "effect_governing", "boundary_scope", "occurrence_identity", "operation_dependencies", "relationships_or_other" }.Select(category =>
+        report["decisionClasses"] = new JsonArray(new[] { "interpretation", "execution_request", "execution_contribution", "realization_coverage", "governing_applicability", "effect_realizations", "effect_governing", "boundary_scope", "occurrence_identity", "operation_dependencies", "relationships_or_other" }.Select(category =>
         {
             var requests = domains.Where(d => d!["decisions"]!.AsArray().Any(v => Category(v!.ToString()) == category)).ToArray();
             var verified = requests.Where(d => receipts.GetValueOrDefault(d!["requestId"]!.ToString()) is not null).ToArray();

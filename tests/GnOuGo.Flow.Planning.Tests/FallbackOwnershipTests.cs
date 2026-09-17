@@ -39,13 +39,13 @@ public sealed class FallbackOwnershipTests
     public async Task ExactSourceFallbackComposesWithoutWideningSupportOrBorrowingRuntimeAuthority()
     {
         var state = State(); var scope = Action(state); var original = scope.Evidence!;
-        var decision = Assert.Single(PlanningOperations.ContributionDecisions(state));
+        var decision = Assert.Single(OperationEffectFixtures.PropertyDecisions(state));
         var answer = Answer(state, scope);
-        Assert.Empty(PlanningContractValidation.ValidateInstance(answer, decision.Schema));
+        Assert.NotNull(OperationEffectFixtures.ParseQualification(state, scope, answer));
         var forged = answer.DeepClone(); forged["units"]![0]!["request"]!["evidence"] = new JsonArray(scope.Clause.Id);
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(forged, decision.Schema));
-        Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, forged.AsObject()));
-        var proof = PlanningOperations.ParseContributions(state, scope, answer);
+        Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.ParseQualification(state, scope, forged.AsObject()));
+        var proof = OperationEffectFixtures.ParseQualification(state, scope, answer);
         var support = Assert.Single(proof.Contributions, c => c.Role == "supports");
         var fallback = Assert.Single(proof.Contributions, c => c.Role == "governing_property");
         Assert.Equal(original.ActionReference, support.EvidenceReference);
@@ -58,7 +58,7 @@ public sealed class FallbackOwnershipTests
         await PlanningOperations.ResolveAsync(state, Rejecting(), TestContext.Current.CancellationToken);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
         Assert.Equal("local_processing", operation.Kind); Assert.True(operation.Required);
-        Assert.Equal(16, operation.OperationAdmission!.Version);
+        Assert.Equal(17, operation.OperationAdmission!.Version);
         var attached = Assert.Single(operation.OperationAdmission.Assignments, a => a.Disposition == "attach");
         Assert.Null(attached.RuntimeEvidenceId); Assert.Empty(attached.RuntimeEvidenceIds);
         Assert.Equal(PlanningOperationNecessity.Unspecified, attached.Necessity);
@@ -79,10 +79,10 @@ public sealed class FallbackOwnershipTests
     {
         var state = State(); var scope = Action(state);
         var answer = OperationEffectFixtures.ContributionAnswer(state, scope);
-        var error = Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, answer));
+        var error = Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.ParseQualification(state, scope, answer));
         Assert.Contains("all owned source", error.Message);
         answer["units"]![0]!["request"]!["evidence"] = new JsonArray((JsonNode)new JsonObject { ["start"] = "b4", ["end"] = "b5" });
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(answer, PlanningOperations.ContributionDecision(state, scope).Schema));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(answer, OperationEffectFixtures.PropertyDecision(state, scope).Schema));
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public sealed class FallbackOwnershipTests
         PlanningFixtures.EmptyRuntime(state); PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
         var scope = Assert.Single(PlanningOperations.ContributionScopes(state));
         Assert.Null(scope.Evidence);
-        var decision = Assert.Single(PlanningOperations.ContributionDecisions(state));
+        var decision = Assert.Single(OperationEffectFixtures.PropertyDecisions(state));
         Assert.DoesNotContain("requested_execution", decision.Schema.ToJsonString());
         OperationEffectFixtures.SeedContributions(state);
         var property = Assert.Single(PlanningOperations.ReadContributions(state).SelectMany(p => p.Contributions), c => c.Role == "governing_property");
@@ -109,29 +109,29 @@ public sealed class FallbackOwnershipTests
         var owned = PolicyGroundingTests.Add(state, "request", "otherwise.", "fallback", "runtime_fallback");
         PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
         var answer = Answer(state, scope);
-        var proof = PlanningOperations.ParseContributions(state, scope, answer);
+        var proof = OperationEffectFixtures.ParseQualification(state, scope, answer);
         var binding = Assert.Single(Assert.Single(proof.Contributions, c => c.GoverningKind == "runtime_fallback").SourceBindings);
         Assert.Equal(owned.Grounding!.Fingerprint, binding.GroundingFingerprint);
         var broadProperty = new JsonObject { ["status"] = "qualified", ["units"] = new JsonArray((JsonNode)
             Property(scope, "b0", "b5", "descriptive_property")) };
-        Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, broadProperty));
+        Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.ParseQualification(state, scope, broadProperty));
         answer["units"]![1]!["governingKind"] = "descriptive_property";
-        Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, answer));
+        Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.ParseQualification(state, scope, answer));
         answer["units"]![1] = new JsonObject { ["role"] = "excluded", ["basis"] = "no_operation_relevance", ["scope"] = scope.Clause.Id,
             ["evidence"] = owned.EvidenceReferences[0] };
-        Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, answer));
+        Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.ParseQualification(state, scope, answer));
         state.Obligations[state.Obligations.IndexOf(owned)] = owned with { Required = !owned.Required };
-        Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ContributionDecision(state, scope));
+        Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.PropertyDecision(state, scope));
     }
 
     [Fact]
     public void SourceAndEvidenceEnumerationPreserveAggregateProof()
     {
         var state = State(); var scope = Action(state); var answer = Answer(state, scope);
-        var first = PlanningOperations.ParseContributions(state, scope, answer);
+        var first = OperationEffectFixtures.ParseQualification(state, scope, answer);
         var restored = PlanningContext.Clone(state); restored.RuntimeEvidence.Reverse(); restored.References.Reverse(); restored.Obligations.Reverse();
         answer["units"] = new JsonArray(answer["units"]!.AsArray().Reverse().Select(n => n!.DeepClone()).ToArray());
-        var second = PlanningOperations.ParseContributions(restored, Assert.Single(PlanningOperations.Scopes(restored)), answer);
+        var second = OperationEffectFixtures.ParseQualification(restored, Assert.Single(PlanningOperations.Scopes(restored)), answer);
         Assert.Equal(first.ProofFingerprint, second.ProofFingerprint);
         Assert.Equal(first.DomainFingerprint, second.DomainFingerprint);
     }
@@ -144,7 +144,7 @@ public sealed class FallbackOwnershipTests
         PlanningFixtures.Runtime(state, clauses[0].Clause, independentBoundary: false);
         PolicyGroundingTests.Add(state, "request", "Use a lower result for remaining cases.", "fallback", "runtime_fallback");
         PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
-        Assert.Equal(2, PlanningOperations.ContributionDecisions(state).Length);
+        Assert.Equal(2, OperationEffectFixtures.PropertyDecisions(state).Length);
         OperationEffectFixtures.Seed(state);
         await PlanningOperations.ResolveAsync(state, Rejecting(), TestContext.Current.CancellationToken);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);

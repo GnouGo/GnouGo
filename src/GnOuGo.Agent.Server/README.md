@@ -709,4 +709,6 @@ capability resolution and behavior review without losing retained answers or usa
 Editing, cancellation, configuration changes and intent-only retries remain available
 through the local recovery path; catalog checking itself makes no model call.
 
-The published `--planning-persistence-smoke` also round-trips source-only governing evidence through encrypted EF-backed planning persistence: contribution v6, applicability v2 and admission v16, with Schema-5 unchanged. A source-only fallback retains its exact source binding without inventing runtime execution provenance.
+The published `--planning-persistence-smoke` also round-trips source-only governing evidence through encrypted EF-backed planning persistence: contribution v7, applicability v2 and admission v17, with Schema-5 unchanged. A source-only fallback retains its exact source binding without inventing runtime execution provenance.
+
+The published planning persistence smoke also round-trips canonical execution-request proof 1 and request-backed support links in contribution 7/admission 17. It retains source-only fallback/applicability evidence, explicit non-request outcomes and Schema-5 storage; no provider is used.

@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Canonical action authority, committed once after bounded complete-clause adjudication.</summary>
 internal static partial class PlanningOperations
 {
-    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v16:" +
+    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v17:" +
         state.Request.TenantId + ":" + state.Request.SessionId + ":" + new JsonArray(PlanningIntentAssessment.IntentSources(state).OrderBy(s => s.Id, StringComparer.Ordinal)
             .Where(s => s.Authority is PlanningSourceAuthority.RequestedBehavior or PlanningSourceAuthority.ExistingBehavior)
             .Select(s => (JsonNode)new JsonArray(s.Id, s.Authority.ToString(), s.Text, s.QuestionContext)).ToArray()).ToJsonString() + ":" +
@@ -24,6 +24,7 @@ internal static partial class PlanningOperations
         PlanningBaselineProjection.RequireExecutableCoverage(state);
         _ = Scopes(state);
         await GroundOccurrenceBoundaries(state, runtime, ct);
+        await GroundExecutionRequests(state, runtime, ct);
         await GroundContributions(state, runtime, ct);
         await GroundCoverage(state, runtime, ct);
         await GroundApplicability(state, runtime, ct);
@@ -72,6 +73,7 @@ internal static partial class PlanningOperations
         var fingerprint = Fingerprint(state);
         if (fingerprint != state.OperationAdmissionFingerprint)
         {
+            state.Events.Add(new("operation_execution_request_model", "intent_operations", DateTimeOffset.UtcNow, ReadExecutionRequests(state).Count(p => p.DecisionId is not null)));
             var qualifications = ReadContributions(state);
             state.Events.Add(new("operation_contribution_model", "intent_operations", DateTimeOffset.UtcNow,
                 qualifications.Count(p => p.DecisionId is not null)));
@@ -128,6 +130,7 @@ internal static partial class PlanningOperations
     }
 
     private static string Fingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint(EvidenceFingerprint(state) + ":" +
+        string.Join('|', ReadExecutionRequests(state).Select(p => p.ProofFingerprint)) + ":" +
         string.Join('|', ReadContributions(state).Select(p => p.ProofFingerprint)) + ":" +
         string.Join('|', ReadCoverage(state).OrderBy(p => p.DecisionId, StringComparer.Ordinal).Select(p => p.ProofFingerprint)) + ":" +
         string.Join('|', SurvivingApplicability(state, state.Obligations.Where(o => o.OperationAdmission is not null).ToArray()).Select(p => p.ProofFingerprint)) + ":" +
@@ -156,7 +159,7 @@ internal static partial class PlanningOperations
     internal static void Validate(PlanningSnapshot state, PlanningObligation operation)
     {
         var proof = operation.OperationAdmission;
-        if (proof is not { Version: 16 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
+        if (proof is not { Version: 17 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
             operation.EvidenceReferences.Count != 1 || operation.EvidenceReferences[0] != proof.AnchorReference ||
             proof.EvidenceFingerprint != EvidenceFingerprint(state) || proof.Assignments.Count == 0 ||
             proof.Assignments.Select(a => a.ContributionId).Distinct(StringComparer.Ordinal).Count() != proof.Assignments.Count || proof.ProofFingerprint != Proof(operation, proof))
@@ -179,6 +182,9 @@ internal static partial class PlanningOperations
         if (JsonSerializer.Serialize(ReadContributions(state).ToList(), PlanningJsonContext.Default.ListPlanningExecutionContributionProof) !=
             JsonSerializer.Serialize(proof.ExecutionContributions, PlanningJsonContext.Default.ListPlanningExecutionContributionProof))
             throw Failure(operation.Id, "Canonical contribution qualification is stale or incomplete.");
+        if (JsonSerializer.Serialize(ReadExecutionRequests(state).ToList(), PlanningJsonContext.Default.ListPlanningExecutionRequestProof) !=
+            JsonSerializer.Serialize(proof.ExecutionRequests, PlanningJsonContext.Default.ListPlanningExecutionRequestProof))
+            throw Failure(operation.Id, "Canonical execution request authority is stale or incomplete.");
         foreach (var assignment in proof.Assignments)
         {
             ValidateAssignment(state, assignment);

@@ -14,6 +14,7 @@
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnosticRules.cs" Link="Benchmark/RuntimeAdmissionDiagnosticRules.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/RetainedDiagnosticRecords.cs" Link="Benchmark/RetainedDiagnosticRecords.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.Prerequisites.cs" Link="Benchmark/RuntimeAdmissionDiagnostic.Prerequisites.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.FallbackGate.cs" Link="Benchmark/RuntimeAdmissionDiagnostic.FallbackGate.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ProgressiveRules.cs" Link="Benchmark/ProgressiveRules.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ProgressiveReport.cs" Link="Benchmark/ProgressiveReport.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/SingletonOutputDiagnostic.cs" Link="Benchmark/SingletonOutputDiagnostic.cs" />

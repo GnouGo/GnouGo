@@ -24,6 +24,10 @@ internal static partial class RuntimeAdmissionDiagnostic
             throw new InvalidOperationException("Read-only restart changed proof or accounting.");
         return new() { ["passed"] = true, ["providerCalls"] = transport.Calls, ["checkpointWrites"] = checkpoints,
             ["snapshotFingerprint"] = before, ["admissionFingerprint"] = restored.OperationAdmissionFingerprint,
+            ["executionRequestProofVersions"] = new JsonArray(PlanningOperations.ReadExecutionRequests(restored).Select(p => p.Version)
+                .Distinct().Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()),
+            ["executionRequestFingerprints"] = new JsonArray(PlanningOperations.ReadExecutionRequests(restored)
+                .Select(p => (JsonNode?)JsonValue.Create(p.ProofFingerprint)).ToArray()),
             ["operationIds"] = new JsonArray(restored.Obligations.Where(o => o.OperationAdmission is not null)
                 .OrderBy(o => o.Id, StringComparer.Ordinal).Select(o => (JsonNode?)JsonValue.Create(o.Id)).ToArray()),
             ["contributionProofVersions"] = new JsonArray(PlanningOperations.ReadContributions(restored).Select(p => p.Version)

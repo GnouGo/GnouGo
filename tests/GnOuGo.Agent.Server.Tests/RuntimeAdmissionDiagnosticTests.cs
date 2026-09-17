@@ -9,6 +9,43 @@ public sealed class RuntimeAdmissionDiagnosticTests
 {
     [Theory]
     [InlineData("valid", true)]
+    [InlineData("nested", true)]
+    [InlineData("missing", false)]
+    [InlineData("wrong_kind", false)]
+    [InlineData("stale", false)]
+    [InlineData("foreign_target", false)]
+    [InlineData("support_widened", false)]
+    [InlineData("unlinked_overlap", false)]
+    [InlineData("fallback_support", false)]
+    public void FallbackGateRequiresExactGoverningAuthorityAndUnchangedSupport(string defect, bool accepted)
+    {
+        var state = new PlanningSnapshot(); state.Request.Prompt = "Select standard otherwise.";
+        var start = state.Request.Prompt.IndexOf("otherwise", StringComparison.Ordinal);
+        var length = state.Request.Prompt.Length - start;
+        state.References.Add(new("clause", "owner", 0, "request", "source", "span", 0, state.Request.Prompt.Length));
+        var overlap = defect is "nested" or "unlinked_overlap" or "support_widened";
+        state.References.Add(new("action", "owner", 0, "request", "source", "span", 0, overlap ? state.Request.Prompt.Length : start - 1));
+        state.References.Add(new("runtime_action", "owner", 0, "request", "source", "span", 0, defect == "support_widened" ? start - 1 : overlap ? state.Request.Prompt.Length : start - 1));
+        state.References.Add(new("fallback", "owner", 0, "request", "source", "span", start, length));
+        state.RuntimeEvidence.Add(new("runtime", "clause", "clause", "local_behavior", "runtime_action", null, "clause", "local_processing", null, null, null,
+            PlanningOperationNecessity.Required, "runtime-proof"));
+        var operation = Operation("local", "local_processing", [], ["result"], []);
+        var admission = operation.OperationAdmission!;
+        var proof = admission.ExecutionContributions[0];
+        proof.Units.Add(new("property-unit", "governing_property", "clause", null, ["fallback"], [], null, "governing_property", null, null)
+        { ParentRequestUnitId = defect == "nested" ? "unit" : null, GoverningKind = "runtime_fallback" });
+        if (defect != "missing") proof.Contributions.Add(new("property", "fallback", "governing_property", null, "governing_property", null, null, PlanningContributionOrigin.ModelQualification)
+        { UnitId = "property-unit", GoverningKind = defect == "wrong_kind" ? "descriptive_property" : "runtime_fallback" });
+        admission.Assignments.Add(admission.Assignments[0] with { ContributionId = "property", ActionReference = "fallback", Disposition = "attach" });
+        admission.GoverningApplicability.Add(new(defect == "stale" ? 1 : 2, "property", null, "fallback", "active", [defect == "foreign_target" ? "other" : "local"], null,
+            [new("local", ["fallback"])], [], null, PlanningApplicabilityOrigin.ModelApplicability, "applicability", "realized", "domain", "proof"));
+        if (defect == "fallback_support") proof.Contributions[0] = proof.Contributions[0] with { EvidenceReference = "fallback" };
+        void Check() => RuntimeAdmissionDiagnostic.RequireFallbackOwnership(state, operation, "request", start, length);
+        if (accepted) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
+    }
+
+    [Theory]
+    [InlineData("valid", true)]
     [InlineData("stale", false)]
     [InlineData("foreign", false)]
     [InlineData("cardinality_only", false)]
@@ -61,14 +98,16 @@ public sealed class RuntimeAdmissionDiagnosticTests
     }
 
     [Theory]
-    [InlineData("mixed", "LOCAL PASS", true)]
+    [InlineData("mixed", "LOCAL PASS", false)]
     [InlineData("mixed", "stopped", false)]
     [InlineData("mixed", null, false)]
-    [InlineData("local", "LOCAL PASS", false)]
+    [InlineData("local", "LOCAL PASS", true)]
+    [InlineData("local", null, true)]
+    [InlineData("local", "stopped", true)]
     [InlineData("stage1", "LOCAL PASS", false)]
     [InlineData("stage2", "LOCAL PASS", false)]
     [InlineData("replacement", "LOCAL PASS", false)]
-    public void OnlyMixedIsAuthorizedWithCurrentAcceptedLocal(string name, string? previous, bool allowed)
+    public void OnlyLocalIsAuthorizedRegardlessOfPreviousOutcome(string name, string? previous, bool allowed)
     {
         var report = previous is null ? null : AcceptedLocal();
         if (report is not null) report["outcome"] = previous;
@@ -227,9 +266,9 @@ public sealed class RuntimeAdmissionDiagnosticTests
     private static PlanningObligation Operation(string id, string kind, string[] inputs, string[] outputs, string[] producers) =>
         new(id, ["evidence"], "workflow", kind, true)
         {
-            OperationAdmission = new(16, id, "evidence", null,
+            OperationAdmission = new(17, id, "evidence", null,
                 [new("decision", "clause", "action", kind, PlanningOperationNecessity.Required, id, null)
-                { ContributionId = "qualified", RuntimeEvidenceId = "runtime", RuntimeEvidenceIds = ["runtime"], Disposition = "supports", EffectId = id, Effect = new(7, "effect", "realizes", [new("main", "result", "result_realization", "result")], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { ExecutionContributions = [new(6, "runtime", "qualification", "domain", [new("qualified", "action", "supports", id, "requested_result_production", "result", "result", PlanningContributionOrigin.ModelQualification) { UnitId = "unit", RuntimeEvidenceIds = ["runtime"] }], "proof") { RuntimeEvidenceIds = ["runtime"], ClauseReference = "clause", Units = [new("unit", "requested_execution", "clause", "action", ["action"], ["runtime"], id, "requested_result_production", "result", "result")] }], Dependencies = new(1, "domain", producers.Select(p =>
+                { ContributionId = "qualified", RuntimeEvidenceId = "runtime", RuntimeEvidenceIds = ["runtime"], Disposition = "supports", EffectId = id, Effect = new(7, "effect", "realizes", [new("main", "result", "result_realization", "result")], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { ExecutionContributions = [new(7, "runtime", "qualification", "domain", [new("qualified", "action", "supports", id, "requested_result_production", "result", "result", PlanningContributionOrigin.ModelQualification) { ExecutionRequestId = "request-proof", UnitId = "unit", RuntimeEvidenceIds = ["runtime"] }], "proof") { RuntimeEvidenceIds = ["runtime"], ClauseReference = "clause", Units = [new("unit", "requested_execution", "clause", "action", ["action"], ["runtime"], id, "requested_result_production", "result", "result") { ExecutionRequestId = "request-proof" }] }], ExecutionRequests = [new(1, "request-proof", "request-decision", "request-domain", [new("unit", "requested_execution", "clause", "action", ["action"], ["runtime"], id, "requested_result_production", "result", "result") { ExecutionRequestId = "request-proof" }], "model", "proof")], Dependencies = new(1, "domain", producers.Select(p =>
                     new PlanningOperationDependencyAssignment(p, id, "data", PlanningDependencyOrigin.ModelSemanticSelection, ["clause"], "decision")).ToList(), "dependency-proof"),
                     RealizationCoverage = new(3, "coverage", "domain", [id], [new("runtime", "supports", [id], ["action"]) { ContributionId = "qualified" }],
                         [new(id, new("main", "result", "result_realization", "result"), ["qualified"], inputs.ToList(), outputs.ToList())], "coverage-proof") }
@@ -370,6 +409,7 @@ public sealed class RuntimeAdmissionDiagnosticTests
         var admission = operation.OperationAdmission!;
         admission.ExecutionContributions[0].Contributions.Add(admission.ExecutionContributions[0].Contributions[0] with { Id = id, EvidenceReference = id });
         admission.ExecutionContributions[0].Units[0].EvidenceReferences.Add(id);
+        admission.ExecutionRequests[0].Units[0].EvidenceReferences.Add(id);
         admission.Assignments.Add(admission.Assignments[0] with { ContributionId = id, ActionReference = id });
         admission.RealizationCoverage!.Contributions.Add(new("runtime", "supports", [operation.Id], [id]) { ContributionId = id });
         admission.RealizationCoverage.Effects[0].SupportingEvidence.Add(id);

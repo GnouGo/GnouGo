@@ -548,3 +548,30 @@ This identity has now consumed its single MIXED start. It stopped on a verified 
 `audit-nested-qualifier-fixture <retained-case>` runs explicitly synthetic request/qualifier compositions on a detached encrypted checkpoint. It installs no provider transport or persistence writer, validates current proofs, checks read-only restart and measures production request packing. It reports fixture acceptance separately: missing historical owned semantics are not filled in or relabelled. Historical replay remains `audit-runtime-admission` under the preserved original binaries. See [nested qualifier validation](../../docs/planner-nested-qualifiers.md).
 
 `audit-fallback-ownership-fixture <retained-case>` is offline only. It uses detached encrypted evidence and explicitly synthetic current-schema answers. The retained MIXED action stays at `[255,374)`; a separate `[375,385)` fallback receives governing qualification and post-realization applicability. The command requires corrected acceptance, validates read-only restart, measures the complete request path and verifies archive/accounting integrity. It never dispatches a provider request or changes the historical stopped result. See [exact fallback ownership](../../docs/planner-fallback-ownership.md).
+
+## Fallback-ownership LOCAL gate
+
+`schema5-fallback-ownership-diagnostics-1` authorizes one fresh LOCAL on frozen
+production `e1fe4687574936d5ce2632d7e30b84f70adbeb19`. The comparison campaign supplies
+settings and fixture fingerprints only. It imports no historical answers or
+receipts. MIXED, Stage 1 and a second start are refused regardless of LOCAL's result.
+
+The existing sixteen-reservation budget, model, low reasoning, paging and output
+handling remain unchanged. The gate requires current contribution/applicability/
+admission proofs 6/2/16, exact fallback qualification and realized-effect
+applicability, unchanged executable support bounds, canonical declaration defaults,
+and zero-call/zero-write detached restart. Validated nested qualifiers retain their
+composition; nesting itself cannot prove applicability or grant child execution.
+
+Build harness changes with `-p:BuildProjectReferences=false` and verify frozen
+production hashes. `diagnose-runtime-admission report` is read-only. The authorized
+live start is `diagnose-runtime-admission run-local` once, only after offline checks
+and the single currency preflight succeed. Never resume an unverifiable reservation.
+
+This fallback-ownership identity has consumed its single LOCAL start. It stopped
+before realization coverage on contribution qualification; all thirteen requests
+have verified receipts. Do not repeat its live command. See the
+[LOCAL report](../../docs/planner-fallback-ownership-local-1.md). The next gate is
+architecture review, not MIXED.
+
+Execution-request authority offline validation uses the existing `audit-fallback-ownership-fixture` command with explicitly synthetic request-cohort and property answers. Reports count request adjudication separately from deterministic support projection, property qualification, coverage and applicability. Current acceptance requires request proof 1, contribution 7 and admission 17. Original-schema replay remains separate; historical receipts do not authorize the new request domain. No live campaign is authorized by these fixture commands. See [validation report](../../docs/planner-execution-request-authority.md).

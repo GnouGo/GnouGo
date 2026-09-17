@@ -196,6 +196,7 @@ internal static class RuntimePersistenceSmoke
                 snapshot.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(snapshot);
                 var eligible = PlanningOperations.Scopes(snapshot);
                 client.EffectState = snapshot;
+                await PlanningDecisionPages.ResolveAsync(snapshot, opened.Runtime, "intent_operations", "$plan", PlanningOperations.ExecutionRequestDecisions(snapshot), CancellationToken.None);
                 var effectDecisions = PlanningOperations.ContributionDecisions(snapshot);
                 await PlanningDecisionPages.ResolveAsync(snapshot, opened.Runtime, "intent_operations", "$plan", effectDecisions, CancellationToken.None);
                 if (snapshot.Obligations.Any(PlanningSourceDecisions.IsOperation)) throw new InvalidOperationException("Staged operation identity granted partial authority.");
@@ -210,8 +211,8 @@ internal static class RuntimePersistenceSmoke
                 if (restart == 0 && client.Calls == identityCalls + 2) identityCalls = client.Calls;
                 var operation = resumed.Snapshot.Obligations.Single(PlanningSourceDecisions.IsOperation);
                 if (client.Calls != identityCalls || !operation.Required || resumed.Snapshot.RuntimeEvidence.Count != 3 || operation.OperationAdmission!.Assignments.Count != 5 || resumed.Snapshot.RepairAllowances.Count != 0 ||
-                    operation.OperationAdmission.Version != 16 || operation.OperationAdmission.RealizationCoverage?.Version != 3 ||
-                    operation.OperationAdmission.ExecutionContributions.Any(p => p.Version != 6 || p.Units.Count == 0 || p.RuntimeEvidenceIds.Count == 0) ||
+                    operation.OperationAdmission.Version != 17 || operation.OperationAdmission.ExecutionRequests.Any(p => p.Version != 1 || p.Units.Count == 0) || operation.OperationAdmission.ExecutionRequests.Count == 0 || operation.OperationAdmission.RealizationCoverage?.Version != 3 ||
+                    operation.OperationAdmission.ExecutionContributions.Any(p => p.Version != 7 || p.Units.Count == 0 || p.RuntimeEvidenceIds.Count == 0) ||
                     operation.OperationAdmission.Assignments.Count(a => a.Disposition == "supports") != 2 ||
                     operation.OperationAdmission.ExecutionContributions.SelectMany(p => p.Units).Count(u => u.ParentRequestUnitId is not null) != 1 ||
                     operation.OperationAdmission.Assignments.Count(a => a.Disposition == "attach") != 3 ||
@@ -290,11 +291,8 @@ internal static class RuntimePersistenceSmoke
                         // Explicit synthetic semantics for this published persistence fixture.
                         JsonObject Mapping(PlanningOperations.Scope scope) => OperationEffectFixtures.Answer(state, scope,
                             contribution: PlanningChoiceEvidence.Text(state, scope.Clause.Id).Trim() == "This processing is deterministic." ? "governs" : "realizes");
-                        if (field.Key.StartsWith("contribution_", StringComparison.Ordinal))
+                        JsonObject Joint(PlanningOperations.Scope s)
                         {
-                            var scopes = PlanningOperations.Scopes(state).Where(s => PlanningOperations.ContributionDecisionId(s.Evidence!) == field.Key);
-                            return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.CombineQualifications(scopes.Select(s =>
-                            {
                                 var answer = OperationEffectFixtures.ContributionAnswer(state, s, Mapping(s));
                                 if (PlanningChoiceEvidence.Text(state, s.Clause.Id).Trim() == "Transform the value once.")
                                     answer["units"]![0]!["qualifiers"] = new JsonArray((JsonNode)new JsonObject
@@ -303,7 +301,15 @@ internal static class RuntimePersistenceSmoke
                                     answer["units"]!.AsArray().Add((JsonNode)new JsonObject { ["role"] = "governing_property", ["governingKind"] = "runtime_fallback",
                                         ["scope"] = s.Clause.Id, ["evidence"] = new JsonObject { ["start"] = "b5", ["end"] = "b6" } });
                                 return answer;
-                            })));
+                        }
+                        if (field.Key.StartsWith("execution_request_", StringComparison.Ordinal))
+                            return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.RequestAnswer(state,
+                                PlanningOperations.RequestCohorts(state).Single(c => c.Id == field.Key), OperationEffectFixtures.QualificationAnswers(state, Joint)));
+                        if (field.Key.StartsWith("contribution_", StringComparison.Ordinal))
+                        {
+                            var scope = PlanningOperations.ContributionScopes(state).Single(s => PlanningOperations.ContributionDecisionId(s) == field.Key);
+                            return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.PropertyAnswer(state, scope,
+                                OperationEffectFixtures.QualificationAnswers(state, Joint)[field.Key]!.AsObject()));
                         }
                         if (field.Key.StartsWith("applicability_", StringComparison.Ordinal))
                             return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.ApplicabilityAnswer(

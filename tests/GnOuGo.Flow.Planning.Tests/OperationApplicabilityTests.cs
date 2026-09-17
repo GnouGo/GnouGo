@@ -23,8 +23,9 @@ public sealed class OperationApplicabilityTests
     private static void Qualify(PlanningSnapshot state, Func<PlanningOperations.Scope, JsonObject> answer)
     {
         OperationEffectFixtures.SeedBoundaries(state);
-        OperationEffectFixtures.SeedPages(state, PlanningOperations.ContributionDecisions(state), new JsonObject(PlanningOperations.Scopes(state)
-            .Where(s => s.Evidence!.BaselineReference is null).Select(s => new KeyValuePair<string, JsonNode?>(PlanningOperations.ContributionDecisionId(s.Evidence!), answer(s)))));
+        var values = OperationEffectFixtures.QualificationAnswers(state, answer);
+        var properties = OperationEffectFixtures.SeparateRequestAuthority(state, values);
+        OperationEffectFixtures.SeedPages(state, PlanningOperations.ContributionDecisions(state), properties);
     }
     private static JsonObject Property(PlanningOperations.Scope scope) => new()
     { ["status"] = "qualified", ["units"] = new JsonArray((JsonNode)new JsonObject
@@ -46,7 +47,7 @@ public sealed class OperationApplicabilityTests
     public async Task WrongExternalHintCannotSupportButCannotVetoLocalPropertyApplicability()
     {
         var state = Result(true); var property = PlanningOperations.Scopes(state).Last();
-        var qualification = PlanningOperations.ContributionDecision(state, property);
+        var qualification = OperationEffectFixtures.PropertyDecision(state, property);
         Assert.Empty(PlanningOperations.EffectDomain(state, property.Evidence!));
         Assert.Empty(PlanningContractValidation.ValidateInstance(Property(property), qualification.Schema));
         Assert.DoesNotContain("requested_result_production", qualification.Schema.ToJsonString());
@@ -78,14 +79,14 @@ public sealed class OperationApplicabilityTests
     public void NoExecutionDoesNotImplyNoOperationRelevance()
     {
         var state = Result(true); var scope = PlanningOperations.Scopes(state).Last();
-        var decision = PlanningOperations.ContributionDecision(state, scope);
+        var decision = OperationEffectFixtures.PropertyDecision(state, scope);
         var exclusion = Property(scope); exclusion["units"]![0]!["role"] = "excluded";
         exclusion["units"]![0]!.AsObject().Remove("governingKind");
         exclusion["units"]![0]!["basis"] = "no_requested_execution";
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(exclusion, decision.Schema));
         exclusion["units"]![0]!["basis"] = "no_operation_relevance";
         Assert.Empty(PlanningContractValidation.ValidateInstance(exclusion, decision.Schema));
-        Assert.Equal("excluded", Assert.Single(PlanningOperations.ParseContributions(state, scope, exclusion).Contributions).Role);
+        Assert.Equal("excluded", Assert.Single(OperationEffectFixtures.ParseQualification(state, scope, exclusion).Contributions).Role);
         var bound = Property(scope); bound["units"]![0]!["effect"] = "possible";
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(bound, decision.Schema));
     }

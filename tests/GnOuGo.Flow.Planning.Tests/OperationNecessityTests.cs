@@ -242,6 +242,7 @@ public sealed class OperationNecessityTests
                 OperationEffectFixtures.CompleteQualification(state, scope,
                     OperationEffectFixtures.ContributionAnswer(state, scope, OperationEffectFixtures.Answer(state, scope, contribution: "realizes"))));
         }));
+        answers = OperationEffectFixtures.SeparateRequestAuthority(state, answers);
         OperationEffectFixtures.SeedPages(state, PlanningOperations.ContributionDecisions(state), answers);
         var groups = PlanningOperations.CoverageGroups(state);
         OperationEffectFixtures.SeedPages(state, groups.Select(g => g.Decision).ToArray(), new JsonObject(groups.Select(g =>

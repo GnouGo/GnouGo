@@ -123,6 +123,11 @@ public enum PlanningOperationNecessity { Unknown, Unspecified, Required, Optiona
 public enum PlanningRuntimeExecutionScope { Unknown, PlanningArtifact, PublicContract, Policy, GeneratedWorkflow }
 public enum PlanningRuntimeEvidenceOrigin { Unknown, SourceInterpretation, EngineSourceAuthority, EngineBaseline }
 
+/// <summary>Canonical request authority, not realization, capability, binding or property applicability.
+/// Outcomes include evidence which establishes no request. Reconstructed from existing durable pages.</summary>
+public sealed record PlanningExecutionRequestProof(int Version, string Id, string? DecisionId,
+    string DomainFingerprint, List<PlanningContributionUnit> Units, string Origin, string ProofFingerprint);
+
 /// <summary>Canonical qualification of owned evidence, before realization coverage. Candidate effects
 /// and preliminary runtime labels confer no executable authority.</summary>
 public sealed record PlanningExecutionContributionProof(int Version, string? RuntimeEvidenceId, string? DecisionId,
@@ -143,6 +148,7 @@ public sealed record PlanningContributionUnit(string Id, string Role, string Sco
     string? PredicateReference, List<string> EvidenceReferences, List<string> RuntimeEvidenceIds,
     string? EffectId, string Basis, string? OwnerReference, string? BoundaryReference)
 {
+    public string? ExecutionRequestId { get; init; }
     /// <summary>Engine-derived statement composition, never execution or applicability authority.
     /// Only a governing qualifier may refer to its containing requested-execution unit.</summary>
     public string? ParentRequestUnitId { get; init; }
@@ -153,6 +159,7 @@ public sealed record PlanningExecutionContribution(string Id, string EvidenceRef
     string? EffectId, string Basis, string? OwnerReference, string? BoundaryReference,
     PlanningContributionOrigin Origin)
 {
+    public string? ExecutionRequestId { get; init; }
     public string? UnitId { get; init; }
     public List<string> RuntimeEvidenceIds { get; init; } = [];
     public string? GoverningKind { get; init; }
@@ -171,13 +178,14 @@ public sealed record PlanningGoverningApplicabilityProof(int Version, string Con
 public sealed record PlanningGoverningTargetEvidence(string Target, List<string> EvidenceReferences);
 public enum PlanningApplicabilityOrigin { Unknown, ModelApplicability, DeterministicOwner, DeterministicInactive }
 
-public enum PlanningContributionOrigin { Unknown, ModelQualification, DeterministicBaseline, DeterministicExclusion }
+public enum PlanningContributionOrigin { Unknown, ModelQualification, DeterministicBaseline, DeterministicExclusion, DeterministicRequestProjection }
 
 /// <summary>Canonical operation proof; preliminary source labels confer no execution authority.</summary>
 public sealed record PlanningOperationAdmission(int Version, string CanonicalId, string AnchorReference,
     string? BaselineReference, List<PlanningOperationAssignment> Assignments, string EvidenceFingerprint,
     string ProofFingerprint)
 {
+    public List<PlanningExecutionRequestProof> ExecutionRequests { get; init; } = [];
     public PlanningOperationDependencyProof? Dependencies { get; init; }
     public PlanningRealizationCoverageProof? RealizationCoverage { get; init; }
     public List<PlanningExecutionContributionProof> ExecutionContributions { get; init; } = [];

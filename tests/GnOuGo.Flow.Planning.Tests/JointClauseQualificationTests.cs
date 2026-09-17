@@ -34,14 +34,14 @@ public sealed class JointClauseQualificationTests
         var clause = PlanningOperations.SourceScopes(state).Single(s => s.Source.Id == "request");
         Add(state, clause, "b0", "b8"); Add(state, clause, "b2", "b5"); Add(state, clause, "b6", "b8", PlanningOperationNecessity.Required);
         var scope = PlanningOperations.Scopes(state).First(s => s.Evidence!.ActionReference == state.References.Single(r => r.Start == 0 && r.Length == state.Request.Prompt.Length && r.Kind.EndsWith(":selection", StringComparison.Ordinal)).Id);
-        var decision = Assert.Single(PlanningOperations.ContributionDecisions(state));
+        var decision = Assert.Single(OperationEffectFixtures.PropertyDecisions(state));
         Assert.DoesNotContain("\"supports\"", decision.Schema.ToJsonString());
         Assert.Equal(3, decision.Context["provenance"]!.AsObject().Count);
         Assert.Equal(4, decision.SourceDecisionIds!.Count);
         var answer = OperationEffectFixtures.ContributionAnswer(state, scope);
         answer["units"]![0]!["request"]!["predicate"] = Range("b0", "b2");
         answer["units"]![0]!["request"]!["evidence"] = new JsonArray((JsonNode)Range("b0", "b2"), Range("b2", "b5"), Range("b5", "b8"));
-        var proof = PlanningOperations.ParseContributions(state, scope, answer);
+        var proof = OperationEffectFixtures.ParseQualification(state, scope, answer);
         var unit = Assert.Single(proof.Units);
         Assert.Equal("requested_execution", unit.Role); Assert.Equal(3, proof.Contributions.Count);
         Assert.All(proof.Contributions, support => { Assert.Equal(unit.Id, support.UnitId); Assert.Equal(3, support.RuntimeEvidenceIds.Count); });
@@ -49,7 +49,7 @@ public sealed class JointClauseQualificationTests
         Assert.NotNull(unit.PredicateReference); Assert.Equal(clause.Clause.Id, unit.ScopeReference);
         var reversed = PlanningContext.Clone(state); reversed.RuntimeEvidence.Reverse(); reversed.References.Reverse();
         answer["units"]![0]!["request"]!["evidence"] = new JsonArray(answer["units"]![0]!["request"]!["evidence"]!.AsArray().Reverse().Select(v => v!.DeepClone()).ToArray());
-        Assert.Equal(proof.ProofFingerprint, PlanningOperations.ParseContributions(reversed, PlanningOperations.Scopes(reversed).First(s => s.Evidence!.Id == scope.Evidence!.Id), answer).ProofFingerprint);
+        Assert.Equal(proof.ProofFingerprint, OperationEffectFixtures.ParseQualification(reversed, PlanningOperations.Scopes(reversed).First(s => s.Evidence!.Id == scope.Evidence!.Id), answer).ProofFingerprint);
     }
 
     [Theory]
@@ -70,7 +70,7 @@ public sealed class JointClauseQualificationTests
             answer["units"]![0]!["request"]!["evidence"] = new JsonArray((JsonNode)Range("b0", "b4"));
             answer["units"]!.AsArray().Add((JsonNode)new JsonObject { ["role"] = "governing_property", ["governingKind"] = "descriptive_property", ["scope"] = scope.Clause.Id, ["evidence"] = Range("b4", "b6") });
         }
-        Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, answer));
+        Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.ParseQualification(state, scope, answer));
     }
 
     [Fact]
@@ -81,12 +81,12 @@ public sealed class JointClauseQualificationTests
         var scope = Assert.Single(PlanningOperations.Scopes(state));
         var answer = new JsonObject { ["status"] = "qualified", ["units"] = new JsonArray((JsonNode)new JsonObject
             { ["role"] = "governing_property", ["governingKind"] = "descriptive_property", ["scope"] = scope.Clause.Id, ["evidence"] = scope.Evidence!.ActionReference }) };
-        var proof = PlanningOperations.ParseContributions(state, scope, answer);
+        var proof = OperationEffectFixtures.ParseQualification(state, scope, answer);
         Assert.All(proof.Units, u => Assert.Null(u.PredicateReference));
         Assert.DoesNotContain(proof.Contributions, c => c.Role == "supports");
         var old = new JsonObject { ["status"] = "qualified", ["contributions"] = new JsonArray((JsonNode)new JsonObject
             { ["role"] = "supports", ["evidence"] = scope.Evidence.ActionReference }) };
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(old, PlanningOperations.ContributionDecision(state, scope).Schema));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(old, OperationEffectFixtures.PropertyDecision(state, scope).Schema));
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public sealed class JointClauseQualificationTests
         Add(state, scope, "b0", "b4", PlanningOperationNecessity.Required);
         Add(state, scope, "b2", "b4", PlanningOperationNecessity.Optional);
         var parent = PlanningOperations.Scopes(state).First(s => s.Evidence!.Necessity == PlanningOperationNecessity.Required);
-        var error = Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, parent, OperationEffectFixtures.ContributionAnswer(state, parent)));
+        var error = Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.ParseQualification(state, parent, OperationEffectFixtures.ContributionAnswer(state, parent)));
         Assert.Contains("conflicting explicit", error.Message);
     }
 
@@ -111,7 +111,7 @@ public sealed class JointClauseQualificationTests
             PlanningFixtures.Runtime(state, reference, "external_read");
         }
         OperationEffectFixtures.Seed(state);
-        Assert.Single(PlanningOperations.ContributionDecisions(state));
+        Assert.Single(OperationEffectFixtures.PropertyDecisions(state));
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, _, _) => throw new InvalidOperationException("Unexpected call") };
         await PlanningOperations.ResolveAsync(state, runtime, TestContext.Current.CancellationToken);
         Assert.Equal(2, state.Obligations.Count(PlanningSourceDecisions.IsOperation));

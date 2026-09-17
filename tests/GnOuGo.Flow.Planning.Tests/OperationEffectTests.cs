@@ -27,11 +27,15 @@ public sealed class OperationEffectTests
             Assert.Equal("intent_operations", phase);
             var response = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(field =>
             {
+                if (field.Key.StartsWith("execution_request_", StringComparison.Ordinal))
+                    return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.RequestAnswer(state,
+                        PlanningOperations.RequestCohorts(state).Single(c => c.Id == field.Key), OperationEffectFixtures.QualificationAnswers(state,
+                            scope => OperationEffectFixtures.ContributionAnswer(state, scope, OperationEffectFixtures.Answer(state, scope, [target], scope.Evidence!.Id == description.Id ? "governs" : "realizes")))));
                 if (field.Key.StartsWith("contribution_", StringComparison.Ordinal))
                 {
                     var scope = PlanningOperations.Scopes(state).Single(s => PlanningOperations.ContributionDecisionId(s.Evidence!) == field.Key);
-                    return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.ContributionAnswer(state, scope,
-                        OperationEffectFixtures.Answer(state, scope, [target], scope.Evidence!.Id == description.Id ? "governs" : "realizes")));
+                    return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.PropertyAnswer(state, scope, OperationEffectFixtures.ContributionAnswer(state, scope,
+                        OperationEffectFixtures.Answer(state, scope, [target], scope.Evidence!.Id == description.Id ? "governs" : "realizes"))));
                 }
                 if (field.Key.StartsWith("applicability_", StringComparison.Ordinal))
                     return new KeyValuePair<string, JsonNode?>(field.Key, OperationEffectFixtures.ApplicabilityAnswer(
@@ -49,7 +53,7 @@ public sealed class OperationEffectTests
         Assert.Equal(3, operation.OperationAdmission!.Assignments.Count);
         Assert.All(operation.OperationAdmission.Assignments, a => Assert.Equal("deterministic", a.ResolutionOrigin));
         Assert.Contains(operation.OperationAdmission.Assignments, a => a.RuntimeEvidenceId == description.Id && a.Disposition == "attach");
-        Assert.All(state.DecisionPages, p => Assert.All(p.Decisions, id => Assert.True(id.StartsWith("coverage_", StringComparison.Ordinal) || id.StartsWith("contribution_", StringComparison.Ordinal) || id.StartsWith("applicability_", StringComparison.Ordinal))));
+        Assert.All(state.DecisionPages, p => Assert.All(p.Decisions, id => Assert.True(id.StartsWith("execution_request_", StringComparison.Ordinal) || id.StartsWith("coverage_", StringComparison.Ordinal) || id.StartsWith("contribution_", StringComparison.Ordinal) || id.StartsWith("applicability_", StringComparison.Ordinal))));
         Assert.Empty(state.RepairAllowances);
     }
 

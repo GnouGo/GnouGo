@@ -69,7 +69,7 @@ The operation fixture first parses three identical copies of each preliminary ru
 assignment into one normalized evidence item, then persists completed canonical contribution pages before admission
 commits. The synthetic outputless action carries explicit owned invocation-boundary evidence. Encrypted restart reuses the realization receipts, attaches a governing rule to the
 single canonical operation, and verifies a second restart adds no
-calls or repair charges. The first action has unspecified necessity, the reused action has explicit required evidence, and the governing rule has unspecified necessity. Restart verifies one required canonical operation and its evidence. Canonical contribution proof 6 supplies support/unbound-property authority, independently of historical runtime labels. Occurrence-boundary proof 1, realization coverage proof 3, governing applicability proof 2, effect proof 7 and operation proof 16 remain in Schema-5 storage.
+calls or repair charges. The first action has unspecified necessity, the reused action has explicit required evidence, and the governing rule has unspecified necessity. Restart verifies one required canonical operation and its evidence. Canonical execution-request proof 1 supplies requested-performance authority; contribution proof 7 projects its support and separately qualifies unbound properties, independently of historical runtime labels. Occurrence-boundary proof 1, realization coverage proof 3, governing applicability proof 2, effect proof 7 and operation proof 17 remain in Schema-5 storage.
 
 The admission dependency smoke journals synthetic, evidence-bound data decisions
 between two established operations, closes before atomic admission, then reopens
@@ -83,3 +83,5 @@ The trimmed persistence fixture also round-trips clause semantic units, owned re
 [Nested request qualifiers](../../docs/planner-nested-qualifiers.md) preserve complete execution citations while projecting explicitly contained properties as governing-only contributions. Engine-derived parent links prove composition, never applicability or a new occurrence. The shared six-unit allowance counts parents and qualifiers; published restart checks retain these links without new calls or writes.
 
 The encrypted restart smoke also qualifies a fallback outside its action span. It retains the original support reference, a source-only `runtime_fallback` contribution and its applicability proof, then checks completed re-entry without provider calls or checkpoint writes.
+
+The operation restart stages request-cohort receipts before dependent property pages. Request predicates, explicit non-request outcomes and deterministic support links survive encrypted serialization. Restored admission validates request proof 1, contribution 7 and admission 17 without resetting receipts, repairs or budgets.

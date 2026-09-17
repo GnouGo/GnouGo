@@ -24,8 +24,9 @@ public sealed class OperationContributionTests
     private static void Qualify(PlanningSnapshot state, Func<PlanningOperations.Scope, JsonObject> answer)
     {
         OperationEffectFixtures.SeedBoundaries(state);
-        OperationEffectFixtures.SeedPages(state, PlanningOperations.ContributionDecisions(state), new JsonObject(PlanningOperations.Scopes(state)
-            .Where(s => s.Evidence!.BaselineReference is null).Select(s => new KeyValuePair<string, JsonNode?>(PlanningOperations.ContributionDecisionId(s.Evidence!), answer(s)))));
+        var values = OperationEffectFixtures.QualificationAnswers(state, answer);
+        var properties = OperationEffectFixtures.SeparateRequestAuthority(state, values);
+        OperationEffectFixtures.SeedPages(state, PlanningOperations.ContributionDecisions(state), properties);
     }
     private static void Cover(PlanningSnapshot state)
     {
@@ -52,18 +53,18 @@ public sealed class OperationContributionTests
         var scopes = PlanningOperations.Scopes(state); var description = scopes.Last().Evidence!.Id;
         Assert.All(scopes, s => Assert.Equal("action", s.Evidence!.EvidenceRole)); // Historical hints confer no authority.
         Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.CoverageGroups(state));
-        Assert.All(PlanningOperations.ContributionDecisions(state), d => Assert.DoesNotContain("EvidenceRole", d.Context.ToJsonString()));
+        Assert.All(OperationEffectFixtures.PropertyDecisions(state), d => Assert.DoesNotContain("EvidenceRole", d.Context.ToJsonString()));
         Qualify(state, s => Answer(state, s, s.Evidence!.Id == description ? "governs" : "supports"));
         var group = Assert.Single(PlanningOperations.CoverageGroups(state));
         Assert.All(group.Plans.Values.SelectMany(p => p).Where(c => c.RuntimeEvidenceId == description), c => Assert.Equal("governs", c.Disposition));
         Cover(state); await PlanningOperations.ResolveAsync(state, NoCalls(), Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
-        Assert.True(operation.Required); Assert.Equal(16, operation.OperationAdmission!.Version);
+        Assert.True(operation.Required); Assert.Equal(17, operation.OperationAdmission!.Version);
         Assert.Equal(3, operation.OperationAdmission.RealizationCoverage!.Version);
         Assert.Equal(2, operation.OperationAdmission.Assignments.Count(a => a.Disposition == "supports"));
         Assert.Single(operation.OperationAdmission.Assignments, a => a.Disposition == "attach");
         Assert.DoesNotContain(state.DecisionPages.SelectMany(p => p.Decisions), id => id.StartsWith("operation_", StringComparison.Ordinal));
-        Assert.All(operation.OperationAdmission.ExecutionContributions, p => Assert.Equal(6, p.Version));
+        Assert.All(operation.OperationAdmission.ExecutionContributions, p => Assert.Equal(7, p.Version));
     }
 
     [Fact]
@@ -79,7 +80,7 @@ public sealed class OperationContributionTests
         var property = Answer(state, scope, "governs")["units"]![0]!.DeepClone();
         property["evidence"] = new JsonObject { ["start"] = "b4", ["end"] = "b8" };
         answer["units"]!.AsArray().Add(property);
-        Assert.Empty(PlanningContractValidation.ValidateInstance(answer, PlanningOperations.ContributionDecision(state, scope).Schema));
+        Assert.NotNull(OperationEffectFixtures.ParseQualification(state, scope, answer));
         Qualify(state, _ => answer); Cover(state); await PlanningOperations.ResolveAsync(state, NoCalls(), Ct);
         var assignments = Assert.Single(state.Obligations).OperationAdmission!.Assignments;
         Assert.Equal(2, assignments.Count); Assert.All(assignments, a => Assert.Equal(evidence.Id, a.RuntimeEvidenceId));
@@ -104,14 +105,17 @@ public sealed class OperationContributionTests
         var state = OperationAdmissionTests.State("Perform the separately requested execution.");
         PlanningFixtures.Runtime(state, PlanningOperations.SourceScopes(state).Single().Clause, kind, resourceAction: kind == "resource_lifecycle" ? "create" : null);
         OperationEffectFixtures.SeedBoundaries(state); var scope = Assert.Single(PlanningOperations.Scopes(state));
-        var decision = PlanningOperations.ContributionDecision(state, scope); var answer = Answer(state, scope);
-        Assert.Empty(PlanningContractValidation.ValidateInstance(answer, decision.Schema));
-        Assert.Equal("requested_owned_occurrence", answer["units"]![0]!["request"]!["basis"]!.ToString());
-        foreach (var field in new[] { "basis", "owner", "boundary", "effect" })
+        var joint = OperationEffectFixtures.QualificationAnswers(state, s => Answer(state, s));
+        var cohort = Assert.Single(PlanningOperations.RequestCohorts(state));
+        var answer = OperationEffectFixtures.RequestAnswer(state, cohort, joint);
+        Assert.Empty(PlanningContractValidation.ValidateInstance(answer, cohort.Decision.Schema));
+        var proof = PlanningOperations.ParseExecutionRequest(state, cohort, answer);
+        Assert.Equal("requested_owned_occurrence", Assert.Single(proof.Units).Basis);
+        foreach (var field in new[] { "basis", "owner", "boundary", "t" })
         {
-            var forged = answer.DeepClone(); forged["units"]![0]!["request"]![field] = "foreign";
-            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(forged, decision.Schema));
-            Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, forged.AsObject()));
+            var forged = answer.DeepClone().AsObject(); forged[scope.Clause.Id]!["u"]![0]!["q"]![field] = "foreign";
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(forged, cohort.Decision.Schema));
+            Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseExecutionRequest(state, cohort, forged));
         }
     }
 
@@ -129,12 +133,14 @@ public sealed class OperationContributionTests
     public void QualificationCannotLoseEvidenceOrInventOmission()
     {
         var state = Result("Transform the value using deterministic processing."); var scope = Assert.Single(PlanningOperations.Scopes(state));
-        var answer = Answer(state, scope); var decision = PlanningOperations.ContributionDecision(state, scope);
+        var answer = Answer(state, scope); var decision = OperationEffectFixtures.PropertyDecision(state, scope);
         answer["units"]![0]!["role"] = "omitted";
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(answer, decision.Schema));
         answer = Answer(state, scope); answer["units"]![0]!["request"]!["evidence"] = new JsonArray((JsonNode)new JsonObject { ["start"] = "b0", ["end"] = "b2" });
-        Assert.Empty(PlanningContractValidation.ValidateInstance(answer, decision.Schema));
-        Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, answer));
+        var cohort = Assert.Single(PlanningOperations.RequestCohorts(state));
+        var request = OperationEffectFixtures.RequestAnswer(state, cohort, new() { [PlanningOperations.ContributionDecisionId(scope)] = answer });
+        Assert.Empty(PlanningContractValidation.ValidateInstance(request, cohort.Decision.Schema));
+        Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseExecutionRequest(state, cohort, request));
     }
 
     [Fact]
@@ -144,7 +150,7 @@ public sealed class OperationContributionTests
         var answer = Answer(state, scope);
         answer["units"]!.AsArray().Add((JsonNode)new JsonObject
         { ["role"] = "excluded", ["scope"] = scope.Clause.Id, ["basis"] = "no_operation_relevance", ["evidence"] = scope.Evidence!.ActionReference });
-        Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, answer));
+        Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.ParseQualification(state, scope, answer));
     }
 
     [Fact]
@@ -214,13 +220,14 @@ public sealed class OperationContributionTests
             else
             {
                 var byId = PlanningOperations.Scopes(snapshot).ToDictionary(scope => PlanningOperations.ContributionDecisionId(scope.Evidence!));
+                var properties = OperationEffectFixtures.SeparateRequestAuthority(snapshot, OperationEffectFixtures.QualificationAnswers(snapshot, scope => Response(snapshot, scope)));
                 var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, request, _) =>
                 {
                     var fields = request.StructuredOutputSchema!["properties"]!.AsObject();
                     return Task.FromResult(new GnOuGo.Flow.Core.Runtime.LLMResponse { CompletionStatus = fields.Count > 1 ? "output_limit" : "completed",
-                        Json = fields.Count > 1 ? null : new JsonObject(fields.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, Response(snapshot, byId[p.Key])))) });
+                        Json = fields.Count > 1 ? null : new JsonObject(fields.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, properties[p.Key]!.DeepClone()))) });
                 } };
-                await PlanningDecisionPages.ResolveAsync(snapshot, runtime, "intent_operations", "$plan", PlanningOperations.ContributionDecisions(snapshot), Ct);
+                await PlanningDecisionPages.ResolveAsync(snapshot, runtime, "intent_operations", "$plan", OperationEffectFixtures.PropertyDecisions(snapshot), Ct);
                 Assert.Contains(snapshot.DecisionPages, p => p.Origin == PlanningDecisionPageOrigin.OutputPartition);
             }
             Cover(snapshot);

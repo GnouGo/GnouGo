@@ -26,7 +26,8 @@ internal static partial class RuntimeAdmissionDiagnostic
         // Explicit current-proof reassessment of detached fixture facts. Historical receipts remain unchanged.
         state.RuntimeEvidence = state.RuntimeEvidence.Select(e => PlanningOperations.SealRuntime(state, e with { EvidenceRole = e.Origin == PlanningRuntimeEvidenceOrigin.EngineBaseline ? e.EvidenceRole : null })).ToList();
         state.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(state);
-        var qualifications = PlanningOperations.ContributionDecisions(state);
+        var requestCohorts = PlanningOperations.RequestCohorts(state);
+        var qualifications = PlanningOperations.ContributionScopes(state).Select(scope => PlanningOperations.RequestClauseDecision(state, scope)).ToArray();
         var interpretation = PlanningSourceDecisions.InterpretationDecisions(state);
         var semanticFixtures = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
         if (contractEligibility && !jointClause)
@@ -58,6 +59,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         var client = new CoverageFixtureClient(state, semanticFixtures, nestedQualifiers, fallbackOwnership);
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = client, LLMCapabilities = client }, (_, _) => Task.CompletedTask);
         await PlanningOperations.ResolveAsync(state, runtime, CancellationToken.None);
+        qualifications = PlanningOperations.ContributionDecisions(state);
         var groups = PlanningOperations.CoverageGroups(state);
         if (groups.Length != (name == "mixed" ? 2 : 1)) throw new InvalidOperationException("Captured coverage groups changed.");
         PlanningOperations.RequireCurrent(state); PlanningOperations.RequireExecutableIntent(state);
@@ -107,6 +109,10 @@ internal static partial class RuntimeAdmissionDiagnostic
             ["interpretationDecisions"] = interpretation.Length,
             ["interpretationInitialPages"] = PlanningDecisionPages.PackedPageCount(state, interpretation),
             ["independentContributionStatusDecisions"] = 0,
+            ["canonicalExecutionRequestDecisions"] = requestCohorts.Length,
+            ["executionRequestProofs"] = JsonSerializer.SerializeToNode(PlanningOperations.ReadExecutionRequests(state).ToList(), PlanningJsonContext.Default.ListPlanningExecutionRequestProof),
+            ["executionRequestCalls"] = client.Requests.Count(r => r.StructuredOutputSchema!["properties"]!.AsObject().Any(p => p.Key.StartsWith("execution_request_", StringComparison.Ordinal))),
+            ["executionRequestSchemas"] = new JsonArray(requestCohorts.Select(c => (JsonNode)new JsonObject { ["id"] = c.Id, ["bytes"] = c.Decision.Schema.ToJsonString().Length, ["answerTokens"] = PlanningDecisionPages.AnswerTokens(c.Decision.Schema) }).ToArray()),
             ["canonicalContributionDecisions"] = qualifications.Length,
             ["fixtureAcceptancePassed"] = acceptanceFinding is null, ["fixtureAcceptanceFinding"] = acceptanceFinding,
             ["jointClauseQualification"] = jointClause, ["nestedQualifierFixture"] = nestedQualifiers,
@@ -176,7 +182,11 @@ internal static partial class RuntimeAdmissionDiagnostic
                     { ["role"] = "governing_property", ["governingKind"] = "descriptive_property", ["scope"] = scope.Clause.Id, ["evidence"] = scope.Evidence!.ActionReference }) };
             var answer = OperationEffectFixtures.ContributionAnswer(snapshot, scope, SyntheticMapping(snapshot, scope));
             if (text.StartsWith("Classify as rejected", StringComparison.Ordinal))
+            {
                 answer["units"]![0]!["request"]!["predicate"] = new JsonObject { ["start"] = "b0", ["end"] = "b2" };
+                if (fallbackOwnership) answer["units"]![0]!["qualifiers"] = new JsonArray((JsonNode)new JsonObject
+                { ["evidence"] = new JsonObject { ["start"] = "b" + (scope.Words.Count - 1), ["end"] = "b" + scope.Words.Count }, ["governingKind"] = "runtime_fallback" });
+            }
             if (nestedQualifiers && text == "Read the record identified by sourceId once from the external record store.")
                 answer["units"]![0]!["qualifiers"] = new JsonArray((JsonNode)new JsonObject
                     { ["evidence"] = new JsonObject { ["start"] = "b6", ["end"] = "b7" }, ["governingKind"] = "descriptive_property" });
@@ -197,10 +207,18 @@ internal static partial class RuntimeAdmissionDiagnostic
             Requests.Add(request); var result = new JsonObject();
             foreach (var field in request.StructuredOutputSchema!["properties"]!.AsObject())
             {
-                if (field.Key.StartsWith("contribution_", StringComparison.Ordinal))
+                if (field.Key.StartsWith("execution_request_", StringComparison.Ordinal))
+                {
+                    var joint = new JsonObject(PlanningOperations.ContributionScopes(state).Select(scope => new KeyValuePair<string, JsonNode?>(
+                        PlanningOperations.ContributionDecisionId(scope), scope.Evidence is null ? OperationEffectFixtures.SourcePropertyAnswer(state, scope) :
+                            SyntheticQualification(state, PlanningOperations.ContributionMembers(state, scope)))));
+                    result[field.Key] = OperationEffectFixtures.RequestAnswer(state, PlanningOperations.RequestCohorts(state).Single(c => c.Id == field.Key), joint);
+                }
+                else if (field.Key.StartsWith("contribution_", StringComparison.Ordinal))
                 {
                     var members = PlanningOperations.Scopes(state).Where(s => PlanningOperations.ContributionDecisionId(s.Evidence!) == field.Key).ToArray();
-                    result[field.Key] = semanticFixtures.TryGetValue(field.Key, out var retainedShape) ? retainedShape.DeepClone() : SyntheticQualification(state, members);
+                    var joint = semanticFixtures.TryGetValue(field.Key, out var retainedShape) ? retainedShape.DeepClone().AsObject() : SyntheticQualification(state, members);
+                    result[field.Key] = OperationEffectFixtures.PropertyAnswer(state, members[0], joint);
                 }
                 else if (field.Key.StartsWith("applicability_", StringComparison.Ordinal))
                 {

@@ -36,8 +36,8 @@ public sealed class NestedQualifierTests
     {
         var state = State(); var scope = Assert.Single(PlanningOperations.Scopes(state));
         var answer = Answer(state, scope, (4, 5));
-        Assert.Empty(PlanningContractValidation.ValidateInstance(answer, PlanningOperations.ContributionDecision(state, scope).Schema));
-        var parsed = PlanningOperations.ParseContributions(state, scope, answer);
+        Assert.NotNull(OperationEffectFixtures.ParseQualification(state, scope, answer));
+        var parsed = OperationEffectFixtures.ParseQualification(state, scope, answer);
         var parent = Assert.Single(parsed.Units, u => u.Role == "requested_execution");
         var child = Assert.Single(parsed.Units, u => u.Role == "governing_property");
         Assert.Equal(parent.Id, child.ParentRequestUnitId); Assert.Null(parent.ParentRequestUnitId);
@@ -49,7 +49,7 @@ public sealed class NestedQualifierTests
         Assert.Empty(PlanningOperations.ApplicabilityDecisions(state)); // Exact external occurrence owner, not nesting.
         await PlanningOperations.ResolveAsync(state, NoCalls(), TestContext.Current.CancellationToken);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
-        Assert.True(operation.Required); Assert.Equal(16, operation.OperationAdmission!.Version);
+        Assert.True(operation.Required); Assert.Equal(17, operation.OperationAdmission!.Version);
         Assert.Single(operation.OperationAdmission.Assignments, a => a.Disposition == "supports");
         Assert.Single(operation.OperationAdmission.Assignments, a => a.Disposition == "attach");
         Assert.Equal(PlanningApplicabilityOrigin.DeterministicOwner, Assert.Single(operation.OperationAdmission.GoverningApplicability).Origin);
@@ -103,8 +103,8 @@ public sealed class NestedQualifierTests
         var state = State(); var scope = Assert.Single(PlanningOperations.Scopes(state));
         var answer = Answer(state, scope, (4, 5));
         answer["units"]![0]!["qualifiers"]![0]![field] = "foreign";
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(answer, PlanningOperations.ContributionDecision(state, scope).Schema));
-        Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, answer));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(answer, OperationEffectFixtures.PropertyDecision(state, scope).Schema));
+        Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.ParseQualification(state, scope, answer));
     }
 
     [Theory]
@@ -145,21 +145,21 @@ public sealed class NestedQualifierTests
             parent["qualifiers"] = new JsonArray(Enumerable.Range(0, 5).Select(_ => (JsonNode)new JsonObject { ["evidence"] = Range(4, 5), ["governingKind"] = "descriptive_property" }).ToArray());
             answer["units"]!.AsArray().Add(new JsonObject { ["role"] = "governing_property", ["governingKind"] = "descriptive_property", ["scope"] = scope.Clause.Id, ["evidence"] = Range(4, 5) });
         }
-        Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, answer));
+        Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.ParseQualification(state, scope, answer));
     }
 
     [Fact]
     public void ChildOrderAndEquivalentNotationPreserveParentAndProofIdentity()
     {
         var state = State("Read the supplied value once sequentially."); var scope = Assert.Single(PlanningOperations.Scopes(state));
-        var plain = PlanningOperations.ParseContributions(state, scope, Answer(state, scope));
+        var plain = OperationEffectFixtures.ParseQualification(state, scope, Answer(state, scope));
         var answer = Answer(state, scope, (4, 5), (5, 6));
-        var proof = PlanningOperations.ParseContributions(state, scope, answer);
+        var proof = OperationEffectFixtures.ParseQualification(state, scope, answer);
         Assert.Equal(Assert.Single(plain.Units).Id, Assert.Single(proof.Units, u => u.Role == "requested_execution").Id);
         answer["units"]![0]!["qualifiers"] = new JsonArray(answer["units"]![0]!["qualifiers"]!.AsArray().Reverse().Select(n => n!.DeepClone()).ToArray());
         answer["units"]![0]!["request"]!["evidence"]!.AsArray().Add(Range(0, 6)); // Exact duplicate notation is idempotent.
         state.RuntimeEvidence.Reverse(); state.References.Reverse();
-        Assert.Equal(proof.ProofFingerprint, PlanningOperations.ParseContributions(state, scope, answer).ProofFingerprint);
+        Assert.Equal(proof.ProofFingerprint, OperationEffectFixtures.ParseQualification(state, scope, answer).ProofFingerprint);
     }
 
     [Theory]

@@ -46,18 +46,18 @@ public sealed class CanonicalContractCoverageTests
         var covered = PlanningFixtures.Runtime(state, Span(state, contract), kind,
             resourceAction: kind == "resource_lifecycle" ? "create" : kind == "cleanup" ? "delete" : null);
         var retained = JsonSerializer.Serialize(state.RuntimeEvidence, PlanningJsonContext.Default.ListPlanningRuntimeEvidence);
-        Assert.Equal(PlanningOperations.ContributionDecisionId(action), Assert.Single(PlanningOperations.ContributionDecisions(state)).Id);
+        Assert.Equal(PlanningOperations.ContributionDecisionId(action), Assert.Single(OperationEffectFixtures.PropertyDecisions(state)).Id);
         Assert.Contains(covered.Id, PlanningOperations.DeclarationExclusions(state).Keys);
         Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.EffectDomain(state, covered));
         Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.OccurrenceDecision(state, covered));
         var forged = PlanningOperations.SourceScopes(state).Single(s => s.Clause.Id == covered.ClauseReference) with { Evidence = covered };
-        Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ContributionDecision(state, forged));
+        Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.PropertyDecision(state, forged));
         OperationEffectFixtures.Seed(state); await PlanningOperations.ResolveAsync(state, RejectCalls(), Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
         Assert.Equal("local_processing", operation.Kind);
         Assert.DoesNotContain(operation.OperationAdmission!.Assignments, a => a.RuntimeEvidenceId == covered.Id);
         var exclusion = Assert.Single(PlanningOperations.ReadContributions(state), p => p.RuntimeEvidenceId == covered.Id);
-        Assert.Null(exclusion.DecisionId); Assert.Equal(6, exclusion.Version);
+        Assert.Null(exclusion.DecisionId); Assert.Equal(7, exclusion.Version);
         Assert.Equal(PlanningContributionOrigin.DeterministicExclusion, Assert.Single(exclusion.Contributions).Origin);
         Assert.Equal(retained, JsonSerializer.Serialize(state.RuntimeEvidence, PlanningJsonContext.Default.ListPlanningRuntimeEvidence));
         var clone = PlanningContext.Clone(state); var fingerprint = JsonSerializer.Serialize(clone, PlanningJsonContext.Default.PlanningSnapshot);
@@ -76,7 +76,7 @@ public sealed class CanonicalContractCoverageTests
         var parent = PlanningFixtures.Runtime(state, Span(state, contract + " " + action), independentBoundary: false);
         var child = PlanningFixtures.Runtime(state, Span(state, action), independentBoundary: false);
         if (reverse) { state.RuntimeEvidence.Reverse(); state.DeclarationAssignments.Reverse(); }
-        var decision = Assert.Single(PlanningOperations.ContributionDecisions(state));
+        var decision = Assert.Single(OperationEffectFixtures.PropertyDecisions(state));
         Assert.Equal(PlanningOperations.ContributionDecisionId(child), decision.Id);
         Assert.DoesNotContain(parent.ActionReference!, decision.Schema.ToJsonString());
         var coveredProperty = new JsonObject { ["status"] = "qualified", ["units"] = new JsonArray((JsonNode)new JsonObject
@@ -85,8 +85,8 @@ public sealed class CanonicalContractCoverageTests
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(coveredProperty, decision.Schema));
         var domains = decision.Schema.ToJsonString();
         var original = PlanningContext.Clone(state); original.RuntimeEvidence.Reverse(); original.DeclarationAssignments.Reverse();
-        Assert.Equal(domains, Assert.Single(PlanningOperations.ContributionDecisions(original)).Schema.ToJsonString());
-        Assert.Equal(decision.EvidenceFingerprint, Assert.Single(PlanningOperations.ContributionDecisions(original)).EvidenceFingerprint);
+        Assert.Equal(domains, Assert.Single(OperationEffectFixtures.PropertyDecisions(original)).Schema.ToJsonString());
+        Assert.Equal(decision.EvidenceFingerprint, Assert.Single(OperationEffectFixtures.PropertyDecisions(original)).EvidenceFingerprint);
         OperationEffectFixtures.Seed(state); OperationEffectFixtures.Seed(original);
         await PlanningOperations.ResolveAsync(state, RejectCalls(), Ct); await PlanningOperations.ResolveAsync(original, RejectCalls(), Ct);
         Assert.Equal(state.OperationAdmissionFingerprint, original.OperationAdmissionFingerprint);
@@ -106,7 +106,7 @@ public sealed class CanonicalContractCoverageTests
         var parent = PlanningFixtures.Runtime(state, Span(state, "Keep originals unchanged transform another value."), independentBoundary: defect == "boundary");
         if (defect != "missing") PlanningFixtures.Runtime(state, Span(state, defect == "incomplete" ? "another value." : "transform another value."),
             kind: defect == "kind" ? "external_read" : "local_processing", required: defect != "necessity", independentBoundary: false);
-        var error = Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ContributionDecisions(state));
+        var error = Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.PropertyDecisions(state));
         Assert.Contains(parent.Id, error.Details!["location"]!.ToString());
         Assert.Empty(state.RequestAccounting); Assert.Empty(state.DecisionPages);
     }
@@ -130,8 +130,8 @@ public sealed class CanonicalContractCoverageTests
         var scope = Assert.Single(PlanningOperations.Scopes(state));
         var answer = OperationEffectFixtures.ContributionAnswer(state, scope, OperationEffectFixtures.Answer(state, scope));
         answer["units"]![0]!["request"]!["evidence"] = OperationEffectFixtures.Strings([covered.ActionReference!]);
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(answer, PlanningOperations.ContributionDecision(state, scope).Schema));
-        Assert.Throws<WorkflowRuntimeException>(() => PlanningOperations.ParseContributions(state, scope, answer));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(answer, OperationEffectFixtures.PropertyDecision(state, scope).Schema));
+        Assert.Throws<WorkflowRuntimeException>(() => OperationEffectFixtures.ParseQualification(state, scope, answer));
         Assert.Equal(action.Id, scope.Evidence!.Id);
     }
 
@@ -148,7 +148,7 @@ public sealed class CanonicalContractCoverageTests
         var defaults = PlanningFixtures.Runtime(state, Span(state, "defaults to 100 when omitted."), "external_read");
         var alias = PlanningFixtures.Runtime(state, Span(state, "Use limit as supplied."), "external_read");
         var fetch = PlanningFixtures.Runtime(state, Span(state, "Fetch the source."), "external_read");
-        Assert.Equal(PlanningOperations.ContributionDecisionId(fetch), Assert.Single(PlanningOperations.ContributionDecisions(state)).Id);
+        Assert.Equal(PlanningOperations.ContributionDecisionId(fetch), Assert.Single(OperationEffectFixtures.PropertyDecisions(state)).Id);
         Assert.Equal(new[] { defaults.Id, alias.Id }.Order(), PlanningOperations.DeclarationExclusions(state).Keys.Order());
         OperationEffectFixtures.Seed(state); await PlanningOperations.ResolveAsync(state, RejectCalls(), Ct);
         Assert.Equal("external_read", Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation).Kind);
@@ -193,7 +193,7 @@ public sealed class CanonicalContractCoverageTests
         PlanningFixtures.Runtime(state, Span(state, "Transform the value."), independentBoundary: false);
         OperationEffectFixtures.Seed(state); await PlanningOperations.ResolveAsync(state, RejectCalls(), Ct);
         var current = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
-        Assert.Equal(16, current.OperationAdmission!.Version);
+        Assert.Equal(17, current.OperationAdmission!.Version);
         var clone = PlanningContext.Clone(state); var index = clone.Obligations.FindIndex(o => o.Id == current.Id);
         clone.Obligations[index] = clone.Obligations[index] with { OperationAdmission = clone.Obligations[index].OperationAdmission! with { Version = 12 } };
         var accounting = JsonSerializer.Serialize(clone.RequestAccounting);

@@ -46,13 +46,13 @@ internal static partial class RuntimeAdmissionDiagnostic
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancel.Cancel(); }; var ct = cancel.Token;
         var directory = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-diagnostics/{Identity}/gnougo-planning-v5.db");
         if (command is not ("freeze" or "run-local" or "run-mixed" or "report")) throw new ArgumentException("diagnose-runtime-admission freeze COMMIT | run-local | run-mixed | report | selfcheck");
-        if (command.StartsWith("run-", StringComparison.Ordinal) && command != "run-mixed")
-            throw new InvalidOperationException("Only one fresh MIXED is authorized.");
+        if (command.StartsWith("run-", StringComparison.Ordinal) && command != "run-local")
+            throw new InvalidOperationException("Only one fresh LOCAL is authorized.");
         if (command == "report")
         {
             Console.WriteLine((await ReportAsync(records, ct)).ToJsonString()); return;
         }
-        var acceptedLocal = await RequireAcceptedLocalAsync(records, ct);
+        RuntimeAdmissionDiagnosticRules.RequireCase("local", null);
         Directory.CreateDirectory(Path.GetDirectoryName(directory)!);
         using var lease = new FileStream(directory + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         var contexts = new Contexts(directory);
@@ -115,16 +115,16 @@ internal static partial class RuntimeAdmissionDiagnostic
                     new EcbExchangeRateProvider(prerequisiteHttp), ct);
             Console.WriteLine(new JsonObject { ["exchangeRatePrerequisite"] = exchangeRatePrerequisite.DeepClone() }.ToJsonString());
             if (exchangeRatePrerequisite["status"]!.ToString() != "passed")
-                throw new InvalidOperationException("Currency-conversion preflight failed; MIXED was not started.");
+                throw new InvalidOperationException("Currency-conversion preflight failed; LOCAL was not started.");
             manifest = new() { ["commit"] = commit, ["binaries"] = binaries, ["archiveFingerprint"] = archive,
                 ["comparisonIdentity"] = RuntimeAdmissionDiagnosticRules.ComparisonIdentity,
                 ["comparisonProductionCommit"] = previousManifest["commit"]!.DeepClone(),
                 ["comparisonSourceOptionsFingerprint"] = comparisonOptionsFingerprint,
-                ["expectedConfigurationAddition"] = "None; effective typed host policy and existing options unchanged from the comparison LOCAL.",
+                ["expectedConfigurationAddition"] = "None; effective typed host policy and existing options unchanged from the comparison campaign.",
                 ["exchangeRatePrerequisite"] = exchangeRatePrerequisite,
-                ["authorizedCases"] = new JsonArray("mixed"), ["acceptedLocalEvidence"] = acceptedLocal.DeepClone(),
+                ["authorizedCases"] = new JsonArray("local"),
                 ["productionBinariesFingerprint"] = RuntimeAdmissionDiagnosticRules.ProductionBinariesFingerprint,
-                ["historicalLocalStatus"] = "Comparison LOCAL passed; all earlier stopped archives remain unchanged. No answers or receipts are imported.",
+                ["historicalLocalStatus"] = "All historical campaigns retain their original status. No answers or receipts are imported.",
                 ["model"] = campaign["model"]!.DeepClone(), ["sourceOptionsFingerprint"] = PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()),
                 ["transportConfigurationFingerprint"] = transportFingerprint,
                 ["catalogFingerprint"] = campaign["stages"]![0]!["catalogHash"]!.DeepClone(),
@@ -136,7 +136,7 @@ internal static partial class RuntimeAdmissionDiagnostic
             await records.UpsertAsync(Collection, Tenant, Identity, manifest.ToJsonString(), Author, ct); Console.WriteLine(manifest.ToJsonString()); return;
         }
         if (manifest is null || manifest["commit"]?.ToString() != RuntimeAdmissionDiagnosticRules.ProductionCommit ||
-            !JsonNode.DeepEquals(manifest["acceptedLocalEvidence"], acceptedLocal) ||
+            !JsonNode.DeepEquals(manifest["authorizedCases"], new JsonArray("local")) ||
             !JsonNode.DeepEquals(manifest["binaries"], binaries) || manifest["archiveFingerprint"]!.ToString() != archive ||
             manifest["transportConfigurationFingerprint"]!.ToString() != transportFingerprint ||
             manifest["sourceOptionsFingerprint"]!.ToString() != PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()))
@@ -232,6 +232,7 @@ internal static partial class RuntimeAdmissionDiagnostic
                 operations.Any(o => !o.Required || o.Kind is not ("local_processing" or "external_read")))
                 throw new WorkflowRuntimeException("DIAGNOSTIC_ADMISSION_MISMATCH", "The isolated fixture's expected runtime actions were not established.");
             CheckEffectFixture(name, state, operations);
+            if (name == "local") CheckLocalFallbackGate(state, operations.Single(o => o.Kind == "local_processing"));
             // Chronology belongs to this fresh campaign. Detached synthetic replay
             // retains historical pages and validates current proofs separately.
             CheckApplicabilitySequence(state, operations);
@@ -354,6 +355,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         report["fixturePreconditions"] = "Canonical declarations supplied; interpretation obligations retained encrypted but not adjudicated in this diagnostic.";
         report["requestDomains"] = domains;
         AddEffectReport(report, state, receipts, domains);
+        AddFallbackReport(report, state);
         report["fullStageOneSuccess"] = false;
         await records.UpsertAsync(Collection, Tenant, id + ":report", report.ToJsonString(), Author, CancellationToken.None);
         return report;

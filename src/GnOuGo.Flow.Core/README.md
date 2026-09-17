@@ -1756,8 +1756,18 @@ The engine is fully **NativeAOT**-compatible:
 
 The native `collect_json_arrays(completedLoop.results, ["child", "response", "field"])` expression concatenates original JSON-array strings without altering records or numeric precision. Artifact provenance requires an exact original producer declaring `encoding: "json_array"`; missing, conditional, malformed or transformed source results cannot establish identity. The primitive cannot be overridden by workflow helpers.
 
-Execution-contribution proof v6 records owned subspans, positive support bases, effect/boundary bindings, origins and decision fingerprints. Admission v16 carries these proofs; coverage v3 consumes executable support only. Governing-applicability proof v2 separately records realized target sets, exact workflow ownership or linked inactive outcomes, with owned evidence, origins and fingerprints. Historical runtime `EvidenceRole` values remain deserializable but confer no current authority. Runtime proof v7 and effect proof v7 retain Schema-5 storage and unchanged operation identities.
+Execution-contribution proof v7 records owned subspans, positive support bases, effect/boundary bindings, origins and decision fingerprints. Admission v17 carries these proofs; coverage v3 consumes executable support only. Governing-applicability proof v2 separately records realized target sets, exact workflow ownership or linked inactive outcomes, with owned evidence, origins and fingerprints. Historical runtime `EvidenceRole` values remain deserializable but confer no current authority. Runtime proof v7 and effect proof v7 retain Schema-5 storage and unchanged operation identities.
 
-Canonical contribution proofs retain complete clause ownership, semantic units, request/predicate links and all runtime provenance bindings. Contribution proof 6 and admission proof 16 keep these provider-neutral records on existing operation admissions under Schema-5; support is projected from qualified execution requests. Historical scalar runtime-parent fields remain readable for audit.
+Canonical contribution proofs retain complete clause ownership, semantic units, request/predicate links and all runtime provenance bindings. Contribution proof 7 and admission proof 17 keep these provider-neutral records on existing operation admissions under Schema-5; support is projected from qualified execution requests. Historical scalar runtime-parent fields remain readable for audit.
 
 `PlanningContributionSourceBinding` records exact selected source evidence, its clause scope and optional current semantic-obligation grounding. Source-only governing contributions and applicability proofs have no required runtime parent. These references convey ownership only; support still requires current execution provenance and a positive basis. Generated serialization retains the references, governing kind and composition links under Schema-5.
+
+## Canonical execution-request proof
+
+Planning contracts include provider-neutral `PlanningExecutionRequestProof` version 1,
+carried by existing admission records. It retains owned predicates, exact support
+references, runtime/source provenance and explicit non-request outcomes. Contribution
+version 7 links executable support to this authority; admission version 17 validates
+the complete directional proof chain. Canonical operation identities and Schema-5
+storage remain unchanged. Generated JSON metadata includes request proofs for trimmed
+and Native AOT persistence. See [offline validation](../../docs/planner-execution-request-authority.md).

@@ -50,7 +50,11 @@ public sealed class OccurrenceBoundaryTests
         PlanningFixtures.Runtime(state, PlanningOperations.SourceScopes(state)[0].Clause, independentBoundary: false);
         var scope = Assert.Single(PlanningOperations.Scopes(state)); Assert.Empty(PlanningOperations.EffectDomain(state, scope.Evidence!));
         var runtime = new TypedPlannerTests.FakeRuntime { OnCall = (_, request, _) => Task.FromResult(new LLMResponse
-        { Json = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, new JsonObject { ["status"] = "unresolved" }))) }) };
+        { Json = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+            p.Key.StartsWith("execution_request_", StringComparison.Ordinal)
+                ? new JsonObject(PlanningOperations.RequestCohorts(state).Single(c => c.Id == p.Key).Scopes.Select(s =>
+                    new KeyValuePair<string, JsonNode?>(s.Clause.Id, new JsonObject { ["s"] = "unresolved" })))
+                : new JsonObject { ["status"] = "unresolved" }))) }) };
         Assert.Equal("INTENT_OPERATION_UNRESOLVED", (await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningOperations.ResolveAsync(state, runtime, Ct))).Code);
         Assert.DoesNotContain(state.DecisionPages.SelectMany(p => p.Decisions), id => id.StartsWith("operation_", StringComparison.Ordinal));
     }
