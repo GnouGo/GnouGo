@@ -54,6 +54,7 @@ internal static partial class PlanningOperations
     internal static PlanningDecisionPages.Decision? OccurrenceDecision(PlanningSnapshot state, PlanningRuntimeEvidence evidence)
     {
         ValidateRuntime(state, evidence);
+        RequireEligibleContribution(state, evidence);
         if (evidence.OccurrenceBoundary is null) throw Failure(evidence.Id, "An action label is not an independent occurrence boundary.");
         var scopes = OccurrenceScopes(state);
         if (scopes.Count == 1) return null;

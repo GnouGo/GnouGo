@@ -31,9 +31,9 @@ internal static partial class RuntimeAdmissionDiagnostic
         var rules = name == "local"
             ? "Classify as rejected when approved is false, high when approved is true and amount>=threshold, and standard otherwise."
             : "Classify the loaded record: rejected when approved is false, high when approved is true and amount>=threshold, standard otherwise.";
-        if (!local.OperationAdmission!.Assignments.Any(a => a.Disposition == "attach" && Covers(a.ClauseReference, rules)))
-            throw new WorkflowRuntimeException("DIAGNOSTIC_GOVERNING_EVIDENCE", "Classification rules and fallback do not govern the canonical local effect.");
-        if (name == "local" && !local.OperationAdmission.Assignments.Any(a => a.Disposition == "attach" &&
+        RuntimeAdmissionDiagnosticRules.RequireSemanticEvidence(state, local, "request",
+            state.Request.Prompt.IndexOf(rules, StringComparison.Ordinal), rules.Length);
+        if (name == "local" && !local.OperationAdmission!.Assignments.Any(a => a.Disposition == "attach" &&
             Covers(a.ClauseReference, "This is deterministic, local, in-memory business processing.")))
             throw new WorkflowRuntimeException("DIAGNOSTIC_DESCRIPTIVE_EVIDENCE", "Descriptive local evidence must attach to the established effect.");
         if (name == "local")
@@ -44,7 +44,9 @@ internal static partial class RuntimeAdmissionDiagnostic
                 state.Request.Prompt.IndexOf(description, StringComparison.Ordinal), description.Length);
         }
         var preservation = name == "local" ? "Preserve the original id and amount." : "preserve the loaded record's original id and amount.";
-        if (!output.ModifierReferences.Any(r => Covers(r, preservation)) || operations.Any(o => Covers(o.OperationAdmission!.AnchorReference, preservation)))
+        RuntimeAdmissionDiagnosticRules.RequireNoSupportOverlap(state, operations, "request",
+            state.Request.Prompt.IndexOf(preservation, StringComparison.Ordinal), preservation.Length);
+        if (!output.ModifierReferences.Any(r => Covers(r, preservation)))
             throw new WorkflowRuntimeException("DIAGNOSTIC_PRESERVATION_EFFECT", "Preservation must remain output-contract evidence, not a standalone occurrence.");
     }
 

@@ -1,3 +1,9 @@
+## Offline canonical contract coverage validation
+
+`audit-contract-coverage-fixture CASE_ID` reads retained encrypted inputs through the public KeyVault API and validates an explicitly synthetic current-proof reassessment. It excludes exact canonical contract evidence before qualification, checks semantic rule coverage through positive support or proven applicability, and inspects every support for preservation overlap. Eligible historical qualification shapes are copied only as labelled synthetic answers to newly built domains; original receipts retain their original schemas.
+
+Use the retained `schema5-governing-applicability-diagnostics-1:local` and `schema5-governing-applicability-mixed-diagnostics-1:mixed` inputs. The MIXED fixture measures the full nominal path through downstream relationships with the unchanged packer and sixteen-call ceiling. Synthetic transport exercises production builders without a provider, persistent reservation or checkpoint writer. Completed re-entry rejects calls and writes; before/after archive fingerprints must match. Results do not accept or relabel the historical stopped MIXED campaign and authorize no live run. See the [offline report](../../docs/planner-canonical-contract-coverage.md).
+
 # CodeReview convergence benchmark
 
 ## Governing-applicability MIXED admission gate

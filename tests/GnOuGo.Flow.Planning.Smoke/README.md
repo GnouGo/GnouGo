@@ -69,7 +69,7 @@ The operation fixture first parses three identical copies of each preliminary ru
 assignment into one normalized evidence item, then persists completed canonical contribution pages before admission
 commits. The synthetic outputless action carries explicit owned invocation-boundary evidence. Encrypted restart reuses the realization receipts, attaches a governing rule to the
 single canonical operation, and verifies a second restart adds no
-calls or repair charges. The first action has unspecified necessity, the reused action has explicit required evidence, and the governing rule has unspecified necessity. Restart verifies one required canonical operation and its evidence. Canonical contribution proof 2 supplies support/unbound-property authority, independently of historical runtime labels. Occurrence-boundary proof 1, realization coverage proof 3, governing applicability proof 1, effect proof 7 and operation proof 12 remain in Schema-5 storage.
+calls or repair charges. The first action has unspecified necessity, the reused action has explicit required evidence, and the governing rule has unspecified necessity. Restart verifies one required canonical operation and its evidence. Canonical contribution proof 3 supplies support/unbound-property authority, independently of historical runtime labels. Occurrence-boundary proof 1, realization coverage proof 3, governing applicability proof 1, effect proof 7 and operation proof 13 remain in Schema-5 storage.
 
 The admission dependency smoke journals synthetic, evidence-bound data decisions
 between two established operations, closes before atomic admission, then reopens

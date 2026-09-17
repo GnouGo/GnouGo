@@ -8,11 +8,11 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Canonical action authority, committed once after bounded complete-clause adjudication.</summary>
 internal static partial class PlanningOperations
 {
-    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v12:" +
+    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v13:" +
         state.Request.TenantId + ":" + state.Request.SessionId + ":" + new JsonArray(PlanningIntentAssessment.IntentSources(state).OrderBy(s => s.Id, StringComparer.Ordinal)
             .Where(s => s.Authority is PlanningSourceAuthority.RequestedBehavior or PlanningSourceAuthority.ExistingBehavior)
             .Select(s => (JsonNode)new JsonArray(s.Id, s.Authority.ToString(), s.Text, s.QuestionContext)).ToArray()).ToJsonString() + ":" +
-        (state.Request.Baseline is { } baseline ? PlanningGraphCompiler.Fingerprint(baseline) : "") + ":" + state.BehaviorRevision?.Text + ":" + state.RuntimeEvidenceFingerprint + ":" + state.DeclarationFingerprint);
+        (state.Request.Baseline is { } baseline ? PlanningGraphCompiler.Fingerprint(baseline) : "") + ":" + state.BehaviorRevision?.Text + ":" + state.RuntimeEvidenceFingerprint + ":" + ContractCoverageFingerprint(state));
 
     internal static async Task ResolveAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
     {
@@ -155,7 +155,7 @@ internal static partial class PlanningOperations
     internal static void Validate(PlanningSnapshot state, PlanningObligation operation)
     {
         var proof = operation.OperationAdmission;
-        if (proof is not { Version: 12 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
+        if (proof is not { Version: 13 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
             operation.EvidenceReferences.Count != 1 || operation.EvidenceReferences[0] != proof.AnchorReference ||
             proof.EvidenceFingerprint != EvidenceFingerprint(state) || proof.Assignments.Count == 0 ||
             proof.Assignments.Select(a => a.ContributionId).Distinct(StringComparer.Ordinal).Count() != proof.Assignments.Count || proof.ProofFingerprint != Proof(operation, proof))
@@ -197,8 +197,7 @@ internal static partial class PlanningOperations
         var evidence = state.RuntimeEvidence.SingleOrDefault(e => e.Id == assignment.RuntimeEvidenceId)
             ?? throw Failure(assignment.ClauseReference, "Admission requires current runtime evidence, not an interpretation label.");
         ValidateRuntime(state, evidence);
-        if (DeriveDeclarationExclusions(state).ContainsKey(evidence.Id))
-            throw Failure(evidence.Id, "Canonical declaration evidence cannot authorize a standalone local occurrence.");
+        RequireEligibleContribution(state, evidence, state.References.Single(r => r.Id == assignment.ActionReference));
         var qualification = ReadContributions(state).Single(p => p.RuntimeEvidenceId == evidence.Id).Contributions
             .SingleOrDefault(c => c.Id == assignment.ContributionId) ?? throw Failure(evidence.Id, "Current contribution authority is missing.");
         if (assignment.Disposition == "attach")

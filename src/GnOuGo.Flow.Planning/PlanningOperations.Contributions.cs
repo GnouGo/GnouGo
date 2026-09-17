@@ -9,12 +9,13 @@ internal static partial class PlanningOperations
     // Derived domains only. The existing pages hold semantic answers; admission carries their proofs.
     internal static string ContributionDecisionId(PlanningRuntimeEvidence evidence) => "contribution_" + evidence.Id;
     private static string ContributionDomainFingerprint(PlanningSnapshot state, Scope scope, JsonObject schema, JsonObject context) =>
-        PlanningGraphCompiler.Fingerprint("execution-contribution-v2:" + EvidenceFingerprint(state) + ":" +
+        PlanningGraphCompiler.Fingerprint("execution-contribution-v3:" + EvidenceFingerprint(state) + ":" +
             scope.Evidence!.ProofFingerprint + ":" + schema.ToJsonString() + ":" + context.ToJsonString());
 
     internal static PlanningDecisionPages.Decision ContributionDecision(PlanningSnapshot state, Scope scope)
     {
         var evidence = scope.Evidence!;
+        RequireEligibleContribution(state, evidence);
         if (evidence.BaselineReference is not null) throw new InvalidOperationException("Exact baseline execution is engine qualified.");
         var reference = state.References.Single(r => r.Id == evidence.ActionReference);
         var spans = ContributionBoundaries(state, scope);
@@ -90,6 +91,7 @@ internal static partial class PlanningOperations
                 ? boundaries.Select(range["start"]!.ToString(), range["end"]!.ToString()) : parent;
             // Full-span selections retain the issued reference, independent of answer notation.
             if (span.Start == parent.Start && span.Length == parent.Length) span = parent;
+            RequireEligibleContribution(state, scope.Evidence!, span);
             selected.Add(span);
             var item = new PlanningExecutionContribution("", span.Id, value["role"]!.ToString(), value["effect"]?.ToString(),
                 value["basis"]?.ToString() ?? "governing_property", value["owner"]?.ToString(), value["boundary"]?.ToString(),
@@ -111,7 +113,7 @@ internal static partial class PlanningOperations
         }
         foreach (var span in selected)
             if (!state.References.Any(r => r.Id == span.Id)) state.References.Add(span);
-        return SealContributionProof(new(2, scope.Evidence!.Id, decision.Id, decision.EvidenceFingerprint,
+        return SealContributionProof(new(3, scope.Evidence!.Id, decision.Id, decision.EvidenceFingerprint,
             contributions.Distinct().OrderBy(c => c.Id, StringComparer.Ordinal).ToList(), ""));
     }
 
@@ -126,11 +128,12 @@ internal static partial class PlanningOperations
     {
         KeyValuePair<string, PlanningOperationEffectAnchor>? anchor = excluded ? null : EffectDomain(state, evidence).Single();
         var structural = !excluded && PlanningIntentAssessment.IntentSources(state).Single(s => s.Id == state.References.Single(r => r.Id == evidence.SourceReference).SourceId).Structural;
+        var exclusion = excluded ? ContractExclusions(state).GetValueOrDefault(evidence.Id) : null;
         var item = SealContribution(evidence.Id, new("", evidence.ActionReference ?? evidence.SourceReference, excluded ? "excluded" : structural ? "supports" : "governing_property",
-            structural ? anchor?.Key : null, excluded ? "canonical_source_or_declaration_exclusion" : structural ? "existing_baseline_execution" : "baseline_owner_annotation",
+            structural ? anchor?.Key : null, excluded ? exclusion is { SeparateEvidence.Length: > 0 } ? "canonical_contract_separation" : "canonical_source_or_declaration_exclusion" : structural ? "existing_baseline_execution" : "baseline_owner_annotation",
             anchor?.Value.OwnerReference, anchor?.Value.BoundaryReference,
             excluded ? PlanningContributionOrigin.DeterministicExclusion : PlanningContributionOrigin.DeterministicBaseline));
-        return SealContributionProof(new(2, evidence.Id, null, PlanningGraphCompiler.Fingerprint("execution-contribution-v2:" +
+        return SealContributionProof(new(3, evidence.Id, null, PlanningGraphCompiler.Fingerprint("execution-contribution-v3:" +
             EvidenceFingerprint(state) + ":" + evidence.ProofFingerprint + ":" + state.DeclarationFingerprint), [item], ""));
     }
 

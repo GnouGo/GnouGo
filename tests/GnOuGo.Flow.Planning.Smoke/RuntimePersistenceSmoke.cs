@@ -210,8 +210,8 @@ internal static class RuntimePersistenceSmoke
                 if (restart == 0 && client.Calls == identityCalls + 2) identityCalls = client.Calls;
                 var operation = resumed.Snapshot.Obligations.Single(PlanningSourceDecisions.IsOperation);
                 if (client.Calls != identityCalls || !operation.Required || resumed.Snapshot.RuntimeEvidence.Count != 3 || operation.OperationAdmission!.Assignments.Count != 3 || resumed.Snapshot.RepairAllowances.Count != 0 ||
-                    operation.OperationAdmission.Version != 12 || operation.OperationAdmission.RealizationCoverage?.Version != 3 ||
-                    operation.OperationAdmission.ExecutionContributions.Any(p => p.Version != 2) ||
+                    operation.OperationAdmission.Version != 13 || operation.OperationAdmission.RealizationCoverage?.Version != 3 ||
+                    operation.OperationAdmission.ExecutionContributions.Any(p => p.Version != 3) ||
                     operation.OperationAdmission.Assignments.Count(a => a.Disposition == "supports") != 2 ||
                     operation.OperationAdmission.Assignments.Count(a => a.Disposition == "attach") != 1 ||
                     operationFingerprint is not null && operationFingerprint != resumed.Snapshot.OperationAdmissionFingerprint)

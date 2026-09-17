@@ -13,8 +13,9 @@ internal static partial class RuntimeAdmissionDiagnostic
 {
     // Explicit synthetic corrected mappings on detached archive input. No provider,
     // durable budget writer, checkpoint writer, or session advancement is installed.
-    internal static async Task CoverageFixtureAsync(string id, IKeyVaultRecordStore records)
+    internal static async Task CoverageFixtureAsync(string id, IKeyVaultRecordStore records, bool contractEligibility = false)
     {
+        var archiveBefore = await ArchiveAsync(records, CancellationToken.None);
         var captured = await records.GetAsync(Collection, Tenant, id + ":checkpoint", Author) ?? throw new InvalidOperationException("Missing retained checkpoint.");
         var budget = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, id, EfPlanningSessionStore.Author);
         var state = JsonSerializer.Deserialize(JsonNode.Parse(captured.Value)!["snapshot"], PlanningJsonContext.Default.PlanningSnapshot)!;
@@ -26,7 +27,34 @@ internal static partial class RuntimeAdmissionDiagnostic
         state.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(state);
         var qualifications = PlanningOperations.ContributionDecisions(state);
         var interpretation = PlanningSourceDecisions.InterpretationDecisions(state);
-        var client = new CoverageFixtureClient(state);
+        var semanticFixtures = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
+        if (contractEligibility)
+        {
+            // These become explicit synthetic answers for new domains, never
+            // journal receipts or historical replay of a changed request.
+            foreach (var call in state.RequestAccounting.DistinctBy(c => c.Id))
+            {
+                if (!call.Phase.StartsWith("intent_operations", StringComparison.Ordinal)) continue;
+                var requestRecord = await records.GetAsync(PlanningModelJournal.RequestCollection, Tenant, id + ":" + call.Id, EfPlanningSessionStore.Author);
+                var receiptRecord = await records.GetAsync(PlanningModelJournal.Collection, Tenant, id + ":" + call.Id, EfPlanningSessionStore.Author);
+                if (requestRecord is null || receiptRecord is null) throw new InvalidOperationException("Synthetic retained-shape measurement requires complete original evidence.");
+                var request = JsonSerializer.Deserialize(requestRecord.Value, PlanningJsonContext.Default.LLMRequest)!;
+                var receipt = JsonSerializer.Deserialize(receiptRecord.Value, PlanningJsonContext.Default.LLMResponse)!;
+                var answer = receipt.Json ?? JsonNode.Parse(receipt.Text!);
+                if (PlanningContractValidation.ValidateInstance(answer, request.StructuredOutputSchema!).Count != 0)
+                    throw new InvalidOperationException("Original-schema evidence failed audit.");
+                foreach (var field in answer!.AsObject().Where(p => p.Key.StartsWith("contribution_", StringComparison.Ordinal)))
+                    semanticFixtures.Add(field.Key, field.Value!.DeepClone().AsObject());
+            }
+            var excluded = PlanningOperations.DeclarationExclusions(state);
+            if (name == "mixed" && (qualifications.Length != 2 || !excluded.ContainsKey("runtime_30713b159af7b4abb37970db") ||
+                !excluded.ContainsKey("runtime_ff2313d52c4641cbbe61879a")))
+                throw new InvalidOperationException("Retained MIXED contract exclusions did not precede qualification.");
+            foreach (var decision in qualifications)
+                if (!semanticFixtures.TryGetValue(decision.Id, out var fixture) || PlanningContractValidation.ValidateInstance(fixture, decision.Schema).Count != 0)
+                    throw new InvalidOperationException("An eligible retained-shape semantic fixture no longer fits its explicitly new domain.");
+        }
+        var client = new CoverageFixtureClient(state, semanticFixtures);
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = client, LLMCapabilities = client }, (_, _) => Task.CompletedTask);
         await PlanningOperations.ResolveAsync(state, runtime, CancellationToken.None);
         var groups = PlanningOperations.CoverageGroups(state);
@@ -40,14 +68,33 @@ internal static partial class RuntimeAdmissionDiagnostic
         if (!localInputs.SequenceEqual(name == "mixed" ? ["threshold"] : new[] { "record", "threshold" })) throw new InvalidOperationException("Local public input evidence changed.");
         var before = client.Requests.Count; var restart = await VerifyReadOnlyRestartAsync(state, PlanningContext.Clone(state), CancellationToken.None);
         if (before != client.Requests.Count) throw new InvalidOperationException("Restart dispatched.");
+        var admissionCalls = client.Requests.Count;
+        if (contractEligibility && name == "mixed")
+        {
+            await PlanningSourceDecisions.RelateAsync(state, runtime, CancellationToken.None);
+            RuntimeAdmissionDiagnosticRules.RequireProjectedData(operations, state.ObligationRelations);
+            foreach (var request in client.Requests.Skip(admissionCalls)) RuntimeAdmissionDiagnosticRules.RequireRelationDomain(request.StructuredOutputSchema);
+        }
+        var nominalCalls = PlanningDecisionPages.PackedPageCount(state, interpretation) + client.Requests.Count;
+        if (contractEligibility && nominalCalls > RuntimeAdmissionDiagnosticRules.MaxCalls)
+            throw new InvalidOperationException("Architecture review required: the mandatory nominal path exceeds the unchanged sixteen-call budget.");
         if ((await records.GetAsync(Collection, Tenant, id + ":checkpoint", Author))?.Value != captured.Value ||
             (await records.GetAsync(PlanningBudgetSink.Collection, Tenant, id, EfPlanningSessionStore.Author))?.Value != budget?.Value)
             throw new InvalidOperationException("Archive changed.");
+        var archiveAfter = await ArchiveAsync(records, CancellationToken.None);
+        if (archiveBefore != archiveAfter) throw new InvalidOperationException("Other archived evidence changed.");
         var fields = client.Requests.SelectMany(r => r.StructuredOutputSchema!["properties"]!.AsObject().Select(p => p.Key)).ToArray();
         Console.WriteLine(new JsonObject
         {
             ["evidence"] = "Explicit synthetic complete coverage and dependency answers on retained runtime/declaration fixtures; not historical receipts or live convergence.",
-            ["sourceIdentity"] = id, ["archiveUnchanged"] = true, ["providerDispatches"] = 0,
+            ["sourceIdentity"] = id, ["archiveUnchanged"] = true, ["archiveFingerprint"] = archiveAfter, ["providerDispatches"] = 0,
+            ["qualificationFixtureOrigin"] = contractEligibility ? "Explicit synthetic current-domain qualification answers retaining eligible historical semantic shape; no receipt substitution" : "Explicit synthetic fixture",
+            ["admissionSyntheticCalls"] = admissionCalls, ["nominalCallsThroughAdmission"] = PlanningDecisionPages.PackedPageCount(state, interpretation) + admissionCalls,
+            ["downstreamRelationshipCalls"] = client.Requests.Count - admissionCalls,
+            ["downstreamRelationshipDecisions"] = fields.Count(k => k.StartsWith("relation_", StringComparison.Ordinal)),
+            ["completeNominalCalls"] = nominalCalls, ["nominalHeadroom"] = RuntimeAdmissionDiagnosticRules.MaxCalls - nominalCalls,
+            ["exclusions"] = new JsonObject(PlanningOperations.DeclarationExclusions(state).Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
+                new JsonArray(p.Value.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray())))),
             ["checkpointFingerprint"] = PlanningGraphCompiler.Fingerprint(captured.Value),
             ["interpretationDecisions"] = interpretation.Length,
             ["interpretationInitialPages"] = PlanningDecisionPages.PackedPageCount(state, interpretation),
@@ -84,7 +131,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         }.ToJsonString());
     }
 
-    private sealed class CoverageFixtureClient(PlanningSnapshot state) : ILLMClient, ILLMCapabilityResolver
+    private sealed class CoverageFixtureClient(PlanningSnapshot state, IReadOnlyDictionary<string, JsonObject> semanticFixtures) : ILLMClient, ILLMCapabilityResolver
     {
         public List<LLMRequest> Requests { get; } = [];
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
@@ -133,7 +180,7 @@ internal static partial class RuntimeAdmissionDiagnostic
                 if (field.Key.StartsWith("contribution_", StringComparison.Ordinal))
                 {
                     var scope = PlanningOperations.Scopes(state).Single(s => PlanningOperations.ContributionDecisionId(s.Evidence!) == field.Key);
-                    result[field.Key] = SyntheticQualification(state, scope);
+                    result[field.Key] = semanticFixtures.TryGetValue(field.Key, out var retainedShape) ? retainedShape.DeepClone() : SyntheticQualification(state, scope);
                 }
                 else if (field.Key.StartsWith("applicability_", StringComparison.Ordinal))
                 {
@@ -154,6 +201,11 @@ internal static partial class RuntimeAdmissionDiagnostic
                     var decision = domain.Decisions.Single(d => d.Id == field.Key);
                     var producer = OperationEffectFixtures.Staged(state).Single(o => o.Id == decision.Context["producer"]!.ToString());
                     result[field.Key] = OperationEffectFixtures.DependencyAnswer(field.Value!.AsObject(), producer.Kind == "external_read");
+                }
+                else if (field.Key.StartsWith("relation_", StringComparison.Ordinal))
+                {
+                    RuntimeAdmissionDiagnosticRules.RequireRelationDomain(field.Value);
+                    result[field.Key] = field.Value!["enum"]!.AsArray().Any(v => v!.ToString() == "policy") ? "policy" : "none";
                 }
                 else throw new InvalidOperationException("Unexpected synthetic decision: " + field.Key);
                 if (PlanningContractValidation.ValidateInstance(result[field.Key], field.Value!.AsObject()).Count != 0)

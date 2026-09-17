@@ -199,9 +199,9 @@ public sealed class RuntimeAdmissionDiagnosticTests
     private static PlanningObligation Operation(string id, string kind, string[] inputs, string[] outputs, string[] producers) =>
         new(id, ["evidence"], "workflow", kind, true)
         {
-            OperationAdmission = new(12, id, "evidence", null,
+            OperationAdmission = new(13, id, "evidence", null,
                 [new("decision", "clause", "action", kind, PlanningOperationNecessity.Required, id, null)
-                { ContributionId = "qualified", RuntimeEvidenceId = "runtime", Disposition = "supports", EffectId = id, Effect = new(7, "effect", "realizes", [new("main", "result", "result_realization", "result")], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { ExecutionContributions = [new(2, "runtime", "qualification", "domain", [new("qualified", "action", "supports", id, "requested_result_production", "result", "result", PlanningContributionOrigin.ModelQualification)], "proof")], Dependencies = new(1, "domain", producers.Select(p =>
+                { ContributionId = "qualified", RuntimeEvidenceId = "runtime", Disposition = "supports", EffectId = id, Effect = new(7, "effect", "realizes", [new("main", "result", "result_realization", "result")], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { ExecutionContributions = [new(3, "runtime", "qualification", "domain", [new("qualified", "action", "supports", id, "requested_result_production", "result", "result", PlanningContributionOrigin.ModelQualification)], "proof")], Dependencies = new(1, "domain", producers.Select(p =>
                     new PlanningOperationDependencyAssignment(p, id, "data", PlanningDependencyOrigin.ModelSemanticSelection, ["clause"], "decision")).ToList(), "dependency-proof"),
                     RealizationCoverage = new(3, "coverage", "domain", [id], [new("runtime", "supports", [id], ["action"]) { ContributionId = "qualified" }],
                         [new(id, new("main", "result", "result_realization", "result"), ["qualified"], inputs.ToList(), outputs.ToList())], "coverage-proof") }
@@ -267,6 +267,60 @@ public sealed class RuntimeAdmissionDiagnosticTests
         }
         void Check() => RuntimeAdmissionDiagnosticRules.RequireGoverningOnly(state, operation, "request", start, length);
         if (accepted) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
+    }
+
+    [Theory]
+    [InlineData("support", true)]
+    [InlineData("governing", true)]
+    [InlineData("split", true)]
+    [InlineData("context_only", false)]
+    [InlineData("missing_fallback", false)]
+    [InlineData("wrong_effect", false)]
+    [InlineData("unproved_governing", false)]
+    public void RulesRequireOwnedSemanticCoverageRatherThanAnAttachmentShape(string shape, bool accepted)
+    {
+        var state = new PlanningSnapshot(); state.Request.Prompt = "Select high when valid; standard otherwise.";
+        var operation = Operation("local", "local_processing", [], ["result"], []);
+        var proof = operation.OperationAdmission!;
+        var length = state.Request.Prompt.Length;
+        state.References.Add(new("clause", "owner", 0, "request", "source", "span", 0, length));
+        var supportedLength = shape == "context_only" ? 6 : shape is "split" or "missing_fallback" ? 22 : length;
+        state.References.Add(new("action", "owner", 0, "request", "source", "span", 0, supportedLength));
+        if (shape == "wrong_effect") proof.Assignments[0] = proof.Assignments[0] with { EffectId = "foreign" };
+        if (shape is "governing" or "unproved_governing")
+        {
+            proof.Assignments[0] = proof.Assignments[0] with { Disposition = "attach" };
+            proof.ExecutionContributions[0].Contributions[0] = proof.ExecutionContributions[0].Contributions[0] with { Role = "governing_property", EffectId = null };
+        }
+        if (shape is "governing" or "split")
+        {
+            var id = shape == "split" ? "fallback" : "qualified";
+            if (shape == "split")
+            {
+                state.References.Add(new(id, "owner", 0, "request", "source", "span", supportedLength, length - supportedLength));
+                proof.Assignments.Add(proof.Assignments[0] with { ContributionId = id, ActionReference = id, Disposition = "attach" });
+                proof.ExecutionContributions[0].Contributions.Add(new(id, id, "governing_property", null, "governing_property", null, null, PlanningContributionOrigin.ModelQualification));
+            }
+            proof.GoverningApplicability.Add(new(1, id, "runtime", shape == "split" ? id : "action", "active", ["local"], null,
+                [new("local", ["clause"])], [], null, PlanningApplicabilityOrigin.ModelApplicability, "applicability", "realized", "domain", "proof"));
+        }
+        void Check() => RuntimeAdmissionDiagnosticRules.RequireSemanticEvidence(state, operation, "request", 0, length);
+        if (accepted) Check(); else Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(Check);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SmallCoveredSupportCannotHideBehindAnotherDiagnosticAnchor(bool orphan)
+    {
+        var state = new PlanningSnapshot(); state.Request.Prompt = "Fetch a value. Keep fields unchanged.";
+        state.References.Add(new("action", "owner", 0, "request", "source", "span", 0, 14));
+        state.References.Add(new("covered", "owner", 0, "request", "source", "span", 15, 4));
+        var operation = Operation("read", "external_read", [], [], []);
+        RuntimeAdmissionDiagnosticRules.RequireNoSupportOverlap(state, [operation], "request", 15, state.Request.Prompt.Length - 15);
+        operation.OperationAdmission!.ExecutionContributions[0].Contributions.Add(new("invalid", "covered", "supports", "read", "requested_owned_occurrence", "owner", "boundary", PlanningContributionOrigin.ModelQualification));
+        if (!orphan) operation.OperationAdmission.Assignments.Add(operation.OperationAdmission.Assignments[0] with { ContributionId = "invalid", ActionReference = "covered" });
+        Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => RuntimeAdmissionDiagnosticRules.RequireNoSupportOverlap(state, [operation], "request", 15, state.Request.Prompt.Length - 15));
     }
 
     private static void AddSupport(PlanningObligation operation, string id)

@@ -81,13 +81,13 @@ internal static class RuntimeAdmissionDiagnosticRules
         void Require(bool condition, string code, string message)
         { if (!condition) throw new WorkflowRuntimeException(code, message); }
         Require(identityDecisions == 0, "DIAGNOSTIC_IDENTITY_DECISION", "The fixture requires deterministic occurrence identity after effect grounding.");
-        Require(operations.Count == (name == "local" ? 1 : 2) && operations.All(o => o.Required && o.OperationAdmission is { Version: 12, Dependencies.Version: 1 }) &&
+        Require(operations.Count == (name == "local" ? 1 : 2) && operations.All(o => o.Required && o.OperationAdmission is { Version: 13, Dependencies.Version: 1 }) &&
             operations.Count(o => o.Kind == "local_processing") == 1 && operations.Count(o => o.Kind == "external_read") == (name == "mixed" ? 1 : 0),
             "DIAGNOSTIC_ADMISSION_MISMATCH", "The frozen fixture requires exactly its declared runtime effects.");
         var local = operations.Single(o => o.Kind == "local_processing");
         foreach (var operation in operations) RequirePositiveSupports(operation);
         Require(operations.All(o => o.OperationAdmission!.ExecutionContributions.Count > 0 &&
-            o.OperationAdmission.ExecutionContributions.All(p => p.Version == 2 && !string.IsNullOrEmpty(p.ProofFingerprint)) &&
+            o.OperationAdmission.ExecutionContributions.All(p => p.Version == 3 && !string.IsNullOrEmpty(p.ProofFingerprint)) &&
             o.OperationAdmission.Assignments.All(a => o.OperationAdmission.ExecutionContributions.Any(p => p.RuntimeEvidenceId == a.RuntimeEvidenceId &&
                 p.Contributions.Any(c => c.Id == a.ContributionId && c.EvidenceReference == a.ActionReference &&
                     (a.Disposition == "supports" ? c.Role == "supports" && c.EffectId == o.Id : c.Role == "governing_property" && c.EffectId is null &&
@@ -155,7 +155,7 @@ internal static class RuntimeAdmissionDiagnosticRules
             if (admission is null || assignment.EffectId != operation.Id || assignment.TargetId != operation.Id ||
                 assignment.Kind != operation.Kind || assignment.BaselineReference != admission.BaselineReference ||
                 assignment.Effect is not { Version: 7 } effect) return false;
-            var matches = admission.ExecutionContributions.Where(p => p.Version == 2 &&
+            var matches = admission.ExecutionContributions.Where(p => p.Version == 3 &&
                     !string.IsNullOrEmpty(p.ProofFingerprint) && p.RuntimeEvidenceId == assignment.RuntimeEvidenceId)
                 .SelectMany(p => p.Contributions).Where(c => c.Id == assignment.ContributionId).ToArray();
             if (matches.Length != 1) return false;
@@ -195,6 +195,41 @@ internal static class RuntimeAdmissionDiagnosticRules
             Enumerable.Range(start, length).Any(i => !char.IsWhiteSpace(state.Request.Prompt[i]) &&
                 !governing.Any(r => r.SourceId == sourceId && r.Start <= i && i < r.Start + r.Length)))
             throw new WorkflowRuntimeException("DIAGNOSTIC_DESCRIPTIVE_SUPPORT", "Property evidence must be completely attached as governing evidence and must not authorize executable support.");
+    }
+
+    // Required rules may be positively qualified execution or proven governing
+    // evidence. Complete-clause context alone does not account for an owned span.
+    internal static void RequireSemanticEvidence(PlanningSnapshot state, PlanningObligation operation,
+        string sourceId, int start, int length)
+    {
+        var proof = operation.OperationAdmission!;
+        var qualified = proof.ExecutionContributions.Where(p => p.Version == 3).SelectMany(p => p.Contributions).ToArray();
+        var references = proof.Assignments.Where(a => a.EffectId == operation.Id && a.TargetId == operation.Id && qualified.Any(c =>
+            c.Id == a.ContributionId && c.EvidenceReference == a.ActionReference &&
+            (a.Disposition == "supports" && c.Role == "supports" && c.EffectId == operation.Id &&
+                c.Basis is "requested_result_production" or "requested_owned_occurrence" or "existing_baseline_execution" ||
+             a.Disposition == "attach" && c.Role == "governing_property" && proof.GoverningApplicability.Any(p =>
+                p.Version == 1 && p.Outcome == "active" && p.ContributionId == c.Id && p.Targets.Contains(operation.Id) &&
+                !string.IsNullOrEmpty(p.ProofFingerprint)))))
+            .Select(a => state.References.Single(r => r.Id == a.ActionReference)).ToArray();
+        if (sourceId != "request" || start < 0 || length <= 0 || start > state.Request.Prompt.Length - length ||
+            Enumerable.Range(start, length).Any(i => !char.IsWhiteSpace(state.Request.Prompt[i]) &&
+                !references.Any(r => r.SourceId == sourceId && r.Start <= i && i < r.Start + r.Length)))
+            throw new WorkflowRuntimeException("DIAGNOSTIC_GOVERNING_EVIDENCE", "Required rules and fallback need exact support or proven governing coverage for the canonical effect.");
+    }
+
+    internal static void RequireNoSupportOverlap(PlanningSnapshot state, IEnumerable<PlanningObligation> operations,
+        string sourceId, int start, int length)
+    {
+        bool Overlaps(string reference)
+        {
+            var span = state.References.Single(r => r.Id == reference);
+            return span.SourceId == sourceId && span.Start < start + length && start < span.Start + span.Length;
+        }
+        if (start < 0 || length <= 0 || operations.Any(o =>
+            o.OperationAdmission!.Assignments.Any(a => a.Disposition == "supports" && Overlaps(a.ActionReference)) ||
+            o.OperationAdmission.ExecutionContributions.SelectMany(p => p.Contributions).Any(c => c.Role == "supports" && Overlaps(c.EvidenceReference))))
+            throw new WorkflowRuntimeException("DIAGNOSTIC_PRESERVATION_EFFECT", "Canonical contract evidence cannot supply any executable support.");
     }
 
     internal static void RequireRelationDomain(JsonNode? schema)

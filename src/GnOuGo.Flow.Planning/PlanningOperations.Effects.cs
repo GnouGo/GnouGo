@@ -34,6 +34,7 @@ internal static partial class PlanningOperations
 
     internal static Dictionary<string, PlanningOperationEffectAnchor> EffectDomain(PlanningSnapshot state, PlanningRuntimeEvidence evidence)
     {
+        RequireEligibleContribution(state, evidence);
         var result = new Dictionary<string, PlanningOperationEffectAnchor>(StringComparer.Ordinal);
         void Add(PlanningOperationEffectAnchor effect, string? baseline = null) => result.TryAdd(CanonicalId(state, effect, evidence.Kind!, baseline), effect);
         if (evidence.BaselineReference is { } baseline)

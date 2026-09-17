@@ -80,12 +80,12 @@ internal static class PlanningPersistenceSmoke
             new("baseline_runtime", "baseline_source", "baseline_clause", "contract", null, null, null, null, null, null, null, PlanningOperationNecessity.Unspecified, "baseline-proof")
             { ExecutionScope = PlanningRuntimeExecutionScope.PublicContract, Origin = PlanningRuntimeEvidenceOrigin.EngineBaseline }];
         state.Obligations = [new("action", ["anchor"], "workflow", "local_processing", true)
-        { Disposition = "admitted", OperationAdmission = new(12, "action", "anchor", null,
+        { Disposition = "admitted", OperationAdmission = new(13, "action", "anchor", null,
             [new("decision", "clause", "anchor", "local_processing", PlanningOperationNecessity.Required, null, null) { RuntimeEvidenceId = "runtime", Disposition = "distinct", ResolutionOrigin = "deterministic", EffectId = "action",
                 Effect = new(7, "effect-decision", "realizes", [new("main", "private_result", "result_realization", "private_result") { OccurrenceProof = new(1, "runtime", "main", null, new("invocation", "private_owner", "private_boundary"), null, "boundary-proof") }],
                     ["private_input"], ["private_result"], [], ["private_boundary_evidence"], "model", "effect-evidence-proof") },
              new("reuse", "rules", "rule_anchor", "local_processing", PlanningOperationNecessity.Unspecified, "action", null)], "evidence-proof", "operation-proof")
-            { ExecutionContributions = [new(2, "runtime", "qualification", "qualified-domain",
+            { ExecutionContributions = [new(3, "runtime", "qualification", "qualified-domain",
                 [new("qualified", "private_execution_evidence", "supports", "action", "requested_result_production", "private_result", "private_result", PlanningContributionOrigin.ModelQualification)], "qualified-proof")],
                 RealizationCoverage = new(3, "coverage-decision", "coverage-domain", ["action"],
                 [new("runtime", "supports", ["action"], ["private_execution_evidence"]), new("optional-runtime", "omitted", [], ["private_optional_evidence"])],
@@ -119,8 +119,8 @@ internal static class PlanningPersistenceSmoke
         if (prepared.RuntimeEvidence[2].Origin != PlanningRuntimeEvidenceOrigin.EngineBaseline ||
             prepared.References[1].Baseline is not { Version: 1, Fingerprint: "baseline-fingerprint", Port: "private_port", Field: "schema/description" })
             throw new InvalidOperationException("Structural baseline evidence did not survive encrypted persistence.");
-        if (prepared?.OperationAdmissionFingerprint != "operation-set-proof" || prepared.Obligations.Single().OperationAdmission is not { Version: 12 } admission ||
-            admission.ExecutionContributions.SingleOrDefault() is not { Version: 2, ProofFingerprint: "qualified-proof" } contribution ||
+        if (prepared?.OperationAdmissionFingerprint != "operation-set-proof" || prepared.Obligations.Single().OperationAdmission is not { Version: 13 } admission ||
+            admission.ExecutionContributions.SingleOrDefault() is not { Version: 3, ProofFingerprint: "qualified-proof" } contribution ||
             contribution.Contributions.Single().Basis != "requested_result_production" ||
             admission.GoverningApplicability.SingleOrDefault() is not { Version: 1, ProofFingerprint: "applicability-proof", Outcome: "active" } ||
             admission.RealizationCoverage is not { Version: 3, DomainFingerprint: "coverage-domain", ProofFingerprint: "coverage-proof" } coverage ||
