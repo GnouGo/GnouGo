@@ -1,6 +1,10 @@
 ## Autonomous convergence mission
 
-The authorized next campaign is `schema5-autonomous-residual-ownership-1`.
+The campaign `schema5-autonomous-residual-ownership-1` consumed its single LOCAL
+start and is stopped under the post-redesign authority hard stop. See the
+[live evidence](../../docs/planner-residual-ownership-local.md). Do not start MIXED,
+advance workflow tiers or manufacture a replacement identity. The commands below
+document its frozen preparation and read-only completed re-entry.
 Append `--campaign ID` to the existing `diagnose-runtime-admission` and `campaign`
 commands. The preceding execution-request campaign is stopped and immutable;
 its ten calls remain consumed. See [the cumulative journal](../../docs/planner-autonomous-convergence.md).

@@ -58,6 +58,31 @@ internal static partial class RuntimeAdmissionDiagnostic
         var frozenModel = manifest is null ? null : JsonNode.Parse(manifest.Value)?["model"] as JsonObject;
         var client = new ReceiptOnlyClient(id, evidence, frozenModel);
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = client, LLMCapabilities = client }, (_, _) => Task.CompletedTask);
+        var residualOwnership = new JsonArray();
+        string? residualInspectionFailure = null;
+        try
+        {
+            var requests = PlanningOperations.ReadExecutionRequests(state);
+            foreach (var scope in PlanningOperations.ContributionScopes(state))
+            {
+                var decision = PlanningOperations.ContributionDecisionId(scope);
+                var answer = selections.LastOrDefault(p => p.Key.EndsWith(":" + decision, StringComparison.Ordinal)).Value as JsonObject;
+                if (answer?["residual"] is not JsonObject residual) continue;
+                var portions = PlanningOperations.ResidualPortions(state, scope, requests);
+                residualOwnership.Add((JsonNode)new JsonObject
+                {
+                    ["clause"] = scope.Clause.Id, ["decision"] = decision,
+                    ["requestedExecutionUnits"] = requests.SelectMany(p => p.Units).Count(u => u.ScopeReference == scope.Clause.Id && u.Role == "requested_execution"),
+                    ["portions"] = new JsonArray(portions.Select(p => (JsonNode)new JsonObject
+                    {
+                        ["key"] = p.Key, ["start"] = p.Reference.Start, ["length"] = p.Reference.Length,
+                        ["ownership"] = p.Ownership, ["allowedKinds"] = new JsonArray(p.Kinds.Select(k => (JsonNode?)JsonValue.Create(k)).ToArray()),
+                        ["answer"] = residual[p.Key]?.DeepClone()
+                    }).ToArray())
+                });
+            }
+        }
+        catch (WorkflowRuntimeException error) { residualInspectionFailure = error.Code; }
         string? code = null, location = null, message = null;
         try { await PlanningOperations.ResolveAsync(state, runtime, ct); }
         catch (WorkflowRuntimeException error) { code = error.Code; location = error.Details?["location"]?.ToString(); message = error.Message; }
@@ -79,6 +104,7 @@ internal static partial class RuntimeAdmissionDiagnostic
             ["historicalSubjectSelections"] = subjectSelections.Count,
             ["replayedReceipts"] = client.Replayed.Count, ["blocker"] = code, ["location"] = location,
             ["blockerMessage"] = message, ["originalBoundedSelections"] = selections,
+            ["residualOwnership"] = residualOwnership, ["residualInspectionFailure"] = residualInspectionFailure,
             ["selectedReferenceCoordinates"] = coordinates }.ToJsonString());
     }
 }
