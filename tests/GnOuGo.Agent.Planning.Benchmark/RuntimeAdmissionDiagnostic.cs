@@ -46,12 +46,11 @@ internal static partial class RuntimeAdmissionDiagnostic
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancel.Cancel(); }; var ct = cancel.Token;
         var directory = GnOuGoWorkspace.ResolveDatabasePath(null, root, $".GnOuGo/data/planner-diagnostics/{Identity}/gnougo-planning-v5.db");
         if (command is not ("freeze" or "run-local" or "run-mixed" or "report")) throw new ArgumentException("diagnose-runtime-admission freeze COMMIT | run-local | run-mixed | report | selfcheck");
-        if (command == "run-local") RuntimeAdmissionDiagnosticRules.RequireCase("local", null);
+        if (command.StartsWith("run-", StringComparison.Ordinal)) RuntimeAdmissionDiagnosticRules.RequireCase(command[4..], null);
         if (command == "report")
         {
             Console.WriteLine((await ReportAsync(records, ct)).ToJsonString()); return;
         }
-        var acceptedLocal = await RequireAcceptedLocalAsync(records, ct);
         Directory.CreateDirectory(Path.GetDirectoryName(directory)!);
         using var lease = new FileStream(directory + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         var contexts = new Contexts(directory);
@@ -82,6 +81,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         JsonObject Binaries() => new(Directory.GetFiles(root, "GnOuGo.*.dll").Order(StringComparer.Ordinal).Select(p =>
             new KeyValuePair<string, JsonNode?>(Path.GetFileName(p), JsonValue.Create(Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(p)))))));
         var binaries = Binaries();
+        RuntimeAdmissionDiagnosticRules.RequireFrozenProduction(binaries);
         var transportFingerprint = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(transport.Options));
         var manifestRecord = await records.GetAsync(Collection, Tenant, Identity, Author, ct);
         var manifest = manifestRecord is null ? null : JsonNode.Parse(manifestRecord.Value)!.AsObject();
@@ -92,9 +92,6 @@ internal static partial class RuntimeAdmissionDiagnostic
             var previousRecord = await records.GetAsync(Collection, Tenant, RuntimeAdmissionDiagnosticRules.ComparisonIdentity, Author, ct)
                 ?? throw new InvalidOperationException("The previous frozen settings are required.");
             var previousManifest = JsonNode.Parse(previousRecord.Value)!;
-            foreach (var binary in binaries.Where(p => p.Key != "GnOuGo.Agent.Planning.Benchmark.dll"))
-                if (!JsonNode.DeepEquals(previousManifest["binaries"]?[binary.Key], binary.Value))
-                    throw new InvalidOperationException("Frozen production binaries changed.");
             if (previousManifest["commit"]?.ToString() != RuntimeAdmissionDiagnosticRules.ComparisonProductionCommit || !JsonNode.DeepEquals(previousManifest["model"], campaign["model"]) ||
                 previousManifest["transportConfigurationFingerprint"]!.ToString() != transportFingerprint ||
                 previousManifest["sourceOptionsFingerprint"]!.ToString() != comparisonOptionsFingerprint ||
@@ -116,15 +113,15 @@ internal static partial class RuntimeAdmissionDiagnostic
                     new EcbExchangeRateProvider(prerequisiteHttp), ct);
             Console.WriteLine(new JsonObject { ["exchangeRatePrerequisite"] = exchangeRatePrerequisite.DeepClone() }.ToJsonString());
             if (exchangeRatePrerequisite["status"]!.ToString() != "passed")
-                throw new InvalidOperationException("Currency-conversion preflight failed; MIXED was not started.");
+                throw new InvalidOperationException("Currency-conversion preflight failed; LOCAL was not started.");
             manifest = new() { ["commit"] = commit, ["binaries"] = binaries, ["archiveFingerprint"] = archive,
                 ["comparisonIdentity"] = RuntimeAdmissionDiagnosticRules.ComparisonIdentity,
                 ["comparisonProductionCommit"] = previousManifest["commit"]!.DeepClone(),
                 ["comparisonSourceOptionsFingerprint"] = comparisonOptionsFingerprint,
                 ["expectedConfigurationAddition"] = "None; effective typed host policy and existing options unchanged from the comparison LOCAL.",
                 ["exchangeRatePrerequisite"] = exchangeRatePrerequisite,
-                ["authorizedCases"] = new JsonArray("mixed"),
-                ["acceptedLocalAdjudicationFingerprint"] = PlanningGraphCompiler.Fingerprint(acceptedLocal.ToJsonString()),
+                ["authorizedCases"] = new JsonArray("local"),
+                ["productionBinariesFingerprint"] = RuntimeAdmissionDiagnosticRules.ProductionBinariesFingerprint,
                 ["historicalLocalStatus"] = "stopped; unchanged, with separate retained-evidence acceptance",
                 ["model"] = campaign["model"]!.DeepClone(), ["sourceOptionsFingerprint"] = PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()),
                 ["transportConfigurationFingerprint"] = transportFingerprint,
@@ -141,8 +138,6 @@ internal static partial class RuntimeAdmissionDiagnostic
             manifest["transportConfigurationFingerprint"]!.ToString() != transportFingerprint ||
             manifest["sourceOptionsFingerprint"]!.ToString() != PlanningGraphCompiler.Fingerprint(source.Request.Options.ToJsonString()))
             throw new InvalidOperationException("Frozen inputs, binaries or archive accounting changed.");
-        if (manifest["acceptedLocalAdjudicationFingerprint"]?.ToString() != PlanningGraphCompiler.Fingerprint(acceptedLocal.ToJsonString()))
-            throw new InvalidOperationException("The accepted LOCAL prerequisite changed.");
         foreach (var frozen in manifest["cases"]!.AsArray())
         {
             var name = frozen!["name"]!.ToString();
@@ -153,7 +148,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         }
         using var ratesHttp = new HttpClient();
         var caseName = command == "run-local" ? "local" : "mixed";
-        RuntimeAdmissionDiagnosticRules.RequireCase(caseName, acceptedLocal);
+        RuntimeAdmissionDiagnosticRules.RequireCase(caseName, null);
         var caseId = Identity + ":" + caseName;
         await using (var db = await ((IDbContextFactory<PlanningDbContext>)contexts).CreateDbContextAsync(ct))
             RuntimeAdmissionDiagnosticRules.RequireFreshStart(

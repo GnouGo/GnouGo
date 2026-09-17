@@ -1,3 +1,13 @@
+## Fresh LOCAL: canonical contract coverage
+
+`schema5-canonical-contract-coverage-diagnostics-1` authorizes one fresh LOCAL on production `ada9dbe35424f85e2e45ff1161bfd890960ce468`. It compares settings and fixtures with `schema5-governing-applicability-diagnostics-1`, while production DLLs must match the separate accepted contract-coverage offline report. The harness has no authorization for MIXED, relationships, replacement starts or Stage 1.
+
+Build only harness/test changes with `-p:BuildProjectReferences=false` and use an isolated output containing the verified production DLLs. Run offline prerequisites, then `diagnose-runtime-admission freeze ada9dbe35424f85e2e45ff1161bfd890960ce468` checks currency conversion once without injecting a rate. `diagnose-runtime-admission run-local` consumes the single authorized start. Existing checkpoints, reports, budgets or reservations forbid a second start; an interruption permits read-only evidence inspection only.
+
+Acceptance uses contribution v3 and admission v13, exact semantic rule coverage through positive support or proven governing applicability, governing-only descriptive evidence, declaration-only preservation, and zero identity/dependency-model decisions. Completed re-entry must preserve the full snapshot and proof fingerprints with zero calls and writes. All existing generation settings and the sixteen-reservation budget remain unchanged. This gate establishes admission only.
+
+This campaign consumed its only authorized start and stopped at `DIAGNOSTIC_DESCRIPTIVE_SUPPORT`: request 9 qualified descriptive “business processing.” evidence as executable support. All sixteen calls have verified receipts; no provider failure, retry, partition, escalation or production patch followed. Restart acceptance was not reached. Do not repeat the live command. See the [LOCAL report](../../docs/planner-canonical-contract-coverage-local.md); the next gate is architecture review.
+
 ## Offline canonical contract coverage validation
 
 `audit-contract-coverage-fixture CASE_ID` reads retained encrypted inputs through the public KeyVault API and validates an explicitly synthetic current-proof reassessment. It excludes exact canonical contract evidence before qualification, checks semantic rule coverage through positive support or proven applicability, and inspects every support for preservation overlap. Eligible historical qualification shapes are copied only as labelled synthetic answers to newly built domains; original receipts retain their original schemas.

@@ -61,15 +61,15 @@ public sealed class RuntimeAdmissionDiagnosticTests
     }
 
     [Theory]
-    [InlineData("local", null, false)]
-    [InlineData("local", "RETAINED LOCAL ACCEPTED", false)]
-    [InlineData("mixed", "RETAINED LOCAL ACCEPTED", true)]
+    [InlineData("local", null, true)]
+    [InlineData("local", "RETAINED LOCAL ACCEPTED", true)]
+    [InlineData("mixed", "RETAINED LOCAL ACCEPTED", false)]
     [InlineData("mixed", "stopped", false)]
     [InlineData("mixed", null, false)]
     [InlineData("stage1", "RETAINED LOCAL ACCEPTED", false)]
     [InlineData("stage2", "RETAINED LOCAL ACCEPTED", false)]
     [InlineData("replacement", "RETAINED LOCAL ACCEPTED", false)]
-    public void OnlyMixedIsAuthorizedWithSeparateRetainedLocalAcceptance(string name, string? previous, bool allowed)
+    public void OnlyLocalIsAuthorizedRegardlessOfPriorSuccess(string name, string? previous, bool allowed)
     {
         var report = previous is null ? null : AcceptedLocal();
         if (report is not null) report["outcome"] = previous;
@@ -103,7 +103,7 @@ public sealed class RuntimeAdmissionDiagnosticTests
     [Theory]
     [InlineData("providerCalls")]
     [InlineData("checkpointWrites")]
-    public void LocalRestartMustHaveBeenReadOnly(string field)
+    public void PriorRestartEvidenceCannotAuthorizeMixed(string field)
     {
         var report = AcceptedLocal(); report["readOnlyRestart"]![field] = 1;
         Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireCase("mixed", report));
@@ -114,7 +114,7 @@ public sealed class RuntimeAdmissionDiagnosticTests
     [InlineData("snapshotFingerprintAfter", "changed")]
     [InlineData("productionCommit", "foreign")]
     [InlineData("identity", "another:local")]
-    public void MixedAuthorizationPreservesHistoricalStatusAndExactProof(string field, string value)
+    public void AlteredPriorEvidenceCannotAuthorizeMixed(string field, string value)
     {
         var report = AcceptedLocal(); report[field] = value;
         Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireCase("mixed", report));
@@ -136,7 +136,8 @@ public sealed class RuntimeAdmissionDiagnosticTests
     [InlineData(17, "intent", "low", true)] // Checkpoint accounting cannot masquerade as a dispatch limit.
     [InlineData(1, "intent_operations", "low", true)]
     [InlineData(1, "intent_operations_repair", "low", true)]
-    [InlineData(1, "intent_relations", "low", true)]
+    [InlineData(1, "intent_relations", "low", false)]
+    [InlineData(1, "intent_relations_repair", "low", false)]
     [InlineData(1, "behavior", "low", false)]
     [InlineData(1, "construction", "low", false)]
     [InlineData(1, "intent", "medium", false)]
@@ -147,6 +148,14 @@ public sealed class RuntimeAdmissionDiagnosticTests
         if (allowed) RuntimeAdmissionDiagnosticRules.RequireRequest(state);
         else Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireRequest(state));
     }
+    [Fact]
+    public void UnrecordedProductionBinariesCannotBeFrozen()
+    {
+        Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireFrozenProduction(new()));
+        Assert.Throws<InvalidOperationException>(() => RuntimeAdmissionDiagnosticRules.RequireFrozenProduction(
+            new JsonObject { ["GnOuGo.Flow.Planning.dll"] = "foreign" }));
+    }
+
     [Theory]
     [InlineData(16, true)]
     [InlineData(17, false)]

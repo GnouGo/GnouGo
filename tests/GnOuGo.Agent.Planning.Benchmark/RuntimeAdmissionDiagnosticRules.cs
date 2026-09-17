@@ -3,15 +3,25 @@ using System.Text.Json.Nodes;
 using GnOuGo.Agent.Server.Planning;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Expressions;
+using GnOuGo.Flow.Planning;
 
 namespace GnOuGo.Agent.Planning.Benchmark;
 
 internal static class RuntimeAdmissionDiagnosticRules
 {
-    internal const string Identity = "schema5-governing-applicability-mixed-diagnostics-1";
+    internal const string Identity = "schema5-canonical-contract-coverage-diagnostics-1";
     internal const string ComparisonIdentity = "schema5-governing-applicability-diagnostics-1";
-    internal const string ProductionCommit = "23bce4bc842e598d19866d92d497772e1f3c0538";
-    internal const string ComparisonProductionCommit = ProductionCommit;
+    internal const string ProductionCommit = "ada9dbe35424f85e2e45ff1161bfd890960ce468";
+    internal const string ComparisonProductionCommit = "23bce4bc842e598d19866d92d497772e1f3c0538";
+    // Sorted production DLL hashes from the accepted offline implementation report.
+    internal const string ProductionBinariesFingerprint = "aa727025b0c5edff49faa1b64f99c7c9754d51cd28050a4cba5cd2f364ccf9ab";
+    internal static void RequireFrozenProduction(JsonObject binaries)
+    {
+        var production = new JsonObject(binaries.Where(p => p.Key != "GnOuGo.Agent.Planning.Benchmark.dll")
+            .OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => new KeyValuePair<string, JsonNode?>(p.Key, p.Value?.DeepClone())));
+        if (PlanningGraphCompiler.Fingerprint(production.ToJsonString()) != ProductionBinariesFingerprint)
+            throw new InvalidOperationException("Production binaries differ from the accepted offline implementation.");
+    }
     internal const int MaxCalls = 16;
     internal static readonly string[] Cases = ["local", "mixed"];
     internal static JsonObject WithTypedPolicy(JsonObject options)
@@ -36,26 +46,18 @@ internal static class RuntimeAdmissionDiagnosticRules
     }
     internal static void RequireCase(string name, JsonObject? previous)
     {
-        if (name != "mixed" || previous is null || previous["outcome"]?.ToString() != "RETAINED LOCAL ACCEPTED" ||
-            previous["identity"]?.ToString() != ComparisonIdentity + ":local" || previous["productionCommit"]?.ToString() != ProductionCommit ||
-            previous["originalStatus"]?.ToString() != "stopped" || previous["canonicalResult"] is not JsonObject result ||
-            result["kind"]?.ToString() != "local_processing" || result["required"]?.GetValue<bool>() != true ||
-            previous["readOnlyRestart"] is not JsonObject restart || restart["passed"]?.GetValue<bool>() != true ||
-            restart["providerCalls"]?.GetValue<int>() != 0 || restart["checkpointWrites"]?.GetValue<int>() != 0 ||
-            string.IsNullOrEmpty(restart["admissionFingerprint"]?.ToString()) ||
-            string.IsNullOrEmpty(previous["snapshotFingerprintBefore"]?.ToString()) ||
-            previous["snapshotFingerprintBefore"]?.ToString() != previous["snapshotFingerprintAfter"]?.ToString() ||
-            previous["snapshotFingerprintAfter"]?.ToString() != restart["snapshotFingerprint"]?.ToString())
-            throw new InvalidOperationException("Only one fresh MIXED is authorized, gated by the immutable accepted LOCAL adjudication; LOCAL and later gates are forbidden.");
+        // Prior success never authorizes another gate. This identity permits LOCAL once.
+        if (name != "local")
+            throw new InvalidOperationException("Only one fresh LOCAL is authorized; MIXED, replacements and later gates are forbidden.");
     }
     internal static void RequireFreshStart(bool checkpoint, bool report, bool budget, bool reservations)
     {
         if (checkpoint || report || budget || reservations)
-            throw new InvalidOperationException("This MIXED has already started. Read its report; do not start or resume it again.");
+            throw new InvalidOperationException("This LOCAL has already started. Read its report; do not start or resume it again.");
     }
     internal static void RequireRequest(PlanningSnapshot state)
     {
-        if (state.RequestAccounting.Any(c => c.Phase is not ("intent" or "intent_repair" or "intent_operations" or "intent_operations_repair" or "intent_relations" or "intent_relations_repair") || c.Reasoning != "low"))
+        if (state.RequestAccounting.Any(c => c.Phase is not ("intent" or "intent_repair" or "intent_operations" or "intent_operations_repair") || c.Reasoning != "low"))
             throw new InvalidOperationException("This diagnostic cannot dispatch other phases or reasoning profiles.");
         if (state.Graph is not null || state.BehaviorPlan is not null || state.ApprovedBehaviorHash is not null || state.ApprovedHash is not null)
             throw new InvalidOperationException("An admission diagnostic cannot construct or approve a workflow.");
