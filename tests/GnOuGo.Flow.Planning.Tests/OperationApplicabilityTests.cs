@@ -27,8 +27,8 @@ public sealed class OperationApplicabilityTests
             .Where(s => s.Evidence!.BaselineReference is null).Select(s => new KeyValuePair<string, JsonNode?>(PlanningOperations.ContributionDecisionId(s.Evidence!), answer(s)))));
     }
     private static JsonObject Property(PlanningOperations.Scope scope) => new()
-    { ["status"] = "qualified", ["contributions"] = new JsonArray((JsonNode)new JsonObject
-        { ["role"] = "governing_property", ["evidence"] = scope.Evidence!.ActionReference }) };
+    { ["status"] = "qualified", ["units"] = new JsonArray((JsonNode)new JsonObject
+        { ["role"] = "governing_property", ["scope"] = scope.Clause.Id, ["evidence"] = scope.Evidence!.ActionReference }) };
     private static void Cover(PlanningSnapshot state)
     {
         var groups = PlanningOperations.CoverageGroups(state);
@@ -79,13 +79,13 @@ public sealed class OperationApplicabilityTests
     {
         var state = Result(true); var scope = PlanningOperations.Scopes(state).Last();
         var decision = PlanningOperations.ContributionDecision(state, scope);
-        var exclusion = Property(scope); exclusion["contributions"]![0]!["role"] = "excluded";
-        exclusion["contributions"]![0]!["basis"] = "no_requested_execution";
+        var exclusion = Property(scope); exclusion["units"]![0]!["role"] = "excluded";
+        exclusion["units"]![0]!["basis"] = "no_requested_execution";
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(exclusion, decision.Schema));
-        exclusion["contributions"]![0]!["basis"] = "no_operation_relevance";
+        exclusion["units"]![0]!["basis"] = "no_operation_relevance";
         Assert.Empty(PlanningContractValidation.ValidateInstance(exclusion, decision.Schema));
         Assert.Equal("excluded", Assert.Single(PlanningOperations.ParseContributions(state, scope, exclusion).Contributions).Role);
-        var bound = Property(scope); bound["contributions"]![0]!["effect"] = "possible";
+        var bound = Property(scope); bound["units"]![0]!["effect"] = "possible";
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(bound, decision.Schema));
     }
 
@@ -114,10 +114,12 @@ public sealed class OperationApplicabilityTests
     [Fact]
     public void SameClauseParentAndWorkflowDoNotProvePropertyApplicability()
     {
-        var state = Result(); state.RuntimeEvidence.RemoveAll(e => e.Id == PlanningOperations.Scopes(state).Last().Evidence!.Id); state.RuntimeEvidenceFingerprint = PlanningOperations.RuntimeFingerprint(state);
+        var state = OperationAdmissionTests.State("Transform the value deterministically.");
+        state.Request.Baseline = TypedPlannerTests.Graph(); state.Request.Baseline.Workflows[0].Steps.Clear();
+        PlanningDeclarations.Commit(state, [], PlanningDeclarations.EvidenceFingerprint(state));
+        PlanningFixtures.Runtime(state, PlanningOperations.SourceScopes(state).Single(s => s.Source.Id == "request").Clause, independentBoundary: false);
         var scope = Assert.Single(PlanningOperations.Scopes(state));
-        var answer = OperationEffectFixtures.ContributionAnswer(state, scope);
-        answer["contributions"]!.AsArray().Add(Property(scope)["contributions"]![0]!.DeepClone());
+        var answer = OperationEffectFixtures.SplitProperty(state, scope, 3);
         Qualify(state, _ => answer); Cover(state);
         Assert.Single(PlanningOperations.ApplicabilityDecisions(state));
     }
@@ -183,13 +185,12 @@ public sealed class OperationApplicabilityTests
     [InlineData(true)]
     public async Task ExactOwnedPropertyHasInactiveOmissionOrRevisionProofWithoutResurrection(bool revision)
     {
-        var state = OperationAdmissionTests.State("Optionally perform this separate invocation.");
+        var state = OperationAdmissionTests.State("Optionally perform this separate invocation deterministically.");
         if (revision) state.BehaviorRevision = new() { Text = "Remove that invocation." };
-        PlanningFixtures.Runtime(state, PlanningOperations.SourceScopes(state).Single().Clause, required: false);
+        PlanningFixtures.Runtime(state, PlanningOperations.SourceScopes(state).Single(s => s.Source.Id == "request").Clause, required: false);
         Qualify(state, scope =>
         {
-            var answer = OperationEffectFixtures.ContributionAnswer(state, scope);
-            answer["contributions"]!.AsArray().Add(Property(scope)["contributions"]![0]!.DeepClone());
+            var answer = OperationEffectFixtures.SplitProperty(state, scope, 5);
             return answer;
         });
         var group = Assert.Single(PlanningOperations.CoverageGroups(state));

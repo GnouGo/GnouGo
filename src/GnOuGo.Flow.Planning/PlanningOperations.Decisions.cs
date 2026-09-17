@@ -10,6 +10,7 @@ internal static partial class PlanningOperations
         JsonObject Words, JsonObject Boundaries, Func<string, string, PlanningReference> Select, PlanningRuntimeEvidence? Evidence = null)
     {
         internal PlanningExecutionContribution? Contribution { get; init; }
+        internal PlanningContributionUnit? Unit { get; init; }
     }
 
     internal static Scope[] SourceScopes(PlanningSnapshot state) => PlanningIntentAssessment.IntentSources(state)
@@ -67,7 +68,7 @@ internal static partial class PlanningOperations
 
     private static bool Compatible(PlanningSnapshot state, PlanningRuntimeEvidence evidence, PlanningObligation operation)
         => operation.OperationAdmission!.Assignments.Where(a => a.Disposition == "supports").All(a =>
-            CompatibleFacts(evidence, state.RuntimeEvidence.Single(e => e.Id == a.RuntimeEvidenceId)));
+            AssignmentEvidence(state, a).All(e => CompatibleFacts(evidence, e) && evidence.ResourceReference == e.ResourceReference));
 
     // Stable Flow executor semantics, never provider/tool naming. Unknown executor
     // boundaries cannot acquire a kind from their descriptive purpose.

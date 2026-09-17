@@ -208,9 +208,9 @@ public sealed class RuntimeAdmissionDiagnosticTests
     private static PlanningObligation Operation(string id, string kind, string[] inputs, string[] outputs, string[] producers) =>
         new(id, ["evidence"], "workflow", kind, true)
         {
-            OperationAdmission = new(13, id, "evidence", null,
+            OperationAdmission = new(14, id, "evidence", null,
                 [new("decision", "clause", "action", kind, PlanningOperationNecessity.Required, id, null)
-                { ContributionId = "qualified", RuntimeEvidenceId = "runtime", Disposition = "supports", EffectId = id, Effect = new(7, "effect", "realizes", [new("main", "result", "result_realization", "result")], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { ExecutionContributions = [new(3, "runtime", "qualification", "domain", [new("qualified", "action", "supports", id, "requested_result_production", "result", "result", PlanningContributionOrigin.ModelQualification)], "proof")], Dependencies = new(1, "domain", producers.Select(p =>
+                { ContributionId = "qualified", RuntimeEvidenceId = "runtime", RuntimeEvidenceIds = ["runtime"], Disposition = "supports", EffectId = id, Effect = new(7, "effect", "realizes", [new("main", "result", "result_realization", "result")], inputs.ToList(), outputs.ToList(), [], ["clause"], "model", "proof") }], "proof", "fingerprint") { ExecutionContributions = [new(4, "runtime", "qualification", "domain", [new("qualified", "action", "supports", id, "requested_result_production", "result", "result", PlanningContributionOrigin.ModelQualification) { UnitId = "unit", RuntimeEvidenceIds = ["runtime"] }], "proof") { RuntimeEvidenceIds = ["runtime"], ClauseReference = "clause", Units = [new("unit", "requested_execution", "clause", "action", ["action"], ["runtime"], id, "requested_result_production", "result", "result")] }], Dependencies = new(1, "domain", producers.Select(p =>
                     new PlanningOperationDependencyAssignment(p, id, "data", PlanningDependencyOrigin.ModelSemanticSelection, ["clause"], "decision")).ToList(), "dependency-proof"),
                     RealizationCoverage = new(3, "coverage", "domain", [id], [new("runtime", "supports", [id], ["action"]) { ContributionId = "qualified" }],
                         [new(id, new("main", "result", "result_realization", "result"), ["qualified"], inputs.ToList(), outputs.ToList())], "coverage-proof") }
@@ -336,6 +336,7 @@ public sealed class RuntimeAdmissionDiagnosticTests
     {
         var admission = operation.OperationAdmission!;
         admission.ExecutionContributions[0].Contributions.Add(admission.ExecutionContributions[0].Contributions[0] with { Id = id, EvidenceReference = id });
+        admission.ExecutionContributions[0].Units[0].EvidenceReferences.Add(id);
         admission.Assignments.Add(admission.Assignments[0] with { ContributionId = id, ActionReference = id });
         admission.RealizationCoverage!.Contributions.Add(new("runtime", "supports", [operation.Id], [id]) { ContributionId = id });
         admission.RealizationCoverage.Effects[0].SupportingEvidence.Add(id);
@@ -417,6 +418,8 @@ public sealed class RuntimeAdmissionDiagnosticTests
         read.OperationAdmission!.Assignments[0].Effect!.Candidates[0] = new(defect == "foreign_scope" ? "other" : "main", "action", "invocation", "action")
         { OccurrenceProof = defect == "missing_occurrence" ? null : proof };
         read.OperationAdmission.ExecutionContributions[0].Contributions[0] = read.OperationAdmission.ExecutionContributions[0].Contributions[0] with
+        { Basis = "requested_owned_occurrence", OwnerReference = "action", BoundaryReference = "action" };
+        read.OperationAdmission.ExecutionContributions[0].Units[0] = read.OperationAdmission.ExecutionContributions[0].Units[0] with
         { Basis = "requested_owned_occurrence", OwnerReference = "action", BoundaryReference = "action" };
         if (defect == "stale_effect") read.OperationAdmission.Assignments[0] = read.OperationAdmission.Assignments[0] with
         { Effect = read.OperationAdmission.Assignments[0].Effect! with { Version = 3 } };

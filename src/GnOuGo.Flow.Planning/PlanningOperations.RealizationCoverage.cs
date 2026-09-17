@@ -59,8 +59,10 @@ internal static partial class PlanningOperations
             {
                 ["action"] = PlanningChoiceEvidence.Text(state, s.Contribution!.EvidenceReference),
                 ["clause"] = PlanningChoiceEvidence.Text(state, s.Clause.Id), ["role"] = s.Contribution!.Role,
-                ["kind"] = s.Evidence!.Kind, ["necessity"] = s.Evidence.Necessity.ToString(),
-                ["necessityEvidence"] = s.Evidence.NecessityReference,
+                ["kind"] = s.Evidence!.Kind, ["necessity"] = ContributionNecessity(ContributionEvidence(state, s), s.Clause.Id).ToString(),
+                ["necessityEvidence"] = CoverageStrings(ContributionEvidence(state, s).Select(e => e.NecessityReference).OfType<string>()),
+                ["requestPredicate"] = s.Unit!.PredicateReference,
+                ["requestScope"] = s.Unit.ScopeReference,
                 ["eligibleEffects"] = CoverageStrings(domains[s.Contribution!.Id].Keys.Where(domain.ContainsKey))
             }))),
             ["propertyContext"] = new JsonArray(QualifiedScopes(state).Where(s => s.Contribution!.Role == "governing_property")
@@ -90,7 +92,7 @@ internal static partial class PlanningOperations
             // Validate explicit necessity collectively before permitting any omission or completion.
             foreach (var effect in selected)
             {
-                var facts = mappings.Where(m => m.Effects.Contains(effect)).Select(m => scopes.Single(s => s.Contribution!.Id == m.ContributionId).Evidence!.Necessity).ToArray();
+                var facts = mappings.Where(m => m.Effects.Contains(effect)).Select(m => ContributionNecessity(ContributionEvidence(state, scopes.Single(s => s.Contribution!.Id == m.ContributionId)), id)).ToArray();
                 if (facts.Contains(PlanningOperationNecessity.Required) && facts.Contains(PlanningOperationNecessity.Optional)) return;
             }
             var key = string.Join('|', selected);
@@ -126,35 +128,40 @@ internal static partial class PlanningOperations
             foreach (var disposition in new[] { qualification.Role })
             {
                 if (disposition == "governs" && !actions.Any(a => a.Contribution!.Id != qualification.Id && domains[a.Contribution.Id].ContainsKey(target))) continue;
-                mappings.Add(new(evidence.Id, disposition, [target], ContributionReferences(scope)) { ContributionId = qualification.Id });
+                mappings.Add(new(evidence.Id, disposition, [target], ContributionReferences(state, scope)) { ContributionId = qualification.Id });
                 Expand(index + 1, mappings); mappings.RemoveAt(mappings.Count - 1);
             }
-            if (qualification.Role == "supports" && evidence.Necessity == PlanningOperationNecessity.Optional &&
+            if (qualification.Role == "supports" && ContributionNecessity(ContributionEvidence(state, scope), scope.Clause.Id) == PlanningOperationNecessity.Optional &&
                 evidence.OccurrenceBoundary is not null)
             {
-                mappings.Add(new(evidence.Id, "omitted", [], ContributionReferences(scope)) { ContributionId = qualification.Id });
+                mappings.Add(new(evidence.Id, "omitted", [], ContributionReferences(state, scope)) { ContributionId = qualification.Id });
                 Expand(index + 1, mappings); mappings.RemoveAt(mappings.Count - 1);
             }
         }
         PlanningDecisionPages.PackedPageCount(state, [decision]);
         var forcedNecessityConflict = scopes.Where(s => domains[s.Contribution!.Id].Count == 1)
             .GroupBy(s => domains[s.Contribution!.Id].Single().Key, StringComparer.Ordinal)
-            .Any(g => g.Any(s => s.Evidence!.Necessity == PlanningOperationNecessity.Required) &&
-                g.Any(s => s.Evidence!.Necessity == PlanningOperationNecessity.Optional));
+            .Any(g => g.Any(s => ContributionNecessity(ContributionEvidence(state, s), s.Clause.Id) == PlanningOperationNecessity.Required) &&
+                g.Any(s => ContributionNecessity(ContributionEvidence(state, s), s.Clause.Id) == PlanningOperationNecessity.Optional));
         if (!forcedNecessityConflict) Expand(0, []);
         // Only an entirely optional executable cohort can be omitted. This cannot
         // hide a conflicting required contribution, including an ambiguous one.
-        if (actions.Any(s => s.Evidence!.Necessity == PlanningOperationNecessity.Optional) &&
-            actions.All(s => s.Evidence!.Necessity is PlanningOperationNecessity.Optional or PlanningOperationNecessity.Unspecified) &&
-            scopes.All(s => s.Evidence!.Necessity != PlanningOperationNecessity.Required))
-            Add(scopes.Select(s => new PlanningRealizationContribution(s.Evidence!.Id, "omitted", [], ContributionReferences(s)) { ContributionId = s.Contribution!.Id }).ToArray());
+        if (actions.Any(s => ContributionNecessity(ContributionEvidence(state, s), s.Clause.Id) == PlanningOperationNecessity.Optional) &&
+            actions.All(s => ContributionNecessity(ContributionEvidence(state, s), s.Clause.Id) is PlanningOperationNecessity.Optional or PlanningOperationNecessity.Unspecified) &&
+            scopes.All(s => ContributionNecessity(ContributionEvidence(state, s), s.Clause.Id) != PlanningOperationNecessity.Required))
+            Add(scopes.Select(s => new PlanningRealizationContribution(s.Evidence!.Id, "omitted", [], ContributionReferences(state, s)) { ContributionId = s.Contribution!.Id }).ToArray());
         return new(id, scopes, domain, plans, decision with
         { EvidenceFingerprint = fingerprint + ":" + PlanningGraphCompiler.Fingerprint(schema.ToJsonString() + planContext.ToJsonString()) });
     }
 
     private static JsonArray CoverageStrings(IEnumerable<string> values) => new(values.Distinct().Order(StringComparer.Ordinal).Select(v => (JsonNode)JsonValue.Create(v)!).ToArray());
-    private static List<string> ContributionReferences(Scope scope) => new[] { scope.Contribution!.EvidenceReference, scope.Clause.Id, scope.Evidence!.NecessityReference }
-        .OfType<string>().Distinct().Order(StringComparer.Ordinal).ToList();
+    private static List<string> ContributionReferences(PlanningSnapshot state, Scope scope)
+    {
+        var unit = scope.Unit ?? throw Failure(scope.Clause.Id, "Current clause request linkage is missing.");
+        return new[] { scope.Contribution!.EvidenceReference, scope.Clause.Id, unit.PredicateReference }
+            .Concat(ContributionEvidence(state, scope).Select(e => e.NecessityReference)).OfType<string>()
+            .Distinct().Order(StringComparer.Ordinal).ToList();
+    }
 
     internal static PlanningRealizationCoverageProof ParseCoverage(PlanningSnapshot state, CoverageGroup group, JsonObject answer)
     {
@@ -192,7 +199,7 @@ internal static partial class PlanningOperations
                 if (support.Length == 0) throw Failure(group.Key!, "Baseline annotations cannot establish execution.");
                 var mapping = BaselineEffect(state, support[0]); var anchor = mapping.Candidates.Single(); var id = group.Key!;
                 var proof = new PlanningRealizationCoverageProof(3, "coverage_baseline_" + id, EffectFingerprint(state), [id],
-                    group.OrderBy(s => s.Contribution!.Id, StringComparer.Ordinal).Select(s => new PlanningRealizationContribution(s.Evidence!.Id, s.Contribution!.Role, [id], ContributionReferences(s))
+                    group.OrderBy(s => s.Contribution!.Id, StringComparer.Ordinal).Select(s => new PlanningRealizationContribution(s.Evidence!.Id, s.Contribution!.Role, [id], ContributionReferences(state, s))
                     { ContributionId = s.Contribution.Id }).ToList(),
                     [new(id, anchor, support.Select(s => s.Contribution!.Id).ToList(), mapping.Inputs, mapping.Outputs)], "");
                 return proof with { ProofFingerprint = CoverageFingerprint(proof) };
@@ -217,7 +224,7 @@ internal static partial class PlanningOperations
             var effect = proof.Effects.Single(e => e.Id == id); var scope = scopes[contribution.ContributionId!];
             var mapping = scope.Evidence!.BaselineReference is not null ? BaselineEffect(state, scope) with { Contribution = contribution.Disposition == "supports" ? "realizes" : "governs" } : new PlanningOperationEffectProof(7, proof.DecisionId, contribution.Disposition == "supports" ? "realizes" : "governs",
                 [effect.Anchor], effect.Inputs, effect.Outputs, [], contribution.EvidenceReferences, "model", proof.DomainFingerprint);
-            result.Add(Assignment(scope, mapping, id, id, contribution.Disposition == "supports" ? "supports" : "attach", "deterministic"));
+            result.Add(Assignment(state, scope, mapping, id, id, contribution.Disposition == "supports" ? "supports" : "attach", "deterministic"));
         }
         return result.OrderBy(a => a.EffectId, StringComparer.Ordinal).ThenBy(a => a.RuntimeEvidenceId, StringComparer.Ordinal).ToList();
     }
@@ -235,7 +242,7 @@ internal static partial class PlanningOperations
             var diagnostic = supports.OrderBy(a => a.ActionReference, StringComparer.Ordinal).First();
             var operation = new PlanningObligation(g.Key!, [diagnostic.ActionReference], diagnostic.Kind == "local_processing" ? "workflow" : "capability_contract", diagnostic.Kind,
                 ResolveRequiredness(state, assignments)) { Disposition = "admitted" };
-            return Prove(state, operation, new(13, operation.Id, diagnostic.ActionReference, diagnostic.BaselineReference, assignments, EvidenceFingerprint(state), "")
+            return Prove(state, operation, new(14, operation.Id, diagnostic.ActionReference, diagnostic.BaselineReference, assignments, EvidenceFingerprint(state), "")
             { ExecutionContributions = ReadContributions(state).ToList(), RealizationCoverage = proofs.SingleOrDefault(p => p.SelectedEffects.Contains(operation.Id)) });
         }).ToList();
     }

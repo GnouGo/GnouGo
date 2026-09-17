@@ -31,13 +31,13 @@ internal static class OperationEffectFixtures
 
     internal static JsonObject Defer(PlanningOperations.Scope scope) => new() { ["status"] = "governing", ["evidence"] = Strings([scope.Clause.Id]) };
 
-    internal static void Seed(PlanningSnapshot state, Func<PlanningOperations.Scope, JsonObject>? answer = null, bool rootsOnly = false, Func<string, string, bool>? dependency = null, bool seedDependencies = true)
+    internal static void Seed(PlanningSnapshot state, Func<PlanningOperations.Scope, JsonObject>? answer = null, bool rootsOnly = false, Func<string, string, bool>? dependency = null, bool seedDependencies = true, Func<PlanningOperations.Scope[], JsonObject>? qualification = null)
     {
         SeedBoundaries(state);
         var scopes = PlanningOperations.Scopes(state).Where(s => s.Evidence!.BaselineReference is null).ToArray();
         var answers = scopes.ToDictionary(s => s.Evidence!.Id, s => answer?.Invoke(s) ??
             (s.Evidence!.EvidenceRole == "governing" ? Defer(s) : Answer(state, s)));
-        SeedContributions(state, answer);
+        SeedContributions(state, answer, qualification);
         var groups = PlanningOperations.CoverageGroups(state);
         var values = new JsonObject(groups.Select(g => new KeyValuePair<string, JsonNode?>(g.Id, CoverageAnswer(state, g, answer))));
         SeedPages(state, groups.Select(g => g.Decision).ToArray(), values);
@@ -61,27 +61,53 @@ internal static class OperationEffectFixtures
         var items = new JsonArray();
         foreach (var id in role != "supports" ? new[] { "" } : ids)
         {
-            var item = new JsonObject { ["role"] = role, ["evidence"] = scope.Evidence!.ActionReference };
+            var item = new JsonObject { ["role"] = role == "supports" ? "requested_execution" : role, ["scope"] = scope.Clause.Id, ["evidence"] = scope.Evidence!.ActionReference };
             if (excluded) item["basis"] = "no_operation_relevance";
             else if (role == "supports") item["effect"] = id;
             if (role == "supports")
             {
+                item["predicate"] = scope.Evidence!.ActionReference;
+                item["evidence"] = Strings([scope.Evidence.ActionReference!]);
                 var anchor = domain[id];
                 item["basis"] = anchor.BoundaryKind == "result_realization" ? "requested_result_production" : "requested_owned_occurrence";
                 item["owner"] = anchor.OwnerReference; item["boundary"] = anchor.BoundaryReference;
             }
             items.Add((JsonNode)item);
         }
-        return new() { ["status"] = "qualified", ["contributions"] = items };
+        return new() { ["status"] = "qualified", ["units"] = items };
     }
 
-    internal static void SeedContributions(PlanningSnapshot state, Func<PlanningOperations.Scope, JsonObject>? answer = null)
+    internal static void SeedContributions(PlanningSnapshot state, Func<PlanningOperations.Scope, JsonObject>? answer = null, Func<PlanningOperations.Scope[], JsonObject>? qualification = null)
     {
         SeedBoundaries(state);
         var scopes = PlanningOperations.Scopes(state).Where(s => s.Evidence!.BaselineReference is null).ToArray();
-        var values = new JsonObject(scopes.Select(s => new KeyValuePair<string, JsonNode?>(PlanningOperations.ContributionDecisionId(s.Evidence!),
-            ContributionAnswer(state, s, answer?.Invoke(s)))));
+        var values = qualification is null ? QualificationAnswers(state, s => ContributionAnswer(state, s, answer?.Invoke(s))) : new JsonObject(scopes.GroupBy(s => PlanningOperations.ContributionDecisionId(s.Evidence!)).Select(g => new KeyValuePair<string, JsonNode?>(g.Key, qualification(g.ToArray()))));
         SeedPages(state, PlanningOperations.ContributionDecisions(state), values);
+    }
+
+    internal static JsonObject SplitProperty(PlanningSnapshot state, PlanningOperations.Scope scope, int boundary)
+    {
+        var answer = ContributionAnswer(state, scope);
+        var support = answer["units"]![0]!;
+        support["predicate"] = new JsonObject { ["start"] = "b0", ["end"] = "b" + boundary };
+        support["evidence"] = new JsonArray(support["predicate"]!.DeepClone());
+        var last = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Last()!.ToString();
+        answer["units"]!.AsArray().Add((JsonNode)new JsonObject { ["role"] = "governing_property", ["scope"] = scope.Clause.Id,
+            ["evidence"] = new JsonObject { ["start"] = "b" + boundary, ["end"] = last } });
+        return answer;
+    }
+
+    internal static JsonObject QualificationAnswers(PlanningSnapshot state, Func<PlanningOperations.Scope, JsonObject> answer) =>
+        new(PlanningOperations.Scopes(state).Where(s => s.Evidence!.BaselineReference is null)
+            .GroupBy(s => PlanningOperations.ContributionDecisionId(s.Evidence!)).Select(g =>
+                new KeyValuePair<string, JsonNode?>(g.Key, CombineQualifications(g.Select(answer)))));
+
+    internal static JsonObject CombineQualifications(IEnumerable<JsonObject> answers)
+    {
+        var values = answers.ToArray();
+        if (values.Any(v => v["status"]?.ToString() == "unresolved")) return new() { ["status"] = "unresolved" };
+        return new() { ["status"] = "qualified", ["units"] = new JsonArray(values.SelectMany(v => v["units"]!.AsArray())
+            .DistinctBy(v => v!.ToJsonString()).Select(v => v!.DeepClone()).ToArray()) };
     }
 
     internal static PlanningOperations.CoverageGroup[] Groups(PlanningSnapshot state, Func<PlanningOperations.Scope, JsonObject>? answer = null)
@@ -181,7 +207,7 @@ internal static class OperationEffectFixtures
     internal static JsonObject Response(PlanningSnapshot state, LLMRequest request) => new(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p =>
     {
         if (p.Key.StartsWith("contribution_", StringComparison.Ordinal))
-            return new KeyValuePair<string, JsonNode?>(p.Key, ContributionAnswer(state, PlanningOperations.Scopes(state).Single(s => PlanningOperations.ContributionDecisionId(s.Evidence!) == p.Key)));
+            return new KeyValuePair<string, JsonNode?>(p.Key, CombineQualifications(PlanningOperations.Scopes(state).Where(s => PlanningOperations.ContributionDecisionId(s.Evidence!) == p.Key).Select(s => ContributionAnswer(state, s))));
         if (p.Key.StartsWith("applicability_", StringComparison.Ordinal))
             return new KeyValuePair<string, JsonNode?>(p.Key, ApplicabilityAnswer(PlanningOperations.ApplicabilityDecisions(state).Single(d => d.Id == p.Key)));
         if (p.Key.StartsWith("coverage_", StringComparison.Ordinal))

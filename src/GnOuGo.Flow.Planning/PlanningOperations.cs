@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Canonical action authority, committed once after bounded complete-clause adjudication.</summary>
 internal static partial class PlanningOperations
 {
-    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v13:" +
+    internal static string EvidenceFingerprint(PlanningSnapshot state) => PlanningGraphCompiler.Fingerprint("operation-evidence-v14:" +
         state.Request.TenantId + ":" + state.Request.SessionId + ":" + new JsonArray(PlanningIntentAssessment.IntentSources(state).OrderBy(s => s.Id, StringComparer.Ordinal)
             .Where(s => s.Authority is PlanningSourceAuthority.RequestedBehavior or PlanningSourceAuthority.ExistingBehavior)
             .Select(s => (JsonNode)new JsonArray(s.Id, s.Authority.ToString(), s.Text, s.QuestionContext)).ToArray()).ToJsonString() + ":" +
@@ -39,9 +39,9 @@ internal static partial class PlanningOperations
     private static void Replace(List<PlanningObligation> staged, PlanningObligation operation)
     { staged.RemoveAll(o => o.Id == operation.Id); staged.Add(operation); }
 
-    internal static PlanningOperationAssignment Assignment(Scope scope, PlanningOperationEffectProof proof, string effectId, string? target, string disposition, string origin) => new(DecisionId(scope), scope.Clause.Id,
-        scope.Contribution?.EvidenceReference ?? scope.Evidence!.ActionReference!, scope.Evidence!.Kind!, scope.Evidence.Necessity, target, scope.Evidence.BaselineReference)
-        { ContributionId = scope.Contribution?.Id, RuntimeEvidenceId = scope.Evidence.Id, Disposition = disposition, ResolutionOrigin = origin, Effect = proof, EffectId = effectId };
+    internal static PlanningOperationAssignment Assignment(PlanningSnapshot state, Scope scope, PlanningOperationEffectProof proof, string effectId, string? target, string disposition, string origin) => new(DecisionId(scope), scope.Clause.Id,
+        scope.Contribution?.EvidenceReference ?? scope.Evidence!.ActionReference!, scope.Evidence!.Kind!, ContributionNecessity(ContributionEvidence(state, scope), scope.Clause.Id), target, scope.Evidence.BaselineReference)
+        { ContributionId = scope.Contribution?.Id, RuntimeEvidenceId = scope.Evidence.Id, RuntimeEvidenceIds = ContributionEvidence(state, scope).Select(e => e.Id).Order(StringComparer.Ordinal).ToList(), Disposition = disposition, ResolutionOrigin = origin, Effect = proof, EffectId = effectId };
 
     internal static string Text(PlanningSnapshot state, PlanningObligation operation) => string.Join(" ",
         operation.OperationAdmission!.Assignments.Select(a => a.ClauseReference).Distinct(StringComparer.Ordinal).Select(id => PlanningChoiceEvidence.Text(state, id)));
@@ -155,7 +155,7 @@ internal static partial class PlanningOperations
     internal static void Validate(PlanningSnapshot state, PlanningObligation operation)
     {
         var proof = operation.OperationAdmission;
-        if (proof is not { Version: 13 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
+        if (proof is not { Version: 14 } || proof.CanonicalId != operation.Id || operation.Disposition != "admitted" ||
             operation.EvidenceReferences.Count != 1 || operation.EvidenceReferences[0] != proof.AnchorReference ||
             proof.EvidenceFingerprint != EvidenceFingerprint(state) || proof.Assignments.Count == 0 ||
             proof.Assignments.Select(a => a.ContributionId).Distinct(StringComparer.Ordinal).Count() != proof.Assignments.Count || proof.ProofFingerprint != Proof(operation, proof))
@@ -196,14 +196,19 @@ internal static partial class PlanningOperations
             throw Failure(assignment.ClauseReference, "An operation requires exact current clause and action references.");
         var evidence = state.RuntimeEvidence.SingleOrDefault(e => e.Id == assignment.RuntimeEvidenceId)
             ?? throw Failure(assignment.ClauseReference, "Admission requires current runtime evidence, not an interpretation label.");
-        ValidateRuntime(state, evidence);
-        RequireEligibleContribution(state, evidence, state.References.Single(r => r.Id == assignment.ActionReference));
-        var qualification = ReadContributions(state).Single(p => p.RuntimeEvidenceId == evidence.Id).Contributions
+        foreach (var binding in AssignmentEvidence(state, assignment))
+        {
+            ValidateRuntime(state, binding);
+            RequireEligibleContribution(state, binding, state.References.Single(r => r.Id == assignment.ActionReference));
+        }
+        var qualification = ReadContributions(state).SelectMany(p => p.Contributions)
             .SingleOrDefault(c => c.Id == assignment.ContributionId) ?? throw Failure(evidence.Id, "Current contribution authority is missing.");
+        if (!qualification.RuntimeEvidenceIds.SequenceEqual(assignment.RuntimeEvidenceIds) || assignment.RuntimeEvidenceId != qualification.RuntimeEvidenceIds[0])
+            throw Failure(evidence.Id, "Assignment provenance differs from its current clause qualification.");
         if (assignment.Disposition == "attach")
         {
             if (qualification.Role != "governing_property" || qualification.EffectId is not null ||
-                qualification.EvidenceReference != assignment.ActionReference || evidence.Necessity != assignment.Necessity)
+                qualification.EvidenceReference != assignment.ActionReference || ContributionNecessity(AssignmentEvidence(state, assignment), assignment.ClauseReference) != assignment.Necessity)
                 throw Failure(evidence.Id, "Only current qualified properties may supply governing attachments.");
             var target = AttachApplicability(state, MaterializeCoverage(state), ReadApplicability(state))
                 .SingleOrDefault(o => o.Id == assignment.TargetId);
@@ -215,11 +220,12 @@ internal static partial class PlanningOperations
         }
         if (qualification.EvidenceReference != assignment.ActionReference || qualification.EffectId != assignment.EffectId ||
             qualification.Role != (assignment.Disposition == "supports" ? "supports" : "governs") || evidence.ClauseReference != assignment.ClauseReference ||
-            evidence.Kind != assignment.Kind || evidence.Necessity != assignment.Necessity || evidence.BaselineReference != assignment.BaselineReference ||
+            evidence.Kind != assignment.Kind || ContributionNecessity(AssignmentEvidence(state, assignment), assignment.ClauseReference) != assignment.Necessity || evidence.BaselineReference != assignment.BaselineReference ||
             (assignment.Disposition == "supports" ? assignment.TargetId != assignment.EffectId || assignment.Effect?.Contribution != "realizes" :
                 assignment.Disposition == "attach" ? assignment.TargetId != assignment.EffectId || assignment.Effect?.Contribution is not ("governs" or "shared_rule") : true) ||
             assignment.ResolutionOrigin is not ("deterministic" or "model"))
             throw Failure(assignment.ClauseReference, "The assignment changed its proven execution boundary or occurrence.");
+        RequireCompatibleContributionFacts(AssignmentEvidence(state, assignment), assignment.ClauseReference);
         ValidateEffect(state, assignment);
         if (!assignment.Effect!.Candidates.Any(a => CanonicalId(state, a, assignment.Kind, assignment.BaselineReference) == assignment.EffectId))
             throw Failure(assignment.ClauseReference, "Operation identity is outside its grounded effect domain.");

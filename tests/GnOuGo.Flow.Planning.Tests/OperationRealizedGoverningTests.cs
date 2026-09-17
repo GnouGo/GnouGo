@@ -47,9 +47,7 @@ public sealed class OperationRealizedGoverningTests
         Add(state, 0);
         OperationEffectFixtures.SeedBoundaries(state);
         var scope = Assert.Single(PlanningOperations.Scopes(state));
-        var qualification = OperationEffectFixtures.ContributionAnswer(state, scope);
-        qualification["contributions"]!.AsArray().Add(OperationEffectFixtures.ContributionAnswer(state, scope,
-            OperationEffectFixtures.Defer(scope))["contributions"]![0]!.DeepClone());
+        var qualification = OperationEffectFixtures.SplitProperty(state, scope, 3);
         OperationEffectFixtures.SeedPages(state, PlanningOperations.ContributionDecisions(state), new() { [PlanningOperations.ContributionDecisionId(scope.Evidence!)] = qualification });
         var group = Assert.Single(PlanningOperations.CoverageGroups(state));
         var mapping = Assert.Single(group.Plans);

@@ -483,6 +483,7 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(PlanningExecutionContributionProof))]
 [JsonSerializable(typeof(List<PlanningExecutionContributionProof>))]
 [JsonSerializable(typeof(PlanningExecutionContribution))]
+[JsonSerializable(typeof(PlanningContributionUnit))]
 [JsonSerializable(typeof(PlanningGoverningApplicabilityProof))]
 [JsonSerializable(typeof(List<PlanningGoverningApplicabilityProof>))]
 [JsonSerializable(typeof(PlanningRealizationContribution))]

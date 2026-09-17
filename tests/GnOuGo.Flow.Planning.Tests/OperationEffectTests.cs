@@ -263,13 +263,21 @@ public sealed class OperationEffectTests
         var declarationProof = state.DeclarationFingerprint;
         var inputIds = state.Declarations.Where(d => d.Direction == "input").Select(d => d.Id).ToArray();
         var output = Assert.Single(state.Declarations, d => d.Direction == "output");
-        OperationEffectFixtures.Seed(state, scope => OperationEffectFixtures.Answer(state, scope,
+        JsonObject Mapping(PlanningOperations.Scope scope) => OperationEffectFixtures.Answer(state, scope,
             [PlanningOperations.EffectDomain(state, scope.Evidence!).Single(p => p.Value.OwnerReference == output.Id).Key],
-            scope.Evidence!.Id == descriptive || scope.Evidence.EvidenceRole == "governing" ? "governs" : "realizes", inputIds));
+            scope.Evidence!.Id == descriptive ? "governs" : "realizes", inputIds);
+        OperationEffectFixtures.Seed(state, Mapping, qualification: members =>
+        {
+            // Explicit synthetic complete request: conditions inherit classification;
+            // the implementation description remains a separate property unit.
+            var scope = members.MaxBy(s => state.References.Single(r => r.Id == s.Evidence!.ActionReference).Length)!;
+            return OperationEffectFixtures.ContributionAnswer(state, scope, Mapping(scope));
+        });
         await PlanningOperations.ResolveAsync(state, NoModel(), Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
         Assert.True(operation.Required); Assert.Equal("local_processing", operation.Kind);
-        Assert.Equal(4, operation.OperationAdmission!.Assignments.Count(a => a.Disposition == "attach"));
+        Assert.Single(operation.OperationAdmission!.Assignments, a => a.Disposition == "attach");
+        Assert.Contains(operation.OperationAdmission.ExecutionContributions.SelectMany(p => p.Contributions), c => c.Role == "supports" && c.RuntimeEvidenceIds.Count == 4);
         Assert.Equal(inputIds.Order(), operation.OperationAdmission.Assignments.SelectMany(a => a.Effect!.Inputs).Distinct().Order());
         Assert.All(operation.OperationAdmission.Assignments.Where(a => a.Effect!.Contribution == "realizes"), a => Assert.Contains(output.Id, a.Effect!.Outputs));
         Assert.Single(PlanningOperations.DeclarationExclusions(state)); Assert.Equal(declarationProof, state.DeclarationFingerprint);

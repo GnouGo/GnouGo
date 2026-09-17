@@ -74,6 +74,8 @@ public sealed record PlanningOperationAssignment(string DecisionId, string Claus
     public PlanningOperationEffectProof? Effect { get; init; }
     public string? EffectId { get; init; }
     public string? ContributionId { get; init; }
+    /// <summary>All source bindings; the legacy scalar is diagnostic only for current contributions.</summary>
+    public List<string> RuntimeEvidenceIds { get; init; } = [];
 }
 
 /// <summary>Business effect ownership and an explicit execution boundary; not an executable node.</summary>
@@ -123,10 +125,24 @@ public enum PlanningRuntimeEvidenceOrigin { Unknown, SourceInterpretation, Engin
 /// <summary>Canonical qualification of owned evidence, before realization coverage. Candidate effects
 /// and preliminary runtime labels confer no executable authority.</summary>
 public sealed record PlanningExecutionContributionProof(int Version, string RuntimeEvidenceId, string? DecisionId,
-    string DomainFingerprint, List<PlanningExecutionContribution> Contributions, string ProofFingerprint);
+    string DomainFingerprint, List<PlanningExecutionContribution> Contributions, string ProofFingerprint)
+{
+    public string? ClauseReference { get; init; }
+    public List<string> RuntimeEvidenceIds { get; init; } = [];
+    public List<PlanningContributionUnit> Units { get; init; } = [];
+}
+/// <summary>One clause-owned semantic unit, not an operation or a second execution graph.
+/// Requested execution binds its predicate and projections; properties have no support projections.</summary>
+public sealed record PlanningContributionUnit(string Id, string Role, string ScopeReference,
+    string? PredicateReference, List<string> EvidenceReferences, List<string> RuntimeEvidenceIds,
+    string? EffectId, string Basis, string? OwnerReference, string? BoundaryReference);
 public sealed record PlanningExecutionContribution(string Id, string EvidenceReference, string Role,
     string? EffectId, string Basis, string? OwnerReference, string? BoundaryReference,
-    PlanningContributionOrigin Origin);
+    PlanningContributionOrigin Origin)
+{
+    public string? UnitId { get; init; }
+    public List<string> RuntimeEvidenceIds { get; init; } = [];
+}
 /// <summary>Applicability of a qualified property, never executable authority. Inactive and
 /// workflow outcomes remain complete evidence even when no operation receives an attachment.</summary>
 public sealed record PlanningGoverningApplicabilityProof(int Version, string ContributionId, string RuntimeEvidenceId,

@@ -13,7 +13,7 @@ internal static partial class RuntimeAdmissionDiagnostic
 {
     // Explicit synthetic corrected mappings on detached archive input. No provider,
     // durable budget writer, checkpoint writer, or session advancement is installed.
-    internal static async Task CoverageFixtureAsync(string id, IKeyVaultRecordStore records, bool contractEligibility = false)
+    internal static async Task CoverageFixtureAsync(string id, IKeyVaultRecordStore records, bool contractEligibility = false, bool jointClause = false)
     {
         var archiveBefore = await ArchiveAsync(records, CancellationToken.None);
         var captured = await records.GetAsync(Collection, Tenant, id + ":checkpoint", Author) ?? throw new InvalidOperationException("Missing retained checkpoint.");
@@ -28,7 +28,7 @@ internal static partial class RuntimeAdmissionDiagnostic
         var qualifications = PlanningOperations.ContributionDecisions(state);
         var interpretation = PlanningSourceDecisions.InterpretationDecisions(state);
         var semanticFixtures = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
-        if (contractEligibility)
+        if (contractEligibility && !jointClause)
         {
             // These become explicit synthetic answers for new domains, never
             // journal receipts or historical replay of a changed request.
@@ -100,6 +100,11 @@ internal static partial class RuntimeAdmissionDiagnostic
             ["interpretationInitialPages"] = PlanningDecisionPages.PackedPageCount(state, interpretation),
             ["independentContributionStatusDecisions"] = 0,
             ["canonicalContributionDecisions"] = qualifications.Length,
+            ["jointClauseQualification"] = jointClause,
+            ["eligibleRuntimeRecords"] = PlanningOperations.Scopes(state).Length,
+            ["clauseMembership"] = new JsonArray(qualifications.Select(d => (JsonNode)new JsonObject { ["decision"] = d.Id, ["members"] = d.Context["provenance"]!.AsObject().Count }).ToArray()),
+            ["semanticUnits"] = PlanningOperations.ReadContributions(state).Where(p => p.DecisionId is not null).Sum(p => p.Units.Count),
+            ["executionRequestUnits"] = PlanningOperations.ReadContributions(state).Where(p => p.DecisionId is not null).Sum(p => p.Units.Count(u => u.Role == "requested_execution")),
             ["contributionInitialPages"] = PlanningDecisionPages.PackedPageCount(state, qualifications),
             ["contributionSchemas"] = new JsonArray(qualifications.Select(d => (JsonNode)new JsonObject { ["decision"] = d.Id, ["schemaBytes"] = System.Text.Encoding.UTF8.GetByteCount(d.Schema.ToJsonString()) }).ToArray()),
             ["jointCoverageDecisions"] = groups.Length,
@@ -146,29 +151,19 @@ internal static partial class RuntimeAdmissionDiagnostic
             return OperationEffectFixtures.Answer(snapshot, scope, contribution: role,
                 inputs: snapshot.Declarations.Where(d => d.Direction == "input" && names.Contains(PlanningDeclarations.Name(snapshot, d))).Select(d => d.Id));
         }
-        private static JsonObject SyntheticQualification(PlanningSnapshot snapshot, PlanningOperations.Scope scope)
+        private static JsonObject SyntheticQualification(PlanningSnapshot snapshot, PlanningOperations.Scope[] members)
         {
-            var local = !snapshot.Declarations.Any(d => PlanningDeclarations.Name(snapshot, d) == "sourceId");
-            var text = PlanningChoiceEvidence.Text(snapshot, scope.Clause.Id);
-            JsonObject Property(JsonNode reference) => new() { ["role"] = "governing_property", ["evidence"] = reference };
-            JsonObject Qualified(params JsonObject[] items) => new() { ["status"] = "qualified", ["contributions"] = new JsonArray(items.Select(i => (JsonNode)i).ToArray()) };
-            if (text.Trim() == "This is deterministic, local, in-memory business processing." || local && text.StartsWith("Classify as rejected", StringComparison.Ordinal))
-                return Qualified(Property(JsonValue.Create(scope.Evidence!.ActionReference)!));
+            // Complete-clause semantic answers are explicitly synthetic; no historical
+            // fragment answer is interpreted as a clause-level request proof.
+            var scope = members.OrderByDescending(s => snapshot.References.Single(r => r.Id == s.Evidence!.ActionReference).Length)
+                .ThenBy(s => s.Evidence!.Id, StringComparer.Ordinal).First();
+            var text = PlanningChoiceEvidence.Text(snapshot, scope.Clause.Id).Trim();
+            if (text == "This is deterministic, local, in-memory business processing.")
+                return new() { ["status"] = "qualified", ["units"] = new JsonArray((JsonNode)new JsonObject
+                    { ["role"] = "governing_property", ["scope"] = scope.Clause.Id, ["evidence"] = scope.Evidence!.ActionReference }) };
             var answer = OperationEffectFixtures.ContributionAnswer(snapshot, scope, SyntheticMapping(snapshot, scope));
-            if (local && PlanningChoiceEvidence.Text(snapshot, scope.Evidence!.ActionReference!) == "classifying a single record.")
-            {
-                JsonObject Range(int start, int end)
-                {
-                    var starts = scope.Boundaries["properties"]!["start"]!["enum"]!.AsArray().Select(v => v!.ToString()).ToArray();
-                    var ends = scope.Boundaries["properties"]!["end"]!["enum"]!.AsArray().Select(v => v!.ToString()).ToArray();
-                    return new() { ["start"] = starts.Single(b => scope.Select(b, ends[^1]).Start == start),
-                        ["end"] = ends.Single(b => { var r = scope.Select(starts[0], b); return r.Start + r.Length == end; }) };
-                }
-                var reference = snapshot.References.Single(r => r.Id == scope.Evidence!.ActionReference);
-                var support = answer["contributions"]![0]!.AsObject();
-                support["evidence"] = Range(reference.Start, reference.Start + "classifying".Length);
-                answer["contributions"]!.AsArray().Add((JsonNode)Property(Range(reference.Start + "classifying ".Length, reference.Start + reference.Length)));
-            }
+            if (text.StartsWith("Classify as rejected", StringComparison.Ordinal))
+                answer["units"]![0]!["predicate"] = new JsonObject { ["start"] = "b0", ["end"] = "b2" };
             return answer;
         }
 
@@ -179,8 +174,8 @@ internal static partial class RuntimeAdmissionDiagnostic
             {
                 if (field.Key.StartsWith("contribution_", StringComparison.Ordinal))
                 {
-                    var scope = PlanningOperations.Scopes(state).Single(s => PlanningOperations.ContributionDecisionId(s.Evidence!) == field.Key);
-                    result[field.Key] = semanticFixtures.TryGetValue(field.Key, out var retainedShape) ? retainedShape.DeepClone() : SyntheticQualification(state, scope);
+                    var members = PlanningOperations.Scopes(state).Where(s => PlanningOperations.ContributionDecisionId(s.Evidence!) == field.Key).ToArray();
+                    result[field.Key] = semanticFixtures.TryGetValue(field.Key, out var retainedShape) ? retainedShape.DeepClone() : SyntheticQualification(state, members);
                 }
                 else if (field.Key.StartsWith("applicability_", StringComparison.Ordinal))
                 {

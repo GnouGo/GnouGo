@@ -177,7 +177,6 @@ internal static partial class PlanningOperations
         var effect = assignment.Effect ?? throw Failure(assignment.ClauseReference, "Current effect ownership proof is required.", "INTENT_OPERATION_PROOF_MISSING");
         if (effect.Version != 7 || effect.Producers.Count != 0)
             throw Failure(assignment.ClauseReference, "Effect ownership proof is stale.", "INTENT_OPERATION_PROOF_MISSING");
-        var scope = DeriveScopes(state).Single(s => s.Evidence!.Id == assignment.RuntimeEvidenceId);
         PlanningOperationEffectProof expected;
         var covered = CoverageAssignments(state).SingleOrDefault(a => a.ContributionId == assignment.ContributionId && a.EffectId == assignment.EffectId);
         if (covered is not null) expected = covered.Effect!;

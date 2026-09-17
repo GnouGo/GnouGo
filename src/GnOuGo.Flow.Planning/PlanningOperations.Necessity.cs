@@ -48,11 +48,12 @@ internal static partial class PlanningOperations
         var optional = false;
         foreach (var assignment in assignments)
         {
-            var evidence = state.RuntimeEvidence.SingleOrDefault(e => e.Id == assignment.RuntimeEvidenceId)
-                ?? throw Failure(assignment.ClauseReference, "Requiredness has no current runtime evidence.");
-            ValidateRuntime(state, evidence);
-            if (assignment.Necessity != evidence.Necessity)
+            var bindings = AssignmentEvidence(state, assignment);
+            if (assignment.Necessity != ContributionNecessity(bindings, assignment.ClauseReference))
                 throw Failure(assignment.ClauseReference, "The assignment changed its necessity evidence.");
+            foreach (var evidence in bindings)
+            {
+                ValidateRuntime(state, evidence);
             // Baseline identity is separately validated; conditions do not make its
             // executor or capability optional. Unspecified requested actions default
             // only after all contributions have been considered.
@@ -60,6 +61,7 @@ internal static partial class PlanningOperations
             optional |= evidence.Necessity == PlanningOperationNecessity.Optional;
             if (required && optional)
                 throw Failure(assignment.ClauseReference, "The same runtime occurrence has conflicting explicit required and optional evidence.");
+            }
         }
         return !optional;
     }

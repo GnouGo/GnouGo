@@ -34,8 +34,10 @@ internal static partial class PlanningOperations
             return realized.Where(p => p.Value.BoundaryKind == "baseline" && p.Value.OwnerReference ==
                 PlanningBaselineProjection.NodeReference(state, owner)).ToDictionary();
         var workflow = owner?.Workflow;
-        if (scope.Evidence!.OccurrenceBoundary is not null)
-            workflow = ReadOccurrenceBoundary(state, scope.Evidence).WorkflowScope;
+        var workflows = ContributionEvidence(state, scope).Where(e => e.OccurrenceBoundary is not null)
+            .Select(e => ReadOccurrenceBoundary(state, e).WorkflowScope).Append(workflow).OfType<string>().Distinct().ToArray();
+        if (workflows.Length > 1) throw Failure(scope.Clause.Id, "Governing provenance has conflicting workflow owners.");
+        workflow = workflows.SingleOrDefault();
         return realized.Where(p => workflow is null || p.Value.WorkflowScope == workflow).ToDictionary();
     }
 
@@ -44,9 +46,12 @@ internal static partial class PlanningOperations
         if (scope.Source.Baseline is { OwnerKind: "node" } owner && anchor.BoundaryKind == "baseline" &&
             anchor.OwnerReference == PlanningBaselineProjection.NodeReference(state, owner))
             return [scope.Contribution!.EvidenceReference, anchor.OwnerReference];
-        if (scope.Evidence!.OccurrenceBoundary is not null && anchor.OccurrenceProof is { } occurrence)
+        var owned = ContributionEvidence(state, scope).Where(e => e.OccurrenceBoundary is not null)
+            .Select(e => ReadOccurrenceBoundary(state, e)).ToArray();
+        if (owned.Length != 0 && anchor.OccurrenceProof is { } occurrence)
         {
-            var proof = ReadOccurrenceBoundary(state, scope.Evidence);
+            if (owned.Any(p => p.WorkflowScope != occurrence.WorkflowScope || p.Evidence != occurrence.Evidence)) return [];
+            var proof = owned[0];
             if (proof.WorkflowScope == occurrence.WorkflowScope && proof.Evidence == occurrence.Evidence)
                 return new[] { proof.Evidence.OwnerReference, proof.Evidence.BoundaryReference }
                     .Distinct().Order(StringComparer.Ordinal).ToList();
@@ -56,7 +61,7 @@ internal static partial class PlanningOperations
 
     private static string ApplicabilityDomainFingerprint(PlanningSnapshot state, Scope scope, ApplicabilityContext context) => PlanningGraphCompiler.Fingerprint(
         "governing-applicability-v1:" + context.RealizedFingerprint + ":" +
-        context.Qualifications.Single(p => p.RuntimeEvidenceId == scope.Evidence!.Id).ProofFingerprint + ":" +
+        context.Qualifications.Single(p => p.Contributions.Any(c => c.Id == scope.Contribution!.Id)).ProofFingerprint + ":" +
         CoverageStrings(ApplicabilityDomain(state, scope, context.Realizations).Keys).ToJsonString());
 
     private static PlanningGoverningApplicabilityProof SealApplicability(PlanningGoverningApplicabilityProof proof)
@@ -180,7 +185,7 @@ internal static partial class PlanningOperations
                     proof.Targets.Count > 1 ? "shared_rule" : "governs", [EffectAnchor(state, operation)], [], [], [],
                     proof.TargetEvidence.Single(e => e.Target == operation.Id).EvidenceReferences,
                     proof.Origin == PlanningApplicabilityOrigin.ModelApplicability ? "applicability_model" : "applicability_owner", proof.ProofFingerprint);
-                assignments.Add(Assignment(scope, mapping, operation.Id, operation.Id, "attach", "deterministic") with
+                assignments.Add(Assignment(state, scope, mapping, operation.Id, operation.Id, "attach", "deterministic") with
                 { Kind = operation.Kind, BaselineReference = operation.OperationAdmission.BaselineReference });
             }
             Replace(operations, Prove(state, operation, operation.OperationAdmission! with

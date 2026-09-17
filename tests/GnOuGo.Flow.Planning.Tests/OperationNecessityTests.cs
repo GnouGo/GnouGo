@@ -230,11 +230,27 @@ public sealed class OperationNecessityTests
         }
         PlanningFixtures.EmptyRuntime(state);
         PlanningDeclarations.Commit(state, state.DeclarationAssignments, PlanningDeclarations.EvidenceFingerprint(state));
-        var declarations = state.DeclarationFingerprint; var runtime = Identity(state);
-        await PlanningOperations.ResolveAsync(state, runtime, Ct);
+        var declarations = state.DeclarationFingerprint;
+        // Explicit synthetic joint qualification: the complete rules request owns
+        // its conditions/fallback; historical fragment roles do not require duplicate properties.
+        state.RuntimeEvidence = state.RuntimeEvidence.Select(e => PlanningOperations.SealRuntime(state, e with { OccurrenceBoundary = null })).ToList();
+        PlanningFixtures.EmptyRuntime(state);
+        var answers = new JsonObject(PlanningOperations.Scopes(state).GroupBy(s => s.Clause.Id).Select(g =>
+        {
+            var scope = g.MaxBy(s => state.References.Single(r => r.Id == s.Evidence!.ActionReference).Length)!;
+            return new KeyValuePair<string, JsonNode?>(PlanningOperations.ContributionDecisionId(scope.Evidence!),
+                OperationEffectFixtures.ContributionAnswer(state, scope, OperationEffectFixtures.Answer(state, scope, contribution: "realizes")));
+        }));
+        OperationEffectFixtures.SeedPages(state, PlanningOperations.ContributionDecisions(state), answers);
+        var groups = PlanningOperations.CoverageGroups(state);
+        OperationEffectFixtures.SeedPages(state, groups.Select(g => g.Decision).ToArray(), new JsonObject(groups.Select(g =>
+            new KeyValuePair<string, JsonNode?>(g.Id, OperationEffectFixtures.CoverageAnswer(state, g,
+                scope => OperationEffectFixtures.Answer(state, scope, contribution: "realizes"))))));
+        var runtime = NoModel(); await PlanningOperations.ResolveAsync(state, runtime, Ct);
         var operation = Assert.Single(state.Obligations, PlanningSourceDecisions.IsOperation);
         Assert.True(operation.Required); Assert.Equal("local_processing", operation.Kind);
-        Assert.Equal(3, operation.OperationAdmission!.Assignments.Count(a => a.Disposition == "attach")); Assert.Empty(runtime.Requests);
+        Assert.DoesNotContain(operation.OperationAdmission!.Assignments, a => a.Disposition == "attach"); Assert.Empty(runtime.Requests);
+        Assert.Contains(operation.OperationAdmission.ExecutionContributions.SelectMany(p => p.Contributions), c => c.Role == "supports" && c.RuntimeEvidenceIds.Count == 4);
         Assert.Single(PlanningOperations.DeclarationExclusions(state)); Assert.Equal(declarations, state.DeclarationFingerprint);
         Assert.Equal(["record", "threshold"], state.Declarations.Where(d => d.Direction == "input").Select(d => PlanningDeclarations.Name(state, d)).Order(StringComparer.Ordinal));
         Assert.Equal("classifiedResult", PlanningDeclarations.Name(state, Assert.Single(state.Declarations, d => d.Direction == "output")));

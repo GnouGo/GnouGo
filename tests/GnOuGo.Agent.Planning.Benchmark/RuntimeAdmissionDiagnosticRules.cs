@@ -83,13 +83,13 @@ internal static class RuntimeAdmissionDiagnosticRules
         void Require(bool condition, string code, string message)
         { if (!condition) throw new WorkflowRuntimeException(code, message); }
         Require(identityDecisions == 0, "DIAGNOSTIC_IDENTITY_DECISION", "The fixture requires deterministic occurrence identity after effect grounding.");
-        Require(operations.Count == (name == "local" ? 1 : 2) && operations.All(o => o.Required && o.OperationAdmission is { Version: 13, Dependencies.Version: 1 }) &&
+        Require(operations.Count == (name == "local" ? 1 : 2) && operations.All(o => o.Required && o.OperationAdmission is { Version: 14, Dependencies.Version: 1 }) &&
             operations.Count(o => o.Kind == "local_processing") == 1 && operations.Count(o => o.Kind == "external_read") == (name == "mixed" ? 1 : 0),
             "DIAGNOSTIC_ADMISSION_MISMATCH", "The frozen fixture requires exactly its declared runtime effects.");
         var local = operations.Single(o => o.Kind == "local_processing");
         foreach (var operation in operations) RequirePositiveSupports(operation);
         Require(operations.All(o => o.OperationAdmission!.ExecutionContributions.Count > 0 &&
-            o.OperationAdmission.ExecutionContributions.All(p => p.Version == 3 && !string.IsNullOrEmpty(p.ProofFingerprint)) &&
+            o.OperationAdmission.ExecutionContributions.All(p => p.Version == 4 && !string.IsNullOrEmpty(p.ProofFingerprint)) &&
             o.OperationAdmission.Assignments.All(a => o.OperationAdmission.ExecutionContributions.Any(p => p.RuntimeEvidenceId == a.RuntimeEvidenceId &&
                 p.Contributions.Any(c => c.Id == a.ContributionId && c.EvidenceReference == a.ActionReference &&
                     (a.Disposition == "supports" ? c.Role == "supports" && c.EffectId == o.Id : c.Role == "governing_property" && c.EffectId is null &&
@@ -157,12 +157,17 @@ internal static class RuntimeAdmissionDiagnosticRules
             if (admission is null || assignment.EffectId != operation.Id || assignment.TargetId != operation.Id ||
                 assignment.Kind != operation.Kind || assignment.BaselineReference != admission.BaselineReference ||
                 assignment.Effect is not { Version: 7 } effect) return false;
-            var matches = admission.ExecutionContributions.Where(p => p.Version == 3 &&
-                    !string.IsNullOrEmpty(p.ProofFingerprint) && p.RuntimeEvidenceId == assignment.RuntimeEvidenceId)
+            var matches = admission.ExecutionContributions.Where(p => p.Version == 4 &&
+                    !string.IsNullOrEmpty(p.ProofFingerprint) && p.RuntimeEvidenceIds.Contains(assignment.RuntimeEvidenceId!))
                 .SelectMany(p => p.Contributions).Where(c => c.Id == assignment.ContributionId).ToArray();
             if (matches.Length != 1) return false;
             var contribution = matches[0];
-            return contribution.Role == "supports" && contribution.EffectId == operation.Id &&
+            var owner = admission.ExecutionContributions.Single(p => p.Contributions.Any(c => c.Id == contribution.Id));
+            var unit = owner.Units.SingleOrDefault(u => u.Id == contribution.UnitId);
+            return unit is { Role: "requested_execution", PredicateReference: not null } && unit.EffectId == operation.Id &&
+                unit.Basis == contribution.Basis && unit.OwnerReference == contribution.OwnerReference && unit.BoundaryReference == contribution.BoundaryReference &&
+                unit.EvidenceReferences.Contains(contribution.EvidenceReference) && contribution.RuntimeEvidenceIds.SequenceEqual(assignment.RuntimeEvidenceIds) &&
+                contribution.Role == "supports" && contribution.EffectId == operation.Id &&
                 contribution.EvidenceReference == assignment.ActionReference && !string.IsNullOrWhiteSpace(contribution.EvidenceReference) &&
                 effect.Candidates.Any(anchor => contribution.OwnerReference == anchor.OwnerReference && contribution.BoundaryReference == anchor.BoundaryReference &&
                     (contribution.Basis == "requested_result_production" && anchor.BoundaryKind == "result_realization" ||
@@ -205,7 +210,7 @@ internal static class RuntimeAdmissionDiagnosticRules
         string sourceId, int start, int length)
     {
         var proof = operation.OperationAdmission!;
-        var qualified = proof.ExecutionContributions.Where(p => p.Version == 3).SelectMany(p => p.Contributions).ToArray();
+        var qualified = proof.ExecutionContributions.Where(p => p.Version == 4).SelectMany(p => p.Contributions).ToArray();
         var references = proof.Assignments.Where(a => a.EffectId == operation.Id && a.TargetId == operation.Id && qualified.Any(c =>
             c.Id == a.ContributionId && c.EvidenceReference == a.ActionReference &&
             (a.Disposition == "supports" && c.Role == "supports" && c.EffectId == operation.Id &&

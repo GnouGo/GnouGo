@@ -24,8 +24,10 @@ internal static partial class RuntimeAdmissionDiagnostic
             var r = state.References.Single(r => r.Id == c.EvidenceReference);
             return (JsonNode)new JsonObject
             {
-                ["id"] = c.Id, ["parentRuntimeEvidence"] = p.RuntimeEvidenceId,
-                ["preliminaryRuntimeKind"] = state.RuntimeEvidence.Single(e => e.Id == p.RuntimeEvidenceId).Kind,
+                ["id"] = c.Id, ["parentRuntimeEvidence"] = new JsonArray(c.RuntimeEvidenceIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+                ["semanticUnit"] = c.UnitId, ["clause"] = p.ClauseReference,
+                ["preliminaryRuntimeKinds"] = new JsonObject(c.RuntimeEvidenceIds.Select(id =>
+                    new KeyValuePair<string, JsonNode?>(id, JsonValue.Create(state.RuntimeEvidence.Single(e => e.Id == id).Kind)))),
                 ["ownedReference"] = c.EvidenceReference, ["sourceId"] = r.SourceId,
                 ["sourceStart"] = r.Start, ["sourceLength"] = r.Length,
                 ["qualifiedRole"] = c.Role, ["basis"] = c.Basis,
@@ -46,7 +48,8 @@ internal static partial class RuntimeAdmissionDiagnostic
             report["governingProperties"] = new JsonArray(applicability.Select(p => (JsonNode)new JsonObject
             {
                 ["contributionId"] = p.ContributionId, ["ownedReference"] = p.EvidenceReference,
-                ["preliminaryRuntimeKind"] = state.RuntimeEvidence.Single(e => e.Id == p.RuntimeEvidenceId).Kind,
+                ["preliminaryRuntimeKinds"] = new JsonObject(proofs.SelectMany(q => q.Contributions).Single(c => c.Id == p.ContributionId).RuntimeEvidenceIds.Select(id =>
+                    new KeyValuePair<string, JsonNode?>(id, JsonValue.Create(state.RuntimeEvidence.Single(e => e.Id == id).Kind)))),
                 ["targets"] = new JsonArray(p.Targets.Select(t => (JsonNode?)JsonValue.Create(t)).ToArray()),
                 ["outcome"] = p.Outcome, ["origin"] = p.Origin.ToString(), ["decisionId"] = p.DecisionId,
                 ["realizedSetFingerprint"] = p.RealizedSetFingerprint, ["proofFingerprint"] = p.ProofFingerprint

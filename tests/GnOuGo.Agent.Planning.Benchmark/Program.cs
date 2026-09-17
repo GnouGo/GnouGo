@@ -28,6 +28,10 @@ if (args[0] == "adjudicate-local-support")
     if (args.Length != 2) throw new ArgumentException("adjudicate-local-support RETAINED_CASE_ID");
     await RuntimeAdmissionDiagnostic.AdjudicateRetainedLocalAsync(args[1], records); return;
 }
+if (args.Length == 2 && args[0] == "audit-joint-clause-fixture")
+{
+    await RuntimeAdmissionDiagnostic.CoverageFixtureAsync(args[1], records, contractEligibility: true, jointClause: true); return;
+}
 if (args.Length == 2 && args[0] == "audit-contract-coverage-fixture")
 {
     await RuntimeAdmissionDiagnostic.CoverageFixtureAsync(args[1], records, contractEligibility: true); return;
