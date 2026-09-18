@@ -4,11 +4,11 @@
 
 The schema-6 refactor was committed and pushed as `ff567a2` on `feat/deterministic-planner-v2`. The user's unchanged French PR-review prompt was submitted through the actual Agent.Server planning API using its configured model and KeyVault-backed integrations.
 
-The live attempt **did not reach final review or execution**. Deterministic validation rejected the generated graph. Two repairs were exhausted; a step still referenced its own unfinished result. No generated YAML was substituted by hand, and no PR-specific planning path was added.
+The live attempts **did not reach final review or execution**. Deterministic validation rejected the first generated graph. Two repairs were exhausted; a step still referenced its own unfinished result. After fixes in `022f0db`, the user authorized resubmitting the exact prompt. That interpretation request failed at the provider with HTTP 500 before returning a result. No generated YAML was substituted by hand, and no PR-specific planning path was added.
 
 No repository clone, dependency installation, project test execution, or GitHub publication occurred. Consequently this run provides no evidence that the target pull request passes any requested check. Workflow approval, runtime publication confirmation, and a fresh head check remain outstanding. Private repository content, credentials, model responses, and raw host logs are excluded from this report.
 
-## Configuration and usage
+## Configuration and first-attempt usage
 
 | Setting or outcome | Observed value |
 | --- | --- |
@@ -24,7 +24,25 @@ No repository clone, dependency installation, project test execution, or GitHub 
 | Active planning time | 346.5 seconds |
 | Final persisted state | Stopped; dependency cycle |
 
-The original 12,000-token input limit rejected the complete catalog before dispatch. The session's request limits were explicitly increased; no capability was silently dropped. The eight-call and two-repair limits were retained. Restart retained cumulative usage. Further evaluation requires an explicit intent revision; it must retain the same session's cumulative budgets.
+The original 12,000-token input limit rejected the complete catalog before dispatch. The session's request limits were explicitly increased; no capability was silently dropped. The eight-call and two-repair limits were retained. Restart retained cumulative usage.
+
+## Authorized resubmission after the fixes
+
+The exact prompt was read from the encrypted session and sent through Agent.Server's `edit_intent` API command. Comparing the stored prompts before and after confirmed equality. The revision retained cumulative usage and reset only the per-intent repair allowance. Capability discovery completed without a model call.
+
+The next interpretation request was reserved as call 4 of 8. After approximately 301.7 seconds, the configured provider returned HTTP 500. The provider logged one attempt; Agent.Server stopped with `MODEL_DISPATCH_UNVERIFIABLE`. No candidate or completion receipt was returned, so there was nothing to validate or repair.
+
+Read-only verification through public KeyVault APIs confirmed:
+
+- The encrypted request and pending-call reservation remain stored.
+- No completion receipt exists for the fourth dispatch.
+- Both the session and durable usage ledger retain four calls; the new intent used zero of its two repairs.
+- Known cumulative usage remains 159,216 input tokens, 41,100 output tokens, and EUR 1.76734. These figures exclude unknown usage from call 4; the missing receipt does not establish that the failed request was free.
+- Active planning time is retained at 655.3 seconds. The session remains stopped at revision 16, without YAML or approval.
+
+The uncertain request was not redispatched and no replacement session was created. Continuing requires resolving the provider failure and the missing completion/usage evidence. Restarts and intent revisions must not erase the reserved call or replenish cumulative budgets.
+
+The existing `UnknownRequestReceipt_IsNotSilentlyDispatchedAgain` regression cases were rerun for transport failure, HTTP 500, and HTTP 503: all three passed. A serialized Agent.Server test-project build with warnings treated as errors completed with zero warnings and errors. Application code was unchanged during this resubmission.
 
 ## Changes derived from the live diagnostics
 
