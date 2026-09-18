@@ -22,7 +22,6 @@ internal static class PlannerFixture
             state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         return state;
     }
-    internal static JsonNode Response(WorkflowIntentPlan plan, JsonObject schema) => GnOuGo.Planning.Examples.IntentResponse.Response(plan, schema);
 
 }
 internal sealed class TestRuntime : IPlanningRuntime
@@ -47,7 +46,7 @@ internal sealed class TestRuntime : IPlanningRuntime
         if (Respond is not null) return Task.FromResult(Respond(request));
         if (purpose == "choices") return Task.FromResult(new LLMResponse { Json = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, p.Value!["enum"]![0]!.DeepClone()))) });
         var plan = Plans.Count > 1 ? Plans.Dequeue() : Plans.Peek();
-        return Task.FromResult(new LLMResponse { Json = PlannerFixture.Response(plan, request.StructuredOutputSchema!.AsObject()) });
+        return Task.FromResult(new LLMResponse { Json = PlanningJsonTransport.Intent(plan) });
     }
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => Validation is null ? Actual.ValidateAsync(request, ct) : Task.FromResult(Validation);
     public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct) => Actual.ValidateScenariosAsync(request, ct);

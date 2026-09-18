@@ -101,9 +101,9 @@ public sealed class SafetyAndGraphTests
         var plan = PlannerFixture.Greeting(); plan.Workflows[0].Steps[0].Input.Members.Add(new("alternative", new() { Kind = "string", Text = "Other" }));
         plan.Workflows[0].Outputs[0].Value = new() { Kind = "hole" };
         var runtime = new TestRuntime(plan); var calls = 0;
-        runtime.Respond = request => ++calls == 1 ? new() { Json = PlannerFixture.Response(plan, request.StructuredOutputSchema!.AsObject()) }
+        runtime.Respond = request => ++calls == 1 ? new() { Json = PlanningJsonTransport.Intent(plan) }
             : calls == 2 ? new() { Json = new JsonObject { [request.StructuredOutputSchema!["properties"]!.AsObject().First().Key] = "unissued" } }
-            : new() { Json = PlannerFixture.Response(PlannerFixture.Greeting(), request.StructuredOutputSchema!.AsObject()) };
+            : new() { Json = PlanningJsonTransport.Intent(PlannerFixture.Greeting()) };
         var state = await PlannerFixture.RunAsync(runtime);
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(3, calls); Assert.Equal(1, state.RepairAttempts);
         Assert.Contains("INTENT_SCHEMA_INVALID", runtime.Calls[2].Prompt);

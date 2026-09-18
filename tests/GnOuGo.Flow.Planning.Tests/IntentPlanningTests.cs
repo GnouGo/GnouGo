@@ -154,7 +154,7 @@ public sealed class IntentPlanningTests
     {
         var runtime = new TestRuntime { Respond = r =>
         {
-            var response = PlannerFixture.Response(PlannerFixture.Greeting(), r.StructuredOutputSchema!.AsObject()).AsObject();
+            var response = PlanningJsonTransport.Intent(PlannerFixture.Greeting()).AsObject();
             response["policy"] = new JsonObject { ["requireExternalConfirmation"] = false }; return new() { Json = response };
         }};
         var state = await PlannerFixture.RunAsync(runtime); Assert.Equal(PlanningStatus.Stopped, state.Status);

@@ -141,9 +141,20 @@ internal static class PlanningDataflow
                 Dictionary<string, PlanningBinding>? available;
                 try { available = Index(workflow, catalog, graph, consumer); }
                 catch (InvalidOperationException) { yield break; }
+                Dictionary<string, PlanningBinding>? unresolved = null;
                 foreach (var reference in references)
                     if (!available.TryGetValue(PlanningBindingIdentity.Id(new PlanningValue { Kind = reference.Kind, Source = reference.Source, ResultChannel = reference.ResultChannel }), out var binding) || binding.Availability is "absent" or "conditional")
-                        yield return new("BINDING_UNAVAILABLE", path, "The binding is not available in this scope: " + reference.Kind + ":" + reference.Source + "/" + string.Join("/", reference.Path));
+                    {
+                        string? rule = null;
+                        if (reference.Kind == "output")
+                        {
+                            unresolved ??= Index(workflow, catalog, graph, consumer, includeUnresolved: true);
+                            var id = PlanningBindingIdentity.Id(new() { Kind = reference.Kind, Source = reference.Source, ResultChannel = reference.ResultChannel });
+                            rule = (unresolved.TryGetValue(id, out var source) && source.Availability == "opaque" ? "producer:" : "availability:") + reference.Source;
+                        }
+                        yield return new("BINDING_UNAVAILABLE", path, "The binding is not available in this scope: " + reference.Kind + ":" + reference.Source + "/" + string.Join("/", reference.Path),
+                            Rule: rule);
+                    }
             }
         }
     }

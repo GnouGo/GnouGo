@@ -10,5 +10,5 @@
     <ProjectReference Include="../../src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj" />
   </ItemGroup>
   <ItemGroup></ItemGroup>
-  <ItemGroup><Compile Include="../Shared/IntentResponse.cs" Link="IntentResponse.cs" /><Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" /></ItemGroup>
 </Project>

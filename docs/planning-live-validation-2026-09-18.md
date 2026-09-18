@@ -64,6 +64,24 @@ The last candidate's check-array item declares `type=object` with neither typed 
 
 Final cumulative accounting: **740,280 input tokens, 112,411 output tokens, EUR 6.16125 estimated cost, and 955.8 seconds active planning time**. These totals include the failed-call estimate; six completed calls themselves reported 337,148 input and 79,643 output tokens. Restart retained revision 26 and these counters. The generation prompt and its PR URL remained unchanged throughout this continuation.
 
+## Offline intent/repair boundary correction
+
+The next change addresses planner correctness using a sanitized reproduction and mocked integrations. It does not advance, revise or replenish the stopped live session, invoke the configured model, or execute/publish a pull-request review. Review evaluation and publication enforcement remain a separate follow-up.
+
+The reproduction combines an untyped object inside a check-array schema with a fixture containing a hole. Previously graph validation surfaced the schema failure and its dependent binding errors before checking the fixture. Both independent causes now appear in one pass. Repair context presents the producer schema as the root and names dependent steps; unrelated missing or conditional bindings remain separate. Stored session diagnostics retain all blocking graph findings.
+
+Repair locations are recomputed against the intent by workflow/step identifiers and member names. Regression expectations cover inserted confirmation workflows, reordered steps and arguments, nested branches, missing arguments, fixed catalog arguments and finalizer guards. Generated host defects stop without consuming a model repair. A bounded repair reaches final review using corrected intent coordinates.
+
+One production serializer now supplies compact model-facing intent context and offline test/benchmark responses; the duplicated test formatter is removed. Tests assert explicit locations, keys and outcomes, preserve null versus omission and invalid repair evidence, reject incomplete object/array schemas and nonliteral fixtures, and replay a receipt against its originally reserved response schema. Public planning contracts and schema-6 persistence remain unchanged, as do cumulative budgets, eight total calls, two repairs and approval invalidation.
+
+Verification for this correction:
+
+- Full solution suite: 2,396 passed, zero failed, one existing environment-gated external test skipped. All 50 planner tests passed, including singleton resolution without model calls and the new boundary regressions. Invalid user output schemas remain repairable when their failures propagate through confirmation forwarding; actual host defects still stop.
+- Solution build and Release `GnOuGo.Flow.Planning` package creation passed with warnings treated as errors and no warnings emitted.
+- Published Native AOT planner smoke passed local computation, read/transform and protected writes/cleanup. Each used one fixture interpretation call and zero repairs; scenario counts were 1, 3 and 5.
+- Published trimmed, self-contained Agent.Server persistence smoke passed in a new temporary directory, covering encrypted schema-6 storage, tenant isolation and revision checks. Both publishes were warning-free. As in the reproduction commands below, bundled tools and browser installation were excluded from this persistence check; frontend sources were unchanged and no frontend rebuild was needed.
+- Read-only Agent.Server verification: the live session remains stopped at revision 26, with seven calls, two repairs, identical token/cost/active-time accounting, and no YAML, approval or scenarios.
+
 ## Changes derived from the live diagnostics
 
 - Align catalog prompt schema names with supported `/input` and `/output` references. Explain input-port references, integration payloads, confirmation results, and self-reference restrictions in the typed interpretation prompt.

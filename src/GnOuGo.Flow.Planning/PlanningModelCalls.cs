@@ -37,7 +37,7 @@ internal static class PlanningModelCalls
         if (response.CompletionStatus == "output_limit") throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT", "The model response was truncated; no output limit escalation is performed.");
         var json = response.Json?.DeepClone() ?? JsonNode.Parse(response.Text) ?? throw new JsonException("The model returned an empty response.");
         var findings = PlanningContractValidation.ValidateInstanceFindings(json, call.Request.StructuredOutputSchema!);
-        if (findings.Count != 0) throw new PlanningResponseException(findings.Select(f => new PlanningDiagnostic("INTENT_SCHEMA_INVALID", f.InstancePointer, f.Message)).ToList());
+        if (findings.Count != 0) throw new PlanningResponseException(findings.Select(f => new PlanningDiagnostic("INTENT_SCHEMA_INVALID", f.InstancePointer, f.Message, ValidationStage: "intent")).ToList());
         return json;
     }
     internal static string IntentPrompt(PlanningSession state) => """
@@ -90,8 +90,8 @@ internal static class PlanningModelCalls
                 ["fixedArguments"] = new JsonObject(c.RequestBindings.Select(b => new KeyValuePair<string, JsonNode?>(b.Path, b.Value?.DeepClone())))
             }).ToArray()),
             ["baseline"] = state.IntentPlan is not null || state.Request.Baseline is null ? null : JsonSerializer.SerializeToNode(state.Request.Baseline, PlanningJsonContext.Default.PlanningGraph),
-            ["currentIntent"] = state.IntentPlan is null ? null : JsonSerializer.SerializeToNode(state.IntentPlan, PlanningJsonContext.Default.WorkflowIntentPlan),
-            ["diagnostics"] = JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic),
+            ["currentIntent"] = state.IntentPlan is null ? null : PlanningJsonTransport.Intent(state.IntentPlan),
+            ["diagnostics"] = JsonSerializer.SerializeToNode(PlanningDiagnosticLocations.ForIntent(state), PlanningJsonContext.Default.ListPlanningDiagnostic),
             ["answers"] = new JsonArray(state.Answers.Select(a => (JsonNode)new JsonObject { ["question"] = a.Question, ["answers"] = a.Answers.DeepClone() }).ToArray()),
             ["failureEvidence"] = state.Request.FailureEvidence?.DeepClone()
         }.ToJsonString();

@@ -225,7 +225,8 @@ public static class PlanningGraphValidation
                 if (value.Kind is "output" or "input" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection")
                 {
                     try { _ = ValueSchema(value, new(StringComparer.Ordinal)); }
-                    catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { errors.Add(new("OUTPUT_REFERENCE_INVALID", location, ex.Message)); }
+                    catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException)
+                    { errors.Add(new("OUTPUT_REFERENCE_INVALID", location, ex.Message, Rule: value.Kind == "output" ? "producer:" + value.Source : null)); }
                 }
                 for (var i = 0; i < value.Members.Count; i++) CheckValue(value.Members[i].Value, location + "/members/" + i + "/value");
                 for (var i = 0; i < value.Items.Count; i++) CheckValue(value.Items[i], location + "/items/" + i);

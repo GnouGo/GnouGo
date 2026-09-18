@@ -17,5 +17,5 @@
   <Import Project="../../build/GnOuGo.DarwinNativeCrypto.targets" />
   <ItemGroup><ProjectReference Include="../../src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj" /></ItemGroup>
   <ItemGroup></ItemGroup>
-  <ItemGroup><Compile Include="../Shared/IntentResponse.cs" Link="IntentResponse.cs" /><Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" /></ItemGroup>
 </Project>

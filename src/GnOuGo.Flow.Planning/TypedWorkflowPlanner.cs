@@ -115,6 +115,8 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             var repair = state.PendingCall is { } pending ? pending.Purpose == "repair" : state.ModelCalls > 0 && state.Diagnostics.Any(d => d.Required);
             if (repair && state.PendingCall is null)
             {
+                var hostFailures = PlanningDiagnosticLocations.ForIntent(state).Where(d => d.Required && d.Code == "PLANNING_HOST_CONTRACT").ToList();
+                if (hostFailures.Count > 0) { state.Diagnostics.AddRange(hostFailures); Stop(state); return; }
                 if (state.RepairAttempts >= state.Request.MaxRepairAttempts) { Stop(state); return; }
             }
             var candidate = await PlanningModelCalls.CallAsync(state, runtime, repair ? "repair" : "intent", PlanningModelCalls.IntentPrompt(state), PlanningSchemas.Intent(), ct);
@@ -143,6 +145,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             {
                 state.Diagnostics = domains.Select(d => new PlanningDiagnostic("HOLE_UNRESOLVED", d.Hole.Path, "No valid deterministic choice exists for this " + d.Hole.Kind + " field. Supply a typed value or revise its dependencies.")).ToList();
                 state.Diagnostics.AddRange(PlanningExecutableValidation.Validate(state.Graph, state.Catalog).Where(d => d.Code != "CONFIRMATION_REQUIRED"));
+                state.Diagnostics.AddRange(PlanningValidationPipeline.FixtureShape(state.IntentPlan!));
                 return;
             }
             string Prompt() => "Select one issued choice ID for each field. Use the request's meaning; do not create values.\n" + state.Request.Prompt + "\n" +

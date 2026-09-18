@@ -5,11 +5,17 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningValidationPipeline
 {
+    internal static IReadOnlyList<PlanningDiagnostic> FixtureShape(WorkflowIntentPlan intent)
+    {
+        if (intent.Fixtures is null) return [];
+        return PlanningContractValidation.ValidateInstanceFindings(PlanningJsonTransport.Intent(intent)["fixtures"], PlanningSchemas.Fixtures())
+            .Select(f => new PlanningDiagnostic("SCENARIO_INPUT_INVALID", "/fixtures" + f.InstancePointer, f.Message, ValidationStage: "intent")).ToArray();
+    }
     internal static async Task ValidateAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
         var graph = state.Graph!; var catalog = state.Catalog!;
         PlanningConfirmationGuards.Apply(graph, catalog);
-        state.Diagnostics = PlanningExecutableValidation.Validate(graph, catalog).ToList();
+        state.Diagnostics = PlanningExecutableValidation.Validate(graph, catalog).Concat(FixtureShape(state.IntentPlan!)).ToList();
         if (state.Diagnostics.Any(d => d.Required)) return;
         string yaml;
         try { yaml = new PlanningGraphCompiler().Compile(graph, catalog, state.Request.Name); }

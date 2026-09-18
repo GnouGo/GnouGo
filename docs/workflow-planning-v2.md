@@ -25,6 +25,16 @@ Start with `TypedWorkflowPlanner.cs`, `PlanningGraphBuilder.cs` and `PlanningGra
 
 The model never returns YAML, permissions or transport targets. Names/descriptions cannot grant permission. There are no source-span ownership, semantic proof, behavior approval, semantic-review model or patch phases.
 
+## Intent and repair boundary
+
+`PlanningJsonTransport` serializes intent context and offline model fixtures through one canonical format. It removes inactive default union fields while retaining explicit nulls, omitted arguments, defaults, references and holes. Non-default invalid fields remain visible as repair evidence. This format does not change the schema-6 persistence DTOs.
+
+The response schema has separate primitive, array, object, capability-reference and hole variants. Arrays require item schemas. Objects require nonempty typed properties or typed additional properties. Capability references contain only `capabilityId` and `schemaPointer`. Fixture inputs must be literal objects; observation responses may be any recursive literal value. References, computations, omissions and holes are invalid within fixtures. Independent fixture and intent shape errors are reported together before graph validation can hide them. Omitted fixtures retain deterministic sampling, and runtime inputs need no planning-time clarification.
+
+Session diagnostics retain graph coordinates. `PlanningDiagnosticLocations` derives repair locations without persisted mapping state: it matches workflow/step identifiers and member names, reverses graph reordering and MCP argument wrapping, and accounts for inserted confirmation and finalizer guards. A missing field points to an existing intent container and names the missing member. Each mapped finding names its workflow and step. Generated host defects produce `PLANNING_HOST_CONTRACT` and stop without consuming a repair.
+
+Repair context groups known binding consequences beneath the invalid producer schema and names dependent steps. Independent availability/scope failures remain separate, and all blocking findings remain in the session. Whole-intent replacement, complete rebuilding, approval invalidation, eight session calls and two repairs per submitted intent are unchanged. Durable receipt replay uses the response schema stored with its original reservation, even if a newer response format is now available.
+
 ## Budgets and restart
 
 One configured reasoning level (`medium` by default), 12,000 input tokens and 8,192 output tokens per request; eight session calls and two repairs per submitted intent. Hosts retain token, monetary and active-time limits. No recursive decision pages or automatic output escalation. Human waiting time is recorded separately.

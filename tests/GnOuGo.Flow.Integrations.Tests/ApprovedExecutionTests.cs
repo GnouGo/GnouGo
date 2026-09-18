@@ -52,7 +52,7 @@ public sealed class ApprovedExecutionTests
     {
         internal int Calls;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
-        { Calls++; return Task.FromResult(new LLMResponse { Json = IntentResponse.Response(PlanningCorpus.Intent("local", new()), request.StructuredOutputSchema!.AsObject()), Usage = new JsonObject { ["total_tokens"] = 15 } }); }
+        { Calls++; return Task.FromResult(new LLMResponse { Json = PlanningJsonTransport.Intent(PlanningCorpus.Intent("local", new())), Usage = new JsonObject { ["total_tokens"] = 15 } }); }
     }
     private sealed class Human : IHumanInputProvider
     {

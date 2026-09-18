@@ -50,7 +50,7 @@ public static class PlanningCorpus
         private readonly WorkflowPlanningRuntime _actual = new(engine, (_, _) => Task.CompletedTask);
         private PlanningCatalog? _catalog;
         public async Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => _catalog = await _actual.DiscoverAsync(request, ct);
-        public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct) => live?.CallAsync(request, ct) ?? Task.FromResult(new LLMResponse { Json = IntentResponse.Response(Intent(name, _catalog!), request.StructuredOutputSchema!.AsObject()) });
+        public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct) => live?.CallAsync(request, ct) ?? Task.FromResult(new LLMResponse { Json = PlanningJsonTransport.Intent(Intent(name, _catalog!)) });
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => _actual.ValidateAsync(request, ct);
         public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct) => _actual.ValidateScenariosAsync(request, ct);
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => _actual.ValidateCatalogAsync(catalog, ct);
