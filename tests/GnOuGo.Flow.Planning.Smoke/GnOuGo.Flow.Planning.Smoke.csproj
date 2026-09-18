@@ -16,5 +16,6 @@
   <ItemGroup><ProjectReference Include="../../src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj" /></ItemGroup>
   <Import Project="../../build/GnOuGo.DarwinNativeCrypto.targets" />
   <ItemGroup><ProjectReference Include="../../src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj" /></ItemGroup>
-  <ItemGroup><Compile Include="../GnOuGo.Flow.Planning.Tests/OperationEffectFixtures.cs" Link="Fixtures/OperationEffectFixtures.cs" /></ItemGroup>
+  <ItemGroup></ItemGroup>
+  <ItemGroup><Compile Include="../Shared/IntentResponse.cs" Link="IntentResponse.cs" /><Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" /></ItemGroup>
 </Project>

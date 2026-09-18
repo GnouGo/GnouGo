@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -9,18 +9,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="../Shared/IntentClarificationFixture.cs" Link="IntentClarificationFixture.cs" />
-    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ReceiptOnlyClient.cs" Link="Benchmark/ReceiptOnlyClient.cs" />
-    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnosticRules.cs" Link="Benchmark/RuntimeAdmissionDiagnosticRules.cs" />
-    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/RetainedDiagnosticRecords.cs" Link="Benchmark/RetainedDiagnosticRecords.cs" />
-    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.Prerequisites.cs" Link="Benchmark/RuntimeAdmissionDiagnostic.Prerequisites.cs" />
-    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/RuntimeAdmissionDiagnostic.FallbackGate.cs" Link="Benchmark/RuntimeAdmissionDiagnostic.FallbackGate.cs" />
-    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ProgressiveRules.cs" Link="Benchmark/ProgressiveRules.cs" />
-    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/MissionCampaign.cs" Link="Benchmark/MissionCampaign.cs" />
-    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/MissionBehaviorReview.cs" Link="Benchmark/MissionBehaviorReview.cs" />
-    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ProgressiveReport.cs" Link="Benchmark/ProgressiveReport.cs" />
-    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/SingletonOutputDiagnostic.cs" Link="Benchmark/SingletonOutputDiagnostic.cs" />
-    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/CapturedInterpretationDiagnostic.cs" Link="Benchmark/CapturedInterpretationDiagnostic.cs" />
     <ProjectReference Include="..\..\src\GnOuGo.Agent.Server\GnOuGo.Agent.Server.csproj" />
     <ProjectReference Include="..\..\src\GnOuGo.Flow.Integrations\GnOuGo.Flow.Integrations.csproj" />
     <ProjectReference Include="..\..\src\GnOuGo.GithubCopilot.Core\GnOuGo.GithubCopilot.Core.csproj" />

@@ -1,4 +1,5 @@
 using System.Globalization;
+using GnOuGo.Flow.Core.Expressions;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
@@ -10,13 +11,13 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Imports every supported executable field, rejecting unrepresentable data explicitly.</summary>
 public static class PlanningGraphImporter
 {
-    public static PlanningGraph Import(string yaml, PlanningPreparation preparation)
-        => ImportCore(yaml, preparation);
+    public static PlanningGraph Import(string yaml, PlanningCatalog catalog)
+        => ImportCore(yaml, catalog);
 
     // A revision baseline describes existing behavior, but grants no capability to execute it.
     public static PlanningGraph ImportBaseline(string yaml) => ImportCore(yaml, null);
 
-    private static PlanningGraph ImportCore(string yaml, PlanningPreparation? preparation)
+    private static PlanningGraph ImportCore(string yaml, PlanningCatalog? catalog)
     {
         var stream = new YamlDotNet.RepresentationModel.YamlStream();
         stream.Load(new StringReader(yaml));
@@ -47,16 +48,15 @@ public static class PlanningGraphImporter
                     Schema = Schema(JsonSchemaConverter.OutputDefToSchema(p.Value).AsObject()),
                     Value = new PlanningValue { Kind = "expression", Text = p.Value.Expr }
                 }).ToList(),
-                Steps = workflow.Steps.Select(s => Node(s, preparation)).ToList(),
-                Finally = workflow.Finally.Select(s => Node(s, preparation)).ToList()
+                Steps = workflow.Steps.Select(s => Node(s, catalog)).ToList(),
+                Finally = workflow.Finally.Select(s => Node(s, catalog)).ToList()
             };
-            imported.OperationIds = PlanningGraphCompiler.Enumerate(imported.Steps.Concat(imported.Finally)).SelectMany(n => n.OperationIds).Distinct(StringComparer.Ordinal).ToList();
             graph.Workflows.Add(imported);
         }
         return graph;
     }
 
-    private static PlanningNode Node(StepDef step, PlanningPreparation? preparation)
+    private static PlanningNode Node(StepDef step, PlanningCatalog? catalog)
     {
         var input = Value(step.Input ?? new JsonObject());
         var node = new PlanningNode
@@ -72,10 +72,10 @@ public static class PlanningGraphImporter
             If = step.If is null ? null : new PlanningValue { Kind = "expression", Text = step.If },
             Expr = step.Expr is null ? null : new PlanningValue { Kind = "expression", Text = step.Expr },
             OutputSchema = step.OutputSchema is JsonObject schema ? Schema(schema) : null,
-            Steps = (step.Steps ?? []).Select(s => Node(s, preparation)).ToList(),
-            Default = (step.Default ?? []).Select(s => Node(s, preparation)).ToList(),
-            Branches = (step.Branches ?? []).Select(b => new PlanningBranch(b.Steps.Select(s => Node(s, preparation)).ToList())).ToList(),
-            Cases = (step.Cases ?? []).Select(c => new PlanningCase(c.Value, c.When is null ? null : new PlanningValue { Kind = "expression", Text = c.When }, c.Steps.Select(s => Node(s, preparation)).ToList())).ToList(),
+            Steps = (step.Steps ?? []).Select(s => Node(s, catalog)).ToList(),
+            Default = (step.Default ?? []).Select(s => Node(s, catalog)).ToList(),
+            Branches = (step.Branches ?? []).Select(b => new PlanningBranch(b.Steps.Select(s => Node(s, catalog)).ToList())).ToList(),
+            Cases = (step.Cases ?? []).Select(c => new PlanningCase(c.Value, c.When is null ? null : new PlanningValue { Kind = "expression", Text = c.When }, c.Steps.Select(s => Node(s, catalog)).ToList())).ToList(),
             OnError = (step.OnError?.Cases ?? []).Select(c => new PlanningErrorCase(c.If is null ? null : new PlanningValue { Kind = "expression", Text = c.If }, c.Action, c.SetOutput is null ? null : Value(c.SetOutput), c.Retry)).ToList()
         };
         if (step.Type == "workflow.call")
@@ -85,18 +85,15 @@ public static class PlanningGraphImporter
             var member = input.Members.FindIndex(m => m.Name == "ref");
             input.Members[member] = new("ref", new PlanningValue { Kind = "workflow", Source = reference["name"]!.GetValue<string>() });
         }
-        if (step.Type == "mcp.call" && preparation is not null)
+        if (step.Type == "mcp.call" && catalog is not null)
         {
-            var candidates = preparation.Capabilities.Where(c => c.StepType == "mcp.call" && c.Server == step.Input?["server"]?.GetValue<string>() && c.Method == step.Input?["method"]?.GetValue<string>() &&
+            var candidates = catalog.Capabilities.Where(c => c.StepType == "mcp.call" && c.Server == step.Input?["server"]?.GetValue<string>() && c.Method == step.Input?["method"]?.GetValue<string>() &&
                 c.RequestBindings.All(binding => JsonNode.DeepEquals(PlanningGraphCompiler.ReadPointer(step.Input?["request"], binding.Path), binding.Value))).ToArray();
             if (candidates.Length != 1) throw new InvalidOperationException("An imported external call requires one unambiguous locked capability binding.");
             node.CapabilityId = candidates[0].Id;
-            node.OperationIds = candidates[0].OperationIds.ToList();
-        }
-        else if (preparation is not null)
-        {
-            var candidates = preparation.Capabilities.Where(c => c.StepType == step.Type && c.Required).ToArray();
-            if (candidates.Length == 1) { node.CapabilityId = candidates[0].Id; node.OperationIds = candidates[0].OperationIds.ToList(); }
+            if (input.Members.Any(m => m.Name is not ("server" or "method" or "kind" or "request" or "preserve_optional_nulls")))
+                throw new InvalidOperationException("Import external call options into an explicit catalog contract before compiling them.");
+            input.Members.RemoveAll(m => m.Name is "server" or "method" or "kind" or "preserve_optional_nulls");
         }
         return node;
     }
@@ -106,7 +103,7 @@ public static class PlanningGraphImporter
         null => new(),
         JsonObject obj => new() { Kind = "object", Members = obj.Select(p => new PlanningMember(p.Key, Value(p.Value))).ToList() },
         JsonArray array => new() { Kind = "array", Items = array.Select(Value).ToList() },
-        JsonValue scalar when scalar.TryGetValue<string>(out var text) => new() { Kind = text.Contains("${", StringComparison.Ordinal) ? "template" : "string", Text = text },
+        JsonValue scalar when scalar.TryGetValue<string>(out var text) => new() { Kind = text.StartsWith("${", StringComparison.Ordinal) && ExpressionSegments.Read(text) is { Count: 1 } parts && parts[0].Length == text.Length ? "expression" : text.Contains("${", StringComparison.Ordinal) ? "template" : "string", Text = text },
         JsonValue scalar when scalar.TryGetValue<bool>(out var boolean) => new() { Kind = "boolean", Boolean = boolean },
         JsonValue scalar when scalar.GetValueKind() == System.Text.Json.JsonValueKind.Number && decimal.TryParse(scalar.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var number) => new() { Kind = "number", Number = number },
         _ => throw new InvalidOperationException("Unsupported literal in imported workflow.")

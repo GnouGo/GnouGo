@@ -6,9 +6,6 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <None Update="Fixtures/*.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="../GnOuGo.Agent.Planning.Benchmark/CodeReviewPolicy.txt" Link="Fixtures/CodeReviewPolicy.txt" CopyToOutputDirectory="PreserveNewest" />
-    <Compile Include="../Shared/IntentClarificationFixture.cs" Link="IntentClarificationFixture.cs" />
     <ProjectReference Include="../../src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.11" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
@@ -16,4 +13,5 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
     <Using Include="Xunit" />
   </ItemGroup>
+  <ItemGroup><Compile Include="../Shared/IntentResponse.cs" Link="IntentResponse.cs" /><Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" /></ItemGroup>
 </Project>

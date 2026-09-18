@@ -1,0 +1,59 @@
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Planning;
+namespace GnOuGo.Flow.Planning;
+
+internal static class PlanningStructureValidation
+{
+    internal static IReadOnlyList<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningCatalog catalog)
+    {
+        var findings = new List<PlanningDiagnostic>();
+        if (graph.Workflows.Count is < 1 or > 100 || graph.Workflows.Select(w => w.Key).Distinct(StringComparer.Ordinal).Count() != graph.Workflows.Count)
+            findings.Add(new("WORKFLOW_IDENTITIES_INVALID", "/workflows", "Declare 1–100 workflows with unique identifiers."));
+        if (!graph.Workflows.Any(w => w.Key == graph.Entrypoint)) findings.Add(new("ENTRYPOINT_INVALID", "/entrypoint", "The entrypoint must identify a declared workflow."));
+        var total = 0;
+        foreach (var workflow in graph.Workflows)
+        {
+            var path = "/workflows/" + graph.Workflows.IndexOf(workflow);
+            var nodes = PlanningGraphValidation.Located(workflow.Steps, path + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, path + "/finally")).ToArray();
+            total += nodes.Length;
+            if (nodes.Select(n => n.Node.Key).Distinct(StringComparer.Ordinal).Count() != nodes.Length)
+            { findings.Add(new("NODE_IDENTITIES_INVALID", path, "Step identifiers must be unique within each workflow.")); continue; }
+            if (workflow.Inputs.Select(p => p.Name).Distinct(StringComparer.Ordinal).Count() != workflow.Inputs.Count ||
+                workflow.Outputs.Select(p => p.Name).Distinct(StringComparer.Ordinal).Count() != workflow.Outputs.Count)
+                findings.Add(new("PORT_IDENTITIES_INVALID", path, "Input and output names must be unique."));
+            var keys = nodes.Select(n => n.Node.Key).ToHashSet(StringComparer.Ordinal);
+            foreach (var (node, location) in nodes)
+            {
+                if (!catalog.AllowedStepTypes.Contains(node.Type, StringComparer.Ordinal) || node.Type is "workflow.plan" or "workflow.execute")
+                    findings.Add(new("STEP_TYPE_DENIED", location + "/type", "The step type is outside the host's executable catalog."));
+                var cap = catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
+                if (node.CapabilityId is not null && cap is null || node.Type == "mcp.call" && cap is null)
+                    findings.Add(new("CAPABILITY_UNKNOWN", location + "/capabilityId", "Select an existing catalog capability."));
+                if (cap is not null && (cap.StepType != node.Type || catalog.Policy.DeniedCapabilityIds.Contains(cap.Id)))
+                    findings.Add(new("CAPABILITY_DENIED", location + "/capabilityId", "The selected executor violates the capability or host policy."));
+                if (node.Type == "mcp.call" && node.Input.Members.Any(m => m.Name != "request"))
+                    findings.Add(new("CAPABILITY_TARGET_OVERRIDE", location + "/input", "Only catalog-owned targets and typed request arguments are allowed."));
+                if (node.Type == "workflow.call" && PlanningGraphValidation.Member(node.Input, "ref")?.Kind != "workflow")
+                    findings.Add(new("WORKFLOW_REFERENCE_INVALID", location + "/input", "Only declared local workflow references are allowed."));
+                foreach (var dependency in node.Dependencies)
+                    if (!keys.Contains(dependency)) findings.Add(new("DEPENDENCY_UNKNOWN", location + "/dependencies", "Unknown dependency: " + dependency));
+                    else if (nodes.Single(n => n.Node.Key == dependency).Path[..nodes.Single(n => n.Node.Key == dependency).Path.LastIndexOf('/')] != location[..location.LastIndexOf('/')])
+                        findings.Add(new("DEPENDENCY_SCOPE", location + "/dependencies", "Explicit dependencies must join sibling steps. Depend on the completed container to cross a control-flow scope."));
+            }
+            var edges = nodes.ToDictionary(n => n.Node.Key, n => n.Node.Dependencies.Concat(PlanningGraphBuilder.References(n.Node).Where(v => v.Kind == "output").Select(v => v.Source!)).Where(keys.Contains).Distinct().ToArray());
+            var visiting = new HashSet<string>(); var completed = new HashSet<string>();
+            bool Cycle(string key)
+            {
+                if (completed.Contains(key)) return false;
+                if (!visiting.Add(key)) return true;
+                if (edges[key].Any(Cycle)) return true;
+                visiting.Remove(key); completed.Add(key); return false;
+            }
+            if (keys.Any(Cycle)) findings.Add(new("DEPENDENCY_CYCLE", path, "Step dependencies contain a cycle."));
+        }
+        // The three host-owned confirmation steps are outside the user's graph allowance.
+        if (total > catalog.Policy.MaxStepsTotal + (graph.Workflows.Any(w => w.Key == PlanningConfirmationGuards.Body) ? 3 : 0))
+            findings.Add(new("STEP_LIMIT", "/workflows", "The workflow exceeds the configured step limit."));
+        return findings;
+    }
+}

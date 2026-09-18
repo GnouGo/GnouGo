@@ -10,10 +10,14 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Independent technical checks run together, before a bounded repair.</summary>
 public static class PlanningExecutableValidation
 {
-    public static IReadOnlyList<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningPreparation preparation)
+    public static IReadOnlyList<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningCatalog catalog)
     {
-        var errors = PlanningDataflow.OperationInputFindings(graph, preparation).Concat(PlanningProducerContracts.Findings(graph, preparation))
-            .Concat(PlanningComputationContracts.Findings(graph, preparation)).Concat(PlanningConfirmationGuards.GraphFindings(graph, preparation)).ToList();
+        var errors = PlanningStructureValidation.Validate(graph, catalog).ToList();
+        if (errors.Count != 0) return errors;
+        errors.AddRange(PlanningComputationContracts.Findings(graph, catalog));
+        errors.AddRange(PlanningArtifactBindings.PrerequisiteFindings(graph, catalog));
+        errors.AddRange(PlanningDataflow.Validate(graph, catalog));
+        errors.AddRange(PlanningConfirmationGuards.Validate(graph, catalog));
         Script(graph.Functions, "/functions");
         for (var wi = 0; wi < graph.Workflows.Count; wi++)
         {
@@ -22,12 +26,11 @@ public static class PlanningExecutableValidation
             foreach (var (node, location) in PlanningGraphValidation.Located(workflow.Steps, path + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, path + "/finally")))
             {
                 if (node.Expr is not null && node.Type != "switch") errors.Add(new("NATIVE_FIELD_UNSUPPORTED", location + "/expr", "Only switch uses expr. Compute set outputs in input values; do not put a transformation in an ignored field."));
-                errors.AddRange(PlanningDecisionRouting.ConditionFindings(node, preparation, location));
                 if (node.Type == "switch" && node.Expr is { } selector)
                 {
                     try
                     {
-                        var contract = PlanningGraphValidation.ResolveValueContract(graph, workflow, selector, preparation);
+                        var contract = PlanningGraphValidation.ResolveValueContract(graph, workflow, selector, catalog);
                         var outcomes = contract["type"]?.ToString() == "boolean" ? new[] { "true", "false" }
                             : contract["enum"] is JsonArray values ? values.Select(v => v is JsonValue j && j.TryGetValue<string>(out var label) ? label : v?.ToJsonString()).OfType<string>().ToArray() : null;
                         if (outcomes is not null && node.Cases.Any(c => c.Value is not null && !outcomes.Contains(c.Value, StringComparer.Ordinal)))
@@ -43,7 +46,7 @@ public static class PlanningExecutableValidation
                         if (member.Name is not ("items" or "over")) continue;
                         try
                         {
-                            var contract = PlanningGraphValidation.ResolveValueContract(graph, workflow, member.Value, preparation);
+                            var contract = PlanningGraphValidation.ResolveValueContract(graph, workflow, member.Value, catalog);
                             if (contract["type"]?.ToString() != "array" ||
                                 contract["items"] is not JsonObject && contract["maxItems"]?.ToString() != "0")
                                 throw new InvalidOperationException("The loop item schema is unresolved.");
@@ -69,7 +72,7 @@ public static class PlanningExecutableValidation
                     // set resolves its entire input value at runtime and can assert the result schema.
                     if (node.Type == "set" && node.Input.Kind is "expression" or "compute" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection") continue;
                     var input = preview as JsonObject ?? throw new InvalidOperationException("This step requires an object input. For set, put computations in input values or supply an object-producing expression.");
-                    var capability = preparation.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
+                    var capability = catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
                     if (capability is not null)
                     {
                         foreach (var (key, value) in capability.FixedInput) input[key] ??= value?.DeepClone();
@@ -87,8 +90,8 @@ public static class PlanningExecutableValidation
             }
             for (var i = 0; i < workflow.Outputs.Count; i++) Values(workflow.Outputs[i].Value, path + "/outputs/" + i + "/value");
         }
-        errors.AddRange(PlanningGraphValidation.Validate(graph, preparation));
-        errors.AddRange(PlanningGraphCompiler.ValidateValues(graph, preparation));
+        errors.AddRange(PlanningGraphValidation.Validate(graph, catalog));
+        errors.AddRange(PlanningGraphCompiler.ValidateValues(graph, catalog));
         return errors.DistinctBy(d => (d.Code, d.Location, d.Message)).ToArray();
 
         void Script(string? script, string location)
@@ -208,7 +211,7 @@ public static class PlanningExecutableValidation
 
     private static JsonNode? Preview(PlanningValue value) => value.Kind switch
     {
-        "object" => new JsonObject(value.Members.Where(m => m.Value.Kind != PlanningSkeletonInputs.Omitted).Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Preview(m.Value)))),
+        "object" => new JsonObject(value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted).Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Preview(m.Value)))),
         "array" => new JsonArray(value.Items.Select(Preview).ToArray()),
         "workflow" => new JsonObject { ["kind"] = "local", ["name"] = value.Source },
         "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "expression" or "compute" or "template" => JsonValue.Create("${data.value}"),

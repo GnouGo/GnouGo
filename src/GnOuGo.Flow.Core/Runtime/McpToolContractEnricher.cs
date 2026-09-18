@@ -121,6 +121,7 @@ public static class McpToolContractEnricher
             ExampleResponse = tool.ExampleResponse?.DeepClone(),
             ArtifactContract = tool.ArtifactContract,
             CompositionContract = tool.CompositionContract,
+            EffectKind = tool.EffectKind,
             OutputContract = resolution
         };
     }

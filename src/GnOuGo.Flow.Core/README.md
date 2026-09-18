@@ -20,27 +20,9 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 
 ## Typed planning
 
-`workflow.plan` invokes the injected `IWorkflowPlanner` and `IPlanningRuntimeFactory`.
-Hosts reference `GnOuGo.Flow.Planning` for the sole Planner v2 implementation. Core
-retains provider-neutral contracts and runtime validation without referencing another
-GnOuGo project. See [workflow planning](../../docs/workflow-planning-v2.md).
+Core owns `PlanningSession`, `WorkflowIntentPlan`, `PlanningGraph`, typed contracts and provider-neutral planning interfaces. It references no other GnOuGo project. Hosts inject the separately publishable Planning implementation and Integrations persistence boundary.
 
-Schema-5 contracts include owned references, bounded decision pages, typed outcomes
-and durable correction lineage. Independent runtime-evidence records distinguish planning, contract and policy evidence from generated-workflow actions. ConstraintsOnly runtime records have engine-source-authority origin and fixed policy scope; they contain no model-selected action authority. Canonical operation proofs bind owned action/resource references, exact baseline authority, effect-specific canonical execution contributions and declaration coverage to existing obligations; preliminary classifications grant no action authority. Canonical root identity and governing target sets are adjudicated after interpretation; source-clause IDs cannot target operations. Assignment disposition and resolution origin survive encrypted restart. Local processing grants no external capability authority. Coupled correction pages may retain coordinator-owned
-original decision IDs; absent lineage is omitted from serialization. `FinalReview` waits for exact-hash approval before
-returning `ValidWorkflow`. Missing business choices return `NeedUserClarification`;
-technical stops remain distinct from proven `Unsupported`. Injected model capability
-resolvers must declare supported reasoning levels for the phase profile.
-Business decision records retain governing references, applicability, exclusions and
-typed selections. Clarifications expose canonical choices, labels and justified
-preference reasons; their resolution belongs to the injected planner. The general
-`human.input` DSL and Schema-5 persistence format remain unchanged.
-Additive Schema-5 grounding records retain coordinator-owned source authority,
-semantic roles and baseline references. Policy adjudications preserve preliminary
-labels for audit while downstream consumers use scoped rules and their dispositions.
-Scoped permission records retain governing references, applicable action IDs and
-permission-source ownership; they do not change the general human-input transport.
-See [confirmation scopes](../../docs/planner-confirmation-scopes.md).
+The flow is discovery → typed intent → graph → deterministic validation/scenarios → final approval. Models interpret meaning; the engine owns executable identities, types, dataflow and policy. Runtime confirmation for protected effects is separate from final artifact approval. See [workflow planning](../../docs/workflow-planning-v2.md).
 
 ## MCP protocol compatibility
 
@@ -1318,16 +1300,7 @@ Before each selected workflow runs, `workflow.route` emits a `gnougo-flow.step.t
 
 ### `workflow.plan` — Typed workflow planning
 
-Schema-5 planning state includes provider-neutral declaration assignments and canonical
-port identities. Input/output evidence spans are adjudicated before behavior review;
-public names and omission defaults remain source-owned. Direction-neutral candidates acquire direction only through canonical root adjudication, with owned declaration/presence proof references; attachment requests target established canonical identities. New default references originate only from `omission_default` input modifiers; runtime fallback obligations cannot authorize port defaults. See [declaration grounding](../../docs/planner-business-declarations.md).
-
-This step invokes the host's injected Planner v2. Missing planner injection fails
-explicitly. Clarification, locked capabilities, engine-built behavior review and
-deterministic skeletons with bounded typed assignments precede lowering. Compilation,
-semantic and scenario validation and final approval are mandatory. Models select issued
-references or fill unresolved semantic fields;
-`PlanningGraphCompiler` alone produces the reviewed YAML.
+Runs the injected planner to typed clarification or final artifact review. A complete plan needs one interpretation call; discovery and singleton holes need none. Missing runtime inputs remain declared inputs. Repairs replace the intent and are fully revalidated.
 
 ```yaml
 - id: plan
@@ -1336,48 +1309,28 @@ references or fill unresolved semantic fields;
     raw_prompt: "${data.inputs.intent}"
     generator:
       model: "${data.inputs.model}"
-      reasoning_profile:
-        routine: low
-        behavior: medium
-        semantic_review: medium
+      reasoning: medium
       max_input_tokens: 12000
       max_output_tokens: 8192
-    max_concurrency: 4
-    max_repairs_per_workflow_gate: 5
+    max_repair_attempts: 2
     llm_budget:
-      max_calls: 100
+      max_calls: 8
       max_total_tokens: 15000000
       max_elapsed_ms: 18000000
       unverifiable: fail
 ```
 
-Inputs cover intent, model configuration, clarification, capability requirements and
-constraints, policies, structural limits and budgets. The result contains deterministic
-YAML after exact artifact approval. Use `workflow.execute` to execute that artifact.
-See [the planner architecture](../../docs/workflow-planning-v2.md) for session contracts,
-repair invariants, capability evidence, persistence and deployment.
+Results include status, session ID and revision. Approved results also include artifact hash and YAML obtained from trusted storage. Without a human provider, planning pauses for the host to collect review or clarification. [Architecture and persistence](../../docs/workflow-planning-v2.md).
 
-### `workflow.execute` — Execute a Planned Workflow
-
-Executes a workflow that was dynamically generated by `workflow.plan`.
+### `workflow.execute` — Execute an approved workflow
 
 ```yaml
-- id: plan
-  type: workflow.plan
-  input:
-    raw_prompt: "${data.inputs.task}"
-    generator:
-      model: gpt-4o
-
 - id: execute
   type: workflow.execute
-  input:
-    from_step: plan              # References the workflow.plan step that produced the YAML
+  input: { from_step: plan }
 ```
 
-The plan + execute pattern is the foundation of **agentic workflows**: the user describes a goal in natural language, the LLM plans the steps, and the engine executes them.
-
----
+Execution asks `IPlanningRuntimeFactory` for the stored approval using the current tenant, session and artifact hash. Arbitrary YAML in a prior step does not authorize execution. Changed contracts or substituted YAML fail closed. Protected external actions still require runtime confirmation.
 
 ## Typed Inputs
 
@@ -1755,19 +1708,3 @@ The engine is fully **NativeAOT**-compatible:
 - Scripting: Jint v4+ (pure interpreter, no Reflection.Emit)
 
 The native `collect_json_arrays(completedLoop.results, ["child", "response", "field"])` expression concatenates original JSON-array strings without altering records or numeric precision. Artifact provenance requires an exact original producer declaring `encoding: "json_array"`; missing, conditional, malformed or transformed source results cannot establish identity. The primitive cannot be overridden by workflow helpers.
-
-Execution-contribution proof v7 records owned subspans, positive support bases, effect/boundary bindings, origins and decision fingerprints. Admission v17 carries these proofs; coverage v3 consumes executable support only. Governing-applicability proof v2 separately records realized target sets, exact workflow ownership or linked inactive outcomes, with owned evidence, origins and fingerprints. Historical runtime `EvidenceRole` values remain deserializable but confer no current authority. Runtime proof v7 and effect proof v7 retain Schema-5 storage and unchanged operation identities.
-
-Canonical contribution proofs retain complete clause ownership, semantic units, request/predicate links and all runtime provenance bindings. Contribution proof 7 and admission proof 17 keep these provider-neutral records on existing operation admissions under Schema-5; support is projected from qualified execution requests. Historical scalar runtime-parent fields remain readable for audit.
-
-`PlanningContributionSourceBinding` records exact selected source evidence, its clause scope and optional current semantic-obligation grounding. Source-only governing contributions and applicability proofs have no required runtime parent. These references convey ownership only; support still requires current execution provenance and a positive basis. Generated serialization retains the references, governing kind and composition links under Schema-5.
-
-## Canonical execution-request proof
-
-Planning contracts include provider-neutral `PlanningExecutionRequestProof` version 1,
-carried by existing admission records. It retains owned predicates, exact support
-references, runtime/source provenance and explicit non-request outcomes. Contribution
-version 7 links executable support to this authority; admission version 17 validates
-the complete directional proof chain. Canonical operation identities and Schema-5
-storage remain unchanged. Generated JSON metadata includes request proofs for trimmed
-and Native AOT persistence. See [offline validation](../../docs/planner-execution-request-authority.md).

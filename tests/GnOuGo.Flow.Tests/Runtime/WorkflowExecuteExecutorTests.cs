@@ -6,6 +6,7 @@ using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
 using Xunit;
+using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Tests.Runtime;
 
@@ -21,6 +22,7 @@ public class WorkflowExecuteExecutorTests
         var engine = new WorkflowEngine
         {
             LLMClient = llmClient,
+            PlanningRuntimeFactory = artifact is null ? null : new ApprovedArtifact(artifact),
         };
         inputs ??= new();
         if (artifact is not null) inputs["artifact"] = artifact;
@@ -59,6 +61,9 @@ public class WorkflowExecuteExecutorTests
                     type: set
                     input:
                       yaml: "${data.inputs.artifact}"
+                      status: approved
+                      session_id: fixture
+                      artifact_hash: reviewed
 
                   - id: run
                     type: workflow.execute
@@ -90,6 +95,9 @@ public class WorkflowExecuteExecutorTests
                     type: set
                     input:
                       yaml: "${data.inputs.artifact}"
+                      status: approved
+                      session_id: fixture
+                      artifact_hash: reviewed
 
                   - id: run
                     type: workflow.execute
@@ -146,7 +154,7 @@ public class WorkflowExecuteExecutorTests
 
         Assert.False(result.Success);
         Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
-        Assert.Contains("YAML", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("approved", result.Error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     // ------ Multi-step generated workflow ------
@@ -189,6 +197,9 @@ public class WorkflowExecuteExecutorTests
                     type: set
                     input:
                       yaml: "${data.inputs.artifact}"
+                      status: approved
+                      session_id: fixture
+                      artifact_hash: reviewed
 
                   - id: run
                     type: workflow.execute
@@ -233,6 +244,9 @@ public class WorkflowExecuteExecutorTests
                     type: set
                     input:
                       yaml: "${data.inputs.artifact}"
+                      status: approved
+                      session_id: fixture
+                      artifact_hash: reviewed
 
                   - id: run
                     type: workflow.execute
@@ -281,6 +295,9 @@ public class WorkflowExecuteExecutorTests
                     type: set
                     input:
                       yaml: "${data.inputs.artifact}"
+                      status: approved
+                      session_id: fixture
+                      artifact_hash: reviewed
 
                   - id: run
                     type: workflow.execute
@@ -325,6 +342,9 @@ public class WorkflowExecuteExecutorTests
                     type: set
                     input:
                       yaml: "${data.inputs.artifact}"
+                      status: approved
+                      session_id: fixture
+                      artifact_hash: reviewed
 
                   - id: run
                     type: workflow.execute
@@ -335,6 +355,7 @@ public class WorkflowExecuteExecutorTests
         var engine = new WorkflowEngine
         {
 
+            PlanningRuntimeFactory = new ApprovedArtifact(generatedYaml),
             Limits = new ExecutionLimits { MaxCallDepth = 1 } // Very shallow depth
         };
 
@@ -347,6 +368,7 @@ public class WorkflowExecuteExecutorTests
         engine = new WorkflowEngine
         {
 
+            PlanningRuntimeFactory = new ApprovedArtifact(generatedYaml),
             Limits = new ExecutionLimits { MaxCallDepth = 0 }
         };
 
@@ -394,6 +416,9 @@ public class WorkflowExecuteExecutorTests
                     type: set
                     input:
                       yaml: "${data.inputs.artifact}"
+                      status: approved
+                      session_id: fixture
+                      artifact_hash: reviewed
 
                   - id: run
                     type: workflow.execute
@@ -444,6 +469,9 @@ public class WorkflowExecuteExecutorTests
                     type: set
                     input:
                       yaml: "${data.inputs.artifact}"
+                      status: approved
+                      session_id: fixture
+                      artifact_hash: reviewed
 
                   - id: run
                     type: workflow.execute
@@ -541,6 +569,9 @@ public class WorkflowExecuteExecutorTests
                     type: set
                     input:
                       yaml: "${data.inputs.artifact}"
+                      status: approved
+                      session_id: fixture
+                      artifact_hash: reviewed
 
                   - id: run
                     type: workflow.execute
@@ -590,6 +621,9 @@ public class WorkflowExecuteExecutorTests
                     type: set
                     input:
                       yaml: "${data.inputs.artifact}"
+                      status: approved
+                      session_id: fixture
+                      artifact_hash: reviewed
 
                   - id: run
                     type: workflow.execute
@@ -635,6 +669,9 @@ public class WorkflowExecuteExecutorTests
                     type: set
                     input:
                       yaml: "${data.inputs.artifact}"
+                      status: approved
+                      session_id: fixture
+                      artifact_hash: reviewed
 
                   - id: run
                     type: workflow.execute
@@ -690,6 +727,9 @@ public class WorkflowExecuteExecutorTests
                     type: set
                     input:
                       yaml: "${data.inputs.artifact}"
+                      status: approved
+                      session_id: fixture
+                      artifact_hash: reviewed
 
                   - id: run
                     type: workflow.execute
@@ -772,6 +812,9 @@ public class WorkflowExecuteExecutorTests
                     type: set
                     input:
                       yaml: "${data.inputs.artifact}"
+                      status: approved
+                      session_id: fixture
+                      artifact_hash: reviewed
 
                   - id: run
                     type: workflow.execute
@@ -784,5 +827,15 @@ public class WorkflowExecuteExecutorTests
 
         Assert.True(result.Success);
         Assert.Equal("Items: 3", result.Outputs!["text"]!.GetValue<string>());
+    }
+
+    private sealed class ApprovedArtifact(string yaml) : IPlanningRuntimeFactory
+    {
+        public Task<IPlanningRuntimeSession> OpenAsync(StepExecutionContext context, PlanningSession initial, CancellationToken ct) => throw new NotSupportedException();
+        public Task<string> ReadApprovedYamlAsync(StepExecutionContext context, string sessionId, string artifactHash, CancellationToken ct)
+        {
+            Assert.Equal("fixture", sessionId); Assert.Equal("reviewed", artifactHash);
+            return Task.FromResult(yaml);
+        }
     }
 }

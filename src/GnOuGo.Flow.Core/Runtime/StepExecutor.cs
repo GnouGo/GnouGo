@@ -53,9 +53,6 @@ public sealed class StepExecutionContext
     public int CallDepth { get; init; }
     public HashSet<string> CallStack { get; init; } = new();
     public LLMUsageBudgetScope? LLMUsageBudget { get; set; }
-    public Planning.PlanningGenerationOptions? PlanningGeneration { get; set; }
-    public Planning.PlanningPreparationCheckpoint? PreparationCheckpoint { get; set; }
-    public Func<CancellationToken, Task>? PersistPreparation { get; set; }
     internal WorkflowExecutionScope? ExecutionScope { get; init; }
     internal WorkflowExecutionScope EffectiveExecutionScope =>
         ExecutionScope ?? new WorkflowExecutionScope(null, Engine.Evaluator, Engine.Interpolator);
@@ -67,12 +64,8 @@ public sealed class StepExecutionContext
     /// <summary>
     /// Executes an LLM call through the active provider-neutral usage budget, when configured.
     /// </summary>
-    public Func<LLMRequest, string, CancellationToken, Task<LLMResponse>>? PlanningModelDispatcher { get; set; }
 
-    public Task<LLMResponse> CallLLMAsync(ILLMClient client, LLMRequest request, string stage, CancellationToken ct)
-        => PlanningModelDispatcher is { } dispatcher ? dispatcher(request, stage, ct) : CallModelAsync(client, request, stage, ct);
-
-    public async Task<LLMResponse> CallModelAsync(
+    public async Task<LLMResponse> CallLLMAsync(
         ILLMClient client,
         LLMRequest request,
         string stage,
@@ -80,15 +73,6 @@ public sealed class StepExecutionContext
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(request);
-        if (PlanningGeneration is { } generation) Planning.PlanningGenerationPolicy.Apply(request, generation);
-
-        if (PreparationCheckpoint is { } checkpoint)
-        {
-            checkpoint.Stage = stage;
-            var requestHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(request, Planning.PlanningJsonContext.Default.LLMRequest))));
-            if (!checkpoint.RequestHashes.Contains(requestHash, StringComparer.Ordinal)) checkpoint.RequestHashes.Add(requestHash);
-            if (PersistPreparation is not null) await PersistPreparation(ct).ConfigureAwait(false);
-        }
 
         if (LLMUsageBudget is null)
         {

@@ -7,8 +7,6 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningJsonTransport
 {
-    internal static string ValueScope(string nodeKey) => "scope_" + PlanningGraphCompiler.Fingerprint(nodeKey)[..8] + "_";
-
     internal static PlanningValue Literal(JsonNode? json) => json switch
     {
         null => new(),

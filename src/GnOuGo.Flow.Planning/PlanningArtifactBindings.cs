@@ -6,7 +6,7 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Artifact identity comes from declared producer provenance, not matching scalar types.</summary>
 internal static class PlanningArtifactBindings
 {
-    internal static IEnumerable<PlanningDiagnostic> PrerequisiteFindings(PlanningGraph graph, PlanningPreparation preparation)
+    internal static IEnumerable<PlanningDiagnostic> PrerequisiteFindings(PlanningGraph graph, PlanningCatalog catalog)
     {
         for (var wi = 0; wi < graph.Workflows.Count; wi++)
         {
@@ -16,27 +16,26 @@ internal static class PlanningArtifactBindings
             foreach (var (producer, path) in located)
             {
                 if (producer.Type != "mcp.call" || !producer.OnError.Any(h => h.Action == "continue")) continue;
-                var produced = preparation.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.ArtifactContract?.Produces;
+                var produced = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.ArtifactContract?.Produces;
                 if (produced is null) continue;
-                var consumers = located.Where(p => p.Node != producer && preparation.Capabilities.FirstOrDefault(c => c.Id == p.Node.CapabilityId)?.ArtifactContract?.Consumes
+                var consumers = located.Where(p => p.Node != producer && catalog.Capabilities.FirstOrDefault(c => c.Id == p.Node.CapabilityId)?.ArtifactContract?.Consumes
                     .Any(c => c.Required && produced.Any(a => a.Kind == c.Kind)) == true).ToArray();
                 if (consumers.Length == 0) continue;
                 yield return new("ARTIFACT_FAILURE_PATH_UNPROVEN", path + "/onError",
                     "A required downstream artifact comes from this original producer. Continuing after its failure cannot manufacture that artifact in a fallback or structured result. " +
-                    "Fail closed at this producer while retaining workflow cleanup, or return to behavior review to establish a guarded consumer and an explicit failure route. A copied value does not prove artifact identity.",
+                    "Fail closed at this producer while retaining workflow cleanup, or revise the intent plan to establish a guarded consumer and an explicit failure route. A copied value does not prove artifact identity.",
                     ValidationStage: "dataflow");
             }
         }
     }
 
-    internal static bool Proves(PlanningWorkflow workflow, PlanningValue value, string kind, PlanningPreparation preparation, PlanningGraph graph, HashSet<string> visited, IReadOnlySet<string>? originOperations = null, string? originNode = null)
+    internal static bool Proves(PlanningWorkflow workflow, PlanningValue value, string kind, PlanningCatalog catalog, PlanningGraph graph, HashSet<string> visited, string? originNode = null)
     {
         return PlanningValueProvenance.Proves(workflow, value, graph, (producer, reference) =>
         {
-            var capability = preparation.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId);
+            var capability = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId);
             return producer.Type == "mcp.call" &&
                 (originNode is null || producer.Key == originNode && PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Contains(producer)) &&
-                (originOperations is null || producer.OperationIds.Concat(capability?.OperationIds ?? []).Any(originOperations.Contains)) &&
                 capability?.ArtifactContract?.Produces.Any(p => p.Kind == kind && p.Pointer == "/" + string.Join("/", reference.Path.Select(PlanningSchemaReferences.Escape))) == true;
         });
     }

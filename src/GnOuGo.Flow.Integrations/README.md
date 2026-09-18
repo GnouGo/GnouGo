@@ -48,33 +48,8 @@ Host adapters can reuse `RoutingLLMClientAdapter.MapRequest` and `MapResponse` t
 
 ## Durable planning runtime
 
-Register `TypedWorkflowPlanner` as `WorkflowEngine.WorkflowPlanner` and
-`Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace()` as `PlanningRuntimeFactory`.
-The factory opens an exclusive tenant/session lease and stores schema-5 snapshots, immutable
-requests, completed receipts, and cumulative budgets through the public KeyVault record API.
-`GnOuGo.Flow.Planning` remains independently publishable with only Flow.Core as a dependency.
-`RoutingLLMClientAdapter` exposes declared reasoning and Structured Output capabilities
-through AI.Core's `ResolveDeclaredCapabilities`, using the same routing as dispatch.
-Capability lookup makes no model-list or HTTP requests. Exact entries and declared
-aliases use embedded metadata, files and overrides; fuzzy suggestions and heuristic
-defaults cannot establish support. Unknown capabilities remain unknown, explicit
-unsupported reasoning returns an empty list, and unreadable configured files fail closed.
-Planning verifies
-the phase profile before dispatch and persists it with the exact request. Requests
-target 80% of the configured input ceiling; unknown usage remains nullable.
+Inject `TypedWorkflowPlanner` and `Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace()` into the engine. Planning remains separately publishable and depends only on Core.
 
-Session identity includes the run and call site. Reopening an unchanged run reuses completed
-receipts; a reserved dispatch without a receipt stops. Changing the initial request under the
-same run ID is a conflict. Lease files contain no content and live under the workspace-resolved
-`.GnOuGo/data/flow-planning-v5/leases` directory. All payloads use `flow-planning-*-v5` encrypted
-record namespaces. Agent.Server's designer retains its EF-backed session indexes.
+The factory stores schema-6 sessions, reservations, receipts and cumulative budgets through public encrypted KeyVault record APIs in `flow-planning-*-v6` collections. Exclusive tenant/session leases live under `.GnOuGo/data/flow-planning-v6/leases`. Old formats are rejected. Resume the same run ID and request; completed calls replay without a new charge and uncertain dispatches stop without redispatch.
 
-Planner checkpoints emit the shared `GnOuGo.Flow.Planning` convergence and gate events
-through Flow runtime telemetry. Durable request identities deduplicate hole exposures,
-and trace events carry tenant and hole identities without adding hole IDs to metrics.
-
-Planning journals validate bounded singleton output escalation against the encrypted
-parent request and truncation receipt. Only the normal 8192 ceiling can escalate once
-to 16384; content and reasoning remain identical. Completed escalations replay without
-dispatch, and unverifiable reservations stop. See the
-[policy and validation](../../docs/planner-output-budget-escalation.md).
+`ReadApprovedYamlAsync` verifies tenant ownership, stored approval, exact content and current capability contracts before `workflow.execute` receives YAML. Integrations propagate provider-neutral effect metadata; unknown MCP effects require conservative confirmation. See [architecture](../../docs/workflow-planning-v2.md).

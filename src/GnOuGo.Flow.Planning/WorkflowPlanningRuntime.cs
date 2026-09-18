@@ -1,100 +1,105 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning.Capabilities;
-
 namespace GnOuGo.Flow.Planning;
 
-/// <summary>Provider-neutral adapter over engine transport, contracts, budgets, and validators.</summary>
+/// <summary>Provider-neutral catalog, model, runtime validation, and checkpoint effects.</summary>
 public sealed class WorkflowPlanningRuntime : IPlanningRuntime
 {
+    private readonly WorkflowEngine _engine;
     private readonly StepExecutionContext _context;
-    private readonly Func<PlanningSnapshot, CancellationToken, Task> _checkpoint;
     private readonly ILLMClient? _model;
-
-    public WorkflowPlanningRuntime(WorkflowEngine engine, Func<PlanningSnapshot, CancellationToken, Task> checkpoint)
+    private readonly Func<PlanningSession, CancellationToken, Task> _checkpoint;
+    public WorkflowPlanningRuntime(WorkflowEngine engine, Func<PlanningSession, CancellationToken, Task> checkpoint)
     {
-        _context = new StepExecutionContext
-        {
-            Engine = engine,
-            Step = new CompiledStep { Source = new StepDef { Id = "planning", Type = "workflow.plan", Input = new JsonObject() } },
-            Data = new JsonObject { ["inputs"] = new JsonObject(), ["steps"] = new JsonObject() },
-            Limits = engine.Limits,
-            LLMUsageBudget = engine.LLMUsageBudget
-        };
-        _checkpoint = checkpoint;
+        _engine = engine; _checkpoint = checkpoint;
+        _context = new() { Engine = engine, Step = new() { Source = new() { Id = "planning", Type = "workflow.plan" } },
+            Data = new(), Limits = engine.Limits, LLMUsageBudget = engine.LLMUsageBudget };
     }
-    public WorkflowPlanningRuntime(StepExecutionContext context, ILLMClient model, Func<PlanningSnapshot, CancellationToken, Task> checkpoint)
-    {
-        _context = context;
-        _model = model;
-        _checkpoint = checkpoint;
-    }
+    public WorkflowPlanningRuntime(StepExecutionContext context, ILLMClient model, Func<PlanningSession, CancellationToken, Task> checkpoint)
+    { _context = context; _engine = context.Engine; _model = model; _checkpoint = checkpoint; }
+    public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => CapabilityDiscovery.DiscoverAsync(_engine, request, ct);
+    public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
+        => _context.CallLLMAsync(_model ?? _engine.LLMClient ?? throw new InvalidOperationException("No planning model configured."), request, "workflow.plan." + purpose, ct);
+    public Task CheckpointAsync(PlanningSession session, CancellationToken ct) => _checkpoint(session, ct);
 
-    public async Task<PlanningPreparationProgress> PrepareAsync(PlanningSnapshot snapshot, CancellationToken ct)
+    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct)
     {
-        var request = PlanningContext.EffectiveRequest(snapshot);
-        var checkpoint = snapshot.PreparationCheckpoint ??= new() { Fingerprint = PlanningGraphCompiler.Fingerprint(request.Prompt) };
-        var previousGeneration = _context.PlanningGeneration;
-        _context.PlanningGeneration = request.Generation;
-        _context.PreparationCheckpoint = checkpoint;
-        _context.PersistPreparation = token => CheckpointAsync(snapshot, token);
-        _context.PlanningModelDispatcher = (model, phase, token) => PlanningModelCalls.CallAsync(snapshot, this, phase, model, token);
+        ct.ThrowIfCancellationRequested();
+        var findings = new List<PlanningDiagnostic>();
         try
         {
-            var preparation = await CapabilityPreparation.PrepareTypedContractsAsync(_context, request, snapshot, this, ct);
-            checkpoint.Stage = "completed"; checkpoint.Diagnostics.Clear();
-            return new(checkpoint, preparation);
-        }
-        finally
-        {
-            _context.PlanningGeneration = previousGeneration;
-            _context.PreparationCheckpoint = null; _context.PersistPreparation = null; _context.PlanningModelDispatcher = null;
-        }
-    }
-
-    public Task<LLMResponse> CallAsync(LLMRequest request, string phase, CancellationToken ct)
-        => _context.CallModelAsync(_model ?? _context.Engine.LLMClient ?? throw new InvalidOperationException("No planning model is configured."), request, "workflow.plan." + phase, ct);
-    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct)
-        => PlanningArtifactValidation.ValidateTypedArtifactAsync(_context, request.Yaml, request.Request, request.Preparation, ct, request.Bindings);
-    public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct)
-        => PlanningArtifactValidation.ValidateTypedScenariosAsync(request.Yaml, request.Preparation, ct, request.Inputs, request.LoopItemSchemas, request.Observations);
-    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningPreparation preparation, CancellationToken ct)
-        => PlanningArtifactValidation.ValidateTypedCatalogAsync(_context.Engine, preparation, ct);
-    public async Task CheckpointAsync(PlanningSnapshot snapshot, CancellationToken ct)
-    {
-        var unreserved = snapshot.Construction.PendingCalls.Where(c => c.ReasoningCapabilityFingerprint is null).ToArray();
-        foreach (var call in unreserved)
-        {
-            var resolver = _context.Engine.LLMCapabilities ?? _context.Engine.LLMClient as ILLMCapabilityResolver ?? _model as ILLMCapabilityResolver;
-            IReadOnlyList<string>? levels;
-            try { levels = resolver is null ? null : await resolver.SupportedReasoningLevelsAsync(call.Request.Provider, call.Request.Model, ct); }
-            catch (Exception error)
-            {
-                // Metadata lookup happens before the durable dispatch boundary.
-                // Do not leave a reservation that a final checkpoint would try
-                // to resolve again, or classify it as an unverifiable dispatch.
-                NotDispatched();
-                if (error is OperationCanceledException) throw;
-                throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException("MODEL_METADATA_UNAVAILABLE", "Model capability metadata could not be read. No planning request was dispatched.");
-            }
-            if (levels is null || call.Request.Reasoning is null || !levels.Contains(call.Request.Reasoning, StringComparer.Ordinal))
-            {
-                NotDispatched();
-                throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException("MODEL_REASONING_UNPROVEN", "The configured model metadata does not establish support for the phase reasoning level. No provider request was dispatched.");
-            }
-            call.ReasoningCapabilityFingerprint = PlanningGraphCompiler.Fingerprint(string.Join("\n", levels.Order(StringComparer.Ordinal)));
-
-            void NotDispatched()
-            {
-                foreach (var pending in unreserved)
+            var document = WorkflowParser.Parse(request.Yaml);
+            findings.AddRange(new WorkflowValidator(_engine.Registry).Validate(document).Select(e => new PlanningDiagnostic(e.Code, "workflow:" + e.WorkflowName + "/step:" + e.StepId + "/field:" + e.Field, e.Message)));
+            new WorkflowCompiler().Compile(document);
+            var contracts = request.Catalog.Capabilities.Where(c => c.Kind == "tool").Select(c => new McpToolOutputContract(c.Server!, c.Method!, c.InputSchema, c.OutputSchema, c.ExampleResponse)).ToArray();
+            WorkflowPlanSemanticValidator.ValidateWithStepContracts(document, contracts, _engine.Registry.GetContracts());
+            foreach (var (workflow, definition) in document.Workflows)
+                foreach (var node in Enumerate(definition.Steps.Concat(definition.Finally)))
                 {
-                    snapshot.Construction.PendingCalls.Remove(pending);
-                    if (snapshot.RequestAccounting.SingleOrDefault(a => a.Id == pending.Id) is { } reservation) reservation.Evidence = "not_dispatched";
+                    if (node.Type is "workflow.plan" or "workflow.execute" || !request.Catalog.AllowedStepTypes.Contains(node.Type))
+                        findings.Add(new("STEP_TYPE_DENIED", workflow + "/" + node.Id, "The executable step violates host policy."));
+                    if (node.Type != "mcp.call") continue;
+                    var binding = request.Bindings.SingleOrDefault(b => b.Workflow == workflow && b.Step == node.Id);
+                    var capability = request.Catalog.Capabilities.SingleOrDefault(c => c.Id == binding?.CapabilityId);
+                    if (capability is null || node.Input?["server"]?.ToString() != capability.Server || node.Input?["method"]?.ToString() != capability.Method || node.Input?["kind"]?.ToString() != capability.Kind)
+                        findings.Add(new("CAPABILITY_BINDING_INVALID", workflow + "/" + node.Id, "The compiled call does not match its catalog binding."));
                 }
-            }
         }
-        await _checkpoint(snapshot, ct);
+        catch (WorkflowSemanticValidationException ex)
+        { findings.AddRange(ex.Errors.Select(e => new PlanningDiagnostic(e.Code, "workflow:" + e.WorkflowName + "/step:" + e.StepId + "/field:" + e.Field, e.Message))); }
+        catch (WorkflowCompilationException ex)
+        { findings.AddRange(ex.Errors.Select(e => new PlanningDiagnostic(e.Code, "workflow:" + e.WorkflowName + "/step:" + e.StepId + "/field:" + e.Field, e.Message))); }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        { findings.Add(new("EXECUTABLE_INVALID", "$", ex.Message)); }
+        return Task.FromResult<IReadOnlyList<PlanningDiagnostic>>(findings);
+    }
+    public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct)
+    {
+        var fake = new InMemoryMcpClientFactory();
+        foreach (var group in request.Catalog.Capabilities.Where(c => c.Server is not null).GroupBy(c => c.Server!))
+        {
+            var config = new MockMcpServerConfig();
+            foreach (var capability in group.Where(c => c.Kind == "tool"))
+            {
+                config.Tools.Add(new() { Name = capability.Method!, InputSchema = capability.InputSchema, OutputSchema = capability.OutputSchema, EffectKind = capability.EffectKind,
+                    ArtifactContract = capability.ArtifactContract is null ? null : new(capability.ArtifactContract, []) });
+                config.ToolHandlers[capability.Method!] = _ => new()
+                {
+                    Content = capability.ExampleResponse is { } example && PlanningContractValidation.ValidateInstance(example, capability.OutputSchema).Count == 0
+                        ? example.DeepClone() : WorkflowPlanDryRunValidator.CreateArtifactSample(capability.OutputSchema, capability.ArtifactContract)
+                };
+            }
+            foreach (var capability in group.Where(c => c.Kind == "prompt")) config.Prompts.Add(new() { Name = capability.Method!, Description = capability.Description });
+            fake.RegisterServer(group.Key, config);
+        }
+        return WorkflowPlanScenarioValidator.ValidateAsync(WorkflowParser.Parse(request.Yaml), fake, ct, request.Inputs, request.LoopItemSchemas, request.Observations);
+    }
+    public async Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct)
+    {
+        try
+        {
+            var current = await CapabilityDiscovery.DiscoverAsync(_engine, new PlanningRequest { Policy = catalog.Policy }, ct);
+            if (!JsonNode.DeepEquals(catalog.StepContracts, current.StepContracts) || !catalog.AllowedStepTypes.SequenceEqual(current.AllowedStepTypes))
+                return [new("CATALOG_CHANGED", "/stepContracts", "The host's executable contracts changed; rebuild and review the workflow.")];
+            return catalog.Capabilities.Where(c => !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(c, PlanningJsonContext.Default.PlanningCapability),
+                current.Capabilities.FirstOrDefault(n => n.Id == c.Id) is { } match ? JsonSerializer.SerializeToNode(match, PlanningJsonContext.Default.PlanningCapability) : null))
+                .Select(c => new PlanningDiagnostic("CATALOG_CHANGED", c.Id, "A capability contract changed; revise against the current catalog.")).ToArray();
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception) { return [new("CATALOG_UNAVAILABLE", "$", "Current capability contracts could not be verified.")]; }
+    }
+    private static IEnumerable<StepDef> Enumerate(IEnumerable<StepDef> nodes)
+    {
+        foreach (var node in nodes)
+        {
+            yield return node;
+            foreach (var child in Enumerate((node.Steps ?? []).Concat(node.Default ?? []).Concat((node.Branches ?? []).SelectMany(b => b.Steps)).Concat((node.Cases ?? []).SelectMany(c => c.Steps)))) yield return child;
+        }
     }
 }

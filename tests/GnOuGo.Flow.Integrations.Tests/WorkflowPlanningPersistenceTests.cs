@@ -23,19 +23,20 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         var client = new Client(); var factory = Factory(); LLMRequest request;
         await using (var session = await factory.OpenAsync(Context(client), Initial(), Ct))
         {
-            request = Request(session.Snapshot, "one");
-            session.Snapshot.Construction.PendingCalls.Add(new() { Id = request.ClientRequestId!, Phase = "intent", Request = request });
-            await session.Runtime.CheckpointAsync(session.Snapshot, Ct);
+            request = Request(session.Session, "one");
+            session.Session.PendingCall = new() { Id = request.ClientRequestId!, Purpose = "intent", Request = request };
+            await session.Runtime.CheckpointAsync(session.Session, Ct);
             await session.Runtime.CallAsync(request, "intent", Ct);
         }
         await using (var reopened = await Factory().OpenAsync(Context(client), Initial(), Ct))
         {
-            Assert.Single(reopened.Snapshot.Construction.PendingCalls);
-            Assert.Equal(1, reopened.Snapshot.Usage!.Calls);
+            Assert.NotNull(reopened.Session.PendingCall);
+            Assert.True(reopened.Session.ActiveMilliseconds > 0);
+            Assert.Equal(1, reopened.Session.Usage!.Calls);
             var replay = await reopened.Runtime.CallAsync(request, "intent", Ct);
             Assert.Equal("secret result", replay.Json!["value"]!.ToString());
-            await reopened.Runtime.CheckpointAsync(reopened.Snapshot, Ct);
-            Assert.Equal(1, reopened.Snapshot.Usage.Calls);
+            await reopened.Runtime.CheckpointAsync(reopened.Session, Ct);
+            Assert.Equal(1, reopened.Session.Usage.Calls);
         }
         Assert.Equal(1, client.Calls);
         foreach (var file in Directory.GetFiles(_directory, "*", SearchOption.AllDirectories))
@@ -52,14 +53,14 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         var client = new Client { Fail = true }; LLMRequest request;
         await using (var session = await Factory().OpenAsync(Context(client), Initial(), Ct))
         {
-            request = Request(session.Snapshot, "one");
+            request = Request(session.Session, "one");
             await Assert.ThrowsAsync<IOException>(() => session.Runtime.CallAsync(request, "intent", Ct));
         }
         client.Fail = false;
         await using var reopened = await Factory().OpenAsync(Context(client), Initial(), Ct);
         var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => reopened.Runtime.CallAsync(request, "intent", Ct));
         Assert.Equal(ErrorCodes.LlmBudgetUnverifiable, error.Code);
-        Assert.Equal(1, client.Calls); Assert.Equal(1, reopened.Snapshot.Usage!.Calls);
+        Assert.Equal(1, client.Calls); Assert.Equal(1, reopened.Session.Usage!.Calls);
     }
 
     [Fact]
@@ -70,8 +71,8 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         await Assert.ThrowsAsync<PlanningConflictException>(() => Factory().OpenAsync(Context(client), Initial(), Ct));
         var other = Initial(); other.Request.TenantId = "other";
         await using var second = await Factory().OpenAsync(Context(client, "other"), other, Ct);
-        await first.Runtime.CallAsync(Request(first.Snapshot, "one"), "intent", Ct);
-        await second.Runtime.CallAsync(Request(second.Snapshot, "one"), "intent", Ct);
+        await first.Runtime.CallAsync(Request(first.Session, "one"), "intent", Ct);
+        await second.Runtime.CallAsync(Request(second.Session, "one"), "intent", Ct);
         Assert.Equal(2, client.Calls);
     }
 
@@ -83,46 +84,14 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         {
             var calls = Enumerable.Range(0, 4).Select(async i =>
             {
-                try { await session.Runtime.CallAsync(Request(session.Snapshot, i.ToString()), "intent", Ct); return true; }
+                try { await session.Runtime.CallAsync(Request(session.Session, i.ToString()), "intent", Ct); return true; }
                 catch (WorkflowRuntimeException e) when (e.Code == ErrorCodes.LlmBudgetExceeded) { return false; }
             });
             Assert.Single(await Task.WhenAll(calls), passed => passed);
         }
         await using var reopened = await Factory().OpenAsync(Context(client), Initial(), Ct);
-        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => reopened.Runtime.CallAsync(Request(reopened.Snapshot, "next"), "intent", Ct));
+        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => reopened.Runtime.CallAsync(Request(reopened.Session, "next"), "intent", Ct));
         Assert.Equal(ErrorCodes.LlmBudgetExceeded, error.Code); Assert.Equal(1, client.Calls);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ExactEscalationSurvivesEncryptedRestartWithoutClampingOrRedispatch(bool interrupted)
-    {
-        var client = new Client { Truncate = true }; LLMRequest child;
-        PlanningSnapshot InitialWithBudget()
-        {
-            var state = Initial(); state.Request.Options["llm_budget"]!["max_calls"] = 3; return state;
-        }
-        await using (var session = await Factory().OpenAsync(Context(client), InitialWithBudget(), Ct))
-        {
-            var parent = Request(session.Snapshot, "parent");
-            var response = await session.Runtime.CallAsync(parent, "intent", Ct);
-            child = JsonSerializer.Deserialize(JsonSerializer.Serialize(parent, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
-            child.MaxTokens = 16384;
-            child.OutputBudgetEscalation = new("workflow", parent.ClientRequestId!, PlanningGenerationPolicy.RequestFingerprint(parent),
-                PlanningGenerationPolicy.ReceiptFingerprint(response), "value", "semantic", "evidence");
-            child.ClientRequestId = session.Snapshot.Request.SessionId + ":child:" + PlanningGenerationPolicy.RequestFingerprint(child);
-            client.Truncate = false; client.Fail = interrupted;
-            if (interrupted) await Assert.ThrowsAsync<IOException>(() => session.Runtime.CallAsync(child, "intent", Ct));
-            else await session.Runtime.CallAsync(child, "intent", Ct);
-        }
-        client.Fail = false;
-        await using var reopened = await Factory().OpenAsync(Context(client), InitialWithBudget(), Ct);
-        if (interrupted) Assert.Equal(ErrorCodes.LlmBudgetUnverifiable,
-            (await Assert.ThrowsAsync<WorkflowRuntimeException>(() => reopened.Runtime.CallAsync(child, "intent", Ct))).Code);
-        else Assert.Equal("secret result", (await reopened.Runtime.CallAsync(child, "intent", Ct)).Json!["value"]!.ToString());
-        Assert.Equal(2, client.Calls); Assert.Equal(2, reopened.Snapshot.Usage!.Calls);
-        Assert.Equal(new int?[] { 8192, 16384 }, client.Ceilings);
     }
 
     [Fact]
@@ -133,7 +102,7 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         await Assert.ThrowsAsync<PlanningConflictException>(() => Factory().OpenAsync(Context(new Client()), changed, Ct));
     }
 
-    private static PlanningSnapshot Initial() => new()
+    private static PlanningSession Initial() => new()
     {
         Request = new() { TenantId = "tenant", Prompt = "secret intent", Options = new() { ["llm_budget"] = new JsonObject { ["max_calls"] = 1 } } }
     };
@@ -144,7 +113,7 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         Data = new(),
         Step = new() { Source = new StepDef { Id = "plan", Type = "workflow.plan" } }
     };
-    private static LLMRequest Request(PlanningSnapshot snapshot, string attempt)
+    private static LLMRequest Request(PlanningSession snapshot, string attempt)
     {
         var request = PlanningGenerationPolicy.Apply(new()
         {

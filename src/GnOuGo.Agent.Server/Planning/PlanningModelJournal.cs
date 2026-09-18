@@ -17,8 +17,8 @@ internal sealed class PlanningModelJournal(
     ILLMClient inner, IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records,
     string tenantId, string sessionId, LLMUsageBudgetScope budget, IModelUsageCostEstimator estimator, PlanningGenerationOptions? generation = null) : ILLMClient
 {
-    internal const string Collection = "agent-planning-model-receipts-v5";
-    internal const string RequestCollection = "agent-planning-model-requests-v5";
+    internal const string Collection = "agent-planning-model-receipts-v6";
+    internal const string RequestCollection = "agent-planning-model-requests-v6";
     private static readonly Meter Metrics = new("GnOuGo.Agent.Planning");
     private static readonly Histogram<double> ProviderDuration = Metrics.CreateHistogram<double>("gen_ai.client.operation.duration", "s");
     private static readonly Histogram<long> TokenUsage = Metrics.CreateHistogram<long>("gen_ai.client.token.usage", "{token}");
@@ -34,19 +34,6 @@ internal sealed class PlanningModelJournal(
         request.ClientRequestId = key;
         if (!key.EndsWith(":" + requestHash, StringComparison.Ordinal))
             throw new InvalidOperationException("The reserved model request changed before dispatch.");
-        if (request.OutputBudgetEscalation is { } proof)
-        {
-            if (!proof.ParentRequestId.StartsWith(sessionId + ":", StringComparison.Ordinal))
-                throw new PlanningConflictException("The output escalation parent belongs to another session.");
-            var parentKey = sessionId + ":" + proof.ParentRequestId;
-            var issuedParent = await records.GetAsync(RequestCollection, tenantId, parentKey, EfPlanningSessionStore.Author, ct);
-            var parentReceipt = await records.GetAsync(Collection, tenantId, parentKey, EfPlanningSessionStore.Author, ct);
-            if (issuedParent is null || parentReceipt is null)
-                throw new PlanningConflictException("The output escalation requires a durable parent request and receipt.");
-            PlanningGenerationPolicy.ValidateOutputEscalation(request,
-                JsonSerializer.Deserialize(issuedParent.Value, PlanningJsonContext.Default.LLMRequest)!,
-                JsonSerializer.Deserialize(parentReceipt.Value, PlanningJsonContext.Default.LLMResponse)!, sessionId);
-        }
         await using var db = await contexts.CreateDbContextAsync(ct);
         var existing = await db.Calls.AsNoTracking().SingleOrDefaultAsync(c => c.TenantId == tenantId && c.SessionId == sessionId && c.RequestHash == key, ct);
         if (existing is not null)
@@ -108,7 +95,7 @@ internal sealed class PlanningModelJournal(
 
 internal sealed class PlanningBudgetSink(IKeyVaultRecordStore records, string tenantId, string sessionId) : ILLMUsageBudgetSink
 {
-    internal const string Collection = "agent-planning-budgets-v5";
+    internal const string Collection = "agent-planning-budgets-v6";
     public async ValueTask PersistAsync(LLMUsageBudgetSnapshot snapshot, CancellationToken ct)
         => await records.UpsertAsync(Collection, tenantId, sessionId, JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot), EfPlanningSessionStore.Author, ct);
 }

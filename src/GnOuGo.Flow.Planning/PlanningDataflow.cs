@@ -9,13 +9,13 @@ internal static class PlanningDataflow
 {
     internal const string WorkflowOutputs = "$outputs";
 
-    internal static Dictionary<string, PlanningBinding> Index(PlanningWorkflow workflow, PlanningPreparation preparation, PlanningGraph graph, string? consumer = null, bool includeUnresolved = false)
+    internal static Dictionary<string, PlanningBinding> Index(PlanningWorkflow workflow, PlanningCatalog catalog, PlanningGraph graph, string? consumer = null, bool includeUnresolved = false)
     {
         var result = new Dictionary<string, PlanningBinding>(StringComparer.Ordinal);
         var nodes = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).ToArray();
         var locations = PlanningGraphValidation.Located(workflow.Steps, "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, "/finally")).ToDictionary(p => p.Node.Key, p => p.Path, StringComparer.Ordinal);
         var consumerIndex = consumer is null or WorkflowOutputs ? nodes.Length : Array.FindIndex(nodes, n => n.Key == consumer);
-        var resolve = PlanningGraphValidation.ValueContractResolver(graph, workflow, preparation);
+        var resolve = PlanningGraphValidation.ValueContractResolver(graph, workflow, catalog);
         var loopSources = consumer is null or WorkflowOutputs ? Enumerable.Empty<PlanningValue>() : nodes.Where(n => n.Type is "loop.sequential" or "loop.parallel" &&
             locations[consumer].StartsWith(locations[n.Key] + "/steps/", StringComparison.Ordinal))
             .SelectMany(n => new[] { new PlanningValue { Kind = "loop_item", Source = n.Key }, new PlanningValue { Kind = "loop_index", Source = n.Key } });
@@ -54,7 +54,7 @@ internal static class PlanningDataflow
                         new[] { "/cases/", "/default/", "/branches/" }.Any(marker => locations[source.Source!].Contains(marker, StringComparison.Ordinal)));
                     var availability = conditional ? "conditional" : contract.Count == 0 ? "opaque" : Nullable(contract) ? "nullable" : "unconditional";
                     if (source.Kind == "input" && workflow.Inputs.Single(p => p.Name == source.Source) is { Required: false } input &&
-                        (input.Default is null || !PlanningGraphValidation.IsLiteral(input.Default) || PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(input.Default), PlanningGraphCompiler.ToJsonSchema(input.Schema, preparation)).Count > 0)) availability = "absent";
+                        (input.Default is null || !PlanningGraphValidation.IsLiteral(input.Default) || PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(input.Default), PlanningGraphCompiler.ToJsonSchema(input.Schema, catalog)).Count > 0)) availability = "absent";
                     var id = PlanningBindingIdentity.Id(value);
                     result[id] = new(id, workflow.Key, value, contract, availability);
                 }
@@ -63,7 +63,7 @@ internal static class PlanningDataflow
         }
         foreach (var loop in nodes.Take(Math.Max(0, consumerIndex)).Where(n => n.Type is "loop.sequential" or "loop.parallel" && Available(n.Key)))
             foreach (var child in loop.Steps.Where(n => n.Type == "mcp.call"))
-                foreach (var artifact in preparation.Capabilities.FirstOrDefault(c => c.Id == child.CapabilityId)?.ArtifactContract?.Produces.Where(p => p.Encoding == "json_array") ?? [])
+                foreach (var artifact in catalog.Capabilities.FirstOrDefault(c => c.Id == child.CapabilityId)?.ArtifactContract?.Produces.Where(p => p.Encoding == "json_array") ?? [])
                 {
                     var value = new PlanningValue
                     {
@@ -78,13 +78,12 @@ internal static class PlanningDataflow
 
         bool Available(string key)
         {
+            if (!includeUnresolved && PlanningValues.HasUnresolved(JsonSerializer.SerializeToNode(nodes.Single(n => n.Key == key), PlanningJsonContext.Default.PlanningNode))) return false;
             if (consumer is null) return true;
             foreach (var condition in Guards(key))
             {
-                // WorkflowEngine evaluates public outputs only after successful
-                // main execution and finalization. The coordinator's materializer
-                // guard is necessarily true on that path, never on failure cleanup.
-                if (consumer == WorkflowOutputs && PlanningSkeletonInputs.FinalizerCompletesOnSuccess(workflow, preparation, nodes.Single(n => n.Key == key))) continue;
+                if (consumer != WorkflowOutputs && locations[consumer].StartsWith("/finally/", StringComparison.Ordinal) &&
+                    PlanningGraphBuilder.GuardsFinalizerSource(nodes.Single(n => n.Key == consumer), key)) continue;
                 if (consumer == WorkflowOutputs || !Guards(consumer).Any(guard => JsonNode.DeepEquals(
                     JsonSerializer.SerializeToNode(condition, PlanningJsonContext.Default.PlanningValue),
                     JsonSerializer.SerializeToNode(guard, PlanningJsonContext.Default.PlanningValue)))) return false;
@@ -94,7 +93,7 @@ internal static class PlanningDataflow
             var path = locations[key]; var target = consumer == WorkflowOutputs ? "/outputs" : locations[consumer];
             // Main execution can stop before any producer; finalizers cannot assume those results exist.
             if (target.StartsWith("/finally/", StringComparison.Ordinal) && path.StartsWith("/steps/", StringComparison.Ordinal) &&
-                !PlanningSkeletonInputs.GuardedFinalizerSource(workflow, preparation, nodes.Single(n => n.Key == consumer), key)) return false;
+                !PlanningGraphBuilder.GuardsFinalizerSource(nodes.Single(n => n.Key == consumer), key)) return false;
             if (target.StartsWith(path + "/", StringComparison.Ordinal)) return false; // An executing ancestor has no completed result yet.
             foreach (var marker in new[] { "/cases/", "/default/", "/branches/" })
             {
@@ -115,25 +114,38 @@ internal static class PlanningDataflow
             (n.Key == key || locations[key].StartsWith(locations[n.Key] + "/", StringComparison.Ordinal))).Select(n => n.If!);
     }
 
-    internal static PlanningDataflowContract Describe(PlanningGraph graph, PlanningPreparation preparation)
+    internal static IEnumerable<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningCatalog catalog)
     {
-        var contract = new PlanningDataflowContract();
-        foreach (var workflow in graph.Workflows)
+        for (var wi = 0; wi < graph.Workflows.Count; wi++)
         {
-            var index = Index(workflow, preparation, graph); contract.Bindings.AddRange(index.Values);
-            var loopBodyKeys = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => n.Type is "loop.sequential" or "loop.parallel")
-                .SelectMany(n => PlanningGraphCompiler.Enumerate(n.Steps)).Select(n => n.Key).ToHashSet(StringComparer.Ordinal);
-            foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)))
+            var workflow = graph.Workflows[wi];
+            foreach (var (node, path) in PlanningGraphValidation.Located(workflow.Steps, $"/workflows/{wi}/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, $"/workflows/{wi}/finally")))
             {
-                if (loopBodyKeys.Contains(node.Key))
-                    foreach (var binding in Index(workflow, preparation, graph, node.Key).Values.Where(b => b.Value.Kind is "loop_item" or "loop_index" or "loop_previous"))
-                        if (!contract.Bindings.Any(b => b.Id == binding.Id && b.WorkflowKey == binding.WorkflowKey)) contract.Bindings.Add(binding);
-                var consumed = References(node.Input).Concat(node.Expr is null ? [] : References(node.Expr)).DistinctBy(PlanningBindingIdentity.Id).ToArray();
-                contract.Operations.Add(new(workflow.Key, node.Key, consumed.Select(PlanningBindingIdentity.Id).ToList(), consumed.Where(v => v.Kind == "input").Select(v => v.Source!).Distinct(StringComparer.Ordinal).ToList()));
+                foreach (var finding in Check(PlanningGraphBuilder.References(node), node.Key, path)) yield return finding;
+                var capability = catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
+                var request = PlanningGraphValidation.Member(node.Input, "request");
+                foreach (var artifact in capability?.ArtifactContract?.Consumes ?? [])
+                {
+                    var value = request;
+                    foreach (var part in artifact.Pointer.Split('/').Skip(1))
+                        value = value?.Members.FirstOrDefault(m => m.Name == part.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal))?.Value;
+                    if (value is null && !artifact.Required) continue;
+                    if (value is null || !PlanningArtifactBindings.Proves(workflow, value, artifact.Kind, catalog, graph, new()))
+                        yield return new("ARTIFACT_BINDING_INVALID", path + "/input/request" + artifact.Pointer, "Bind the declared artifact from an available producer of kind '" + artifact.Kind + "'.");
+                }
+            }
+            foreach (var output in workflow.Outputs)
+                foreach (var finding in Check(References(output.Value), WorkflowOutputs, $"/workflows/{wi}/outputs/{workflow.Outputs.IndexOf(output)}/value")) yield return finding;
+            IEnumerable<PlanningDiagnostic> Check(IEnumerable<PlanningValue> references, string consumer, string path)
+            {
+                Dictionary<string, PlanningBinding>? available;
+                try { available = Index(workflow, catalog, graph, consumer); }
+                catch (InvalidOperationException) { yield break; }
+                foreach (var reference in references)
+                    if (!available.TryGetValue(PlanningBindingIdentity.Id(new PlanningValue { Kind = reference.Kind, Source = reference.Source, ResultChannel = reference.ResultChannel }), out var binding) || binding.Availability is "absent" or "conditional")
+                        yield return new("BINDING_UNAVAILABLE", path, "The binding is not available in this scope: " + reference.Kind + ":" + reference.Source + "/" + string.Join("/", reference.Path));
             }
         }
-        contract.Fingerprint = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(contract, PlanningJsonContext.Default.PlanningDataflowContract));
-        return contract;
     }
 
     internal static IEnumerable<PlanningValue> References(PlanningValue value)
@@ -148,135 +160,6 @@ internal static class PlanningDataflow
             members = members.Where(m => used.Contains(m.Name));
         }
         foreach (var child in members.Select(m => m.Value).Concat(value.Items)) foreach (var reference in References(child)) yield return reference;
-    }
-
-    internal static HashSet<string> BusinessInputs(PlanningWorkflow workflow, PlanningNode node)
-    {
-        var found = new HashSet<string>(StringComparer.Ordinal); var visited = new HashSet<string>(StringComparer.Ordinal);
-        void Visit(PlanningNode current)
-        {
-            if (!visited.Add(current.Key)) return;
-            foreach (var child in current.Steps.Concat(current.Default).Concat(current.Cases.SelectMany(c => c.Steps)).Concat(current.Branches.SelectMany(b => b.Steps))) Visit(child);
-            foreach (var value in References(current.Input).Concat(Conditions(current).SelectMany(References)))
-                if (value.Kind == "input") found.Add(value.Source!);
-                else if (PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).FirstOrDefault(n => n.Key == value.Source) is { } producer) Visit(producer);
-        }
-        Visit(node);
-        var located = PlanningGraphValidation.Located(workflow.Steps, "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, "/finally")).ToArray();
-        var path = located.Single(p => ReferenceEquals(p.Node, node)).Path;
-        // Branch selection and collection cardinality are genuine runtime dependencies.
-        // Inspect only governing expressions, never unrelated sibling actions.
-        foreach (var parent in located.Where(p => path.StartsWith(p.Path + "/", StringComparison.Ordinal)))
-        {
-            var caseIndex = parent.Node.Cases.FindIndex(c => path.StartsWith(parent.Path + "/cases/" + parent.Node.Cases.IndexOf(c) + "/", StringComparison.Ordinal));
-            var governing = parent.Node.Type == "switch" ? Conditions(parent.Node, caseIndex < 0 ? null : caseIndex + 1)
-                : parent.Node.Type is "loop.sequential" or "loop.parallel" ? new[] { parent.Node.Input } : [];
-            foreach (var value in governing.SelectMany(References))
-                if (value.Kind == "input") found.Add(value.Source!);
-                else if (located.FirstOrDefault(p => p.Node.Key == value.Source).Node is { } producer) Visit(producer);
-        }
-        return found;
-    }
-
-    internal static IEnumerable<PlanningValue> Conditions(PlanningNode node, int? caseCount = null)
-    {
-        if (node.Expr is not null) yield return node.Expr;
-        if (node.Type == "switch")
-            foreach (var outcome in node.Cases.Take(caseCount ?? node.Cases.Count))
-                if (outcome.When is not null && (node.Expr is null || outcome.Value is null)) yield return outcome.When;
-    }
-
-    internal static IReadOnlyList<PlanningDiagnostic> OperationInputFindings(PlanningGraph graph, PlanningPreparation preparation)
-    {
-        var findings = new List<PlanningDiagnostic>();
-        foreach (var workflow in graph.Workflows)
-        {
-            var root = "/workflows/" + graph.Workflows.IndexOf(workflow);
-            var located = PlanningGraphValidation.Located(workflow.Steps, root + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, root + "/finally")).ToArray();
-            foreach (var (node, path) in located)
-            {
-                var required = PlanningOperationCompositions.RequiredInputs(workflow, node, preparation);
-                var composition = PlanningOperationCompositions.Owner(workflow, node, preparation);
-                var terminal = composition?.Steps[^1] == node;
-                if (required.Count == 0 && !terminal) continue;
-                var inputs = new HashSet<string>(StringComparer.Ordinal);
-                var (dependencies, visited) = OperationDependencies(workflow, node, preparation, graph, inputs);
-                if (terminal)
-                    foreach (var missing in composition!.Steps.SkipLast(1).Where(n => !visited.Contains(n.Key)))
-                        findings.Add(new("COMPOSITION_INPUT_BINDING_MISSING", path + "/input", "The final result of this owned operation must consume intermediate producer '" + missing.Key + "'. Preserve its original result or a validated dependency; an unused sibling cannot establish completion.", Rule: "producer:" + missing.Key));
-                foreach (var missing in required.Except(dependencies, StringComparer.Ordinal))
-                {
-                    if (PlanningWorkflowProvenance.InputFindings(graph, workflow, missing, inputs, preparation) is { } boundary)
-                    { findings.AddRange(boundary); continue; }
-                    findings.Add(new("OPERATION_INPUT_BINDING_MISSING", path + "/input", "This operation must consume the result of locked upstream operation '" + missing + "', directly or through a validated dependency. Eligible producer nodes: " +
-                        string.Join(", ", located.Where(p => p.Node.OperationIds.Contains(missing) || preparation.Capabilities.FirstOrDefault(c => c.Id == p.Node.CapabilityId)?.OperationIds.Contains(missing) == true).Select(p => p.Node.Key)) + ". An unrelated result cannot substitute for this dependency.", Rule: "operation:" + missing));
-                }
-            }
-        }
-        return findings;
-    }
-
-    internal static (HashSet<string> Operations, HashSet<string> Nodes) OperationDependencies(PlanningWorkflow workflow, PlanningNode node, PlanningPreparation preparation, PlanningGraph? graph = null, HashSet<string>? consumedInputs = null, PlanningValue? inputOverride = null, Func<PlanningValue, JsonObject?>? contractResolver = null)
-    {
-        var located = PlanningGraphValidation.Located(workflow.Steps, "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, "/finally")).ToArray();
-        var path = located.Single(p => p.Node == node).Path;
-        var dependencies = new HashSet<string>(StringComparer.Ordinal); var visited = new HashSet<string>(StringComparer.Ordinal);
-        var resolve = contractResolver ?? PlanningGraphValidation.OptionalValueContractResolver(graph ?? new() { Workflows = [workflow] }, workflow, preparation);
-        IEnumerable<PlanningValue> ValidInputReferences(PlanningNode current)
-        {
-            if (current.Type != "mcp.call" || current.Input.Kind != "object" ||
-                preparation.Capabilities.FirstOrDefault(c => c.Id == current.CapabilityId)?.InputSchema["properties"] is not JsonObject contracts)
-                return References(current.Input);
-            var values = new List<PlanningValue>();
-            foreach (var member in current.Input.Members)
-            {
-                if (member.Name != "request" || member.Value.Kind != "object") { values.AddRange(References(member.Value)); continue; }
-                foreach (var argument in member.Value.Members)
-                {
-                    if (contracts[argument.Name] is not JsonObject expected) continue;
-                    try
-                    {
-                        var valid = PlanningGraphValidation.IsLiteral(argument.Value)
-                            ? PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(argument.Value), expected).Count == 0
-                            : resolve(argument.Value) is not { } actual || PlanningGraphValidation.TypesFit(actual, expected);
-                        if (valid) values.AddRange(References(argument.Value));
-                    }
-                    catch (InvalidOperationException) { /* An unresolved or mistyped argument cannot establish a consumed operation. */ }
-                }
-            }
-            return values;
-        }
-        void Visit(PlanningNode current, bool source)
-        {
-            if (!visited.Add(current.Key)) return;
-            if (source)
-            {
-                dependencies.UnionWith(current.OperationIds.Concat(preparation.Capabilities.FirstOrDefault(c => c.Id == current.CapabilityId)?.OperationIds ?? []));
-            }
-            foreach (var value in (current == node && inputOverride is not null ? References(inputOverride) : ValidInputReferences(current)).Concat(Conditions(current).SelectMany(References)))
-                if (value.Kind == "input") consumedInputs?.Add(value.Source!);
-                else if (value.Kind is "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" && located.FirstOrDefault(p => p.Node.Key == value.Source).Node is { } producer)
-                {
-                    if (graph is not null && producer.Type == "workflow.call") dependencies.UnionWith(PlanningWorkflowProvenance.ReturnedOperations(graph, producer, preparation, value.Path));
-                    Visit(producer, true);
-                }
-            foreach (var child in current.Steps.Concat(current.Default).Concat(current.Cases.SelectMany(c => c.Steps)).Concat(current.Branches.SelectMany(b => b.Steps)))
-            {
-                // A container publishes its child call's returned outputs. An
-                // invocation alone proves nothing about unused callee operations.
-                if (graph is not null && child.Type == "workflow.call")
-                    dependencies.UnionWith(PlanningWorkflowProvenance.ReturnedOperations(graph, child, preparation));
-                Visit(child, true);
-            }
-        }
-        Visit(node, false);
-        // An accepted enclosing decision is a control dependency, not a
-        // fabricated argument to the conditional external operation.
-        foreach (var parent in located.Where(p => path.StartsWith(p.Path + "/", StringComparison.Ordinal) && p.Node.Type == "switch"))
-            if (parent.Node.Expr is { } selector)
-                foreach (var reference in References(selector))
-                    if (located.FirstOrDefault(p => p.Node.Key == reference.Source).Node is { } producer) Visit(producer, true);
-        return (dependencies, visited);
     }
 
     private static bool Nullable(JsonObject schema) => schema["type"] is JsonArray types && types.Any(t => t?.ToString() == "null") ||

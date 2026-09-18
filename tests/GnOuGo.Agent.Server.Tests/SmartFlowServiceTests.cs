@@ -418,7 +418,7 @@ workflows:
         Assert.Equal("MCP_CALL_ERROR", revision.Request.FailureEvidence!["error_code"]!.ToString());
         Assert.Contains("TARGET_EXISTS", revision.Request.FailureEvidence.ToJsonString());
         Assert.DoesNotContain("TARGET_EXISTS", revision.Request.Prompt);
-        Assert.Equal(PlanningStatus.Created, revision.Status); Assert.Null(revision.Preparation); Assert.Null(revision.ApprovedHash);
+        Assert.Equal(PlanningStatus.Created, revision.Status); Assert.Null(revision.Catalog); Assert.Null(revision.ApprovedHash);
         using var reopened = PlanningSessionLifecycleTests.Create(fixture, new GnOuGo.Flow.Planning.TypedWorkflowPlanner(), agentMcp);
         Assert.NotNull((await reopened.GetAsync(revision.Request.SessionId, TestContext.Current.CancellationToken))!.Request.FailureEvidence);
         Assert.Contains(events, evt =>
@@ -563,7 +563,7 @@ workflows:
         Assert.Equal("MCP_CALL_ERROR", revision.Request.FailureEvidence!["error_code"]!.ToString());
         Assert.Contains("TARGET_EXISTS", revision.Request.FailureEvidence.ToJsonString());
         Assert.DoesNotContain("TARGET_EXISTS", revision.Request.Prompt);
-        Assert.Equal(PlanningStatus.Created, revision.Status); Assert.Null(revision.Preparation); Assert.Null(revision.ApprovedHash);
+        Assert.Equal(PlanningStatus.Created, revision.Status); Assert.Null(revision.Catalog); Assert.Null(revision.ApprovedHash);
         using var reopened = PlanningSessionLifecycleTests.Create(fixture, new GnOuGo.Flow.Planning.TypedWorkflowPlanner(), agentMcp);
         Assert.NotNull((await reopened.GetAsync(revision.Request.SessionId, TestContext.Current.CancellationToken))!.Request.FailureEvidence);
         Assert.Contains(events, evt =>

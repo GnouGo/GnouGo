@@ -12,17 +12,17 @@ namespace GnOuGo.Flow.Integrations.Planning;
 public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records, string leaseDirectory) : IPlanningRuntimeFactory
 {
     internal const string Author = "GnOuGo.Flow.Planning";
-    internal const string Sessions = "flow-planning-snapshots-v5";
-    private const string Definitions = "flow-planning-definitions-v5";
+    internal const string Sessions = "flow-planning-sessions-v6";
+    private const string Definitions = "flow-planning-definitions-v6";
 
     public static WorkflowPlanningRuntimeFactory CreateWorkspace(string? keyVaultPath = null, string? leasePath = null, string? baseDirectory = null)
     {
         var root = baseDirectory ?? AppContext.BaseDirectory;
-        var leases = GnOuGoWorkspace.ResolveDatabasePath(leasePath, root, ".GnOuGo/data/flow-planning-v5/leases");
+        var leases = GnOuGoWorkspace.ResolveDatabasePath(leasePath, root, ".GnOuGo/data/flow-planning-v6/leases");
         return new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultPath, root), leases);
     }
 
-    public async Task<IPlanningRuntimeSession> OpenAsync(StepExecutionContext context, PlanningSnapshot initial, CancellationToken ct)
+    public async Task<IPlanningRuntimeSession> OpenAsync(StepExecutionContext context, PlanningSession initial, CancellationToken ct)
     {
         if (initial.Request.TenantId != (context.Limits.TenantId ?? "default"))
             throw new PlanningConflictException("The planning tenant must match the execution owner.");
@@ -49,39 +49,60 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             if (savedDefinition is not null && savedDefinition.Value != definition)
                 throw new PlanningConflictException("The planning request changed for this run ID. Resume the original request or start a new run.");
             var saved = await records.GetAsync(Sessions, tenant, key, Author, ct);
-            var state = saved is null ? initial : JsonSerializer.Deserialize(saved.Value, PlanningJsonContext.Default.PlanningSnapshot)
+            var state = saved is null ? initial : JsonSerializer.Deserialize(saved.Value, PlanningJsonContext.Default.PlanningSession)
                 ?? throw new PlanningConflictException("The encrypted planning session is invalid.");
-            if (state.SchemaVersion != 5 || state.Request.TenantId != tenant || state.Request.SessionId != key || saved is not null && savedDefinition is null)
+            if (state.SchemaVersion != 6 || state.Request.TenantId != tenant || state.Request.SessionId != key || saved is not null && savedDefinition is null)
                 throw new PlanningConflictException("The planning session ownership or schema is invalid.");
             if (savedDefinition is null) await records.UpsertAsync(Definitions, tenant, key, definition, Author, ct);
+            // A crash after the receipt but before the coordinator checkpoint must not
+            // replenish active time. Record timestamps bound the completed call interval.
+            if (state.PendingCall is { } pending && await records.GetAsync(WorkflowPlanningModelJournal.Receipts, tenant, pending.Id, Author, ct) is { } completion && completion.UpdatedAt > state.UpdatedAtUtc)
+            {
+                state.ActiveMilliseconds += (completion.UpdatedAt - state.UpdatedAtUtc).TotalMilliseconds;
+                state.UpdatedAtUtc = completion.UpdatedAt;
+            }
             var receipt = await records.GetAsync(WorkflowPlanningBudgetSink.Collection, tenant, key, Author, ct);
             var usage = receipt is null ? state.Usage : JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)
                 ?? throw new PlanningConflictException("The encrypted planning budget is invalid.");
-            var limits = (PlanningBudgetOptions.Parse(state.Request.Options) ?? new LLMUsageBudgetLimits { MaxCalls = 100 }) with { MaxElapsed = null };
-            if (limits.MaxCalls is null && limits.MaxTotalTokens is null && limits.MaxEstimatedCost is null) limits = limits with { MaxCalls = 100 };
+            var limits = (PlanningBudgetOptions.Parse(state.Request.Options) ?? new LLMUsageBudgetLimits { MaxCalls = 8 }) with { MaxElapsed = null };
+            if (limits.MaxCalls is null && limits.MaxTotalTokens is null && limits.MaxEstimatedCost is null) limits = limits with { MaxCalls = 8 };
             var inheritedBudget = context.LLMUsageBudget;
             var budget = new LLMUsageBudgetScope(limits, usage, inheritedBudget, new WorkflowPlanningBudgetSink(records, tenant, key),
                 exchangeRateProvider: context.Engine.ExchangeRateProvider);
             // The journal meters actual dispatches; replaying a receipt consumes no new allowance.
             context.LLMUsageBudget = null;
             var client = new WorkflowPlanningModelJournal(context, records, state.Request, budget);
-            var observed = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
-            async Task Checkpoint(PlanningSnapshot snapshot, CancellationToken token)
+            async Task Checkpoint(PlanningSession snapshot, CancellationToken token)
             {
                 snapshot.Usage = budget.Snapshot;
-                await records.UpsertAsync(Sessions, tenant, key, JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSnapshot), Author, token);
-                PlanningConvergenceTelemetry.Observe(observed, snapshot, (name, tags) => context.AddTelemetryEvent(name, tags));
-                observed = JsonSerializer.Deserialize(JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSnapshot), PlanningJsonContext.Default.PlanningSnapshot)!;
+                await records.UpsertAsync(Sessions, tenant, key, JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSession), Author, token);
             }
             await Checkpoint(state, ct);
             context.SetTelemetryAttribute("gnougo-flow.plan.session_id", key);
             context.SetTelemetryAttribute("gnougo-flow.plan.run_id", context.Limits.RunId);
-            return new Session(state, new WorkflowPlanningRuntime(context, client, Checkpoint), lease, () => context.LLMUsageBudget = inheritedBudget);
+            return new OwnedSession(state, new WorkflowPlanningRuntime(context, client, Checkpoint), lease, () => context.LLMUsageBudget = inheritedBudget);
         }
         catch { await lease.DisposeAsync(); throw; }
     }
 
-    private sealed record Session(PlanningSnapshot Snapshot, IPlanningRuntime Runtime, FileStream Lease, Action Restore) : IPlanningRuntimeSession
+    public async Task<string> ReadApprovedYamlAsync(StepExecutionContext context, string sessionId, string artifactHash, CancellationToken ct)
+    {
+        var tenant = context.Limits.TenantId ?? "default";
+        var stored = await records.GetAsync(Sessions, tenant, sessionId, Author, ct)
+            ?? throw new PlanningConflictException("The approved planning session is unavailable for this tenant.");
+        var state = JsonSerializer.Deserialize(stored.Value, PlanningJsonContext.Default.PlanningSession)
+            ?? throw new PlanningConflictException("The planning session is invalid.");
+        if (state.SchemaVersion != 6 || state.Request.TenantId != tenant || state.Request.SessionId != sessionId ||
+            state.Status != PlanningStatus.Approved || state.ApprovedHash != artifactHash || PlanningArtifactApproval.Hash(state) != artifactHash)
+            throw new PlanningConflictException("The artifact does not have a current, tenant-owned approval.");
+        PlanningArtifactApproval.Verify(state);
+        var runtime = new WorkflowPlanningRuntime(context.Engine, (_, _) => Task.CompletedTask);
+        if ((await runtime.ValidateCatalogAsync(state.Catalog!, ct)).Any(d => d.Required))
+            throw new PlanningConflictException("Capability contracts changed after approval.");
+        return state.Yaml!;
+    }
+
+    private sealed record OwnedSession(PlanningSession Session, IPlanningRuntime Runtime, FileStream Lease, Action Restore) : IPlanningRuntimeSession
     {
         public async ValueTask DisposeAsync() { Restore(); await Lease.DisposeAsync(); }
     }

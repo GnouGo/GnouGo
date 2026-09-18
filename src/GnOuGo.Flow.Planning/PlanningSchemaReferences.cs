@@ -9,7 +9,7 @@ internal static class PlanningSchemaReferences
 {
     internal static string Escape(string value) => value.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
 
-    internal static JsonArray Index(PlanningPreparation preparation) => new(preparation.Capabilities
+    internal static JsonArray Index(PlanningCatalog catalog) => new(catalog.Capabilities
         .OrderBy(c => c.Id, StringComparer.Ordinal).SelectMany(c => Entries(c)
         .Where(entry => PlanningContractValidation.ValidateSchema(entry.Schema).Count == 0).Select(entry => (JsonNode)new JsonObject
         {
@@ -17,12 +17,12 @@ internal static class PlanningSchemaReferences
             ["schemaPointer"] = entry.Path
         })).ToArray());
 
-    internal static JsonObject Resolve(PlanningSchema schema, PlanningPreparation preparation)
+    internal static JsonObject Resolve(PlanningSchema schema, PlanningCatalog catalog)
     {
         if (schema.Type != "string" || schema.Nullable || schema.Description is not null || schema.Enum.Count != 0 ||
             schema.Items is not null || schema.Properties.Count != 0 || schema.AdditionalProperties is not null)
             throw new InvalidOperationException("A capability schema reference cannot also declare inline constraints. Leave structural fields at their defaults.");
-        var capability = preparation.Capabilities.SingleOrDefault(c => c.Id == schema.CapabilityId)
+        var capability = catalog.Capabilities.SingleOrDefault(c => c.Id == schema.CapabilityId)
             ?? throw new InvalidOperationException("Unknown schema capability. Select a capabilityId from the supplied schema reference index.");
         var pointer = schema.SchemaPointer ?? "/output";
         ValidatePointer(pointer);

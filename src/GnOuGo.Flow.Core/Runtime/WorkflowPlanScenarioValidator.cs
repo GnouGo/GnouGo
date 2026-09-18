@@ -29,6 +29,11 @@ public static class WorkflowPlanScenarioValidator
         foreach (var (workflowName, workflow) in document.Workflows)
             foreach (var step in Enumerate(workflow.Steps).Concat(Enumerate(workflow.Finally)))
             {
+                if (step.Type == "human.input" && step.Input?["mode"]?.ToString() == HumanInputContract.ModeConfirm && workflowName == document.Entrypoint)
+                {
+                    definitions.Add(new($"confirmation:rejected:{workflowName}:{step.Id}", workflowName, step.Id, "rejected"));
+                    definitions.Add(new($"confirmation:unavailable:{workflowName}:{step.Id}", workflowName, step.Id, "unavailable"));
+                }
                 if (step.Type == "switch")
                 {
                     for (var i = 0; i < (step.Cases?.Count ?? 0); i++) definitions.Add(new($"branch:{workflowName}:{step.Id}:{i}", workflowName, step.Id, "branch", i));
@@ -75,7 +80,7 @@ public static class WorkflowPlanScenarioValidator
                 McpClientFactory = fakeFactory,
                 LLMClient = new ScenarioLlm(),
                 LlmDefaults = new() { Model = "planning-scenario" },
-                HumanInputProvider = new ScenarioHuman(),
+                HumanInputProvider = new ScenarioHuman(scenario.Kind),
                 Telemetry = telemetry,
                 Limits = new ExecutionLimits { MaxTotalStepsExecuted = 1000, MaxLoopIterations = 10, MaxCallDepth = 10, MaxParallelBranches = 10, LogStepContent = false, RunId = "planning-scenario" }
             };
@@ -106,7 +111,14 @@ public static class WorkflowPlanScenarioValidator
                     }
                 }
                 var reached = scenario.Step is null || fault.Injected || telemetry.Statuses.ContainsKey(scenario.Workflow + ":" + scenario.Step);
+                var denied = scenario.Kind is "rejected" or "unavailable";
                 var expectedFailure = fault.Injected && (run.Success || run.Error?.Code is "SCENARIO_INJECTED_FAILURE" or "CANCELLED");
+                if (denied)
+                {
+                    var external = doc.Workflows.SelectMany(w => Enumerate(w.Value.Steps.Concat(w.Value.Finally)).Where(s => s.Type == "mcp.call").Select(s => w.Key + ":" + s.Id));
+                    expectedFailure = !run.Success && !external.Any(k => telemetry.Statuses.TryGetValue(k, out var status) && status != StepStatus.Skipped);
+                    if (!expectedFailure) diagnostics.Add(new("CONFIRMATION_BYPASSED", "$", "Denied or unavailable confirmation did not prevent external execution."));
+                }
                 outcome = reached && (run.Success || expectedFailure) ? "passed" : "inconclusive";
                 if (diagnostics.Count != 0) outcome = "inconclusive";
                 if (!reached) diagnostics.Add(new("SCENARIO_UNREACHED", "workflow:" + scenario.Workflow + "/step:" + scenario.Step, "The synthetic input did not reach this required scenario."));
@@ -185,8 +197,14 @@ public static class WorkflowPlanScenarioValidator
                 // Fixtures replace observations, not executable request validation. The inner
                 // executor uses the scenario's fake integrations and must evaluate arguments,
                 // validate native contracts, and complete before this sample is consumed.
-                await ExecuteInnerAsync(ctx, ct).ConfigureAwait(false);
+                var executed = await ExecuteInnerAsync(ctx, ct).ConfigureAwait(false);
                 observed.AddOrUpdate(key, 1, (_, current) => current + 1);
+                if (fixture["channel"]?.ToString() is "response" or "json")
+                {
+                    var envelope = executed as JsonObject ?? throw new WorkflowRuntimeException("SCENARIO_OBSERVATION_INVALID", "The executor did not return its declared result envelope.");
+                    envelope[fixture["channel"]!.ToString()] = samples[index]?.DeepClone();
+                    return envelope;
+                }
                 return samples[index]?.DeepClone();
             }
             return await ExecuteInnerAsync(ctx, ct).ConfigureAwait(false);
@@ -214,14 +232,15 @@ public static class WorkflowPlanScenarioValidator
             return Task.FromResult(new LLMResponse { Text = json?.ToJsonString() ?? "sample", Json = json });
         }
     }
-    private sealed class ScenarioHuman : IHumanInputProvider
+    private sealed class ScenarioHuman(string scenario) : IHumanInputProvider
     {
         public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+            if (scenario == "unavailable" && request.Mode == HumanInputContract.ModeConfirm) throw new WorkflowRuntimeException("CONFIRMATION_UNAVAILABLE", "Synthetic permission unavailable.");
             if (request.Fields is { Count: > 0 })
                 return Task.FromResult<JsonNode?>(new JsonObject(request.Fields.Select(f => new KeyValuePair<string, JsonNode?>(f.Name, JsonValue.Create(f.Options?.FirstOrDefault() ?? f.Default ?? "sample")))));
-            return Task.FromResult<JsonNode?>(new JsonObject { ["response"] = request.Mode == HumanInputContract.ModeConfirm ? JsonValue.Create(true) : JsonValue.Create(request.Choices?.FirstOrDefault() ?? "sample") });
+            return Task.FromResult<JsonNode?>(new JsonObject { ["response"] = request.Mode == HumanInputContract.ModeConfirm ? JsonValue.Create(scenario != "rejected") : JsonValue.Create(request.Choices?.FirstOrDefault() ?? "sample") });
         }
     }
     private sealed class CoverageTelemetry : IWorkflowTelemetry

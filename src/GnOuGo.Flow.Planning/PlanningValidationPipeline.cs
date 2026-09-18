@@ -1,111 +1,55 @@
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Planning;
-
 namespace GnOuGo.Flow.Planning;
 
-internal sealed record PlanningValidationReport(int Stage, List<PlanningDiagnostic> Diagnostics, List<PlanningScenarioResult> Scenarios, string? Yaml = null);
-
-/// <summary>Ordered gates. A repair is assessed through the baseline's first failing gate.</summary>
-internal sealed class PlanningValidationPipeline
+internal static class PlanningValidationPipeline
 {
-    private readonly PlanningGraphCompiler _compiler = new();
-    private readonly PlanningScenarioFixtures _fixtures = new();
-    private readonly PlanningSemanticReview _review = new();
-
-    internal static List<PlanningDiagnostic> TypedFindings(PlanningSnapshot state, PlanningGraph graph)
+    internal static async Task ValidateAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
-        var diagnostics = new List<PlanningDiagnostic>();
-        if (state.Construction.Dataflow?.ContractFingerprint != PlanningContext.Contracts(state))
-            diagnostics.Add(new("LOCKED_CONTRACT_CHANGED", "/preparation", "Locked contracts changed and require renewed human review."));
-        diagnostics.AddRange(PlanningDeclarations.ValidateDefaults(state, graph));
-        diagnostics.AddRange(PlanningGraphValidation.Validate(graph, state.Preparation!));
-        diagnostics.AddRange(PlanningExecutableValidation.Validate(graph, state.Preparation!));
-        diagnostics.AddRange(PlanningArtifactBindings.PrerequisiteFindings(graph, state.Preparation!));
-        diagnostics.AddRange(PlanningBehaviorPlans.ValidateImplementation(state.BehaviorPlan!, graph, state.Preparation!));
-        diagnostics.AddRange(PlanningDataflowResolver.Validate(state, graph));
-        if (state.ApprovedBehaviorHash != PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan!))
-            diagnostics.Add(new("BEHAVIOR_APPROVAL_INVALID", "/behavior", "The accepted behavior changed and requires review."));
-        return diagnostics.Where(d => !state.Construction.Workflows.Where(w => w.Status == "pending")
-            .Any(w => PlanningDataflowResolver.Owns(d, graph.Workflows.FindIndex(p => p.Key == w.WorkflowKey), w.WorkflowKey))).Distinct().ToList();
-    }
-
-    internal async Task<PlanningValidationReport> EvaluateAsync(PlanningSnapshot state, PlanningGraph graph, IPlanningRuntime runtime, CancellationToken ct, int throughStage = 4)
-    {
-        var diagnostics = TypedFindings(state, graph);
-        if (diagnostics.Any(d => d.Required)) return new(1, diagnostics, []);
-        if (throughStage == 1 || state.Construction.Workflows.Any(w => w.Status == "pending")) return new(2, diagnostics, []);
+        var graph = state.Graph!; var catalog = state.Catalog!;
+        PlanningConfirmationGuards.Apply(graph, catalog);
+        state.Diagnostics = PlanningExecutableValidation.Validate(graph, catalog).ToList();
+        if (state.Diagnostics.Any(d => d.Required)) return;
         string yaml;
-        try { yaml = _compiler.Compile(graph, state.Preparation!, state.Request.Name); }
-        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or GnOuGo.Flow.Core.Compilation.WorkflowCompilationException)
-        { return new(2, [new("GRAPH_LOWERING_INVALID", "$", ex.Message)], []); }
-        diagnostics.AddRange((await runtime.ValidateAsync(new(yaml, PlanningContext.EffectiveRequest(state), state.Preparation!, PlanningGraphCompiler.CapabilityBindings(graph)), ct))
-            .Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph)));
-        if (diagnostics.Any(d => d.Required)) return new(2, diagnostics, [], yaml);
-        if (throughStage == 2) return new(3, diagnostics, [], yaml);
-        return await CompleteAsync(state, graph, runtime, ct, diagnostics, yaml, throughStage);
-    }
-
-    private async Task<PlanningValidationReport> CompleteAsync(PlanningSnapshot state, PlanningGraph graph, IPlanningRuntime runtime, CancellationToken ct,
-        List<PlanningDiagnostic> diagnostics, string yaml, int throughStage)
-    {
-        if (state.Validation.Inputs is null) return new(3, [new("SCENARIO_INPUTS_REQUIRED", "/scenarioInputs", "Validation fixtures have not been established.")], [], yaml);
-        var main = graph.Workflows.Single(w => w.Key == graph.Entrypoint);
-        foreach (var port in main.Inputs)
-            if (port.Required && !state.Validation.Inputs.ContainsKey(port.Name) || state.Validation.Inputs.ContainsKey(port.Name) &&
-                PlanningContractValidation.ValidateInstance(state.Validation.Inputs[port.Name], PlanningGraphCompiler.ToJsonSchema(port.Schema, state.Preparation!)).Count != 0)
-                diagnostics.Add(new("SCENARIO_FIXTURE_CONTRACT_CHANGED", "/scenarioInputs/" + port.Name, "Preserve established validation fixtures and their proven contracts."));
-        if (diagnostics.Any(d => d.Required)) return new(3, diagnostics, [], yaml);
-        var scenarios = (await runtime.ValidateScenariosAsync(new(yaml, state.Preparation!, state.Validation.Inputs,
-            PlanningScenarioFixtures.ScenarioLoopItemSchemas(graph, state.Preparation!), state.Validation.Observations), ct))
-            .Select(s => s with { Diagnostics = s.Diagnostics.Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph)).ToList() }).ToList();
-        if (scenarios.Count == 0) diagnostics.Add(new("SCENARIO_MISSING", "$", "No scenario coverage was established."));
-        foreach (var scenario in scenarios.Where(s => s.Outcome != "passed"))
-            diagnostics.AddRange(scenario.Diagnostics.Count == 0 ? [new("SCENARIO_INCONCLUSIVE", scenario.Id, "Required scenario coverage is incomplete.")] : scenario.Diagnostics);
-        if (diagnostics.Any(d => d.Required)) return new(3, diagnostics.Distinct().ToList(), scenarios, yaml);
-        if (throughStage == 3) return new(4, diagnostics, scenarios, yaml);
-        diagnostics.AddRange(await _review.ReviewAsync(state, graph, runtime, ct));
-        return new(diagnostics.Any(d => d.Required) ? 4 : 5, diagnostics, scenarios, yaml);
-    }
-
-    internal async Task AdvanceAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
-    {
-        PlanningDataflowResolver.Refresh(state);
-        var report = await EvaluateAsync(state, state.Graph!, runtime, ct, throughStage: 2);
-        if (!report.Diagnostics.Any(d => d.Required))
+        try { yaml = new PlanningGraphCompiler().Compile(graph, catalog, state.Request.Name); }
+        catch (WorkflowCompilationException ex) { state.Diagnostics.AddRange(PlanningExecutableValidation.CompilerErrors(ex, graph)); return; }
+        state.Diagnostics.AddRange((await runtime.ValidateAsync(new(yaml, state.Request, catalog, PlanningGraphCompiler.CapabilityBindings(graph)), ct)).Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph)));
+        if (state.Diagnostics.Any(d => d.Required)) return;
+        var fixtures = state.IntentPlan!.Fixtures;
+        JsonObject? inputs = null;
+        if (fixtures?.Inputs is { } sample)
         {
-            foreach (var workflow in state.Construction.Workflows.Where(w => w.Status == "constructed")) workflow.Status = "validated";
-            if (state.Construction.Workflows.Any(w => w.Status == "pending"))
-            { state.Diagnostics.Clear(); state.Status = PlanningStatus.Generating; return; }
-            if (!await _fixtures.PrepareInputsAsync(state, runtime, ct) || !await _fixtures.PrepareObservationsAsync(state, runtime, ct)) return;
-            state.Validation.FixturesEstablished = true;
-            report = await CompleteAsync(state, state.Graph!, runtime, ct, report.Diagnostics, report.Yaml!, 4);
+            if (!PlanningGraphValidation.IsLiteral(sample) || PlanningGraphValidation.Literal(sample) is not JsonObject obj)
+            { state.Diagnostics.Add(new("SCENARIO_INPUT_INVALID", "/fixtures/inputs", "Scenario inputs must be a literal object.")); return; }
+            inputs = obj;
         }
-        state.Validation.ContractFingerprint = PlanningContext.Contracts(state);
-        state.Validation.FixtureFingerprint = PlanningContext.Fixtures(state);
-        state.Validation.Stage = report.Stage;
-        foreach (var workflow in state.Construction.Workflows.Where(w => w.Status != "pending")) workflow.Gate = PlanningGates.FromStage(report.Stage);
-        state.Validation.GraphFingerprint = PlanningGraphCompiler.Fingerprint(state.Graph!);
-        state.Validation.Scenarios = report.Scenarios;
-        state.Diagnostics = report.Diagnostics;
-        state.Attempts.Add(new(state.Validation.GraphFingerprint, "validation", report.Stage, true, report.Diagnostics));
-        foreach (var workflow in state.Graph!.Workflows)
+        var observations = new JsonObject();
+        foreach (var observation in fixtures?.Observations ?? [])
         {
-            var index = state.Graph.Workflows.IndexOf(workflow);
-            PlanningConvergence.Failure(state, workflow.Key, PlanningGates.FromStage(report.Stage), state.Validation.GraphFingerprint,
-                report.Diagnostics.Where(d => PlanningDataflowResolver.Owns(d, index, workflow.Key)));
+            var owner = observation.Workflow == graph.Entrypoint && graph.Workflows.Any(w => w.Key == PlanningConfirmationGuards.Body) ? PlanningConfirmationGuards.Body : observation.Workflow;
+            var workflow = graph.Workflows.FirstOrDefault(w => w.Key == owner);
+            var node = workflow is null ? null : PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).FirstOrDefault(n => n.Key == observation.Node);
+            if (node is null || node.Type is not ("mcp.call" or "llm.call") || observation.Responses.Any(v => !PlanningGraphValidation.IsLiteral(v)))
+            { state.Diagnostics.Add(new("SCENARIO_OBSERVATION_INVALID", "/fixtures/observations", "Observations require an existing external step and literal results.")); continue; }
+            var schema = node.StructuredOutput is not null ? PlanningGraphCompiler.ToJsonSchema(node.StructuredOutput.Schema, catalog)
+                : catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId)?.OutputSchema;
+            if (schema is null || schema.Count == 0)
+            { state.Diagnostics.Add(new("SCENARIO_OBSERVATION_SCHEMA", "/fixtures/observations", "The observed result needs a declared schema.")); continue; }
+            var key = (workflow!.Key == graph.Entrypoint ? "main" : "w_" + PlanningGraphCompiler.Fingerprint(workflow.Key)[..16]) + ":n_" + PlanningGraphCompiler.Fingerprint(node.Key)[..16];
+            observations[key] = new JsonObject { ["schema"] = schema.DeepClone(), ["channel"] = node.StructuredOutput is null ? "response" : "json", ["responses"] = new JsonArray(observation.Responses.Select(PlanningGraphValidation.Literal).ToArray()) };
         }
-        PlanningConvergence.Failure(state, "$plan", PlanningGates.FromStage(report.Stage), state.Validation.GraphFingerprint,
-            report.Diagnostics.Where(d => !state.Graph.Workflows.Any(w => PlanningDataflowResolver.Owns(d, state.Graph.Workflows.IndexOf(w), w.Key))));
-        if (report.Diagnostics.Any(d => d.Required))
-        {
-            PlanningContext.InvalidateArtifact(state);
-            if (report.Diagnostics.Any(d => d.Location.EndsWith("/behavior", StringComparison.Ordinal) || d.Location.EndsWith("/preparation", StringComparison.Ordinal)))
-                PlanningContext.Stop(state, "GOVERNING_CONTRACT_REVIEW_REQUIRED", "Revise the governing contract and review the behavior before continuing.");
-            else { state.Status = PlanningStatus.Generating; state.CurrentPhase = PlanningPhase.Repair; }
-            return;
-        }
-        state.Yaml = report.Yaml!;
-        state.ArtifactHash = PlanningGraphCompiler.Fingerprint(state.Yaml);
-        state.ApprovedHash = null; state.Status = PlanningStatus.FinalReview;
-        state.ReviewMarkdown = state.BehaviorPlan!.Summary;
+        if (state.Diagnostics.Any(d => d.Required)) return;
+        var loopItems = new JsonObject();
+        foreach (var workflow in graph.Workflows)
+            foreach (var loop in PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Where(n => n.Type is "loop.sequential" or "loop.parallel"))
+                if (PlanningGraphValidation.Member(loop.Input, "items") is { } items && PlanningGraphValidation.ResolveValueContract(graph, workflow, items, catalog)["items"] is JsonObject schema)
+                    loopItems[(workflow.Key == graph.Entrypoint ? "main" : "w_" + PlanningGraphCompiler.Fingerprint(workflow.Key)[..16]) + ":n_" + PlanningGraphCompiler.Fingerprint(loop.Key)[..16]] = schema.DeepClone();
+        state.Scenarios = (await runtime.ValidateScenariosAsync(new(yaml, catalog, inputs, loopItems, observations), ct)).ToList();
+        if (state.Scenarios.Count == 0) state.Diagnostics.Add(new("SCENARIO_MISSING", "$", "No scenario execution was reported."));
+        foreach (var scenario in state.Scenarios.Where(s => s.Outcome != "passed"))
+            state.Diagnostics.AddRange((scenario.Diagnostics.Count > 0 ? scenario.Diagnostics : [new("SCENARIO_INCONCLUSIVE", scenario.Id, scenario.Description)]).Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph)));
+        if (state.Diagnostics.Any(d => d.Required)) return;
+        state.Yaml = yaml; state.ApprovedHash = null; state.Status = PlanningStatus.FinalReview;
     }
 }

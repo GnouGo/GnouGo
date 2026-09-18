@@ -1,15 +1,12 @@
 using GnOuGo.Flow.Core.Runtime;
-
 namespace GnOuGo.Flow.Core.Planning;
-
-/// <summary>Hosts open an owned, durable session for workflow.plan.</summary>
 public interface IPlanningRuntimeFactory
 {
-    Task<IPlanningRuntimeSession> OpenAsync(StepExecutionContext context, PlanningSnapshot initial, CancellationToken ct);
+    Task<IPlanningRuntimeSession> OpenAsync(StepExecutionContext context, PlanningSession initial, CancellationToken ct);
+    Task<string> ReadApprovedYamlAsync(StepExecutionContext context, string sessionId, string artifactHash, CancellationToken ct);
 }
-
 public interface IPlanningRuntimeSession : IAsyncDisposable
 {
-    PlanningSnapshot Snapshot { get; }
+    PlanningSession Session { get; }
     IPlanningRuntime Runtime { get; }
 }

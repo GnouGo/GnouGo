@@ -13,12 +13,12 @@ internal static class PlanningComputationContracts
         "includes", "indexOf", "join", "keys", "lastIndexOf", "map", "pop", "push", "reduce", "reduceRight", "reverse", "shift", "slice", "some", "sort", "splice",
         "toReversed", "toSorted", "toSpliced", "unshift", "values", "with", "constructor", "toString", "hasOwnProperty", "valueOf", "toLocaleString"
     };
-    internal static IEnumerable<PlanningDiagnostic> Findings(PlanningGraph graph, PlanningPreparation preparation)
+    internal static IEnumerable<PlanningDiagnostic> Findings(PlanningGraph graph, PlanningCatalog catalog)
     {
         for (var wi = 0; wi < graph.Workflows.Count; wi++)
         {
             var workflow = graph.Workflows[wi]; var root = "/workflows/" + wi;
-            var resolve = PlanningGraphValidation.ValueContractResolver(graph, workflow, preparation);
+            var resolve = PlanningGraphValidation.ValueContractResolver(graph, workflow, catalog);
             foreach (var (node, path) in PlanningGraphValidation.Located(workflow.Steps, root + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, root + "/finally")))
             {
                 foreach (var diagnostic in Values(node.Input, path + "/input", resolve)) yield return diagnostic;
@@ -81,7 +81,7 @@ internal static class PlanningComputationContracts
         if (node is MemberExpression arrayMember && Name(arrayMember) is { } field && Schema(arrayMember.Object, scope) is { } array && HasType(array, "array") &&
             !ArrayMembers.Contains(field) && !uint.TryParse(field, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out _))
             messages.Add(("COMPUTATION_COLLECTION_FIELD_INVALID", MemberIdentity(arrayMember), "Property '" + field + "' belongs to no declared array result. A collection cannot supply an individual item's fields. " +
-                "Use a declared element binding in the approved loop. If the requested per-item actions require a missing loop, return to behavior review; do not silently select the first item or discard items."));
+                "Use a declared element binding in the approved loop. If the requested per-item actions require a missing loop, revise the intent plan; do not silently select the first item or discard items."));
         foreach (var child in node.ChildNodes) Walk(child, scope, messages);
     }
 

@@ -21,4 +21,5 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup><Compile Include="../Shared/IntentResponse.cs" Link="IntentResponse.cs" /><Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" /></ItemGroup>
 </Project>

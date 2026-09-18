@@ -9,50 +9,13 @@ This solution contains:
 
 ### Typed workflow designer
 
-Open `/planning` to create or revise a workflow. `/gnougo add` and `/gnougo reprompt`
-open the same designer. SmartFlow **Improve** persists a revision session with the
-saved workflow and separate failure evidence, then links to the designer.
+Open `/planning` to create or revise a workflow. `/gnougo add`, reprompt and failure improvement open this durable designer. It displays progress, intent, graph, unresolved fields, findings, usage, scenarios and final review. Approving and saving requires the current revision and artifact hash. Runtime write confirmation remains a separate gate.
 
-Planner v2 requires business behavior acceptance before deterministic skeleton construction and typed hole filling. Callees precede callers; independent workflows use concurrency four.
-Targeted typed repairs preserve accepted behavior and passing validation scenarios.
-The final YAML view is read-only, and approval targets the exact validated artifact.
+`TypedWorkflowPlanning` configures `MaxRepairAttempts` (2), `MaxModelCalls` (8), `Reasoning` (`medium`), request token ceilings (12,000 input / 8,192 output), cumulative token/active-time limits and `DatabasePath`. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
 
-Schema 5 snapshots, model requests, receipts and budgets are encrypted in KeyVault.
-Tenant-scoped EF Core/SQLite indexes use the workspace-resolved
-`.GnOuGo/data/gnougo-planning-v5.db`. Prior storage is unused. Reservations precede
-model dispatch; completed receipts replay after restart. Unverifiable dispatches stop.
-Optimistic revisions and original-workflow hashes protect approval and saving.
+Schema-6 session payloads, model reservations/receipts and budgets use encrypted KeyVault records and tenant-scoped EF Core/SQLite indexes. The fresh default is `.GnOuGo/data/gnougo-planning-v6.db`; existing databases are untouched. Restart preserves resolved graphs and cumulative budgets. Completed calls replay without another charge; uncertain dispatches stop. Saving reconciles an already committed identical artifact.
 
-The host supplies its fixed planning policies as typed, provider-neutral clause evidence through `AgentPlanningPolicy`. Complete instructions remain available for scoped confirmation and other policy adjudication. The planner verifies the source fingerprint, allowed meanings and complete coverage before projecting obligations; typed policies grant no operation authority. Unannotated policy prose retains bounded interpretation. See [occurrence boundaries and policy projection](../../docs/planner-occurrence-boundaries.md).
-
-`TypedWorkflowPlanning` configures `ReasoningProfile` (`Routine: low`, `Behavior: medium`,
-`SemanticReview: medium`), `MaxConcurrency` (4),
-`MaxModelCalls` (100), `MaxInputTokensPerRequest` (12000), and `MaxOutputTokens` (8192).
-A verified singleton decision truncation at 8192 may use one identical request at
-16384 under the [bounded escalation policy](../../docs/planner-output-budget-escalation.md).
-The journal validates the exact owned parent and durable receipt; global budgets
-still apply and escalation consumes no semantic repair allowance.
-The designer shows phase, workflow, dependency, repair and budget progress.
-Recovery retains accepted evidence and cumulative spending. See
-[the planner architecture](../../docs/workflow-planning-v2.md) for all gates and invariants.
-
-The injected `ILLMCapabilityResolver` reads the current local metadata used by `/llm edit`:
-embedded catalog entries, metadata files and saved Agent model overrides. Provider
-connections are hydrated from KeyVault; reviewed model overrides and default selection
-are hydrated from Agent's user configuration. Edits take effect on the next lookup.
-Capability checks never list provider models or contact an HTTP endpoint. Exact entries
-and declared aliases establish support; fuzzy editor suggestions do not authorize
-requests until reviewed and saved. Missing reasoning proof stops with
-`MODEL_REASONING_UNPROVEN`; unreadable configured metadata uses `MODEL_METADATA_UNAVAILABLE`.
-Model discovery remains available to the configuration UI. Existing stopped sessions
-are retained and are not automatically restarted by a configuration edit or deployment.
-
-The planning progress API exposes total active holes, deterministic resolutions,
-distinct model exposures, repeated request exposures, per-hole direct-binding and
-computation-parameter counts, and repair/failure counts per validation gate. These
-counts survive encrypted restart and receipt replay. Convergence trace events are
-redacted and tenant-scoped; hole IDs are excluded from metric dimensions. The designer
-layout is unchanged.
+See [the planning architecture](../../docs/workflow-planning-v2.md) for public contracts, policy boundaries, diagnostics and validation commands.
 
 ### Component boundaries
 
@@ -329,66 +292,7 @@ known to be current.
 
 ## Main routing workflow and conversation history
 
-When no explicit/default agent is selected, `SmartFlowService` runs the embedded `SmartFlow/main-routing-agent.yaml` workflow. That workflow uses `workflow.route` to expand all persisted database agents (`ref: { kind: database }`), select one or more relevant sub-workflows, auto-extract structured inputs from the prompt/history, and request any remaining missing or invalid declared inputs through the existing Human Input form before execution. Candidate forms are presented one at a time, then the completed workflows use their configured execution policy. The route also includes a local general fallback workflow so a fresh installation can still answer prompts before any persisted agents exist.
-
-`/gnougo add` and `/gnougo reprompt` open the same persisted designer. Business clarification
-follows capability preparation and deterministic resolution, and is reserved for remaining
-material business alternatives. Capability classifications require explicit intent evidence and
-provider-neutral schema metadata. The business behavior requires human acceptance before
-construction of its typed graph. Callees are completed and validated before their callers;
-independent subworkflows may run concurrently. Construction responses assign only issued typed
-holes. The deterministic compiler alone emits YAML, and the designer shows it read-only.
-Clarifications show business labels and evidence-backed preference reasons, accept custom
-answers, and continue the same encrypted session without preselecting a preferred choice.
-
-Typed repairs are limited to diagnosed fields, preserve accepted behavior and ownership, and
-must improve the first failing validation stage while retaining all previous passes. Final approval
-binds the exact graph, capability contracts, validation fixtures, revision, and artifact hash.
-Choosing **Improve** after execution failure creates a revision session with the saved workflow
-and separate failure evidence, then links to this designer.
-
-See [the planner architecture](../../docs/workflow-planning-v2.md) for contracts, budgets,
-receipt replay, dependency scheduling, and validation. Agent.Server keeps encrypted KeyVault
-payloads and tenant-scoped EF Core/SQLite indexes in the schema-5 storage namespace.
-
-All `/gnougo add` planning phases request provider-managed background execution. OpenAI providers
-use the configured `RequestPolicy.BackgroundProtocol`: `Auto` probes Responses,
-`ChatCompletions` bypasses it, and `Responses` requires it. In `Auto`, deterministic route-level
-`404`, `405`, or `501` incompatibility is cached immediately, so a transient failure in the first
-Chat fallback does not repeat a known-invalid Responses probe. Request-specific errors are not
-cached; ambiguous `400`/`422` compatibility is cached only after Chat succeeds. A compatible
-endpoint that specifically rejects `max_completion_tokens` still receives one payload-compatible
-retry omitting only that field. Strict structured output, reasoning effort, tools, model selection,
-authentication, and API version remain unchanged.
-
-Model metadata `MaxOutputTokens` is a ceiling rather than a request default. With the default
-`UnspecifiedOutputTokens: Omit`, an unspecified workflow allowance sends no output-token field;
-explicit limits are clamped to the model ceiling and optional provider cap. The credential probe
-explicitly requests at most 64 tokens. Provider policy survives runtime snapshots and encrypted
-credential overlays, while malformed policy combinations fail startup.
-
-HTTP recovery makes at most four attempts for `425`, `429`, `500`, `502`, `503`, and `504`, honors
-valid `Retry-After`, and otherwise uses bounded full-jitter exponential backoff. Quota/billing and
-authentication/authorization envelopes are terminal even when carried as `429`; transport errors,
-timeouts, cancellation, and other `4xx` are not replayed. `LLM_TIMEOUT` and `LLM_NETWORK` remain
-retryable workflow codes, while request/configuration rejections use `LLM_PROVIDER`. The workflow
-failure presentation includes only sanitized classification, HTTP status, actual attempts,
-exhaustion, accepted `Retry-After`, provider-safe code, and recommended action. It never renders
-the endpoint, response body, prompt, credential, client identity, or scope. This technical recovery
-does not consume the human-input budget. User-requested cancellation remains `CANCELLED`.
-
-Read and write capabilities remain discoverable by default; preflight describes availability rather than silently changing an MCP server's execution policy. When preflight fails, the chat response and trace show the sanitized error code, unavailable operation IDs/descriptions, and failed catalogs instead of only the summary message. Catalog discovery failures direct the operator to restore MCP startup, connectivity, or configuration (or remove the catalog); missing capabilities retain separate capability-oriented recovery guidance.
-
-Planner safety, lifecycle, and persistence tests use typed fixtures and deterministic transport doubles:
-
-```bash
-dotnet test tests/GnOuGo.Flow.Planning.Tests
-dotnet test tests/GnOuGo.Agent.Server.Tests --filter 'FullyQualifiedName~Planning|FullyQualifiedName~SmartFlow'
-```
-
-Planning budgets cover both add and reprompt sessions. Monetary conversion rates are pinned
-within each budget scope; missing prices or unverifiable usage fail closed. Saved request
-receipts and cumulative budget reservations survive restart in encrypted tenant-owned storage.
+Workflow creation and improvement use the durable intent-to-graph planner described above. Revision imports the existing workflow as baseline context and carries failure diagnostics separately. Every revised artifact undergoes complete validation and fresh approval. Model, MCP and human integrations remain host-owned.
 
 The Blazor chat session now carries a server-facing `ConversationId`. The UI keeps its local transcript for display, while `SmartFlowService` loads recent server-side messages into the routing workflow as `history` and appends the user/assistant turn after a successful answer. HTTP clients can also pass `conversationId` and `prompt` on `/api/chat` or `/api/chat/stream`; if omitted, the server creates a new conversation id and returns/emits it.
 
@@ -673,7 +577,7 @@ fields such as GitHub `owner` and `repo` continue to be emitted as
 `Mcp-Param-*` headers after a runtime has been rebuilt.
 
 When an agent run offers **Improve**, the failure details carry the deepest
-failing local workflow and step. The repair planner is structurally locked to
+failing local workflow and step. The revision planner receives
 that location: it may update the failed step and existing direct consumers,
 but it cannot remove or rename sub-workflows, `workflow.call` edges, steps,
 branches, skills, or public contracts. Any broad rewrite is rejected and
@@ -699,16 +603,4 @@ Example:
 dotnet test "C:\github\GnouGo\tests\GnOuGo.Agent.Server.Tests\GnOuGo.Agent.Server.Tests.csproj"
 ```
 
-Capability inference failures in v2 pause in durable recovery with operation-level
-findings. Rejected matching repairs remain separate from the retained candidate.
-
-
-Retry for a prepared session uses the configured MCP runtime to check current tool
-contracts before reusing executable checkpoints. Catalog changes return through
-capability resolution and behavior review without losing retained answers or usage.
-Editing, cancellation, configuration changes and intent-only retries remain available
-through the local recovery path; catalog checking itself makes no model call.
-
-The published `--planning-persistence-smoke` also round-trips source-only governing evidence through encrypted EF-backed planning persistence: contribution v7, applicability v2 and admission v17, with Schema-5 unchanged. A source-only fallback retains its exact source binding without inventing runtime execution provenance.
-
-The published planning persistence smoke also round-trips canonical execution-request proof 1 and request-backed support links in contribution 7/admission 17. It retains source-only fallback/applicability evidence, explicit non-request outcomes and Schema-5 storage; no provider is used.
+Discovery and validation failures appear as located diagnostics in the durable session. Revise the intent to rebuild against current capabilities. Catalog revalidation requires no model call. Cumulative usage survives retries and restart.

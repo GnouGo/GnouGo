@@ -180,61 +180,15 @@ public static class BuiltInStepContracts
 
     private static JsonObject WorkflowPlanInput() => Object(
         new[] { "raw_prompt", "generator" },
-        ("raw_prompt", String()),
-        ("name", String()),
-        ("intent_clarification", Object(
-            ("mode", Enum("off", "when_needed", "always")),
-            ("timeout_ms", PositiveInteger()),
-            ("max_rounds", PositiveInteger()),
-            ("max_questions", PositiveInteger()),
-            ("max_questions_per_round", PositiveInteger()))),
-        ("llm_budget", Object(
-            ("max_calls", PositiveInteger()),
-            ("max_total_tokens", PositiveInteger()),
-            ("max_elapsed_ms", PositiveInteger()),
-            ("max_estimated_cost", Object(
-                new[] { "amount", "currency" },
-                ("amount", Number()),
-                ("currency", String()))),
-            ("unverifiable", Enum("fail")))),
-        ("capability_preflight", Object(
-            ("clarification", Object(
-                ("enabled", Boolean()),
-                ("timeout_ms", PositiveInteger()))),
-            ("requirements", Array(Object(
-                new[] { "id", "description", "required", "alternatives" },
-                ("id", String()),
-                ("description", String()),
-                ("required", Boolean()),
-                ("alternatives", Array(Object(
-                    new[] { "server", "kind", "method" },
-                    ("server", String()),
-                    ("kind", Enum("tool", "prompt")),
-                    ("method", String()),
-                    ("request_bindings", CapabilityRequestBindings()))))))),
-            ("constraints", Array(Object(
-                new[] { "id", "description", "required" },
-                ("id", String()),
-                ("description", String()),
-                ("required", Boolean()),
-                ("denied_alternatives", Array(Object(
-                    new[] { "server", "kind", "method" },
-                    ("server", String()),
-                    ("kind", Enum("tool", "prompt")),
-                    ("method", String()),
-                    ("request_bindings", CapabilityRequestBindings()))))))))),
-        ("generator", Object(
-            ("provider", String()), ("model", String()),
-            ("reasoning_profile", Object(("routine", Enum("minimal", "low", "medium", "high", "max")),
-                ("behavior", Enum("minimal", "low", "medium", "high", "max")), ("semantic_review", Enum("minimal", "low", "medium", "high", "max")))),
+        ("raw_prompt", String()), ("name", String()),
+        ("llm_budget", Object(("max_calls", PositiveInteger()), ("max_total_tokens", PositiveInteger()),
+            ("max_elapsed_ms", PositiveInteger()), ("max_estimated_cost", Object(new[] { "amount", "currency" },
+                ("amount", Number()), ("currency", String()))), ("unverifiable", Enum("fail")))),
+        ("generator", Object(("provider", String()), ("model", String()), ("reasoning", String()),
             ("max_input_tokens", PositiveInteger()), ("max_output_tokens", PositiveInteger()))),
-        ("max_concurrency", PositiveInteger()),
-        ("max_repairs_per_workflow_gate", new JsonObject { ["type"] = "integer", ["minimum"] = 0, ["maximum"] = 10, ["default"] = 5 }),
-        ("policy", Object(
-            ("instructions", String()),
-            ("allowed_step_types", Array(String())),
-            ("denied_step_types", Array(String())),
-            ("allow_remote_workflow_refs", Boolean()))),
+        ("max_repair_attempts", new JsonObject { ["type"] = "integer", ["minimum"] = 0, ["maximum"] = 10, ["default"] = 2 }),
+        ("policy", Object(("instructions", String()), ("allowed_step_types", Array(String())),
+            ("denied_capability_ids", Array(String())), ("require_external_confirmation", Boolean()))),
         ("limits", Object(("max_steps_total", PositiveInteger()))));
 
     private static JsonObject McpCallInput() => Object(

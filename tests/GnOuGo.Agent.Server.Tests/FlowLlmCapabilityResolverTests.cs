@@ -63,59 +63,6 @@ public sealed class FlowLlmCapabilityResolverTests
         Assert.Equal(expected.SupportsStructuredOutput, await resolver.SupportsStructuredOutputAsync("deployment", "openai/reviewed", TestContext.Current.CancellationToken));
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task PlannerJournalsIntentRequestsOnlyWhenLocalMetadataProvesReasoning(bool declared)
-    {
-        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var options = ConfiguredOptions();
-        if (!declared) options.ModelOverrides.Clear();
-        var store = SmartFlowTestFactory.CreateRuntimeOptionsStore(options);
-        var catalog = new UnavailableCatalog();
-        using var provider = new ServiceCollection().AddSingleton(store).AddSingleton<ILLMModelCatalog>(catalog)
-            .AddSingleton<ILLMCapabilityResolver, FlowLlmCapabilityResolver>().BuildServiceProvider();
-        var model = new FirstIntentClient();
-        var runtime = new SecureWorkflowRuntimeFactory(store, new FakeKeyVaultRuntimeConfigStore().WithEffectiveOptions(options),
-            llmClientOverride: model, mcpClientFactoryOverride: new FakeMcpClientFactory(PlanningSessionLifecycleTests.AgentCatalog()),
-            llmCapabilityResolver: provider.GetRequiredService<ILLMCapabilityResolver>());
-        using var service = new PlanningSessionService(fixture.Store, fixture, fixture.Records, runtime, new TypedWorkflowPlanner(), new TestExchangeRateProvider(),
-            Options.Create(new WorkflowPlanningBudgetSettings()), Options.Create(new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false }),
-            Options.Create(new OpenTelemetrySettings { TenantId = "planning-tests" }), NullLogger<PlanningSessionService>.Instance);
-        var ct = TestContext.Current.CancellationToken;
-        var state = await service.StartAsync("Local metadata", "Return a greeting", false, ct);
-        state = await service.SubmitAsync(state.Request.SessionId, new() { ExpectedRevision = state.Revision }, ct);
-        await using var db = fixture.CreateDbContext();
-        Assert.True(declared ? model.Calls > 0 : model.Calls == 0, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message)));
-        Assert.Equal(model.Calls, await db.Calls.CountAsync(ct));
-        Assert.Equal(0, catalog.Calls);
-        var saved = (await fixture.Store.LoadAsync(state.Request.TenantId, state.Request.SessionId, ct))!;
-        Assert.NotEmpty(saved.RequestAccounting);
-        Assert.All(saved.RequestAccounting, accounting => Assert.Equal(declared ? "receipt" : "not_dispatched", accounting.Evidence));
-        if (declared)
-        {
-            Assert.True(saved.Intent.Checked);
-            Assert.Null(saved.TechnicalStop);
-            Assert.Equal("low", model.Reasoning);
-        }
-        else Assert.Equal("MODEL_REASONING_UNPROVEN", saved.TechnicalStop!.Code);
-    }
-
-    [Fact]
-    public async Task UnreadableMetadataUsesTheExistingTechnicalStopWithoutDispatch()
-    {
-        var options = ConfiguredOptions(); options.ModelMetadataFiles = [Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".missing")];
-        var model = new FirstIntentClient();
-        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { LLMClient = model,
-            LLMCapabilities = new FlowLlmCapabilityResolver(SmartFlowTestFactory.CreateRuntimeOptionsStore(options)) }, (_, _) => Task.CompletedTask);
-        var state = new PlanningSnapshot { Request = new() { TenantId = "test", Prompt = "Return a greeting" } };
-        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.Equal("MODEL_METADATA_UNAVAILABLE", state.TechnicalStop!.Code);
-        Assert.Equal("not_dispatched", Assert.Single(state.RequestAccounting).Evidence);
-        Assert.Equal(0, model.Calls);
-        Assert.Empty(state.Construction.PendingCalls);
-    }
-
     private sealed class UnavailableCatalog : ILLMModelCatalog
     {
         internal int Calls;
@@ -126,19 +73,4 @@ public sealed class FlowLlmCapabilityResolverTests
         }
     }
 
-    private sealed class FirstIntentClient : ILLMClient
-    {
-        internal int Calls;
-        internal string? Reasoning;
-        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
-        {
-            Calls++; Reasoning = request.Reasoning;
-            // Source interpretation includes the request and host policy pages.
-            // Stop after that phase; these synthetic receipts make no convergence claim.
-            var response = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject()
-                .Select(p => new KeyValuePair<string, JsonNode?>(p.Key, p.Value!["properties"]!["runtime"] is null ? new JsonObject { ["obligations"] = new JsonArray() } : new JsonObject
-                { ["obligations"] = new JsonArray(), ["runtime"] = new JsonArray(new JsonObject { ["role"] = "contract" }) })));
-            return Task.FromResult(new LLMResponse { Json = response, Usage = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 5 } });
-        }
-    }
 }

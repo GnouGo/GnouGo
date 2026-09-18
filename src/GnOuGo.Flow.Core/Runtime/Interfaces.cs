@@ -110,9 +110,7 @@ public sealed class LLMRequest
     public bool RequireOutputTokenLimit { get; set; }
     /// <summary>The caller journals and budgets individual attempts; do not retry inference invisibly.</summary>
     public bool DisableTransportRetries { get; set; }
-    /// <summary>Coordinator-issued output allowance; never sent as model instructions or provider parameters.</summary>
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public Planning.PlanningOutputBudgetEscalation? OutputBudgetEscalation { get; set; }
+
 }
 
 /// <summary>
@@ -499,6 +497,8 @@ public sealed record McpCapabilityActivation(
 /// </summary>
 public sealed class McpToolInfo
 {
+    /// <summary>Provider-declared effect metadata; unknown is never treated as read-only.</summary>
+    public string EffectKind { get; set; } = "unknown";
     public string Name { get; set; } = "";
     public string? Description { get; set; }
     public JsonNode? InputSchema { get; set; }

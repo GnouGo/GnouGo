@@ -1093,6 +1093,7 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
             var mapped = new McpToolInfo
             {
                 Name = t.Name,
+                EffectKind = t.ProtocolTool.Annotations?.ReadOnlyHint == true ? "read" : "unknown",
                 Description = t.Description,
                 Meta = t.ProtocolTool.Meta?.DeepClone(),
                 InputSchema = t.JsonSchema.ValueKind != JsonValueKind.Undefined

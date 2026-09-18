@@ -1,9 +1,8 @@
 # GnOuGo.Flow.Cli
 
-The CLI validates and executes Flow workflows, with Planner v2 injected for
+The CLI validates and executes Flow workflows, with the typed planner injected for
 `workflow.plan`. Configure a model and MCP capabilities in `appsettings.json` or
-configuration overrides. Console prompts collect clarification, mandatory business
-behavior acceptance and final approval. YAML is produced by deterministic lowering
+configuration overrides. Console prompts collect typed clarification and final artifact approval. YAML is produced by deterministic lowering
 of the validated typed graph. See [planning architecture](../../docs/workflow-planning-v2.md).
 
 ```sh

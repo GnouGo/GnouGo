@@ -4,217 +4,152 @@ using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Planning;
-using GnOuGo.Flow.Core.Runtime;
-
 namespace GnOuGo.Flow.Planning;
 
-/// <summary>The sole planner: explicit session transitions over a typed graph.</summary>
+/// <summary>Discover → interpret → build/resolve → validate → approve. Only this coordinator changes session state.</summary>
 public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IWorkflowPlanner
 {
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
-    private readonly PlanningWorkflowConstruction _construction = new();
-    private readonly PlanningValidationPipeline _validation = new();
-
-    public async Task<PlanningSnapshot> AdvanceAsync(PlanningSnapshot snapshot, PlanningCommand command, IPlanningRuntime runtime, CancellationToken ct)
+    public async Task<PlanningSession> AdvanceAsync(PlanningSession session, PlanningCommand command, IPlanningRuntime runtime, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(snapshot); ArgumentNullException.ThrowIfNull(command); ArgumentNullException.ThrowIfNull(runtime);
-        if (snapshot.SchemaVersion != 5) throw new PlanningConflictException("Unsupported planning snapshot. Start a new session.");
-        if (snapshot.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed. Reload the current revision.");
-        if (string.IsNullOrWhiteSpace(snapshot.Request.TenantId) || string.IsNullOrWhiteSpace(snapshot.Request.SessionId) || string.IsNullOrWhiteSpace(snapshot.Request.Prompt))
-            throw new ArgumentException("Tenant, session, and intent are required.");
-        if (snapshot.Request.MaxConcurrency is < 1 or > 16 || snapshot.Request.MaxRepairsPerWorkflowGate is < 0 or > 10) throw new ArgumentException("Invalid planning limits.");
-        if (command.Kind is not ("advance" or "answer" or "accept_behavior" or "approve" or "revise" or "edit_intent" or "configure_generation" or "cancel"))
-            throw new ArgumentException("Unsupported planning command.");
-        PlanningGenerationPolicy.Validate(snapshot.Request.Generation);
-        var state = PlanningContext.Clone(snapshot);
-        if (command.Kind == "advance" && (PlanningStatus.IsWaiting(state.Status) || PlanningStatus.IsTerminal(state.Status))) return state;
-        if (state.Status is PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled) throw new PlanningConflictException("The planning session is closed.");
+        if (session.SchemaVersion != 6) throw new PlanningConflictException("Unsupported planning session; start a new session.");
+        if (session.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed; reload its current revision.");
+        if (string.IsNullOrWhiteSpace(session.Request.TenantId) || string.IsNullOrWhiteSpace(session.Request.SessionId) || string.IsNullOrWhiteSpace(session.Request.Prompt))
+            throw new ArgumentException("Tenant, session, and prompt are required.");
+        if (session.Request.MaxRepairAttempts is < 0 or > 10 || session.Request.MaxModelCalls is < 1 or > 1000) throw new ArgumentException("Invalid planning limits.");
+        PlanningGenerationPolicy.Validate(session.Request.Generation);
+        if (command.Kind == "advance" && (PlanningStatus.IsWaiting(session.Status) || PlanningStatus.IsTerminal(session.Status))) return session;
+        if (session.Status is PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled) throw new PlanningConflictException("The session is closed.");
+        var state = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         var clock = Stopwatch.StartNew();
-        var callerCancellation = ct;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        ct = deadline.Token;
+        if (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } maximum)
+        {
+            var remaining = maximum.TotalMilliseconds - state.ActiveMilliseconds;
+            if (remaining <= 0) deadline.Cancel(); else deadline.CancelAfter(TimeSpan.FromMilliseconds(remaining));
+        }
         if (state.WaitingSinceUtc is { } waiting)
         { state.HumanWaitMilliseconds += Math.Max(0, (_time.GetUtcNow() - waiting).TotalMilliseconds); state.WaitingSinceUtc = null; }
         try
         {
-            if (command.Kind is "advance" or "approve" or "answer" && PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } maximum)
-            {
-                var remaining = maximum.TotalMilliseconds - state.ActiveMilliseconds;
-                if (remaining <= 0) deadline.Cancel(); else deadline.CancelAfter(TimeSpan.FromMilliseconds(remaining));
-            }
-            ct.ThrowIfCancellationRequested();
-            if (command.Kind is "advance" or "accept_behavior" or "approve") PlanningConfirmationPolicies.RequireCurrent(state);
-            if (state.Preparation is not null && command.Kind is "advance" or "accept_behavior" or "approve") PlanningOperations.RequireCurrent(state);
             switch (command.Kind)
             {
-                case "advance": await AdvancePhaseAsync(state, runtime, ct); break;
-                case "cancel": state.Status = PlanningStatus.Cancelled; state.ApprovedHash = null; state.PendingCommand = null; break;
-                case "answer":
-                    await PlanningBusinessAnswers.AcceptAsync(state, command, runtime, ct);
+                case "advance":
+                    await AdvanceAsync(state, runtime, deadline.Token);
+                    if (session.IntentPlan is not null && state.IntentPlan is not null && session.Diagnostics.Any(d => d.Required) && state.Diagnostics.Any(d => d.Required) &&
+                        JsonNode.DeepEquals(JsonSerializer.SerializeToNode(session.IntentPlan, PlanningJsonContext.Default.WorkflowIntentPlan), JsonSerializer.SerializeToNode(state.IntentPlan, PlanningJsonContext.Default.WorkflowIntentPlan)) &&
+                        session.Diagnostics.SequenceEqual(state.Diagnostics))
+                    { state.Diagnostics.Add(new("REPAIR_NO_PROGRESS", "$", "The unchanged intent produced the same failures.")); Stop(state); }
                     break;
-                case "accept_behavior":
-                    RequireReview(state, command, PlanningStatus.BehaviorReview);
-                    if (state.BehaviorPlan is null || state.ArtifactHash != PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan)) throw new PlanningConflictException("The behavior changed before acceptance.");
-                    var behaviorFindings = PlanningBehaviorPlans.Validate(state.BehaviorPlan, state.Preparation!).Concat(PlanningBusinessAnswers.ValidateBehavior(state, state.BehaviorPlan)).Concat(PlanningDeclarations.ValidateBehavior(state, state.BehaviorPlan)).ToList();
-                    if (behaviorFindings.Any(d => d.Required)) { state.Diagnostics = behaviorFindings.ToList(); state.Status = PlanningStatus.Stopped; break; }
-                    state.ApprovedBehaviorHash = state.ArtifactHash;
-                    PlanningGraphSkeleton.Create(state);
-                    PlanningContext.InvalidateArtifact(state);
-                    state.CurrentPhase = PlanningPhase.Dataflow; state.Status = PlanningStatus.Generating; break;
-                case "approve": await ApproveAsync(state, command, runtime, ct); break;
+                case "cancel": state.Status = PlanningStatus.Cancelled; state.ApprovedHash = null; break;
+                case "approve":
+                    if (state.Status != PlanningStatus.FinalReview || command.ArtifactHash is null || command.ArtifactHash != PlanningArtifactApproval.Hash(state))
+                        throw new PlanningConflictException("Approval must target the exact current review revision and artifact.");
+                    PlanningArtifactApproval.Verify(state);
+                    var approvalFindings = (await runtime.ValidateCatalogAsync(state.Catalog!, deadline.Token)).ToList();
+                    if (!approvalFindings.Any(d => d.Required)) approvalFindings.AddRange(await runtime.ValidateAsync(new(state.Yaml!, state.Request, state.Catalog!, PlanningGraphCompiler.CapabilityBindings(state.Graph!)), deadline.Token));
+                    if (approvalFindings.Any(d => d.Required)) { state.Diagnostics = approvalFindings; Stop(state); }
+                    else { state.ApprovedHash = command.ArtifactHash; state.Status = PlanningStatus.Approved; }
+                    break;
                 case "revise":
                 case "edit_intent":
-                    if (string.IsNullOrWhiteSpace(command.Text)) throw new ArgumentException("A revision requires intent text.");
-                    if (state.Construction.PendingCalls.Count != 0) throw new PlanningConflictException("Reconcile pending model requests before revising their contracts.");
-                    if (command.Kind == "edit_intent" && state.ApprovedBehaviorHash is not null) throw new PlanningConflictException("Use a behavior revision after acceptance.");
-                    var retainedBehavior = command.Kind == "revise" ? state.BehaviorAssessment.Candidate?.DeepClone().AsObject() ??
-                        (state.BehaviorPlan is null ? null : JsonSerializer.SerializeToNode(state.BehaviorPlan, PlanningJsonContext.Default.PlanningBehaviorPlan)!.AsObject()) : null;
-                    var reviewedBaseline = state.BehaviorPlan is not null && state.ApprovedBehaviorHash == PlanningBehaviorPlans.Fingerprint(state.BehaviorPlan)
-                        ? JsonSerializer.Serialize(state.BehaviorPlan, PlanningJsonContext.Default.PlanningBehaviorPlan) : null;
-                    PlanningIntentAssessment.ArchiveIntent(state);
-                    state.Request.Prompt = command.Kind == "edit_intent" ? command.Text.Trim() : state.Request.Prompt + "\n\nRequested revision:\n" + command.Text.Trim();
-                    if (command.Kind == "revise")
+                    if (state.PendingCall is not null) throw new PlanningConflictException("Reconcile the pending model request before editing intent.");
+                    ArgumentException.ThrowIfNullOrWhiteSpace(command.Text);
+                    state.Request.Baseline = state.Graph;
+                    state.Request.Prompt = command.Kind == "edit_intent" ? command.Text.Trim() : state.Request.Prompt + "\nRequested revision: " + command.Text.Trim();
+                    state.IntentPlan = null; state.Graph = null; state.Catalog = null; state.RepairAttempts = 0;
+                    state.Diagnostics.Clear(); state.Scenarios.Clear(); state.Yaml = null; state.ApprovedHash = null; state.Status = PlanningStatus.Generating;
+                    break;
+                case "answer":
+                    if (state.Status != PlanningStatus.Clarification || state.IntentPlan is null || command.Answers is null) throw new PlanningConflictException("No clarification is awaiting an answer.");
+                    if (command.Answers.Any(a => !state.IntentPlan.Questions.Any(q => q.Id == a.Key))) throw new ArgumentException("Unknown clarification answer.");
+                    foreach (var question in state.IntentPlan.Questions)
                     {
-                        state.Request.Prompt += string.Concat(state.Intent.Answers.Select(a => "\nHuman clarification: " + a.Question + "\n" + string.Join("\n", a.Answers.Select(v => PlanningBusinessAnswers.Describe(state, v.Key, v.Value)))));
-                        if (state.Graph is not null) state.Request.Baseline = PlanningContext.Clone(state.Graph);
+                        if (!command.Answers.ContainsKey(question.Id) || PlanningContractValidation.ValidateInstance(command.Answers[question.Id], PlanningGraphCompiler.ToJsonSchema(question.AnswerSchema, state.Catalog!)).Count > 0)
+                            throw new ArgumentException("An answer violates the question's schema: " + question.Id);
+                        state.Answers.Add(new(question.Question, new() { [question.Id] = command.Answers[question.Id]?.DeepClone() }));
                     }
-                    ResetForIntent(state);
-                    if (retainedBehavior is not null)
-                    {
-                        state.BehaviorAssessment.Candidate = retainedBehavior;
-                        state.BehaviorRevision = new() { Text = command.Text.Trim(), ReviewedBaselineBehavior = reviewedBaseline };
-                    }
+                    state.IntentPlan = null; state.Graph = null; state.Diagnostics.Clear(); state.Status = PlanningStatus.Generating;
                     break;
                 case "configure_generation":
-                    if (command.Generation is null || !(PlanningStatus.IsWaiting(state.Status) || state.Status is PlanningStatus.Stopped or PlanningStatus.Failed or PlanningStatus.Unsupported)) throw new PlanningConflictException("Generation settings require a paused session.");
-                    if (state.Construction.PendingCalls.Count != 0) throw new PlanningConflictException("Reconcile pending requests before changing generation settings.");
-                    PlanningGenerationPolicy.Validate(command.Generation);
-                    state.GenerationHistory.Add(new(state.Revision, state.Request.Generation)); state.Request.Generation = command.Generation;
-                    state.ApprovedHash = null;
-                    if (state.Status == PlanningStatus.FinalReview) { PlanningContext.InvalidateArtifact(state); state.Status = PlanningStatus.Validating; }
+                    if (state.PendingCall is not null || command.Generation is null) throw new PlanningConflictException("Generation settings cannot replace a pending request.");
+                    PlanningGenerationPolicy.Validate(command.Generation); state.Request.Generation = command.Generation;
+                    if (state.Status == PlanningStatus.Stopped) state.Status = PlanningStatus.Generating;
                     break;
                 default: throw new ArgumentException("Unsupported planning command.");
             }
-            ct.ThrowIfCancellationRequested();
         }
         catch (PlanningConflictException) { throw; }
-        catch (OperationCanceledException) when (!callerCancellation.IsCancellationRequested && deadline.IsCancellationRequested)
-        { PlanningContext.Stop(state, ErrorCodes.LlmBudgetExceeded, "The active planning time budget was exhausted. Pending dispatches must be reconciled before further work."); }
-        catch (OperationCanceledException) when (callerCancellation.IsCancellationRequested) { throw; }
-        catch (PlanningSemanticReview.SemanticAssessmentException error)
-        { state.Diagnostics = error.Diagnostics; state.Status = PlanningStatus.Stopped; state.CurrentPhase = "semantic_review"; PlanningContext.InvalidateArtifact(state); }
-        catch (WorkflowRuntimeException error) when (error.Code == "PLANNING_CLARIFICATION_REQUIRED")
+        catch (ArgumentException) when (command.Kind != "advance") { throw; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException) { state.Diagnostics = [new(ErrorCodes.LlmBudgetExceeded, "$", "Active planning time was exhausted.")]; Stop(state); }
+        catch (PlanningResponseException ex) { state.Diagnostics = ex.Diagnostics; state.Status = PlanningStatus.Generating; Invalidate(state); }
+        catch (WorkflowRuntimeException ex) { state.Diagnostics = [new(ex.Code, "$", ex.Message)]; Stop(state); }
+        catch (JsonException ex) { state.Diagnostics = [new("INTENT_SCHEMA_INVALID", "$", ex.Message)]; state.Status = PlanningStatus.Generating; Invalidate(state); }
+        catch (Exception ex)
         {
-            var question = error.Details?["question"] is { } json ? JsonSerializer.Deserialize(json, PlanningJsonContext.Default.HumanInputRequest) : null;
-            var count = question?.Fields?.Count ?? 0;
-            if (state.Outcome is not PlanningNeedUserClarification || question is null || count == 0 || state.Intent.Forms >= 3 || state.Intent.Questions + count > 15)
-                PlanningContext.Stop(state, "CLARIFICATION_LIMIT", "Required clarification cannot be completed within the remaining allowance.");
-            else { state.Intent.Question = question; state.Intent.Forms++; state.Intent.Questions += count; state.Status = PlanningStatus.Clarification; }
+            state.Diagnostics = [new(state.PendingCall is null ? "PLANNING_INVALID" : "MODEL_DISPATCH_UNVERIFIABLE", "$", ex.Message)];
+            if (state.PendingCall is not null || state.Catalog is null) Stop(state); else { state.Status = PlanningStatus.Generating; Invalidate(state); }
         }
-        catch (WorkflowRuntimeException error) when (state.CurrentPhase == PlanningPhase.Capabilities)
-        {
-            state.Diagnostics = PlanningPreparationDiagnostics.FromException(error);
-            state.Status = error.Code == ErrorCodes.CapabilityPreflightUnavailable ? PlanningStatus.Unsupported : PlanningStatus.Stopped;
-            if (state.PreparationCheckpoint is not null) state.PreparationCheckpoint.Diagnostics = state.Diagnostics.ToList();
-            PlanningContext.InvalidateArtifact(state);
-        }
-        catch (PlanningHoleUnavailableException error)
-        { PlanningContext.Stop(state, "HOLE_DOMAIN_UNRESOLVED", error.Message, error.Location); }
-        catch (LLMClientException error)
-        {
-            state.Diagnostics = [new("LLM_PROVIDER_" + error.Kind.ToString().ToUpperInvariant(), "$",
-                error.Message + (error.StatusCode is { } status ? " HTTP status: " + status + "." : "") +
-                (error.SafeProviderCode is { } code ? " Provider code: " + code + "." : ""))];
-            state.Status = PlanningStatus.Stopped; PlanningContext.InvalidateArtifact(state);
-        }
-        catch (Exception error)
-        {
-            var code = error is WorkflowRuntimeException flow ? flow.Code : error is LLMClientException ? "MODEL_TRANSPORT_FAILURE" : "PLANNING_INVALID";
-            if (!state.Diagnostics.Any(d => d.Code == code))
-                PlanningContext.Stop(state, code, error.Message, (error as WorkflowRuntimeException)?.Details?["location"]?.ToString() ?? "$");
-        }
-        PlanningOutcomes.Refresh(state);
         state.ActiveMilliseconds += clock.Elapsed.TotalMilliseconds;
-        PlanningConvergence.Refresh(state);
         state.Revision++; state.UpdatedAtUtc = _time.GetUtcNow();
         if (PlanningStatus.IsWaiting(state.Status)) state.WaitingSinceUtc = state.UpdatedAtUtc;
-        state.Events.Add(new("transition", PlanningPhase.Resolve(state), state.UpdatedAtUtc));
-        await runtime.CheckpointAsync(state, callerCancellation);
+        await runtime.CheckpointAsync(state, ct);
         return state;
     }
 
-    private async Task AdvancePhaseAsync(PlanningSnapshot state, IPlanningRuntime runtime, CancellationToken ct)
+    private static async Task AdvanceAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
-        if (state.Status == PlanningStatus.Created)
+        state.Status = PlanningStatus.Generating;
+        if (state.Catalog is null) { state.Catalog = await runtime.DiscoverAsync(state.Request, ct); return; }
+        if (state.IntentPlan is null || state.Diagnostics.Any(d => d.Required))
         {
-            if (!state.Intent.Checked)
+            var repair = state.Diagnostics.Any(d => d.Required);
+            if (repair && state.PendingCall is null)
             {
-                state.CurrentPhase = PlanningPhase.Intent;
-                await new PlanningIntentAssessment(_time).AssessAsync(state, runtime, ct);
-                if (state.Status == PlanningStatus.Created) state.Intent.Checked = true;
+                if (state.RepairAttempts >= state.Request.MaxRepairAttempts) { Stop(state); return; }
+                state.RepairAttempts++;
             }
-            else if (state.Preparation is null)
+            var candidate = await PlanningModelCalls.CallAsync(state, runtime, repair ? "repair" : "intent", PlanningModelCalls.IntentPrompt(state), PlanningSchemas.Intent(), ct);
+            var intent = JsonSerializer.Deserialize(candidate, PlanningJsonContext.Default.WorkflowIntentPlan)!;
+            state.IntentPlan = intent; state.Graph = null; state.Diagnostics.Clear(); state.Scenarios.Clear(); Invalidate(state);
+            if (intent.Questions.Count > 0)
             {
-                state.CurrentPhase = PlanningPhase.Capabilities;
-                var progress = await runtime.PrepareAsync(state, ct);
-                state.PreparationCheckpoint = progress.Checkpoint; state.Preparation = progress.Preparation;
+                if (++state.ClarificationRounds > 3 || intent.Questions.Count > 5 || intent.Questions.Select(q => q.Id).Distinct().Count() != intent.Questions.Count)
+                { state.Diagnostics = [new("CLARIFICATION_LIMIT", "/questions", "Clarification is limited to three rounds of five distinct questions.")]; Stop(state); return; }
+                foreach (var question in intent.Questions) _ = PlanningGraphCompiler.ToJsonSchema(question.AnswerSchema, state.Catalog);
+                state.Status = PlanningStatus.Clarification; return;
             }
-            else await new PlanningBehaviorAssessment(_time).AssessAsync(state, runtime, ct);
-            return;
+            state.Graph = PlanningGraphBuilder.Build(intent, state.Catalog);
         }
-        if (state.Status == PlanningStatus.Generating)
+        if (state.Graph is null) state.Graph = PlanningGraphBuilder.Build(state.IntentPlan!, state.Catalog);
+        while (true)
         {
-            if (state.Construction.Dataflow is null)
-            { state.CurrentPhase = PlanningPhase.Dataflow; PlanningDataflowResolver.Resolve(state); return; }
-            if (state.CurrentPhase == PlanningPhase.Repair)
+            var holes = PlanningHoleEligibility.Find(state.Graph, state.Catalog);
+            if (holes.Count == 0) break;
+            var domains = holes.Select(h => (Hole: h, Choices: PlanningHoleEligibility.Choices(state.Graph, state.Catalog, h))).ToArray();
+            var singleton = domains.FirstOrDefault(d => d.Choices.Count == 1);
+            if (singleton.Hole is not null)
+            { state.Graph = PlanningHoleEligibility.Assign(state.Graph, state.Catalog, singleton.Hole, singleton.Choices[0].Value); continue; }
+            var ambiguous = domains.Where(d => d.Choices.Count > 1).ToList();
+            if (ambiguous.Count == 0)
             {
-                if (state.Construction.Candidates.Count > 0) await new PlanningHoleRepair().AdvanceAsync(state, runtime, ct);
-                else await new PlanningTypedRepair(_validation).AdvanceAsync(state, runtime, ct);
+                state.Diagnostics = domains.Select(d => new PlanningDiagnostic("HOLE_UNRESOLVED", d.Hole.Path, "No valid deterministic choice exists for this " + d.Hole.Kind + " field. Supply a typed value or revise its dependencies.")).ToList();
                 return;
             }
-            state.CurrentPhase = PlanningPhase.Construction;
-            await _construction.AdvanceAsync(state, runtime, ct);
-            return;
+            string Prompt() => "Select one issued choice ID for each field. Use the request's meaning; do not create values.\n" + state.Request.Prompt + "\n" +
+                new JsonObject(ambiguous.Select(d => new KeyValuePair<string, JsonNode?>(d.Hole.Id, new JsonArray(d.Choices.Select(c => (JsonNode)new JsonObject { ["id"] = c.Id, ["value"] = c.Value?.DeepClone(), ["description"] = d.Hole.Kind == "capability" ? state.Catalog.Capabilities.FirstOrDefault(cap => cap.Id == c.Value?.ToString())?.Description : null }).ToArray())))).ToJsonString();
+            while (ambiguous.Count > 1 && PlanningJsonTransport.EstimateInputTokens(Prompt(), PlanningSchemas.Choices(ambiguous)) > state.Request.Generation.MaxInputTokensPerRequest) ambiguous.RemoveAt(ambiguous.Count - 1);
+            var answers = (await PlanningModelCalls.CallAsync(state, runtime, "choices", Prompt(), PlanningSchemas.Choices(ambiguous), ct)).AsObject();
+            foreach (var domain in ambiguous)
+            {
+                var choice = domain.Choices.Single(c => c.Id == answers[domain.Hole.Id]!.GetValue<string>());
+                state.Graph = PlanningHoleEligibility.Assign(state.Graph, state.Catalog, domain.Hole, choice.Value);
+            }
+            return; // Persist the resolved graph before considering dependent holes.
         }
-        if (state.Status == PlanningStatus.Validating)
-        { state.CurrentPhase = PlanningStatus.Validating; await _validation.AdvanceAsync(state, runtime, ct); return; }
-        throw new PlanningConflictException("The current phase cannot advance.");
+        await PlanningValidationPipeline.ValidateAsync(state, runtime, ct);
     }
-
-    private async Task ApproveAsync(PlanningSnapshot state, PlanningCommand command, IPlanningRuntime runtime, CancellationToken ct)
-    {
-        RequireReview(state, command, PlanningStatus.FinalReview);
-        PlanningArtifactApproval.Verify(state);
-        var yaml = state.Yaml!;
-        var findings = await runtime.ValidateCatalogAsync(state.Preparation!, ct);
-        if (findings.Count == 0) findings = await runtime.ValidateAsync(new(yaml, PlanningContext.EffectiveRequest(state), state.Preparation!, PlanningGraphCompiler.CapabilityBindings(state.Graph!)), ct);
-        if (findings.Any(d => d.Required))
-        { state.Diagnostics = findings.ToList(); PlanningContext.Stop(state, "GOVERNING_CONTRACT_REVIEW_REQUIRED", "Current contracts require renewed review before approval."); return; }
-        state.ApprovedHash = state.ArtifactHash; state.Status = PlanningStatus.Approved;
-        state.Outcome = new PlanningValidWorkflow(state.ArtifactHash!);
-    }
-
-    private static void RequireReview(PlanningSnapshot state, PlanningCommand command, string status)
-    {
-        if (state.Status != status || string.IsNullOrWhiteSpace(command.ArtifactHash) || command.ArtifactHash != state.ArtifactHash)
-            throw new PlanningConflictException("Approval must target the exact current review revision and hash.");
-    }
-    private static void ResetForIntent(PlanningSnapshot state)
-    {
-        state.Outcome = null; state.TechnicalStop = null;
-        state.Intent.Checked = false;
-        state.Intent.Question = null; state.Intent.Assessment = new(); state.Intent.Answers.Clear();
-        state.Preparation = null; state.PreparationCheckpoint = null; state.BehaviorPlan = null; state.ApprovedBehaviorHash = null;
-        state.BehaviorAssessmentCalls = 0; state.BehaviorAssessment = new(); state.Graph = null; state.Diagnostics.Clear();
-        state.BehaviorRevision = null;
-        state.ScopedPolicies.Clear();
-        state.OperationAdmissionFingerprint = null;
-        state.RuntimeEvidence.Clear(); state.RuntimeEvidenceFingerprint = null;
-        state.Declarations.Clear(); state.DeclarationAssignments.Clear(); state.DeclarationFingerprint = null;
-        foreach (var decision in state.BusinessDecisions) decision.Status = "superseded";
-        state.Construction = new() { ModelSequence = state.Construction.ModelSequence };
-        state.Validation = new(); state.PendingCommand = null; state.ReviewMarkdown = null;
-        PlanningContext.InvalidateArtifact(state);
-        state.Status = PlanningStatus.Created; state.CurrentPhase = PlanningPhase.Intent;
-    }
+    private static void Invalidate(PlanningSession state) { state.Yaml = null; state.ApprovedHash = null; }
+    private static void Stop(PlanningSession state) { state.Status = PlanningStatus.Stopped; Invalidate(state); }
 }

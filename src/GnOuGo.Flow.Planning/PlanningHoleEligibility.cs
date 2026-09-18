@@ -1,187 +1,150 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
-
 namespace GnOuGo.Flow.Planning;
 
-internal sealed record PlanningHoleDomain(JsonObject? Contract, IReadOnlyList<PlanningBinding> Direct,
-    IReadOnlyList<PlanningBinding> Parameters, bool Literal, IReadOnlySet<string> Outstanding, IReadOnlySet<string> RequiredHere,
-    bool ProvenTransfer, IReadOnlySet<string> BoundaryObligations, bool Omission = false);
-
-/// <summary>The single source of admissible choices for deterministic resolution and model transport.</summary>
-internal static class PlanningHoleEligibility
+internal sealed record PlanningChoice(string Id, JsonNode? Value);
+/// <summary>The same finite domain drives automatic resolution and model selections.</summary>
+public static class PlanningHoleEligibility
 {
-    internal static PlanningHoleDomain Analyze(PlanningSnapshot state, PlanningWorkflow workflow, PlanningHole hole)
+    public static IReadOnlyList<PlanningHole> Find(PlanningGraph graph, PlanningCatalog catalog)
     {
-        var expected = PlanningHoleContracts.Expected(state, workflow, hole);
-        if (hole.Kind is "schema" or "default") return new(expected, [], [], hole.Kind == "default", new HashSet<string>(), new HashSet<string>(), false, new HashSet<string>());
-        var node = PlanningHoleContracts.Target(workflow, hole).Node;
-        var available = Available(state, workflow, hole).ToArray();
-        var obligations = Obligations(state, workflow, node);
-        // The graph is immutable throughout this analysis. Reuse one validated
-        // contract resolver and one provenance result per source, not one full
-        // graph validation for every source/neighbor comparison.
-        var resolver = node is null ? null : PlanningGraphValidation.OptionalValueContractResolver(state.Graph!, workflow, state.Preparation!);
-        var dependencies = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
-        HashSet<string> SourceDependencies(PlanningBinding binding)
+        var holes = new List<PlanningHole>();
+        for (var wi = 0; wi < graph.Workflows.Count; wi++)
         {
-            if (!dependencies.TryGetValue(binding.Id, out var result))
-                dependencies[binding.Id] = result = Dependencies(state, workflow, node, binding.Value, resolver);
-            return result;
-        }
-        var established = node is null ? new HashSet<string>(StringComparer.Ordinal) : Dependencies(state, workflow, node, null, resolver);
-        var remaining = obligations.Except(established).ToHashSet(StringComparer.Ordinal);
-        var alternatives = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var other in state.Construction.Holes.Where(h => !h.Resolved && h.Kind == "value" && h.WorkflowKey == hole.WorkflowKey && h.NodeKey == hole.NodeKey && h.Id != hole.Id))
-            foreach (var binding in available) // All neighbors have the same consumer and availability boundary.
-                if (ArtifactFits(state, workflow, other, binding)) alternatives.UnionWith(SourceDependencies(binding));
-        var boundary = node is null ? new HashSet<string>(StringComparer.Ordinal) : PlanningWorkflowProvenance.RequiredAtInvocation(state.Graph!, workflow, node, state.Preparation!)
-            .Select(op => "operation:" + op).ToHashSet(StringComparer.Ordinal);
-        // A callee's incoming operation requirements are contracts for its invocations,
-        // not evidence of a local producer. Call arguments must prove them when callers
-        // are validated. Do not invent that proof or deadlock callee-first construction.
-        var forced = remaining.Except(boundary).Except(alternatives).ToHashSet(StringComparer.Ordinal);
-        var original = ArtifactKinds(state, workflow, hole).ToArray();
-        var artifactOrigins = obligations.Where(o => o.StartsWith("operation:", StringComparison.Ordinal)).Select(o => o[10..]).ToHashSet(StringComparer.Ordinal);
-        if (original.Length > 0)
-        {
-            // A locked composed operation can produce an artifact in an earlier
-            // capability and consume that exact artifact in its next capability.
-            // Availability still excludes self, future and unguarded branch results.
-            if (node is not null) artifactOrigins.UnionWith(node.OperationIds);
-            bool changed;
-            do
+            var workflow = graph.Workflows[wi]; var root = "/workflows/" + wi;
+            foreach (var (node, path) in PlanningGraphValidation.Located(workflow.Steps, root + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, root + "/finally")))
             {
-                changed = false;
-                foreach (var capability in state.Preparation!.Capabilities.Where(c => c.OperationIds.Any(artifactOrigins.Contains)))
-                    foreach (var input in capability.InputOperationIds) changed |= artifactOrigins.Add(input);
-            } while (changed);
-        }
-        var implicitArtifacts = new Dictionary<string, string?>(StringComparer.Ordinal);
-        foreach (var kind in original)
-        {
-            // An operation dependency constrains artifact identity only when that
-            // dependency actually declares an artifact of this kind. The required
-            // artifact contract can independently identify a sole owned materializer.
-            // Never substitute another origin when an explicit one is unavailable.
-            if (state.Preparation!.Capabilities.Any(c => c.OperationIds.Any(artifactOrigins.Contains) &&
-                c.ArtifactContract?.Produces.Any(p => p.Kind == kind) == true)) continue;
-            var producers = new HashSet<string>(StringComparer.Ordinal);
-            var local = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).ToHashSet();
-            foreach (var binding in available)
-                PlanningValueProvenance.Proves(workflow, binding.Value, state.Graph!, (producer, reference) =>
+                if (node.Type == PlanningValues.Hole && node.CapabilityId is null) Add(path + "/capabilityId", "capability", null, node.Key);
+                var capability = catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
+                JsonObject? schema = capability?.InputSchema ?? catalog.StepContracts[node.Type]?["input"] as JsonObject;
+                if (node.Type == "mcp.call") schema = new() { ["type"] = "object", ["properties"] = new JsonObject { ["request"] = schema?.DeepClone() } };
+                Value(node.Input, path + "/input", schema, node.Key);
+                if (node.If is not null) Value(node.If, path + "/if", new() { ["type"] = "boolean" }, node.Key);
+                if (node.Expr is not null) Value(node.Expr, path + "/expr", null, node.Key);
+                if (node.OutputSchema is not null) Schema(node.OutputSchema, path + "/outputSchema", node.Key);
+                if (node.StructuredOutput is not null) Schema(node.StructuredOutput.Schema, path + "/structuredOutput/schema", node.Key);
+                for (var i = 0; i < node.Cases.Count; i++) if (node.Cases[i].When is { } when) Value(when, path + "/cases/" + i + "/when", new() { ["type"] = "boolean" }, node.Key);
+                for (var i = 0; i < node.OnError.Count; i++)
                 {
-                    var contract = state.Preparation.Capabilities.SingleOrDefault(c => c.Id == producer.CapabilityId);
-                    if (!local.Contains(producer) || producer.Type != "mcp.call" || !producer.OperationIds.Any(workflow.OperationIds.Contains) ||
-                        contract?.ArtifactContract?.Produces.Any(p => p.Kind == kind && p.Mode == "materialize" &&
-                            p.Pointer == "/" + string.Join("/", reference.Path.Select(PlanningSchemaReferences.Escape))) != true) return false;
-                    producers.Add(producer.Key); return true;
-                });
-            implicitArtifacts[kind] = producers.Count == 1 ? producers.Single() : null;
+                    if (node.OnError[i].If is { } condition) Value(condition, path + "/onError/" + i + "/if", new() { ["type"] = "boolean" }, node.Key);
+                    if (node.OnError[i].SetOutput is { } fallback) Value(fallback, path + "/onError/" + i + "/setOutput", null, node.Key);
+                }
+            }
+            for (var i = 0; i < workflow.Inputs.Count; i++)
+            {
+                Schema(workflow.Inputs[i].Schema, root + "/inputs/" + i + "/schema", null);
+                if (workflow.Inputs[i].Default is { } value) Value(value, root + "/inputs/" + i + "/default", Contract(workflow.Inputs[i].Schema), null);
+            }
+            for (var i = 0; i < workflow.Outputs.Count; i++)
+            {
+                Schema(workflow.Outputs[i].Schema, root + "/outputs/" + i + "/schema", null);
+                Value(workflow.Outputs[i].Value, root + "/outputs/" + i + "/value", Contract(workflow.Outputs[i].Schema), null);
+            }
+            void Add(string path, string kind, JsonObject? schema, string? node, bool optional = false) => holes.Add(new(path, workflow.Key, node, path, kind, schema, optional));
+            JsonObject? Contract(PlanningSchema schema) { try { return PlanningGraphCompiler.ToJsonSchema(schema, catalog); } catch (InvalidOperationException) { return null; } }
+            void Schema(PlanningSchema schema, string path, string? node)
+            {
+                if (schema.Type == PlanningValues.Hole) Add(path, "schema", null, node);
+                if (schema.Items is not null) Schema(schema.Items, path + "/items", node);
+                for (var i = 0; i < schema.Properties.Count; i++) Schema(schema.Properties[i].Schema, path + "/properties/" + i + "/schema", node);
+                if (schema.AdditionalProperties is not null) Schema(schema.AdditionalProperties, path + "/additionalProperties", node);
+            }
+            void Value(PlanningValue value, string path, JsonObject? expected, string? node, bool optional = false)
+            {
+                if (value.Kind == PlanningValues.Hole) Add(path, "value", expected, node, optional);
+                var required = (expected?["required"] as JsonArray ?? []).Select(v => v!.ToString()).ToHashSet(StringComparer.Ordinal);
+                for (var i = 0; i < value.Members.Count; i++)
+                {
+                    var member = value.Members[i];
+                    Value(member.Value, path + "/members/" + i + "/value", expected?["properties"]?[member.Name] as JsonObject, node,
+                        expected?["properties"] is JsonObject fields && fields.ContainsKey(member.Name) && !required.Contains(member.Name));
+                }
+                for (var i = 0; i < value.Items.Count; i++) Value(value.Items[i], path + "/items/" + i, expected?["items"] as JsonObject, node);
+            }
         }
-        bool Relevant(PlanningBinding binding)
+        return holes;
+    }
+
+    internal static IReadOnlyList<PlanningChoice> Choices(PlanningGraph graph, PlanningCatalog catalog, PlanningHole hole)
+    {
+        var workflow = graph.Workflows.Single(w => w.Key == hole.WorkflowKey);
+        var choices = new List<JsonNode?>();
+        if (hole.Kind == "capability")
         {
-            if (node is null) return binding.Value.Kind is "output" or "artifact_collection" || workflow.OperationIds.Count == 0 && binding.Value.Kind == "input";
-            if (original.Length > 0 && artifactOrigins.Count > 0)
-                return original.All(kind => implicitArtifacts.TryGetValue(kind, out var producer)
-                    ? producer is not null && PlanningArtifactBindings.Proves(workflow, binding.Value, kind, state.Preparation!, state.Graph!, new(StringComparer.Ordinal), originNode: producer)
-                    : PlanningArtifactBindings.Proves(workflow, binding.Value, kind, state.Preparation!, state.Graph!, new(StringComparer.Ordinal), artifactOrigins));
-            if (obligations.Count == 0) return false; // Type equality alone cannot invent a business relationship.
-            return SourceDependencies(binding).Overlaps(obligations);
+            var node = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Single(n => n.Key == hole.NodeKey);
+            foreach (var capability in catalog.Capabilities.Where(c => c.StepType == "mcp.call" && !catalog.Policy.DeniedCapabilityIds.Contains(c.Id)).OrderBy(c => c.Id, StringComparer.Ordinal))
+                if (node.Input.Kind == "object" && node.Input.Members.All(m => capability.InputSchema["properties"]?[m.Name] is JsonObject expected &&
+                    (!PlanningGraphValidation.IsLiteral(m.Value) || PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(m.Value), expected).Count == 0))) choices.Add(JsonValue.Create(capability.Id));
         }
-        var direct = expected is null ? [] : available.Where(b => Relevant(b) && PlanningContractCompatibility.Fits(b.Schema, expected) &&
-            ArtifactFits(state, workflow, hole, b) && forced.IsSubsetOf(SourceDependencies(b))).ToArray();
-        var parameters = original.Length > 0 ? [] : available.Where(b => Relevant(b) && b.Value.Path.Count == 0 && b.Value.Kind != "loop_index").ToArray();
-        // A proven direct choice is also a valid operand of an otherwise permitted
-        // computation. Reuse its issued identity instead of exposing a binding ID
-        // that becomes an undeclared variable when the model applies a scalar transform.
-        // Original-artifact fields still prohibit computations entirely.
-        if (parameters.Length > 0) parameters = parameters.Concat(direct).DistinctBy(b => b.Id).OrderBy(b => b.Id, StringComparer.Ordinal).ToArray();
-        // A computation's complete scoped parameter set must be able to discharge the field's obligations.
-        if (!forced.IsSubsetOf(parameters.SelectMany(SourceDependencies).ToHashSet(StringComparer.Ordinal))) parameters = [];
-        // A direct result is established by explicit operation/input evidence, not merely a matching scalar type.
-        var transfer = original.Length > 0 || node is null || node.Type is "workflow.call" or "mcp.call" or "loop.sequential" or "loop.parallel";
-        // An executable workflow's public result must derive from its execution.
-        // An explicitly fixed result contract remains a legitimate constant; an
-        // unconstrained output schema does not authorize fabricated evidence.
-        var resultNeedsSource = node is null && workflow.OperationIds.Count > 0 &&
-            !(expected is not null && (expected.ContainsKey("const") || expected["enum"] is JsonArray { Count: 1 }));
-        var literal = original.Length == 0 && forced.Count == 0 && !resultNeedsSource;
-        // A neighboring argument can cover a shared obligation. One compatible
-        // scalar source then does not prove that this argument is its identity:
-        // constants and transformations remain admissible business choices.
-        transfer &= node is null || !literal;
-        return new(expected, direct, parameters, literal, remaining, forced, transfer, boundary,
-            hole.Optional && forced.Count == 0 && original.Length == 0);
-    }
-
-    internal static IReadOnlyList<PlanningBinding> Available(PlanningSnapshot state, PlanningWorkflow workflow, PlanningHole hole)
-    {
-        if (hole.Kind is "schema" or "default") return [];
-        return PlanningDataflow.Index(workflow, state.Preparation!, state.Graph!, hole.NodeKey ?? PlanningDataflow.WorkflowOutputs).Values
-            .Where(b => b.Availability is not ("opaque" or "absent") && PlanningSchemaPropagation.Established(b.Schema) &&
-                (b.Value.Kind != "output" || !state.Construction.Holes.Any(h => h.WorkflowKey == workflow.Key && h.NodeKey == b.Value.Source && !h.Resolved)))
-            .OrderBy(b => b.Id, StringComparer.Ordinal).ToArray();
-    }
-
-    internal static HashSet<string> Obligations(PlanningSnapshot state, PlanningWorkflow workflow, PlanningNode? node)
-    {
-        if (node is null) return new(StringComparer.Ordinal);
-        var inputs = state.Construction.Dataflow?.InputObligations.GetValueOrDefault(workflow.Key + "/" + node.Key) ?? [];
-        var operations = PlanningOperationCompositions.RequiredInputs(workflow, node, state.Preparation!);
-        if (node.Type is "loop.sequential" or "loop.parallel")
+        else if (hole.Kind == "schema")
         {
-            var body = PlanningGraphCompiler.Enumerate(node.Steps).ToArray();
-            var contained = body.SelectMany(n => n.OperationIds).Concat(body.Select(PlanningWorkflowProvenance.Target).OfType<string>()
-                .SelectMany(k => state.Graph!.Workflows.Single(w => w.Key == k).OperationIds)).ToHashSet(StringComparer.Ordinal);
-            operations = operations.Concat(body.SelectMany(n => PlanningOperationCompositions.RequiredInputs(workflow, n, state.Preparation!)))
-                .Where(op => !contained.Contains(op)).Distinct(StringComparer.Ordinal).ToArray();
+            try
+            {
+                var json = PlanningFieldPaths.Json(graph);
+                var valuePath = hole.Path.EndsWith("/outputSchema", StringComparison.Ordinal) ? hole.Path[..^"outputSchema".Length] + "input" : hole.Path[..^"schema".Length] + "value";
+                if (PlanningFieldPaths.ReadOptional(json, valuePath) is JsonObject valueJson)
+                {
+                    var value = JsonSerializer.Deserialize(valueJson, PlanningJsonContext.Default.PlanningValue)!;
+                    var schema = PlanningGraphValidation.ValueContractResolver(graph, workflow, catalog)(value);
+                    if (PlanningValues.Established(schema)) choices.Add(JsonSerializer.SerializeToNode(PlanningGraphImporter.Schema(schema), PlanningJsonContext.Default.PlanningSchema));
+                }
+            }
+            catch (Exception e) when (e is InvalidOperationException or ArgumentException or JsonException) { }
         }
-        return inputs.Select(i => "input:" + i).Concat(operations.Select(o => "operation:" + o)).ToHashSet(StringComparer.Ordinal);
-    }
-
-    internal static HashSet<string> Dependencies(PlanningSnapshot state, PlanningWorkflow workflow, PlanningNode? node, PlanningValue? value, Func<PlanningValue, JsonObject?>? resolver = null)
-    {
-        var inputs = new HashSet<string>(StringComparer.Ordinal);
-        if (node is null)
+        else if (hole.ExpectedSchema is { } expected)
         {
-            if (value?.Kind == "input") inputs.Add("input:" + value.Source);
-            return inputs;
+            if (expected.TryGetPropertyValue("const", out var constant)) Literal(constant);
+            else if (expected["enum"] is JsonArray values) foreach (var value in values) Literal(value);
+            else if (expected.TryGetPropertyValue("default", out var defaultValue)) Literal(defaultValue);
+            try
+            {
+                foreach (var binding in PlanningDataflow.Index(workflow, catalog, graph, hole.NodeKey ?? PlanningDataflow.WorkflowOutputs).Values)
+                    if (binding.Availability is "unconditional" or "nullable" && PlanningContractCompatibility.Fits(binding.Schema, expected) && ArtifactFits(binding.Value))
+                        choices.Add(JsonSerializer.SerializeToNode(binding.Value, PlanningJsonContext.Default.PlanningValue));
+            }
+            catch (InvalidOperationException) { }
+            if (hole.Optional) choices.Add(JsonSerializer.SerializeToNode(new PlanningValue { Kind = PlanningValues.Omitted }, PlanningJsonContext.Default.PlanningValue));
+            void Literal(JsonNode? value)
+            {
+                if (PlanningContractValidation.ValidateInstance(value, expected).Count == 0 && ArtifactFits(PlanningJsonTransport.Literal(value)))
+                    choices.Add(JsonSerializer.SerializeToNode(PlanningJsonTransport.Literal(value), PlanningJsonContext.Default.PlanningValue));
+            }
         }
-        var operations = PlanningDataflow.OperationDependencies(workflow, node, state.Preparation!, state.Graph!, inputs, value, resolver).Operations;
-        if (value is null) inputs.UnionWith(PlanningDataflow.BusinessInputs(workflow, node));
-        return inputs.Select(i => "input:" + i).Concat(operations.Select(o => "operation:" + o)).ToHashSet(StringComparer.Ordinal);
-    }
-
-    internal static IEnumerable<string> ArtifactKinds(PlanningSnapshot state, PlanningWorkflow workflow, PlanningHole hole)
-    {
-        var (node, members) = PlanningHoleContracts.Target(workflow, hole);
-        var capability = state.Preparation!.Capabilities.SingleOrDefault(c => c.Id == node?.CapabilityId);
-        if (node?.Type == "mcp.call" && members.FirstOrDefault() == "request") members = members[1..];
-        var pointer = "/" + string.Join("/", members.Select(PlanningFieldPaths.Escape));
-        return capability?.ArtifactContract?.Consumes.Where(c => c.Pointer == pointer).Select(c => c.Kind) ?? [];
-    }
-    private static bool ArtifactFits(PlanningSnapshot state, PlanningWorkflow workflow, PlanningHole hole, PlanningBinding binding) =>
-        ArtifactKinds(state, workflow, hole).All(kind => PlanningArtifactBindings.Proves(workflow, binding.Value, kind, state.Preparation!, state.Graph!, new(StringComparer.Ordinal)));
-
-    internal static PlanningDiagnostic? Validate(PlanningSnapshot state, PlanningWorkflow workflow, PlanningHole hole, PlanningValue? value)
-    {
-        if (hole.Kind == "schema") return null;
-        var domain = Analyze(state, workflow, hole);
-        if (value?.Kind == PlanningSkeletonInputs.Omitted)
-            return domain.Omission ? null : Finding("Omitting this field would lose a required argument or dependency.");
-        if (value is null || PlanningGraphValidation.IsLiteral(value))
-            return domain.Literal ? null : Finding("A literal cannot fulfill this field's remaining dynamic or artifact obligations.");
-        if (value.Kind == "compute")
+        return choices.DistinctBy(c => c?.ToJsonString()).Select((c, i) => new PlanningChoice("choice_" + i, c)).ToArray();
+        bool ArtifactFits(PlanningValue value)
         {
-            var eligible = domain.Parameters.Select(b => b.Id).ToHashSet(StringComparer.Ordinal);
-            if (value.Members.Any(m => !eligible.Contains(PlanningBindingIdentity.Id(m.Value)))) return Finding("The computation references a parameter outside the current field domain.");
-            if (!domain.Literal && value.Members.Count == 0) return Finding("The computation must reference an eligible execution source.");
-            var node = PlanningHoleContracts.Target(workflow, hole).Node;
-            if (!domain.RequiredHere.IsSubsetOf(Dependencies(state, workflow, node, value))) return Finding("The computation omits a required field dependency.");
-            return null;
+            if (hole.NodeKey is null) return true;
+            var node = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Single(n => n.Key == hole.NodeKey);
+            var capability = catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
+            if (capability?.ArtifactContract is null || !hole.Path.Contains("/input/", StringComparison.Ordinal)) return true;
+            var nodePath = hole.Path[..hole.Path.IndexOf("/input", StringComparison.Ordinal)];
+            foreach (var consumed in capability.ArtifactContract.Consumes)
+            {
+                var request = PlanningGraphValidation.Member(node.Input, "request");
+                if (request is null) continue;
+                var requestPath = nodePath + "/input/members/" + node.Input.Members.FindIndex(m => m.Name == "request") + "/value";
+                if (PlanningValues.LiteralLocation(request, requestPath, consumed.Pointer) == hole.Path &&
+                    !PlanningArtifactBindings.Proves(workflow, value, consumed.Kind, catalog, graph, new())) return false;
+            }
+            return true;
         }
-        return domain.Direct.Any(b => b.Id == PlanningBindingIdentity.Id(value)) ? null : Finding("The binding does not satisfy this field's current contract, availability and provenance obligations.");
-        PlanningDiagnostic Finding(string message) => new("HOLE_BINDING_INELIGIBLE", hole.Path, message, ValidationStage: "dataflow", Rule: "field_domain");
+    }
+
+    internal static PlanningGraph Assign(PlanningGraph graph, PlanningCatalog catalog, PlanningHole hole, JsonNode? value)
+    {
+        var json = PlanningFieldPaths.Json(graph);
+        PlanningFieldPaths.Replace(json, hole.Path, value);
+        var updated = JsonSerializer.Deserialize(json, PlanningJsonContext.Default.PlanningGraph)!;
+        if (hole.Kind == "capability")
+        {
+            var node = PlanningGraphCompiler.Enumerate(updated.Workflows.Single(w => w.Key == hole.WorkflowKey).Steps.Concat(updated.Workflows.Single(w => w.Key == hole.WorkflowKey).Finally)).Single(n => n.Key == hole.NodeKey);
+            var capability = catalog.Capabilities.Single(c => c.Id == node.CapabilityId);
+            node.Type = capability.StepType;
+            PlanningGraphBuilder.ApplyBindings(node.Input, capability);
+            PlanningGraphBuilder.FillRequired(node.Input, capability.InputSchema);
+            if (node.Type == "mcp.call") node.Input = new() { Kind = "object", Members = [new("request", node.Input)] };
+        }
+        return updated;
     }
 }

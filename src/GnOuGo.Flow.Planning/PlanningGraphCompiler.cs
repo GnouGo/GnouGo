@@ -23,11 +23,11 @@ public sealed partial class PlanningGraphCompiler
             .Select(n => new PlanningArtifactBinding(w.Key == graph.Entrypoint ? "main" : "w_" + Fingerprint(w.Key)[..16],
                 "n_" + Fingerprint(n.Key)[..16], n.CapabilityId!))).ToArray();
 
-    public string Compile(PlanningGraph graph, PlanningPreparation preparation, string name = "generated")
+    public string Compile(PlanningGraph graph, PlanningCatalog catalog, string name = "generated")
     {
         ArgumentNullException.ThrowIfNull(graph);
-        if (PlanningGraphSkeleton.HasUnresolved(PlanningFieldPaths.Json(graph))) throw new InvalidOperationException("Resolve every executable hole before compilation.");
-        var diagnostics = PlanningExecutableValidation.Validate(graph, preparation);
+        if (PlanningValues.HasUnresolved(PlanningFieldPaths.Json(graph))) throw new InvalidOperationException("Resolve every executable hole before compilation.");
+        var diagnostics = PlanningExecutableValidation.Validate(graph, catalog);
         if (diagnostics.Count != 0) throw new InvalidOperationException(string.Join("; ", diagnostics.Select(d => d.Code + " at " + d.Location + ": " + d.Message)));
         if (graph.Workflows.Count == 0 || graph.Workflows.Count > 100)
             throw new InvalidOperationException("A planning graph must contain between 1 and 100 workflows.");
@@ -44,7 +44,7 @@ public sealed partial class PlanningGraphCompiler
             EnsureUnique(allNodes.Select(n => n.Key), "node");
             if (allNodes.Length > 300) throw new InvalidOperationException("A workflow exceeds the 300-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
-            var scope = new LoweringScope(preparation, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal));
+            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal));
             var lowered = new JsonObject();
             if (workflow.Inputs.Count > 0)
             {
@@ -52,7 +52,7 @@ public sealed partial class PlanningGraphCompiler
                 var inputs = new JsonObject();
                 foreach (var port in workflow.Inputs)
                 {
-                    var schema = LowerSchema(port.Schema, preparation);
+                    var schema = LowerSchema(port.Schema, catalog);
                     schema["required"] = port.Required;
                     if (port.Default is not null) schema["default"] = LowerValue(port.Default, scope, allowReferences: false);
                     inputs[port.Name] = schema;
@@ -68,7 +68,7 @@ public sealed partial class PlanningGraphCompiler
                 var outputs = new JsonObject();
                 foreach (var output in workflow.Outputs)
                 {
-                    var schema = LowerSchema(output.Schema, preparation);
+                    var schema = LowerSchema(output.Schema, catalog);
                     schema["expr"] = ToExpression(output.Value, scope);
                     outputs[output.Name] = schema;
                 }
@@ -102,7 +102,7 @@ public sealed partial class PlanningGraphCompiler
         }
     }
 
-    internal static IReadOnlyList<PlanningDiagnostic> ValidateValues(PlanningGraph graph, PlanningPreparation preparation)
+    internal static IReadOnlyList<PlanningDiagnostic> ValidateValues(PlanningGraph graph, PlanningCatalog catalog)
     {
         var errors = new List<PlanningDiagnostic>();
         if (graph.Workflows.Select(w => w.Key).Distinct(StringComparer.Ordinal).Count() != graph.Workflows.Count) return errors;
@@ -112,7 +112,7 @@ public sealed partial class PlanningGraphCompiler
             var workflow = graph.Workflows[wi]; var path = "/workflows/" + wi;
             var nodes = Enumerate(workflow.Steps.Concat(workflow.Finally)).ToArray();
             if (nodes.Select(n => n.Key).Distinct(StringComparer.Ordinal).Count() != nodes.Length) continue;
-            var scope = new LoweringScope(preparation, nodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal), workflowIds,
+            var scope = new LoweringScope(catalog, nodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal), workflowIds,
                 workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), nodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(nodes), nodes.ToDictionary(n => n.Key, StringComparer.Ordinal));
             void Check(PlanningValue? value, string location, bool expression = false, bool literal = false)
             {
@@ -138,12 +138,12 @@ public sealed partial class PlanningGraphCompiler
 
     private static JsonObject LowerNode(PlanningNode node, LoweringScope scope)
     {
-        if (!scope.Preparation.AllowedStepTypes.Contains(node.Type, StringComparer.Ordinal))
+        if (!scope.Catalog.AllowedStepTypes.Contains(node.Type, StringComparer.Ordinal))
             throw new InvalidOperationException("A node uses a step type outside the locked policy.");
         // A reviewed empty grouping is an explicit no-op. Runtime sequences require
         // children; a native empty set preserves the same empty-object result and id.
         var emptySequence = node.Type == "sequence" && node.Steps.Count == 0 && node.CapabilityId is null && node.Input.Kind == "object" && node.Input.Members.Count == 0;
-        if (emptySequence && !scope.Preparation.AllowedStepTypes.Contains("set", StringComparer.Ordinal))
+        if (emptySequence && !scope.Catalog.AllowedStepTypes.Contains("set", StringComparer.Ordinal))
             throw new InvalidOperationException("An empty grouping requires the native set step in the locked policy.");
         var result = new JsonObject { ["id"] = scope.NodeIds[node.Key], ["type"] = emptySequence ? "set" : node.Type };
         var loweredInput = LowerValue(node.Input, scope);
@@ -151,7 +151,7 @@ public sealed partial class PlanningGraphCompiler
         var input = loweredInput as JsonObject ?? (computedSetInput ? new JsonObject() : throw new InvalidOperationException("A step input must be a typed object."));
         if (node.CapabilityId is { Length: > 0 })
         {
-            var capability = scope.Preparation.Capabilities.SingleOrDefault(c => c.Id == node.CapabilityId)
+            var capability = scope.Catalog.Capabilities.SingleOrDefault(c => c.Id == node.CapabilityId)
                 ?? throw new InvalidOperationException("Unknown capability reference.");
             if (!PlanningCapabilityBindings.Supports(capability, node.Type)) throw new InvalidOperationException("The node does not implement its selected capability type.");
             if (computedSetInput && capability.FixedInput.Count != 0) throw new InvalidOperationException("Locked input fields require an explicit object input.");
@@ -178,14 +178,14 @@ public sealed partial class PlanningGraphCompiler
         else if (node.Type == "mcp.call") throw new InvalidOperationException("An external call must reference a locked capability.");
         if (emptySequence) result["input"] = new JsonObject();
         else if (computedSetInput) result["input"] = loweredInput;
-        else if (input.Count > 0) result["input"] = input;
+        else if (input.Count > 0 || node.Type == "set") result["input"] = input;
         if (node.If is not null) result["if"] = ToExpression(node.If, scope);
         if (node.Expr is not null) result["expr"] = ToExpression(node.Expr, scope);
-        if (node.OutputSchema is not null && node.Type == "set") result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Preparation);
+        if (node.OutputSchema is not null && node.Type == "set") result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Catalog);
         if (node.StructuredOutput is { } structured)
         {
             if (input.ContainsKey("structured_output")) throw new InvalidOperationException("Use one typed structured-output declaration, not a second input schema.");
-            input["structured_output"] = new JsonObject { ["schema_inline"] = ToJsonSchema(structured.Schema, scope.Preparation), ["strict"] = structured.Strict };
+            input["structured_output"] = new JsonObject { ["schema_inline"] = ToJsonSchema(structured.Schema, scope.Catalog), ["strict"] = structured.Strict };
             result["input"] = input;
         }
         if (node.Output is not null) result["output"] = node.Output;
@@ -274,13 +274,13 @@ public sealed partial class PlanningGraphCompiler
             case "object":
                 EnsureUnique(value.Members.Select(m => m.Name), "member");
                 var obj = new JsonObject();
-                foreach (var member in value.Members.Where(m => m.Value.Kind != PlanningSkeletonInputs.Omitted)) obj[member.Name] = LowerValue(member.Value, scope, allowReferences, depth + 1);
+                foreach (var member in value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted)) obj[member.Name] = LowerValue(member.Value, scope, allowReferences, depth + 1);
                 return obj;
             case "array": return new JsonArray(value.Items.Select(v => LowerValue(v, scope, allowReferences, depth + 1)).ToArray());
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
-            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "expression" or "compute" or "confirmation" or "decision_binding" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
+            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "expression" or "compute" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
@@ -336,16 +336,6 @@ public sealed partial class PlanningGraphCompiler
             expression = "data.steps." + node + envelope + ResultPath(type, value.Path, scope);
             expression = ProjectResult(scope.Nodes[value.Source], value.Path, expression, scope);
         }
-        else if (value.Kind == "decision_binding")
-        {
-            if (value.Items.Count != 1) throw new InvalidOperationException("Invalid locked decision binding.");
-            expression = ExpressionBody(value.Items[0]);
-        }
-        else if (value.Kind == "confirmation")
-        {
-            if (value.Items.Count != 1 || string.IsNullOrEmpty(value.Text) || string.IsNullOrEmpty(value.Source)) throw new InvalidOperationException("Invalid confirmation mapping.");
-            expression = GnOuGo.Flow.Core.Expressions.ConfirmationDecisionExpression.Build(ExpressionBody(value.Items[0]), value.Text, value.Source);
-        }
         else if (value.Kind == "compute")
         {
             EnsureUnique(value.Members.Select(m => m.Name), "computation parameter");
@@ -374,7 +364,7 @@ public sealed partial class PlanningGraphCompiler
         else if (value.Kind == "object")
         {
             EnsureUnique(value.Members.Select(m => m.Name), "member");
-            expression = "({" + string.Join(",", value.Members.Where(m => m.Value.Kind != PlanningSkeletonInputs.Omitted).Select(m => JsonSerializer.Serialize(m.Name, PlanningJsonContext.Default.String) + ":" + ExpressionBody(m.Value))) + "})";
+            expression = "({" + string.Join(",", value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted).Select(m => JsonSerializer.Serialize(m.Name, PlanningJsonContext.Default.String) + ":" + ExpressionBody(m.Value))) + "})";
         }
         else if (value.Kind == "array") expression = "[" + string.Join(",", value.Items.Select(ExpressionBody)) + "]";
         else
@@ -463,10 +453,10 @@ public sealed partial class PlanningGraphCompiler
     private static string ProjectArray(string expression, Func<string, string> project)
         => "((items) => Array.isArray(items) ? items.map(item => " + project("item") + ") : items)(" + expression + ")";
 
-    public static JsonObject ToJsonSchema(PlanningSchema schema, PlanningPreparation preparation, int depth = 0)
+    public static JsonObject ToJsonSchema(PlanningSchema schema, PlanningCatalog catalog, int depth = 0)
     {
         if (depth > 32) throw new InvalidOperationException("Schema nesting exceeds 32 levels.");
-        if (schema.CapabilityId is not null) return PlanningSchemaReferences.Resolve(schema, preparation);
+        if (schema.CapabilityId is not null) return PlanningSchemaReferences.Resolve(schema, catalog);
         if (schema.SchemaPointer is not null) throw new InvalidOperationException("A schemaPointer requires a capabilityId.");
         if (schema.Type is not ("string" or "number" or "integer" or "boolean" or "object" or "array"))
             throw new InvalidOperationException("Planning ports require a concrete type.");
@@ -478,21 +468,21 @@ public sealed partial class PlanningGraphCompiler
             if (schema.Nullable) values.Add((JsonNode?)null);
             result["enum"] = values;
         }
-        if (schema.Type == "array") result["items"] = ToJsonSchema(schema.Items ?? throw new InvalidOperationException("An array schema requires items."), preparation, depth + 1);
+        if (schema.Type == "array") result["items"] = ToJsonSchema(schema.Items ?? throw new InvalidOperationException("An array schema requires items."), catalog, depth + 1);
         if (schema.Type == "object")
         {
             EnsureUnique(schema.Properties.Select(p => p.Name), "schema property");
             if (schema.Properties.Count == 0 && schema.AdditionalProperties is null) throw new InvalidOperationException("An object schema requires typed properties or typed additional properties.");
             var properties = new JsonObject();
-            foreach (var property in schema.Properties) properties[property.Name] = ToJsonSchema(property.Schema, preparation, depth + 1);
+            foreach (var property in schema.Properties) properties[property.Name] = ToJsonSchema(property.Schema, catalog, depth + 1);
             result["properties"] = properties;
             result["required"] = new JsonArray(schema.Properties.Where(p => p.Required).Select(p => (JsonNode?)JsonValue.Create(p.Name)).ToArray());
-            result["additionalProperties"] = schema.AdditionalProperties is null ? JsonValue.Create(false) : ToJsonSchema(schema.AdditionalProperties, preparation, depth + 1);
+            result["additionalProperties"] = schema.AdditionalProperties is null ? JsonValue.Create(false) : ToJsonSchema(schema.AdditionalProperties, catalog, depth + 1);
         }
         return result;
     }
 
-    private static JsonObject LowerSchema(PlanningSchema schema, PlanningPreparation preparation) => ToFlowSchema(ToJsonSchema(schema, preparation));
+    private static JsonObject LowerSchema(PlanningSchema schema, PlanningCatalog catalog) => ToFlowSchema(ToJsonSchema(schema, catalog));
 
     internal static JsonObject ToFlowSchema(JsonObject schema)
     {
@@ -540,7 +530,7 @@ public sealed partial class PlanningGraphCompiler
 
     private static Dictionary<string, (string Item, string Index)> LoopVariables(IEnumerable<PlanningNode> nodes) => nodes.Where(n => n.Type is "loop.sequential" or "loop.parallel").ToDictionary(n => n.Key, n => (n.ItemVar ?? "item", n.IndexVar ?? "i"), StringComparer.Ordinal);
 
-    private sealed record LoweringScope(PlanningPreparation Preparation, Dictionary<string, string> NodeIds, Dictionary<string, string> WorkflowIds, HashSet<string> Inputs, Dictionary<string, string> NodeTypes, Dictionary<string, (string Item, string Index)> LoopVariables, Dictionary<string, PlanningNode> Nodes);
+    private sealed record LoweringScope(PlanningCatalog Catalog, Dictionary<string, string> NodeIds, Dictionary<string, string> WorkflowIds, HashSet<string> Inputs, Dictionary<string, string> NodeTypes, Dictionary<string, (string Item, string Index)> LoopVariables, Dictionary<string, PlanningNode> Nodes);
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.CultureInvariant)]
     private static partial Regex Identifier();
     [GeneratedRegex(@"\{\{[^{}]+\}\}", RegexOptions.CultureInvariant)]

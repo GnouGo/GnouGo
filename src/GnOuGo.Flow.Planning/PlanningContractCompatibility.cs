@@ -6,15 +6,6 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Conservative contract inclusion, never sample-based type inference.</summary>
 internal static class PlanningContractCompatibility
 {
-    internal enum Proof { Compatible, Incompatible, Unknown }
-    internal static Proof Analyze(JsonObject actual, JsonObject expected)
-    {
-        if (Fits(actual, expected)) return Proof.Compatible;
-        if (Disjoint(actual, expected, actual, expected, 0, [2048])) return Proof.Incompatible;
-        if (Finite(actual) is { } values && ValidatorComplete(actual) && ValidatorComplete(expected) && values.Any(v => PlanningContractValidation.ValidateInstance(v, actual).Count == 0 &&
-            PlanningContractValidation.ValidateInstance(v, expected).Count != 0)) return Proof.Incompatible;
-        return Proof.Unknown;
-    }
     internal static bool Fits(JsonObject actual, JsonObject expected) => Fits(actual, expected, actual, expected, 0, [2048]);
 
     private static bool Fits(JsonObject actual, JsonObject expected, JsonObject sourceRoot, JsonObject targetRoot, int depth, int[] work)
