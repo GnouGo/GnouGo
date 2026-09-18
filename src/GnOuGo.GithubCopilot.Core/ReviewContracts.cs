@@ -108,18 +108,21 @@ public sealed record CopilotReviewResult(
     IReadOnlyList<ReviewFinding> Findings,
     ReviewCoverage Coverage,
     IReadOnlyList<string> RejectedFindings,
-    string Summary);
-
-[JsonConverter(typeof(JsonStringEnumConverter<ReviewPublicationPolicy>))]
-public enum ReviewPublicationPolicy
+    string Summary)
 {
-    [JsonStringEnumMemberName("dry_run")]
-    DryRun,
-    [JsonStringEnumMemberName("interactive")]
-    Interactive,
-    [JsonStringEnumMemberName("auto_comment")]
-    AutoComment
+    public bool Complete { get; init; }
+    // Includes validated findings suppressed because an existing comment already reports them.
+    public int BlockingFindingCount { get; init; }
 }
+
+public sealed record ReviewCheckRequirement(string Name, bool RequiresExecution, bool AllowNotApplicable = false,
+    string? ExpectedArgumentsJson = null);
+
+public sealed record ReviewEvaluationRequest(CopilotReviewResult Review, string WorkingDirectory,
+    IReadOnlyList<ReviewCheckRequirement> RequiredChecks, IReadOnlyList<ReviewCheckResult> Checks);
+
+public sealed record ReviewEvaluationResult(ReviewSubmitEvent SubmitEvent, IReadOnlyList<ReviewCheckResult> Checks,
+    IReadOnlyList<string> Limitations, string Body);
 
 [JsonConverter(typeof(JsonStringEnumConverter<ReviewSubmitEvent>))]
 public enum ReviewSubmitEvent
@@ -142,17 +145,3 @@ public sealed record ReviewCheckResult(
     string Evidence,
     bool RequiresExecution,
     CopilotToolExecutionObservation? Execution = null);
-
-public sealed record ReviewPublicationGateRequest(
-    string ExpectedHeadSha,
-    string CurrentHeadSha,
-    ReviewPublicationPolicy Policy,
-    int BlockingFindingCount,
-    IReadOnlyList<ReviewCheckResult> Checks,
-    bool ReviewComplete,
-    bool HumanApproved = false);
-
-public sealed record ReviewPublicationGateResult(
-    bool MayWrite,
-    ReviewSubmitEvent? SubmitEvent,
-    string Reason);

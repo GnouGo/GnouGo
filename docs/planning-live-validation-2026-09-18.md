@@ -66,7 +66,7 @@ Final cumulative accounting: **740,280 input tokens, 112,411 output tokens, EUR 
 
 ## Offline intent/repair boundary correction
 
-The next change addresses planner correctness using a sanitized reproduction and mocked integrations. It does not advance, revise or replenish the stopped live session, invoke the configured model, or execute/publish a pull-request review. Review evaluation and publication enforcement remain a separate follow-up.
+This change addresses planner correctness using a sanitized reproduction and mocked integrations. It does not advance, revise or replenish the stopped live session, invoke the configured model, or execute/publish a pull-request review. Review evaluation and publication enforcement were handled in the separate follow-up below.
 
 The reproduction combines an untyped object inside a check-array schema with a fixture containing a hole. Previously graph validation surfaced the schema failure and its dependent binding errors before checking the fixture. Both independent causes now appear in one pass. Repair context presents the producer schema as the root and names dependent steps; unrelated missing or conditional bindings remain separate. Stored session diagnostics retain all blocking graph findings.
 
@@ -82,13 +82,36 @@ Verification for this correction:
 - Published trimmed, self-contained Agent.Server persistence smoke passed in a new temporary directory, covering encrypted schema-6 storage, tenant isolation and revision checks. Both publishes were warning-free. As in the reproduction commands below, bundled tools and browser installation were excluded from this persistence check; frontend sources were unchanged and no frontend rebuild was needed.
 - Read-only Agent.Server verification: the live session remains stopped at revision 26, with seven calls, two repairs, identical token/cost/active-time accounting, and no YAML, approval or scenarios.
 
-## Changes derived from the live diagnostics
+## Offline review evaluation and publication enforcement
+
+The caller-controlled publication helper has been removed. A pure `ReviewEvaluation` computes the review outcome; Agent.Server's `GnOuGo.Review` integration captures original producer results, stores an immutable draft, obtains runtime confirmation, checks the current head and submits the stored content. No new planner phase, semantic proof, model call or schema-6 persistence change was introduced. Planning retains eight total calls and two repairs.
+
+Each declared check appears in the review. Command checks require their own unchanged execution observation, matching declared arguments, observed completion and exit codes in the same absolute working directory. A model's claimed success cannot override an observed failure or replace missing evidence. Incomplete coverage, omitted checks, invalid findings and missing evidence prevent approval. Complete passing reviews can produce `APPROVE` with zero findings; established failed checks or blocking findings produce `REQUEST_CHANGES`; incomplete verification produces `COMMENT`. Duplicate-comment suppression retains the blocking verdict. Empty model output no longer counts as a successful review.
+
+The host captures original Copilot review and execution results at the configured MCP transport boundary and rejects altered results or results from another tenant/execution. Requested-check interpretation and non-execution review evidence remain model judgments, visible for human review. This does not prove exhaustive natural-language interpretation or sandbox arbitrary shell tools.
+
+Publication accepts only a stored draft identifier. Its body, event and target cannot be overridden by a model. Actual Agent.Server confirmation signals expose the exact draft to the UI. After confirmation the host reads the PR head and sends a single review-create request pinned to the reviewed commit. Rejection, abandonment and a changed head prevent the write. Durable reservation precedes dispatch; completed or uncertain attempts replay without another write. GitHub does not provide an atomic head compare-and-swap for this operation, so the boundary is an immediate fresh read plus the pinned reviewed commit.
+
+The configured GitHub MCP integration now exposes declared reads only to generated workflows. All raw writes and unknown effects are filtered from discovery and rejected at dispatch, including new or renamed methods. Review writes use the host publisher. Other mutation workflows require a separately configured integration with its own policy. Encrypted evidence and draft records use public KeyVault abstractions; empty OS lock files serialize publishers sharing the workspace. No SQL configuration access or replacement EF persistence was introduced.
+
+Verification for this follow-up:
+
+- Full solution suite: **2,407 passed, zero failed, one existing environment-gated external test skipped**, across 29 test projects. Ten host publication regressions cover original evidence, tenant/execution isolation, actual confirmation channels/signals, stale heads, rejection/abandonment, cancellation, concurrent attempts, uncertain dispatch and completed replay. Core tests cover derived check outcomes, reused/missing observations, incomplete reviews and suppressed blocking findings.
+- Solution build, Release `GnOuGo.GithubCopilot.Core` package creation, and both Native AOT publishes completed with warnings treated as errors and no warnings emitted.
+- Published Native AOT planner smoke passed local computation, read/transform, and protected writes/cleanup: one fixture interpretation call and zero repairs each, with 1, 3 and 5 scenarios. No planner production files changed.
+- Published Native AOT Copilot MCP stdio discovery exposed 41 tools, excluded the deleted publication helper, and exported review completeness and blocking-finding counts. No tool or model was dispatched by this smoke.
+- Published trimmed Agent.Server persistence smoke passed encrypted schema-6 storage plus review drafts, tenant isolation and uncertain-publication replay. Published review tool schemas also validated. This ran in a fresh temporary store; bundled tools/browser installation and frontend rebuilding were excluded. Frontend sources were unchanged.
+- Read-only verification through Agent.Server confirmed the live session remains stopped at revision 26, seven calls and two repairs, with identical cumulative token/cost/active-time accounting and no YAML, approval or scenarios. No live model call, PR clone, review execution, GitHub publication, merge or deployment ran for this follow-up.
+
+The opt-in external Copilot E2E fixture now evaluates the reviewer without publishing a review. It was not run for this change. Live end-to-end generation and execution with the original prompt remain unverified; the stopped session was not advanced.
+
+## Earlier changes derived from the live diagnostics
 
 - Align catalog prompt schema names with supported `/input` and `/output` references. Explain input-port references, integration payloads, confirmation results, and self-reference restrictions in the typed interpretation prompt.
 - Permit guarded finalizer dependencies on completed main steps. Cleanup remains unavailable if its producer was skipped or failed.
 - Report independent contract errors alongside unresolved holes and scope errors. Cycle diagnostics identify the step and dependency chain.
 - Reserve repair attempts together with actual model requests. Input preflight failures consume neither calls nor repairs. Reaching the repair ceiling no longer reports a fictitious unchanged model response.
-- Extend the existing publication gate to derive `APPROVE` for complete passing reviews, including zero findings; `REQUEST_CHANGES` for blocking findings or established failed checks; and `COMMENT` for incomplete verification. Required command checks need original completion observations, working directories, and exit codes. Missing or conflicting execution observations cannot establish success. Interactive publication still requires confirmation, and `auto_comment` remains comment-only.
+- The initial publication helper derived `APPROVE`, `REQUEST_CHANGES` and `COMMENT` from supplied results. The host-owned publication follow-up above replaces this helper and removes its caller-controlled confirmation and `auto_comment` paths.
 
 These changes have deterministic regression coverage. They do not establish success for the stopped live session. The separate opt-in external Copilot E2E fixture is not evidence of this Agent.Server flow.
 

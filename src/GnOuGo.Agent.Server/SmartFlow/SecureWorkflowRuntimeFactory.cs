@@ -18,6 +18,7 @@ public sealed class SecureWorkflowRuntimeFactory
     private readonly ILLMCapabilityResolver? _llmCapabilityResolver;
     private readonly IHumanInputProvider? _humanInputProvider;
     private readonly ILocalLLMRuntime? _localRuntime;
+    private readonly Reviews.ReviewPublicationService? _reviews;
 
     internal bool UsesLiveMcpConfiguration => _mcpClientFactoryOverride is null;
 
@@ -30,7 +31,8 @@ public sealed class SecureWorkflowRuntimeFactory
         IMemoryCache? backgroundModeCache = null,
         ILLMCapabilityResolver? llmCapabilityResolver = null,
         IHumanInputProvider? humanInputProvider = null,
-        ILocalLLMRuntime? localRuntime = null)
+        ILocalLLMRuntime? localRuntime = null,
+        Reviews.ReviewPublicationService? reviews = null)
     {
         _optionsStore = optionsStore;
         _keyVaultStore = keyVaultStore;
@@ -41,6 +43,7 @@ public sealed class SecureWorkflowRuntimeFactory
         _llmCapabilityResolver = llmCapabilityResolver;
         _humanInputProvider = humanInputProvider;
         _localRuntime = localRuntime;
+        _reviews = reviews;
     }
 
     internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct)
@@ -55,6 +58,7 @@ public sealed class SecureWorkflowRuntimeFactory
                 options.DefaultProvider,
                 options.DefaultModel)
             : new InMemoryMcpClientFactory());
+        if (_reviews is not null) mcpFactory = _reviews.Decorate(mcpFactory);
 
         var llmClient = _llmClientOverride
             ?? new SnapshotRoutingLlmClientAdapter(http, options, _loggerFactory, _backgroundModeCache, _localRuntime);

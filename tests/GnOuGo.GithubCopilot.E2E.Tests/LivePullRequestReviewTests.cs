@@ -19,10 +19,9 @@ public sealed class LivePullRequestReviewTests
     private const string ProviderSecretKey = "LLM--Models--OpenAi";
     private const string GithubMcpSecretKey = "LLM--McpServers--Github";
     private const string GitTokenSecretKey = "LLM--McpServerOverrides--GnOuGo.Git.Mcp--Git--Token";
-    private const string ReviewMarker = "[GnOuGo E2E]";
 
     [Fact]
-    public async Task ConfiguredOpenAiProvider_CanPublishValidatedCommentReview()
+    public async Task ConfiguredOpenAiProvider_CanReviewExactDiffWithoutPublishing()
     {
         Assert.SkipUnless(
             string.Equals(Environment.GetEnvironmentVariable(EnableVariable), "1", StringComparison.Ordinal),
@@ -60,7 +59,6 @@ public sealed class LivePullRequestReviewTests
         string? fixtureProjectRoot = null;
         int? pullNumber = null;
         bool branchPushed = false;
-        bool reviewSubmitted = false;
 
         try
         {
@@ -79,7 +77,7 @@ public sealed class LivePullRequestReviewTests
             }))
             {
                 copilot = await mcpFactory.GetClientAsync("copilot", ct);
-                await RequireToolsAsync(copilot, ["copilot_one_shot", "copilot_review", "copilot_review_publication_gate"], ct);
+                await RequireToolsAsync(copilot, ["copilot_one_shot", "copilot_review"], ct);
                 var providerPreflight = await CallAsync(copilot, "copilot_one_shot", new JsonObject
                 {
                     ["projectRoot"] = ".",
@@ -110,7 +108,7 @@ public sealed class LivePullRequestReviewTests
             github = await mcpFactory.GetClientAsync("github", ct);
             await RequireToolsAsync(
                 github,
-                ["create_pull_request", "pull_request_read", "pull_request_review_write", "add_comment_to_pending_review", "update_pull_request"],
+                ["create_pull_request", "pull_request_read", "update_pull_request"],
                 ct);
 
             var created = await CallAsync(github, "create_pull_request", new JsonObject
@@ -201,95 +199,15 @@ public sealed class LivePullRequestReviewTests
                 .ToArray();
             Assert.NotEmpty(findings);
 
-            // Prove the interactive gate fails closed and performs no GitHub write.
-            var rejectedGate = await CallAsync(copilot, "copilot_review_publication_gate", new JsonObject
-            {
-                ["expectedHeadSha"] = headSha,
-                ["currentHeadSha"] = headSha,
-                ["publicationPolicy"] = "interactive",
-                ["blockingFindingCount"] = findings.Length,
-                ["checks"] = new JsonArray(),
-                ["reviewComplete"] = true,
-                ["humanApproved"] = false
-            }, ct);
-            Assert.False(RequireBool(rejectedGate, "mayWrite"));
-            var reviewsAfterRejectedGate = await ReadPullRequestAsync(github, owner, repository, pullNumber.Value, "get_reviews", ct);
-            Assert.Equal(CountResultItems(reviewsBefore), CountResultItems(reviewsAfterRejectedGate));
+            // This fixture validates the reviewer only. Agent.Server owns publication.
+            var reviewsAfter = await ReadPullRequestAsync(github, owner, repository, pullNumber.Value, "get_reviews", ct);
+            Assert.Equal(CountResultItems(reviewsBefore), CountResultItems(reviewsAfter));
 
-            // The live fixture explicitly opts into the only headless write policy: COMMENT.
-            var freshDetails = await ReadPullRequestAsync(github, owner, repository, pullNumber.Value, "get", ct);
-            var freshHeadSha = RequireNestedString(FindObjectContaining(freshDetails, "base", "head"), "head", "sha");
-            var publicationGate = await CallAsync(copilot, "copilot_review_publication_gate", new JsonObject
-            {
-                ["expectedHeadSha"] = headSha,
-                ["currentHeadSha"] = freshHeadSha,
-                ["publicationPolicy"] = "auto_comment",
-                ["blockingFindingCount"] = findings.Length,
-                ["checks"] = new JsonArray(),
-                ["reviewComplete"] = true,
-                ["humanApproved"] = false
-            }, ct);
-            Assert.True(RequireBool(publicationGate, "mayWrite"));
-            Assert.Equal("comment", RequireString(publicationGate, "submitEvent"), ignoreCase: true);
-
-            _ = await CallAsync(github, "pull_request_review_write", new JsonObject
-            {
-                ["method"] = "create",
-                ["owner"] = owner,
-                ["repo"] = repository,
-                ["pullNumber"] = pullNumber.Value,
-                ["commitID"] = freshHeadSha
-            }, ct);
-
-            foreach (var finding in findings)
-            {
-                var startLine = RequireInt(finding, "startLine");
-                var endLine = RequireInt(finding, "endLine");
-                var side = RequireString(finding, "side").ToUpperInvariant();
-                var comment = new JsonObject
-                {
-                    ["owner"] = owner,
-                    ["repo"] = repository,
-                    ["pullNumber"] = pullNumber.Value,
-                    ["path"] = fixtureRelativePath,
-                    ["subjectType"] = "LINE",
-                    ["side"] = side,
-                    ["line"] = endLine,
-                    ["body"] = $"{ReviewMarker} {RequireString(finding, "explanation")}\n\nEvidence: {RequireString(finding, "evidence")}\n\nFingerprint: `{RequireString(finding, "fingerprint")}`"
-                };
-                if (startLine != endLine)
-                {
-                    comment["startLine"] = startLine;
-                    comment["startSide"] = side;
-                }
-                _ = await CallAsync(github, "add_comment_to_pending_review", comment, ct);
-            }
-
-            var submitted = await CallAsync(github, "pull_request_review_write", new JsonObject
-            {
-                ["method"] = "submit_pending",
-                ["owner"] = owner,
-                ["repo"] = repository,
-                ["pullNumber"] = pullNumber.Value,
-                ["event"] = "COMMENT",
-                ["body"] = $"{ReviewMarker} Automated review completed with {findings.Length} validated inline finding(s)."
-            }, ct);
-            reviewSubmitted = true;
-            AssertSafe(submitted, sensitiveValues);
-
-            var publishedReviews = await ReadPullRequestAsync(github, owner, repository, pullNumber.Value, "get_reviews", ct);
-            var publishedComments = await ReadPullRequestAsync(github, owner, repository, pullNumber.Value, "get_review_comments", ct);
-            Assert.Contains(ReviewMarker, publishedReviews.ToJsonString(), StringComparison.Ordinal);
-            Assert.Contains(ReviewMarker, publishedComments.ToJsonString(), StringComparison.Ordinal);
-            AssertSafe(publishedReviews, sensitiveValues);
-            AssertSafe(publishedComments, sensitiveValues);
         }
         finally
         {
             if (pullNumber is not null && github is not null)
             {
-                if (!reviewSubmitted)
-                    await TryDeletePendingReviewAsync(github, owner, repository, pullNumber.Value);
                 await TryClosePullRequestAsync(github, owner, repository, pullNumber.Value);
             }
 
@@ -686,21 +604,6 @@ public sealed class LivePullRequestReviewTests
             Assert.DoesNotContain(sensitive, serialized, StringComparison.Ordinal);
         Assert.DoesNotContain("<think>", serialized, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("chain-of-thought", serialized, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static async Task TryDeletePendingReviewAsync(IMcpSession github, string owner, string repository, int pullNumber)
-    {
-        try
-        {
-            _ = await github.CallToolAsync("pull_request_review_write", new JsonObject
-            {
-                ["method"] = "delete_pending",
-                ["owner"] = owner,
-                ["repo"] = repository,
-                ["pullNumber"] = pullNumber
-            }, CancellationToken.None);
-        }
-        catch { }
     }
 
     private static async Task TryClosePullRequestAsync(IMcpSession github, string owner, string repository, int pullNumber)

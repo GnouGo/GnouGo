@@ -1,8 +1,8 @@
 # GnOuGo GitHub Copilot live E2E tests
 
-This opt-in suite proves that a configured KeyVault-backed `OpenAi` provider can review an exact pull-request diff through the GnOuGo Copilot and Git MCP servers and publish a `COMMENT` review through the official GA GitHub MCP server.
+This opt-in suite checks that a configured KeyVault-backed `OpenAi` provider can review an exact pull-request diff through the GnOuGo Copilot and Git MCP servers. It does not publish reviews. Agent.Server publication is covered by its host integration tests and requires runtime confirmation.
 
-The test creates a draft PR named `[E2E] GnOuGo automated PR review fixture`, publishes one or more validated inline comments, closes the PR, deletes its remote branch, and removes both isolated workspaces. The closed PR and submitted review remain in GitHub history; the fixture is never merged.
+The test creates a draft PR named `[E2E] GnOuGo automated PR review fixture`, verifies validated findings without changing its reviews, closes the PR, deletes its remote branch, and removes both isolated workspaces. The closed PR remains in GitHub history; the fixture is never merged. This is a low-level reviewer fixture, separate from the single-clone Agent.Server planning and execution flow.
 
 The test is skipped unless explicitly enabled:
 

@@ -360,24 +360,6 @@ internal sealed class CopilotTools
                 ExistingComments: ParseExistingReviewComments(existingCommentsJson)) { RuntimeContextJson = runtimeContextJson },
             cancellationToken));
 
-    [McpServerTool(Name = "copilot_review_publication_gate", UseStructuredContent = true, OutputSchemaType = typeof(ReviewPublicationGateResult)), Description("Derives APPROVE, REQUEST_CHANGES or COMMENT from the completed review and every requested check after re-reading the PR head SHA. Command checks must carry original execution observations, not assistant claims. Zero findings can approve only with complete passing verification. dry_run never writes; interactive requires confirmation of the displayed review; auto_comment only permits COMMENT. Consume mayWrite before publishing through GitHub.")]
-    public ReviewPublicationGateResult ReviewPublicationGate(
-        string expectedHeadSha,
-        string currentHeadSha,
-        ReviewPublicationPolicy publicationPolicy,
-        int blockingFindingCount,
-        IReadOnlyList<ReviewCheckResult> checks,
-        bool reviewComplete,
-        bool humanApproved = false)
-        => ReviewValidation.EvaluatePublication(new ReviewPublicationGateRequest(
-            expectedHeadSha,
-            currentHeadSha,
-            publicationPolicy,
-            blockingFindingCount,
-            checks,
-            reviewComplete,
-            humanApproved));
-
     private CopilotRuntimeConfiguration BuildConfiguration(
         string? projectRoot,
         string? provider = null,

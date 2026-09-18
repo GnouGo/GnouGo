@@ -54,6 +54,6 @@ namespace GnOuGo.GithubCopilot.Core;
 [JsonSerializable(typeof(IReadOnlyList<CopilotReviewBatch>))]
 [JsonSerializable(typeof(CopilotReviewAnalyzeResult))]
 [JsonSerializable(typeof(CopilotReviewResult))]
-[JsonSerializable(typeof(ReviewPublicationGateRequest))]
-[JsonSerializable(typeof(ReviewPublicationGateResult))]
+[JsonSerializable(typeof(ReviewEvaluationRequest))]
+[JsonSerializable(typeof(ReviewEvaluationResult))]
 public partial class CopilotCoreJsonContext : JsonSerializerContext;

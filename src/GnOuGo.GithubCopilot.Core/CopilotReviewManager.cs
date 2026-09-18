@@ -64,6 +64,7 @@ public sealed partial class CopilotReviewManager
         await state.Gate.WaitAsync(cancellationToken);
         try
         {
+            if (!_reviews.ContainsKey(reviewHandle)) throw new InvalidOperationException("The review was already finished.");
             if (state.CompletedBatches.Contains(batchIndex))
             {
                 return new CopilotReviewAnalyzeResult(
@@ -78,6 +79,7 @@ public sealed partial class CopilotReviewManager
             var response = await _sessions.SendAsync(
                 new CopilotSendRequest(context, state.SessionHandle, prompt, "enqueue", "interactive"),
                 cancellationToken);
+            if (!response.Completed) throw new InvalidOperationException("The review turn did not complete.");
             IReadOnlyList<ReviewFindingCandidate> candidates;
             try
             {
@@ -90,6 +92,7 @@ public sealed partial class CopilotReviewManager
                 var repaired = await _sessions.SendAsync(
                     new CopilotSendRequest(context, state.SessionHandle, ReviewFormatRepairPrompt, "enqueue", "interactive"),
                     cancellationToken);
+                if (!repaired.Completed) throw new InvalidOperationException("The review format repair did not complete.");
                 candidates = ParseCandidates(repaired.Content);
             }
             var fileMap = state.Request.Files.ToDictionary(static file => ReviewValidation.NormalizePath(file.Path), StringComparer.Ordinal);
@@ -99,13 +102,17 @@ public sealed partial class CopilotReviewManager
             {
                 if (ReviewValidation.TryValidate(candidate, fileMap, out var finding, out var rejection))
                 {
+                    if (finding!.Severity >= ReviewSeverity.High) state.BlockingFindings.Add(finding.Fingerprint);
                     if (ReviewValidation.IsDuplicateOfExisting(finding!, state.Request.ExistingComments ?? []))
                         rejected.Add($"Finding '{finding!.Fingerprint}' duplicates an existing review comment.");
                     else
                         accepted.Add(finding!);
                 }
                 else
+                {
+                    state.InvalidFindings++;
                     rejected.Add(rejection!);
+                }
             }
 
             state.Findings.AddRange(accepted);
@@ -122,8 +129,12 @@ public sealed partial class CopilotReviewManager
     public async Task<CopilotReviewResult> FinishAsync(CopilotRequestContext context, string reviewHandle, CancellationToken cancellationToken)
     {
         var state = GetOwnedState(reviewHandle, context.TenantId);
+        await state.Gate.WaitAsync(cancellationToken);
         if (!_reviews.TryRemove(reviewHandle, out _))
+        {
+            state.Gate.Release();
             throw new InvalidOperationException("The review was already finished.");
+        }
 
         try
         {
@@ -134,12 +145,16 @@ public sealed partial class CopilotReviewManager
             var summary = findings.Count == 0
                 ? "No validated findings were produced."
                 : $"Produced {findings.Count} validated finding(s), including {findings.Count(static finding => finding.Severity >= ReviewSeverity.High)} high-or-critical finding(s).";
-            return new CopilotReviewResult(state.Request.BaseSha, state.Request.HeadSha, findings, state.Coverage, state.Rejections.ToArray(), summary);
+            return new CopilotReviewResult(state.Request.BaseSha, state.Request.HeadSha, findings, state.Coverage, state.Rejections.ToArray(), summary)
+            {
+                Complete = missingBatches.Length == 0 && state.InvalidFindings == 0 && state.Coverage.SkippedFiles == 0 && state.Coverage.TruncatedFiles == 0,
+                BlockingFindingCount = state.BlockingFindings.Count
+            };
         }
         finally
         {
-            await _sessions.DeleteAsync(context, state.SessionHandle, CancellationToken.None);
-            state.Gate.Dispose();
+            try { await _sessions.DeleteAsync(context, state.SessionHandle, CancellationToken.None); }
+            finally { state.Gate.Release(); }
         }
     }
 
@@ -163,7 +178,7 @@ public sealed partial class CopilotReviewManager
     internal static IReadOnlyList<ReviewFindingCandidate> ParseCandidates(string response)
     {
         if (string.IsNullOrWhiteSpace(response))
-            return [];
+            throw new InvalidOperationException("Copilot review output was empty; an explicit findings array is required.");
 
         IReadOnlyList<ReviewFindingCandidate>? emptyResult = null;
         Exception? lastError = null;
@@ -440,6 +455,8 @@ public sealed partial class CopilotReviewManager
         public IReadOnlyList<CopilotReviewBatch> Batches { get; }
         public ReviewCoverage Coverage { get; }
         public List<ReviewFinding> Findings { get; } = [];
+        public HashSet<string> BlockingFindings { get; } = new(StringComparer.Ordinal);
+        public int InvalidFindings { get; set; }
         public List<string> Rejections { get; } = [];
         public HashSet<int> CompletedBatches { get; } = [];
         public SemaphoreSlim Gate { get; } = new(1, 1);

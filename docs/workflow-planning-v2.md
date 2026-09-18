@@ -25,6 +25,8 @@ Start with `TypedWorkflowPlanner.cs`, `PlanningGraphBuilder.cs` and `PlanningGra
 
 The model never returns YAML, permissions or transport targets. Names/descriptions cannot grant permission. There are no source-span ownership, semantic proof, behavior approval, semantic-review model or patch phases.
 
+Domain publication rules belong to host integrations. Agent.Server's [review boundary](../src/GnOuGo.Agent.Server/Reviews/README.md) exposes evaluation and publication as catalog capabilities, captures original producer observations and owns the final confirmation/head-read/write sequence. The planner and Flow.Core contain no GitHub-specific routing or review rules.
+
 ## Intent and repair boundary
 
 `PlanningJsonTransport` serializes intent context and offline model fixtures through one canonical format. It removes inactive default union fields while retaining explicit nulls, omitted arguments, defaults, references and holes. Non-default invalid fields remain visible as repair evidence. This format does not change the schema-6 persistence DTOs.

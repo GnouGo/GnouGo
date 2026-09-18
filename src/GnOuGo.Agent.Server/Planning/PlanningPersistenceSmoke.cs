@@ -30,8 +30,10 @@ internal static class PlanningPersistenceSmoke
             throw new InvalidOperationException("Published persistence or tenant isolation failed.");
         state.Revision = 2;
         if (await reopened.TrySaveAsync(state, 0, CancellationToken.None)) throw new InvalidOperationException("A stale update was accepted.");
+        await Reviews.ReviewPersistenceSmoke.RunAsync(records);
         foreach (var file in Directory.EnumerateFiles(directory, "*.db"))
-            if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)).Contains("Private published smoke content", StringComparison.Ordinal))
+            if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)) is { } bytes &&
+                (bytes.Contains("Private published smoke content", StringComparison.Ordinal) || bytes.Contains("Private published review smoke", StringComparison.Ordinal)))
                 throw new InvalidOperationException("Sensitive session content was persisted unencrypted.");
         Console.WriteLine("Schema-6 planning persistence smoke passed.");
     }
