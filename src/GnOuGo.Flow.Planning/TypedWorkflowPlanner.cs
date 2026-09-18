@@ -75,6 +75,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                 case "configure_generation":
                     if (state.PendingCall is not null || command.Generation is null) throw new PlanningConflictException("Generation settings cannot replace a pending request.");
                     PlanningGenerationPolicy.Validate(command.Generation); state.Request.Generation = command.Generation;
+                    state.Diagnostics.RemoveAll(d => d.Code == "MODEL_INPUT_LIMIT");
                     if (state.Status == PlanningStatus.Stopped) state.Status = PlanningStatus.Generating;
                     break;
                 default: throw new ArgumentException("Unsupported planning command.");
@@ -85,7 +86,13 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (OperationCanceledException) { state.Diagnostics = [new(ErrorCodes.LlmBudgetExceeded, "$", "Active planning time was exhausted.")]; Stop(state); }
         catch (PlanningResponseException ex) { state.Diagnostics = ex.Diagnostics; state.Status = PlanningStatus.Generating; Invalidate(state); }
-        catch (WorkflowRuntimeException ex) { state.Diagnostics = [new(ex.Code, "$", ex.Message)]; Stop(state); }
+        catch (WorkflowRuntimeException ex)
+        {
+            if (ex.Code == "MODEL_INPUT_LIMIT")
+            { state.Diagnostics.RemoveAll(d => d.Code == ex.Code); state.Diagnostics.Add(new(ex.Code, "$", ex.Message)); }
+            else state.Diagnostics = [new(ex.Code, "$", ex.Message)];
+            Stop(state);
+        }
         catch (JsonException ex) { state.Diagnostics = [new("INTENT_SCHEMA_INVALID", "$", ex.Message)]; state.Status = PlanningStatus.Generating; Invalidate(state); }
         catch (Exception ex)
         {
@@ -103,9 +110,9 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
     {
         state.Status = PlanningStatus.Generating;
         if (state.Catalog is null) { state.Catalog = await runtime.DiscoverAsync(state.Request, ct); return; }
-        if (state.IntentPlan is null || state.Diagnostics.Any(d => d.Required))
+        if (state.PendingCall?.Purpose is "intent" or "repair" || state.IntentPlan is null || state.Diagnostics.Any(d => d.Required))
         {
-            var repair = state.ModelCalls > 0 && state.Diagnostics.Any(d => d.Required);
+            var repair = state.PendingCall is { } pending ? pending.Purpose == "repair" : state.ModelCalls > 0 && state.Diagnostics.Any(d => d.Required);
             if (repair && state.PendingCall is null)
             {
                 if (state.RepairAttempts >= state.Request.MaxRepairAttempts) { Stop(state); return; }

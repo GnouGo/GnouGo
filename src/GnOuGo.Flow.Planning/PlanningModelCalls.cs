@@ -54,13 +54,21 @@ internal static class PlanningModelCalls
         Input reference example: {"kind":"input","source":"filename","path":[]} refers to the filename port
         in the current workflow, never to a workflow ID. Output source is a step key. MCP default output is
         already its payload: do not add response/json wrappers. Use resultChannel=structured for structuredOutput.
+        onError.setOutput replaces the complete step result envelope. For an MCP call consumed through the
+        default channel, put the fallback payload in a response member with the capability's exact output type.
+        A structured channel instead requires a json member matching structuredOutput. Omit continue handlers
+        when no valid fallback exists; finally steps still handle cleanup after failure.
         human.input mode=confirm requires choices=["approve","reject"] and exposes a boolean response field.
         A capability schemaPointer begins with /input or /output, then JSON Schema segments such as
         /output/properties/id; it is not a data path. Reference schemas use only capabilityId and schemaPointer.
         Required unresolved values use {"kind":"hole"}; unknown schemas use type=hole. Do not guess missing facts.
+        Object schemas require typed properties or typed additionalProperties; an empty type=object is invalid.
+        Array items also require a complete schema. Reuse catalog schema references for declared contracts.
         Use questions only for business facts the user must decide, not values already declared as runtime inputs.
         Every workflow output has a concrete schema and an explicit value. Preserve omission versus null.
-        Dependencies identify steps in the same workflow. Loops, conditions, errors and cleanup are executable,
+        Dependencies join sibling steps in the same steps list. A nested branch inherits completed upstream
+        values through its container: put outer dependencies on that container, not on its nested children.
+        Loops, conditions, errors and cleanup are executable,
         not prose descriptions. The engine supplies host-required external-effect confirmation.
         Optional fixtures contain literal sample inputs and observation sequences for mock execution. Observations
         supply raw integration results, or the structured JSON result when structuredOutput is declared.
@@ -81,7 +89,7 @@ internal static class PlanningModelCalls
                 ["artifacts"] = JsonSerializer.SerializeToNode(c.ArtifactContract, PlanningJsonContext.Default.McpArtifactContract),
                 ["fixedArguments"] = new JsonObject(c.RequestBindings.Select(b => new KeyValuePair<string, JsonNode?>(b.Path, b.Value?.DeepClone())))
             }).ToArray()),
-            ["baseline"] = state.Request.Baseline is null ? null : JsonSerializer.SerializeToNode(state.Request.Baseline, PlanningJsonContext.Default.PlanningGraph),
+            ["baseline"] = state.IntentPlan is not null || state.Request.Baseline is null ? null : JsonSerializer.SerializeToNode(state.Request.Baseline, PlanningJsonContext.Default.PlanningGraph),
             ["currentIntent"] = state.IntentPlan is null ? null : JsonSerializer.SerializeToNode(state.IntentPlan, PlanningJsonContext.Default.WorkflowIntentPlan),
             ["diagnostics"] = JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic),
             ["answers"] = new JsonArray(state.Answers.Select(a => (JsonNode)new JsonObject { ["question"] = a.Question, ["answers"] = a.Answers.DeepClone() }).ToArray()),

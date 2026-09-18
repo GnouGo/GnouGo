@@ -10,6 +10,8 @@ Hosts inject `IPlanningRuntime`. Graph validation checks capability identity, sc
 
 Input references name the current workflow's input port. Capability schema references start at `/input` or `/output` and continue through JSON Schema properties. Finalizers may depend on a main step; the builder guards cleanup so it runs only after that producer completes. Independent diagnostics are reported together, and cycle diagnostics locate the offending step. Pre-dispatch input-budget failures consume neither a model call nor a repair attempt.
 
+Pending model requests retain their original interpretation, repair, or choice phase on receipt replay. Uncertain dispatches stop. Agent.Server offers an explicit retry that retains cumulative budgets and accounts for missing usage before reserving a new request; the planner never retries them automatically.
+
 ```bash
 dotnet build src/GnOuGo.Flow.Planning -warnaserror
 dotnet test tests/GnOuGo.Flow.Planning.Tests

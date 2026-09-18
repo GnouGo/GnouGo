@@ -5,6 +5,48 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class IntentPlanningTests
 {
     [Fact]
+    public async Task PendingInterpretationKeepsItsPhaseAfterProviderFailure()
+    {
+        var runtime = new TestRuntime { Respond = _ => throw new IOException("Provider unavailable") };
+        var state = await PlannerFixture.RunAsync(runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal("intent", state.PendingCall!.Purpose);
+        state.Status = PlanningStatus.Generating; runtime.Respond = null;
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(0, state.RepairAttempts); Assert.Equal(1, state.ModelCalls);
+    }
+
+    [Fact]
+    public async Task PendingRepairResumesEvenAfterTransportDiagnosticsAreCleared()
+    {
+        var bad = PlannerFixture.Greeting(); bad.Workflows[0].Steps[0].Kind = "missing";
+        var runtime = new TestRuntime(bad); var state = PlannerFixture.Session(); var planner = new TypedWorkflowPlanner();
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        runtime.Respond = _ => throw new IOException("Provider unavailable");
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal("repair", state.PendingCall!.Purpose);
+        state.Status = PlanningStatus.Generating; state.Diagnostics.Clear();
+        runtime.Respond = null; runtime.Plans.Clear(); runtime.Plans.Enqueue(PlannerFixture.Greeting());
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(1, state.RepairAttempts); Assert.Equal(2, state.ModelCalls);
+    }
+
+    [Fact]
+    public async Task RepairUsesCurrentIntentWithoutRepeatingTheRevisionBaseline()
+    {
+        var bad = PlannerFixture.Greeting(); bad.Workflows[0].Steps[0].Kind = "missing";
+        var runtime = new TestRuntime(bad); runtime.Plans.Enqueue(PlannerFixture.Greeting());
+        var state = PlannerFixture.Session();
+        var catalog = await runtime.DiscoverAsync(state.Request, TestContext.Current.CancellationToken);
+        state.Request.Baseline = PlanningGraphBuilder.Build(PlannerFixture.Greeting("original-only-marker"), catalog);
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.Contains("original-only-marker", runtime.Calls[0].Prompt);
+        Assert.DoesNotContain("original-only-marker", runtime.Calls[1].Prompt);
+        Assert.Contains("STEP_TYPE_DENIED", runtime.Calls[1].Prompt);
+    }
+
+    [Fact]
     public async Task InputBudgetPreflightDoesNotConsumeARepairAttempt()
     {
         var runtime = new TestRuntime(); var state = PlannerFixture.Session();
@@ -43,6 +85,7 @@ public sealed class IntentPlanningTests
         state.Request.Generation.MaxInputTokensPerRequest = 512;
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_INPUT_LIMIT");
+        Assert.Contains(state.Diagnostics, d => d.Code == "STEP_TYPE_DENIED");
         Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.RepairAttempts);
         state = await planner.AdvanceAsync(state, new() { Kind = "configure_generation", ExpectedRevision = state.Revision,
             Generation = new() { MaxInputTokensPerRequest = 12_000 } }, runtime, TestContext.Current.CancellationToken);

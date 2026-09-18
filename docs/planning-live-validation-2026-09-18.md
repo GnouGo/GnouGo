@@ -4,7 +4,7 @@
 
 The schema-6 refactor was committed and pushed as `ff567a2` on `feat/deterministic-planner-v2`. The user's unchanged French PR-review prompt was submitted through the actual Agent.Server planning API using its configured model and KeyVault-backed integrations.
 
-The live attempts **did not reach final review or execution**. Deterministic validation rejected the first generated graph. Two repairs were exhausted; a step still referenced its own unfinished result. After fixes in `022f0db`, the user authorized resubmitting the exact prompt. That interpretation request failed at the provider with HTTP 500 before returning a result. No generated YAML was substituted by hand, and no PR-specific planning path was added.
+The live attempts **did not reach final review or execution**. Deterministic validation rejected the first generated graph. Two repairs were exhausted; a step still referenced its own unfinished result. After fixes in `022f0db`, the user authorized resubmitting the exact prompt. That interpretation request failed at the provider with HTTP 500 before returning a result. The user then authorized continuation: an explicit retry succeeded, followed by two model repairs. The final candidate still has an invalid object schema for its review-check array. The session stopped at seven of eight total calls and two of two repairs for the current intent. No generated YAML was substituted by hand, and no PR-specific planning path was added.
 
 No repository clone, dependency installation, project test execution, or GitHub publication occurred. Consequently this run provides no evidence that the target pull request passes any requested check. Workflow approval, runtime publication confirmation, and a fresh head check remain outstanding. Private repository content, credentials, model responses, and raw host logs are excluded from this report.
 
@@ -40,9 +40,29 @@ Read-only verification through public KeyVault APIs confirmed:
 - Known cumulative usage remains 159,216 input tokens, 41,100 output tokens, and EUR 1.76734. These figures exclude unknown usage from call 4; the missing receipt does not establish that the failed request was free.
 - Active planning time is retained at 655.3 seconds. The session remains stopped at revision 16, without YAML or approval.
 
-The uncertain request was not redispatched and no replacement session was created. Continuing requires resolving the provider failure and the missing completion/usage evidence. Restarts and intent revisions must not erase the reserved call or replenish cumulative budgets.
+The uncertain request was not redispatched and no replacement session was created. The later explicit recovery below retained its reservation and charged conservative estimated usage. Restarts and intent revisions did not erase the reserved call or replenish cumulative budgets.
 
 The existing `UnknownRequestReceipt_IsNotSilentlyDispatchedAgain` regression cases were rerun for transport failure, HTTP 500, and HTTP 503: all three passed. A serialized Agent.Server test-project build with warnings treated as errors completed with zero warnings and errors. Application code was unchanged during this resubmission.
+
+## Explicit provider recovery and remaining failure
+
+Agent.Server now exposes a revision-checked `retry_model` command and a corresponding stopped-session button. A late durable completion is replayed under its original identity. Without a receipt, recovery retains the old dispatch, journals an absolute conservative usage correction through public encrypted KeyVault APIs, and reserves a new identity with the same model request. Automatic restart never invokes recovery. Exhausted budgets prevent a new dispatch, and a crash between the correction and session checkpoint cannot charge the estimate twice.
+
+For the failed fourth dispatch, the correction counted 403,132 input tokens (serialized request bytes) and the complete 32,768-token output allowance. These are conservative budget estimates, not provider-reported usage. The configured call, repair, token, cost, and active-time limits were retained.
+
+| Dispatch or transition | Outcome |
+| --- | --- |
+| Call 5, explicit retry of interpretation | Provider succeeded; 29 deterministic diagnostics |
+| Repair preflight | Duplicated baseline and current intent exceeded the input allowance; no call or repair consumed |
+| Call 6, first repair | Provider succeeded; eight dependency/fallback diagnostics remained |
+| Call 7, second repair | Provider succeeded; dependency/fallback errors fixed, but an untyped object schema was reintroduced |
+| Final deterministic advance | Stopped at revision 26; no extra model call |
+
+Repairs now send the current intent without duplicating the original baseline graph. Input-preflight diagnostics preserve the underlying validation failures; reconfiguration removes the preflight error so validation or repair can resume. Pending requests retain their original interpretation/repair phase after recovery. Generic model instructions clarify nested dependencies, fallback result envelopes, and complete object/array schemas.
+
+The last candidate's check-array item declares `type=object` with neither typed properties nor typed additional properties. Deterministic validation reports `SCHEMA_INVALID` and downstream unavailable/invalid bindings: 13 diagnostics from this root error. No executable holes were reported, but that does not establish validity. YAML compilation, scenario execution, final approval, and PR execution remain blocked. The repair ceiling was enforced without another submission or a fresh session.
+
+Final cumulative accounting: **740,280 input tokens, 112,411 output tokens, EUR 6.16125 estimated cost, and 955.8 seconds active planning time**. These totals include the failed-call estimate; six completed calls themselves reported 337,148 input and 79,643 output tokens. Restart retained revision 26 and these counters. The generation prompt and its PR URL remained unchanged throughout this continuation.
 
 ## Changes derived from the live diagnostics
 
@@ -56,20 +76,21 @@ These changes have deterministic regression coverage. They do not establish succ
 
 ## Local verification after the fixes
 
-- Full solution suite: 2,364 passed, zero failed, one environment-gated external test skipped. This includes 26 planner, 89 Copilot Core, 110 Copilot MCP, and 295 Agent.Server tests.
+- Full solution suite after recovery changes: 2,375 passed, zero failed, one environment-gated external test skipped. This includes 29 planner, 89 Copilot Core, 110 Copilot MCP, and 303 Agent.Server tests. Recovery tests cover explicit retries, missing receipts, restart between correction and checkpoint, stale revisions, session ownership, and exhausted call/repair/token/cost limits.
 - Solution build with warnings treated as errors: zero warnings or errors.
-- Release packages created for the changed `GnOuGo.Flow.Planning` and `GnOuGo.GithubCopilot.Core` libraries.
+- Release packages created for the changed `GnOuGo.Flow.Core` and `GnOuGo.Flow.Planning` libraries; the earlier publication-gate follow-up also packaged `GnOuGo.GithubCopilot.Core`.
 - Published Native AOT planner smoke: local computation, read/transform, and protected writes/cleanup passed. Each used one fixture interpretation call and zero repairs; isolated scenario counts were 1, 3, and 5 respectively.
 - Published trimmed, self-contained Agent.Server persistence smoke passed encrypted schema-6 storage, tenant isolation, and stale-revision rejection. Bundled tools, browser installation, and frontend rebuilding were excluded from this persistence check.
 - Published Native AOT Copilot MCP passed synthetic publication-gate calls over stdio for zero findings, blocking findings, missing execution evidence, rejected confirmation, and stale heads. This exercised the exported contract without model calls or external effects.
-- Restarted the actual development host after rebuilding. The stopped live session retained its exact revision, calls, repairs, tokens, cost, and active time. The Blazor boot script returned HTTP 200. Frontend sources were unchanged in this follow-up; both frontend builds had passed for the initial refactor.
+- Restarted the actual development host after rebuilding. The stopped live session retained its exact revision, calls, repairs, tokens, cost, and active time. The Blazor boot script returned HTTP 200. Agent.Server's Vite frontend build passed without warnings for the recovery follow-up; the new retry button was also compiled by the Blazor build.
 
 Reproduction commands (macOS arm64, .NET SDK 10.0.300):
 
 ```bash
-dotnet test GnOuGo.Agent.sln --no-restore --verbosity quiet
-dotnet build GnOuGo.Agent.sln --no-restore -warnaserror -p:SkipClientBuild=true
-dotnet pack src/GnOuGo.Flow.Planning -c Release -warnaserror
+dotnet test GnOuGo.Agent.sln --no-restore -m:1 --verbosity quiet -warnaserror -p:SkipClientBuild=true
+dotnet build GnOuGo.Agent.sln --no-restore -m:1 -warnaserror -p:SkipClientBuild=true
+dotnet pack src/GnOuGo.Flow.Core -c Release -m:1 -warnaserror
+dotnet pack src/GnOuGo.Flow.Planning -c Release -m:1 -warnaserror
 dotnet pack src/GnOuGo.GithubCopilot.Core -c Release -warnaserror
 dotnet publish src/GnOuGo.GithubCopilot.Mcp -c Release -r osx-arm64 --self-contained true \
   -warnaserror -p:PublishAot=true -p:PublishTrimmed=true -p:InvariantGlobalization=false \

@@ -176,6 +176,24 @@ public sealed class LLMUsageBudgetScope
             timeProvider: _timeProvider);
 
     /// <summary>
+    /// Conservatively accounts for usage of an already-counted dispatch with no receipt.
+    /// Hosts must journal this explicit recovery idempotently; it neither calls a model
+    /// nor increments Calls. Use an isolated scope to prepare a durable correction.
+    /// </summary>
+    public ValueTask AccountUnreportedUsageAsync(LLMRequest request, IModelUsageCostEstimator estimator,
+        long inputTokens, long outputTokens, CancellationToken ct)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(inputTokens);
+        ArgumentOutOfRangeException.ThrowIfNegative(outputTokens);
+        if (_parent is not null) throw new InvalidOperationException("Recovery accounting requires an isolated budget scope.");
+        return CompleteLocalAsync(new LocalReservation(this, false), new JsonObject
+        {
+            ["input_tokens"] = inputTokens, ["output_tokens"] = outputTokens,
+            ["total_tokens"] = checked(inputTokens + outputTokens)
+        }, estimator, request, "planning.recovery", ct);
+    }
+
+    /// <summary>
     /// Executes one LLM request under this scope and every parent scope.
     /// </summary>
     public async Task<LLMResponse> CallAsync(

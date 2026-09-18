@@ -19,7 +19,7 @@ Start with `TypedWorkflowPlanner.cs`, `PlanningGraphBuilder.cs` and `PlanningGra
 
 ## Public boundaries and failure behavior
 
-`IWorkflowPlanner.AdvanceAsync(PlanningSession, PlanningCommand, IPlanningRuntime, CancellationToken)` advances to the next durable checkpoint. Commands are `advance`, `answer`, `revise`, `edit_intent`, `configure_generation`, `approve` and `cancel`. Hosts add `save`. Commands require the expected revision; approval/save require the current artifact hash. Explicit revisions reset the repair allowance and retain cumulative calls, tokens, cost and active time.
+`IWorkflowPlanner.AdvanceAsync(PlanningSession, PlanningCommand, IPlanningRuntime, CancellationToken)` advances to the next durable checkpoint. Commands are `advance`, `answer`, `revise`, `edit_intent`, `configure_generation`, `approve` and `cancel`. Agent.Server adds `save` and explicit `retry_model`. Commands require the expected revision; approval/save require the current artifact hash. Explicit revisions reset the repair allowance and retain cumulative calls, tokens, cost and active time.
 
 `IPlanningRuntime` supplies discovery, model calls, executable/scenario validation, current-contract verification and checkpoints. `IPlanningRuntimeFactory.ReadApprovedYamlAsync` retrieves the trusted artifact by execution tenant, session and hash. `workflow.execute` verifies stored approval and rejects substituted prior-step YAML. Saving also verifies approval and current contracts. Existing workflows enter through graph import as baseline context and require complete validation and fresh approval.
 
@@ -30,6 +30,8 @@ The model never returns YAML, permissions or transport targets. Names/descriptio
 One configured reasoning level (`medium` by default), 12,000 input tokens and 8,192 output tokens per request; eight session calls and two repairs per submitted intent. Hosts retain token, monetary and active-time limits. No recursive decision pages or automatic output escalation. Human waiting time is recorded separately.
 
 Schema 6 uses fresh encrypted `*-v6` collections and Agent.Server's `.GnOuGo/data/gnougo-planning-v6.db`. Old formats are rejected without migration; existing user databases are untouched. Agent.Server retains EF Core/SQLite indexes and compiled models; payloads and receipts use only public KeyVault record APIs. All keys are tenant-scoped. Durable reservations precede dispatch. A completed receipt replays without another charge; an uncertain dispatch stops without redispatch. Restart replenishes no allowance. Saving reconciles a previously committed identical artifact before writing again.
+
+An operator can explicitly request `retry_model` for a stopped pending request. An available completion receipt is replayed. Otherwise Agent.Server retains the old request and call charge, accounts conservatively for unreported usage, and reserves a fresh request identity with the same prompt and limits. The estimate uses at least the configured input allowance or serialized request byte count, whichever is larger, and the entire enforced output allowance. It is budget accounting, not a provider usage receipt. The absolute correction is journaled before updating the cumulative ledger, so recovery after a crash does not charge it twice. Exhausted call, repair, token, or cost limits prevent another dispatch. Automatic restart never invokes this command.
 
 ## Validation
 

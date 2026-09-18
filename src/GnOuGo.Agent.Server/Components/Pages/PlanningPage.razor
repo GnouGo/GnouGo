@@ -64,6 +64,11 @@
         { <button class="btn btn-primary" disabled="@_busy" @onclick="ApproveAndSaveAsync">Approve this revision and save</button> }
         @if (_state.Status == PlanningStatus.Approved)
         { <button class="btn btn-primary" disabled="@_busy" @onclick='() => SubmitAsync("save")'>Save approved workflow</button> }
+        @if (_state.Status == PlanningStatus.Stopped && _state.PendingCall is not null)
+        {
+            <p>The previous request has no confirmed result. Retrying retains its call count and adds a conservative token and cost estimate before using another call. Session limits remain unchanged.</p>
+            <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("retry_model")'>Retry with retained usage</button>
+        }
         @if (_state.Status is not (PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled))
         {
             <label for="plan-revision">Requested changes</label><textarea id="plan-revision" class="form-control" rows="3" @bind="_revision"></textarea>

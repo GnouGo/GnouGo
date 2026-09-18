@@ -210,13 +210,23 @@ public sealed class PlanningSessionService(
         var receipt = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, current.Request.SessionId, EfPlanningSessionStore.Author, ct);
         var initial = receipt is null ? current.Usage : JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
         var configured = PlanningBudgetOptions.Parse(current.Request.Options);
-        var budget = new LLMUsageBudgetScope(new LLMUsageBudgetLimits
+        var limits = new LLMUsageBudgetLimits
         {
             MaxCalls = Math.Min(configured?.MaxCalls ?? settings.Value.MaxModelCalls, settings.Value.MaxModelCalls),
             MaxTotalTokens = Math.Min(configured?.MaxTotalTokens ?? settings.Value.MaxTotalTokens, settings.Value.MaxTotalTokens),
             MaxEstimatedCost = configured?.MaxEstimatedCost ?? new MonetaryAmount(budgetSettings.Value.Amount, budgetSettings.Value.Currency)
-        }, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates);
+        };
         var estimator = new ModelMetadataUsageCostEstimator(runtime.Options);
+        if (command.Kind == "retry_model")
+        {
+            var previousRevision = current.Revision;
+            await PlanningModelRecovery.PrepareAsync(current, records, limits, estimator, exchangeRates, ct);
+            current.Revision++; current.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            current.ActiveMilliseconds += clock.Elapsed.TotalMilliseconds;
+            if (!await store.TrySaveAsync(current, previousRevision, ct)) throw new PlanningConflictException("A newer recovery revision was saved.");
+            return current;
+        }
+        var budget = new LLMUsageBudgetScope(limits, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates);
         var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation);
         var engine = new WorkflowEngine
         {
