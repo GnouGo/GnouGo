@@ -360,21 +360,23 @@ internal sealed class CopilotTools
                 ExistingComments: ParseExistingReviewComments(existingCommentsJson)) { RuntimeContextJson = runtimeContextJson },
             cancellationToken));
 
-    [McpServerTool(Name = "copilot_review_publication_gate", UseStructuredContent = true, OutputSchemaType = typeof(ReviewPublicationGateResult)), Description("Makes the final fail-closed publication decision after the GitHub MCP re-reads the PR head SHA. dry_run never writes, interactive requires explicit approval, auto_comment can only submit COMMENT, and APPROVE is not representable.")]
+    [McpServerTool(Name = "copilot_review_publication_gate", UseStructuredContent = true, OutputSchemaType = typeof(ReviewPublicationGateResult)), Description("Derives APPROVE, REQUEST_CHANGES or COMMENT from the completed review and every requested check after re-reading the PR head SHA. Command checks must carry original execution observations, not assistant claims. Zero findings can approve only with complete passing verification. dry_run never writes; interactive requires confirmation of the displayed review; auto_comment only permits COMMENT. Consume mayWrite before publishing through GitHub.")]
     public ReviewPublicationGateResult ReviewPublicationGate(
         string expectedHeadSha,
         string currentHeadSha,
         ReviewPublicationPolicy publicationPolicy,
-        int validatedFindingCount,
-        bool humanApproved = false,
-        ReviewSubmitEvent proposedEvent = ReviewSubmitEvent.Comment)
+        int blockingFindingCount,
+        IReadOnlyList<ReviewCheckResult> checks,
+        bool reviewComplete,
+        bool humanApproved = false)
         => ReviewValidation.EvaluatePublication(new ReviewPublicationGateRequest(
             expectedHeadSha,
             currentHeadSha,
             publicationPolicy,
-            validatedFindingCount,
-            humanApproved,
-            proposedEvent));
+            blockingFindingCount,
+            checks,
+            reviewComplete,
+            humanApproved));
 
     private CopilotRuntimeConfiguration BuildConfiguration(
         string? projectRoot,

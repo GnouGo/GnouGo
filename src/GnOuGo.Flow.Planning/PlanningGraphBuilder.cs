@@ -27,7 +27,7 @@ public static class PlanningGraphBuilder
             Normalize(workflow.Steps); Normalize(workflow.Finally);
             foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Finally))
             {
-                var sources = References(node).Where(v => v.Kind == "output").Select(v => v.Source!).Distinct(StringComparer.Ordinal).ToArray();
+                var sources = References(node).Where(v => v.Kind == "output").Select(v => v.Source!).Concat(node.Dependencies).Distinct(StringComparer.Ordinal).ToArray();
                 var main = PlanningGraphCompiler.Enumerate(workflow.Steps).Select(n => n.Key).ToHashSet(StringComparer.Ordinal);
                 var required = sources.Where(main.Contains).ToArray();
                 if (required.Length == 0) continue;

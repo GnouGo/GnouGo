@@ -21,10 +21,12 @@ internal static class PlanningModelCalls
             }, state.Request.Generation);
             var violations = PlanningContractValidation.ValidateSchema(schema, strict: true);
             if (violations.Count != 0) throw new InvalidOperationException("Invalid planner response schema: " + string.Join("; ", violations));
-            if (PlanningJsonTransport.EstimateInputTokens(prompt, schema) > state.Request.Generation.MaxInputTokensPerRequest)
-                throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", "The complete request exceeds its input budget. Increase the configured limit or narrow the request/catalog.");
+            var inputTokens = PlanningJsonTransport.EstimateInputTokens(prompt, schema);
+            if (inputTokens > state.Request.Generation.MaxInputTokensPerRequest)
+                throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", $"The complete request needs approximately {inputTokens} input tokens; the configured limit is {state.Request.Generation.MaxInputTokensPerRequest}. Increase the configured limit or narrow the request/catalog.");
             var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
             request.ClientRequestId = state.Request.SessionId + ":" + (++state.ModelCalls) + ":" + hash;
+            if (purpose == "repair") state.RepairAttempts++;
             state.PendingCall = new() { Id = request.ClientRequestId, Purpose = purpose, Request = request };
             await runtime.CheckpointAsync(state, ct);
         }
@@ -44,8 +46,17 @@ internal static class PlanningModelCalls
         Use native kinds from allowedStepTypes, or kind=invoke with an exact capabilityId. For an invocation,
         input is the capability's arguments, WITHOUT server/method/request wrappers. Never invent capabilities.
         Native set steps return objects: put computed fields in input and declare an object outputSchema for computations.
+        A step cannot reference its own output while computing its input; derive related fields from upstream values.
+        Keep optional outputSchema null when no declared result is needed. For opaque integration results, a custom
+        outputSchema does not establish producer fields: use a supported structuredOutput declaration when consuming them.
         Values use explicit input/output/loop/workflow references with source IDs and paths. compute values use
         a JavaScript expression and named members as parameters. No network or CLR access is available.
+        Input reference example: {"kind":"input","source":"filename","path":[]} refers to the filename port
+        in the current workflow, never to a workflow ID. Output source is a step key. MCP default output is
+        already its payload: do not add response/json wrappers. Use resultChannel=structured for structuredOutput.
+        human.input mode=confirm requires choices=["approve","reject"] and exposes a boolean response field.
+        A capability schemaPointer begins with /input or /output, then JSON Schema segments such as
+        /output/properties/id; it is not a data path. Reference schemas use only capabilityId and schemaPointer.
         Required unresolved values use {"kind":"hole"}; unknown schemas use type=hole. Do not guess missing facts.
         Use questions only for business facts the user must decide, not values already declared as runtime inputs.
         Every workflow output has a concrete schema and an explicit value. Preserve omission versus null.
@@ -65,8 +76,8 @@ internal static class PlanningModelCalls
             ["capabilities"] = new JsonArray(state.Catalog.Capabilities.Select(c => (JsonNode)new JsonObject
             {
                 ["id"] = c.Id, ["name"] = c.Method, ["source"] = c.Server,
-                ["description"] = c.Description[..Math.Min(c.Description.Length, 400)], ["inputSchema"] = CompactSchema(c.InputSchema),
-                ["outputSchema"] = CompactSchema(c.OutputSchema), ["effect"] = c.EffectKind,
+                ["description"] = c.Description[..Math.Min(c.Description.Length, 400)], ["input"] = CompactSchema(c.InputSchema),
+                ["output"] = CompactSchema(c.OutputSchema), ["effect"] = c.EffectKind,
                 ["artifacts"] = JsonSerializer.SerializeToNode(c.ArtifactContract, PlanningJsonContext.Default.McpArtifactContract),
                 ["fixedArguments"] = new JsonObject(c.RequestBindings.Select(b => new KeyValuePair<string, JsonNode?>(b.Path, b.Value?.DeepClone())))
             }).ToArray()),

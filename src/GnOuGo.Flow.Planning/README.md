@@ -8,6 +8,8 @@ Read `TypedWorkflowPlanner.cs` for orchestration, `PlanningGraphBuilder.cs` for 
 
 Hosts inject `IPlanningRuntime`. Graph validation checks capability identity, schemas, bindings, availability, dependencies, executable expressions, artifact contracts and explicit policy. A host-owned confirmation gate protects external effects, including subworkflows and cleanup. Final artifact approval is separate from runtime confirmation. Only validated graphs without executable holes compile.
 
+Input references name the current workflow's input port. Capability schema references start at `/input` or `/output` and continue through JSON Schema properties. Finalizers may depend on a main step; the builder guards cleanup so it runs only after that producer completes. Independent diagnostics are reported together, and cycle diagnostics locate the offending step. Pre-dispatch input-budget failures consume neither a model call nor a repair attempt.
+
 ```bash
 dotnet build src/GnOuGo.Flow.Planning -warnaserror
 dotnet test tests/GnOuGo.Flow.Planning.Tests

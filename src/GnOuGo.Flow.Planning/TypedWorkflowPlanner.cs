@@ -36,7 +36,8 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             {
                 case "advance":
                     await AdvanceAsync(state, runtime, deadline.Token);
-                    if (session.IntentPlan is not null && state.IntentPlan is not null && session.Diagnostics.Any(d => d.Required) && state.Diagnostics.Any(d => d.Required) &&
+                    if ((state.RepairAttempts > session.RepairAttempts || session.PendingCall?.Purpose == "repair") &&
+                        session.IntentPlan is not null && state.IntentPlan is not null && session.Diagnostics.Any(d => d.Required) && state.Diagnostics.Any(d => d.Required) &&
                         JsonNode.DeepEquals(JsonSerializer.SerializeToNode(session.IntentPlan, PlanningJsonContext.Default.WorkflowIntentPlan), JsonSerializer.SerializeToNode(state.IntentPlan, PlanningJsonContext.Default.WorkflowIntentPlan)) &&
                         session.Diagnostics.SequenceEqual(state.Diagnostics))
                     { state.Diagnostics.Add(new("REPAIR_NO_PROGRESS", "$", "The unchanged intent produced the same failures.")); Stop(state); }
@@ -104,11 +105,10 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         if (state.Catalog is null) { state.Catalog = await runtime.DiscoverAsync(state.Request, ct); return; }
         if (state.IntentPlan is null || state.Diagnostics.Any(d => d.Required))
         {
-            var repair = state.Diagnostics.Any(d => d.Required);
+            var repair = state.ModelCalls > 0 && state.Diagnostics.Any(d => d.Required);
             if (repair && state.PendingCall is null)
             {
                 if (state.RepairAttempts >= state.Request.MaxRepairAttempts) { Stop(state); return; }
-                state.RepairAttempts++;
             }
             var candidate = await PlanningModelCalls.CallAsync(state, runtime, repair ? "repair" : "intent", PlanningModelCalls.IntentPrompt(state), PlanningSchemas.Intent(), ct);
             var intent = JsonSerializer.Deserialize(candidate, PlanningJsonContext.Default.WorkflowIntentPlan)!;
@@ -135,6 +135,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             if (ambiguous.Count == 0)
             {
                 state.Diagnostics = domains.Select(d => new PlanningDiagnostic("HOLE_UNRESOLVED", d.Hole.Path, "No valid deterministic choice exists for this " + d.Hole.Kind + " field. Supply a typed value or revise its dependencies.")).ToList();
+                state.Diagnostics.AddRange(PlanningExecutableValidation.Validate(state.Graph, state.Catalog).Where(d => d.Code != "CONFIRMATION_REQUIRED"));
                 return;
             }
             string Prompt() => "Select one issued choice ID for each field. Use the request's meaning; do not create values.\n" + state.Request.Prompt + "\n" +

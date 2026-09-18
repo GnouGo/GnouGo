@@ -5,6 +5,52 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class IntentPlanningTests
 {
     [Fact]
+    public async Task InputBudgetPreflightDoesNotConsumeARepairAttempt()
+    {
+        var runtime = new TestRuntime(); var state = PlannerFixture.Session();
+        state.Request.Generation.MaxInputTokensPerRequest = 512;
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Empty(runtime.Calls);
+        Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_INPUT_LIMIT" && d.Message.Contains("512"));
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { Kind = "configure_generation", ExpectedRevision = state.Revision,
+            Generation = new() { MaxInputTokensPerRequest = 12_000 } }, runtime, TestContext.Current.CancellationToken);
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Single(runtime.Calls); Assert.Equal(0, state.RepairAttempts);
+    }
+
+    [Fact]
+    public async Task UnresolvedHolesAndIndependentContractErrorsAreReportedTogether()
+    {
+        var plan = PlannerFixture.Greeting(); plan.Workflows[0].Steps[0].Kind = "missing";
+        plan.Workflows[0].Outputs[0].Value = new() { Kind = "hole" };
+        var state = PlannerFixture.Session(); state.Request.MaxRepairAttempts = 0;
+        state = await PlannerFixture.RunAsync(new TestRuntime(plan), state);
+        Assert.Contains(state.Diagnostics, d => d.Code == "HOLE_UNRESOLVED");
+        Assert.Contains(state.Diagnostics, d => d.Code == "STEP_TYPE_DENIED");
+        Assert.Equal(1, state.ModelCalls);
+        Assert.DoesNotContain(state.Diagnostics, d => d.Code == "REPAIR_NO_PROGRESS");
+    }
+
+    [Fact]
+    public async Task RepairInputPreflightDoesNotConsumeAnAttempt()
+    {
+        var plan = PlannerFixture.Greeting(); plan.Workflows[0].Steps[0].Kind = "missing";
+        var runtime = new TestRuntime(plan); runtime.Plans.Enqueue(PlannerFixture.Greeting());
+        var planner = new TypedWorkflowPlanner(); var state = PlannerFixture.Session();
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.RepairAttempts);
+        state.Request.Generation.MaxInputTokensPerRequest = 512;
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_INPUT_LIMIT");
+        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.RepairAttempts);
+        state = await planner.AdvanceAsync(state, new() { Kind = "configure_generation", ExpectedRevision = state.Revision,
+            Generation = new() { MaxInputTokensPerRequest = 12_000 } }, runtime, TestContext.Current.CancellationToken);
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.RepairAttempts);
+    }
+
+    [Fact]
     public async Task CompleteWorkflowUsesOneInterpretationCallAndExecutes()
     {
         var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime);

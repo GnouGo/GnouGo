@@ -27,7 +27,7 @@ public sealed class SafetyAndGraphTests
         var initial = PlannerFixture.Session(); var catalog = await runtime.DiscoverAsync(initial.Request, Ct);
         var plan = new WorkflowIntentPlan { Summary = "Perform the action and clean up", Workflows = [new() {
             Steps = [new() { Key = "action", CapabilityId = catalog.Capabilities.Single(c => c.Method == "action").Id }],
-            Finally = [new() { Key = "cleanup", CapabilityId = catalog.Capabilities.Single(c => c.Method == "cleanup").Id }]
+            Finally = [new() { Key = "cleanup", Dependencies = ["action"], CapabilityId = catalog.Capabilities.Single(c => c.Method == "cleanup").Id }]
         }] };
         plan.Fixtures = new() { Observations = [new("main", "action", [new() { Kind = "object", Members = [new("ok", new() { Kind = "boolean", Boolean = true })] }])] };
         runtime.Plans.Clear(); runtime.Plans.Enqueue(plan);
@@ -50,6 +50,24 @@ public sealed class SafetyAndGraphTests
     }
 
     [Fact]
+    public async Task FinalizerDependencyRunsOnlyAfterItsProducerCompletes()
+    {
+        var runtime = new TestRuntime(); var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, Ct);
+        foreach (var producerRuns in new[] { true, false })
+        {
+            var plan = new WorkflowIntentPlan { Workflows = [new() {
+                Steps = [new() { Key = "resource", Kind = "set", If = new() { Kind = "boolean", Boolean = producerRuns } }],
+                Finally = [new() { Key = "cleanup", Kind = "set", Dependencies = ["resource"] }]
+            }] };
+            var graph = PlanningGraphBuilder.Build(plan, catalog);
+            var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, catalog)));
+            var result = await new WorkflowEngine().ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), Ct);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(producerRuns ? StepStatus.Succeeded : StepStatus.Skipped, result.StepResults.Last().Status);
+        }
+    }
+
+    [Fact]
     public async Task ExplicitDependenciesOrderStepsAndCyclesAreRejected()
     {
         var runtime = new TestRuntime(); var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, Ct);
@@ -58,6 +76,7 @@ public sealed class SafetyAndGraphTests
         Assert.Equal(["greet", "after"], graph.Workflows[0].Steps.Select(s => s.Key));
         plan.Workflows[0].Steps[1].Dependencies.Add("after"); graph = PlanningGraphBuilder.Build(plan, catalog);
         Assert.Contains(PlanningExecutableValidation.Validate(graph, catalog), d => d.Code == "DEPENDENCY_CYCLE");
+        Assert.Contains(PlanningExecutableValidation.Validate(graph, catalog), d => d.Code == "DEPENDENCY_CYCLE" && d.Message.Contains("greet") && d.Message.Contains("after"));
     }
     [Fact]
     public async Task ConditionalResultsAreNotAvailableToUnconditionalConsumers()

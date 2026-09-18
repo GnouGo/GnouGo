@@ -9,26 +9,18 @@ internal static class PlanningSchemaReferences
 {
     internal static string Escape(string value) => value.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
 
-    internal static JsonArray Index(PlanningCatalog catalog) => new(catalog.Capabilities
-        .OrderBy(c => c.Id, StringComparer.Ordinal).SelectMany(c => Entries(c)
-        .Where(entry => PlanningContractValidation.ValidateSchema(entry.Schema).Count == 0).Select(entry => (JsonNode)new JsonObject
-        {
-            ["capabilityId"] = c.Id,
-            ["schemaPointer"] = entry.Path
-        })).ToArray());
-
     internal static JsonObject Resolve(PlanningSchema schema, PlanningCatalog catalog)
     {
         if (schema.Type != "string" || schema.Nullable || schema.Description is not null || schema.Enum.Count != 0 ||
             schema.Items is not null || schema.Properties.Count != 0 || schema.AdditionalProperties is not null)
             throw new InvalidOperationException("A capability schema reference cannot also declare inline constraints. Leave structural fields at their defaults.");
         var capability = catalog.Capabilities.SingleOrDefault(c => c.Id == schema.CapabilityId)
-            ?? throw new InvalidOperationException("Unknown schema capability. Select a capabilityId from the supplied schema reference index.");
+            ?? throw new InvalidOperationException("Unknown schema capability. Select a capabilityId from the supplied catalog.");
         var pointer = schema.SchemaPointer ?? "/output";
         ValidatePointer(pointer);
         var found = Entries(capability).FirstOrDefault(entry => entry.Path == pointer);
         if (found.Schema is null)
-            throw new InvalidOperationException("The schema reference is unresolved. Select an exact schemaPointer from the supplied index; data paths are not schema paths.");
+            throw new InvalidOperationException("The schema reference is unresolved. schemaPointer starts with /input or /output, followed by JSON Schema segments such as /properties/name. Data paths and /outputSchema are not schema pointers.");
         var result = (JsonObject)found.Schema.DeepClone();
         // A detached subschema must still resolve its own references. Do not silently
         // drop/rebase constraints or borrow a different capability's definitions.

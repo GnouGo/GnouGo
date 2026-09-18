@@ -5,57 +5,85 @@ namespace GnOuGo.GithubCopilot.Core.Tests;
 
 public sealed class ReviewValidationTests
 {
+    private static ReviewCheckResult CommandCheck(ReviewCheckStatus status = ReviewCheckStatus.Passed, long? exitCode = 0) => new(
+        "Unit tests", status, "Observed test process completion", true,
+        new("run-1", null, "terminal", "{\"command\":\"test\"}", true, true, false, [new("workflows/review", exitCode, null)], null));
+
+    private static ReviewPublicationGateRequest Request(ReviewPublicationPolicy policy = ReviewPublicationPolicy.Interactive,
+        bool approved = true, int blockers = 0, ReviewCheckResult? check = null, bool complete = true) => new(
+            "abcdef123456", "abcdef123456", policy, blockers, [check ?? CommandCheck()], complete, approved);
+
     [Theory]
     [InlineData(ReviewPublicationPolicy.DryRun, false, false)]
     [InlineData(ReviewPublicationPolicy.Interactive, false, false)]
     [InlineData(ReviewPublicationPolicy.Interactive, true, true)]
     [InlineData(ReviewPublicationPolicy.AutoComment, false, true)]
-    public void PublicationGate_EnforcesPolicyBeforeGithubWrite(ReviewPublicationPolicy policy, bool humanApproved, bool expected)
+    public void PublicationGate_EnforcesPolicyBeforeGithubWrite(ReviewPublicationPolicy policy, bool approved, bool expected)
     {
-        var result = ReviewValidation.EvaluatePublication(new ReviewPublicationGateRequest(
-            "abcdef123456", "abcdef123456", policy, 1, humanApproved, ReviewSubmitEvent.RequestChanges));
-
+        var result = ReviewValidation.EvaluatePublication(Request(policy, approved));
         Assert.Equal(expected, result.MayWrite);
-        if (policy == ReviewPublicationPolicy.AutoComment && expected)
-            Assert.Equal(ReviewSubmitEvent.Comment, result.SubmitEvent);
+        if (policy == ReviewPublicationPolicy.AutoComment) Assert.Equal(ReviewSubmitEvent.Comment, result.SubmitEvent);
     }
 
     [Fact]
     public void PublicationGate_RejectsStaleHeadBeforeGithubWrite()
     {
-        var result = ReviewValidation.EvaluatePublication(new ReviewPublicationGateRequest(
-            "abcdef123456", "999999999999", ReviewPublicationPolicy.AutoComment, 3));
-
+        var result = ReviewValidation.EvaluatePublication(Request() with { CurrentHeadSha = "999999999999" });
         Assert.False(result.MayWrite);
         Assert.Contains("head SHA changed", result.Reason, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void PublicationGate_RejectsNoFindings()
+    public void PublicationGate_ApprovesCompletePassingReviewWithNoFindings()
     {
-        var result = ReviewValidation.EvaluatePublication(new ReviewPublicationGateRequest(
-            "abcdef123456", "abcdef123456", ReviewPublicationPolicy.Interactive, 0, true));
+        var result = ReviewValidation.EvaluatePublication(Request());
+        Assert.True(result.MayWrite);
+        Assert.Equal(ReviewSubmitEvent.Approve, result.SubmitEvent);
+    }
 
-        Assert.False(result.MayWrite);
-        Assert.Contains("no validated", result.Reason, StringComparison.OrdinalIgnoreCase);
+    [Theory]
+    [InlineData(1, ReviewCheckStatus.Passed, 0)]
+    [InlineData(0, ReviewCheckStatus.Failed, 1)]
+    public void PublicationGate_RequestsChangesForBlockersOrFailedChecks(int blockers, ReviewCheckStatus status, long exitCode)
+        => Assert.Equal(ReviewSubmitEvent.RequestChanges, ReviewValidation.EvaluatePublication(Request(blockers: blockers, check: CommandCheck(status, exitCode))).SubmitEvent);
+
+    [Fact]
+    public void PublicationGate_MissingOrConflictingExecutionCannotApprove()
+    {
+        var check = CommandCheck();
+        ReviewCheckResult[] incomplete = [check with { Execution = null }, CommandCheck(exitCode: null),
+            check with { Execution = check.Execution! with { CompletionObserved = false } },
+            check with { Execution = check.Execution! with { ConflictingCompletion = true } },
+            check with { Execution = check.Execution! with { ToolSucceeded = false } },
+            check with { Evidence = "" }, check with { Status = ReviewCheckStatus.Blocked }];
+        foreach (var candidate in incomplete)
+            Assert.Equal(ReviewSubmitEvent.Comment, ReviewValidation.EvaluatePublication(Request(check: candidate)).SubmitEvent);
+        Assert.Equal(ReviewSubmitEvent.Comment, ReviewValidation.EvaluatePublication(Request(complete: false)).SubmitEvent);
+        Assert.Equal(ReviewSubmitEvent.Comment, ReviewValidation.EvaluatePublication(Request() with { Checks = [] }).SubmitEvent);
+    }
+
+    [Fact]
+    public void PublicationGate_NotApplicableRequiresExplanationAndNoRequiredCommand()
+    {
+        var check = new ReviewCheckResult("Integration tests", ReviewCheckStatus.NotApplicable, "No suite is declared in this repository", false);
+        Assert.Equal(ReviewSubmitEvent.Approve, ReviewValidation.EvaluatePublication(Request(check: check)).SubmitEvent);
+        Assert.Equal(ReviewSubmitEvent.Comment, ReviewValidation.EvaluatePublication(Request(check: check with { RequiresExecution = true })).SubmitEvent);
+    }
+
+    [Fact]
+    public void PublicationGate_RejectsInvalidPolicyAndDuplicateChecks()
+    {
+        Assert.False(ReviewValidation.EvaluatePublication(Request((ReviewPublicationPolicy)100)).MayWrite);
+        Assert.False(ReviewValidation.EvaluatePublication(Request() with { Checks = [CommandCheck(), CommandCheck()] }).MayWrite);
+        Assert.False(ReviewValidation.EvaluatePublication(Request(blockers: -1)).MayWrite);
     }
 
     [Fact]
     public void PublicationGate_UsesSchemaVisibleWireEnumValues()
     {
-        var request = new ReviewPublicationGateRequest(
-            "abcdef123456",
-            "abcdef123456",
-            ReviewPublicationPolicy.AutoComment,
-            1,
-            ProposedEvent: ReviewSubmitEvent.RequestChanges);
-
-        var json = JsonSerializer.Serialize(
-            request,
-            CopilotCoreJsonContext.Default.ReviewPublicationGateRequest);
-
-        Assert.Contains("\"policy\":\"auto_comment\"", json, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("\"proposedEvent\":\"request_changes\"", json, StringComparison.Ordinal);
+        var result = ReviewValidation.EvaluatePublication(Request());
+        var json = JsonSerializer.Serialize(result, CopilotCoreJsonContext.Default.ReviewPublicationGateResult);
+        Assert.Contains("\"approve\"", json, StringComparison.Ordinal);
     }
 
     private const string Patch = """

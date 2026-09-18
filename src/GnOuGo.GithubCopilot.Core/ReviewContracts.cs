@@ -127,16 +127,30 @@ public enum ReviewSubmitEvent
     [JsonStringEnumMemberName("comment")]
     Comment,
     [JsonStringEnumMemberName("request_changes")]
-    RequestChanges
+    RequestChanges,
+    [JsonStringEnumMemberName("approve")]
+    Approve
 }
+
+[JsonConverter(typeof(JsonStringEnumConverter<ReviewCheckStatus>))]
+public enum ReviewCheckStatus { Passed, Failed, Blocked, NotApplicable }
+
+/// <summary>A requested verification and its evidence. Command checks retain the original SDK observation.</summary>
+public sealed record ReviewCheckResult(
+    string Name,
+    ReviewCheckStatus Status,
+    string Evidence,
+    bool RequiresExecution,
+    CopilotToolExecutionObservation? Execution = null);
 
 public sealed record ReviewPublicationGateRequest(
     string ExpectedHeadSha,
     string CurrentHeadSha,
     ReviewPublicationPolicy Policy,
-    int ValidatedFindingCount,
-    bool HumanApproved = false,
-    ReviewSubmitEvent ProposedEvent = ReviewSubmitEvent.Comment);
+    int BlockingFindingCount,
+    IReadOnlyList<ReviewCheckResult> Checks,
+    bool ReviewComplete,
+    bool HumanApproved = false);
 
 public sealed record ReviewPublicationGateResult(
     bool MayWrite,

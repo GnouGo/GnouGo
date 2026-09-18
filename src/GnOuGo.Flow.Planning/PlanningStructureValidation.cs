@@ -37,19 +37,26 @@ internal static class PlanningStructureValidation
                     findings.Add(new("WORKFLOW_REFERENCE_INVALID", location + "/input", "Only declared local workflow references are allowed."));
                 foreach (var dependency in node.Dependencies)
                     if (!keys.Contains(dependency)) findings.Add(new("DEPENDENCY_UNKNOWN", location + "/dependencies", "Unknown dependency: " + dependency));
-                    else if (nodes.Single(n => n.Node.Key == dependency).Path[..nodes.Single(n => n.Node.Key == dependency).Path.LastIndexOf('/')] != location[..location.LastIndexOf('/')])
-                        findings.Add(new("DEPENDENCY_SCOPE", location + "/dependencies", "Explicit dependencies must join sibling steps. Depend on the completed container to cross a control-flow scope."));
+                    else if (nodes.Single(n => n.Node.Key == dependency).Path[..nodes.Single(n => n.Node.Key == dependency).Path.LastIndexOf('/')] != location[..location.LastIndexOf('/')] &&
+                        !(location.StartsWith(path + "/finally/", StringComparison.Ordinal) && workflow.Steps.Any(n => n.Key == dependency) && PlanningGraphBuilder.GuardsFinalizerSource(node, dependency)))
+                        findings.Add(new("DEPENDENCY_SCOPE", location + "/dependencies", "Dependencies must join sibling steps, or guarded finalizers to a completed main step. Depend on the completed container to cross another control-flow scope."));
             }
             var edges = nodes.ToDictionary(n => n.Node.Key, n => n.Node.Dependencies.Concat(PlanningGraphBuilder.References(n.Node).Where(v => v.Kind == "output").Select(v => v.Source!)).Where(keys.Contains).Distinct().ToArray());
-            var visiting = new HashSet<string>(); var completed = new HashSet<string>();
+            var visiting = new List<string>(); var completed = new HashSet<string>();
             bool Cycle(string key)
             {
                 if (completed.Contains(key)) return false;
-                if (!visiting.Add(key)) return true;
+                if (visiting.Contains(key))
+                {
+                    findings.Add(new("DEPENDENCY_CYCLE", nodes.Single(n => n.Node.Key == key).Path,
+                        "Step dependencies/output references contain a cycle: " + string.Join(" -> ", visiting.Skip(visiting.IndexOf(key)).Append(key)) + ". A step cannot read its own unfinished result; compute related fields from upstream inputs."));
+                    return true;
+                }
+                visiting.Add(key);
                 if (edges[key].Any(Cycle)) return true;
                 visiting.Remove(key); completed.Add(key); return false;
             }
-            if (keys.Any(Cycle)) findings.Add(new("DEPENDENCY_CYCLE", path, "Step dependencies contain a cycle."));
+            _ = keys.Any(Cycle);
         }
         // The three host-owned confirmation steps are outside the user's graph allowance.
         if (total > catalog.Policy.MaxStepsTotal + (graph.Workflows.Any(w => w.Key == PlanningConfirmationGuards.Body) ? 3 : 0))

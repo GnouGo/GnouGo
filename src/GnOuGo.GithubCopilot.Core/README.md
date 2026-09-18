@@ -29,7 +29,7 @@ It provides:
 - `interactive`, `auto_approve_allowlist`, `deny`, and policy-gated `approve_all` permission modes. Interactive callbacks always offer allow-once and refuse. When the SDK supplies a safe matching scope they also offer allow-similar-for-task. A disabled-by-default host gate controls broad current-task, workflow-run, and future-agent-run choices without changing the session to `approve_all`; a second independent gate controls explicit reusable sandbox-bypass choices;
 - KeyVault-provider abstractions that keep credentials out of workflow arguments and results;
 - bounded pull-request review batches, caller instructions applied to every batch, bounded untrusted existing-comment context, strict structured finding parsing, diff-line/path validation, fingerprints, existing-comment deduplication, and coverage metadata;
-- a fail-closed publication gate for `dry_run`, `interactive`, and `auto_comment` policies. It never represents GitHub `APPROVE` or merge operations;
+- a fail-closed publication gate for `dry_run`, `interactive`, and `auto_comment` policies. It derives `APPROVE` for complete passing reviews (including zero findings), `REQUEST_CHANGES` for blockers or established failed checks, and `COMMENT` for incomplete verification. Command checks require observed completion, working directories, and exit codes. Interactive publication requires confirmation of the displayed review; stale heads never publish, and merge is outside the contract;
 - source-generated JSON metadata for trimming and Native AOT consumers.
 
 Raw model reasoning is discarded. Streaming exposes only operational progress events.

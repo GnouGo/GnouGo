@@ -207,9 +207,10 @@ public sealed class LivePullRequestReviewTests
                 ["expectedHeadSha"] = headSha,
                 ["currentHeadSha"] = headSha,
                 ["publicationPolicy"] = "interactive",
-                ["validatedFindingCount"] = findings.Length,
-                ["humanApproved"] = false,
-                ["proposedEvent"] = "comment"
+                ["blockingFindingCount"] = findings.Length,
+                ["checks"] = new JsonArray(),
+                ["reviewComplete"] = true,
+                ["humanApproved"] = false
             }, ct);
             Assert.False(RequireBool(rejectedGate, "mayWrite"));
             var reviewsAfterRejectedGate = await ReadPullRequestAsync(github, owner, repository, pullNumber.Value, "get_reviews", ct);
@@ -223,9 +224,10 @@ public sealed class LivePullRequestReviewTests
                 ["expectedHeadSha"] = headSha,
                 ["currentHeadSha"] = freshHeadSha,
                 ["publicationPolicy"] = "auto_comment",
-                ["validatedFindingCount"] = findings.Length,
-                ["humanApproved"] = false,
-                ["proposedEvent"] = "comment"
+                ["blockingFindingCount"] = findings.Length,
+                ["checks"] = new JsonArray(),
+                ["reviewComplete"] = true,
+                ["humanApproved"] = false
             }, ct);
             Assert.True(RequireBool(publicationGate, "mayWrite"));
             Assert.Equal("comment", RequireString(publicationGate, "submitEvent"), ignoreCase: true);

@@ -58,3 +58,5 @@ Verified locally with .NET SDK 10.0.300 on macOS arm64:
 - Published trimmed, self-contained Agent.Server persistence smoke: passed schema-6 encrypted storage, tenant isolation, and revision checks. Publication used `SkipClientBuild`, `SkipBundledServerTools`, and `SkipPlaywrightBrowserInstall`; bundled external tools were outside this persistence check.
 
 The offline corpus uses deterministic model fixtures and mocked external effects. The live-model adapter path is available but was not exercised in this verification.
+
+The subsequent [Agent.Server live validation report](planning-live-validation-2026-09-18.md) records the exact-prompt attempt, bounded failure, resulting fixes, and remaining execution/approval work.

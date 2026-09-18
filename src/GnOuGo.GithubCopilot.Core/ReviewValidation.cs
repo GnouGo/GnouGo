@@ -13,8 +13,10 @@ public static partial class ReviewValidation
             return new ReviewPublicationGateResult(false, null, "Exact expected and current head SHAs are required.");
         if (!string.Equals(request.ExpectedHeadSha, request.CurrentHeadSha, StringComparison.OrdinalIgnoreCase))
             return new ReviewPublicationGateResult(false, null, "The pull-request head SHA changed; discard the review and restart.");
-        if (request.ValidatedFindingCount <= 0)
-            return new ReviewPublicationGateResult(false, null, "There are no validated inline findings to publish.");
+        if (!Enum.IsDefined(request.Policy) || request.BlockingFindingCount < 0 || request.Checks is null ||
+            request.Checks.Any(c => c is null || !Enum.IsDefined(c.Status) || string.IsNullOrWhiteSpace(c.Name)) ||
+            request.Checks.Select(c => c.Name).Distinct(StringComparer.Ordinal).Count() != request.Checks.Count)
+            return new ReviewPublicationGateResult(false, null, "The review checks or publication policy are invalid.");
         if (request.Policy == ReviewPublicationPolicy.DryRun)
             return new ReviewPublicationGateResult(false, null, "dry_run never permits a GitHub write.");
         if (request.Policy == ReviewPublicationPolicy.Interactive && !request.HumanApproved)
@@ -22,7 +24,34 @@ public static partial class ReviewValidation
         if (request.Policy == ReviewPublicationPolicy.AutoComment)
             return new ReviewPublicationGateResult(true, ReviewSubmitEvent.Comment, "Explicit auto_comment policy permits a COMMENT review on the unchanged head SHA.");
 
-        return new ReviewPublicationGateResult(true, request.ProposedEvent, "Interactive approval permits the selected review event on the unchanged head SHA.");
+        var failed = request.Checks.Any(c => c.Status == ReviewCheckStatus.Failed && Established(c));
+        var incomplete = !request.ReviewComplete || request.Checks.Count == 0 || request.Checks.Any(c =>
+            c.Status == ReviewCheckStatus.Blocked || !Established(c));
+        var verdict = request.BlockingFindingCount > 0 || failed ? ReviewSubmitEvent.RequestChanges
+            : incomplete ? ReviewSubmitEvent.Comment : ReviewSubmitEvent.Approve;
+        return new ReviewPublicationGateResult(true, verdict, verdict switch
+        {
+            ReviewSubmitEvent.RequestChanges => "Blocking findings or failed required checks require changes.",
+            ReviewSubmitEvent.Comment => "Verification is incomplete; publish its limitations without approval.",
+            _ => "The complete review and all requested checks passed without blocking findings."
+        });
+
+        static bool Established(ReviewCheckResult check)
+        {
+            if (string.IsNullOrWhiteSpace(check.Evidence)) return false;
+            if (check.Status == ReviewCheckStatus.NotApplicable) return !check.RequiresExecution;
+            if (!check.RequiresExecution) return true;
+            var execution = check.Execution;
+            if (execution is null || !execution.CompletionObserved || execution.ConflictingCompletion ||
+                string.IsNullOrWhiteSpace(execution.ArgumentsJson) || execution.Terminals is not { Count: > 0 } ||
+                execution.Terminals.Any(t => t.ExitCode is null || string.IsNullOrWhiteSpace(t.WorkingDirectory))) return false;
+            return check.Status switch
+            {
+                ReviewCheckStatus.Passed => execution.ToolSucceeded == true && execution.Terminals.All(t => t.ExitCode == 0),
+                ReviewCheckStatus.Failed => execution.Terminals.Any(t => t.ExitCode != 0),
+                _ => false
+            };
+        }
     }
 
     public static IReadOnlyList<CopilotReviewBatch> CreateBatches(
