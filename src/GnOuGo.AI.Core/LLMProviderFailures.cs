@@ -117,7 +117,9 @@ internal static partial class LLMProviderFailureClassifier
             if (current is TimeoutException
                 || current is TaskCanceledException)
             {
-                return Create(LLMProviderFailureKind.Timeout, retryable: true);
+                var metadata = HttpRequestHelper.GetRetryMetadata(current);
+                return Create(LLMProviderFailureKind.Timeout, retryable: true, attemptCount: metadata?.AttemptCount ?? 1,
+                    retryExhausted: metadata?.RetryExhausted ?? false);
             }
 
             if (current is LocalLLMException local)

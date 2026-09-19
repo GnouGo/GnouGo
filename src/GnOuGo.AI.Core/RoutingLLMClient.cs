@@ -58,6 +58,8 @@ public sealed class RoutingLLMClient
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        if (LLMHttpRetryContext.Current is not null && (request.Tools is { Count: > 0 } || request.UseBackgroundMode))
+            throw new InvalidOperationException("Durable HTTP recovery requires synchronous generation without tools or external effects.");
         var providerKey = ResolveProviderKey(request.Provider, request.Model);
         var providerOpts = _options.ResolveProvider(providerKey)
             ?? throw new InvalidOperationException(

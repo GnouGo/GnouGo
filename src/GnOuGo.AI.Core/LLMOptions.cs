@@ -93,7 +93,7 @@ public sealed class ModelProviderOptions
     internal ModelProviderOptions WithSingleAttempt()
     {
         var copy = (ModelProviderOptions)MemberwiseClone();
-        copy.RetryPolicy = new LLMProviderRetryPolicyOptions { MaxAttempts = 1 };
+        copy.RetryPolicy = RetryPolicy.SingleAttempt();
         return copy;
     }
     /// <summary>Base URL for this provider (e.g. "https://api.openai.com/v1" or "http://localhost:11434").</summary>
@@ -198,6 +198,19 @@ public sealed class LLMProviderRetryPolicyOptions
     /// <summary>Total attempts, including the initial request.</summary>
     public int MaxAttempts { get; set; } = 4;
 
+    /// <summary>Maximum retries after an uncertain transport failure. Requires a safe operation and accounting journal for POSTs.</summary>
+    public int MaxUncertainRetries { get; set; } = 1;
+
+    /// <summary>Timeout covering each send and complete response body, independently of retry delays.</summary>
+    public int AttemptTimeoutMilliseconds { get; set; } = 600_000;
+
+    internal LLMProviderRetryPolicyOptions SingleAttempt()
+    {
+        var copy = (LLMProviderRetryPolicyOptions)MemberwiseClone();
+        copy.MaxAttempts = 1;
+        return copy;
+    }
+
     /// <summary>Initial full-jitter exponential-backoff bound.</summary>
     public int BaseDelayMilliseconds { get; set; } = 1_000;
 
@@ -260,6 +273,10 @@ public static class LLMOptionsValidation
             ?? throw new InvalidOperationException($"LLM provider '{providerName}' RetryPolicy cannot be null.");
         if (retryPolicy.MaxAttempts is < 1 or > 20)
             throw new InvalidOperationException($"LLM provider '{providerName}' RetryPolicy.MaxAttempts must be between 1 and 20.");
+        if (retryPolicy.MaxUncertainRetries is < 0 or > 19)
+            throw new InvalidOperationException("MaxUncertainRetries must be between 0 and 19.");
+        if (retryPolicy.AttemptTimeoutMilliseconds <= 0)
+            throw new InvalidOperationException("AttemptTimeoutMilliseconds must be positive.");
         if (retryPolicy.BaseDelayMilliseconds <= 0)
             throw new InvalidOperationException($"LLM provider '{providerName}' RetryPolicy.BaseDelayMilliseconds must be positive.");
         if (retryPolicy.MaxDelayMilliseconds <= 0)

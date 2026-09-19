@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
@@ -159,109 +160,116 @@ public static class HttpRequestHelper
         ArgumentNullException.ThrowIfNull(jitter);
         ArgumentNullException.ThrowIfNull(utcNow);
 
-        var totalStopwatch = Stopwatch.StartNew();
-        var cumulativeDelay = TimeSpan.Zero;
-        for (var attempt = 1; ; attempt++)
+        if (retryPolicy.MaxAttempts < 1 || retryPolicy.MaxUncertainRetries < 0 || retryPolicy.AttemptTimeoutMilliseconds <= 0)
+            throw new ArgumentException("Invalid HTTP retry limits.");
+        using var template = requestFactory();
+        var context = template.Method == HttpMethod.Get ? null : LLMHttpRetryContext.Current;
+        var safeToRepeat = template.Method == HttpMethod.Get || context is not null;
+        var payload = template.Content is null ? "" : await template.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(template.Method + "\n" + template.RequestUri + "\n" + payload)));
+        var state = context is null ? new LLMHttpRetryState { Fingerprint = fingerprint }
+            : await context.Journal.LoadAsync(ct).ConfigureAwait(false) ?? new LLMHttpRetryState { Fingerprint = fingerprint };
+        if (state.Fingerprint != fingerprint) throw new InvalidOperationException("The reserved HTTP operation changed.");
+        if (context is not null) context.State = state;
+        Exception? originalFailure = null;
+        while (true)
         {
             ct.ThrowIfCancellationRequested();
-            using var request = requestFactory()
-                ?? throw new InvalidOperationException("The HTTP request factory returned null.");
-            var attemptStopwatch = Stopwatch.StartNew();
-            HttpResponseMessage response;
+            var previous = state.Attempts.LastOrDefault();
+            if (previous is not null)
+            {
+                var response = previous.Status is { } code ? Restore(previous, code) : null;
+                var classification = response is null ? null : LLMProviderFailureClassifier.ClassifyResponse(response.StatusCode, previous.Body ?? "");
+                var uncertain = response is null;
+                var retryable = response is not null
+                    ? IsRetryableStatus(response.StatusCode) && classification!.Kind is not (LLMProviderFailureKind.QuotaOrBilling or LLMProviderFailureKind.Authentication or LLMProviderFailureKind.Authorization)
+                    : safeToRepeat && previous.Failure is null or "transport" or "timeout";
+                var exhausted = state.Attempts.Count >= retryPolicy.MaxAttempts || uncertain &&
+                    state.Attempts.Count(a => a.Status is null) > retryPolicy.MaxUncertainRetries;
+                var retryAfter = response is not null && retryPolicy.HonorRetryAfter ? ParseRetryAfter(response, utcNow()) : null;
+                var delay = !retryable || exhausted || response?.IsSuccessStatusCode == true ? TimeSpan.Zero : previous.NotBefore is { } due ? due - utcNow() : retryAfter ?? CalculateJitterDelay(retryPolicy, state.Attempts.Count, jitter);
+                if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
+                exhausted |= previous.NotBefore is null && state.DelayMilliseconds + delay.TotalMilliseconds > retryPolicy.MaxTotalDelayMilliseconds;
+                var metadata = new LLMHttpRetryMetadata(state.Attempts.Count, retryable && exhausted, ToMilliseconds(retryAfter),
+                    classification?.Kind ?? (previous.Failure == "permanent" ? LLMProviderFailureKind.Unknown : previous.Failure == "timeout" ? LLMProviderFailureKind.Timeout : LLMProviderFailureKind.Transport), classification?.SafeProviderCode);
+                if (response is not null && (response.IsSuccessStatusCode || !retryable || exhausted))
+                {
+                    SetRetryMetadata(response, metadata);
+                    if (exhausted && retryable) logger.LogError("Transient HTTP recovery exhausted during {OperationName}. StatusCode={StatusCode}; AttemptCount={AttemptCount}; RetryExhausted={RetryExhausted}; ElapsedMs={ElapsedMs}",
+                        operationName, previous.Status, state.Attempts.Count, true, state.DelayMilliseconds);
+                    return response;
+                }
+                response?.Dispose();
+                if (!retryable || exhausted)
+                {
+                    if (previous.Failure == "cancelled") throw new OperationCanceledException("The reserved attempt was cancelled; it cannot be retried.", ct);
+                    Exception failure = previous.Failure == "timeout"
+                        ? new TimeoutException($"{operationName} timed out after {Math.Min(http.Timeout == Timeout.InfiniteTimeSpan ? double.MaxValue : http.Timeout.TotalMilliseconds, retryPolicy.AttemptTimeoutMilliseconds) / 1000:0.###} seconds.", originalFailure)
+                        : new HttpRequestException("HTTP transport recovery stopped.", originalFailure);
+                    failure.Data[ExceptionRetryMetadataKey] = metadata;
+                    throw failure;
+                }
+                if (previous.NotBefore is null)
+                {
+                    previous.NotBefore = utcNow() + delay;
+                    state.DelayMilliseconds += delay.TotalMilliseconds;
+                    await SaveAsync(ct).ConfigureAwait(false);
+                }
+                logger.LogWarning("Retrying transient HTTP failure during {OperationName}. Attempt={Attempt}; BackoffMs={BackoffMs}; Uncertain={Uncertain}", operationName, state.Attempts.Count, delay.TotalMilliseconds, uncertain);
+                await delayAsync(delay, ct).ConfigureAwait(false);
+            }
+
+            ct.ThrowIfCancellationRequested();
+            var attempt = new LLMHttpAttempt { Id = (context?.RequestId ?? "http") + ":" + Guid.NewGuid().ToString("N") };
+            state.Attempts.Add(attempt);
+            // Hosts reserve possible usage atomically with this identity before dispatch.
+            await SaveAsync(ct).ConfigureAwait(false);
+            using var request = requestFactory();
+            request.Headers.Remove("X-Client-Request-Id");
+            request.Headers.TryAddWithoutValidation("X-Client-Request-Id", attempt.Id);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(retryPolicy.AttemptTimeoutMilliseconds);
+            HttpResponseMessage? received = null;
             try
             {
-                response = await http.SendAsync(request, completionOption, ct).ConfigureAwait(false);
+                received = await http.SendAsync(request, completionOption, timeout.Token).ConfigureAwait(false);
+                // Buffer under the attempt deadline: a truncated/timed-out body is also uncertain.
+                attempt.Body = await received.Content.ReadAsStringAsync(timeout.Token).ConfigureAwait(false);
+                attempt.ContentType = received.Content.Headers.ContentType?.ToString();
+                attempt.RetryAfter = received.Headers.TryGetValues("Retry-After", out var values) ? values.FirstOrDefault() : null;
+                attempt.Status = (int)received.StatusCode;
             }
+            catch (OperationCanceledException ex)
+            {
+                originalFailure = ex;
+                attempt.Failure = ct.IsCancellationRequested ? "cancelled" : "timeout";
+            }
+            catch (TimeoutException ex) { originalFailure = ex; attempt.Failure = "timeout"; }
             catch (HttpRequestException ex)
             {
-                logger.LogError(
-                    "HTTP transport failure during {OperationName}. FailureType={FailureType}; Attempt={Attempt}; AttemptDurationMs={AttemptDurationMs}; ElapsedMs={ElapsedMs}",
-                    operationName,
-                    ex.GetType().Name,
-                    attempt,
-                    attemptStopwatch.Elapsed.TotalMilliseconds,
-                    totalStopwatch.Elapsed.TotalMilliseconds);
-                throw;
+                originalFailure = ex;
+                attempt.Failure = IsTransientTransport(ex) ? "transport" : "permanent";
             }
-            catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
-            {
-                logger.LogError(
-                    "HTTP timeout during {OperationName}. FailureType={FailureType}; Attempt={Attempt}; AttemptDurationMs={AttemptDurationMs}; ElapsedMs={ElapsedMs}",
-                    operationName,
-                    ex.GetType().Name,
-                    attempt,
-                    attemptStopwatch.Elapsed.TotalMilliseconds,
-                    totalStopwatch.Elapsed.TotalMilliseconds);
-                throw new TimeoutException(
-                    $"{operationName} timed out after {http.Timeout.TotalSeconds:0.###} seconds.",
-                    ex);
-            }
-
-            if (response.IsSuccessStatusCode)
-            {
-                SetRetryMetadata(response, new LLMHttpRetryMetadata(attempt, false, null, null, null));
-                return response;
-            }
-
-            var errorBody = await ReadAndRestoreErrorBodyAsync(response, ct).ConfigureAwait(false);
-            var classified = LLMProviderFailureClassifier.ClassifyResponse(response.StatusCode, errorBody);
-            var statusIsRetryable = IsRetryableStatus(response.StatusCode);
-            var terminalProviderFailure = classified.Kind is LLMProviderFailureKind.QuotaOrBilling
-                or LLMProviderFailureKind.Authentication
-                or LLMProviderFailureKind.Authorization;
-            var retryable = statusIsRetryable && !terminalProviderFailure;
-            var retryAfter = retryPolicy.HonorRetryAfter
-                ? ParseRetryAfter(response, utcNow())
-                : null;
-
-            if (!retryable)
-            {
-                SetRetryMetadata(response, new LLMHttpRetryMetadata(
-                    attempt,
-                    false,
-                    ToMilliseconds(retryAfter),
-                    classified.Kind,
-                    classified.SafeProviderCode));
-                return response;
-            }
-
-            var exhaustedAttempts = attempt >= retryPolicy.MaxAttempts;
-            var delay = retryAfter ?? CalculateJitterDelay(retryPolicy, attempt, jitter);
-            var maxTotalDelay = TimeSpan.FromMilliseconds(retryPolicy.MaxTotalDelayMilliseconds);
-            var exhaustedDelayBudget = delay < TimeSpan.Zero || cumulativeDelay + delay > maxTotalDelay;
-            if (exhaustedAttempts || exhaustedDelayBudget)
-            {
-                SetRetryMetadata(response, new LLMHttpRetryMetadata(
-                    attempt,
-                    true,
-                    ToMilliseconds(retryAfter),
-                    classified.Kind,
-                    classified.SafeProviderCode));
-                logger.LogError(
-                    "Transient HTTP recovery exhausted during {OperationName}. StatusCode={StatusCode}; AttemptCount={AttemptCount}; RetryExhausted={RetryExhausted}; RetryAfterMs={RetryAfterMs}; ElapsedMs={ElapsedMs}",
-                    operationName,
-                    (int)response.StatusCode,
-                    attempt,
-                    true,
-                    ToMilliseconds(retryAfter),
-                    totalStopwatch.Elapsed.TotalMilliseconds);
-                return response;
-            }
-
-            logger.LogWarning(
-                "Transient HTTP response during {OperationName}. StatusCode={StatusCode}; Attempt={Attempt}/{MaxAttempts}; BackoffMs={BackoffMs}; RetryAfterAccepted={RetryAfterAccepted}; ElapsedMs={ElapsedMs}",
-                operationName,
-                (int)response.StatusCode,
-                attempt,
-                retryPolicy.MaxAttempts,
-                delay.TotalMilliseconds,
-                retryAfter != null,
-                totalStopwatch.Elapsed.TotalMilliseconds);
-
-            response.Dispose();
-            await delayAsync(delay, ct).ConfigureAwait(false);
-            cumulativeDelay += delay;
+            finally { received?.Dispose(); }
+            // A persistence failure is not a transport failure and must never trigger a resend.
+            await SaveAsync(CancellationToken.None).ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
         }
+
+        Task SaveAsync(CancellationToken token) => context?.Journal.SaveAsync(state, token) ?? Task.CompletedTask;
+    }
+
+    private static bool IsTransientTransport(HttpRequestException failure)
+        => failure.StatusCode is null && failure.HttpRequestError is HttpRequestError.Unknown
+            or HttpRequestError.NameResolutionError or HttpRequestError.ConnectionError
+            or HttpRequestError.HttpProtocolError or HttpRequestError.ResponseEnded;
+
+    private static HttpResponseMessage Restore(LLMHttpAttempt attempt, int status)
+    {
+        var response = new HttpResponseMessage((HttpStatusCode)status) { Content = new StringContent(attempt.Body ?? "", Encoding.UTF8) };
+        if (MediaTypeHeaderValue.TryParse(attempt.ContentType, out var contentType)) response.Content.Headers.ContentType = contentType;
+        if (attempt.RetryAfter is not null) response.Headers.TryAddWithoutValidation("Retry-After", attempt.RetryAfter);
+        return response;
     }
 
     internal static LLMHttpRetryMetadata? GetRetryMetadata(HttpResponseMessage response)
@@ -288,7 +296,7 @@ public static class HttpRequestHelper
         return exception;
     }
 
-    internal static LLMHttpRetryMetadata? GetRetryMetadata(HttpRequestException exception)
+    internal static LLMHttpRetryMetadata? GetRetryMetadata(Exception exception)
         => exception.Data[ExceptionRetryMetadataKey] as LLMHttpRetryMetadata;
 
     private static void SetRetryMetadata(HttpResponseMessage response, LLMHttpRetryMetadata metadata)
@@ -359,18 +367,7 @@ public static class HttpRequestHelper
             ? null
             : (int)Math.Min(int.MaxValue, Math.Max(0, Math.Ceiling(delay.Value.TotalMilliseconds)));
 
-    private static async Task<string> ReadAndRestoreErrorBodyAsync(
-        HttpResponseMessage response,
-        CancellationToken ct)
-    {
-        var contentType = response.Content.Headers.ContentType?.ToString();
-        var body = await ReadErrorBodyAsync(response, ct).ConfigureAwait(false);
-        response.Content.Dispose();
-        response.Content = new StringContent(body, Encoding.UTF8);
-        if (MediaTypeHeaderValue.TryParse(contentType, out var parsedContentType))
-            response.Content.Headers.ContentType = parsedContentType;
-        return body;
-    }
+
 }
 
 internal sealed record LLMHttpRetryMetadata(

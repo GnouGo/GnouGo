@@ -92,8 +92,20 @@ cumulatively. A delay outside that budget stops recovery instead of holding a wo
 
 Before replay, GnOuGo inspects a bounded error envelope. Quota/billing, authentication,
 and authorization failures are terminal even when a gateway transports them as `429`.
-Other `4xx`, transport failures with uncertain delivery, timeouts, caller cancellation, and
-unknown statuses are never replayed. Logs contain only the operation, status, attempt, selected
+Other `4xx`, caller cancellation, TLS/authentication/configuration transport errors and
+unknown statuses are never retried. Transient network failures and per-attempt timeouts
+may receive one uncertain retry by default, within the same total attempt limit. GETs are
+safe to repeat. Generation POSTs require an explicit `LLMHttpRetryContext` backed by an
+`ILLMHttpRetryJournal`: the host must atomically persist each fresh identity and reserve
+its possible usage before allowing dispatch. Tool-bearing/background calls cannot use this
+context. Hosts must not wrap this HTTP recovery in another retry loop.
+
+The journal retains complete HTTP responses, so restart can replay a completion without
+sending or charging again. A reserved attempt without a response remains uncertain and
+consumes the uncertain-retry allowance; its identity is never reused. Caller cancellation
+is durable and terminal. Journal failures stop without an in-process resend. The configurable
+`AttemptTimeoutMilliseconds` covers both headers and body; `MaxAttempts` includes the
+initial attempt and `MaxUncertainRetries` defaults to one. Logs contain only the operation, status, attempt, selected
 delay, and exhaustion state—not endpoints, prompts, payloads, response bodies, tokens, headers,
 or credentials.
 
@@ -169,6 +181,8 @@ the caller remains `OperationCanceledException`.
         },
         "RetryPolicy": {
           "MaxAttempts": 4,
+          "MaxUncertainRetries": 1,
+          "AttemptTimeoutMilliseconds": 600000,
           "BaseDelayMilliseconds": 1000,
           "MaxDelayMilliseconds": 30000,
           "MaxTotalDelayMilliseconds": 60000,
