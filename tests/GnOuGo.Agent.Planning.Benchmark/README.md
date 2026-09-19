@@ -37,3 +37,12 @@ Rows include source/session identity, phase, per-variant execution outcomes, con
 Summary gates use all 21 measured runs on one revision: at least 19 reach FinalReview, at least 16 reach it within two calls, median calls at most two, zero safety violations and every approved artifact passing independent execution. Missing cases, mixed revisions or execution failures cannot pass. Pilot and measured statistics remain separate. Unknown usage is never zero; known partial tokens/cost are reported separately. Costs are metadata/FX estimates from provider usage, not invoices.
 
 The [independent candidate report](../../docs/planning-candidate-reliability-2026-09-19.md) records the failed initial pilot, targeted nested-input inference correction and subsequent provider stop. No measured reliability gate was established.
+
+## Offline replay of recorded interpretation
+
+```bash
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --campaign <existing-campaign-id> --replay-run <source-sha>:pilot:<case>:1
+```
+
+Replay reads the original interpretation reservation and receipt through encrypted KeyVault records, validates against the original response schema and rebuilds with the current planner. It uses an in-memory session limited to that one receipt, runs the existing independent execution variants when compilation succeeds, and reports `mode: replay` with `live_model_calls: 0`. It never initializes a provider, writes campaign records, retries a missing receipt or counts toward live cohort statistics. Diagnostics that need another model decision remain unresolved. Exit 1 means the recorded proposal did not pass construction or independent execution. Inspection and replay work without provider configuration and may inspect a dirty working tree; record the tested revision when publishing results.

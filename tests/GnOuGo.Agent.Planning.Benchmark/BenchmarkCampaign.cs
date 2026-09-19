@@ -29,6 +29,37 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
             if (await records.GetAsync("planning-evaluation-receipts", "benchmark", request.Key, Author, ct) is null) return true;
         return false;
     }
+    internal async Task<(PlanningSession State, ILLMClient Client)> ReadReplayAsync(string runKey, CancellationToken ct = default)
+    {
+        var evidence = await LoadAsync("planning-evaluation-runs", runKey, ct) ?? throw new InvalidOperationException("No recorded run.");
+        var saved = JsonSerializer.Deserialize(evidence["session"], PlanningJsonContext.Default.PlanningSession) ?? throw new InvalidOperationException("No recorded session.");
+        var prefix = Id + ":" + saved.Request.SessionId + ":1:";
+        var reservations = (await records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct)).Where(r => r.Key.StartsWith(prefix, StringComparison.Ordinal)).ToArray();
+        if (reservations.Length != 1) throw new InvalidOperationException("Replay requires one original interpretation reservation.");
+        var request = JsonSerializer.Deserialize(reservations[0].Value, PlanningJsonContext.Default.LLMRequest)!;
+        var receipt = await LoadAsync("planning-evaluation-receipts", request.ClientRequestId!, ct) ?? throw new InvalidOperationException("No completion receipt; replay cannot dispatch or invent a response.");
+        var response = JsonSerializer.Deserialize(receipt, PlanningJsonContext.Default.LLMResponse)!;
+        if (request.StructuredOutputSchema is null) throw new InvalidOperationException("The original response schema is missing.");
+        // Only this detached in-memory session is bounded to one stored response.
+        saved.Request.MaxModelCalls = 1; saved.Request.MaxRepairAttempts = 0;
+        var state = new PlanningSession { Request = saved.Request, Catalog = saved.Catalog, Status = PlanningStatus.Generating,
+            ModelCalls = 1, PendingCall = new() { Id = request.ClientRequestId!, Purpose = "intent", Request = request } };
+        return (state, new ReplayReceipt(request, response));
+    }
+
+    private sealed class ReplayReceipt(LLMRequest original, LLMResponse response) : ILLMClient
+    {
+        private readonly string _request = JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest);
+        private bool _used;
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (_used || JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest) != _request)
+                throw new InvalidOperationException("Replay accepts the original reserved request exactly once; no live client exists.");
+            _used = true;
+            return Task.FromResult(JsonSerializer.Deserialize(JsonSerializer.Serialize(response, PlanningJsonContext.Default.LLMResponse), PlanningJsonContext.Default.LLMResponse)!);
+        }
+    }
     internal async Task<LLMResponse> CallAsync(LLMRequest request, Func<CancellationToken, Task> preflight, Func<CancellationToken, Task<LLMResponse>> dispatch, CancellationToken ct)
     {
         var key = request.ClientRequestId ?? throw new InvalidOperationException("A reserved request identity is required.");

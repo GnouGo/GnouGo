@@ -1,4 +1,6 @@
 using System.Text.Json.Nodes;
+using System.Text.Json;
+using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.KeyVault.Core.Services;
 
@@ -6,6 +8,41 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    [Fact]
+    public async Task OfflineReplayKeepsOriginalSchemaAndNeverWritesCampaignRecords()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "recorded");
+        var request = new LLMRequest { ClientRequestId = "session:1:hash", Prompt = "original prompt", StructuredOutputSchema = new JsonObject { ["type"] = "string" } };
+        var state = new PlanningSession { Request = new() { TenantId = "benchmark", SessionId = "session", Name = "local", Prompt = "original prompt" }, ModelCalls = 3, RepairAttempts = 2 };
+        await campaign.SaveAsync("planning-evaluation-runs", "source:pilot:local:1", new() { ["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession) }, Ct);
+        await campaign.SaveAsync("planning-evaluation-requests", request.ClientRequestId, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), Ct);
+        await campaign.SaveAsync("planning-evaluation-receipts", request.ClientRequestId, JsonSerializer.SerializeToNode(new LLMResponse { Text = "\"recorded\"" }, PlanningJsonContext.Default.LLMResponse)!.AsObject(), Ct);
+        var before = records.Writes;
+        var replay = await campaign.ReadReplayAsync("source:pilot:local:1", Ct);
+        var reserved = replay.State.PendingCall!.Request;
+        Assert.Equal("string", reserved.StructuredOutputSchema!["type"]!.ToString());
+        reserved.StructuredOutputSchema["type"] = "object";
+        await Assert.ThrowsAsync<InvalidOperationException>(() => replay.Client.CallAsync(reserved, Ct));
+        reserved.StructuredOutputSchema["type"] = "string";
+        Assert.Equal("\"recorded\"", (await replay.Client.CallAsync(reserved, Ct)).Text);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => replay.Client.CallAsync(reserved, Ct));
+        Assert.Equal(before, records.Writes);
+        var unchanged = (await campaign.LoadAsync("planning-evaluation-runs", "source:pilot:local:1", Ct))!["session"]!;
+        Assert.Equal(3, unchanged["modelCalls"]!.GetValue<int>()); Assert.Equal(2, unchanged["repairAttempts"]!.GetValue<int>());
+        Assert.Equal(8, unchanged["request"]!["maxModelCalls"]!.GetValue<int>());
+    }
+    [Fact]
+    public async Task OfflineReplayWithoutReceiptFailsWithoutReservingOrWriting()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "recorded");
+        var state = new PlanningSession { Request = new() { SessionId = "session", Name = "local" } };
+        await campaign.SaveAsync("planning-evaluation-runs", "source:pilot:local:1", new() { ["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession) }, Ct);
+        await campaign.SaveAsync("planning-evaluation-requests", "session:1:hash", JsonSerializer.SerializeToNode(new LLMRequest { ClientRequestId = "session:1:hash" }, PlanningJsonContext.Default.LLMRequest)!.AsObject(), Ct);
+        var before = records.Writes;
+        Assert.Contains("No completion receipt", (await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.ReadReplayAsync("source:pilot:local:1", Ct))).Message);
+        Assert.Equal(before, records.Writes); Assert.True(await campaign.HasUncertainRequestAsync(Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new BenchmarkCampaign(records, "different").ReadReplayAsync("source:pilot:local:1", Ct));
+    }
     [Fact]
     public async Task NewCampaignIgnoresOldUncertaintyAndReplaysOwnReceiptsWithoutDispatch()
     {
@@ -51,9 +88,10 @@ public sealed class BenchmarkCampaignTests
     }
     private sealed class Records : IKeyVaultRecordStore
     {
+        internal int Writes;
         private readonly Dictionary<string, KeyVaultRecordValue> _rows = [];
         public Task<KeyVaultRecordValue?> GetAsync(string c, string t, string k, string a, CancellationToken ct = default) { ct.ThrowIfCancellationRequested(); return Task.FromResult(_rows.GetValueOrDefault(c + t + k)); }
-        public Task<KeyVaultRecordValue> UpsertAsync(string c, string t, string k, string v, string a, CancellationToken ct = default) { ct.ThrowIfCancellationRequested(); var row = new KeyVaultRecordValue(c, t, k, v, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow); _rows[c + t + k] = row; return Task.FromResult(row); }
+        public Task<KeyVaultRecordValue> UpsertAsync(string c, string t, string k, string v, string a, CancellationToken ct = default) { ct.ThrowIfCancellationRequested(); Writes++; var row = new KeyVaultRecordValue(c, t, k, v, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow); _rows[c + t + k] = row; return Task.FromResult(row); }
         public Task<IReadOnlyList<KeyVaultRecordValue>> ListAsync(string c, string t, string a, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<KeyVaultRecordValue>>(_rows.Values.Where(r => r.Collection == c && r.TenantId == t).ToArray());
         public Task<bool> DeleteAsync(string c, string t, string k, string a, CancellationToken ct = default) => throw new NotSupportedException();
     }

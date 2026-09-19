@@ -13,34 +13,40 @@ using GnOuGo.Planning.Examples;
 using GnOuGo.Workspace;
 
 string? Option(string name) { var index = Array.IndexOf(args, name); return index < 0 ? null : args.ElementAtOrDefault(index + 1) ?? throw new ArgumentException("Missing " + name); }
-var command = Option("--live-command"); var providerName = Option("--keyvault-provider"); var live = command is not null || providerName is not null;
-var campaignId = Option("--campaign") ?? (live ? throw new ArgumentException("--campaign is required for live runs.") : "offline");
-var phase = Option("--phase") ?? (live ? "pilot" : "fixture");
-if (phase is not ("pilot" or "measured" or "fixture")) throw new ArgumentException("Invalid phase.");
+var replayKey = Option("--replay-run"); var inspectKey = Option("--inspect-run");
+if (replayKey is not null && inspectKey is not null) throw new ArgumentException("Choose replay or inspection.");
+var readOnly = replayKey is not null || inspectKey is not null;
+var command = Option("--live-command"); var providerName = Option("--keyvault-provider"); var live = !readOnly && (command is not null || providerName is not null);
+var campaignId = Option("--campaign") ?? (live || readOnly ? throw new ArgumentException("--campaign is required for live runs and recorded evidence.") : "offline");
+var phase = replayKey is not null ? "replay" : Option("--phase") ?? (live ? "pilot" : "fixture");
+if (phase is not ("pilot" or "measured" or "fixture" or "replay")) throw new ArgumentException("Invalid phase.");
 var repetitions = int.Parse(Option("--repetitions") ?? (phase == "measured" ? "3" : "1"), System.Globalization.CultureInfo.InvariantCulture);
 if (repetitions is < 1 or > 20 || phase == "measured" && repetitions != 3 || phase == "pilot" && repetitions != 1) throw new ArgumentException("Pilot requires one repetition; measured requires three.");
 var names = PlanningBenchmarkMeasurements.Select(Option("--cases") ?? Option("--case") ?? (live ? null : string.Join(',', PlanningCorpus.Names)));
 string Git(string arguments) { using var process = Process.Start(new ProcessStartInfo("git", arguments) { RedirectStandardOutput = true, UseShellExecute = false })!; var value = process.StandardOutput.ReadToEnd().Trim(); process.WaitForExit(); if (process.ExitCode != 0) throw new InvalidOperationException("Cannot identify source revision."); return value; }
 var source = Git("rev-parse HEAD");
 if (live && Git("status --porcelain").Length != 0) throw new InvalidOperationException("Commit the tested source before live evaluation.");
-BenchmarkCampaign? campaign = live ? new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, Directory.GetCurrentDirectory()), campaignId) : null;
+BenchmarkCampaign? evidenceStore = live || readOnly ? new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, Directory.GetCurrentDirectory()), campaignId) : null;
+BenchmarkCampaign? campaign = live ? evidenceStore : null;
 var leasePath = live ? GnOuGoWorkspace.ResolveDatabasePath(null, Directory.GetCurrentDirectory(), ".GnOuGo/data/planning-evaluation/" + campaignId + ".lock") : null;
 if (leasePath is not null) Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
 await using var lease = leasePath is null ? null : new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-if (Option("--inspect-run") is { } inspect)
+if (inspectKey is { } inspect)
 {
-    var evidence = await campaign!.LoadAsync("planning-evaluation-runs", inspect);
+    var evidence = await evidenceStore!.LoadAsync("planning-evaluation-runs", inspect);
     if (evidence is not null && args.Contains("--include-receipts", StringComparer.Ordinal))
     {
         var calls = new JsonArray();
         foreach (var id in evidence["usage_receipts"]!.AsObject().Select(p => p.Key))
-            calls.Add((JsonNode)new JsonObject { ["request"] = await campaign.LoadAsync("planning-evaluation-requests", id), ["receipt"] = await campaign.LoadAsync("planning-evaluation-receipts", id) });
+            calls.Add((JsonNode)new JsonObject { ["request"] = await evidenceStore.LoadAsync("planning-evaluation-requests", id), ["receipt"] = await evidenceStore.LoadAsync("planning-evaluation-receipts", id) });
         evidence["model_requests"] = calls;
     }
     Console.WriteLine(evidence?.ToJsonString() ?? "null"); return;
 }
-using var configured = providerName is null ? null : await KeyVaultBenchmarkModel.CreateAsync(providerName, Option("--model"), campaign!, Directory.GetCurrentDirectory(), CancellationToken.None);
-ILLMClient? model = (ILLMClient?)configured ?? (command is null ? null : new CommandModel(command));
+var replay = replayKey is null ? default : await evidenceStore!.ReadReplayAsync(replayKey);
+if (replayKey is not null) { names = PlanningBenchmarkMeasurements.Select(replay.State.Request.Name); repetitions = 1; }
+using var configured = !live || providerName is null ? null : await KeyVaultBenchmarkModel.CreateAsync(providerName, Option("--model"), campaign!, Directory.GetCurrentDirectory(), CancellationToken.None);
+ILLMClient? model = replayKey is not null ? replay.Client : (ILLMClient?)configured ?? (command is null ? null : new CommandModel(command));
 string RunKey(string runPhase, string name, int repetition) => source + ":" + runPhase + ":" + name + ":" + repetition;
 if (live && phase == "measured")
 {
@@ -59,7 +65,7 @@ foreach (var name in names)
     { results.Add(completed); Console.WriteLine(completed.ToJsonString()); if (completed["termination_reason"] is not null) goto Complete; continue; }
     run ??= new JsonObject { ["diagnostic_history"] = new JsonArray(), ["usage_receipts"] = new JsonObject(), ["usage_complete"] = true,
         ["first_pass_valid"] = false, ["final_review"] = false, ["elapsed_ms"] = 0L };
-    var state = run["session"] is { } saved ? JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)! : new PlanningSession
+    var state = replayKey is not null ? replay.State : run["session"] is { } saved ? JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)! : new PlanningSession
     { Request = new() { TenantId = "benchmark", SessionId = PlanningGraphCompiler.Fingerprint(campaignId + ":" + key), Name = name, Prompt = PlanningBenchmarkCases.Prompt(name),
         Generation = new() { Reasoning = "medium", MaxInputTokensPerRequest = 96_000, MaxOutputTokens = 32_768 } } };
     var environment = new PlanningBenchmarkCases.Environment(name); var engine = new WorkflowEngine { McpClientFactory = environment.Factory(), HumanInputProvider = new PlanningCorpus.Human() };
@@ -120,7 +126,8 @@ foreach (var name in names)
     run["elapsed_ms"] = run["elapsed_ms"]!.GetValue<long>() + clock.ElapsedMilliseconds;
     await Checkpoint(state, CancellationToken.None);
     var rowResult = new JsonObject { ["campaign"] = campaignId, ["source_commit"] = source, ["architecture_base"] = "1f15bec", ["phase"] = phase,
-        ["case"] = name, ["repetition"] = repetition, ["session_id"] = state.Request.SessionId, ["mode"] = live ? "live" : "fixture",
+        ["case"] = name, ["repetition"] = repetition, ["session_id"] = state.Request.SessionId, ["mode"] = replayKey is not null ? "replay" : live ? "live" : "fixture",
+        ["replay_source_run"] = replayKey, ["live_model_calls"] = replayKey is not null ? 0 : (int?)null,
         ["provider"] = configured?.Provider, ["model"] = configured?.Model, ["first_pass_valid"] = run["first_pass_valid"]!.DeepClone(), ["final_review"] = run["final_review"]!.DeepClone(),
         ["execution_correct"] = execution, ["execution_variants"] = variants, ["safety_violations"] = safety, ["calls"] = state.ModelCalls, ["repairs"] = state.RepairAttempts,
         ["initial_request_bytes"] = run["initial_request_bytes"]?.DeepClone(), ["initial_estimated_input_tokens"] = run["initial_estimated_input_tokens"]?.DeepClone(),
@@ -135,6 +142,8 @@ foreach (var name in names)
     if (rowResult["termination_reason"] is not null || safety.Count > 0) goto Complete;
 }
 Complete:
+if (replayKey is not null)
+{ if (results.Any(r => r["execution_correct"]?.GetValue<bool>() != true)) Environment.ExitCode = 1; return; }
 var summary = PlanningBenchmarkMeasurements.Summary(results, phase); summary["campaign"] = campaignId; summary["source_commit"] = source;
 Console.WriteLine(summary.ToJsonString());
 if (campaign is not null) await campaign.SaveAsync("planning-evaluation-summaries", source + ":" + phase, summary);
