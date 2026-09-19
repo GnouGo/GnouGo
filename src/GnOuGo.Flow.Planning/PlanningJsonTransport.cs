@@ -8,53 +8,33 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningJsonTransport
 {
-    // The persistence DTO includes every union field. Model context uses the same
-    // compact discriminated shape as model responses, without changing the DTO.
     internal static JsonObject Intent(WorkflowIntentPlan plan)
     {
         var json = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.WorkflowIntentPlan)!.AsObject();
-        Compact(json);
-        return json;
+        Compact(json); return json;
     }
     internal static void Compact(JsonNode? value)
     {
         if (value is JsonArray array) { foreach (var child in array) Compact(child); return; }
         if (value is not JsonObject obj) return;
         string[]? fields = null;
-        if (obj.ContainsKey("kind") && !obj.ContainsKey("key"))
-        {
+        if (obj.ContainsKey("kind") && !obj.ContainsKey("id") && !obj.ContainsKey("key"))
             fields = obj["kind"]?.ToString() switch
             {
-                "null" or "hole" or "omitted" => ["kind"],
-                "string" or "expression" => ["kind", "text"],
-                "number" => ["kind", "number"], "boolean" => ["kind", "boolean"],
+                "null" or "missing" => ["kind"], "string" => ["kind", "text"], "number" => ["kind", "number"], "boolean" => ["kind", "boolean"],
                 "object" => ["kind", "members"], "array" => ["kind", "items"],
-                "input" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" => ["kind", "source", "path"],
-                "output" => ["kind", "source", "resultChannel", "path"],
-                "workflow" => ["kind", "source"], "template" or "compute" => ["kind", "text", "members"],
-                _ => null
+                "input" or "result" or "item" or "index" => ["kind", "source", "path"],
+                "compute" or "template" => ["kind", "text", "members"], _ => null
             };
-            if (obj["kind"]?.ToString() == "output" && obj["resultChannel"] is null) obj["resultChannel"] = "default";
-        }
-        else if (obj.ContainsKey("type") && obj.ContainsKey("nullable"))
-            fields = obj["capabilityId"] is not null ? ["capabilityId", "schemaPointer"] : obj["type"]?.ToString() switch
+        else if (obj["type"] is JsonValue && obj.ContainsKey("nullable") && obj.ContainsKey("fields"))
+            fields = obj["type"]?.ToString() switch
             {
-                "hole" => ["type"],
-                "string" or "number" or "integer" or "boolean" => ["type", "nullable", "description", "enum"],
-                "array" => ["type", "nullable", "description", "items"],
-                "object" => ["type", "nullable", "description", "properties", "additionalProperties"],
-                _ => null
+                "object" => ["type", "nullable", "fields"], "array" => ["type", "nullable", "items"],
+                "string" or "number" or "integer" or "boolean" => ["type", "nullable", "enum"], _ => null
             };
         if (fields is not null)
             foreach (var key in obj.Select(p => p.Key).Where(k => !fields.Contains(k, StringComparer.Ordinal)).ToArray())
-            {
-                // Retain non-default invalid fields as repair evidence, including
-                // inline constraints illegally combined with a catalog reference.
-                if (obj[key] is null || obj[key] is JsonArray { Count: 0 } ||
-                    key == "type" && obj["capabilityId"] is not null && obj[key]?.ToString() == "string" ||
-                    key == "nullable" && obj[key] is JsonValue scalar && scalar.TryGetValue<bool>(out var flag) && !flag)
-                    obj.Remove(key);
-            }
+                if (obj[key] is null || obj[key] is JsonArray { Count: 0 }) obj.Remove(key);
         foreach (var (_, child) in obj) Compact(child);
     }
 

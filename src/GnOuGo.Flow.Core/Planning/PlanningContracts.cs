@@ -11,7 +11,7 @@ public sealed class PlanningRequest
     public string SessionId { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "generated";
     public string Prompt { get; set; } = "";
-    public PlanningGraph? Baseline { get; set; }
+    public WorkflowIntentPlan? Baseline { get; set; }
     public JsonObject? FailureEvidence { get; set; }
     public JsonObject Options { get; set; } = new();
     public PlanningPolicy Policy { get; set; } = new();
@@ -66,10 +66,11 @@ public sealed class PlanningSession
         ["graph"] = JsonSerializer.SerializeToNode(Graph, PlanningJsonContext.Default.PlanningGraph),
         ["catalog"] = JsonSerializer.SerializeToNode(Catalog, PlanningJsonContext.Default.PlanningCatalog),
         ["diagnostics"] = JsonSerializer.SerializeToNode(Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic),
-        ["scenarios"] = JsonSerializer.SerializeToNode(Scenarios, PlanningJsonContext.Default.ListPlanningScenarioResult)
+        ["scenarios"] = JsonSerializer.SerializeToNode(Scenarios, PlanningJsonContext.Default.ListPlanningScenarioResult),
+        ["fixtures"] = JsonSerializer.SerializeToNode(Fixtures, PlanningJsonContext.Default.PlanningFixtures)
     }.ToJsonString())));
 
-    public int SchemaVersion { get; set; } = 6;
+    public int SchemaVersion { get; set; } = 7;
     public PlanningRequest Request { get; set; } = new();
     public long Revision { get; set; }
     public string Status { get; set; } = PlanningStatus.Created;
@@ -82,6 +83,7 @@ public sealed class PlanningSession
     public PlanningGraph? Graph { get; set; }
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
     public List<PlanningScenarioResult> Scenarios { get; set; } = [];
+    public PlanningFixtures? Fixtures { get; set; }
     public List<PlanningAnswer> Answers { get; set; } = [];
     public int ClarificationRounds { get; set; }
     public int RepairAttempts { get; set; }
@@ -159,7 +161,7 @@ public interface IPlanningSessionStore
 
 public sealed class PlanningConflictException(string message) : InvalidOperationException(message);
 
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow)]
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, AllowOutOfOrderMetadataProperties = true)]
 [JsonSerializable(typeof(PlanningSession))]
 [JsonSerializable(typeof(List<PlanningSession>))]
 [JsonSerializable(typeof(PlanningRequest))]
@@ -168,7 +170,12 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(PlanningCatalog))]
 [JsonSerializable(typeof(PlanningCapability))]
 [JsonSerializable(typeof(WorkflowIntentPlan))]
-[JsonSerializable(typeof(WorkflowIntentStep))]
+[JsonSerializable(typeof(IntentOperation))]
+[JsonSerializable(typeof(IntentValue))]
+[JsonSerializable(typeof(IntentType))]
+[JsonSerializable(typeof(IntentInput))]
+[JsonSerializable(typeof(IntentOutput))]
+[JsonSerializable(typeof(PlanningFixtures))]
 [JsonSerializable(typeof(PlanningGraph))]
 [JsonSerializable(typeof(PlanningWorkflow))]
 [JsonSerializable(typeof(PlanningNode))]

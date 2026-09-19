@@ -137,6 +137,7 @@ public static class PlanningGraphImporter
 
     private static JsonNode? DefaultValue(object value, string type) => value switch
     {
+        System.Text.Json.JsonElement element => JsonNode.Parse(element.GetRawText()),
         JsonNode node => node.DeepClone(),
         string text when type == "boolean" && bool.TryParse(text, out var parsed) => JsonValue.Create(parsed),
         string text when type is "integer" or "number" && decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) => JsonValue.Create(parsed),

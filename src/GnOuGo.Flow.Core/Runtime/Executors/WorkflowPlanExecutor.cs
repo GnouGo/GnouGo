@@ -59,7 +59,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                         var answer = await human.RequestInputAsync(new HumanInputRequest
                         {
                             RunId = state.Request.SessionId, StepId = question.Id,
-                            Prompt = question.Question + "\nReturn a JSON value matching: " + System.Text.Json.JsonSerializer.Serialize(question.AnswerSchema, PlanningJsonContext.Default.PlanningSchema),
+                            Prompt = question.Question + "\nReturn a JSON value of this business type: " + System.Text.Json.JsonSerializer.Serialize(question.AnswerType, PlanningJsonContext.Default.IntentType),
                             Mode = "text", AllowAbandon = true
                         }, ct);
                         if (HumanInputContract.IsAbandoned(answer)) { command.Kind = "cancel"; break; }

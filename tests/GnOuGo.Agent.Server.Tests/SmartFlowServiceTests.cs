@@ -316,7 +316,7 @@ workflows:
     }
 
     [Fact]
-    public async Task ExecuteAsync_WhenPersistedAgentHandlesMcpError_CreatesPersistedDesignerRevision()
+    public async Task ExecuteAsync_WhenPersistedAgentUsesUnrepresentableErrorPlumbing_RejectsRevision()
     {
         const string agentId = "8d8871b7-01cf-4a42-a95a-391d633d7d37";
         const string agentName = "git-agent";
@@ -413,26 +413,13 @@ workflows:
         await responder;
 
         Assert.Null(persistedWorkflow);
-        var revision = Assert.Single(await planning.ListAsync(TestContext.Current.CancellationToken));
-        Assert.NotNull(revision.Request.Baseline);
-        Assert.Equal("MCP_CALL_ERROR", revision.Request.FailureEvidence!["error_code"]!.ToString());
-        Assert.Contains("TARGET_EXISTS", revision.Request.FailureEvidence.ToJsonString());
-        Assert.DoesNotContain("TARGET_EXISTS", revision.Request.Prompt);
-        Assert.Equal(PlanningStatus.Created, revision.Status); Assert.Null(revision.Catalog); Assert.Null(revision.ApprovedHash);
-        using var reopened = PlanningSessionLifecycleTests.Create(fixture, new GnOuGo.Flow.Planning.TypedWorkflowPlanner(), agentMcp);
-        Assert.NotNull((await reopened.GetAsync(revision.Request.SessionId, TestContext.Current.CancellationToken))!.Request.FailureEvidence);
-        Assert.Contains(events, evt =>
-            evt.Type == "human_input_request" &&
-            evt.Text?.Contains("handled an MCP error", StringComparison.OrdinalIgnoreCase) == true &&
-            evt.Text.Contains("TARGET_EXISTS", StringComparison.Ordinal));
-        Assert.Contains(events, evt =>
-            evt.Type == "answer" &&
-            evt.Text?.Contains("/planning/" + revision.Request.SessionId, StringComparison.Ordinal) == true);
-        Assert.DoesNotContain(events, evt => evt.Type == "error");
+        Assert.Empty(await planning.ListAsync(TestContext.Current.CancellationToken));
+        Assert.Contains(events, evt => evt.Type == "error" && evt.Text?.Contains("unambiguous locked capability binding", StringComparison.Ordinal) == true);
+
     }
 
     [Fact]
-    public async Task ExecuteAsync_WhenRoutedPersistedAgentHandlesMcpError_CreatesPersistedDesignerRevision()
+    public async Task ExecuteAsync_WhenRoutedAgentUsesUnrepresentableErrorPlumbing_RejectsRevision()
     {
         const string agentId = "8d8871b7-01cf-4a42-a95a-391d633d7d37";
         const string agentName = "git-agent";
@@ -558,22 +545,9 @@ workflows:
         await responder;
 
         Assert.Null(persistedWorkflow);
-        var revision = Assert.Single(await planning.ListAsync(TestContext.Current.CancellationToken));
-        Assert.NotNull(revision.Request.Baseline);
-        Assert.Equal("MCP_CALL_ERROR", revision.Request.FailureEvidence!["error_code"]!.ToString());
-        Assert.Contains("TARGET_EXISTS", revision.Request.FailureEvidence.ToJsonString());
-        Assert.DoesNotContain("TARGET_EXISTS", revision.Request.Prompt);
-        Assert.Equal(PlanningStatus.Created, revision.Status); Assert.Null(revision.Catalog); Assert.Null(revision.ApprovedHash);
-        using var reopened = PlanningSessionLifecycleTests.Create(fixture, new GnOuGo.Flow.Planning.TypedWorkflowPlanner(), agentMcp);
-        Assert.NotNull((await reopened.GetAsync(revision.Request.SessionId, TestContext.Current.CancellationToken))!.Request.FailureEvidence);
-        Assert.Contains(events, evt =>
-            evt.Type == "human_input_request" &&
-            evt.Text?.Contains("handled an MCP error", StringComparison.OrdinalIgnoreCase) == true &&
-            evt.Text.Contains("TARGET_EXISTS", StringComparison.Ordinal));
-        Assert.Contains(events, evt =>
-            evt.Type == "answer" &&
-            evt.Text?.Contains("/planning/" + revision.Request.SessionId, StringComparison.Ordinal) == true);
-        Assert.DoesNotContain(events, evt => evt.Type == "error");
+        Assert.Empty(await planning.ListAsync(TestContext.Current.CancellationToken));
+        Assert.Contains(events, evt => evt.Type == "error" && evt.Text?.Contains("unambiguous locked capability binding", StringComparison.Ordinal) == true);
+
     }
 
     [Fact]

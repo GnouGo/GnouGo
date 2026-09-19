@@ -429,7 +429,8 @@ public static class WorkflowParser
                 Type = type,
                 Nullable = nullable,
                 Required = required ?? true,
-                Default = map.GetScalar("default"),
+                Default = map.Children.TryGetValue(new YamlScalarNode("default"), out var defaultNode)
+                    ? ParseDefault(defaultNode) : null,
                 Description = map.GetScalar("description"),
                 Enum = map.HasKey("enum") ? map.GetStringList("enum") : null
             };
@@ -777,6 +778,15 @@ public static class WorkflowParser
         if (double.TryParse(val, System.Globalization.CultureInfo.InvariantCulture, out var d))
             return JsonValue.Create(d);
         return JsonValue.Create(val);
+    }
+
+    private static object ParseDefault(YamlNode node)
+    {
+        if (node is YamlScalarNode scalar && (!ShouldInferScalarType(scalar) || scalar.Value is not (null or "null" or "~"))) return scalar.Value!;
+        var value = YamlToJson(node);
+        // A boxed JSON null distinguishes an explicit default from no default.
+        if (value is null) { using var document = JsonDocument.Parse("null"); return document.RootElement.Clone(); }
+        return value;
     }
 
     private static bool ShouldInferScalarType(YamlScalarNode scalar) =>

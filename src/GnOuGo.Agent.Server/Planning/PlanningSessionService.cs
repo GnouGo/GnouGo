@@ -74,7 +74,6 @@ public sealed class PlanningSessionService(
                 TenantId = Tenant,
                 Name = name,
                 Prompt = prompt.Trim(),
-                Baseline = original is null ? null : PlanningGraphImporter.ImportBaseline(original),
                 FailureEvidence = failureEvidence?.DeepClone().AsObject(),
                 Options = options,
                 Policy = AgentPlanningPolicy.Create(),
@@ -84,6 +83,12 @@ public sealed class PlanningSessionService(
             },
             UpdatedAtUtc = DateTimeOffset.UtcNow
         };
+        if (original is not null)
+        {
+            var discovery = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory }, (_, _) => Task.CompletedTask);
+            state.Catalog = await discovery.DiscoverAsync(state.Request, ct);
+            state.Request.Baseline = PlanningIntentImporter.Import(PlanningGraphImporter.Import(original, state.Catalog));
+        }
         PlanningGenerationPolicy.Validate(state.Request.Generation);
         if (!await store.TrySaveAsync(state, expectedRevision: null, ct)) throw new PlanningConflictException("The planning session already exists.");
         _queue.Writer.TryWrite(state.Request.SessionId);

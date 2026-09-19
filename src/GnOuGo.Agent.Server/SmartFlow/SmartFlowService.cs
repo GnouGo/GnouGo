@@ -1249,10 +1249,14 @@ public sealed class SmartFlowService
         var intent = string.IsNullOrWhiteSpace(agent.OriginalPrompt)
             ? "Revise the saved workflow while preserving its intended behavior."
             : agent.OriginalPrompt;
-        var session = await _planning.StartAsync(agent.Name, intent, reviseExisting: true, ct, evidence);
+        GnOuGo.Flow.Core.Planning.PlanningSession? session = null;
+        string? revisionError = null;
+        try { session = await _planning.StartAsync(agent.Name, intent, reviseExisting: true, ct, evidence); }
+        catch (InvalidOperationException ex) { revisionError = ex.Message; }
+        if (revisionError is not null) { yield return new SmartFlowEvent("error", revisionError); yield break; }
         setRevisionStarted(true);
         yield return new SmartFlowEvent("answer",
-            $"A revision session is ready. [Open the workflow designer](/planning/{session.Request.SessionId}) to review the behavior and approve the validated workflow.");
+            $"A revision session is ready. [Open the workflow designer](/planning/{session!.Request.SessionId}) to review the intent and approve the validated workflow.");
     }
 
     private async IAsyncEnumerable<SmartFlowEvent> EmitHumanInputRequestAsync(

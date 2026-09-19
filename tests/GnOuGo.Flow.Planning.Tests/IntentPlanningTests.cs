@@ -18,7 +18,7 @@ public sealed class IntentPlanningTests
     [Fact]
     public async Task PendingRepairResumesEvenAfterTransportDiagnosticsAreCleared()
     {
-        var bad = PlannerFixture.Greeting(); bad.Workflows[0].Steps[0].Kind = "missing";
+        var bad = PlannerFixture.Greeting(); ((CalculateIntentOperation)bad.Operations[0]).Value = new() { Kind = "compute", Text = "unknownBusinessValue" };
         var runtime = new TestRuntime(bad); var state = PlannerFixture.Session(); var planner = new TypedWorkflowPlanner();
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
@@ -34,16 +34,16 @@ public sealed class IntentPlanningTests
     [Fact]
     public async Task RepairUsesCurrentIntentWithoutRepeatingTheRevisionBaseline()
     {
-        var bad = PlannerFixture.Greeting(); bad.Workflows[0].Steps[0].Kind = "missing";
+        var bad = PlannerFixture.Greeting(); ((CalculateIntentOperation)bad.Operations[0]).Value = new() { Kind = "compute", Text = "unknownBusinessValue" };
         var runtime = new TestRuntime(bad); runtime.Plans.Enqueue(PlannerFixture.Greeting());
         var state = PlannerFixture.Session();
         var catalog = await runtime.DiscoverAsync(state.Request, TestContext.Current.CancellationToken);
-        state.Request.Baseline = PlanningGraphBuilder.Build(PlannerFixture.Greeting("original-only-marker"), catalog);
+        state.Request.Baseline = PlannerFixture.Greeting("original-only-marker");
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.Contains("original-only-marker", runtime.Calls[0].Prompt);
         Assert.DoesNotContain("original-only-marker", runtime.Calls[1].Prompt);
-        Assert.Contains("STEP_TYPE_DENIED", runtime.Calls[1].Prompt);
+        Assert.Contains("COMPUTATION_BINDING_INVALID", runtime.Calls[1].Prompt);
     }
 
     [Fact]
@@ -63,12 +63,12 @@ public sealed class IntentPlanningTests
     [Fact]
     public async Task UnresolvedHolesAndIndependentContractErrorsAreReportedTogether()
     {
-        var plan = PlannerFixture.Greeting(); plan.Workflows[0].Steps[0].Kind = "missing";
-        plan.Workflows[0].Outputs[0].Value = new() { Kind = "hole" };
+        var plan = PlannerFixture.Greeting(); ((CalculateIntentOperation)plan.Operations[0]).Value = new() { Kind = "compute", Text = "unknownBusinessValue" };
+        plan.Outputs[0] = new("message", new() { Kind = "missing" });
         var state = PlannerFixture.Session(); state.Request.MaxRepairAttempts = 0;
         state = await PlannerFixture.RunAsync(new TestRuntime(plan), state);
         Assert.Contains(state.Diagnostics, d => d.Code == "HOLE_UNRESOLVED");
-        Assert.Contains(state.Diagnostics, d => d.Code == "STEP_TYPE_DENIED");
+        Assert.Contains(state.Diagnostics, d => d.Code == "COMPUTATION_BINDING_INVALID");
         Assert.Equal(1, state.ModelCalls);
         Assert.DoesNotContain(state.Diagnostics, d => d.Code == "REPAIR_NO_PROGRESS");
     }
@@ -76,7 +76,7 @@ public sealed class IntentPlanningTests
     [Fact]
     public async Task RepairInputPreflightDoesNotConsumeAnAttempt()
     {
-        var plan = PlannerFixture.Greeting(); plan.Workflows[0].Steps[0].Kind = "missing";
+        var plan = PlannerFixture.Greeting(); ((CalculateIntentOperation)plan.Operations[0]).Value = new() { Kind = "compute", Text = "unknownBusinessValue" };
         var runtime = new TestRuntime(plan); runtime.Plans.Enqueue(PlannerFixture.Greeting());
         var planner = new TypedWorkflowPlanner(); var state = PlannerFixture.Session();
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
@@ -85,7 +85,7 @@ public sealed class IntentPlanningTests
         state.Request.Generation.MaxInputTokensPerRequest = 512;
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_INPUT_LIMIT");
-        Assert.Contains(state.Diagnostics, d => d.Code == "STEP_TYPE_DENIED");
+        Assert.Contains(state.Diagnostics, d => d.Code == "COMPUTATION_BINDING_INVALID");
         Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.RepairAttempts);
         state = await planner.AdvanceAsync(state, new() { Kind = "configure_generation", ExpectedRevision = state.Revision,
             Generation = new() { MaxInputTokensPerRequest = 12_000 } }, runtime, TestContext.Current.CancellationToken);
@@ -107,40 +107,13 @@ public sealed class IntentPlanningTests
         Assert.Equal(PlanningStatus.Approved, state.Status); Assert.Single(runtime.Calls);
     }
     [Fact]
-    public async Task SingletonOutputHoleUsesNoExtraModelCall()
-    {
-        var plan = PlannerFixture.Greeting(); plan.Workflows[0].Outputs[0].Value = new() { Kind = "hole" };
-        var runtime = new TestRuntime(plan); var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Single(runtime.Calls);
-        Assert.Equal("output", state.Graph!.Workflows[0].Outputs[0].Value.Kind);
-        Assert.Equal("hole", state.IntentPlan!.Workflows[0].Outputs[0].Value.Kind);
-    }
-    [Fact]
-    public async Task AmbiguousOutputUsesBoundedIssuedChoices()
-    {
-        var plan = PlannerFixture.Greeting(); plan.Workflows[0].Steps[0].Input.Members.Add(new("other", new() { Kind = "string", Text = "Other" }));
-        plan.Workflows[0].Outputs[0].Value = new() { Kind = "hole" };
-        var runtime = new TestRuntime(plan); var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(2, runtime.Calls.Count);
-        var schema = runtime.Calls[1].StructuredOutputSchema!;
-        Assert.All(schema["properties"]!.AsObject(), p => Assert.Equal(2, p.Value!["enum"]!.AsArray().Count));
-    }
-    [Fact]
-    public async Task NoChoiceProducesDiagnosticAndBoundedRepair()
-    {
-        var plan = PlannerFixture.Greeting(); plan.Workflows[0].Outputs[0].Value = new() { Kind = "hole" }; plan.Workflows[0].Outputs[0].Schema.Type = "number";
-        var runtime = new TestRuntime(plan); var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Contains(state.Diagnostics, d => d.Code == "HOLE_UNRESOLVED");
-        Assert.Equal(2, runtime.Calls.Count); Assert.Contains(state.Diagnostics, d => d.Code == "REPAIR_NO_PROGRESS");
-    }
-    [Fact]
     public async Task RepairMayReplaceStructureAndReturnsToFullValidation()
     {
-        var bad = PlannerFixture.Greeting(); bad.Workflows[0].Steps[0].Kind = "missing";
+        var bad = PlannerFixture.Greeting(); ((CalculateIntentOperation)bad.Operations[0]).Value = new() { Kind = "compute", Text = "unknownBusinessValue" };
         var runtime = new TestRuntime(bad); runtime.Plans.Enqueue(PlannerFixture.Greeting("Fixed"));
         var state = await PlannerFixture.RunAsync(runtime);
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(1, state.RepairAttempts); Assert.Equal(2, state.ModelCalls);
-        Assert.Contains("STEP_TYPE_DENIED", runtime.Calls[1].Prompt); Assert.Contains("Fixed", state.Yaml);
+        Assert.Contains("COMPUTATION_BINDING_INVALID", runtime.Calls[1].Prompt); Assert.Contains("Fixed", state.Yaml);
     }
     [Fact]
     public async Task InvalidJsonStopsAfterTwoRepairs()

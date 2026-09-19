@@ -46,7 +46,7 @@
             {
                 <label for="@question.Id">@question.Question</label>
                 <input id="@question.Id" class="form-control" value="@_answers.GetValueOrDefault(question.Id)" @oninput="e => _answers[question.Id] = e.Value?.ToString() ?? string.Empty" />
-                <small>Expected value: @question.AnswerSchema.Type @(question.AnswerSchema.Enum.Count > 0 ? "(" + string.Join(", ", question.AnswerSchema.Enum) + ")" : "")</small>
+                <small>Expected value: @PlanningGraphBuilder.Schema(question.AnswerType).Type @(PlanningGraphBuilder.Schema(question.AnswerType).Enum.Count > 0 ? "(" + string.Join(", ", PlanningGraphBuilder.Schema(question.AnswerType).Enum) + ")" : "")</small>
             }
             <button class="btn btn-primary" disabled="@_busy" @onclick="AnswerAsync">Submit answers</button>
         }
@@ -151,8 +151,8 @@
         foreach (var question in _state!.IntentPlan!.Questions)
         {
             var text = _answers.GetValueOrDefault(question.Id) ?? "";
-            if (question.AnswerSchema.Type == "string") answers[question.Id] = text;
-            else { try { answers[question.Id] = JsonNode.Parse(text); } catch (System.Text.Json.JsonException) { _error = "Enter a valid " + question.AnswerSchema.Type + " value."; return Task.CompletedTask; } }
+            if (PlanningGraphBuilder.Schema(question.AnswerType).Type == "string") answers[question.Id] = text;
+            else { try { answers[question.Id] = JsonNode.Parse(text); } catch (System.Text.Json.JsonException) { _error = "Enter a valid " + PlanningGraphBuilder.Schema(question.AnswerType).Type + " value."; return Task.CompletedTask; } }
         }
         return SubmitAsync("answer", answers: answers);
     }

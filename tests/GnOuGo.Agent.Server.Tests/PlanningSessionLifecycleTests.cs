@@ -18,7 +18,7 @@ public sealed class PlanningSessionLifecycleTests
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask);
         var state = new PlanningSession { Request = new() { TenantId = "planning-tests", Name = "test", Prompt = "Return value" }, Status = PlanningStatus.FinalReview,
-            IntentPlan = new() { Workflows = [new() { Steps = [new() { Key = "value", Kind = "set", Input = new() { Kind = "object", Members = [new("message", new() { Kind = "string", Text = "hello" })] } }] }] }, Scenarios = [new("nominal", "passed", "Executed", [])] };
+            IntentPlan = new() { Operations = [new CalculateIntentOperation { Id = "value", Value = new() { Kind = "string", Text = "hello" } }] }, Scenarios = [new("nominal", "passed", "Executed", [])] };
         state.Catalog = await runtime.DiscoverAsync(state.Request, Ct); state.Graph = PlanningGraphBuilder.Build(state.IntentPlan, state.Catalog);
         state.Yaml = new PlanningGraphCompiler().Compile(state.Graph, state.Catalog, state.Request.Name);
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));

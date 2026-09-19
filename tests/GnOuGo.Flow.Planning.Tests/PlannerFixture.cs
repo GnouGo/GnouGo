@@ -8,11 +8,9 @@ internal static class PlannerFixture
 {
     internal static WorkflowIntentPlan Greeting(string message = "Hello") => new()
     {
-        Summary = "Return a greeting", Workflows = [new()
-        {
-            Steps = [new() { Key = "greet", Kind = "set", Input = new() { Kind = "object", Members = [new("message", new() { Kind = "string", Text = message })] } }],
-            Outputs = [new() { Name = "message", Schema = new(), Value = new() { Kind = "output", Source = "greet", Path = ["message"] } }]
-        }]
+        Summary = "Return a greeting",
+        Operations = [new CalculateIntentOperation { Id = "greet", Value = new() { Kind = "string", Text = message } }],
+        Outputs = [new("message", new() { Kind = "result", Source = "greet" })]
     };
     internal static PlanningSession Session() => new() { Request = new() { TenantId = "test", Prompt = "Return a greeting", Options = new() { ["generator"] = new JsonObject { ["model"] = "test" } } } };
     internal static async Task<PlanningSession> RunAsync(TestRuntime runtime, PlanningSession? state = null)

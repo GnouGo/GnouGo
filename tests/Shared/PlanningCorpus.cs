@@ -27,21 +27,21 @@ public static class PlanningCorpus
     }
     public static WorkflowIntentPlan Intent(string name, PlanningCatalog catalog)
     {
-        var workflow = new WorkflowIntent(); var value = new PlanningValue { Kind = "number", Number = 42 };
+        var plan = new WorkflowIntentPlan { Summary = Prompt(name) };
+        var value = new IntentValue { Kind = "compute", Text = "6 * 7" };
         if (name == "read_transform")
         {
-            workflow.Steps.Add(new() { Key = "read", CapabilityId = catalog.Capabilities.Single(c => c.Method == "read").Id });
-            value = new() { Kind = "compute", Text = "value * 2", Members = [new("value", new() { Kind = "output", Source = "read", Path = ["value"] })] };
+            plan.Operations.Add(new InvokeIntentOperation { Id = "read", Capability = catalog.Capabilities.Single(c => c.Method == "read").Id });
+            value = new() { Kind = "compute", Text = "value * 2", Members = [new("value", new() { Kind = "result", Source = "read", Path = ["value"] })] };
         }
         else if (name == "protected_cleanup")
         {
-            workflow.Steps.Add(new() { Key = "write", CapabilityId = catalog.Capabilities.Single(c => c.Method == "write").Id });
-            workflow.Finally.Add(new() { Key = "cleanup", CapabilityId = catalog.Capabilities.Single(c => c.Method == "cleanup").Id });
+            plan.Operations.Add(new InvokeIntentOperation { Id = "write", Capability = catalog.Capabilities.Single(c => c.Method == "write").Id });
+            plan.Operations.Add(new CleanupIntentOperation { Id = "finalize", Operations = [new InvokeIntentOperation { Id = "cleanup", Capability = catalog.Capabilities.Single(c => c.Method == "cleanup").Id }] });
         }
-        else value = new() { Kind = "compute", Text = "6 * 7" };
-        workflow.Steps.Add(new() { Key = "result", Kind = "set", Input = new() { Kind = "object", Members = [new("value", value)] }, OutputSchema = new() { Type = "object", Properties = [new() { Name = "value", Schema = new() { Type = "number" } }] } });
-        workflow.Outputs.Add(new() { Name = "result", Schema = new() { Type = "number" }, Value = new() { Kind = "output", Source = "result", Path = ["value"] } });
-        return new() { Summary = Prompt(name), Workflows = [workflow] };
+        plan.Operations.Add(new CalculateIntentOperation { Id = "result", Value = value });
+        plan.Outputs.Add(new("result", new() { Kind = "result", Source = "result" }));
+        return plan;
     }
     public sealed class Human(bool answer = true) : IHumanInputProvider
     { public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct) => Task.FromResult<JsonNode?>(new JsonObject { ["response"] = answer }); }

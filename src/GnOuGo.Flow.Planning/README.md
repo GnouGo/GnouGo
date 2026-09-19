@@ -1,22 +1,18 @@
 # GnOuGo.Flow.Planning
 
-A separately publishable deterministic workflow planner depending only on Flow.Core.
+A separately publishable planner depending only on Flow.Core.
 
-`PlanningSession → WorkflowIntentPlan → PlanningGraph → Diagnostics → Approval`
+`Prompt → business intent → deterministic graph → validation → bounded correction → scenarios → approval`
 
-Read `TypedWorkflowPlanner.cs` for orchestration, `PlanningGraphBuilder.cs` for catalog resolution and graph construction, and `PlanningGraphCompiler.cs` for YAML lowering. Focused helpers handle catalog discovery, typed hole domains, validation and approval. Natural language is interpreted once; only unresolved choices and bounded repairs need further model calls.
+Start with `TypedWorkflowPlanner.cs`, `PlanningGraphBuilder.cs`, and `PlanningGraphCompiler.cs`. The model describes business operations. The builder owns executable nodes, capability bindings, schemas, result envelopes, internal subflows, ordering, and finalizer guards. The compiler only accepts valid, fully resolved graphs.
 
-Hosts inject `IPlanningRuntime`. Graph validation checks capability identity, schemas, bindings, availability, dependencies, executable expressions, artifact contracts and explicit policy. A host-owned confirmation gate protects external effects, including subworkflows and cleanup. Final artifact approval is separate from runtime confirmation. Only validated graphs without executable holes compile.
+Intent contains inputs, operations, outputs, optional named subflows and clarification questions. Its operation variants are `invoke`, `calculate`, `transform`, `choose`, `each`, `parallel`, `call`, and `cleanup`. Values address inputs, operation results and iteration values through business paths. Calculations use sandboxed expressions over named values. Only new business values need type declarations; capability contracts remain catalog-owned. Omitted arguments, missing values, explicit null and defaults remain distinct. Fixtures belong to the session, not the interpretation response.
 
-Input references name the current workflow's input port. Capability schema references start at `/input` or `/output` and continue through JSON Schema properties. Finalizers may depend on a main step; the builder guards cleanup so it runs only after that producer completes. Independent diagnostics are reported together, and cycle diagnostics locate the offending step. Pre-dispatch input-budget failures consume neither a model call nor a repair attempt.
+The graph remains executable authority. Validation checks capability identity, declared schemas, bindings, conditional availability, dependencies, expressions, artifact contracts and host policy. Protected effects require a host-generated runtime confirmation gate, including subflows and cleanup. Human approval of the final artifact is a separate gate. Saving and execution require trusted stored approval and current contracts.
 
-`PlanningJsonTransport` supplies the canonical model-facing intent JSON: active value/schema fields, explicit nulls, omitted arguments and holes remain distinct. Arrays require item schemas; objects require typed properties or typed additional properties. Fixtures accept only literal input objects and recursive literal observation responses. Their shape is checked alongside graph errors; absent fixtures still use deterministic sampling.
+Hosts inject `IPlanningRuntime`. Schema-7 sessions retain cumulative budgets, one durable pending request, completion receipts, scenarios and approval. Earlier formats are rejected. Agent.Server uses new encrypted record namespaces and a new planning database; existing databases are untouched. Reserved requests replay under their original response schemas. Uncertain dispatches stop without automatic resend.
 
-Use `additionalProperties: null` for a closed object with declared properties; a schema hole is unresolved, not a wildcard. Required runtime inputs and guaranteed result properties use `required: true`. Optional values without defaults cannot be consumed unconditionally.
-
-`PlanningDiagnosticLocations` derives repair coordinates from workflow/step identifiers and named members, accounting for step ordering, MCP arguments and generated confirmation/cleanup guards. Session diagnostics keep graph coordinates. Repair context names the editable intent location (or its existing container and missing field), groups known consequences under the invalid producer schema, and retains independent failures. Defective host-owned fields stop planning without spending a model repair.
-
-Pending model requests retain their original interpretation, repair, or choice phase and reserved response schema on receipt replay. Uncertain dispatches stop. Agent.Server offers an explicit retry that retains cumulative budgets and accounts for missing usage before reserving a new request; the planner never retries them automatically.
+Revision import projects supported saved workflows into business intent and rejects unrepresentable executor configuration explicitly. No raw graph escape hatch is exposed to the model.
 
 ```bash
 dotnet build src/GnOuGo.Flow.Planning -warnaserror
@@ -24,5 +20,3 @@ dotnet test tests/GnOuGo.Flow.Planning.Tests
 dotnet pack src/GnOuGo.Flow.Planning -c Release
 dotnet run --project tests/GnOuGo.Agent.Planning.Benchmark
 ```
-
-See [the architecture](../../docs/workflow-planning-v2.md) for public contracts, defaults, diagnostics, schema-6 persistence, restart and approval semantics. No compatibility adapters or alternate planner remain.

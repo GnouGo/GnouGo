@@ -1,82 +1,50 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 namespace GnOuGo.Flow.Planning;
+
 internal static class PlanningSchemas
 {
-    internal static JsonObject ValueDefinitions()
-    {
-        var definitions = new JsonObject
-        {
-            ["value"] = new JsonObject
-            {
-                ["anyOf"] = new JsonArray(
-                Object(("kind", Enum("null", "hole", "omitted"))), Object(("kind", Enum("string", "expression")), ("text", String())),
-                Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
-                Object(("kind", Enum("object")), ("members", Array(Ref("member")))), Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
-                Object(("kind", Enum("input")), ("source", String()), ("path", Array(String()))),
-                Object(("kind", Enum("output")), ("source", String()), ("resultChannel", Enum("default", "structured", "envelope")), ("path", Array(String()))),
-                Object(("kind", Enum("workflow")), ("source", String())),
-                Object(("kind", Enum("template", "compute")), ("text", String()), ("members", Array(Ref("member")))),
-                Object(("kind", Enum("loop_item", "loop_index", "loop_previous", "artifact_collection")), ("source", String()), ("path", Array(String()))))
-            },
-            ["member"] = Object(("name", String()), ("value", Ref("value"))),
-            ["schema"] = new JsonObject
-            {
-                ["anyOf"] = new JsonArray(
-                Object(("capabilityId", String()), ("schemaPointer", String())),
-                Object(("type", Enum("hole"))),
-                Object(("type", Enum("string", "number", "integer", "boolean")),
-                    ("nullable", Type("boolean")), ("description", Nullable(String())), ("enum", Array(String()))),
-                Object(("type", Enum("array")), ("nullable", Type("boolean")), ("description", Nullable(String())), ("items", Ref("schema"))),
-                Object(("type", Enum("object")), ("nullable", Type("boolean")), ("description", Nullable(String())),
-                    ("properties", NonEmptyArray(Ref("port"))), ("additionalProperties", Nullable(Ref("schema")))),
-                Object(("type", Enum("object")), ("nullable", Type("boolean")), ("description", Nullable(String())),
-                    ("properties", Array(Ref("port"))), ("additionalProperties", Ref("schema"))))
-            },
-            ["literal"] = new JsonObject { ["anyOf"] = new JsonArray(
-                Object(("kind", Enum("null"))), Object(("kind", Enum("string")), ("text", String())),
-                Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
-                Ref("literalObject"), Object(("kind", Enum("array")), ("items", Array(Ref("literal"))))) },
-            ["literalObject"] = Object(("kind", Enum("object")), ("members", Array(Ref("literalMember")))),
-            ["literalMember"] = Object(("name", String()), ("value", Ref("literal"))),
-            ["port"] = Object(("name", String()), ("schema", Ref("schema")), ("required", Type("boolean")), ("default", Nullable(Ref("value")))),
-            ["output"] = Object(("name", String()), ("schema", Ref("schema")), ("value", Ref("value"))),
-            ["retry"] = Object(("max", Type("integer")), ("backoffMs", Type("integer")), ("backoffMult", Type("number")), ("jitterMs", Type("integer"))),
-            ["errorCase"] = Object(("if", Nullable(Ref("value"))), ("action", Enum("stop", "continue")), ("setOutput", Nullable(Ref("value"))), ("retry", Nullable(Ref("retry"))))
-        };
-        return definitions;
-    }
-
     internal static JsonObject Intent()
     {
-        var root = Object(("summary", String()), ("entrypoint", String()), ("functions", Nullable(String())),
-            ("workflows", Array(Ref("workflow"))), ("fixtures", Nullable(Ref("fixtures"))), ("questions", Array(Ref("question"))));
-        var defs = ValueDefinitions();
-        defs["step"] = Object(("key", String()), ("kind", String()), ("purpose", String()), ("capabilityId", Nullable(String())),
-            ("dependencies", Array(String())), ("input", Ref("value")), ("if", Nullable(Ref("value"))), ("expr", Nullable(Ref("value"))),
-            ("outputSchema", Nullable(Ref("schema"))), ("structuredOutput", Nullable(Ref("structured"))), ("output", Nullable(String())),
-            ("itemVar", Nullable(String())), ("indexVar", Nullable(String())), ("retry", Nullable(Ref("retry"))), ("onError", Array(Ref("errorCase"))),
-            ("steps", Array(Ref("step"))), ("branches", Array(Ref("branch"))), ("cases", Array(Ref("case"))), ("default", Array(Ref("step"))));
-        defs["workflow"] = Object(("key", String()), ("purpose", String()), ("inputs", Array(Ref("port"))), ("outputs", Array(Ref("output"))),
-            ("steps", Array(Ref("step"))), ("finally", Array(Ref("step"))), ("functions", Nullable(String())));
-        defs["structured"] = Object(("schema", Ref("schema")), ("strict", Type("boolean")));
-        defs["branch"] = Object(("steps", Array(Ref("step"))));
-        defs["case"] = Object(("value", Nullable(String())), ("when", Nullable(Ref("value"))), ("steps", Array(Ref("step"))));
-        defs["fixtures"] = FixtureFields();
-        defs["observation"] = ObservationFields();
-        defs["question"] = Object(("id", String()), ("question", String()), ("answerSchema", Ref("schema")));
-        root["$defs"] = defs;
-        return root;
+        var root = Object(("summary", String()), ("inputs", Array(Ref("input"))), ("operations", Array(Ref("operation"))),
+            ("outputs", Array(Ref("output"))), ("subflows", Array(Ref("subflow"))), ("questions", Array(Ref("question"))));
+        root["$defs"] = Definitions(); return root;
     }
-    internal static JsonObject Fixtures()
+    internal static JsonObject Definitions()
     {
-        var root = FixtureFields();
-        var defs = ValueDefinitions(); defs["observation"] = ObservationFields(); root["$defs"] = defs;
-        PlanningJsonTransport.PruneDefinitions(root);
-        return root;
+        JsonObject Operation(string kind, params (string Name, JsonObject Schema)[] fields) => Object(new[] {
+            ("kind", Enum(kind)), ("id", String()), ("purpose", String()), ("after", Array(String())), ("when", Nullable(Ref("value"))) }.Concat(fields).ToArray());
+        return new()
+        {
+            ["value"] = new JsonObject { ["anyOf"] = new JsonArray(
+                Object(("kind", Enum("null", "missing"))), Object(("kind", Enum("string")), ("text", String())),
+                Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
+                Object(("kind", Enum("object")), ("members", Array(Ref("member")))), Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
+                Object(("kind", Enum("input", "result", "item", "index")), ("source", String()), ("path", Array(String()))),
+                Object(("kind", Enum("compute", "template")), ("text", String()), ("members", Array(Ref("member"))))) },
+            ["member"] = Object(("name", String()), ("value", Ref("value"))),
+            ["type"] = new JsonObject { ["anyOf"] = new JsonArray(
+                Object(("type", Enum("string", "number", "integer", "boolean")), ("nullable", Type("boolean")), ("enum", Array(String()))),
+                Object(("type", Enum("array")), ("nullable", Type("boolean")), ("items", Ref("type"))),
+                Object(("type", Enum("object")), ("nullable", Type("boolean")), ("fields", NonEmptyArray(Ref("field"))))) },
+            ["field"] = Object(("name", String()), ("type", Ref("type")), ("optional", Type("boolean"))),
+            ["input"] = Object(("name", String()), ("type", Nullable(Ref("type"))), ("optional", Type("boolean")), ("default", Nullable(Ref("value")))),
+            ["output"] = Object(("name", String()), ("value", Ref("value"))),
+            ["block"] = Object(("operations", Array(Ref("operation"))), ("result", Ref("value"))),
+            ["branch"] = Object(("name", String()), ("body", Ref("block"))),
+            ["subflow"] = Object(("name", String()), ("inputs", Array(Ref("input"))), ("operations", Array(Ref("operation"))), ("outputs", Array(Ref("output")))),
+            ["question"] = Object(("id", String()), ("question", String()), ("answerType", Ref("type"))),
+            ["operation"] = new JsonObject { ["anyOf"] = new JsonArray(
+                Operation("invoke", ("capability", Nullable(String())), ("arguments", Array(Ref("member"))), ("fallback", Nullable(Ref("value")))),
+                Operation("calculate", ("value", Ref("value")), ("resultType", Nullable(Ref("type")))),
+                Operation("transform", ("instruction", String()), ("data", Array(Ref("member"))), ("resultType", Nullable(Ref("type")))),
+                Operation("choose", ("condition", Ref("value")), ("then", Ref("block")), ("otherwise", Ref("block"))),
+                Operation("each", ("items", Ref("value")), ("parallel", Type("boolean")), ("body", Ref("block"))),
+                Operation("parallel", ("branches", Array(Ref("branch")))),
+                Operation("call", ("flow", String()), ("arguments", Array(Ref("member")))),
+                Operation("cleanup", ("operations", Array(Ref("operation"))))) }
+        };
     }
-    private static JsonObject FixtureFields() => Object(("inputs", Nullable(Ref("literalObject"))), ("observations", Array(Ref("observation"))));
-    private static JsonObject ObservationFields() => Object(("workflow", String()), ("node", String()), ("responses", Array(Ref("literal"))));
     internal static JsonObject Choices(IEnumerable<(PlanningHole Hole, IReadOnlyList<PlanningChoice> Choices)> holes)
         => Object(holes.Select(h => (h.Hole.Id, Enum(h.Choices.Select(c => c.Id).ToArray()))).ToArray());
     private static JsonObject String() => Type("string");

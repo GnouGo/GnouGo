@@ -12,7 +12,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
     public async Task<PlanningSession> AdvanceAsync(PlanningSession session, PlanningCommand command, IPlanningRuntime runtime, CancellationToken ct)
     {
-        if (session.SchemaVersion != 6) throw new PlanningConflictException("Unsupported planning session; start a new session.");
+        if (session.SchemaVersion != 7) throw new PlanningConflictException("Unsupported planning session; start a new session.");
         if (session.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed; reload its current revision.");
         if (string.IsNullOrWhiteSpace(session.Request.TenantId) || string.IsNullOrWhiteSpace(session.Request.SessionId) || string.IsNullOrWhiteSpace(session.Request.Prompt))
             throw new ArgumentException("Tenant, session, and prompt are required.");
@@ -56,9 +56,9 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                 case "edit_intent":
                     if (state.PendingCall is not null) throw new PlanningConflictException("Reconcile the pending model request before editing intent.");
                     ArgumentException.ThrowIfNullOrWhiteSpace(command.Text);
-                    state.Request.Baseline = state.Graph;
+                    state.Request.Baseline = state.IntentPlan;
                     state.Request.Prompt = command.Kind == "edit_intent" ? command.Text.Trim() : state.Request.Prompt + "\nRequested revision: " + command.Text.Trim();
-                    state.IntentPlan = null; state.Graph = null; state.Catalog = null; state.RepairAttempts = 0;
+                    state.IntentPlan = null; state.Graph = null; state.Catalog = null; state.Fixtures = null; state.RepairAttempts = 0;
                     state.Diagnostics.Clear(); state.Scenarios.Clear(); state.Yaml = null; state.ApprovedHash = null; state.Status = PlanningStatus.Generating;
                     break;
                 case "answer":
@@ -66,7 +66,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     if (command.Answers.Any(a => !state.IntentPlan.Questions.Any(q => q.Id == a.Key))) throw new ArgumentException("Unknown clarification answer.");
                     foreach (var question in state.IntentPlan.Questions)
                     {
-                        if (!command.Answers.ContainsKey(question.Id) || PlanningContractValidation.ValidateInstance(command.Answers[question.Id], PlanningGraphCompiler.ToJsonSchema(question.AnswerSchema, state.Catalog!)).Count > 0)
+                        if (!command.Answers.ContainsKey(question.Id) || PlanningContractValidation.ValidateInstance(command.Answers[question.Id], PlanningGraphCompiler.ToJsonSchema(PlanningGraphBuilder.Schema(question.AnswerType), state.Catalog!)).Count > 0)
                             throw new ArgumentException("An answer violates the question's schema: " + question.Id);
                         state.Answers.Add(new(question.Question, new() { [question.Id] = command.Answers[question.Id]?.DeepClone() }));
                     }
@@ -126,7 +126,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             {
                 if (++state.ClarificationRounds > 3 || intent.Questions.Count > 5 || intent.Questions.Select(q => q.Id).Distinct().Count() != intent.Questions.Count)
                 { state.Diagnostics = [new("CLARIFICATION_LIMIT", "/questions", "Clarification is limited to three rounds of five distinct questions.")]; Stop(state); return; }
-                foreach (var question in intent.Questions) _ = PlanningGraphCompiler.ToJsonSchema(question.AnswerSchema, state.Catalog);
+                foreach (var question in intent.Questions) _ = PlanningGraphCompiler.ToJsonSchema(PlanningGraphBuilder.Schema(question.AnswerType), state.Catalog);
                 state.Status = PlanningStatus.Clarification; return;
             }
             state.Graph = PlanningGraphBuilder.Build(intent, state.Catalog);
@@ -145,7 +145,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             {
                 state.Diagnostics = domains.Select(d => new PlanningDiagnostic("HOLE_UNRESOLVED", d.Hole.Path, "No valid deterministic choice exists for this " + d.Hole.Kind + " field. Supply a typed value or revise its dependencies.")).ToList();
                 state.Diagnostics.AddRange(PlanningExecutableValidation.Validate(state.Graph, state.Catalog).Where(d => d.Code != "CONFIRMATION_REQUIRED"));
-                state.Diagnostics.AddRange(PlanningValidationPipeline.FixtureShape(state.IntentPlan!));
+                state.Diagnostics.AddRange(PlanningValidationPipeline.FixtureShape(state));
                 return;
             }
             string Prompt() => "Select one issued choice ID for each field. Use the request's meaning; do not create values.\n" + state.Request.Prompt + "\n" +

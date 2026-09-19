@@ -12,13 +12,13 @@ namespace GnOuGo.Flow.Integrations.Planning;
 public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records, string leaseDirectory) : IPlanningRuntimeFactory
 {
     internal const string Author = "GnOuGo.Flow.Planning";
-    internal const string Sessions = "flow-planning-sessions-v6";
-    private const string Definitions = "flow-planning-definitions-v6";
+    internal const string Sessions = "flow-planning-sessions-v7";
+    private const string Definitions = "flow-planning-definitions-v7";
 
     public static WorkflowPlanningRuntimeFactory CreateWorkspace(string? keyVaultPath = null, string? leasePath = null, string? baseDirectory = null)
     {
         var root = baseDirectory ?? AppContext.BaseDirectory;
-        var leases = GnOuGoWorkspace.ResolveDatabasePath(leasePath, root, ".GnOuGo/data/flow-planning-v6/leases");
+        var leases = GnOuGoWorkspace.ResolveDatabasePath(leasePath, root, ".GnOuGo/data/flow-planning-v7/leases");
         return new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultPath, root), leases);
     }
 
@@ -51,7 +51,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             var saved = await records.GetAsync(Sessions, tenant, key, Author, ct);
             var state = saved is null ? initial : JsonSerializer.Deserialize(saved.Value, PlanningJsonContext.Default.PlanningSession)
                 ?? throw new PlanningConflictException("The encrypted planning session is invalid.");
-            if (state.SchemaVersion != 6 || state.Request.TenantId != tenant || state.Request.SessionId != key || saved is not null && savedDefinition is null)
+            if (state.SchemaVersion != 7 || state.Request.TenantId != tenant || state.Request.SessionId != key || saved is not null && savedDefinition is null)
                 throw new PlanningConflictException("The planning session ownership or schema is invalid.");
             if (savedDefinition is null) await records.UpsertAsync(Definitions, tenant, key, definition, Author, ct);
             // A crash after the receipt but before the coordinator checkpoint must not
@@ -92,7 +92,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             ?? throw new PlanningConflictException("The approved planning session is unavailable for this tenant.");
         var state = JsonSerializer.Deserialize(stored.Value, PlanningJsonContext.Default.PlanningSession)
             ?? throw new PlanningConflictException("The planning session is invalid.");
-        if (state.SchemaVersion != 6 || state.Request.TenantId != tenant || state.Request.SessionId != sessionId ||
+        if (state.SchemaVersion != 7 || state.Request.TenantId != tenant || state.Request.SessionId != sessionId ||
             state.Status != PlanningStatus.Approved || state.ApprovedHash != artifactHash || PlanningArtifactApproval.Hash(state) != artifactHash)
             throw new PlanningConflictException("The artifact does not have a current, tenant-owned approval.");
         PlanningArtifactApproval.Verify(state);
