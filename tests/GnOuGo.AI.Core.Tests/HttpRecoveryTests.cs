@@ -141,6 +141,17 @@ public sealed class HttpRecoveryTests
         using (await Run((delay, _) => { Assert.Equal(TimeSpan.FromSeconds(2), delay); return Task.CompletedTask; })) { }
         Assert.Equal(2, calls); Assert.All(journal.State!.Attempts, a => Assert.NotNull(a.Status));
     }
+    [Theory]
+    [InlineData(false)][InlineData(true)]
+    public async Task GenerationJournalCannotAuthorizeToolsOrBackgroundEffects(bool background)
+    {
+        using var scope = new LLMHttpRetryContext("request", new Journal()).Activate();
+        var client = new RoutingLLMClient(new LLMOptions(), []);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => client.CallAsync(new()
+        {
+            UseBackgroundMode = background, Tools = background ? null : [new LLMToolDef { Name = "effect" }]
+        }, Ct));
+    }
     private static Task<HttpResponseMessage> Send(HttpClient http, bool post = false, LLMProviderRetryPolicyOptions? policy = null, CancellationToken? ct = null)
         => HttpRequestHelper.SendWithTransientRetryAsync(http,
             () => post ? HttpRequestHelper.CreateJsonPost("https://provider.example/generate", "{}"u8.ToArray()) : HttpRequestHelper.CreateGet("https://provider.example/models"),

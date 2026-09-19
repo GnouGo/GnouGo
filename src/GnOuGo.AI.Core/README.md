@@ -127,22 +127,11 @@ strictness under `text.format`; reasoning effort and `max_output_tokens` are pre
 GnOuGo polls only responses whose status is `queued` or `in_progress`, returns `completed`
 responses, and surfaces terminal or unexpected statuses without silently switching protocols.
 
-`RequestPolicy.BackgroundProtocol` controls background calls. `Auto` probes Responses and uses
-Chat Completions only when the HTTP contract proves the route unsupported. `Responses` requires
-that protocol, while `ChatCompletions` bypasses the probe. In `Auto`, route-level `404`, `405`,
-and `501` results are cached immediately, even if the first Chat fallback later fails transiently.
-Request-specific errors are never cached. Ambiguous `400`/`422` incompatibility is cached only
-after a successful Chat fallback. The official OpenAI endpoint does not use a compatibility
-downgrade.
-
-The Chat request first preserves strict JSON Schema output, reasoning effort, tools, and the
-output-token limit through `max_completion_tokens`. A non-official endpoint that returns `400`
-or `422` for that request gets one legacy-compatible retry that omits only
-`max_completion_tokens`, provided the error is generic or identifies that token parameter rather
-than another explicit parameter. Official OpenAI endpoints never use this legacy retry. Successful
-compatibility results are cached for 65 minutes: Responses support is keyed by endpoint, while the
-legacy Chat requirement is keyed by endpoint, API version, and model. Provider exceptions and
-compatibility logs preserve only sanitized status and policy details.
+`RequestPolicy.BackgroundProtocol` selects the protocol before sending. `Auto` and
+`Responses` use Responses; `ChatCompletions` sends directly to Chat Completions. A rejected
+request is never replayed through another endpoint or with its token ceiling removed.
+The former compatibility probes, caches and non-transient 4xx fallbacks have been removed.
+Anthropic likewise keeps its selected Messages or Batches protocol after a rejection.
 
 An internal `HttpClient` timeout is exposed as `TimeoutException`; cancellation requested by
 the caller remains `OperationCanceledException`.

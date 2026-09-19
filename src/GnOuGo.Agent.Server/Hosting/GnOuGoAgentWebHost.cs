@@ -415,7 +415,6 @@ public static class GnOuGoAgentWebHost
             sp.GetRequiredService<ILoggerFactory>(),
             llmClientOverride: null,
             mcpClientFactoryOverride: null,
-            backgroundModeCache: sp.GetRequiredService<IMemoryCache>(),
             llmCapabilityResolver: sp.GetService<ILLMCapabilityResolver>(),
             humanInputProvider: sp.GetRequiredService<AgentHumanInputProvider>(),
             localRuntime: sp.GetRequiredService<ILocalLLMRuntime>(),
@@ -428,7 +427,6 @@ public static class GnOuGoAgentWebHost
         {
             var store = sp.GetRequiredService<LLMRuntimeOptionsStore>();
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-            var cache = sp.GetRequiredService<IMemoryCache>();
             var sslLogger = loggerFactory.CreateLogger("GnOuGo.AI.Core.SSL");
             var dangerousCert = store.Current.DangerousAcceptAnyServerCertificate;
             var http = LLMHttpClientFactory.Create(dangerousCert, LLMHttpClientDefaults.MinimumTimeout, sslLogger);
@@ -438,7 +436,6 @@ public static class GnOuGoAgentWebHost
                 http,
                 store,
                 loggerFactory,
-                cache,
                 sp.GetRequiredService<ILocalLLMRuntime>());
         });
         builder.Services.AddSingleton<CachedLlmModelCatalog>(sp =>

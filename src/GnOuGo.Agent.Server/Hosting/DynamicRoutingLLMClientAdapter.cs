@@ -3,7 +3,6 @@ using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Integrations;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.Agent.Server.Hosting;
@@ -18,20 +17,17 @@ internal sealed class DynamicRoutingLLMClientAdapter : ILLMClient
     private readonly HttpClient _http;
     private readonly LLMRuntimeOptionsStore _store;
     private readonly ILoggerFactory _loggerFactory;
-    private readonly IMemoryCache _backgroundModeCache;
     private readonly ILocalLLMRuntime? _localRuntime;
 
     public DynamicRoutingLLMClientAdapter(
         HttpClient http,
         LLMRuntimeOptionsStore store,
         ILoggerFactory loggerFactory,
-        IMemoryCache backgroundModeCache,
         ILocalLLMRuntime? localRuntime = null)
     {
         _http = http;
         _store = store;
         _loggerFactory = loggerFactory;
-        _backgroundModeCache = backgroundModeCache;
         _localRuntime = localRuntime;
     }
 
@@ -39,7 +35,7 @@ internal sealed class DynamicRoutingLLMClientAdapter : ILLMClient
     {
         // Always read the LATEST options — picks up any /llm wizard changes.
         var options = _store.Current;
-        var providers = RoutingLLMClient.CreateDefaultProviders(_http, _loggerFactory, _backgroundModeCache).AsEnumerable();
+        var providers = RoutingLLMClient.CreateDefaultProviders(_http, _loggerFactory).AsEnumerable();
         if (_localRuntime is not null)
             providers = providers.Append(new LocalLLMProvider(_localRuntime));
         var routingClient = new RoutingLLMClient(options, providers);

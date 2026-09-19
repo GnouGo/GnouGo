@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Text.Json.Nodes;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -44,9 +43,8 @@ public sealed class RoutingLLMClient
     public RoutingLLMClient(
         HttpClient http,
         LLMOptions options,
-        ILoggerFactory? loggerFactory = null,
-        IMemoryCache? backgroundModeCache = null)
-        : this(options, CreateDefaultProviders(http, loggerFactory, backgroundModeCache))
+        ILoggerFactory? loggerFactory = null)
+        : this(options, CreateDefaultProviders(http, loggerFactory))
     {
         LLMHttpClientDefaults.EnsureMinimumTimeout(http);
     }
@@ -285,13 +283,12 @@ public sealed class RoutingLLMClient
     /// </summary>
     public static ILLMProvider[] CreateDefaultProviders(
         HttpClient http,
-        ILoggerFactory? loggerFactory = null,
-        IMemoryCache? backgroundModeCache = null) =>
+        ILoggerFactory? loggerFactory = null) =>
     [
-        new OpenAiLLMProvider(http, loggerFactory?.CreateLogger<OpenAiLLMProvider>(), backgroundModeCache),
+        new OpenAiLLMProvider(http, loggerFactory?.CreateLogger<OpenAiLLMProvider>()),
         new OllamaLLMProvider(http, loggerFactory?.CreateLogger<OllamaLLMProvider>()),
         new CopilotLLMProvider(http, loggerFactory?.CreateLogger<CopilotLLMProvider>()),
-        new AnthropicLLMProvider(http, loggerFactory?.CreateLogger<AnthropicLLMProvider>(), backgroundModeCache)
+        new AnthropicLLMProvider(http, loggerFactory?.CreateLogger<AnthropicLLMProvider>())
     ];
 }
 

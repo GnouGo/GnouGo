@@ -110,7 +110,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         }
         catch (Exception ex)
         {
-            StopReason = "uncertain_dispatch";
+            StopReason ??= "uncertain_dispatch";
             var failure = ex as LLMClientException;
             var details = new JsonObject { ["stage"] = stage, ["exception_type"] = ex.GetType().Name, ["kind"] = failure?.Kind.ToString(),
                 ["status_code"] = failure?.StatusCode, ["safe_provider_code"] = failure?.SafeProviderCode, ["retryable"] = failure?.Retryable,

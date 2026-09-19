@@ -4,7 +4,6 @@ using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.Hosting;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Runtime;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -22,12 +21,11 @@ public sealed class PlanningTransportBoundaryTests
     public async Task HostAdaptersPreserveOutputLimitsCompletionStatusAndDisabledRetries(bool dynamic, int status)
     {
         var handler = new RecordingHandler(status); using var http = new HttpClient(handler);
-        using var cache = new MemoryCache(new MemoryCacheOptions());
         var options = new LLMOptions { DefaultProvider = "fixture", DefaultModel = "renamed-model", Models =
         { ["fixture"] = new() { Type = "openai", Url = "https://example.invalid/v1/chat/completions", RetryPolicy = new() { MaxAttempts = 3 } } } };
         ILLMClient adapter = dynamic
-            ? new DynamicRoutingLLMClientAdapter(http, new LLMRuntimeOptionsStore(Options.Create(options), NullLogger<LLMRuntimeOptionsStore>.Instance), NullLoggerFactory.Instance, cache)
-            : new SnapshotRoutingLlmClientAdapter(http, options, NullLoggerFactory.Instance, cache);
+            ? new DynamicRoutingLLMClientAdapter(http, new LLMRuntimeOptionsStore(Options.Create(options), NullLogger<LLMRuntimeOptionsStore>.Instance), NullLoggerFactory.Instance)
+            : new SnapshotRoutingLlmClientAdapter(http, options, NullLoggerFactory.Instance);
         var request = new LLMRequest { Model = "renamed-model", Prompt = "Return a plan", Reasoning = "low", MaxTokens = 8192, RequireOutputTokenLimit = true, DisableTransportRetries = true };
         if (status == 200)
         {

@@ -177,8 +177,8 @@ public enum LLMUnspecifiedOutputTokensMode
 public sealed class LLMProviderRequestPolicyOptions
 {
     /// <summary>
-    /// Protocol selection for background calls. Auto probes Responses and falls back when the
-    /// route is contractually unsupported; ChatCompletions bypasses that probe.
+    /// Protocol selection before dispatch. Auto and Responses use Responses; ChatCompletions selects chat directly.
+    /// Non-transient rejections never trigger a protocol change.
     /// </summary>
     public LLMBackgroundProtocolMode BackgroundProtocol { get; set; } = LLMBackgroundProtocolMode.Auto;
 

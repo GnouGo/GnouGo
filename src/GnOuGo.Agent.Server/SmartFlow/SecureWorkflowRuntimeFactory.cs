@@ -1,7 +1,6 @@
 ﻿using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Integrations;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -14,7 +13,6 @@ public sealed class SecureWorkflowRuntimeFactory
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILLMClient? _llmClientOverride;
     private readonly IMcpClientFactory? _mcpClientFactoryOverride;
-    private readonly IMemoryCache? _backgroundModeCache;
     private readonly ILLMCapabilityResolver? _llmCapabilityResolver;
     private readonly IHumanInputProvider? _humanInputProvider;
     private readonly ILocalLLMRuntime? _localRuntime;
@@ -28,7 +26,6 @@ public sealed class SecureWorkflowRuntimeFactory
         ILoggerFactory? loggerFactory = null,
         ILLMClient? llmClientOverride = null,
         IMcpClientFactory? mcpClientFactoryOverride = null,
-        IMemoryCache? backgroundModeCache = null,
         ILLMCapabilityResolver? llmCapabilityResolver = null,
         IHumanInputProvider? humanInputProvider = null,
         ILocalLLMRuntime? localRuntime = null,
@@ -39,7 +36,6 @@ public sealed class SecureWorkflowRuntimeFactory
         _loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
         _llmClientOverride = llmClientOverride;
         _mcpClientFactoryOverride = mcpClientFactoryOverride;
-        _backgroundModeCache = backgroundModeCache;
         _llmCapabilityResolver = llmCapabilityResolver;
         _humanInputProvider = humanInputProvider;
         _localRuntime = localRuntime;
@@ -61,7 +57,7 @@ public sealed class SecureWorkflowRuntimeFactory
         if (_reviews is not null) mcpFactory = _reviews.Decorate(mcpFactory);
 
         var llmClient = _llmClientOverride
-            ?? new SnapshotRoutingLlmClientAdapter(http, options, _loggerFactory, _backgroundModeCache, _localRuntime);
+            ?? new SnapshotRoutingLlmClientAdapter(http, options, _loggerFactory, _localRuntime);
 
         return new SecureWorkflowRuntimeSession(
             llmClient,
@@ -112,26 +108,23 @@ internal sealed class SnapshotRoutingLlmClientAdapter : ILLMClient
     private readonly HttpClient _http;
     private readonly LLMOptions _options;
     private readonly ILoggerFactory _loggerFactory;
-    private readonly IMemoryCache? _backgroundModeCache;
     private readonly ILocalLLMRuntime? _localRuntime;
 
     public SnapshotRoutingLlmClientAdapter(
         HttpClient http,
         LLMOptions options,
         ILoggerFactory loggerFactory,
-        IMemoryCache? backgroundModeCache = null,
         ILocalLLMRuntime? localRuntime = null)
     {
         _http = http;
         _options = options;
         _loggerFactory = loggerFactory;
-        _backgroundModeCache = backgroundModeCache;
         _localRuntime = localRuntime;
     }
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
-        var providers = RoutingLLMClient.CreateDefaultProviders(_http, _loggerFactory, _backgroundModeCache).AsEnumerable();
+        var providers = RoutingLLMClient.CreateDefaultProviders(_http, _loggerFactory).AsEnumerable();
         if (_localRuntime is not null)
             providers = providers.Append(new LocalLLMProvider(_localRuntime));
         var routingClient = new RoutingLLMClient(_options, providers);

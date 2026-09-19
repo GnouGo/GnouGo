@@ -130,9 +130,8 @@ else
 builder.Services.AddSingleton<ILLMClient>(sp =>
 {
     var llmOptions = builder.Configuration.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
-    var cache = sp.GetRequiredService<IMemoryCache>();
     var http = new HttpClient { Timeout = LLMHttpClientDefaults.MinimumTimeout };
-    var routingClient = new RoutingLLMClient(http, llmOptions, backgroundModeCache: cache);
+    var routingClient = new RoutingLLMClient(http, llmOptions);
     return new RoutingLLMClientAdapter(routingClient);
 });
 builder.Services.AddSingleton<IMcpClientFactory>(sp =>

@@ -146,7 +146,7 @@ internal static partial class LLMProviderFailureClassifier
         if (HttpRequestHelper.GetRetryMetadata(exception) is { } metadata)
         {
             var kind = metadata.FailureKind ?? ClassifyStatus(exception.StatusCode).Kind;
-            var retryable = kind is LLMProviderFailureKind.Transport
+            var retryable = (exception.StatusCode is null || HttpRequestHelper.IsRetryableStatus(exception.StatusCode.Value)) && kind is LLMProviderFailureKind.Transport
                 or LLMProviderFailureKind.Timeout
                 or LLMProviderFailureKind.RateLimited
                 or LLMProviderFailureKind.ServiceUnavailable;
@@ -170,7 +170,7 @@ internal static partial class LLMProviderFailureClassifier
         return exception.StatusCode switch
         {
             null => Create(LLMProviderFailureKind.Transport, retryable: true),
-            HttpStatusCode.RequestTimeout or HttpStatusCode.GatewayTimeout =>
+            HttpStatusCode.GatewayTimeout =>
                 Create(LLMProviderFailureKind.Timeout, retryable: true, exception.StatusCode),
             (HttpStatusCode)425 or HttpStatusCode.TooManyRequests =>
                 Create(LLMProviderFailureKind.RateLimited, retryable: true, exception.StatusCode),
@@ -182,7 +182,7 @@ internal static partial class LLMProviderFailureClassifier
                 Create(LLMProviderFailureKind.Authorization, retryable: false, exception.StatusCode),
             HttpStatusCode.NotFound =>
                 Create(LLMProviderFailureKind.ModelUnavailable, retryable: false, exception.StatusCode),
-            { } status when (int)status >= 500 =>
+            { } status when HttpRequestHelper.IsRetryableStatus(status) =>
                 Create(LLMProviderFailureKind.ServiceUnavailable, retryable: true, status),
             { } status when (int)status >= 400 =>
                 Create(LLMProviderFailureKind.InvalidRequest, retryable: false, status),
@@ -208,7 +208,7 @@ internal static partial class LLMProviderFailureClassifier
         => statusCode switch
         {
             null => new(LLMProviderFailureKind.Transport, true, null),
-            HttpStatusCode.RequestTimeout or HttpStatusCode.GatewayTimeout =>
+            HttpStatusCode.GatewayTimeout =>
                 new(LLMProviderFailureKind.Timeout, true, null),
             (HttpStatusCode)425 or HttpStatusCode.TooManyRequests =>
                 new(LLMProviderFailureKind.RateLimited, true, null),
@@ -220,7 +220,7 @@ internal static partial class LLMProviderFailureClassifier
                 new(LLMProviderFailureKind.Authorization, false, null),
             HttpStatusCode.NotFound =>
                 new(LLMProviderFailureKind.ModelUnavailable, false, null),
-            { } status when (int)status >= 500 =>
+            { } status when HttpRequestHelper.IsRetryableStatus(status) =>
                 new(LLMProviderFailureKind.ServiceUnavailable, true, null),
             { } status when (int)status >= 400 =>
                 new(LLMProviderFailureKind.InvalidRequest, false, null),

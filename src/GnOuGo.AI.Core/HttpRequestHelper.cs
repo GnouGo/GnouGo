@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Globalization;
 using System.Net;
@@ -313,7 +312,7 @@ public static class HttpRequestHelper
         RetryMetadata.Add(response, metadata);
     }
 
-    private static bool IsRetryableStatus(HttpStatusCode statusCode)
+    internal static bool IsRetryableStatus(HttpStatusCode statusCode)
         => statusCode is (HttpStatusCode)425
             or HttpStatusCode.TooManyRequests
             or HttpStatusCode.InternalServerError
