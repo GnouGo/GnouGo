@@ -188,6 +188,27 @@ public sealed class HttpRecoveryTests
         using var result = await Send(http);
         Assert.Equal(1, calls); Assert.True(HttpRequestHelper.GetRetryMetadata(result)!.RetryExhausted);
     }
+    [Fact]
+    public async Task TimeoutWhileReadingBodyIsUncertainAndDisposesResponseBeforeRetry()
+    {
+        var journal = new Journal(); var calls = 0; var content = new WaitingContent();
+        using var http = new HttpClient(new Handler((_, _) => Task.FromResult(++calls == 1
+            ? new HttpResponseMessage(HttpStatusCode.OK) { Content = content }
+            : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("complete") })));
+        using var scope = new LLMHttpRetryContext("original", journal).Activate();
+        using var response = await Send(http, post: true, policy: new() { AttemptTimeoutMilliseconds = 10 });
+        Assert.Equal(2, calls); Assert.True(content.Disposed);
+        Assert.Equal("timeout", journal.State!.Attempts[0].Failure); Assert.Null(journal.State.Attempts[0].Status);
+        Assert.Equal("complete", await response.Content.ReadAsStringAsync(Ct));
+    }
+    private sealed class WaitingContent : HttpContent
+    {
+        internal bool Disposed;
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) => throw new InvalidOperationException("Cancellation must reach the body reader.");
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context, CancellationToken ct) => Task.Delay(Timeout.Infinite, ct);
+        protected override bool TryComputeLength(out long length) { length = 0; return false; }
+        protected override void Dispose(bool disposing) { Disposed = true; base.Dispose(disposing); }
+    }
     private static Task<HttpResponseMessage> Send(HttpClient http, bool post = false, LLMProviderRetryPolicyOptions? policy = null, CancellationToken? ct = null)
         => HttpRequestHelper.SendWithTransientRetryAsync(http,
             () => post ? HttpRequestHelper.CreateJsonPost("https://provider.example/generate", "{}"u8.ToArray()) : HttpRequestHelper.CreateGet("https://provider.example/models"),
