@@ -27,7 +27,7 @@ public sealed class LlmRuntimeOptionsStoreTests
                             UnspecifiedOutputTokens = LLMUnspecifiedOutputTokensMode.Configured,
                             DefaultMaxOutputTokens = 4_096
                         },
-                        RetryPolicy = new LLMProviderRetryPolicyOptions { MaxAttempts = 2 }
+                        RetryPolicy = new LLMProviderRetryPolicyOptions { MaxAttempts = 2, MaxUncertainRetries = 0, AttemptTimeoutMilliseconds = 12345 }
                     }
                 },
                 McpServers = new Dictionary<string, McpServerOptions>(StringComparer.OrdinalIgnoreCase)
@@ -52,6 +52,8 @@ public sealed class LlmRuntimeOptionsStoreTests
         Assert.Equal(LLMBackgroundProtocolMode.ChatCompletions, provider.RequestPolicy.BackgroundProtocol);
         Assert.Equal(4_096, provider.RequestPolicy.DefaultMaxOutputTokens);
         Assert.Equal(2, provider.RetryPolicy.MaxAttempts);
+        Assert.Equal(0, provider.RetryPolicy.MaxUncertainRetries);
+        Assert.Equal(12345, provider.RetryPolicy.AttemptTimeoutMilliseconds);
     }
 
     [Fact]

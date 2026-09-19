@@ -10,6 +10,38 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class KeyVaultRuntimeConfigStoreTests
 {
+    [Theory]
+    [InlineData("{\"maxAttempts\":3,\"maxUncertainRetries\":0,\"attemptTimeoutMilliseconds\":12345}", true)]
+    [InlineData("{\"attemptTimeoutMilliseconds\":0}", false)]
+    [InlineData("{\"maxUncertainRetries\":-1}", false)]
+    [InlineData("{\"maxAttempts\":21}", false)]
+    [InlineData("{\"attemptTimeoutMilliseconds\":\"invalid\"}", false)]
+    [InlineData("{\"honorRetryAfter\":false}", false)]
+    [InlineData("{\"maxAttempts\":2,\"MaxAttempts\":3}", false)]
+    [InlineData("null", false)]
+    public async Task KeyVaultRetryPolicyIsValidatedAndOverridesBaseOptions(string policy, bool valid)
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), "gnougo-retry-policy-" + Guid.NewGuid().ToString("N") + ".db");
+        var services = new ServiceCollection(); services.AddLogging(); services.AddKeyVaultMcpPersistence(dbPath);
+        services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
+        await using var provider = services.BuildServiceProvider();
+        try
+        {
+            await provider.InitializeKeyVaultMcpAsync(ct: TestContext.Current.CancellationToken);
+            var store = provider.GetRequiredService<IKeyVaultRuntimeConfigStore>();
+            await store.SaveSecretValueAsync("LLM--Models--openai", "{\"provider\":\"openai\",\"url\":\"https://provider.example/v1\",\"retryPolicy\":" + policy + "}", TestContext.Current.CancellationToken);
+            if (!valid)
+            {
+                await Assert.ThrowsAnyAsync<Exception>(() => store.BuildEffectiveOptionsAsync(new LLMOptions(), TestContext.Current.CancellationToken));
+                return;
+            }
+            var options = await store.BuildEffectiveOptionsAsync(new LLMOptions(), TestContext.Current.CancellationToken);
+            var retry = options.Models["openai"].RetryPolicy;
+            Assert.Equal(3, retry.MaxAttempts); Assert.Equal(0, retry.MaxUncertainRetries); Assert.Equal(12345, retry.AttemptTimeoutMilliseconds);
+        }
+        finally { try { File.Delete(dbPath); } catch (IOException) { } }
+    }
+
     [Fact]
     public async Task BuildEffectiveOptionsAsync_LoadsTrustedSecretsAndKeepsKeyVaultMcpAvailable()
     {
@@ -69,6 +101,8 @@ public sealed class KeyVaultRuntimeConfigStoreTests
                         RetryPolicy = new LLMProviderRetryPolicyOptions
                         {
                             MaxAttempts = 2,
+                            MaxUncertainRetries = 0,
+                            AttemptTimeoutMilliseconds = 12345,
                             BaseDelayMilliseconds = 250,
                             MaxDelayMilliseconds = 2_000,
                             MaxTotalDelayMilliseconds = 5_000
@@ -97,6 +131,8 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             Assert.Equal(LLMBackgroundProtocolMode.ChatCompletions, providerConfig.RequestPolicy.BackgroundProtocol);
             Assert.Equal(4_096, providerConfig.RequestPolicy.DefaultMaxOutputTokens);
             Assert.Equal(2, providerConfig.RetryPolicy.MaxAttempts);
+            Assert.Equal(0, providerConfig.RetryPolicy.MaxUncertainRetries);
+            Assert.Equal(12345, providerConfig.RetryPolicy.AttemptTimeoutMilliseconds);
             Assert.Equal(5_000, providerConfig.RetryPolicy.MaxTotalDelayMilliseconds);
 
             Assert.True(effective.McpServers.TryGetValue("Github", out var github));

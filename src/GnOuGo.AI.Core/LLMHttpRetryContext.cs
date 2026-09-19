@@ -47,5 +47,7 @@ public sealed class LLMHttpRetryContext(string requestId, ILLMHttpRetryJournal j
     private sealed class Scope : IDisposable { public void Dispose() => Ambient.Value = null; }
 }
 
+[JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow)]
+[JsonSerializable(typeof(LLMProviderRetryPolicyOptions))]
 [JsonSerializable(typeof(LLMHttpRetryState))]
 public partial class LLMHttpRetryJsonContext : JsonSerializerContext;

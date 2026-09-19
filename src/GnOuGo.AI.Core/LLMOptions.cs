@@ -206,22 +206,23 @@ public sealed class LLMProviderRetryPolicyOptions
 
     internal LLMProviderRetryPolicyOptions SingleAttempt()
     {
-        var copy = (LLMProviderRetryPolicyOptions)MemberwiseClone();
+        var copy = Clone();
         copy.MaxAttempts = 1;
         return copy;
     }
 
+    /// <summary>Copies all scalar retry settings without sharing a mutable policy with the caller.</summary>
+    public LLMProviderRetryPolicyOptions Clone() => (LLMProviderRetryPolicyOptions)MemberwiseClone();
+
     /// <summary>Initial full-jitter exponential-backoff bound.</summary>
     public int BaseDelayMilliseconds { get; set; } = 1_000;
 
-    /// <summary>Maximum delay for one retry.</summary>
+    /// <summary>Maximum jitter backoff; never shortens a provider Retry-After.</summary>
     public int MaxDelayMilliseconds { get; set; } = 30_000;
 
     /// <summary>Maximum cumulative retry delay for one HTTP operation.</summary>
     public int MaxTotalDelayMilliseconds { get; set; } = 60_000;
 
-    /// <summary>Whether valid Retry-After response headers take precedence over jitter backoff.</summary>
-    public bool HonorRetryAfter { get; set; } = true;
 }
 
 /// <summary>Deterministic validation for provider request and retry policy configuration.</summary>

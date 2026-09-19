@@ -186,7 +186,7 @@ public static class HttpRequestHelper
                     : safeToRepeat && previous.Failure is null or "transport" or "timeout";
                 var exhausted = state.Attempts.Count >= retryPolicy.MaxAttempts || uncertain &&
                     state.Attempts.Count(a => a.Status is null) > retryPolicy.MaxUncertainRetries;
-                var retryAfter = response is not null && retryPolicy.HonorRetryAfter ? ParseRetryAfter(response, utcNow()) : null;
+                var retryAfter = response is not null ? ParseRetryAfter(response, utcNow()) : null;
                 var delay = !retryable || exhausted || response?.IsSuccessStatusCode == true ? TimeSpan.Zero : previous.NotBefore is { } due ? due - utcNow() : retryAfter ?? CalculateJitterDelay(retryPolicy, state.Attempts.Count, jitter);
                 if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
                 exhausted |= delay.TotalMilliseconds > retryPolicy.MaxTotalDelayMilliseconds ||

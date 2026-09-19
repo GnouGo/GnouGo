@@ -347,7 +347,7 @@ public sealed class LLMRuntimeOptionsStore
                 Scopes = kv.Value.Scopes,
                 ApiVersion = kv.Value.ApiVersion,
                 RequestPolicy = CloneRequestPolicy(kv.Value.RequestPolicy),
-                RetryPolicy = CloneRetryPolicy(kv.Value.RetryPolicy),
+                RetryPolicy = kv.Value.RetryPolicy.Clone(),
             };
         }
         foreach (var kv in src.McpServers)
@@ -366,15 +366,7 @@ public sealed class LLMRuntimeOptionsStore
             MaxOutputTokensCap = source.MaxOutputTokensCap
         };
 
-    private static LLMProviderRetryPolicyOptions CloneRetryPolicy(LLMProviderRetryPolicyOptions source)
-        => new()
-        {
-            MaxAttempts = source.MaxAttempts,
-            BaseDelayMilliseconds = source.BaseDelayMilliseconds,
-            MaxDelayMilliseconds = source.MaxDelayMilliseconds,
-            MaxTotalDelayMilliseconds = source.MaxTotalDelayMilliseconds,
-            HonorRetryAfter = source.HonorRetryAfter
-        };
+
 
     private static string NormalizeProviderType(string providerKey)
         => providerKey.Trim().ToLowerInvariant() switch

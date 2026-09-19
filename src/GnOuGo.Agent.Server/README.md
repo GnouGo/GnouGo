@@ -607,3 +607,13 @@ dotnet test "C:\github\GnouGo\tests\GnOuGo.Agent.Server.Tests\GnOuGo.Agent.Serve
 ```
 
 Discovery and validation failures appear as located diagnostics in the durable session. Revise the intent to rebuild against current capabilities. Catalog revalidation requires no model call. Cumulative usage survives retries and restart.
+
+### Provider HTTP retries
+
+Transport retries are owned by [AI.Core](../GnOuGo.AI.Core/README.md#http-resilience).
+The optional `retryPolicy` object in a KeyVault provider configuration controls `maxAttempts`,
+`maxUncertainRetries` and `attemptTimeoutMilliseconds`, plus bounded backoff settings.
+Omitting it preserves the base policy. Providing it replaces that policy, with defaults for
+unspecified fields. Malformed settings fail validation; `Retry-After` cannot be disabled.
+Uncertain generation recovery requires a host accounting journal. The live planning benchmark
+supplies it; ordinary planning journals retain their single-attempt safety boundary.

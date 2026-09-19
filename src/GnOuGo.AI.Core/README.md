@@ -174,8 +174,7 @@ the caller remains `OperationCanceledException`.
           "AttemptTimeoutMilliseconds": 600000,
           "BaseDelayMilliseconds": 1000,
           "MaxDelayMilliseconds": 30000,
-          "MaxTotalDelayMilliseconds": 60000,
-          "HonorRetryAfter": true
+          "MaxTotalDelayMilliseconds": 60000
         }
       },
       "Ollama": {

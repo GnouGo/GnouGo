@@ -81,3 +81,10 @@ A bounded unknown allows subsequent runs; it does not become verified usage. Rep
 receipt replaces its measurement entry rather than adding another charge. Failed-run reports
 are retained in `previous_results` if the same revision resumes its journaled pending request.
 No paid evaluation or previous campaign modification is required to test this behavior.
+
+Configure the built-in model through the provider secret's optional `retryPolicy` object,
+for example `{"maxAttempts":4,"maxUncertainRetries":1,"attemptTimeoutMilliseconds":600000}`.
+The object replaces the base retry policy; unspecified fields use the documented AI.Core
+defaults. Invalid fields, ambiguous names and invalid limits fail configuration validation.
+`Retry-After` is always honored; it cannot be disabled. Campaign summaries include
+`campaign_accounting` with cumulative verified usage and conservative unknown allowances.
