@@ -14,8 +14,9 @@ using GnOuGo.Workspace;
 
 string? Option(string name) { var index = Array.IndexOf(args, name); return index < 0 ? null : args.ElementAtOrDefault(index + 1) ?? throw new ArgumentException("Missing " + name); }
 var replayKey = Option("--replay-run"); var inspectKey = Option("--inspect-run");
-if (replayKey is not null && inspectKey is not null) throw new ArgumentException("Choose replay or inspection.");
-var readOnly = replayKey is not null || inspectKey is not null;
+var inspectCampaign = args.Contains("--inspect-campaign", StringComparer.Ordinal);
+if ((replayKey is null ? 0 : 1) + (inspectKey is null ? 0 : 1) + (inspectCampaign ? 1 : 0) > 1) throw new ArgumentException("Choose one replay or inspection command.");
+var readOnly = replayKey is not null || inspectKey is not null || inspectCampaign;
 var command = Option("--live-command"); var providerName = Option("--keyvault-provider"); var live = !readOnly && (command is not null || providerName is not null);
 var campaignId = Option("--campaign") ?? (live || readOnly ? throw new ArgumentException("--campaign is required for live runs and recorded evidence.") : "offline");
 var phase = replayKey is not null ? "replay" : Option("--phase") ?? (live ? "pilot" : "fixture");
@@ -31,22 +32,35 @@ BenchmarkCampaign? campaign = live ? evidenceStore : null;
 var leasePath = live ? GnOuGoWorkspace.ResolveDatabasePath(null, Directory.GetCurrentDirectory(), ".GnOuGo/data/planning-evaluation/" + campaignId + ".lock") : null;
 if (leasePath is not null) Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
 await using var lease = leasePath is null ? null : new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+if (inspectCampaign) { Console.WriteLine((await evidenceStore!.InspectAsync()).ToJsonString()); return; }
 if (inspectKey is { } inspect)
 {
     var evidence = await evidenceStore!.LoadAsync("planning-evaluation-runs", inspect);
     if (evidence is not null && args.Contains("--include-receipts", StringComparer.Ordinal))
     {
         var calls = new JsonArray();
-        foreach (var id in evidence["usage_receipts"]!.AsObject().Select(p => p.Key))
-            calls.Add((JsonNode)new JsonObject { ["request"] = await evidenceStore.LoadAsync("planning-evaluation-requests", id), ["receipt"] = await evidenceStore.LoadAsync("planning-evaluation-receipts", id) });
+        var pending = evidence["session"]?["pendingCall"]?["id"]?.ToString();
+        foreach (var id in evidence["usage_receipts"]!.AsObject().Select(p => p.Key).Concat(pending is null ? [] : [pending]).Distinct(StringComparer.Ordinal))
+            calls.Add((JsonNode)new JsonObject { ["request"] = await evidenceStore.LoadAsync("planning-evaluation-requests", id), ["receipt"] = await evidenceStore.LoadAsync("planning-evaluation-receipts", id),
+                ["failure"] = await evidenceStore.LoadAsync("planning-evaluation-failures", id) });
         evidence["model_requests"] = calls;
     }
     Console.WriteLine(evidence?.ToJsonString() ?? "null"); return;
 }
-var replay = replayKey is null ? default : await evidenceStore!.ReadReplayAsync(replayKey);
-if (replayKey is not null) { names = PlanningBenchmarkMeasurements.Select(replay.State.Request.Name); repetitions = 1; }
+(PlanningSession State, ILLMClient Client)? replay = null;
+if (replayKey is not null)
+{
+    try { replay = await evidenceStore!.ReadReplayAsync(replayKey); }
+    catch (InvalidOperationException)
+    {
+        Console.WriteLine(new JsonObject { ["mode"] = "replay", ["diagnostic"] = "REPLAY_UNAVAILABLE", ["live_model_calls"] = 0,
+            ["message"] = "The original reservation, response schema and completion receipt are required; no request was dispatched." }.ToJsonString());
+        Environment.ExitCode = 2; return;
+    }
+}
+if (replay is { } recorded) { names = PlanningBenchmarkMeasurements.Select(recorded.State.Request.Name); repetitions = 1; }
 using var configured = !live || providerName is null ? null : await KeyVaultBenchmarkModel.CreateAsync(providerName, Option("--model"), campaign!, Directory.GetCurrentDirectory(), CancellationToken.None);
-ILLMClient? model = replayKey is not null ? replay.Client : (ILLMClient?)configured ?? (command is null ? null : new CommandModel(command));
+ILLMClient? model = replay?.Client ?? (ILLMClient?)configured ?? (!live || command is null ? null : new CommandModel(command));
 string RunKey(string runPhase, string name, int repetition) => source + ":" + runPhase + ":" + name + ":" + repetition;
 if (live && phase == "measured")
 {
@@ -65,9 +79,9 @@ foreach (var name in names)
     { results.Add(completed); Console.WriteLine(completed.ToJsonString()); if (completed["termination_reason"] is not null) goto Complete; continue; }
     run ??= new JsonObject { ["diagnostic_history"] = new JsonArray(), ["usage_receipts"] = new JsonObject(), ["usage_complete"] = true,
         ["first_pass_valid"] = false, ["final_review"] = false, ["elapsed_ms"] = 0L };
-    var state = replayKey is not null ? replay.State : run["session"] is { } saved ? JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)! : new PlanningSession
+    var state = replay?.State ?? (run["session"] is { } saved ? JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.PlanningSession)! : new PlanningSession
     { Request = new() { TenantId = "benchmark", SessionId = PlanningGraphCompiler.Fingerprint(campaignId + ":" + key), Name = name, Prompt = PlanningBenchmarkCases.Prompt(name),
-        Generation = new() { Reasoning = "medium", MaxInputTokensPerRequest = 96_000, MaxOutputTokens = 32_768 } } };
+        Generation = new() { Reasoning = "medium", MaxInputTokensPerRequest = 96_000, MaxOutputTokens = 32_768 } } });
     var environment = new PlanningBenchmarkCases.Environment(name); var engine = new WorkflowEngine { McpClientFactory = environment.Factory(), HumanInputProvider = new PlanningCorpus.Human() };
     async Task Checkpoint(PlanningSession current, CancellationToken ct)
     {

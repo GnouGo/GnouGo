@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Planning;
 using GnOuGo.KeyVault.Core.Services;
 
 /// <summary>Evaluation evidence uses the existing public encrypted record boundary, scoped to one campaign.</summary>
@@ -29,14 +30,36 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
             if (await records.GetAsync("planning-evaluation-receipts", "benchmark", request.Key, Author, ct) is null) return true;
         return false;
     }
+    internal async Task<JsonObject> InspectAsync(CancellationToken ct = default)
+    {
+        var evidence = new List<KeyVaultRecordValue>();
+        foreach (var collection in new[] { "requests", "receipts", "failures", "runs", "summaries", "configuration", "budgets" })
+            evidence.AddRange((await records.ListAsync("planning-evaluation-" + collection, "benchmark", Author, ct))
+                .Where(r => collection == "budgets" ? r.Key == Id : r.Key.StartsWith(Id + ":", StringComparison.Ordinal)));
+        var requests = evidence.Where(r => r.Collection == "planning-evaluation-requests").ToArray();
+        var receipts = evidence.Where(r => r.Collection == "planning-evaluation-receipts").ToArray();
+        var missing = requests.Where(r => !receipts.Any(receipt => receipt.Key == r.Key)).ToArray();
+        var budget = evidence.SingleOrDefault(r => r.Collection == "planning-evaluation-budgets");
+        var snapshot = budget is null ? null : JsonSerializer.Deserialize(budget.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+        return new() { ["campaign"] = Id, ["reserved_requests"] = requests.Length, ["completed_receipts"] = receipts.Length,
+            ["uncertain_requests"] = new JsonArray(missing.Select(r => (JsonNode)JsonValue.Create(r.Key[(Id.Length + 1)..])).ToArray()),
+            ["recorded_failures"] = evidence.Count(r => r.Collection == "planning-evaluation-failures"),
+            ["known_budget_cost"] = snapshot?.EstimatedCost, ["budget_currency"] = snapshot?.EstimatedCostCurrency,
+            ["known_input_tokens"] = snapshot?.InputTokens, ["known_output_tokens"] = snapshot?.OutputTokens,
+            ["completion_receipts_complete"] = missing.Length == 0,
+            ["evidence_hash"] = PlanningGraphCompiler.Fingerprint(string.Join('\n', evidence.OrderBy(r => r.Collection, StringComparer.Ordinal).ThenBy(r => r.Key, StringComparer.Ordinal)
+                .Select(r => new JsonArray(r.Collection, r.Key, r.Value).ToJsonString()))) };
+    }
     internal async Task<(PlanningSession State, ILLMClient Client)> ReadReplayAsync(string runKey, CancellationToken ct = default)
     {
         var evidence = await LoadAsync("planning-evaluation-runs", runKey, ct) ?? throw new InvalidOperationException("No recorded run.");
         var saved = JsonSerializer.Deserialize(evidence["session"], PlanningJsonContext.Default.PlanningSession) ?? throw new InvalidOperationException("No recorded session.");
+        if (saved.SchemaVersion != 7) throw new InvalidOperationException("Unsupported recorded session format.");
         var prefix = Id + ":" + saved.Request.SessionId + ":1:";
         var reservations = (await records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct)).Where(r => r.Key.StartsWith(prefix, StringComparison.Ordinal)).ToArray();
         if (reservations.Length != 1) throw new InvalidOperationException("Replay requires one original interpretation reservation.");
         var request = JsonSerializer.Deserialize(reservations[0].Value, PlanningJsonContext.Default.LLMRequest)!;
+        if (request.ClientRequestId != reservations[0].Key[(Id.Length + 1)..]) throw new InvalidOperationException("The reservation identity does not match its stored request.");
         var receipt = await LoadAsync("planning-evaluation-receipts", request.ClientRequestId!, ct) ?? throw new InvalidOperationException("No completion receipt; replay cannot dispatch or invent a response.");
         var response = JsonSerializer.Deserialize(receipt, PlanningJsonContext.Default.LLMResponse)!;
         if (request.StructuredOutputSchema is null) throw new InvalidOperationException("The original response schema is missing.");
@@ -69,14 +92,28 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         { StopReason = "uncertain_dispatch"; throw new InvalidOperationException("The campaign has an uncertain dispatch; no request was resent."); }
         await preflight(ct);
         await SaveAsync("planning-evaluation-requests", key, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), ct);
+        var stage = "dispatch";
         try
         {
             var response = await dispatch(ct);
+            stage = "receipt_write";
             // Preserve evidence even when cancellation arrives after completion.
             await SaveAsync("planning-evaluation-receipts", key, JsonSerializer.SerializeToNode(response, PlanningJsonContext.Default.LLMResponse)!.AsObject(), CancellationToken.None);
             return response;
         }
-        catch { StopReason = "uncertain_dispatch"; throw; }
+        catch (Exception ex)
+        {
+            StopReason = "uncertain_dispatch";
+            var failure = ex as LLMClientException;
+            var details = new JsonObject { ["stage"] = stage, ["exception_type"] = ex.GetType().Name, ["kind"] = failure?.Kind.ToString(),
+                ["status_code"] = failure?.StatusCode, ["safe_provider_code"] = failure?.SafeProviderCode, ["retryable"] = failure?.Retryable,
+                ["attempt_count"] = failure?.AttemptCount, ["retry_exhausted"] = failure?.RetryExhausted, ["retry_after_ms"] = failure?.RetryAfterMilliseconds };
+            // A durable reservation already prevents redispatch. Failure evidence must not
+            // replace the original exception if storage is itself unavailable.
+            try { await SaveAsync("planning-evaluation-failures", key, details, CancellationToken.None); }
+            catch { }
+            throw;
+        }
     }
     internal void BudgetExceeded() => StopReason = "campaign_budget";
 }

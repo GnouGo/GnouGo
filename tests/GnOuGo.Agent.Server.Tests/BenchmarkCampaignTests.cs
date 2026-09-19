@@ -18,6 +18,7 @@ public sealed class BenchmarkCampaignTests
         await campaign.SaveAsync("planning-evaluation-requests", request.ClientRequestId, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), Ct);
         await campaign.SaveAsync("planning-evaluation-receipts", request.ClientRequestId, JsonSerializer.SerializeToNode(new LLMResponse { Text = "\"recorded\"" }, PlanningJsonContext.Default.LLMResponse)!.AsObject(), Ct);
         var before = records.Writes;
+        var snapshot = await campaign.InspectAsync(Ct);
         var replay = await campaign.ReadReplayAsync("source:pilot:local:1", Ct);
         var reserved = replay.State.PendingCall!.Request;
         Assert.Equal("string", reserved.StructuredOutputSchema!["type"]!.ToString());
@@ -27,6 +28,7 @@ public sealed class BenchmarkCampaignTests
         Assert.Equal("\"recorded\"", (await replay.Client.CallAsync(reserved, Ct)).Text);
         await Assert.ThrowsAsync<InvalidOperationException>(() => replay.Client.CallAsync(reserved, Ct));
         Assert.Equal(before, records.Writes);
+        Assert.True(JsonNode.DeepEquals(snapshot, await campaign.InspectAsync(Ct)));
         var unchanged = (await campaign.LoadAsync("planning-evaluation-runs", "source:pilot:local:1", Ct))!["session"]!;
         Assert.Equal(3, unchanged["modelCalls"]!.GetValue<int>()); Assert.Equal(2, unchanged["repairAttempts"]!.GetValue<int>());
         Assert.Equal(8, unchanged["request"]!["maxModelCalls"]!.GetValue<int>());
@@ -42,6 +44,23 @@ public sealed class BenchmarkCampaignTests
         Assert.Contains("No completion receipt", (await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.ReadReplayAsync("source:pilot:local:1", Ct))).Message);
         Assert.Equal(before, records.Writes); Assert.True(await campaign.HasUncertainRequestAsync(Ct));
         await Assert.ThrowsAsync<InvalidOperationException>(() => new BenchmarkCampaign(records, "different").ReadReplayAsync("source:pilot:local:1", Ct));
+    }
+    [Fact]
+    public async Task UncertainFailureRetainsSafeMetadataWithoutInventingAReceipt()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "recorded");
+        await Assert.ThrowsAsync<LLMClientException>(() => campaign.CallAsync(new() { ClientRequestId = "session:1:hash", Prompt = "private prompt" }, _ => Task.CompletedTask,
+            _ => throw new LLMClientException(LLMClientFailureKind.ServiceUnavailable, "raw body containing private data", true, 503, "overloaded", 1, false, 1000), Ct));
+        var failure = (await campaign.LoadAsync("planning-evaluation-failures", "session:1:hash", Ct))!;
+        Assert.Equal("ServiceUnavailable", failure["kind"]!.ToString()); Assert.Equal(503, failure["status_code"]!.GetValue<int>());
+        Assert.Equal("dispatch", failure["stage"]!.ToString()); Assert.Equal(1, failure["attempt_count"]!.GetValue<int>());
+        Assert.DoesNotContain("private", failure.ToJsonString()); Assert.DoesNotContain("raw body", failure.ToJsonString());
+        Assert.Null(await campaign.LoadAsync("planning-evaluation-receipts", "session:1:hash", Ct));
+        var writes = records.Writes; var inspection = await campaign.InspectAsync(Ct);
+        Assert.Equal(1, inspection["reserved_requests"]!.GetValue<int>()); Assert.Equal(0, inspection["completed_receipts"]!.GetValue<int>());
+        Assert.False(inspection["completion_receipts_complete"]!.GetValue<bool>()); Assert.Null(inspection["known_budget_cost"]);
+        Assert.Equal("session:1:hash", Assert.Single(inspection["uncertain_requests"]!.AsArray())!.ToString());
+        Assert.Equal(writes, records.Writes);
     }
     [Fact]
     public async Task NewCampaignIgnoresOldUncertaintyAndReplaysOwnReceiptsWithoutDispatch()
