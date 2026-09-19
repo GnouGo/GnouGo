@@ -98,3 +98,8 @@ defaults. Invalid fields, ambiguous names and invalid limits fail configuration 
 The [live HTTP recovery report](../../docs/planning-http-live-validation-2026-09-19.md)
 records a recovered HTTP 500, unchanged accounting after restart, and seven FinalReview
 results. One independently detected cleanup failure prevented the measured cohort.
+
+The subsequent [cleanup validation report](../../docs/planning-cleanup-validation-2026-09-19.md)
+records corrected cleanup ordering, a 21-run measured cohort and the cancellation-injection
+correction. Its latest pilot is blocked by a separate input-default hole defect; results from
+different revisions are kept separate and no overall reliability pass is claimed.
