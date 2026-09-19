@@ -12,6 +12,8 @@ Input references name the current workflow's input port. Capability schema refer
 
 `PlanningJsonTransport` supplies the canonical model-facing intent JSON: active value/schema fields, explicit nulls, omitted arguments and holes remain distinct. Arrays require item schemas; objects require typed properties or typed additional properties. Fixtures accept only literal input objects and recursive literal observation responses. Their shape is checked alongside graph errors; absent fixtures still use deterministic sampling.
 
+Use `additionalProperties: null` for a closed object with declared properties; a schema hole is unresolved, not a wildcard. Required runtime inputs and guaranteed result properties use `required: true`. Optional values without defaults cannot be consumed unconditionally.
+
 `PlanningDiagnosticLocations` derives repair coordinates from workflow/step identifiers and named members, accounting for step ordering, MCP arguments and generated confirmation/cleanup guards. Session diagnostics keep graph coordinates. Repair context names the editable intent location (or its existing container and missing field), groups known consequences under the invalid producer schema, and retains independent failures. Defective host-owned fields stop planning without spending a model repair.
 
 Pending model requests retain their original interpretation, repair, or choice phase and reserved response schema on receipt replay. Uncertain dispatches stop. Agent.Server offers an explicit retry that retains cumulative budgets and accounts for missing usage before reserving a new request; the planner never retries them automatically.

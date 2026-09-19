@@ -4,9 +4,58 @@
 
 The schema-6 refactor was committed and pushed as `ff567a2` on `feat/deterministic-planner-v2`. The user's unchanged French PR-review prompt was submitted through the actual Agent.Server planning API using its configured model and KeyVault-backed integrations.
 
-The live attempts **did not reach final review or execution**. Deterministic validation rejected the first generated graph. Two repairs were exhausted; a step still referenced its own unfinished result. After fixes in `022f0db`, the user authorized resubmitting the exact prompt. That interpretation request failed at the provider with HTTP 500 before returning a result. The user then authorized continuation: an explicit retry succeeded, followed by two model repairs. The final candidate still has an invalid object schema for its review-check array. The session stopped at seven of eight total calls and two of two repairs for the current intent. No generated YAML was substituted by hand, and no PR-specific planning path was added.
+The persisted live sessions **have not reached final review or execution**. The original session remains stopped at seven calls and two repairs. A separately authorized session on `2d32387` exposed two host schema defects, now corrected. Its last completed candidate passes offline validation and all 27 isolated scenarios without another model call. The live session remains stopped because a subsequent repair has no durable completion receipt and both repair slots are consumed. Offline replay did not alter the session or bypass that accounting boundary. No generated YAML was substituted by hand, and no PR-specific planning path was added.
 
 No repository clone, dependency installation, project test execution, or GitHub publication occurred. Consequently this run provides no evidence that the target pull request passes any requested check. Workflow approval, runtime publication confirmation, and a fresh head check remain outstanding. Private repository content, credentials, model responses, and raw host logs are excluded from this report.
+
+## New live session on `2d32387` — September 18–19
+
+Agent.Server was restarted with its configured model and KeyVault-backed integrations. The original encrypted prompt was recovered through public KeyVault APIs and submitted unchanged through `POST /api/planning`. Its SHA-256 was `eb96e4a486a9d10137f1e67e6eabb10534ba0cdb86e58811e79d438531007b60`. No replacement session was created after this new session stopped. The previous session and its accounting were untouched.
+
+The new session retained medium reasoning, eight calls, two repairs per submitted intent, 96,000 input and 32,768 output tokens per request, 15,000,000 total tokens, EUR 50 and 18,000,000 milliseconds active time. Discovery used no model call and included `review_evaluate` and `review_publish`. The configured GitHub catalog exposed declared read effects only; raw writes and unknown effects were excluded.
+
+| New-session transition | Observed outcome |
+| --- | --- |
+| Call 1: interpretation | Unresolved schema holes, optional-value bindings and exported host schema defects |
+| Host schema fix and same-session resubmission | Exact prompt retained; cumulative call and usage retained; catalog rediscovered |
+| Call 2: interpretation | Duplicate structured-output declaration and optional-value bindings |
+| Call 3: first repair | Those errors corrected; one nested nullable output-contract error remained |
+| Call 4: second repair | Request reserved; no durable completion receipt |
+| Restart/read-only inspection | Revision 11, stopped with `LLM_BUDGET_UNVERIFIABLE`; no redispatch |
+| Offline validation after the nullable-contract fix | Zero diagnostics; 27 scenarios passed; compiler produced 30,427 characters of YAML in memory |
+
+The saved intent keeps the PR URL and review text as workflow inputs. It has one clone step followed by fetch/checkout, project inspection, diff comparison, command checks, review, evaluation and publication, with workspace cleanup in a finalizer. This is the generated structure, not evidence that its external commands or review have succeeded.
+
+Two deterministic contract fixes address the observed host failures:
+
+- The review integration now exports explicit string-enum and strict numeric types. Its output contracts require every property actually serialized, including nullable execution evidence; constructor defaults remain input behavior. Previously these exports could not be reused faithfully as typed workflow ports.
+- Flow.Core now retains nested properties, required fields, items and supported constraints when converting JSON Schema type arrays such as `["object", "null"]`. Previously conversion discarded those fields, incorrectly reporting that `null or object` was incompatible with the same typed output contract.
+
+Generic interpretation instructions also explain closed objects, unresolved schema holes and required runtime ports. No model-specific or PR-specific runtime rule was added. Regressions use synthetic contracts and fake integrations, including rejection of incompatible array elements and missing/wrong nested fields.
+
+The offline replay used the last completed intent and its stored catalog with the production graph validation/compiler and isolated fake integrations. Nominal execution, rejected/unavailable confirmation, injected failures, cancellation and both cleanup guards passed. These scenarios establish internal control-flow behavior against fixtures, not live external behavior or complete interpretation of the review instructions. The replay was read-only: it did not save YAML, approval or scenario results to either live session, and did not clear the uncertain request.
+
+| Durable accounting at the stop | Original session | New session |
+| --- | --- | --- |
+| Session ID | `960846277cd6477ab22d0b434e8cb28f` | `eaa1d8f593f64feeb75487f5f3082429` |
+| Revision / status | 26 / stopped | 11 / stopped |
+| Calls / current-intent repairs | 7 / 2 | 4 / 2 |
+| Accounted input / output tokens | 740,280 / 112,411 | 141,495 / 30,926 |
+| Known estimated cost (EUR) | 6.16125 | 1.42431 |
+| Active planning time | 955.8 seconds | 278.3 seconds |
+| Persisted YAML / approval / scenarios | None | None |
+
+The known combined estimate is **EUR 7.58556**, excluding unknown usage from the new session's fourth call. The original total includes its earlier conservative failed-call estimate. A missing receipt does not establish zero cost. Session counters agree with their durable ledgers; restart replenished nothing.
+
+The remaining live blocker is request reconciliation, not the last candidate's schema. Existing `retry_model` cannot dispatch another repair under the two-repair ceiling. It was not invoked, budgets were not increased and the pending reservation was not discarded. A late receipt can be replayed under its original identity; otherwise an explicit recovery decision is needed before this session can reach persisted final review. Workflow approval and separate publication confirmation remain outstanding.
+
+Local verification after these fixes:
+
+- Full solution suite: **2,411 passed, zero failed, one existing environment-gated external test skipped**, across 29 test projects. This includes 11 host publication tests, 50 planner tests and three new nullable-contract regressions.
+- Solution build and Release packages for Flow.Core and Flow.Planning passed with warnings treated as errors and no warnings emitted.
+- Published Native AOT planner smoke passed local computation, read/transform and protected writes/cleanup: one fixture interpretation call and zero repairs each, with 1, 3 and 5 scenarios. The publish was warning-free.
+- Published trimmed, self-contained Agent.Server persistence smoke passed encrypted schema-6 sessions and review drafts, tenant isolation, revision checks and uncertain-publication replay. The publish was warning-free. This used a fresh temporary store with bundled tools and browser installation excluded; frontend sources were unchanged.
+- Restarted the development host with background planning disabled. Read-only API checks confirmed both stopped revisions, all cumulative usage, and the absence of persisted YAML, approval and scenarios remained unchanged. No model request was dispatched during this verification.
 
 ## Configuration and first-attempt usage
 

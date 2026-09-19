@@ -5,6 +5,9 @@ using GnOuGo.Agent.Server.Reviews;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Planning;
 using GnOuGo.GithubCopilot.Core;
 using GnOuGo.KeyVault.Core.Services;
 using Microsoft.Extensions.Options;
@@ -138,6 +141,45 @@ public sealed class ReviewPublicationTests
             Assert.True(tool.OutputContract!.Authoritative);
         }
         await Assert.ThrowsAsync<ArgumentException>(() => review.CallToolAsync("review_publish", new JsonObject { ["draftId"] = new string('a', 64), ["body"] = "override" }, Ct));
+    }
+
+    [Fact]
+    public async Task ReviewOutputSchemasCompileAndPreserveEnumsNumbersAndNullEvidence()
+    {
+        await using var factory = new ReviewMcpClientFactory(new FakeMcpClientFactory(new FakeMcpSession("github")), Service(new Records()));
+        await using var session = await factory.GetClientAsync(ReviewMcpClientFactory.Server, Ct);
+        var tool = (await session.ListToolsAsync(Ct)).Single(t => t.Name == "review_evaluate");
+        var output = tool.OutputSchema!.AsObject();
+        Assert.Equal("object", output["type"]!.GetValue<string>());
+        Assert.Equal("integer", output["properties"]!["pullNumber"]!["type"]!.GetValue<string>());
+        var evaluation = output["properties"]!["evaluation"]!;
+        Assert.Equal("string", evaluation["properties"]!["submitEvent"]!["type"]!.GetValue<string>());
+        Assert.Equal("[\"comment\",\"request_changes\",\"approve\"]", evaluation["properties"]!["submitEvent"]!["enum"]!.ToJsonString());
+        var check = evaluation["properties"]!["checks"]!["items"]!;
+        Assert.Equal("string", check["properties"]!["status"]!["type"]!.GetValue<string>());
+        Assert.Contains(check["required"]!.AsArray(), name => name!.GetValue<string>() == "execution");
+        Assert.Null(check["properties"]!["execution"]!["default"]);
+        Assert.Equal("integer", tool.InputSchema!["properties"]!["pullNumber"]!["type"]!.GetValue<string>());
+
+        var catalog = new PlanningCatalog { Capabilities = [new() { Id = "review", OutputSchema = output }] };
+        PlanningSchema Schema(string path) => new() { CapabilityId = "review", SchemaPointer = "/output" + path };
+        var graph = new PlanningGraph { Workflows = [new() {
+            Inputs = [new() { Name = "draft", Schema = Schema("") }],
+            Outputs = [new() { Name = "event", Schema = Schema("/properties/evaluation/properties/submitEvent"), Value = new() { Kind = "input", Source = "draft", Path = ["evaluation", "submitEvent"] } },
+                new() { Name = "checks", Schema = Schema("/properties/evaluation/properties/checks"), Value = new() { Kind = "input", Source = "draft", Path = ["evaluation", "checks"] } }]
+        }] };
+        var yaml = new PlanningGraphCompiler().Compile(graph, catalog);
+        var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        var request = Request();
+        var missing = request.Evaluation with { Checks = [] };
+        var draft = new ReviewDraft(new string('a', 64), "owner", "repository", 1, Head, ReviewEvaluation.Evaluate(missing));
+        var json = JsonSerializer.SerializeToNode(draft, ReviewPublicationJsonContext.Default.ReviewDraft)!;
+        Assert.Empty(PlanningContractValidation.ValidateInstance(json, output));
+        var result = await new WorkflowEngine().ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject { ["draft"] = json }, Ct);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("comment", result.Outputs!["event"]!.GetValue<string>());
+        Assert.Equal("Blocked", result.Outputs["checks"]![0]!["status"]!.GetValue<string>());
+        Assert.Null(result.Outputs["checks"]![0]!["execution"]);
     }
 
     [Fact]

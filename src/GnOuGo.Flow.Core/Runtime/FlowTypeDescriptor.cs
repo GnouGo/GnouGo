@@ -526,7 +526,14 @@ internal static class FlowTypeDescriptorConverter
         }
 
         if (obj["type"] is JsonArray typeArray)
-            return FlowTypeDescriptor.Union(typeArray.Select(FromJsonTypeNode));
+            return FlowTypeDescriptor.Union(typeArray.Select(typeNode =>
+            {
+                // Type arrays share the surrounding properties/items/enum constraints.
+                // Reading only each type name loses the object and array contracts.
+                var variant = (JsonObject)obj.DeepClone();
+                variant["type"] = typeNode?.DeepClone();
+                return FromJsonSchema(variant);
+            }));
 
         var type = obj.ContainsKey("type") && obj["type"] == null
             ? "null"
@@ -795,14 +802,6 @@ internal static class FlowTypeDescriptorConverter
             "null" => FlowTypeDescriptor.Null,
             _ => FlowTypeDescriptor.Any
         };
-    }
-
-    private static FlowTypeDescriptor FromJsonTypeNode(JsonNode? node)
-    {
-        if (node == null)
-            return FlowTypeDescriptor.Null;
-
-        return ReadString(node) is { } type ? FromTypeName(type) : FlowTypeDescriptor.Any;
     }
 
     private static FlowTypeDescriptor FromTypeName(string? type) =>

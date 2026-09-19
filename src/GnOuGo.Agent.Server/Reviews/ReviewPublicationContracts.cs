@@ -17,7 +17,7 @@ internal sealed record ReviewPublishRequest(string DraftId);
 internal sealed record ReviewPublishResult(string Status, string DraftId, string Message);
 internal sealed record StoredReviewDraft(string TenantId, string RunId, ReviewDraft Draft, string Status = "prepared");
 
-[JsonSourceGenerationOptions(JsonSerializerDefaults.Web, UseStringEnumConverter = true)]
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web, UseStringEnumConverter = true, NumberHandling = JsonNumberHandling.Strict)]
 [JsonSerializable(typeof(ReviewDraftRequest))]
 [JsonSerializable(typeof(ReviewDraft))]
 [JsonSerializable(typeof(ReviewPublishRequest))]

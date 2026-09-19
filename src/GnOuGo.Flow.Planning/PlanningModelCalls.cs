@@ -63,6 +63,9 @@ internal static class PlanningModelCalls
         /output/properties/id; it is not a data path. Reference schemas use only capabilityId and schemaPointer.
         Required unresolved values use {"kind":"hole"}; unknown schemas use type=hole. Do not guess missing facts.
         Object schemas require typed properties or typed additionalProperties; an empty type=object is invalid.
+        Use additionalProperties=null for a closed object with declared properties; type=hole is an unresolved
+        schema, not a wildcard or a way to forbid extra fields. Set required=true for required runtime inputs
+        and guaranteed result properties. An optional field without a default is not available unconditionally.
         Array items also require a complete schema. Reuse catalog schema references for declared contracts.
         Use questions only for business facts the user must decide, not values already declared as runtime inputs.
         Every workflow output has a concrete schema and an explicit value. Preserve omission versus null.

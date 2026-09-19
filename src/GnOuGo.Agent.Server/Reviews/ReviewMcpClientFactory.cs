@@ -108,13 +108,35 @@ internal sealed class ReviewMcpClientFactory(IMcpClientFactory inner, ReviewPubl
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         private static McpToolInfo Tool(string name, string description, string effect, JsonTypeInfo input, JsonTypeInfo output)
         {
-            var schema = output.GetJsonSchemaAsNode();
-            return new() { Name = name, Description = description, EffectKind = effect, InputSchema = input.GetJsonSchemaAsNode(), OutputSchema = schema,
+            var schema = Schema(output, writing: true);
+            return new() { Name = name, Description = description, EffectKind = effect, InputSchema = Schema(input, writing: false), OutputSchema = schema,
                 ArtifactContract = new(new(1,
                     name == "review_evaluate" ? [new("review.draft", "/draftId", "materialize")] : [],
                     name == "review_publish" ? [new("review.draft", "/draftId", true)] : []), []),
                 OutputContract = new(schema.DeepClone(), McpOutputContractSources.ProtocolSchema, true, []) };
         }
+        private static JsonNode Schema(JsonTypeInfo contract, bool writing) => contract.GetJsonSchemaAsNode(new()
+        {
+            TreatNullObliviousAsNonNullable = true,
+            TransformSchemaNode = (context, node) =>
+            {
+                if (node is not JsonObject schema) return node;
+                // String-enum constraints already establish a string type. Make it explicit
+                // so consumers can reuse the schema as a typed workflow port.
+                if (schema["type"] is null && schema["enum"] is JsonArray { Count: > 0 } values &&
+                    values.All(v => v is JsonValue value && value.TryGetValue<string>(out _)))
+                    schema["type"] = "string";
+                if (writing)
+                {
+                    // These DTOs serialize every property, including null/default values.
+                    // Constructor defaults describe accepted input, not optional output.
+                    schema.Remove("default");
+                    if (schema["properties"] is JsonObject properties)
+                        schema["required"] = new JsonArray(properties.Select(p => (JsonNode?)JsonValue.Create(p.Key)).ToArray());
+                }
+                return schema;
+            }
+        });
     }
     private sealed class Scope(Action dispose) : IDisposable { public void Dispose() => dispose(); }
 }

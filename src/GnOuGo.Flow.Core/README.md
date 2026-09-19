@@ -103,6 +103,11 @@ when using the built-in GnOuGo AI routing or MCP transports.
 Flow keeps one internal type representation for validation: `FlowTypeDescriptor`.
 Workflow `InputDef`/`OutputDef`, executor `StepContract` schemas, MCP JSON Schema, and workflow.plan contract snippets are converted into or out of this descriptor instead of being reasoned about as separate type systems.
 
+JSON Schema type arrays, such as `type: [object, "null"]`, retain their shared
+properties, required fields, array items and supported value constraints during
+conversion. Nullable producer contracts therefore remain typed when assigned to
+workflow outputs; nullability does not erase nested validation.
+
 String workflow inputs and outputs may declare `enum: [value_a, value_b]`. Values must be non-empty and unique, and `enum` is valid only with `type: string`. The constraint is preserved through JSON Schema conversion and local `workflow.call` compatibility, enforced at runtime, and included in generated contracts. Existing unconstrained string contracts remain valid.
 
 During workflow.plan semantic validation, a `WorkflowSymbolTable` is built as steps are walked. It tracks workflow inputs, scoped data variables, available step output types, and control-flow availability so expressions such as `data.steps.<id>.<field>` and loop-local `data.<item_var>.<field>` can be checked against known symbols before generated YAML is accepted.
