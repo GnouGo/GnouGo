@@ -40,7 +40,14 @@ builder.Services.AddSingleton<IKeyVaultRecordStore>(_ =>
         AppContext.BaseDirectory));
 builder.Services.AddSingleton<ICopilotProviderConfigResolver, ConfigurationCopilotProviderConfigResolver>();
 builder.Services.AddSingleton<ICopilotProviderResolver, CoreCopilotProviderResolver>();
-builder.Services.AddSingleton<ICopilotSdkClientFactory, GitHubCopilotSdkClientFactory>();
+builder.Services.AddHttpClient(nameof(CopilotInferenceProxyHandler), client => client.Timeout = Timeout.InfiniteTimeSpan)
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false });
+builder.Services.AddSingleton<ICopilotSdkClientFactory>(sp =>
+{
+    var endpoint = sp.GetRequiredService<IOptions<CodeServerSettings>>().Value.Copilot.InferenceProxyEndpoint;
+    return new GitHubCopilotSdkClientFactory(sp.GetRequiredService<ILoggerFactory>(), endpoint is null ? null :
+        new CopilotInferenceProxyHandler(sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(CopilotInferenceProxyHandler)), new Uri(endpoint, UriKind.Absolute)));
+});
 builder.Services.AddSingleton<McpCopilotHumanInputProvider>();
 builder.Services.AddSingleton<ICopilotHumanInputProvider>(sp => sp.GetRequiredService<McpCopilotHumanInputProvider>());
 builder.Services.AddSingleton<KeyVaultCopilotPermissionGrantStore>();
@@ -83,6 +90,15 @@ if (keyVaultOverlay.Warning is not null)
     logger.LogWarning("{KeyVaultConfigurationWarning}", keyVaultOverlay.Warning);
 var policy = host.Services.GetRequiredService<CodePolicy>();
 var settings = host.Services.GetRequiredService<IOptions<CodeServerSettings>>().Value;
+if (settings.Copilot.InferenceProxyEndpoint is { } inferenceProxy)
+{
+    // Resolve the configured SDK factory before attesting that its interception is enabled.
+    _ = host.Services.GetRequiredService<ICopilotSdkClientFactory>();
+    var client = host.Services.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(CopilotInferenceProxyHandler));
+    using var readyTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+    using var ready = await client.PostAsync(inferenceProxy.TrimEnd('/') + "/ready", new StringContent("sdk-http-interception-v1"), readyTimeout.Token);
+    ready.EnsureSuccessStatusCode();
+}
 var info = policy.DescribePolicy();
 
 logger.LogInformation(

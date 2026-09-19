@@ -1,10 +1,26 @@
 # GnOuGo.Agent (Blazor + Minimal API)
 
+Workflow planning uses `PlanningSession → WorkflowIntentPlan → PlanningGraph → Diagnostics → Approval`; see [the planning architecture](../../docs/workflow-planning-v2.md). The planning page offers **Retry with retained usage** after an uncertain model dispatch. This explicit action preserves the failed call, conservatively accounts for missing usage, and reserves a new call within existing session limits. A stored completion is reused instead. Restart never silently redispatches an uncertain request. Workflow approval and runtime publication confirmation remain separate.
+
+For pull-request reviews, the host exposes `GnOuGo.Review` / `review_evaluate` and `review_publish`. Original execution observations establish individual check outcomes; the host confirms the stored review, reads the current head afterward, and records the single publication attempt durably. Raw review writes cannot bypass this operation on the configured GitHub integration. See [review publication](Reviews/README.md) for configuration, contracts and restart behavior.
+
 This solution contains:
 - **GnOuGo.Agent.Server**: Blazor (server interactive) UI + Minimal API streaming endpoint; published as a trimmed self-contained single-file executable with bundled MCP tools.
 - **GnOuGo.Agent.Shared**: shared DTOs
 
 ## Architecture
+
+### Typed workflow designer
+
+Open `/planning` to create or revise a workflow. `/gnougo add`, reprompt and failure improvement open this durable designer. It displays progress, intent, graph, unresolved fields, findings, usage, scenarios and final review. Approving and saving requires the current revision and artifact hash. Runtime write confirmation remains a separate gate.
+
+`TypedWorkflowPlanning` configures `MaxRepairAttempts` (2), `MaxModelCalls` (8), `Reasoning` (`medium`), request token ceilings (12,000 input / 8,192 output), cumulative token/active-time limits and `DatabasePath`. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
+
+Schema-7 session payloads, model reservations/receipts and budgets use encrypted KeyVault records and tenant-scoped EF Core/SQLite indexes. The fresh default is `.GnOuGo/data/gnougo-planning-v7.db`; existing databases are untouched. Restart preserves resolved graphs and cumulative budgets. Completed calls replay without another charge; uncertain dispatches stop. Saving reconciles an already committed identical artifact.
+
+See [the planning architecture](../../docs/workflow-planning-v2.md) for public contracts, policy boundaries, diagnostics and validation commands.
+
+### Component boundaries
 
 This component is independently testable per `AGENTS.md` rules. It references `GnOuGo.Agent.Mcp`, `GnOuGo.KeyVault.Mcp`, `GnOuGo.DocIngestor.Mcp`, and `GnOuGo.OtlpCollector.Server` as project dependencies, mounting their services in-process to minimise coupling while exposing everything through a single host.
 
@@ -45,7 +61,7 @@ flowchart TD
 All three mounted services use the stable C# MCP SDK `2.2.0` and one stateless Streamable HTTP transport. Each route carries its logical server identity as endpoint metadata. The SDK's request-local `ConfigureSessionOptions` hook sets the exact server name/version and replaces the request's tool collection with only tools marked for that route; missing or unknown metadata fails closed. Because the options are request-local, concurrent discovery cannot leak one route's catalog into another.
 
 The default placeholders in `appsettings.json` intentionally use port `0`:
-    
+
 ```json
 {
   "LLM": {
@@ -76,6 +92,8 @@ After startup, the server replaces port `0` with the actual bound local address 
 
 The persisted values live in the Agent MCP SQLite database (`Agent:DatabasePath`) rather than only in browser state.
 LLM provider and MCP server definitions are hydrated from encrypted KeyVault secrets; `user-settings.json` is no longer used. Each workflow execution builds its MCP runtime catalog from the latest KeyVault-backed definitions, so a server saved through `/mcp add` is available to the next `/gnougo add` or workflow run without restarting Agent.Server. `/mcp list` and workflow capability preflight therefore use the same persisted configuration source.
+
+Configuration logical names are case-insensitive across LLM providers, MCP servers, embedding configurations, and embedding defaults. Save operations reuse an existing canonical key and retire every equivalent case or legacy alias only after the replacement value is stored; remove operations retire all aliases for the logical configuration. A single canonical key takes precedence over a single legacy key. Multiple same-priority canonical or legacy keys for the same logical name are rejected as ambiguous without logging their values. This keeps direct KeyVault readers and Agent runtime hydration on the same deterministic configuration identity.
 
 For user-configured HTTP servers, `/mcp edit <name>` can keep the current authentication settings, rotate an API key, replace OIDC client credentials, switch between `api_key`, `oidc`, and `none`, or remove authentication. Choosing `keep_current` preserves the encrypted credentials; choosing a named authentication mode collects replacement credentials and clears fields belonging to the previous mode. Bundled MCP servers continue to expose only their allow-listed override fields, and stdio MCP servers do not use this HTTP authentication flow.
 
@@ -277,33 +295,7 @@ known to be current.
 
 ## Main routing workflow and conversation history
 
-When no explicit/default agent is selected, `SmartFlowService` runs the embedded `SmartFlow/main-routing-agent.yaml` workflow. That workflow uses `workflow.route` to expand all persisted database agents (`ref: { kind: database }`), select one or more relevant sub-workflows, auto-extract structured inputs from the prompt/history, and request any remaining missing or invalid declared inputs through the existing Human Input form before execution. Candidate forms are presented one at a time, then the completed workflows use their configured execution policy. The route also includes a local general fallback workflow so a fresh installation can still answer prompts before any persisted agents exist.
-
-`/gnougo add` runs generic inventory-first capability preflight before workflow decomposition. The first structured call inventories runtime operations and constraints without seeing tools. A compact paged selector then chooses relevant physical MCP tools from one entry per tool, adds MCP-declared artifact producers, and expands authoritative schemas and selector variants only for that selected set before final matching. If inventory or required-candidate selection is incomplete, each stage gets one bounded repair. Complete discovery remains available to dry runs and deterministic validation, and the 256,000-character expanded-catalog guard is unchanged. Documented scalar selectors make logical variants of a multi-action MCP tool distinct and lock their literal request values through decomposition and YAML validation. Host configuration, internal provider/credential resolution, and the outer agent-persistence action are outside the generated workflow inventory. Required resource cleanup is generated under the Flow workflow-level `finally` array.
-
-All `/gnougo add` planning phases request provider-managed background execution. For OpenAI,
-capability preflight and generation use `/v1/responses`, preserve their strict JSON Schema
-contracts, and poll until completion instead of waiting on a long synchronous Chat Completions
-response. The official OpenAI endpoint never falls back to Chat Completions; compatible proxies
-fall back only when they explicitly report that the Responses route or background mode is not
-implemented. `LLM_TIMEOUT` and `LLM_NETWORK` are retryable, while provider request rejections use
-the non-retryable `LLM_PROVIDER` code. User-requested cancellation remains `CANCELLED`.
-
-Read and write capabilities remain discoverable by default; preflight describes availability rather than silently changing an MCP server's execution policy. When preflight fails, the chat response and trace show the sanitized error code, unavailable operation IDs/descriptions, failed catalogs, and a generic configuration action instead of only the summary message.
-
-In inferred mode, matching is reported per operation as `matched`, `composed`, `local`, `ambiguous`, or `unavailable`. One bounded repair can resolve malformed, unknown-ID, ambiguous, or initially unavailable decisions while preserving already valid matches. Remaining failures include sanitized `matching_issues` with the operation, status, concise reason, and at most eight compact candidate cards; full schemas, prompts, repository content, credentials, and model reasoning are not included.
-
-External writes inferred from a short intention are classified separately from reads and AI execution. When the user did not explicitly request unattended execution, `/gnougo add` receives a locked platform confirmation operation and an ordering policy before matching and decomposition. A conditional rule such as “only after confirmation” never becomes a document-wide denied tool, while unconditional prohibitions still reject exact denied calls.
-
-The intention-first live acceptance harness is opt-in because it uses the configured KeyVault-backed provider and external MCP servers:
-
-```bash
-GNOU_GO_LIVE_INTENT_AGENT_E2E=1 dotnet test \
-  tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj \
-  --filter "FullyQualifiedName~LiveIntentAgentGenerationTests.SimpleIntent_GeneratesThreeValidatedAgentsUsingLiveConfiguration"
-```
-
-The harness submits the same short user intention for three independent generations, validates every discovered MCP call and literal selector, executes a read-only review against the configured public acceptance PR while denying publication, and exercises the confirmed write path only against a disposable draft fixture. It restores the previous default-agent setting and removes generated agents and isolated workspaces in `finally`.
+Workflow creation and improvement use the durable intent-to-graph planner described above. Revision imports the existing workflow as baseline context and carries failure diagnostics separately. Every revised artifact undergoes complete validation and fresh approval. Model, MCP and human integrations remain host-owned.
 
 The Blazor chat session now carries a server-facing `ConversationId`. The UI keeps its local transcript for display, while `SmartFlowService` loads recent server-side messages into the routing workflow as `history` and appends the user/assistant turn after a successful answer. HTTP clients can also pass `conversationId` and `prompt` on `/api/chat` or `/api/chat/stream`; if omitted, the server creates a new conversation id and returns/emits it.
 
@@ -588,7 +580,7 @@ fields such as GitHub `owner` and `repo` continue to be emitted as
 `Mcp-Param-*` headers after a runtime has been rebuilt.
 
 When an agent run offers **Improve**, the failure details carry the deepest
-failing local workflow and step. The repair planner is structurally locked to
+failing local workflow and step. The revision planner receives
 that location: it may update the failed step and existing direct consumers,
 but it cannot remove or rename sub-workflows, `workflow.call` edges, steps,
 branches, skills, or public contracts. Any broad rewrite is rejected and
@@ -613,3 +605,15 @@ Example:
 ```powershell
 dotnet test "C:\github\GnouGo\tests\GnOuGo.Agent.Server.Tests\GnOuGo.Agent.Server.Tests.csproj"
 ```
+
+Discovery and validation failures appear as located diagnostics in the durable session. Revise the intent to rebuild against current capabilities. Catalog revalidation requires no model call. Cumulative usage survives retries and restart.
+
+### Provider HTTP retries
+
+Transport retries are owned by [AI.Core](../GnOuGo.AI.Core/README.md#http-resilience).
+The optional `retryPolicy` object in a KeyVault provider configuration controls `maxAttempts`,
+`maxUncertainRetries` and `attemptTimeoutMilliseconds`, plus bounded backoff settings.
+Omitting it preserves the base policy. Providing it replaces that policy, with defaults for
+unspecified fields. Malformed settings fail validation; `Retry-After` cannot be disabled.
+Uncertain generation recovery requires a host accounting journal. The live planning benchmark
+supplies it; ordinary planning journals retain their single-attempt safety boundary.

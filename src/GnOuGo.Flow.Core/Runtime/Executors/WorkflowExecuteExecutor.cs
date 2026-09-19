@@ -32,9 +32,14 @@ public sealed class WorkflowExecuteExecutor : IStepExecutor
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
                 $"No plan result found in step '{fromStep}'");
 
-        var yaml = planResult["yaml"]?.GetValue<string>()
-            ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
-                $"No YAML found in plan result of step '{fromStep}'");
+        var sessionId = planResult["session_id"]?.GetValue<string>();
+        var hash = planResult["artifact_hash"]?.GetValue<string>();
+        if (planResult["status"]?.GetValue<string>() != Planning.PlanningStatus.Approved ||
+            string.IsNullOrWhiteSpace(sessionId) || string.IsNullOrWhiteSpace(hash) || ctx.Engine.PlanningRuntimeFactory is null)
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "workflow.execute requires an approved planning session.");
+        var yaml = await ctx.Engine.PlanningRuntimeFactory.ReadApprovedYamlAsync(ctx, sessionId, hash, ct);
+        if (yaml != planResult["yaml"]?.GetValue<string>())
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "The supplied YAML differs from the approved artifact.");
 
         var args = input["args"] ?? new JsonObject();
 

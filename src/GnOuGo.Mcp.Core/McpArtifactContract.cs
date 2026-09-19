@@ -13,6 +13,8 @@ public static class McpArtifactContractMetadata
     public const string ArtifactsPropertyName = "artifacts";
     public const int CurrentVersion = 1;
     public const string WorkspaceDirectoryKind = "workspace.directory";
+    public const string RevisionComparisonFilesKind = "revision.comparison.files";
+    public const string SessionHandleKind = "session.handle";
     public const string MaterializeMode = "materialize";
 
     public const string WorkspaceDirectoryProducerProjectRootRelativeJson =
@@ -22,7 +24,13 @@ public static class McpArtifactContractMetadata
         """{"artifacts":{"version":1,"consumes":[{"kind":"workspace.directory","pointer":"/projectRoot","required":true}]}}""";
 }
 
-public sealed record McpProducedArtifact(string Kind, string Pointer, string Mode);
+[method: System.Text.Json.Serialization.JsonConstructor]
+public sealed record McpProducedArtifact(string Kind, string Pointer, string Mode, string? Encoding = null)
+{
+    // Retain the original public constructor and deconstruction for existing consumers.
+    public McpProducedArtifact(string kind, string pointer, string mode) : this(kind, pointer, mode, null) { }
+    public void Deconstruct(out string kind, out string pointer, out string mode) => (kind, pointer, mode) = (Kind, Pointer, Mode);
+}
 
 public sealed record McpConsumedArtifact(string Kind, string Pointer, bool Required);
 
@@ -120,7 +128,13 @@ public static class McpArtifactContractParser
             }
 
             ValidateSchemaPointer(outputSchema, pointer, requireRequiredProperty: true, prefix, errors);
-            result.Add(new McpProducedArtifact(kind, pointer, mode));
+            string? encoding = null;
+            if (item.TryGetPropertyValue("encoding", out var encodingNode) && encodingNode is not null)
+            {
+                if (encodingNode is not JsonValue encodingValue || !encodingValue.TryGetValue<string>(out encoding) || encoding != "json_array")
+                    errors.Add($"{prefix}.encoding must be 'json_array' when declared.");
+            }
+            result.Add(new McpProducedArtifact(kind, pointer, mode, encoding));
         }
 
         return result;

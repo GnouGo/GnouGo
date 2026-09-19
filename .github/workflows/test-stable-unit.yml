@@ -1,4 +1,4 @@
-﻿name: Stable Unit Tests
+name: Stable Unit Tests
 
 on:
   workflow_call:
@@ -24,9 +24,7 @@ jobs:
           dotnet-version: "10.0.x"
 
       - name: Ensure OTLP proto files
-        run: |
-          dotnet restore src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj /p:SkipClientBuild=true
-          dotnet msbuild src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj -t:EnsureOtlpProtos /p:SkipClientBuild=true
+        uses: ./.github/actions/ensure-otlp-protos
 
       - name: Run stable .NET unit tests
         shell: pwsh
@@ -44,6 +42,13 @@ jobs:
               exit $LASTEXITCODE
             }
           }
+
+      - name: Publish typed planner Native AOT smoke
+        run: |
+          dotnet publish tests/GnOuGo.Flow.Planning.Smoke/GnOuGo.Flow.Planning.Smoke.csproj \
+            -c Release -r linux-x64 --self-contained true \
+            -o artifacts/publish/planning-smoke
+          artifacts/publish/planning-smoke/GnOuGo.Flow.Planning.Smoke
 
   python_unit_tests:
     name: Python Unit Tests
@@ -67,3 +72,6 @@ jobs:
       - name: Run gnougo-flow-cli unit tests
         working-directory: librairies/python/gnougo-flow-cli
         run: uv run --extra dev pytest -q
+
+      - name: Test protocol acquisition recovery
+        run: python -m unittest discover -s scripts/tests -v

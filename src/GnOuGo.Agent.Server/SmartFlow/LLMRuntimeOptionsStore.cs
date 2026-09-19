@@ -23,6 +23,7 @@ public sealed class LLMRuntimeOptionsStore
     {
         _logger = logger;
         _current = DeepClone(initialOptions.Value);
+        LLMOptionsValidation.ValidateAndThrow(_current);
     }
 
     /// <summary>Gets the current (live) LLM options.</summary>
@@ -51,6 +52,7 @@ public sealed class LLMRuntimeOptionsStore
                     replacement.McpServers[serverName] = CloneMcpServerOptions(transientServer);
             }
 
+            LLMOptionsValidation.ValidateAndThrow(replacement);
             _current = replacement;
         }
 
@@ -180,6 +182,7 @@ public sealed class LLMRuntimeOptionsStore
                 opts.DefaultModel = model;
             }
 
+            LLMOptionsValidation.ValidateAndThrow(opts);
             _current = opts;
         }
         _logger.LogInformation("LLM provider '{Provider}' updated at runtime.", providerKey);
@@ -343,6 +346,8 @@ public sealed class LLMRuntimeOptionsStore
                 PrivateKeyPem = kv.Value.PrivateKeyPem,
                 Scopes = kv.Value.Scopes,
                 ApiVersion = kv.Value.ApiVersion,
+                RequestPolicy = CloneRequestPolicy(kv.Value.RequestPolicy),
+                RetryPolicy = kv.Value.RetryPolicy.Clone(),
             };
         }
         foreach (var kv in src.McpServers)
@@ -351,6 +356,17 @@ public sealed class LLMRuntimeOptionsStore
             clone.ModelOverrides[kv.Key] = ModelMetadataCatalog.Clone(kv.Value);
         return clone;
     }
+
+    private static LLMProviderRequestPolicyOptions CloneRequestPolicy(LLMProviderRequestPolicyOptions source)
+        => new()
+        {
+            BackgroundProtocol = source.BackgroundProtocol,
+            UnspecifiedOutputTokens = source.UnspecifiedOutputTokens,
+            DefaultMaxOutputTokens = source.DefaultMaxOutputTokens,
+            MaxOutputTokensCap = source.MaxOutputTokensCap
+        };
+
+
 
     private static string NormalizeProviderType(string providerKey)
         => providerKey.Trim().ToLowerInvariant() switch

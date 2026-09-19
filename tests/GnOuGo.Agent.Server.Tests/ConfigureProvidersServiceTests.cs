@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -1454,8 +1454,8 @@ public sealed class ConfigureProvidersServiceTests
             {
                 ["copilot"] = new() { Url = "https://models.github.ai/inference", Type = "copilot" },
                 ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai", ApiKey = "runtime-secret" }
-                },
-                ModelOverrides = TestModelOverrides("gpt-5-search-api")
+            },
+            ModelOverrides = TestModelOverrides("gpt-5-search-api")
         });
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -1501,8 +1501,8 @@ public sealed class ConfigureProvidersServiceTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_LlmAdd_ValidationOmitsTemperatureForSavedProvider()
-    {   
+    public async Task ExecuteAsync_LlmAdd_ValidationUsesSanitizedParametersAndSmallOutputAllowance()
+    {
         var llm = new RecordingLlmClient();
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
         var modelCatalog = new FakeModelCatalog()
@@ -1556,6 +1556,7 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Equal("openai", llm.LastRequest!.Provider);
         Assert.Equal("gpt-5-search-api", llm.LastRequest.Model);
         Assert.Null(llm.LastRequest.Temperature);
+        Assert.Equal(64, llm.LastRequest.MaxTokens);
         Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "✅ Credentials validated. Provider 'openai' is ready.");
     }
 
@@ -2106,6 +2107,8 @@ public sealed class ConfigureProvidersServiceTests
 
         Assert.True(runtimeStore.Current.ModelOverrides.TryGetValue("openai/gpt-5-search-api", out var reviewedMetadata));
         Assert.False(reviewedMetadata.Capabilities.SupportsStructuredOutput);
+        var runtimeCapabilities = new GnOuGo.Agent.Server.Hosting.FlowLlmCapabilityResolver(runtimeStore);
+        Assert.False(await runtimeCapabilities.SupportsStructuredOutputAsync("openai", "gpt-5-search-api", token));
 
         var spans = DrainPersistedSpans(telemetryHarness.Queue);
         Assert.Contains(spans, span => span.Name == "configure.providers.llm.edit.interactive");

@@ -39,9 +39,9 @@
     <PackageReference Include="OpenTelemetry.Api" Version="1.17.0" />
   </ItemGroup>
 
-  <!-- Reco Linux (surtout en container/minimal images) -->
+  <!-- Keep the native ABI aligned with the managed SkiaSharp package above. -->
   <ItemGroup Condition="'$(RuntimeIdentifier)' != '' and $(RuntimeIdentifier.StartsWith('linux'))">
-    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.*" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.151.1" />
   </ItemGroup>
 
 </Project>

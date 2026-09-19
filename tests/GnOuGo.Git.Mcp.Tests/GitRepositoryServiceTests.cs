@@ -455,6 +455,8 @@ public sealed class GitRepositoryServiceTests : IDisposable
         Assert.Single(second.Files);
         Assert.False(second.HasMore);
         Assert.Contains(first.Files.Concat(second.Files), file => file.Status == "renamed" && file.PreviousPath == "old-name.txt" && file.Path == "new-name.txt");
+        var serializedFiles = System.Text.Json.Nodes.JsonNode.Parse(first.FilesJson);
+        Assert.Single(Assert.IsType<System.Text.Json.Nodes.JsonArray>(serializedFiles));
     }
 
     [Fact]

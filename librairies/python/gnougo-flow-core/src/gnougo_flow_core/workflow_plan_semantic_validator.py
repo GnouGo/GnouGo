@@ -96,16 +96,6 @@ def validate_workflow_semantics(
         raise WorkflowSemanticValidationException(errors)
 
 
-def normalize_mcp_call_input_requests(
-    document: WorkflowDocument,
-    mcp_tool_contracts: list[McpToolOutputContract] | None = None,
-) -> int:
-    mcp_contracts = {(c.server_name, c.tool_name): c for c in mcp_tool_contracts or []}
-    changes = 0
-    for workflow in document.workflows.values():
-        changes += _normalize_mcp_call_input_requests(workflow.steps, mcp_contracts)
-        changes += _normalize_mcp_call_input_requests(workflow.finally_, mcp_contracts)
-    return changes
 
 
 def format_semantic_errors(errors: list[WorkflowSemanticValidationError]) -> str:
@@ -335,68 +325,6 @@ def _read_balanced_jsdoc_type(jsdoc: str, opening: int) -> tuple[str, int] | Non
     return None
 
 
-def complete_inferable_function_parameter_jsdoc(script: str) -> str:
-    """Safely add only parameter types that deterministic function usage proves."""
-    replacements: list[tuple[int, int, str]] = []
-    for declaration in _iter_function_declarations(script or ""):
-        jsdoc = _find_leading_jsdoc(script, declaration.index)
-        if not jsdoc:
-            continue
-        documented = _parse_jsdoc_param_types(jsdoc)
-        body_start = script.find("{", declaration.index)
-        if body_start < 0:
-            continue
-        depth = 0
-        body_end = -1
-        for index in range(body_start, len(script)):
-            if script[index] == "{":
-                depth += 1
-            elif script[index] == "}":
-                depth -= 1
-                if depth == 0:
-                    body_end = index
-                    break
-        if body_end < 0:
-            continue
-        body = script[body_start + 1 : body_end]
-        additions: list[str] = []
-        for parameter in declaration.parameters:
-            if documented.get(parameter):
-                continue
-            escaped = re.escape(parameter)
-            inferred = None
-            array_usage = (
-                rf"\bArray\.isArray\s*\(\s*{escaped}\s*\)|\b{escaped}\s*\.\s*"
-                r"(?:map|filter|reduce|forEach|some|every|find|push|pop|shift|unshift|concat|join)\s*\("
-            )
-            string_usage = (
-                rf"\bString\s*\(\s*{escaped}\b|\b{escaped}\s*\.\s*"
-                r"(?:trim|toLowerCase|toUpperCase|includes|startsWith|endsWith|replace|split|substring|slice)\s*\("
-            )
-            if re.search(array_usage, body):
-                inferred = "Array<object>"
-            elif re.search(string_usage, body):
-                inferred = "string"
-            elif re.search(rf"\bNumber\s*\(\s*{escaped}\b|(?:^|[^A-Za-z0-9_$]){escaped}\s*[+\-*/%]|[+\-*/%]\s*{escaped}(?:[^A-Za-z0-9_$]|$)", body):
-                inferred = "number"
-            elif re.search(rf"\b{escaped}\s*(?:\.|\[)|\.\.\.\s*{escaped}\b", body):
-                inferred = "object"
-            elif re.search(rf"!\s*{escaped}\b|\b{escaped}\s*(?:===?|!==?)\s*(?:true|false)\b", body):
-                inferred = "boolean"
-            if inferred:
-                additions.append(
-                    f" * @param {{{inferred}}} {parameter} - Type inferred from deterministic function usage."
-                )
-        if additions:
-            start = script.rfind(jsdoc, 0, declaration.index)
-            close = jsdoc.rfind("*/")
-            if start >= 0 and close >= 0:
-                replacement = jsdoc[:close].rstrip() + "\n" + "\n".join(additions) + "\n */"
-                replacements.append((start, len(jsdoc), replacement))
-    normalized = script
-    for start, length, replacement in sorted(replacements, reverse=True):
-        normalized = normalized[:start] + replacement + normalized[start + length :]
-    return normalized
 
 
 def _function_jsdoc_suggestion(declaration: _FunctionDeclaration) -> str:
@@ -447,48 +375,8 @@ def _validate_step_list(
         _validate_step(step, workflow_name, known_contracts, all_step_ids, mcp_contracts, workflow_contracts, errors)
 
 
-def _normalize_mcp_call_input_requests(
-    steps: list[StepDef],
-    mcp_contracts: dict[tuple[str, str], McpToolOutputContract],
-) -> int:
-    changes = 0
-    for step in steps:
-        changes += _normalize_mcp_call_input_request(step, mcp_contracts)
-        if step.steps:
-            changes += _normalize_mcp_call_input_requests(step.steps, mcp_contracts)
-        if step.branches:
-            for branch in step.branches:
-                changes += _normalize_mcp_call_input_requests(branch.steps, mcp_contracts)
-        if step.cases:
-            for case in step.cases:
-                changes += _normalize_mcp_call_input_requests(case.steps, mcp_contracts)
-        if step.default:
-            changes += _normalize_mcp_call_input_requests(step.default, mcp_contracts)
-    return changes
 
 
-def _normalize_mcp_call_input_request(
-    step: StepDef,
-    mcp_contracts: dict[tuple[str, str], McpToolOutputContract],
-) -> int:
-    if step.type != "mcp.call" or not isinstance(step.input, dict):
-        return 0
-
-    kind = _try_get_input_string(step, "kind") or "tool"
-    if kind.lower() != "tool":
-        return 0
-
-    server_name = _try_get_input_string(step, "server")
-    method_name = _try_get_input_string(step, "method")
-    if not server_name or not method_name:
-        return 0
-
-    contract = mcp_contracts.get((server_name, method_name))
-    request = step.input.get("request")
-    if contract is None or not isinstance(contract.input_schema, dict) or not isinstance(request, dict):
-        return 0
-
-    return _normalize_json_node_against_schema(request, contract.input_schema)
 
 
 def _validate_step(
@@ -1052,223 +940,24 @@ def _validate_local_workflow_call_args(
         )
 
 
-def _validate_json_node_against_schema(value: Any, schema: Any, path: str, errors: list[_SchemaValidationError]) -> None:
-    if not isinstance(schema, dict):
-        return
-
-    any_of = schema.get("anyOf")
-    if isinstance(any_of, list):
-        if _matches_any_schema_variant(value, any_of):
-            return
-        errors.append(_SchemaValidationError(path=path, message="value does not match any allowed schema variant"))
-        return
-
-    one_of = schema.get("oneOf")
-    if isinstance(one_of, list):
-        if _matches_any_schema_variant(value, one_of):
-            return
-        errors.append(_SchemaValidationError(path=path, message="value does not match any allowed schema variant"))
-        return
-
-    schema_type = _read_schema_type(schema)
-    if schema_type == "object":
-        _validate_object_against_schema(value, schema, path, errors)
-    elif schema_type == "array":
-        _validate_array_against_schema(value, schema, path, errors)
-    elif schema_type in {"string", "number", "integer", "boolean", "null"}:
-        _validate_primitive_type(value, schema_type, path, errors)
 
 
-def _matches_any_schema_variant(value: Any, variants: list[Any]) -> bool:
-    for variant in variants:
-        variant_errors: list[_SchemaValidationError] = []
-        _validate_json_node_against_schema(value, variant, "", variant_errors)
-        if not variant_errors:
-            return True
-    return False
 
 
-def _validate_object_against_schema(value: Any, schema: dict[str, Any], path: str, errors: list[_SchemaValidationError]) -> None:
-    if _is_dynamic_expression_string(value):
-        return
-    if not isinstance(value, dict):
-        errors.append(_SchemaValidationError(path=path, message="expected object"))
-        return
-
-    required = schema.get("required")
-    if isinstance(required, list):
-        for required_name in required:
-            if not isinstance(required_name, str) or not required_name.strip():
-                continue
-            if required_name not in value:
-                required_path = required_name if not path else f"{path}.{required_name}"
-                errors.append(_SchemaValidationError(path=required_path, message="missing required property"))
-
-    properties = schema.get("properties")
-    for property_name, property_value in value.items():
-        property_schema = properties.get(property_name) if isinstance(properties, dict) else None
-        property_path = property_name if not path else f"{path}.{property_name}"
-
-        if property_schema is not None:
-            _validate_json_node_against_schema(property_value, property_schema, property_path, errors)
-            continue
-
-        if not _allows_additional_properties(schema):
-            errors.append(_SchemaValidationError(path=property_path, message="property is not allowed by schema"))
-            continue
-
-        additional_schema = schema.get("additionalProperties")
-        if isinstance(additional_schema, dict):
-            _validate_json_node_against_schema(property_value, additional_schema, property_path, errors)
 
 
-def _validate_array_against_schema(value: Any, schema: dict[str, Any], path: str, errors: list[_SchemaValidationError]) -> None:
-    if _is_dynamic_expression_string(value):
-        return
-    if not isinstance(value, list):
-        errors.append(_SchemaValidationError(path=path, message="expected array"))
-        return
-
-    if "items" not in schema:
-        return
-    for index, item in enumerate(value):
-        item_path = f"[{index}]" if not path else f"{path}[{index}]"
-        _validate_json_node_against_schema(item, schema.get("items"), item_path, errors)
 
 
-def _validate_primitive_type(value: Any, expected_type: str, path: str, errors: list[_SchemaValidationError]) -> None:
-    if _is_dynamic_expression_string(value):
-        return
-
-    if value is None:
-        if expected_type != "null":
-            errors.append(_SchemaValidationError(path=path, message=f"expected {expected_type} but got null"))
-        return
-
-    is_valid = False
-    if expected_type == "string":
-        is_valid = isinstance(value, str)
-    elif expected_type == "number":
-        is_valid = isinstance(value, (int, float)) and not isinstance(value, bool)
-    elif expected_type == "integer":
-        is_valid = isinstance(value, int) and not isinstance(value, bool)
-    elif expected_type == "boolean":
-        is_valid = isinstance(value, bool)
-    elif expected_type == "null":
-        is_valid = value is None
-
-    if not is_valid:
-        errors.append(_SchemaValidationError(path=path, message=f"expected {expected_type}"))
 
 
-def _normalize_json_node_against_schema(value: Any, schema: Any) -> int:
-    if not isinstance(schema, dict):
-        return 0
-
-    any_of = schema.get("anyOf")
-    if isinstance(any_of, list):
-        return _normalize_against_single_matching_variant(value, any_of)
-
-    one_of = schema.get("oneOf")
-    if isinstance(one_of, list):
-        return _normalize_against_single_matching_variant(value, one_of)
-
-    schema_type = _read_schema_type(schema)
-    if schema_type == "object":
-        return _normalize_object_against_schema(value, schema)
-    if schema_type == "array":
-        return _normalize_array_against_schema(value, schema)
-    return 0
 
 
-def _normalize_against_single_matching_variant(value: Any, variants: list[Any]) -> int:
-    selected_variant: dict[str, Any] | None = None
-    for variant in variants:
-        if not isinstance(variant, dict):
-            continue
-
-        variant_errors: list[_SchemaValidationError] = []
-        _validate_json_node_against_schema(value, variant, "", variant_errors)
-        if not variant_errors:
-            return 0
-
-        clone = copy.deepcopy(value)
-        changes = _normalize_json_node_against_schema(clone, variant)
-        if changes == 0:
-            continue
-
-        variant_errors = []
-        _validate_json_node_against_schema(clone, variant, "", variant_errors)
-        if not variant_errors:
-            if selected_variant is not None:
-                return 0
-            selected_variant = variant
-
-    if selected_variant is None:
-        return 0
-    return _normalize_json_node_against_schema(value, selected_variant)
 
 
-def _normalize_object_against_schema(value: Any, schema: dict[str, Any]) -> int:
-    if _is_dynamic_expression_string(value) or not isinstance(value, dict):
-        return 0
-
-    changes = 0
-    properties = schema.get("properties")
-    additional_schema = schema.get("additionalProperties")
-    for property_name, property_value in list(value.items()):
-        property_schema = properties.get(property_name) if isinstance(properties, dict) else None
-        if property_schema is None and isinstance(additional_schema, dict):
-            property_schema = additional_schema
-        if property_schema is None:
-            continue
-
-        changes += _normalize_json_node_against_schema(property_value, property_schema)
-        coerced, did_coerce = _try_coerce_json_value(property_value, property_schema)
-        if did_coerce:
-            value[property_name] = coerced
-            changes += 1
-
-    return changes
 
 
-def _normalize_array_against_schema(value: Any, schema: dict[str, Any]) -> int:
-    if _is_dynamic_expression_string(value) or not isinstance(value, list) or "items" not in schema:
-        return 0
-
-    item_schema = schema.get("items")
-    changes = 0
-    for index, item in enumerate(list(value)):
-        changes += _normalize_json_node_against_schema(item, item_schema)
-        coerced, did_coerce = _try_coerce_json_value(item, item_schema)
-        if did_coerce:
-            value[index] = coerced
-            changes += 1
-    return changes
 
 
-def _try_coerce_json_value(value: Any, schema: Any) -> tuple[Any, bool]:
-    if _is_dynamic_expression_string(value) or not isinstance(schema, dict) or not isinstance(value, str):
-        return value, False
-
-    schema_type = _read_schema_type(schema)
-    text = value.strip()
-    if schema_type == "number":
-        try:
-            return float(text), True
-        except ValueError:
-            return value, False
-    if schema_type == "integer":
-        try:
-            return int(text, 10), True
-        except ValueError:
-            return value, False
-    if schema_type == "boolean":
-        if text.lower() == "true":
-            return True, True
-        if text.lower() == "false":
-            return False, True
-    return value, False
 
 
 def _is_dynamic_expression_string(value: Any) -> bool:
@@ -1411,11 +1100,6 @@ def _read_schema_type(schema: dict[str, Any]) -> str | None:
     return None
 
 
-def _allows_additional_properties(schema: dict[str, Any]) -> bool:
-    if "additionalProperties" not in schema:
-        return False
-    additional = schema.get("additionalProperties")
-    return additional is True or isinstance(additional, dict)
 
 
 def _build_property_suggestion(prefix: str, referenced_step_id: str, is_opaque_response: bool) -> str:
@@ -1530,7 +1214,26 @@ def _build_step_output_schema(
         return _object_schema(("event", _opaque_schema()), ("status", _string_schema()))
     if step.type == "human.input":
         return _build_human_input_output_schema(step)
+    if step.type == "decision.evaluate":
+        return _build_decision_evaluate_output_schema(step)
     return _opaque_schema()
+
+
+def _build_decision_evaluate_output_schema(step: StepDef) -> Any:
+    input_obj = step.input if isinstance(step.input, dict) else {}
+    decisions = input_obj.get("decisions")
+    if not isinstance(decisions, dict):
+        return _object_schema()
+
+    properties: list[tuple[str, Any]] = []
+    for field, contract in decisions.items():
+        allowed_values = contract.get("allowed_values") if isinstance(contract, dict) else None
+        values = [value for value in allowed_values or [] if isinstance(value, str) and value.strip()]
+        schema: dict[str, Any] = _string_schema()
+        if values:
+            schema["enum"] = list(dict.fromkeys(values))
+        properties.append((str(field), schema))
+    return _object_schema(*properties)
 
 
 def _build_human_input_output_schema(step: StepDef) -> Any:

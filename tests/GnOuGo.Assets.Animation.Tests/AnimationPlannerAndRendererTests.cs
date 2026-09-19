@@ -182,7 +182,7 @@ public sealed class AnimationPlannerAndRendererTests
         Assert.Contains(".gnougo-actor.is-in-transit", svg, StringComparison.Ordinal);
         Assert.Contains("transition: none !important;", svg, StringComparison.Ordinal);
         Assert.Contains(".task-object.is-in-transit", svg, StringComparison.Ordinal);
-        Assert.Contains(".gnougo-transit-branch {\n      opacity: 0;", svg, StringComparison.Ordinal);
+        Assert.Contains($".gnougo-transit-branch {{{Environment.NewLine}      opacity: 0;", svg, StringComparison.Ordinal);
         Assert.Contains(".transit-portal-leg {", svg, StringComparison.Ordinal);
         Assert.Contains("[data-portal-phase=\"source\"] .transit-portal-source", svg, StringComparison.Ordinal);
         Assert.Contains("[data-portal-phase=\"destination\"] .transit-portal-destination", svg, StringComparison.Ordinal);

@@ -1,7 +1,6 @@
 ﻿using System.Net;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.AI.Core.Tests;
@@ -328,81 +327,19 @@ public sealed class AnthropicLlmProviderTests
             model => Assert.Equal("claude-3-5-haiku-20241022", model.Id));
     }
 
-    [Fact]
-    public async Task CallAsync_WhenBatchUnsupported_LogsTechnicalFallbackDetails()
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound)][InlineData(HttpStatusCode.BadRequest)][InlineData(HttpStatusCode.NotImplemented)]
+    public async Task UnsupportedBatchDoesNotRetryThroughMessages(HttpStatusCode status)
     {
         var calls = new List<string>();
-        var handler = new StubHttpMessageHandler(req =>
+        using var http = new HttpClient(new StubHttpMessageHandler(request =>
         {
-            calls.Add(req.RequestUri!.ToString());
-            if (req.RequestUri!.AbsolutePath.EndsWith("/messages/batches", StringComparison.Ordinal))
-            {
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)
-                {
-                    ReasonPhrase = "Not Found",
-                    Content = new StringContent("""
-                    {"type":"error","error":{"type":"not_found_error","message":"Not found: /v1/messages/batches"}}
-                    """)
-                });
-            }
-
-            return Task.FromResult(JsonResponse("""
-            {
-              "id": "msg_123",
-              "type": "message",
-              "role": "assistant",
-              "model": "claude-sonnet-4-20250514",
-              "content": [{ "type": "text", "text": "sync ok" }],
-              "usage": { "input_tokens": 1, "output_tokens": 1 }
-            }
-            """));
-        });
-
-        var logger = new CapturingLogger<AnthropicLLMProvider>();
-        using var http = new HttpClient(handler);
-        using var cache = new MemoryCache(new MemoryCacheOptions());
-        var provider = new AnthropicLLMProvider(http, logger, cache);
-
-        var response = await provider.CallAsync(
-            "claude-sonnet-4-20250514",
-            new ModelProviderOptions { Url = "https://api.anthropic.test/v1", ApiKey = "sk-ant", Type = "anthropic" },
-            new LLMClientRequest
-            {
-                Prompt = "Hello",
-                UseBackgroundMode = true
-            },
-            CancellationToken.None);
-        var secondResponse = await provider.CallAsync(
-            "claude-sonnet-4-20250514",
-            new ModelProviderOptions { Url = "https://api.anthropic.test/v1", ApiKey = "sk-ant", Type = "anthropic" },
-            new LLMClientRequest
-            {
-                Prompt = "Hello again",
-                UseBackgroundMode = true
-            },
-            CancellationToken.None);
-
-        Assert.Equal("sync ok", response.Text);
-        Assert.Equal("sync ok", secondResponse.Text);
-        Assert.Equal(
-            [
-                "https://api.anthropic.test/v1/messages/batches",
-                "https://api.anthropic.test/v1/messages",
-                "https://api.anthropic.test/v1/messages"
-            ],
-            calls);
-        Assert.Single(calls, call => call.EndsWith("/messages/batches", StringComparison.Ordinal));
-
-        var warning = Assert.Single(logger.Entries, entry => entry.Level == LogLevel.Warning);
-        Assert.Contains("Anthropic batch API not available", warning.Message);
-        Assert.Contains("https://api.anthropic.test/v1/messages/batches", warning.Message);
-        Assert.Contains("StatusCode: 404", warning.Message);
-        Assert.Contains("ReasonPhrase: Not Found", warning.Message);
-        Assert.Contains("not_found_error", warning.Message);
-        Assert.Contains("Not found: /v1/messages/batches", warning.Message);
-        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Information
-            && entry.Message.Contains("previously returned unsupported", StringComparison.Ordinal)
-            && entry.Message.Contains("skipping background mode", StringComparison.Ordinal));
+            calls.Add(request.RequestUri!.AbsolutePath);
+            return Task.FromResult(new HttpResponseMessage(status));
+        }));
+        await Assert.ThrowsAsync<HttpRequestException>(() => new AnthropicLLMProvider(http).CallAsync("test",
+            new() { Url = "https://provider.example/v1", ApiKey = "test" }, new() { Prompt = "Hello", UseBackgroundMode = true }, TestContext.Current.CancellationToken));
+        Assert.Equal("/v1/messages/batches", Assert.Single(calls));
     }
 
     [Theory]

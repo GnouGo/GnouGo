@@ -7,6 +7,20 @@ namespace GnOuGo.AI.Core.Tests;
 
 public sealed class ChatRequestBuilderTests
 {
+    [Theory]
+    [InlineData("none")]
+    [InlineData("xhigh")]
+    public void ExplicitReasoningEffortIsPreservedInBothOpenAiProtocols(string effort)
+    {
+        using var chat = JsonDocument.Parse(ChatRequestBuilder.OpenAiFull("configured-model", "Plan", reasoning: effort, maxOutputTokens: 8192));
+        Assert.Equal(effort, chat.RootElement.GetProperty("reasoning_effort").GetString());
+        Assert.Equal(8192, chat.RootElement.GetProperty("max_completion_tokens").GetInt32());
+        using var responses = JsonDocument.Parse(ChatRequestBuilder.OpenAiResponsesBackground("configured-model", "Plan", temperature: null, reasoning: effort,
+            structuredOutputSchema: null, structuredOutputStrict: null, maxOutputTokens: 8192));
+        Assert.Equal(effort, responses.RootElement.GetProperty("reasoning").GetProperty("effort").GetString());
+        Assert.Equal(8192, responses.RootElement.GetProperty("max_output_tokens").GetInt32());
+    }
+
     [Fact]
     public void NormalizeJsonSchemaForOpenAi_ConvertsNullTypeKeywordToStringNull()
     {
@@ -238,4 +252,3 @@ public sealed class ChatRequestBuilderTests
         Assert.Equal(original, schema.ToJsonString());
     }
 }
-

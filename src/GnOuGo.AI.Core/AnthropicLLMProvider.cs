@@ -4,7 +4,6 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Auth.Core;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -21,21 +20,16 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 
 	private static readonly TimeSpan BackgroundInitialPollDelay = TimeSpan.FromSeconds(2);
 	private static readonly TimeSpan BackgroundMaxPollDelay = TimeSpan.FromSeconds(15);
-	private static readonly TimeSpan BackgroundUnsupportedCacheDuration = TimeSpan.FromMinutes(65);
-	private const string BackgroundUnsupportedCacheKeyPrefix = "gnougo-ai:anthropic:background-unsupported:";
 
 	private readonly HttpClient _http;
 	private readonly ILogger<AnthropicLLMProvider> _logger;
-	private readonly IMemoryCache? _backgroundModeCache;
 
 	public AnthropicLLMProvider(
 		HttpClient http,
-		ILogger<AnthropicLLMProvider>? logger = null,
-		IMemoryCache? backgroundModeCache = null)
+		ILogger<AnthropicLLMProvider>? logger = null)
 	{
 		_http = http;
 		_logger = logger ?? NullLogger<AnthropicLLMProvider>.Instance;
-		_backgroundModeCache = backgroundModeCache;
 		LLMHttpClientDefaults.EnsureMinimumTimeout(_http);
 	}
 
@@ -87,12 +81,14 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			HttpCompletionOption.ResponseHeadersRead,
 			_logger,
 			"Anthropic message creation",
+			provider.RetryPolicy,
 			ct);
 		if (!resp.IsSuccessStatusCode)
 		{
 			var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
-			throw new HttpRequestException(
-				$"Anthropic chat call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
+			throw HttpRequestHelper.CreateFailure(
+				$"Anthropic chat call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}",
+				resp);
 		}
 
 		await using var stream = await resp.Content.ReadAsStreamAsync(ct);
@@ -106,17 +102,6 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
 	{
 		var batchUrl = BuildBatchesUrl(provider.Url);
-		var cacheKey = BuildBackgroundUnsupportedCacheKey(provider, batchUrl);
-		if (IsBackgroundUnsupportedCached(cacheKey))
-		{
-			_logger.LogInformation(
-				"Anthropic batch API previously returned unsupported; skipping background mode and using synchronous Messages API. BatchUrl={BatchUrl}; Model={Model}; CacheDuration={CacheDuration}",
-				batchUrl,
-				model,
-				BackgroundUnsupportedCacheDuration);
-			return await CallMessagesAsync(model, provider, request, ct);
-		}
-
 		var auth = await ResolveAuthAsync(provider, ct);
 		var prompt = BuildPrompt(request.Prompt, request.StructuredOutputSchema, useStructuredOutputTool: true);
 
@@ -143,64 +128,33 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			HttpCompletionOption.ResponseHeadersRead,
 			_logger,
 			"Anthropic batch creation",
+			provider.RetryPolicy,
 			ct);
 		var createBody = await createResp.Content.ReadAsStringAsync(ct);
 
 		if (!createResp.IsSuccessStatusCode)
 		{
-			// If batches API is not available, fall back to synchronous
-			if (IsBatchUnsupported(createResp.StatusCode, createBody))
-			{
-				if (createResp.StatusCode == HttpStatusCode.NotFound)
-					CacheBackgroundUnsupported(cacheKey, batchUrl, model, createResp.StatusCode);
-
-				_logger.LogWarning(
-					"Anthropic batch API not available, falling back to synchronous call. " +
-					"BatchUrl: {BatchUrl}; StatusCode: {StatusCode}; ReasonPhrase: {ReasonPhrase}; ResponseBody: {ResponseBody}",
-					batchUrl,
-					(int)createResp.StatusCode,
-					createResp.ReasonPhrase ?? "",
-					FormatLogBody(createBody));
-				return await CallMessagesAsync(model, provider, request, ct);
-			}
-
-			throw new HttpRequestException(
-				$"Anthropic batch creation failed: {(int)createResp.StatusCode} {createResp.ReasonPhrase ?? ""} - {createBody}");
+			throw HttpRequestHelper.CreateFailure(
+				$"Anthropic batch creation failed: {(int)createResp.StatusCode} {createResp.ReasonPhrase ?? ""} - {createBody}",
+				createResp);
 		}
 
-		return await PollBatchUntilCompleteAsync(batchUrl, auth, createBody, request, model, ct);
-	}
-
-	private bool IsBackgroundUnsupportedCached(string cacheKey)
-		=> _backgroundModeCache?.TryGetValue(cacheKey, out bool unsupported) == true && unsupported;
-
-	private void CacheBackgroundUnsupported(string cacheKey, string batchUrl, string model, HttpStatusCode statusCode)
-	{
-		if (_backgroundModeCache == null)
-			return;
-
-		_backgroundModeCache.Set(cacheKey, true, new MemoryCacheEntryOptions
-		{
-			AbsoluteExpirationRelativeToNow = BackgroundUnsupportedCacheDuration
-		});
-		_logger.LogInformation(
-			"Cached Anthropic batch background unsupported result. BatchUrl={BatchUrl}; Model={Model}; StatusCode={StatusCode}; CacheDuration={CacheDuration}",
+		return await PollBatchUntilCompleteAsync(
 			batchUrl,
+			auth,
+			createBody,
+			request,
 			model,
-			(int)statusCode,
-			BackgroundUnsupportedCacheDuration);
+			provider.RetryPolicy,
+			ct);
 	}
-
-	private static string BuildBackgroundUnsupportedCacheKey(ModelProviderOptions provider, string batchUrl)
-		=> string.Join("|",
-			BackgroundUnsupportedCacheKeyPrefix,
-			provider.ResolvedType,
-			provider.Url ?? "",
-			batchUrl);
 
 	private async Task<LLMClientResponse> PollBatchUntilCompleteAsync(
 		string batchUrl, AnthropicAuth auth, string responseBody,
-		LLMClientRequest request, string model, CancellationToken ct)
+		LLMClientRequest request,
+		string model,
+		LLMProviderRetryPolicyOptions retryPolicy,
+		CancellationToken ct)
 	{
 		var delay = BackgroundInitialPollDelay;
 
@@ -216,7 +170,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 				// Retrieve results from the results_url
 				var resultsUrl = TryGetString(root, "results_url");
 				if (!string.IsNullOrWhiteSpace(resultsUrl))
-					return await FetchBatchResultAsync(resultsUrl, auth, request, model, ct);
+					return await FetchBatchResultAsync(resultsUrl, auth, request, model, retryPolicy, ct);
 
 				// Fallback: try to get results from the batch response directly
 				throw new HttpRequestException(
@@ -251,17 +205,24 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 				HttpCompletionOption.ResponseHeadersRead,
 				_logger,
 				"Anthropic batch polling",
+				retryPolicy,
 				ct);
 			responseBody = await pollResp.Content.ReadAsStringAsync(ct);
 
 			if (!pollResp.IsSuccessStatusCode)
-				throw new HttpRequestException(
-					$"Anthropic batch polling failed: {(int)pollResp.StatusCode} {pollResp.ReasonPhrase ?? ""} - {responseBody}");
+				throw HttpRequestHelper.CreateFailure(
+					$"Anthropic batch polling failed: {(int)pollResp.StatusCode} {pollResp.ReasonPhrase ?? ""} - {responseBody}",
+					pollResp);
 		}
 	}
 
 	private async Task<LLMClientResponse> FetchBatchResultAsync(
-		string resultsUrl, AnthropicAuth auth, LLMClientRequest request, string model, CancellationToken ct)
+		string resultsUrl,
+		AnthropicAuth auth,
+		LLMClientRequest request,
+		string model,
+		LLMProviderRetryPolicyOptions retryPolicy,
+		CancellationToken ct)
 	{
 		HttpRequestMessage CreateResultsRequest()
 		{
@@ -276,12 +237,14 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			HttpCompletionOption.ResponseHeadersRead,
 			_logger,
 			"Anthropic batch result retrieval",
+			retryPolicy,
 			ct);
 		if (!resultsResp.IsSuccessStatusCode)
 		{
 			var errBody = await HttpRequestHelper.ReadErrorBodyAsync(resultsResp, ct);
-			throw new HttpRequestException(
-				$"Anthropic batch results fetch failed: {(int)resultsResp.StatusCode} - {errBody}");
+			throw HttpRequestHelper.CreateFailure(
+				$"Anthropic batch results fetch failed: {(int)resultsResp.StatusCode} - {errBody}",
+				resultsResp);
 		}
 
 		// Results are JSONL — we only submitted one request, so take the first line
@@ -365,12 +328,14 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			HttpCompletionOption.ResponseHeadersRead,
 			_logger,
 			"Anthropic model discovery",
+			provider.RetryPolicy,
 			ct);
 		if (!resp.IsSuccessStatusCode)
 		{
 			var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
-			throw new HttpRequestException(
-				$"Anthropic model list call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
+			throw HttpRequestHelper.CreateFailure(
+				$"Anthropic model list call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}",
+				resp);
 		}
 
 		await using var stream = await resp.Content.ReadAsStreamAsync(ct);
@@ -583,29 +548,6 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		return ms.ToArray();
 	}
 
-	private static bool IsBatchUnsupported(System.Net.HttpStatusCode statusCode, string body)
-		=> statusCode is System.Net.HttpStatusCode.NotFound
-			   or System.Net.HttpStatusCode.MethodNotAllowed
-			   or System.Net.HttpStatusCode.NotImplemented
-		   || ((int)statusCode == 400
-			   && (body.Contains("batch", StringComparison.OrdinalIgnoreCase)
-				   || body.Contains("unsupported", StringComparison.OrdinalIgnoreCase)));
-
-	internal static string FormatLogBody(string? body, int maxLength = 4096)
-	{
-		if (string.IsNullOrWhiteSpace(body))
-			return "";
-
-		var sanitized = body
-			.Replace("\r", "\\r", StringComparison.Ordinal)
-			.Replace("\n", "\\n", StringComparison.Ordinal)
-			.Trim();
-
-		if (sanitized.Length <= maxLength)
-			return sanitized;
-
-		return sanitized[..maxLength] + $"… (truncated, {sanitized.Length} chars total)";
-	}
 
 	private static bool IsTerminalBatchStatus(string? status)
 		=> status is not null

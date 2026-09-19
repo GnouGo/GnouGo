@@ -75,13 +75,15 @@ public sealed class CopilotLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             HttpCompletionOption.ResponseHeadersRead,
             _logger,
             "Copilot/GitHub Models chat completion",
+            provider.RetryPolicy,
             ct);
 
         if (!resp.IsSuccessStatusCode)
         {
             var body = await HttpRequestHelper.ReadErrorBodyAsync(resp, ct);
-            throw new HttpRequestException(
-                $"Copilot/GitHub Models chat call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}");
+            throw HttpRequestHelper.CreateFailure(
+                $"Copilot/GitHub Models chat call failed: {(int)resp.StatusCode} {resp.ReasonPhrase ?? ""} - {body}",
+                resp);
         }
 
         await using var stream = await resp.Content.ReadAsStreamAsync(ct);
@@ -197,6 +199,7 @@ public sealed class CopilotLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                     HttpCompletionOption.ResponseHeadersRead,
                     _logger,
                     "Copilot/GitHub Models model discovery",
+                    provider.RetryPolicy,
                     ct);
                 if (!resp.IsSuccessStatusCode)
                 {

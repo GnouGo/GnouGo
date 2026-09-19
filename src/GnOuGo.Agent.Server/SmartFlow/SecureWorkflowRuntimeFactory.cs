@@ -1,7 +1,6 @@
 ﻿using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Integrations;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -14,10 +13,10 @@ public sealed class SecureWorkflowRuntimeFactory
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILLMClient? _llmClientOverride;
     private readonly IMcpClientFactory? _mcpClientFactoryOverride;
-    private readonly IMemoryCache? _backgroundModeCache;
     private readonly ILLMCapabilityResolver? _llmCapabilityResolver;
     private readonly IHumanInputProvider? _humanInputProvider;
     private readonly ILocalLLMRuntime? _localRuntime;
+    private readonly Reviews.ReviewPublicationService? _reviews;
 
     internal bool UsesLiveMcpConfiguration => _mcpClientFactoryOverride is null;
 
@@ -27,20 +26,20 @@ public sealed class SecureWorkflowRuntimeFactory
         ILoggerFactory? loggerFactory = null,
         ILLMClient? llmClientOverride = null,
         IMcpClientFactory? mcpClientFactoryOverride = null,
-        IMemoryCache? backgroundModeCache = null,
         ILLMCapabilityResolver? llmCapabilityResolver = null,
         IHumanInputProvider? humanInputProvider = null,
-        ILocalLLMRuntime? localRuntime = null)
+        ILocalLLMRuntime? localRuntime = null,
+        Reviews.ReviewPublicationService? reviews = null)
     {
         _optionsStore = optionsStore;
         _keyVaultStore = keyVaultStore;
         _loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
         _llmClientOverride = llmClientOverride;
         _mcpClientFactoryOverride = mcpClientFactoryOverride;
-        _backgroundModeCache = backgroundModeCache;
         _llmCapabilityResolver = llmCapabilityResolver;
         _humanInputProvider = humanInputProvider;
         _localRuntime = localRuntime;
+        _reviews = reviews;
     }
 
     internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct)
@@ -55,9 +54,10 @@ public sealed class SecureWorkflowRuntimeFactory
                 options.DefaultProvider,
                 options.DefaultModel)
             : new InMemoryMcpClientFactory());
+        if (_reviews is not null) mcpFactory = _reviews.Decorate(mcpFactory);
 
         var llmClient = _llmClientOverride
-            ?? new SnapshotRoutingLlmClientAdapter(http, options, _loggerFactory, _backgroundModeCache, _localRuntime);
+            ?? new SnapshotRoutingLlmClientAdapter(http, options, _loggerFactory, _localRuntime);
 
         return new SecureWorkflowRuntimeSession(
             llmClient,
@@ -108,70 +108,37 @@ internal sealed class SnapshotRoutingLlmClientAdapter : ILLMClient
     private readonly HttpClient _http;
     private readonly LLMOptions _options;
     private readonly ILoggerFactory _loggerFactory;
-    private readonly IMemoryCache? _backgroundModeCache;
     private readonly ILocalLLMRuntime? _localRuntime;
 
     public SnapshotRoutingLlmClientAdapter(
         HttpClient http,
         LLMOptions options,
         ILoggerFactory loggerFactory,
-        IMemoryCache? backgroundModeCache = null,
         ILocalLLMRuntime? localRuntime = null)
     {
         _http = http;
         _options = options;
         _loggerFactory = loggerFactory;
-        _backgroundModeCache = backgroundModeCache;
         _localRuntime = localRuntime;
     }
 
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
-        var providers = RoutingLLMClient.CreateDefaultProviders(_http, _loggerFactory, _backgroundModeCache).AsEnumerable();
+        var providers = RoutingLLMClient.CreateDefaultProviders(_http, _loggerFactory).AsEnumerable();
         if (_localRuntime is not null)
             providers = providers.Append(new LocalLLMProvider(_localRuntime));
         var routingClient = new RoutingLLMClient(_options, providers);
-        var aiRequest = new LLMClientRequest
-        {
-            Provider = request.Provider,
-            Model = request.Model,
-            Prompt = request.Prompt,
-            Temperature = request.Temperature,
-            StructuredOutputSchema = request.StructuredOutputSchema,
-            StructuredOutputStrict = request.StructuredOutputStrict,
-            Reasoning = request.Reasoning,
-            UseBackgroundMode = request.UseBackgroundMode,
-        };
+        var aiRequest = RoutingLLMClientAdapter.MapRequest(request);
 
-        if (request.Tools is { Count: > 0 })
+        LLMClientResponse aiResponse;
+        try
         {
-            aiRequest.Tools = request.Tools.Select(t => new LLMToolDef
-            {
-                Name = t.Name,
-                Description = t.Description,
-                InputSchema = t.InputSchema?.DeepClone()
-            }).ToList();
+            aiResponse = await routingClient.CallAsync(aiRequest, ct);
         }
-
-        var aiResponse = await routingClient.CallAsync(aiRequest, ct);
-        var response = new LLMResponse
+        catch (LLMProviderException ex)
         {
-            Text = aiResponse.Text,
-            Json = aiResponse.Json,
-            Usage = aiResponse.Usage,
-            Raw = aiResponse.Raw,
-        };
-
-        if (aiResponse.ToolCalls is { Count: > 0 })
-        {
-            response.ToolCalls = aiResponse.ToolCalls.Select(tc => new LLMToolCall
-            {
-                Id = tc.Id,
-                Name = tc.Name,
-                Arguments = tc.Arguments
-            }).ToList();
+            throw LLMProviderFailureMapper.Map(ex);
         }
-
-        return response;
+        return RoutingLLMClientAdapter.MapResponse(aiResponse);
     }
 }

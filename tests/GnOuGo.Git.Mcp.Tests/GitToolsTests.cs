@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using GnOuGo.Mcp.Core;
+using System.Text.Json.Nodes;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using Xunit;
@@ -98,6 +100,51 @@ public sealed class GitToolsTests : IDisposable
 
         Assert.NotEmpty(tools);
         Assert.All(tools, tool => Assert.NotNull(tool.ProtocolTool.OutputSchema));
+        Assert.All(tools, tool => AssertValidRequiredDeclarations(
+            JsonNode.Parse(tool.ProtocolTool.OutputSchema!.Value.GetRawText()),
+            tool.ProtocolTool.Name));
+        var compare = Assert.Single(tools, static tool =>
+            string.Equals(tool.ProtocolTool.Name, "git_compare_refs", StringComparison.Ordinal));
+        var artifactValidation = McpArtifactContractParser.ParseAndValidate(
+            compare.ProtocolTool.Meta,
+            JsonNode.Parse(compare.ProtocolTool.InputSchema.GetRawText()),
+            JsonNode.Parse(compare.ProtocolTool.OutputSchema!.Value.GetRawText()));
+        Assert.True(artifactValidation.IsValid, string.Join(Environment.NewLine, artifactValidation.Errors));
+    }
+
+    private static void AssertValidRequiredDeclarations(JsonNode? schema, string path)
+    {
+        if (schema is not JsonObject obj)
+            return;
+
+        var properties = obj["properties"] as JsonObject;
+        if (obj["required"] is JsonArray required)
+        {
+            Assert.NotNull(properties);
+            var names = required.Select((node, index) =>
+            {
+                var value = Assert.IsAssignableFrom<JsonValue>(node);
+                Assert.True(value.TryGetValue<string>(out var name), $"{path}.required[{index}] must be a string.");
+                Assert.False(string.IsNullOrWhiteSpace(name));
+                Assert.True(properties!.ContainsKey(name!), $"{path}.required[{index}] references undeclared property '{name}'.");
+                return name!;
+            }).ToArray();
+            Assert.Equal(names.Length, names.Distinct(StringComparer.Ordinal).Count());
+        }
+
+        if (properties != null)
+            foreach (var (name, property) in properties)
+                AssertValidRequiredDeclarations(property, $"{path}.properties.{name}");
+        foreach (var keyword in new[] { "$defs", "definitions" })
+            if (obj[keyword] is JsonObject definitions)
+                foreach (var (name, definition) in definitions)
+                    AssertValidRequiredDeclarations(definition, $"{path}.{keyword}.{name}");
+        foreach (var keyword in new[] { "items", "additionalProperties" })
+            AssertValidRequiredDeclarations(obj[keyword], $"{path}.{keyword}");
+        foreach (var keyword in new[] { "allOf", "anyOf", "oneOf" })
+            if (obj[keyword] is JsonArray variants)
+                for (var index = 0; index < variants.Count; index++)
+                    AssertValidRequiredDeclarations(variants[index], $"{path}.{keyword}[{index}]");
     }
 
     private GitServerSettings CreateSettings() => new()

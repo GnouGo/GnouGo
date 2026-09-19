@@ -195,4 +195,22 @@ public class JsonSchemaConverterTests
         Assert.False(dataSchema!.ContainsKey("type")); // "any" means no type constraint
         Assert.Equal("Arbitrary data", dataSchema["description"]!.GetValue<string>());
     }
+
+    [Fact]
+    public void ContractsToJsonSchema_PreserveStringEnums()
+    {
+        var inputSchema = Assert.IsType<JsonObject>(JsonSchemaConverter.InputDefToSchema(new InputDef
+        {
+            Type = "string",
+            Enum = ["first", "second"]
+        }));
+        var outputSchema = Assert.IsType<JsonObject>(JsonSchemaConverter.OutputDefToSchema(new OutputDef
+        {
+            Type = "string",
+            Enum = ["accepted", "rejected"]
+        }));
+
+        Assert.Equal(["first", "second"], inputSchema["enum"]!.AsArray().Select(static value => value!.GetValue<string>()));
+        Assert.Equal(["accepted", "rejected"], outputSchema["enum"]!.AsArray().Select(static value => value!.GetValue<string>()));
+    }
 }

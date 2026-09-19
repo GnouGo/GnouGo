@@ -2,7 +2,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
@@ -10,7 +9,7 @@ using GnOuGo.Flow.Core.Parsing;
 
 namespace GnOuGo.Flow.Core.Runtime;
 
-internal static class WorkflowPlanDiagnostics
+public static class WorkflowPlanDiagnostics
 {
     private static readonly JsonSerializerOptions DiagnosticJsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -101,7 +100,7 @@ internal static class WorkflowPlanDiagnostics
             message,
             new[]
             {
-                "Use the diagnostic code and message to repair the generated YAML before retrying.",
+                "Use the diagnostic code and message to correct the diagnosed typed workflow fields before retrying.",
                 "If this is a parser error, fix YAML syntax and root structure before changing workflow logic."
             });
     }
@@ -152,9 +151,18 @@ internal static class WorkflowPlanDiagnostics
 
     public static string BuildDiagnosticFingerprint(Exception ex)
     {
+        var normalized = string.Join("\n", BuildDiagnosticIdentities(ex).Order(StringComparer.Ordinal));
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized))).ToLowerInvariant();
+    }
+
+    public static IReadOnlySet<string> BuildDiagnosticIdentities(Exception ex)
+    {
         var diagnostics = new List<string>();
-        if (ex is WorkflowRuntimeException { Details: not null } runtimeException)
-            CollectDiagnosticIdentities(runtimeException.Details, diagnostics);
+        for (Exception? current = ex; current != null; current = current.InnerException)
+        {
+            if (current is WorkflowRuntimeException { Details: not null } runtimeException)
+                CollectDiagnosticIdentities(runtimeException.Details, diagnostics);
+        }
 
         if (diagnostics.Count == 0)
         {
@@ -164,37 +172,31 @@ internal static class WorkflowPlanDiagnostics
             diagnostics.Add(InferPlanErrorCode(ex.Message, exceptionCode));
         }
 
-        diagnostics.Sort(StringComparer.Ordinal);
-        var normalized = string.Join("\n", diagnostics.Distinct(StringComparer.Ordinal));
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized))).ToLowerInvariant();
+        return diagnostics.ToHashSet(StringComparer.Ordinal);
     }
 
+    public static bool IsStrictDiagnosticDecrease(
+        IReadOnlySet<string> candidate,
+        IReadOnlySet<string> baseline)
+        => candidate.Count < baseline.Count && candidate.IsSubsetOf(baseline);
+
     public static bool IsTransientProviderFailure(Exception exception)
+        => LlmFailureClassifier.Classify(exception)?.Retryable == true;
+
+    public static bool IsNonRepairableLlmFailure(Exception exception)
     {
-        for (var current = exception; current != null; current = current.InnerException!)
+        if (LlmFailureClassifier.Classify(exception) != null)
+            return true;
+
+        for (Exception? current = exception; current != null; current = current.InnerException)
         {
-            if (current is HttpRequestException or TimeoutException)
-                return true;
-
-            var message = current.Message;
-            if (message.Contains("server_error", StringComparison.OrdinalIgnoreCase)
-                || message.Contains("temporarily unavailable", StringComparison.OrdinalIgnoreCase)
-                || message.Contains("connection reset", StringComparison.OrdinalIgnoreCase)
-                || message.Contains("routing failed", StringComparison.OrdinalIgnoreCase))
+            if (current is WorkflowRuntimeException runtime
+                && runtime.Code is ErrorCodes.LlmBudgetExceeded
+                    or ErrorCodes.LlmBudgetUnverifiable
+                    or ErrorCodes.LlmSchema)
             {
                 return true;
             }
-
-            if (Regex.IsMatch(
-                    message,
-                    @"\b(?:HTTP|status|chat\s+call|provider|request|gateway|service)\b.{0,120}\b(?:408|425|429|500|502|503|504)\b|\b(?:408|425|429|500|502|503|504)\b.{0,120}\b(?:server|gateway|service|timeout|request)\b",
-                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Singleline))
-            {
-                return true;
-            }
-
-            if (current.InnerException == null)
-                break;
         }
 
         return false;
@@ -205,50 +207,54 @@ internal static class WorkflowPlanDiagnostics
         switch (node)
         {
             case JsonObject obj:
-            {
-                var code = ReadFingerprintValue(obj, "code");
-                if (!string.IsNullOrWhiteSpace(code))
                 {
-                    if (string.Equals(code, "PIPELINE_MAIN_UNPROVEN_EXTERNAL_ARTIFACT", StringComparison.OrdinalIgnoreCase))
+                    var code = ReadFingerprintValue(obj, "code")
+                               ?? ReadFingerprintValue(obj, "diagnostic_code")
+                               ?? ReadFingerprintValue(obj, "reason_code")
+                               ?? ReadFingerprintValue(obj, "issue_code");
+                    if (!string.IsNullOrWhiteSpace(code))
                     {
-                        var requestField = ReadFingerprintValue(obj, "request_field")
-                                           ?? ReadFingerprintValue(obj, "field")
-                                           ?? "artifact";
-                        var leafField = requestField.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                            .LastOrDefault() ?? requestField;
-                        diagnostics.Add(code.Trim().ToUpperInvariant() + "|artifact_field=" + leafField.ToLowerInvariant());
-                        foreach (var property in obj)
+                        if (string.Equals(code, "PIPELINE_MAIN_UNPROVEN_EXTERNAL_ARTIFACT", StringComparison.OrdinalIgnoreCase))
                         {
-                            if (property.Key is "generated_yaml" or "invalid_yaml" or "message" or "legacy_summary")
-                                continue;
-                            CollectDiagnosticIdentities(property.Value, diagnostics);
+                            var requestField = ReadFingerprintValue(obj, "request_field")
+                                               ?? ReadFingerprintValue(obj, "field")
+                                               ?? "artifact";
+                            var leafField = requestField.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                .LastOrDefault() ?? requestField;
+                            diagnostics.Add(code.Trim().ToUpperInvariant() + "|artifact_field=" + leafField.ToLowerInvariant());
+                            foreach (var property in obj)
+                            {
+                                if (property.Key is "generated_yaml" or "invalid_yaml" or "message" or "legacy_summary")
+                                    continue;
+                                CollectDiagnosticIdentities(property.Value, diagnostics);
+                            }
+                            break;
                         }
-                        break;
-                    }
 
-                    var identityFields = new[]
-                    {
+                        var identityFields = new[]
+                        {
                         "phase", "workflow", "workflow_name", "step", "step_id", "field", "location",
-                        "path", "invalid_path", "expected", "actual_type"
+                        "path", "invalid_path", "leaf", "leaf_name", "output", "output_name",
+                        "consumer", "consumer_step_id", "remediation_surface", "expected", "actual_type"
                     };
-                    var identity = new StringBuilder(code.Trim().ToUpperInvariant());
-                    foreach (var field in identityFields)
-                    {
-                        var value = ReadFingerprintValue(obj, field);
-                        if (!string.IsNullOrWhiteSpace(value))
-                            identity.Append('|').Append(field).Append('=').Append(value.Trim());
+                        var identity = new StringBuilder(code.Trim().ToUpperInvariant());
+                        foreach (var field in identityFields)
+                        {
+                            var value = ReadFingerprintValue(obj, field);
+                            if (!string.IsNullOrWhiteSpace(value))
+                                identity.Append('|').Append(field).Append('=').Append(value.Trim());
+                        }
+                        diagnostics.Add(identity.ToString());
                     }
-                    diagnostics.Add(identity.ToString());
-                }
 
-                foreach (var property in obj)
-                {
-                    if (property.Key is "generated_yaml" or "invalid_yaml" or "message" or "legacy_summary")
-                        continue;
-                    CollectDiagnosticIdentities(property.Value, diagnostics);
+                    foreach (var property in obj)
+                    {
+                        if (property.Key is "generated_yaml" or "invalid_yaml" or "message" or "legacy_summary")
+                            continue;
+                        CollectDiagnosticIdentities(property.Value, diagnostics);
+                    }
+                    break;
                 }
-                break;
-            }
             case JsonArray array:
                 foreach (var item in array)
                     CollectDiagnosticIdentities(item, diagnostics);
@@ -440,7 +446,7 @@ internal static class WorkflowPlanDiagnostics
         JsonNode? runtimeDetails)
     {
         var diagnosticCode = InferPlanErrorCode(message, code);
-        var hint = BuildDryRunHint(diagnosticCode, message);
+        var hint = BuildDryRunHint(diagnosticCode, message, runtimeDetails);
         var obj = new JsonObject
         {
             ["code"] = diagnosticCode,
@@ -465,7 +471,7 @@ internal static class WorkflowPlanDiagnostics
     {
         var diagnosticCode = InferPlanErrorCode(message, code);
         var hint = exception is WorkflowParseException
-            ? "Fix YAML syntax at the reported line and column before changing workflow logic."
+            ? BuildYamlParseHint(message)
             : "Inspect the message and repair the generated workflow shape or contract that triggered this exception.";
 
         var obj = new JsonObject
@@ -485,6 +491,12 @@ internal static class WorkflowPlanDiagnostics
 
         return obj;
     }
+
+    private static string BuildYamlParseHint(string message)
+        => message.Contains("plain scalar", StringComparison.OrdinalIgnoreCase)
+           || message.Contains("invalid mapping", StringComparison.OrdinalIgnoreCase)
+            ? "Fix YAML syntax at the reported line and column. The marked plain scalar contains mapping-like syntax; quote the complete scalar or replace it with a correctly indented YAML literal block (`|`) while preserving its value."
+            : "Fix YAML syntax at the reported line and column before changing workflow logic.";
 
     private static string BuildLocation(string? workflowName, string? stepId, string? field)
     {
@@ -565,6 +577,13 @@ internal static class WorkflowPlanDiagnostics
             return "Project the source container through deterministic normalization before assignment. Replace nullable nested values with contract-valid defaults when the destination is non-null, or use a compatible nullable workflow schema when the locked contract permits it; direct container mapping cannot repair a nested mismatch.";
         }
 
+        if (error.Code == "STEP_OUTPUT_PROPERTY_UNKNOWN"
+            && error.InvalidPath?.Contains(".json.", StringComparison.Ordinal) == true
+            && error.AllowedPaths.Any(static path => path.Contains(".response", StringComparison.Ordinal)))
+        {
+            return "The referenced producer is an ordinary mcp.call, so it has documented response fields but no .json output. Read an allowed response path directly. If typed domain fields must be derived from response text, add a separate llm.call with strict structured_output and read that normalizer's .json fields; never invent .json fields on the MCP call.";
+        }
+
         return error.Code switch
         {
             "STEP_REFERENCE_NOT_AVAILABLE" => "Move the producing step earlier, move the consuming reference later, or create a guaranteed normalization step before reading it.",
@@ -573,7 +592,7 @@ internal static class WorkflowPlanDiagnostics
             "STEP_OUTPUT_PROPERTY_UNKNOWN" => "Use one of the allowed output paths or add a normalizer step that produces the desired property.",
             "MCP_REQUEST_SCHEMA_INVALID" => "Align input.request with the discovered MCP tool input schema.",
             "MCP_REQUEST_EXPR_TYPE_MISMATCH" => "Use only expressions whose resolved type is compatible with the discovered MCP input_schema; nullable sources must be refined, guarded, or normalized before the mcp.call.",
-            "MCP_REQUEST_SELECTOR_NOT_LITERAL" => "Use a documented literal scalar for MCP action selectors; expressions and opaque selector construction are not statically enforceable.",
+            "MCP_REQUEST_SELECTOR_NOT_LITERAL" => "Use a documented scalar, a proven finite expression, or a direct required enum reference from a runtime-checked set output. Opaque or optional selector values cannot establish the selected operation.",
             "MCP_CALL_INPUT_FIELD_UNKNOWN" => "Move MCP tool arguments under input.request; keep only mcp.call envelope fields at input top level.",
             "MCP_METHOD_UNKNOWN" => "Use one exact MCP tool name from the discovered server catalog.",
             "MCP_SERVER_UNKNOWN" => "Use one exact MCP server name from discovery.",
@@ -596,7 +615,7 @@ internal static class WorkflowPlanDiagnostics
             "OPAQUE_RESPONSE_DEEP_ACCESS" or "STEP_OUTPUT_PROPERTY_UNKNOWN" => "documented output path",
             "MCP_REQUEST_SCHEMA_INVALID" => "request matching MCP input_schema",
             "MCP_REQUEST_EXPR_TYPE_MISMATCH" => "non-null MCP request expression matching input_schema",
-            "MCP_REQUEST_SELECTOR_NOT_LITERAL" => "documented literal MCP selector value",
+            "MCP_REQUEST_SELECTOR_NOT_LITERAL" => "proven documented MCP selector value",
             "MCP_CALL_INPUT_FIELD_UNKNOWN" => "supported mcp.call input envelope",
             "MCP_METHOD_UNKNOWN" => "discovered MCP method",
             "MCP_SERVER_UNKNOWN" => "discovered MCP server",
@@ -625,8 +644,23 @@ internal static class WorkflowPlanDiagnostics
         return hint;
     }
 
-    private static string BuildDryRunHint(string code, string message)
+    private static string BuildDryRunHint(string code, string message, JsonNode? runtimeDetails)
     {
+        if (runtimeDetails is JsonObject details
+            && GetString(details, "failed_step_id") is { } failedStep)
+        {
+            var phase = GetString(details, "execution_phase");
+            return phase == "finalization"
+                ? $"Repair finalization step '{failedStep}': one of its input, guard, or nested expressions reads a value that is not guaranteed to exist. Use the compiler ownership mapping for this step to replace the exact typed reference with an earlier guaranteed output or a safe empty cleanup collection."
+                : $"Repair step '{failedStep}': one of its input, guard, or nested expressions reads a value that is not guaranteed to exist. Use the compiler ownership mapping for this step to replace the exact typed reference with an earlier guaranteed output.";
+        }
+
+        if (runtimeDetails is JsonObject outputDetails
+            && GetString(outputDetails, "failed_output") is { } failedOutput)
+        {
+            return $"Repair workflow output '{failedOutput}' so its expression reads an earlier guaranteed step output with the declared shape.";
+        }
+
         if (code == ErrorCodes.ExprTypeMismatch || message.Contains("requires", StringComparison.OrdinalIgnoreCase))
             return "Change the expression or declared contract so the runtime value type matches the expected type.";
 
@@ -654,6 +688,24 @@ internal static class WorkflowPlanDiagnostics
     {
         if (runtimeDetails is not JsonObject obj)
             return null;
+
+        var failedStep = GetString(obj, "failed_step_id");
+        if (!string.IsNullOrWhiteSpace(failedStep))
+        {
+            var workflow = GetString(obj, "failed_workflow");
+            return string.IsNullOrWhiteSpace(workflow)
+                ? $"step:{failedStep}"
+                : $"workflow:{workflow}/step:{failedStep}";
+        }
+
+        var failedOutput = GetString(obj, "failed_output");
+        if (!string.IsNullOrWhiteSpace(failedOutput))
+        {
+            var workflow = GetString(obj, "failed_workflow");
+            return string.IsNullOrWhiteSpace(workflow)
+                ? $"output:{failedOutput}"
+                : $"workflow:{workflow}/output:{failedOutput}";
+        }
 
         var field = GetString(obj, "field")
             ?? GetString(obj, "invalid_path")

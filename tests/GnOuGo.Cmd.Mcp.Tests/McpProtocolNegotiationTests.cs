@@ -41,6 +41,13 @@ public sealed class McpProtocolNegotiationTests
         Assert.Equal(protocolVersion ?? "2026-07-28", client.NegotiatedProtocolVersion);
         Assert.Contains(tools, tool => tool.Name == "cmd_list_allowed_commands");
         Assert.Contains(tools, tool => tool.Name == "cmd_get_policy");
-        Assert.Contains(tools, tool => tool.Name == "cmd_run");
+        var cmdRun = Assert.Single(tools, tool => tool.Name == "cmd_run");
+        var allowedCommands = cmdRun.JsonSchema.GetProperty("properties")
+            .GetProperty("commandName")
+            .GetProperty("enum")
+            .EnumerateArray()
+            .Select(static value => value.GetString()!)
+            .ToArray();
+        Assert.Contains("delete_directory", allowedCommands);
     }
 }

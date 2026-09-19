@@ -7,24 +7,6 @@ namespace GnOuGo.GithubCopilot.Core;
 
 public static partial class ReviewValidation
 {
-    public static ReviewPublicationGateResult EvaluatePublication(ReviewPublicationGateRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.ExpectedHeadSha) || string.IsNullOrWhiteSpace(request.CurrentHeadSha))
-            return new ReviewPublicationGateResult(false, null, "Exact expected and current head SHAs are required.");
-        if (!string.Equals(request.ExpectedHeadSha, request.CurrentHeadSha, StringComparison.OrdinalIgnoreCase))
-            return new ReviewPublicationGateResult(false, null, "The pull-request head SHA changed; discard the review and restart.");
-        if (request.ValidatedFindingCount <= 0)
-            return new ReviewPublicationGateResult(false, null, "There are no validated inline findings to publish.");
-        if (request.Policy == ReviewPublicationPolicy.DryRun)
-            return new ReviewPublicationGateResult(false, null, "dry_run never permits a GitHub write.");
-        if (request.Policy == ReviewPublicationPolicy.Interactive && !request.HumanApproved)
-            return new ReviewPublicationGateResult(false, null, "Interactive publication requires explicit human approval after the proposed review is shown.");
-        if (request.Policy == ReviewPublicationPolicy.AutoComment)
-            return new ReviewPublicationGateResult(true, ReviewSubmitEvent.Comment, "Explicit auto_comment policy permits a COMMENT review on the unchanged head SHA.");
-
-        return new ReviewPublicationGateResult(true, request.ProposedEvent, "Interactive approval permits the selected review event on the unchanged head SHA.");
-    }
-
     public static IReadOnlyList<CopilotReviewBatch> CreateBatches(
         IReadOnlyList<ReviewFilePatch> files,
         int maxBatchCharacters)
@@ -97,7 +79,7 @@ public static partial class ReviewValidation
             return false;
         }
 
-        if (candidate.Confidence is < 0 or > 1
+        if (!Enum.IsDefined(candidate.Severity) || !Enum.IsDefined(candidate.Side) || !double.IsFinite(candidate.Confidence) || candidate.Confidence is < 0 or > 1
             || string.IsNullOrWhiteSpace(candidate.Explanation)
             || string.IsNullOrWhiteSpace(candidate.Category)
             || string.IsNullOrWhiteSpace(candidate.Evidence))

@@ -8,6 +8,16 @@ public class ExpressionEvaluatorTests
     private readonly ExpressionEvaluator _evaluator = new();
     private static JsonObject MakeContext(JsonNode? inputs = null, JsonNode? steps = null) =>
         new() { ["inputs"] = inputs ?? new JsonObject(), ["steps"] = steps ?? new JsonObject(), ["env"] = new JsonObject() };
+    [Theory]
+    [InlineData(0)]
+    [InlineData(3)]
+    [InlineData(-2)]
+    [InlineData(1.25)]
+    public void NumericSingletonArraysRemainValuesInsteadOfConstructorLengths(double value)
+    {
+        var result = _evaluator.Evaluate("data.inputs.values.map(value => value * 2)", MakeContext(new JsonObject { ["values"] = new JsonArray(JsonValue.Create(value)) }));
+        Assert.Single(result!.AsArray()); Assert.Equal(value * 2, double.Parse(result[0]!.ToJsonString(), System.Globalization.CultureInfo.InvariantCulture));
+    }
     [Fact]
     public void Evaluate_NumberLiteral_ReturnsNumber()
     {

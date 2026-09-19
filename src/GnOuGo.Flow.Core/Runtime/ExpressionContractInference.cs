@@ -1,0 +1,59 @@
+using Acornima;
+using Acornima.Ast;
+using System.Text.Json.Nodes;
+namespace GnOuGo.Flow.Core.Runtime;
+
+/// <summary>Infers pure business expressions from declared arguments, without executing examples.</summary>
+public static class ExpressionContractInference
+{
+    public static JsonObject? Infer(string expression, IReadOnlyDictionary<string, JsonObject> arguments)
+    {
+        var variables = arguments.ToDictionary(p => p.Key, p => FlowTypeDescriptorConverter.FromJsonSchema(p.Value), StringComparer.Ordinal);
+        var result = Infer(new Parser().ParseExpression(expression), variables);
+        return result.IsOpaque ? null : FlowTypeDescriptorConverter.ToRuntimeJsonSchema(result);
+    }
+    private static FlowTypeDescriptor Infer(Node node, IReadOnlyDictionary<string, FlowTypeDescriptor> variables)
+    {
+        FlowTypeDescriptor Type(Node child) => Infer(child, variables);
+        switch (node)
+        {
+            case Identifier identifier: return variables.GetValueOrDefault(identifier.Name) ?? FlowTypeDescriptor.Any;
+            case Literal literal: return literal.Value switch { null => FlowTypeDescriptor.Null, string => FlowTypeDescriptor.String, bool => FlowTypeDescriptor.Boolean, _ => FlowTypeDescriptor.Number };
+            case TemplateLiteral: return FlowTypeDescriptor.String;
+            case ArrayExpression array: return FlowTypeDescriptor.Array(FlowTypeDescriptor.Union(array.Elements.Where(e => e is not null).Select(e => Type(e!))));
+            case ObjectExpression obj:
+                var fields = new Dictionary<string, FlowPropertyDescriptor>(StringComparer.Ordinal);
+                foreach (var property in obj.Properties)
+                {
+                    if (property is not Property { Computed: false } field || Name(field.Key) is not { } name) return FlowTypeDescriptor.Any;
+                    fields[name] = new(Type(field.Value), true);
+                }
+                return FlowTypeDescriptor.Object(fields);
+            case MemberExpression member:
+                var owner = Type(member.Object); var key = member.Computed ? (member.Property as Literal)?.Value?.ToString() : Name(member.Property);
+                if (key == "length" && owner.Kind is FlowTypeKind.Array or FlowTypeKind.String) return FlowTypeDescriptor.Integer;
+                return key is null ? owner.Kind == FlowTypeKind.Array ? owner.Items! : FlowTypeDescriptor.Any : owner.ResolvePath([key]) ?? FlowTypeDescriptor.Any;
+            case ConditionalExpression conditional: return FlowTypeDescriptor.Union([Type(conditional.Consequent), Type(conditional.Alternate)]);
+            case LogicalExpression logical:
+                var left = Type(logical.Left); var right = Type(logical.Right);
+                return logical.Operator == Operator.NullishCoalescing && left.Kind == FlowTypeKind.Null ? right
+                    : FlowTypeDescriptor.Union([logical.Operator == Operator.NullishCoalescing ? left.RemoveNull() : left, right]);
+            case BinaryExpression binary:
+                var a = Type(binary.Left); var b = Type(binary.Right);
+                if (binary.Operator is Operator.Equality or Operator.Inequality or Operator.StrictEquality or Operator.StrictInequality or Operator.LessThan or Operator.LessThanOrEqual or Operator.GreaterThan or Operator.GreaterThanOrEqual) return FlowTypeDescriptor.Boolean;
+                if (binary.Operator == Operator.Addition && (a.Kind == FlowTypeKind.String || b.Kind == FlowTypeKind.String)) return FlowTypeDescriptor.String;
+                return Numeric(a) && Numeric(b) ? FlowTypeDescriptor.Number : FlowTypeDescriptor.Any;
+            case UnaryExpression unary:
+                return unary.Operator == Operator.LogicalNot ? FlowTypeDescriptor.Boolean : Numeric(Type(unary.Argument)) ? FlowTypeDescriptor.Number : FlowTypeDescriptor.Any;
+            case CallExpression { Callee: MemberExpression { Computed: false, Property: Identifier { Name: "map" } } member, Arguments.Count: 1 } call:
+                var collection = Type(member.Object);
+                if (collection.Kind != FlowTypeKind.Array || call.Arguments[0] is not ArrowFunctionExpression arrow || arrow.Params.Any(p => p is not Identifier)) return FlowTypeDescriptor.Any;
+                var scope = variables.ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
+                for (var i = 0; i < arrow.Params.Count; i++) scope[((Identifier)arrow.Params[i]).Name] = i == 0 ? collection.Items! : FlowTypeDescriptor.Integer;
+                return FlowTypeDescriptor.Array(Infer(arrow.Body, scope));
+            default: return FlowTypeDescriptor.Any;
+        }
+    }
+    private static string? Name(Node node) => node switch { Identifier identifier => identifier.Name, Literal { Value: string text } => text, _ => null };
+    private static bool Numeric(FlowTypeDescriptor type) => type.Kind is FlowTypeKind.Number or FlowTypeKind.Integer;
+}

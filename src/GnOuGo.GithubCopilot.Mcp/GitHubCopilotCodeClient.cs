@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using GitHub.Copilot;
 using GitHub.Copilot.Rpc;
+using GnOuGo.GithubCopilot.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -16,6 +17,7 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
     private readonly CodeMcpTraceContextAccessor _traceContextAccessor;
     private readonly CodeProgressReporter _progressReporter;
     private readonly ILogger<GitHubCopilotCodeClient> _logger;
+    private readonly IHttpClientFactory? _httpClientFactory;
 
     public GitHubCopilotCodeClient(
         IOptions<CodeServerSettings> settings,
@@ -23,7 +25,8 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         ICopilotProviderConfigResolver providerConfigResolver,
         CodeMcpTraceContextAccessor traceContextAccessor,
         CodeProgressReporter progressReporter,
-        ILogger<GitHubCopilotCodeClient> logger)
+        ILogger<GitHubCopilotCodeClient> logger,
+        IHttpClientFactory? httpClientFactory = null)
     {
         _settings = settings.Value;
         _policy = policy;
@@ -31,6 +34,7 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         _traceContextAccessor = traceContextAccessor;
         _progressReporter = progressReporter;
         _logger = logger;
+        _httpClientFactory = httpClientFactory;
     }
 
     public async Task<CodeSuggestionResult> SuggestChangeAsync(
@@ -220,7 +224,13 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
     }
 
     internal CopilotClient CreateClient(string projectRoot, string? token, bool enableSessionFs = false)
-        => new(BuildClientOptions(_settings, projectRoot, token, _logger, enableSessionFs));
+    {
+        var options = BuildClientOptions(_settings, projectRoot, token, _logger, enableSessionFs);
+        if (_settings.Copilot.InferenceProxyEndpoint is { } endpoint)
+            options.RequestHandler = new CopilotInferenceProxyHandler(
+                (_httpClientFactory ?? throw new InvalidOperationException("The configured inference proxy requires an HTTP client factory.")).CreateClient(nameof(CopilotInferenceProxyHandler)), new Uri(endpoint, UriKind.Absolute));
+        return new(options);
+    }
 
     internal static CopilotClientOptions BuildClientOptions(
         CodeServerSettings settings,
@@ -596,6 +606,5 @@ internal sealed class GitHubCopilotCodeClient : ICodeAssistantClient
         }
     }
 }
-
 
 

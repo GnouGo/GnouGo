@@ -44,10 +44,24 @@ public sealed class LoopSequentialExecutor : IStepExecutor
               input: { engine: mustache, template: "Iteration {{idx}}", data: { idx: "${data._loop.index}" }, mode: text }
         ```
         Context: `data.<item_var>` (current item), `data.<index_var>` (current index), `data._loop.index`, `data._loop.item` (when iterating items).
+        `data._loop_previous_<step-id>` contains the previous completed iteration's step results, or null before the first iteration. It is available in `while` and the body, and is restored/removed on success, failure or cancellation. A nested loop has its own snapshot.
         Output: `{ results: [...], count: N }`
         """;
 
     public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
+    {
+        var variable = LoopIterationContract.PreviousResultVariable(ctx.Step.Id);
+        var existed = ctx.Data.TryGetPropertyValue(variable, out var prior);
+        var saved = prior?.DeepClone();
+        try { return await ExecuteLoopAsync(ctx, variable, ct); }
+        finally
+        {
+            if (existed) ctx.Data[variable] = saved;
+            else ctx.Data.Remove(variable);
+        }
+    }
+
+    private static async Task<JsonNode?> ExecuteLoopAsync(StepExecutionContext ctx, string previousVariable, CancellationToken ct)
     {
         var subSteps = ctx.Step.Steps
             ?? throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "loop.sequential requires 'steps'");
@@ -110,6 +124,8 @@ public sealed class LoopSequentialExecutor : IStepExecutor
             {
                 ct.ThrowIfCancellationRequested();
 
+                ctx.Data[previousVariable] = iterations.LastOrDefault()?.DeepClone();
+
                 var currentItem = items[i]?.DeepClone();
                 ctx.Data[itemVar] = currentItem?.DeepClone();
                 ctx.Data[indexVar] = JsonValue.Create(i);
@@ -159,6 +175,7 @@ public sealed class LoopSequentialExecutor : IStepExecutor
 
         var whileIterations = new JsonArray();
         int iteration = 0;
+        var countIndexVar = ctx.Step.Source.IndexVar ?? "i";
 
         while (true)
         {
@@ -167,12 +184,15 @@ public sealed class LoopSequentialExecutor : IStepExecutor
             if (times.HasValue && iteration >= times.Value)
                 break;
 
+            ctx.Data[previousVariable] = whileIterations.LastOrDefault()?.DeepClone();
+
             if (iteration >= maxTimes)
                 throw new WorkflowRuntimeException(ErrorCodes.LoopLimit,
                     $"Loop iteration limit reached ({maxTimes})");
 
             ctx.Data["_loop"] = new JsonObject { ["index"] = iteration };
             ctx.Data["loop"] = new JsonObject { ["index"] = iteration };
+            ctx.Data[countIndexVar] = JsonValue.Create(iteration);
 
             // Evaluate while condition
             if (inputObj?.TryGetPropertyValue("while", out var whileExpr2) == true && whileExpr2 != null)
@@ -200,6 +220,7 @@ public sealed class LoopSequentialExecutor : IStepExecutor
             iteration++;
         }
 
+        ctx.Data.Remove(countIndexVar);
         return new JsonObject { ["results"] = whileIterations, ["count"] = iteration };
     }
 }

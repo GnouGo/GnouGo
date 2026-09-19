@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -41,4 +41,3 @@ internal static class TestServerAddressResolver
         return normalizedHost;
     }
 }
-
