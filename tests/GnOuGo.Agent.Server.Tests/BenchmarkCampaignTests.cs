@@ -1,4 +1,6 @@
 using System.Text.Json.Nodes;
+using System.Net;
+using GnOuGo.AI.Core;
 using System.Text.Json;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
@@ -8,6 +10,102 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    [Fact]
+    public async Task HttpRecoveryPreservesUnknownAllowanceAndReplaysAfterReceiptWriteFailure()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "recovery");
+        var request = new LLMRequest { ClientRequestId = "session:1:hash", Prompt = "immutable", StructuredOutputSchema = new JsonObject { ["type"] = "object" } };
+        var ids = new List<string>();
+        using var http = new HttpClient(new Handler(message =>
+        {
+            ids.Add(message.Headers.GetValues("X-Client-Request-Id").Single());
+            if (ids.Count == 1) throw new TaskCanceledException();
+            return new(HttpStatusCode.OK) { Content = new StringContent("{\"choices\":[{\"message\":{\"content\":\"{}\"}}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":2}}") };
+        }));
+        Task<LLMResponse> Dispatch(CancellationToken ct) => DispatchAsync(campaign, request.ClientRequestId!, http, ct);
+        records.FailCollection = "planning-evaluation-receipts";
+        await Assert.ThrowsAsync<IOException>(() => campaign.CallAsync(request, _ => Task.CompletedTask, Dispatch, Ct, allowHttpRecovery: true));
+        Assert.Equal(2, ids.Distinct().Count());
+        var before = await BenchmarkHttpJournal.AccountingAsync(campaign, request.ClientRequestId, ct: Ct);
+        Assert.Equal(2, before["calls"]!.GetValue<long>()); Assert.Equal(.1m, before["known_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(1m, before["reserved_cost_eur"]!.GetValue<decimal>()); Assert.Equal(1.1m, before["cost_upper_bound_eur"]!.GetValue<decimal>());
+        Assert.Equal(100L, before["reserved_input_tokens"]!.GetValue<long>()); Assert.Equal(20L, before["reserved_output_tokens"]!.GetValue<long>());
+        Assert.NotNull(await campaign.LoadAsync("planning-evaluation-failures", request.ClientRequestId, Ct));
+        records.FailCollection = null;
+        campaign = new(records, "recovery");
+        var response = await campaign.CallAsync(request, _ => Task.CompletedTask, Dispatch, Ct, allowHttpRecovery: true);
+        Assert.Equal(1, response.Usage!["uncertain_attempts"]!.GetValue<int>());
+        var replay = await campaign.CallAsync(request, _ => throw new InvalidOperationException(), _ => throw new InvalidOperationException(), Ct, allowHttpRecovery: true);
+        Assert.True(JsonNode.DeepEquals(response.Usage, replay.Usage)); Assert.Equal(2, ids.Count);
+        Assert.True(JsonNode.DeepEquals(before, await BenchmarkHttpJournal.AccountingAsync(campaign, request.ClientRequestId, ct: Ct)));
+        Assert.False(await campaign.HasUncertainRequestAsync(Ct)); // The original uncertain attempt still exists in its HTTP journal.
+        Assert.Equal("immutable", (await campaign.LoadAsync("planning-evaluation-requests", request.ClientRequestId, Ct))!["prompt"]!.ToString());
+        // Recovery does not poison the rest of the campaign.
+        await campaign.CallAsync(new() { ClientRequestId = "next:1:hash" }, _ => Task.CompletedTask, _ => Task.FromResult(new LLMResponse()), Ct);
+        Assert.Null(campaign.StopReason);
+    }
+    [Fact]
+    public async Task ConservativeAdmissionRejectsCostAndCallExhaustionWithoutChangingLedger()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "limits");
+        var journal = new BenchmarkHttpJournal(campaign, "session:1:hash", 100, 20, 26m);
+        var state = new LLMHttpRetryState { Fingerprint = "fixed", Attempts = [new() { Id = "first", Failure = "timeout" }] };
+        await journal.SaveAsync(state, Ct);
+        state.Attempts.Add(new() { Id = "second" });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => journal.SaveAsync(state, Ct));
+        Assert.Single((await journal.LoadAsync(Ct))!.Attempts);
+        Assert.Equal(26m, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["cost_upper_bound_eur"]!.GetValue<decimal>());
+        var other = new BenchmarkCampaign(records, "calls"); var limited = new BenchmarkHttpJournal(other, "session:1:hash", 100, 20, .1m);
+        state = new() { Fingerprint = "fixed" };
+        for (var i = 0; i < 8; i++) { state.Attempts.Add(new() { Id = i.ToString() }); await limited.SaveAsync(state, Ct); state.Attempts[^1].Status = 503; await limited.SaveAsync(state, Ct); }
+        state.Attempts.Add(new() { Id = "ninth" });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => limited.SaveAsync(state, Ct));
+        Assert.Equal(8, (await limited.LoadAsync(Ct))!.Attempts.Count);
+    }
+    [Fact]
+    public async Task HttpExhaustionAndCancellationCannotDispatchOnRestart()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "exhaustion"); var calls = 0;
+        using var http = new HttpClient(new Handler(_ => { calls++; throw new HttpRequestException("unknown delivery"); }));
+        var request = new LLMRequest { ClientRequestId = "session:1:hash" };
+        for (var restart = 0; restart < 2; restart++)
+        {
+            campaign = new(records, "exhaustion");
+            await Assert.ThrowsAsync<HttpRequestException>(() => campaign.CallAsync(request, _ => Task.CompletedTask,
+                ct => DispatchAsync(campaign, request.ClientRequestId!, http, ct), Ct, allowHttpRecovery: true));
+        }
+        Assert.Equal(2, calls); Assert.Null(await campaign.LoadAsync("planning-evaluation-receipts", request.ClientRequestId, Ct));
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        Assert.Equal(2L, accounting["calls"]!.GetValue<long>()); Assert.Equal(2m, accounting["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal("uncertain_dispatch", campaign.StopReason);
+    }
+    [Fact]
+    public async Task PreparedJournalResumesBeforeFirstSendAndOriginalSchemaCannotChange()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "prepared");
+        var request = new LLMRequest { ClientRequestId = "session:1:hash", StructuredOutputSchema = new JsonObject { ["type"] = "object" } };
+        await new BenchmarkHttpJournal(campaign, request.ClientRequestId, 100, 20, 1m).PrepareAsync(Ct);
+        await campaign.SaveAsync("planning-evaluation-requests", request.ClientRequestId, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), Ct);
+        var calls = 0;
+        using var http = new HttpClient(new Handler(_ => { calls++; return new(HttpStatusCode.OK) { Content = new StringContent("{\"choices\":[{\"message\":{\"content\":\"{}\"}}]}") }; }));
+        request.StructuredOutputSchema["type"] = "string";
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(request, _ => Task.CompletedTask, ct => DispatchAsync(campaign, request.ClientRequestId, http, ct), Ct, allowHttpRecovery: true));
+        Assert.Equal(0, calls);
+        request.StructuredOutputSchema["type"] = "object";
+        await campaign.CallAsync(request, _ => Task.CompletedTask, ct => DispatchAsync(campaign, request.ClientRequestId, http, ct), Ct, allowHttpRecovery: true);
+        Assert.Equal(1, calls);
+    }
+    private static async Task<LLMResponse> DispatchAsync(BenchmarkCampaign campaign, string id, HttpClient http, CancellationToken ct)
+    {
+        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 1m);
+        using var context = new LLMHttpRetryContext(id, journal).Activate();
+        var response = await new OpenAiLLMProvider(http).CallAsync("test", new() { Url = "https://provider.example/v1", RetryPolicy = new() { BaseDelayMilliseconds = 1, MaxDelayMilliseconds = 1 } }, new() { Prompt = "fixed", MaxOutputTokens = 20 }, ct);
+        var usage = await journal.CompleteAsync(new() { ["input_tokens"] = 10L, ["output_tokens"] = 2L, ["benchmark_cost_eur"] = .1m }, ct);
+        return new() { Json = response.Json, Text = response.Text, Usage = usage };
+    }
+    private sealed class Handler(Func<HttpRequestMessage, HttpResponseMessage> action) : HttpMessageHandler
+    { protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) => Task.FromResult(action(request)); }
+
     [Fact]
     public async Task OfflineReplayKeepsOriginalSchemaAndNeverWritesCampaignRecords()
     {
@@ -108,9 +206,10 @@ public sealed class BenchmarkCampaignTests
     private sealed class Records : IKeyVaultRecordStore
     {
         internal int Writes;
+        internal string? FailCollection;
         private readonly Dictionary<string, KeyVaultRecordValue> _rows = [];
         public Task<KeyVaultRecordValue?> GetAsync(string c, string t, string k, string a, CancellationToken ct = default) { ct.ThrowIfCancellationRequested(); return Task.FromResult(_rows.GetValueOrDefault(c + t + k)); }
-        public Task<KeyVaultRecordValue> UpsertAsync(string c, string t, string k, string v, string a, CancellationToken ct = default) { ct.ThrowIfCancellationRequested(); Writes++; var row = new KeyVaultRecordValue(c, t, k, v, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow); _rows[c + t + k] = row; return Task.FromResult(row); }
+        public Task<KeyVaultRecordValue> UpsertAsync(string c, string t, string k, string v, string a, CancellationToken ct = default) { ct.ThrowIfCancellationRequested(); if (c == FailCollection) throw new IOException("Injected store failure"); Writes++; var row = new KeyVaultRecordValue(c, t, k, v, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow); _rows[c + t + k] = row; return Task.FromResult(row); }
         public Task<IReadOnlyList<KeyVaultRecordValue>> ListAsync(string c, string t, string a, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<KeyVaultRecordValue>>(_rows.Values.Where(r => r.Collection == c && r.TenantId == t).ToArray());
         public Task<bool> DeleteAsync(string c, string t, string k, string a, CancellationToken ct = default) => throw new NotSupportedException();
     }

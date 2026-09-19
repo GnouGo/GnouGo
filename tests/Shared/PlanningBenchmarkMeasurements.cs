@@ -44,7 +44,7 @@ public static class PlanningBenchmarkMeasurements
     }
     public static JsonObject Usage(JsonObject run, bool live)
     {
-        long input = 0, output = 0; decimal cost = 0; var complete = run["usage_complete"]!.GetValue<bool>();
+        long input = 0, output = 0, reservedInput = 0, reservedOutput = 0; decimal cost = 0, reservedCost = 0; var bounded = true; var complete = run["usage_complete"]!.GetValue<bool>();
         foreach (var receipt in run["usage_receipts"]!.AsObject().Select(p => p.Value))
         {
             long? Tokens(params string[] keys) => keys.Select(k => receipt?[k]).OfType<JsonValue>().Select(v => v.TryGetValue<long>(out var n) ? (long?)n : v.TryGetValue<int>(out var small) ? small : null).FirstOrDefault(n => n is not null);
@@ -52,12 +52,23 @@ public static class PlanningBenchmarkMeasurements
             input += i ?? 0; output += o ?? 0;
             var priced = receipt?["benchmark_cost_eur"] is JsonValue value && value.TryGetValue<decimal>(out var amount);
             if (receipt?["benchmark_cost_eur"] is JsonValue price && price.TryGetValue<decimal>(out var known)) cost += known;
-            complete &= i is not null && o is not null && priced;
+            var usageKnown = i is not null && o is not null && priced;
+            var uncertain = Tokens("uncertain_attempts") ?? 0;
+            reservedInput += Tokens("reserved_input_tokens") ?? 0; reservedOutput += Tokens("reserved_output_tokens") ?? 0;
+            reservedCost += receipt?["reserved_cost_eur"]?.GetValue<decimal>() ?? 0;
+            complete &= usageKnown && uncertain == 0;
+            bounded &= usageKnown && (uncertain == 0 || receipt?["benchmark_usage_bounded"]?.GetValue<bool>() == true);
         }
         return new() { ["input_tokens"] = live && complete ? input : null, ["output_tokens"] = live && complete ? output : null,
             ["known_input_tokens"] = live ? input : null, ["known_output_tokens"] = live ? output : null, ["estimated_cost_eur"] = live && complete ? cost : null,
-            ["known_cost_eur"] = live ? cost : null, ["usage_complete"] = live ? complete : null };
+            ["known_cost_eur"] = live ? cost : null, ["usage_complete"] = live ? complete : null,
+            ["usage_bounded"] = live ? bounded && run["usage_complete"]!.GetValue<bool>() : null,
+            ["reserved_input_tokens"] = live ? reservedInput : null, ["reserved_output_tokens"] = live ? reservedOutput : null,
+            ["reserved_cost_eur"] = live ? reservedCost : null };
     }
+    public static int ExtraTransportCalls(JsonObject run) => run["usage_receipts"]!.AsObject()
+        .Sum(p => Math.Max(0, (p.Value?["transport_attempts"]?.GetValue<int>() ?? 1) - 1));
+
     public static JsonObject Summary(IReadOnlyList<JsonObject> rows, string phase)
     {
         var calls = rows.Select(r => r["calls"]!.GetValue<int>()).Order().ToArray(); var count = calls.Length;

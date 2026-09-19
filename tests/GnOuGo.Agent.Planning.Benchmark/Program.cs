@@ -75,6 +75,15 @@ foreach (var name in names)
 {
     var key = RunKey(phase, name, repetition);
     var run = campaign is null ? null : await campaign.LoadAsync("planning-evaluation-runs", key);
+    if (run?["result"] is JsonObject failedResult && failedResult["termination_reason"] is not null &&
+        run["session"]?["pendingCall"]?["id"]?.ToString() is { } pendingId &&
+        await campaign!.LoadAsync(BenchmarkHttpJournal.Collection, pendingId) is not null)
+    {
+        // Re-enter the same reserved call. The HTTP journal replays its receipt or enforces
+        // the remaining attempt allowance; neither session accounting nor evidence is reset.
+        (run["previous_results"] ??= new JsonArray()).AsArray().Add(failedResult.DeepClone());
+        run.Remove("result"); run["session"]!["status"] = PlanningStatus.Generating;
+    }
     if (run?["result"] is JsonObject completed)
     { results.Add(completed); Console.WriteLine(completed.ToJsonString()); if (completed["termination_reason"] is not null) goto Complete; continue; }
     run ??= new JsonObject { ["diagnostic_history"] = new JsonArray(), ["usage_receipts"] = new JsonObject(), ["usage_complete"] = true,
@@ -87,7 +96,7 @@ foreach (var name in names)
     {
         run["session"] = JsonSerializer.SerializeToNode(current, PlanningJsonContext.Default.PlanningSession);
         PlanningBenchmarkMeasurements.Capture(run, current);
-        if (current.Status == PlanningStatus.FinalReview) { run["final_review"] = true; if (current.ModelCalls == 1) run["first_pass_valid"] = true; }
+        if (current.Status == PlanningStatus.FinalReview) { run["final_review"] = true; if (current.ModelCalls == 1 && PlanningBenchmarkMeasurements.ExtraTransportCalls(run) == 0) run["first_pass_valid"] = true; }
         if (campaign is not null) await campaign.SaveAsync("planning-evaluation-runs", key, run, ct);
     }
     var runtime = new MeasuredRuntime(new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask), name, model, run, Checkpoint);
@@ -99,7 +108,7 @@ foreach (var name in names)
         {
             state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, CancellationToken.None);
             state = JsonSerializer.Deserialize(run["session"], PlanningJsonContext.Default.PlanningSession)!;
-            if (campaign?.StopReason is not null || live && PlanningBenchmarkMeasurements.Usage(run, true)["usage_complete"]!.GetValue<bool>() == false) break;
+            if (campaign?.StopReason is not null || live && PlanningBenchmarkMeasurements.Usage(run, true)["usage_bounded"]!.GetValue<bool>() == false) break;
         }
         if (state.Status == PlanningStatus.Clarification) state.Diagnostics.Add(new("CLARIFICATION_REQUIRED", "/questions", "The frozen case declares runtime inputs; no evaluation-time answers are supplied."));
         if (run["final_review"]!.GetValue<bool>() && environment.Effects.Count == 0)
@@ -143,13 +152,13 @@ foreach (var name in names)
         ["case"] = name, ["repetition"] = repetition, ["session_id"] = state.Request.SessionId, ["mode"] = replayKey is not null ? "replay" : live ? "live" : "fixture",
         ["replay_source_run"] = replayKey, ["live_model_calls"] = replayKey is not null ? 0 : (int?)null,
         ["provider"] = configured?.Provider, ["model"] = configured?.Model, ["first_pass_valid"] = run["first_pass_valid"]!.DeepClone(), ["final_review"] = run["final_review"]!.DeepClone(),
-        ["execution_correct"] = execution, ["execution_variants"] = variants, ["safety_violations"] = safety, ["calls"] = state.ModelCalls, ["repairs"] = state.RepairAttempts,
+        ["execution_correct"] = execution, ["execution_variants"] = variants, ["safety_violations"] = safety, ["calls"] = state.ModelCalls + PlanningBenchmarkMeasurements.ExtraTransportCalls(run), ["repairs"] = state.RepairAttempts,
         ["initial_request_bytes"] = run["initial_request_bytes"]?.DeepClone(), ["initial_estimated_input_tokens"] = run["initial_estimated_input_tokens"]?.DeepClone(),
         ["scenarios"] = state.Scenarios.Count, ["elapsed_ms"] = run["elapsed_ms"]!.DeepClone(), ["failure"] = failure, ["termination_reason"] = campaign?.StopReason,
         ["diagnostics"] = new JsonArray(state.Diagnostics.Select(d => d.Code).Distinct().Select(d => (JsonNode)JsonValue.Create(d)).ToArray()),
         ["failure_history"] = new JsonArray(run["diagnostic_history"]!.AsArray().Select(d => { var entry = d!.DeepClone().AsObject(); entry.Remove("message"); return (JsonNode)entry; }).ToArray()) };
     foreach (var (field, value) in PlanningBenchmarkMeasurements.Usage(run, live)) rowResult[field] = value?.DeepClone();
-    if (live && rowResult["usage_complete"]?.GetValue<bool>() != true && rowResult["termination_reason"] is null) rowResult["termination_reason"] = "unknown_usage";
+    if (live && rowResult["usage_bounded"]?.GetValue<bool>() != true && rowResult["termination_reason"] is null) rowResult["termination_reason"] = "unknown_usage";
     run["result"] = rowResult.DeepClone();
     if (campaign is not null) await campaign.SaveAsync("planning-evaluation-runs", key, run);
     results.Add(rowResult); Console.WriteLine(rowResult.ToJsonString());
@@ -178,11 +187,17 @@ sealed class MeasuredRuntime(IPlanningRuntime inner, string name, ILLMClient? li
         try
         {
             var response = await live.CallAsync(request, ct);
+            run["usage_complete"] = true;
             run["last_response"] = JsonSerializer.SerializeToNode(response, PlanningJsonContext.Default.LLMResponse);
             PlanningBenchmarkMeasurements.RecordUsage(run, request.ClientRequestId!, response.Usage as JsonObject);
             return response;
         }
-        catch { run["usage_complete"] = false; throw; }
+        catch
+        {
+            if (live is KeyVaultBenchmarkModel configured)
+                PlanningBenchmarkMeasurements.RecordUsage(run, request.ClientRequestId!, await configured.PartialUsageAsync(request.ClientRequestId!, CancellationToken.None));
+            run["usage_complete"] = false; throw;
+        }
     }
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => inner.ValidateAsync(request, ct);
     public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct) => inner.ValidateScenariosAsync(request, ct);

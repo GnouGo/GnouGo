@@ -121,6 +121,26 @@ public sealed class HttpRecoveryTests
         var failure = await Assert.ThrowsAsync<HttpRequestException>(() => Send(http));
         Assert.Equal(1, calls); Assert.False(LLMProviderFailureClassifier.Classify(failure).Retryable);
     }
+    [Fact]
+    public async Task RetryAfterDeadlineSurvivesRestartWithoutAnotherUncertainCharge()
+    {
+        var journal = new Journal(); var calls = 0;
+        var now = new DateTimeOffset(2026, 9, 19, 10, 0, 0, TimeSpan.Zero);
+        using var http = new HttpClient(new Handler((_, _) =>
+        {
+            var response = new HttpResponseMessage(++calls == 1 ? HttpStatusCode.TooManyRequests : HttpStatusCode.OK);
+            response.Headers.TryAddWithoutValidation("Retry-After", "5"); return Task.FromResult(response);
+        }));
+        Task<HttpResponseMessage> Run(Func<TimeSpan, CancellationToken, Task> delay) => HttpRequestHelper.SendWithTransientRetryAsync(http,
+            () => HttpRequestHelper.CreateJsonPost("https://provider.example/generate", "{}"u8.ToArray()), HttpCompletionOption.ResponseHeadersRead,
+            NullLogger.Instance, "test", new(), delay, _ => throw new InvalidOperationException("Retry-After wins"), () => now, Ct);
+        using (new LLMHttpRetryContext("original", journal).Activate())
+            await Assert.ThrowsAsync<IOException>(() => Run((delay, _) => { Assert.Equal(TimeSpan.FromSeconds(5), delay); throw new IOException("Process stopped during backoff"); }));
+        now = now.AddSeconds(3);
+        using (new LLMHttpRetryContext("original", journal).Activate())
+        using (await Run((delay, _) => { Assert.Equal(TimeSpan.FromSeconds(2), delay); return Task.CompletedTask; })) { }
+        Assert.Equal(2, calls); Assert.All(journal.State!.Attempts, a => Assert.NotNull(a.Status));
+    }
     private static Task<HttpResponseMessage> Send(HttpClient http, bool post = false, LLMProviderRetryPolicyOptions? policy = null, CancellationToken? ct = null)
         => HttpRequestHelper.SendWithTransientRetryAsync(http,
             () => post ? HttpRequestHelper.CreateJsonPost("https://provider.example/generate", "{}"u8.ToArray()) : HttpRequestHelper.CreateGet("https://provider.example/models"),

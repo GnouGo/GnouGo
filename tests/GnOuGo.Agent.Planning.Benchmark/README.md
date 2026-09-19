@@ -9,9 +9,9 @@ dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- --live-
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- --keyvault-provider openai --model <configured-model> --campaign <fresh-candidate-id> --phase pilot
 ```
 
-A live adapter reads one source-generated `LLMRequest` JSON from stdin and returns one `LLMResponse` JSON on stdout. It must honor strict schemas, medium reasoning, durable request identities and token ceilings; enforce the aggregate evaluation budget; and return verified usage plus `usage.benchmark_cost_eur`. Configure credentials through the adapter's trusted configuration boundary. Each invocation is bounded to ten minutes. Missing usage stops the campaign and is explicitly reported. Never automatically redispatch uncertain requests.
+A live adapter reads one source-generated `LLMRequest` JSON from stdin and returns one `LLMResponse` JSON on stdout. It must honor strict schemas, medium reasoning, durable request identities and token ceilings; enforce the aggregate evaluation budget; and return verified usage plus `usage.benchmark_cost_eur`. Configure credentials through the adapter's trusted configuration boundary. Each invocation is bounded to ten minutes. Missing usage is explicitly reported. It stops the campaign unless the HTTP journal provides a conservative bound admitted under the remaining budget. Never redispatch an uncertain request identity; command adapters must provide their own durable accounting and do not inherit the built-in HTTP recovery.
 
-The built-in KeyVault option uses the Agent host's configuration mapper without starting the host or connecting to MCP integrations. Keep the same campaign ID for both revisions: its encrypted request receipts and EUR 50 ledger survive process restart. An OS lease serializes campaign dispatch, and a conservative per-request cost bound prevents spending beyond the remaining allowance. Provider failures without receipts stop the campaign. Existing planning sessions are never read or modified.
+The built-in KeyVault option uses the Agent host's configuration mapper without starting the host or connecting to MCP integrations. Keep the same campaign ID for both revisions: its encrypted request receipts and EUR 50 ledger survive process restart. An OS lease serializes campaign dispatch, and a conservative per-request cost bound prevents spending beyond the remaining allowance. The provider HTTP layer may recover one uncertain generation attempt; its full possible usage is reserved before the new identity is dispatched. Exhaustion stops the campaign. Existing planning sessions are never read or modified.
 
 JSONL output retains failures and reports first-pass validity, FinalReview, independent execution correctness, calls, repairs, verified input/output tokens, cost, initial request bytes (prompt plus response schema), estimated input tokens, scenarios and duration. The summary reports rates and cohort median/p75 calls. Nonzero exit means coverage or a cohort gate failed. `--case <name>` selects one frozen case. No generated YAML or model response is printed by the runner.
 
@@ -30,7 +30,7 @@ dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
 
 Pilot runs each case once. Measured evaluation requires the same revision's seven passing pilot results and runs three additional repetitions per case. Provider/model/request policy are resolved from KeyVault once at startup and pinned in the campaign's encrypted configuration. `--model` optionally asserts the expected configured model. One EUR 50 ceiling covers the entire new campaign, including failed runs and fixes; previous ledgers are untouched.
 
-The existing encrypted request/receipt journal now also stores session checkpoints, usage receipts keyed by request identity, intermediate diagnostics and final run results. Repeating a command reuses completed results or resumes the reserved session. An uncertain dispatch stops this campaign without resending. `--inspect-run <source-sha>:<phase>:<case>:<repetition>` reads encrypted evidence to stdout for local diagnosis; add `--include-receipts` to inspect the original reserved schemas and responses; do not redirect private evidence to plaintext files or commit it.
+The existing encrypted request/receipt journal now also stores session checkpoints, usage receipts keyed by request identity, intermediate diagnostics and final run results. Repeating a command reuses completed results or resumes the reserved session. An uncertain attempt is never resent under its original identity. The shared HTTP retry policy may admit one new attempt after conservative accounting; exhausted or unjournaled uncertainty stops the campaign. `--inspect-run <source-sha>:<phase>:<case>:<repetition>` reads encrypted evidence to stdout for local diagnosis; add `--include-receipts` to inspect the original reserved schemas and responses; do not redirect private evidence to plaintext files or commit it.
 
 Rows include source/session identity, phase, per-variant execution outcomes, confirmation/cancellation checks, safety violations and provisional diagnostic categories. Classification codes are an initial aid, not proof: inspect exact evidence and the independent oracle before confirming a cause or editing production code. Keep semantic misunderstanding, retrieval miss, invalid intent, builder defect, inference limitation, validator/oracle defect and provider/transport failure distinct. Safely rejected proposals are not executed safety violations.
 
@@ -52,3 +52,32 @@ Replay reads the original interpretation reservation and receipt through encrypt
 `--campaign <id> --inspect-campaign` reports reservation/receipt counts, pending identities, the known budget snapshot and a hash of the campaign evidence. It is read-only and does not initialize model configuration. `--inspect-run <key> --include-receipts` now includes pending reservations even when no usage receipt exists, along with any retained safe failure metadata. Private request/receipt inspection still must not be redirected to plaintext files.
 
 New failed dispatches retain the existing provider-neutral failure kind, HTTP status, safe provider code, retry metadata and failure stage in encrypted records. Exception messages, raw bodies and credentials are excluded. This does not authorize retries, create a completion receipt or retroactively recover missing metadata. A reservation remains uncertain if completion or receipt persistence fails. Missing-receipt replay exits 2 with `REPLAY_UNAVAILABLE`; no request is sent.
+
+## Bounded HTTP recovery
+
+The built-in KeyVault model now uses AI.Core's single HTTP retry loop. Provider `RetryPolicy`
+configures total attempts, per-attempt timeout and the uncertain allowance (one by default).
+The policy is pinned separately in the campaign. Generation remains synchronous and without
+tools; workflow integrations remain mocked. No planner retry phase is introduced.
+
+Before each HTTP send, an encrypted `planning-evaluation-http-attempts` record stores its fresh
+identity and a conservative token/cost allowance. Admission includes verified previous usage,
+legacy campaign accounting and every unresolved allowance, with EUR 50 and eight physical
+attempts per session. Uncertain original attempts and their allowances remain after recovery.
+Known HTTP rejections do not count as generated usage. Calls count every reserved physical
+attempt, including transient HTTP responses; repairs still count intent corrections only.
+
+A stored complete HTTP response can be parsed and receipted after restart without another
+send. Missing completion consumes the uncertain allowance and can only use a new identity.
+The original model request/schema and all previous evidence stay unchanged. If a process stops
+between original reservation and dispatch, the prepared journal permits safe restart. Old
+reservations without HTTP evidence remain stopped; no migration invents usage or authorizes a
+blind resend. Exhaustion and cancellation never replenish attempts. The OS campaign lease
+serializes admission and record replacement.
+
+Reports leave total usage/cost null after uncertainty, retain known partial usage, and add
+`reserved_input_tokens`, `reserved_output_tokens`, `reserved_cost_eur` and `usage_bounded`.
+A bounded unknown allows subsequent runs; it does not become verified usage. Replaying a
+receipt replaces its measurement entry rather than adding another charge. Failed-run reports
+are retained in `previous_results` if the same revision resumes its journaled pending request.
+No paid evaluation or previous campaign modification is required to test this behavior.

@@ -169,6 +169,7 @@ public static class HttpRequestHelper
         var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(template.Method + "\n" + template.RequestUri + "\n" + payload)));
         var state = context is null ? new LLMHttpRetryState { Fingerprint = fingerprint }
             : await context.Journal.LoadAsync(ct).ConfigureAwait(false) ?? new LLMHttpRetryState { Fingerprint = fingerprint };
+        if (state.Attempts.Count == 0 && state.Fingerprint.Length == 0) state.Fingerprint = fingerprint;
         if (state.Fingerprint != fingerprint) throw new InvalidOperationException("The reserved HTTP operation changed.");
         if (context is not null) context.State = state;
         Exception? originalFailure = null;
@@ -178,6 +179,7 @@ public static class HttpRequestHelper
             var previous = state.Attempts.LastOrDefault();
             if (previous is not null)
             {
+                if (previous.Failure == "cancelled") throw new OperationCanceledException("The reserved attempt was cancelled; it cannot be retried.", ct);
                 var response = previous.Status is { } code ? Restore(previous, code) : null;
                 var classification = response is null ? null : LLMProviderFailureClassifier.ClassifyResponse(response.StatusCode, previous.Body ?? "");
                 var uncertain = response is null;
@@ -216,7 +218,13 @@ public static class HttpRequestHelper
                     await SaveAsync(ct).ConfigureAwait(false);
                 }
                 logger.LogWarning("Retrying transient HTTP failure during {OperationName}. Attempt={Attempt}; BackoffMs={BackoffMs}; Uncertain={Uncertain}", operationName, state.Attempts.Count, delay.TotalMilliseconds, uncertain);
-                await delayAsync(delay, ct).ConfigureAwait(false);
+                try { await delayAsync(delay, ct).ConfigureAwait(false); }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    previous.Failure = "cancelled";
+                    await SaveAsync(CancellationToken.None).ConfigureAwait(false);
+                    throw;
+                }
             }
 
             ct.ThrowIfCancellationRequested();

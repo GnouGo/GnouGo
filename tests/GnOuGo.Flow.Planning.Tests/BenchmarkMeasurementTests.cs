@@ -6,6 +6,20 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BenchmarkMeasurementTests
 {
     [Fact]
+    public void RecoveredUsageIsBoundedButUnknownAndReplayDoesNotDoubleCount()
+    {
+        var run = new JsonObject { ["usage_receipts"] = new JsonObject(), ["usage_complete"] = true };
+        var receipt = new JsonObject { ["input_tokens"] = 10, ["output_tokens"] = 2, ["benchmark_cost_eur"] = .1m,
+            ["transport_attempts"] = 2, ["uncertain_attempts"] = 1, ["reserved_input_tokens"] = 96000,
+            ["reserved_output_tokens"] = 32768, ["reserved_cost_eur"] = 4m, ["benchmark_usage_bounded"] = true };
+        PlanningBenchmarkMeasurements.RecordUsage(run, "same", receipt); PlanningBenchmarkMeasurements.RecordUsage(run, "same", receipt);
+        var usage = PlanningBenchmarkMeasurements.Usage(run, true);
+        Assert.False(usage["usage_complete"]!.GetValue<bool>()); Assert.True(usage["usage_bounded"]!.GetValue<bool>());
+        Assert.Null(usage["input_tokens"]); Assert.Null(usage["estimated_cost_eur"]);
+        Assert.Equal(10L, usage["known_input_tokens"]!.GetValue<long>()); Assert.Equal(4m, usage["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(1, PlanningBenchmarkMeasurements.ExtraTransportCalls(run));
+    }
+    [Fact]
     public void SelectionRejectsUnknownAndDuplicateCases()
     {
         Assert.Equal(7, PlanningBenchmarkMeasurements.Select(null).Length);

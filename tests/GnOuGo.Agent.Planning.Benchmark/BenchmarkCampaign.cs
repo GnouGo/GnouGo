@@ -33,7 +33,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
     internal async Task<JsonObject> InspectAsync(CancellationToken ct = default)
     {
         var evidence = new List<KeyVaultRecordValue>();
-        foreach (var collection in new[] { "requests", "receipts", "failures", "runs", "summaries", "configuration", "budgets" })
+        foreach (var collection in new[] { "requests", "receipts", "failures", "runs", "summaries", "configuration", "budgets", "http-attempts" })
             evidence.AddRange((await records.ListAsync("planning-evaluation-" + collection, "benchmark", Author, ct))
                 .Where(r => collection == "budgets" ? r.Key == Id : r.Key.StartsWith(Id + ":", StringComparison.Ordinal)));
         var requests = evidence.Where(r => r.Collection == "planning-evaluation-requests").ToArray();
@@ -43,6 +43,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         var snapshot = budget is null ? null : JsonSerializer.Deserialize(budget.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
         return new() { ["campaign"] = Id, ["reserved_requests"] = requests.Length, ["completed_receipts"] = receipts.Length,
             ["uncertain_requests"] = new JsonArray(missing.Select(r => (JsonNode)JsonValue.Create(r.Key[(Id.Length + 1)..])).ToArray()),
+            ["transport_accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, ct: ct),
             ["recorded_failures"] = evidence.Count(r => r.Collection == "planning-evaluation-failures"),
             ["known_budget_cost"] = snapshot?.EstimatedCost, ["budget_currency"] = snapshot?.EstimatedCostCurrency,
             ["known_input_tokens"] = snapshot?.InputTokens, ["known_output_tokens"] = snapshot?.OutputTokens,
@@ -83,15 +84,20 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
             return Task.FromResult(JsonSerializer.Deserialize(JsonSerializer.Serialize(response, PlanningJsonContext.Default.LLMResponse), PlanningJsonContext.Default.LLMResponse)!);
         }
     }
-    internal async Task<LLMResponse> CallAsync(LLMRequest request, Func<CancellationToken, Task> preflight, Func<CancellationToken, Task<LLMResponse>> dispatch, CancellationToken ct)
+    internal async Task<LLMResponse> CallAsync(LLMRequest request, Func<CancellationToken, Task> preflight, Func<CancellationToken, Task<LLMResponse>> dispatch, CancellationToken ct, bool allowHttpRecovery = false)
     {
         var key = request.ClientRequestId ?? throw new InvalidOperationException("A reserved request identity is required.");
         if (await LoadAsync("planning-evaluation-receipts", key, ct) is { } receipt)
             return JsonSerializer.Deserialize(receipt, PlanningJsonContext.Default.LLMResponse)!;
-        if (await HasUncertainRequestAsync(ct))
-        { StopReason = "uncertain_dispatch"; throw new InvalidOperationException("The campaign has an uncertain dispatch; no request was resent."); }
+        var reserved = await LoadAsync("planning-evaluation-requests", key, ct);
+        if (reserved is not null && !JsonNode.DeepEquals(reserved, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)))
+            throw new InvalidOperationException("The reserved request changed.");
+        var resumable = allowHttpRecovery && await LoadAsync(BenchmarkHttpJournal.Collection, key, ct) is not null;
+        foreach (var pending in (await records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct)).Where(r => r.Key.StartsWith(Id + ":", StringComparison.Ordinal)))
+            if (await records.GetAsync("planning-evaluation-receipts", "benchmark", pending.Key, Author, ct) is null && !(pending.Key == Id + ":" + key && resumable))
+            { StopReason = "uncertain_dispatch"; throw new InvalidOperationException("The campaign has an uncertain dispatch without recoverable HTTP evidence."); }
         await preflight(ct);
-        await SaveAsync("planning-evaluation-requests", key, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), ct);
+        if (reserved is null) await SaveAsync("planning-evaluation-requests", key, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), ct);
         var stage = "dispatch";
         try
         {
@@ -99,6 +105,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
             stage = "receipt_write";
             // Preserve evidence even when cancellation arrives after completion.
             await SaveAsync("planning-evaluation-receipts", key, JsonSerializer.SerializeToNode(response, PlanningJsonContext.Default.LLMResponse)!.AsObject(), CancellationToken.None);
+            StopReason = null;
             return response;
         }
         catch (Exception ex)
