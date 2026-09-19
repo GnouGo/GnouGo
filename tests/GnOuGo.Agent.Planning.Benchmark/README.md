@@ -90,3 +90,7 @@ The object replaces the base retry policy; unspecified fields use the documented
 defaults. Invalid fields, ambiguous names and invalid limits fail configuration validation.
 `Retry-After` is always honored; it cannot be disabled. Campaign summaries include
 `campaign_accounting` with cumulative verified usage and conservative unknown allowances.
+
+The [live HTTP recovery report](../../docs/planning-http-live-validation-2026-09-19.md)
+records a recovered HTTP 500, unchanged accounting after restart, and seven FinalReview
+results. One independently detected cleanup failure prevented the measured cohort.
