@@ -38,7 +38,6 @@ public sealed class LLMHttpRetryContext(string requestId, ILLMHttpRetryJournal j
     internal static LLMHttpRetryContext? Current => Ambient.Value;
     internal string RequestId { get; } = requestId;
     internal ILLMHttpRetryJournal Journal { get; } = journal;
-    internal LLMHttpRetryState? State { get; set; }
     public IDisposable Activate()
     {
         if (Ambient.Value is not null) throw new InvalidOperationException("Nested HTTP retry contexts are not allowed.");

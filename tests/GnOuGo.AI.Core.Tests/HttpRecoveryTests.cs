@@ -121,8 +121,9 @@ public sealed class HttpRecoveryTests
         var failure = await Assert.ThrowsAsync<HttpRequestException>(() => Send(http));
         Assert.Equal(1, calls); Assert.False(LLMProviderFailureClassifier.Classify(failure).Retryable);
     }
-    [Fact]
-    public async Task RetryAfterDeadlineSurvivesRestartWithoutAnotherUncertainCharge()
+    [Theory]
+    [InlineData(false)][InlineData(true)]
+    public async Task RetryAfterDeadlineSurvivesRestartWithoutAnotherUncertainCharge(bool clockMovedBackwards)
     {
         var journal = new Journal(); var calls = 0;
         var now = new DateTimeOffset(2026, 9, 19, 10, 0, 0, TimeSpan.Zero);
@@ -136,10 +137,10 @@ public sealed class HttpRecoveryTests
             NullLogger.Instance, "test", new(), delay, _ => throw new InvalidOperationException("Retry-After wins"), () => now, Ct);
         using (new LLMHttpRetryContext("original", journal).Activate())
             await Assert.ThrowsAsync<IOException>(() => Run((delay, _) => { Assert.Equal(TimeSpan.FromSeconds(5), delay); throw new IOException("Process stopped during backoff"); }));
-        now = now.AddSeconds(3);
+        now = now.AddSeconds(clockMovedBackwards ? -1000 : 3);
         using (new LLMHttpRetryContext("original", journal).Activate())
         using (await Run((delay, _) => { Assert.Equal(TimeSpan.FromSeconds(2), delay); return Task.CompletedTask; })) { }
-        Assert.Equal(2, calls); Assert.All(journal.State!.Attempts, a => Assert.NotNull(a.Status));
+        Assert.Equal(clockMovedBackwards ? 1 : 2, calls); Assert.All(journal.State!.Attempts, a => Assert.NotNull(a.Status));
     }
     [Theory]
     [InlineData(false)][InlineData(true)]

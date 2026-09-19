@@ -170,7 +170,6 @@ public static class HttpRequestHelper
             : await context.Journal.LoadAsync(ct).ConfigureAwait(false) ?? new LLMHttpRetryState { Fingerprint = fingerprint };
         if (state.Attempts.Count == 0 && state.Fingerprint.Length == 0) state.Fingerprint = fingerprint;
         if (state.Fingerprint != fingerprint) throw new InvalidOperationException("The reserved HTTP operation changed.");
-        if (context is not null) context.State = state;
         Exception? originalFailure = null;
         while (true)
         {
@@ -190,7 +189,8 @@ public static class HttpRequestHelper
                 var retryAfter = response is not null && retryPolicy.HonorRetryAfter ? ParseRetryAfter(response, utcNow()) : null;
                 var delay = !retryable || exhausted || response?.IsSuccessStatusCode == true ? TimeSpan.Zero : previous.NotBefore is { } due ? due - utcNow() : retryAfter ?? CalculateJitterDelay(retryPolicy, state.Attempts.Count, jitter);
                 if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
-                exhausted |= previous.NotBefore is null && state.DelayMilliseconds + delay.TotalMilliseconds > retryPolicy.MaxTotalDelayMilliseconds;
+                exhausted |= delay.TotalMilliseconds > retryPolicy.MaxTotalDelayMilliseconds ||
+                    previous.NotBefore is null && state.DelayMilliseconds + delay.TotalMilliseconds > retryPolicy.MaxTotalDelayMilliseconds;
                 var metadata = new LLMHttpRetryMetadata(state.Attempts.Count, retryable && exhausted, ToMilliseconds(retryAfter),
                     classification?.Kind ?? (previous.Failure == "permanent" ? LLMProviderFailureKind.Unknown : previous.Failure == "timeout" ? LLMProviderFailureKind.Timeout : LLMProviderFailureKind.Transport), classification?.SafeProviderCode);
                 if (response is not null && (response.IsSuccessStatusCode || !retryable || exhausted))

@@ -95,6 +95,19 @@ public sealed class BenchmarkCampaignTests
         await campaign.CallAsync(request, _ => Task.CompletedTask, ct => DispatchAsync(campaign, request.ClientRequestId, http, ct), Ct, allowHttpRecovery: true);
         Assert.Equal(1, calls);
     }
+    [Fact]
+    public async Task RecoveryPreservesChangedFailureEvidenceWithoutDuplicatingIdenticalFailures()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "history");
+        var request = new LLMRequest { ClientRequestId = "session:1:hash" };
+        await new BenchmarkHttpJournal(campaign, request.ClientRequestId, 100, 20, 1m).PrepareAsync(Ct);
+        await Assert.ThrowsAsync<IOException>(() => campaign.CallAsync(request, _ => Task.CompletedTask, _ => throw new IOException(), Ct, allowHttpRecovery: true));
+        for (var restart = 0; restart < 2; restart++)
+            await Assert.ThrowsAsync<TimeoutException>(() => new BenchmarkCampaign(records, "history").CallAsync(request, _ => Task.CompletedTask, _ => throw new TimeoutException(), Ct, allowHttpRecovery: true));
+        var failure = (await campaign.LoadAsync("planning-evaluation-failures", request.ClientRequestId, Ct))!;
+        Assert.Equal("TimeoutException", failure["exception_type"]!.ToString());
+        Assert.Equal("IOException", Assert.Single(failure["previous_failures"]!.AsArray())!["exception_type"]!.ToString());
+    }
     private static async Task<LLMResponse> DispatchAsync(BenchmarkCampaign campaign, string id, HttpClient http, CancellationToken ct)
     {
         var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 1m);

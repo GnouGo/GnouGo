@@ -168,6 +168,7 @@ Complete:
 if (replayKey is not null)
 { if (results.Any(r => r["execution_correct"]?.GetValue<bool>() != true)) Environment.ExitCode = 1; return; }
 var summary = PlanningBenchmarkMeasurements.Summary(results, phase); summary["campaign"] = campaignId; summary["source_commit"] = source;
+if (campaign is not null) summary["campaign_accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign);
 Console.WriteLine(summary.ToJsonString());
 if (campaign is not null) await campaign.SaveAsync("planning-evaluation-summaries", source + ":" + phase, summary);
 if (!summary["gates_passed"]!.GetValue<bool>()) Environment.ExitCode = 1;

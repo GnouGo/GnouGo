@@ -117,7 +117,15 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
                 ["attempt_count"] = failure?.AttemptCount, ["retry_exhausted"] = failure?.RetryExhausted, ["retry_after_ms"] = failure?.RetryAfterMilliseconds };
             // A durable reservation already prevents redispatch. Failure evidence must not
             // replace the original exception if storage is itself unavailable.
-            try { await SaveAsync("planning-evaluation-failures", key, details, CancellationToken.None); }
+            try
+            {
+                var previous = await LoadAsync("planning-evaluation-failures", key, CancellationToken.None);
+                var history = previous?["previous_failures"]?.DeepClone().AsArray() ?? new JsonArray();
+                previous?.Remove("previous_failures");
+                if (previous is not null && !JsonNode.DeepEquals(previous, details)) history.Add(previous);
+                if (history.Count > 0) details["previous_failures"] = history;
+                await SaveAsync("planning-evaluation-failures", key, details, CancellationToken.None);
+            }
             catch { }
             throw;
         }
