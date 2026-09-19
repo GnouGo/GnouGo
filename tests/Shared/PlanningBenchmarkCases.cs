@@ -34,6 +34,7 @@ public static class PlanningBenchmarkCases
     public sealed class Environment(string name, string variant = "nominal")
     {
         public List<string> Effects { get; } = [];
+        public Action<string>? AfterTool { get; set; }
         public List<string> Violations { get; } = [];
         private readonly Dictionary<string, JsonObject> _checks = new(StringComparer.Ordinal);
         private bool _reviewed, _evaluated;
@@ -45,7 +46,7 @@ public static class PlanningBenchmarkCases
             {
                 server.Tools.Add(new() { Name = method, Description = description, EffectKind = effect, InputSchema = JsonNode.Parse(input), OutputSchema = JsonNode.Parse(output), ExampleResponse = example });
                 if (method == "run_check") server.Tools[^1].Meta = JsonNode.Parse("""{"gnougo":{"result":{"detect_errors":false}}}""");
-                server.ToolHandlers[method] = args => { lock (Effects) { Effects.Add(method); return new() { Content = run(args) }; } };
+                server.ToolHandlers[method] = args => { lock (Effects) { Effects.Add(method); var result = run(args); AfterTool?.Invoke(method); return new() { Content = result }; } };
             }
             const string empty = """{"type":"object","properties":{},"additionalProperties":false}""";
             const string number = """{"type":"object","properties":{"value":{"type":"number"}},"required":["value"],"additionalProperties":false}""";

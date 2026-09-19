@@ -10,7 +10,7 @@
     <ProjectReference Include="../../src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj" />
     <ProjectReference Include="../../src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj" />
   </ItemGroup>
-  <ItemGroup></ItemGroup>
+  <ItemGroup><Compile Include="../Shared/PlanningBenchmarkMeasurements.cs" Link="PlanningBenchmarkMeasurements.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Shared/PlanningBenchmarkCases.cs" Link="PlanningBenchmarkCases.cs" /></ItemGroup>
 </Project>
