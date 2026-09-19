@@ -228,7 +228,9 @@ public sealed class JintSandbox
         if (node is JsonArray arr)
         {
             var items = arr.Select(item => JsonToJsValue(engine, item)).ToArray();
-            return engine.Intrinsics.Array.Construct(items);
+            var array = engine.Intrinsics.Array.Construct(System.Array.Empty<JsValue>());
+            array.Push(items);
+            return array;
         }
 
         return JsValue.Null;

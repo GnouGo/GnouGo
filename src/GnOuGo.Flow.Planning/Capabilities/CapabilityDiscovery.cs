@@ -51,12 +51,21 @@ internal static class CapabilityDiscovery
         return catalog;
     }
     internal static string Identity(string server, string kind, string method) => "cap_" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(new[] { server, kind, method }, PlanningJsonContext.Default.StringArray))[..24];
-    internal static PlanningCapability Tool(string server, McpToolInfo tool) => new()
+    internal static PlanningCapability Tool(string server, McpToolInfo tool)
     {
+        var capability = new PlanningCapability
+        {
         Id = Identity(server, "tool", tool.Name), StepType = "mcp.call", Server = server, Kind = "tool", Method = tool.Name,
         Description = tool.Description ?? "", InputSchema = tool.InputSchema?.DeepClone() as JsonObject ?? new() { ["type"] = "object" },
         OutputSchema = McpToolContractEnricher.GetAuthoritativeOutputSchema(tool)?.DeepClone() as JsonObject ?? new(),
         ArtifactContract = tool.ArtifactContract?.Contract, Metadata = tool.Meta?.DeepClone(), ExampleResponse = tool.ExampleResponse?.DeepClone(),
         EffectKind = tool.EffectKind is "read" or "write" or "execute" or "lifecycle" or "none" ? tool.EffectKind : "unknown"
-    };
+        };
+        if (tool.Meta?["gnougo"]?["result"]?["detect_errors"] is { } detection)
+        {
+            if (detection is not JsonValue scalar || !scalar.TryGetValue<bool>(out var enabled)) throw new InvalidOperationException("Declared result error detection must be boolean.");
+            capability.FixedInput["error_policy"] = new JsonObject { ["detect_result_errors"] = enabled };
+        }
+        return capability;
+    }
 }

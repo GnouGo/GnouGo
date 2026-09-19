@@ -168,9 +168,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                 state.Diagnostics.AddRange(PlanningFixtureSamples.Validate(state));
                 return;
             }
-            string Prompt() => "Select one issued choice ID for each field. Use the request's meaning; do not create values.\n" + state.Request.Prompt + "\n" +
-                new JsonObject(ambiguous.Select(d => new KeyValuePair<string, JsonNode?>(d.Hole.Id, new JsonArray(d.Choices.Select(c => (JsonNode)new JsonObject { ["id"] = c.Id, ["value"] = c.Value?.DeepClone(), ["description"] = d.Hole.Kind == "capability" ? state.Catalog.Capabilities.FirstOrDefault(cap => cap.Id == c.Value?.ToString())?.Description : null }).ToArray())))).ToJsonString();
-            var answers = (await PlanningModelCalls.CallAsync(state, runtime, "choices", Prompt(), PlanningSchemas.Choices(ambiguous), ct)).AsObject();
+            var answers = (await PlanningModelCalls.CallAsync(state, runtime, "choices", PlanningModelCalls.ChoicePrompt(state, ambiguous), PlanningSchemas.Choices(ambiguous), ct)).AsObject();
             foreach (var domain in ambiguous)
             {
                 var choice = domain.Choices.Single(c => c.Id == answers[domain.Hole.Id]!.GetValue<string>());

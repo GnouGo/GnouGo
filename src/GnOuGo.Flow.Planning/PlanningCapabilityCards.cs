@@ -8,18 +8,21 @@ internal static partial class PlanningCapabilityCards
 {
     internal static IReadOnlyList<PlanningCapability> Shortlist(PlanningCatalog catalog, string query, int maxInputTokens)
     {
-        var terms = Words(query); var documents = catalog.Capabilities.Select(c => (Capability: c, Words: Words(c.Method + " " + c.Description + " " + c.Metadata?.ToJsonString()))).ToArray();
-        var frequencies = terms.ToDictionary(t => t, t => documents.Count(d => d.Words.Contains(t)), StringComparer.Ordinal);
-        var ranked = documents.OrderByDescending(d => terms.Where(d.Words.Contains).Sum(t => Math.Log(1 + (documents.Length + 1.0) / (frequencies[t] + 1))))
-            .ThenBy(d => d.Capability.Id, StringComparer.Ordinal);
         var result = new List<PlanningCapability>(); var bytes = 0; var allowance = Math.Max(0, maxInputTokens / 2) * 3;
-        foreach (var entry in ranked.Take(24))
+        foreach (var capability in Rank(catalog.Capabilities, query).Take(24))
         {
-            var size = Encoding.UTF8.GetByteCount(Card(entry.Capability).ToJsonString()) + 1;
+            var size = Encoding.UTF8.GetByteCount(Card(capability).ToJsonString()) + 1;
             if (bytes + size > allowance) break;
-            result.Add(entry.Capability); bytes += size;
+            result.Add(capability); bytes += size;
         }
         return result;
+    }
+    internal static IEnumerable<PlanningCapability> Rank(IEnumerable<PlanningCapability> capabilities, string query)
+    {
+        var terms = Words(query); var documents = capabilities.Select(c => (Capability: c, Words: Words(c.Method + " " + c.Description + " " + c.Metadata?.ToJsonString()))).ToArray();
+        var frequencies = terms.ToDictionary(t => t, t => documents.Count(d => d.Words.Contains(t)), StringComparer.Ordinal);
+        return documents.OrderByDescending(d => terms.Where(d.Words.Contains).Sum(t => Math.Log(1 + (documents.Length + 1.0) / (frequencies[t] + 1))))
+            .ThenBy(d => d.Capability.Id, StringComparer.Ordinal).Select(d => d.Capability);
     }
     private static HashSet<string> Words(string text) => Tokens().Matches(text.ToLowerInvariant()).Select(m => m.Value).ToHashSet(StringComparer.Ordinal);
     [GeneratedRegex(@"[\p{L}\p{N}]+", RegexOptions.CultureInvariant)] private static partial Regex Tokens();

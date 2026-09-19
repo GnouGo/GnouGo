@@ -153,6 +153,7 @@ public static class WorkflowPlanScenarioValidator
     private static JsonNode? Sample(InputDef input)
     {
         if (input.Default is not null) return InputDefaultValueConverter.ConvertToNode(input.Default, input);
+        if (input.Schema is not null) return WorkflowPlanDryRunValidator.CreateSampleFromJsonSchema(input.Schema);
         if (input.Enum is { Count: > 0 }) return JsonValue.Create(input.Enum[0]);
         return input.Type switch
         {

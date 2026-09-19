@@ -36,6 +36,9 @@ public sealed class InputDef
     /// <summary>Base type: string, number, integer, boolean, array, object, dictionary, any.</summary>
     public string Type { get; set; } = "any";
 
+    /// <summary>Authoritative JSON Schema when a contract has constraints beyond the shorthand type fields.</summary>
+    public System.Text.Json.Nodes.JsonObject? Schema { get; set; }
+
     /// <summary>Whether the input is required (default true).</summary>
     public bool Required { get; set; } = true;
 
@@ -79,6 +82,9 @@ public sealed class OutputDef
 
     /// <summary>Base type: string, number, integer, boolean, array, object, dictionary, any.</summary>
     public string Type { get; set; } = "any";
+
+    /// <summary>Authoritative JSON Schema when a contract has constraints beyond the shorthand type fields.</summary>
+    public System.Text.Json.Nodes.JsonObject? Schema { get; set; }
 
     /// <summary>Whether the value may be JSON null in addition to its declared type.</summary>
     public bool Nullable { get; set; }

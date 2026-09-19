@@ -27,7 +27,7 @@ public static class InputTypeValidator
             var value = present ? inputs[name] : null;
 
             // Required check
-            if (def.Required && (!present || value is null && !def.Nullable))
+            if (def.Required && (!present || value is null && !def.Nullable && def.Schema is null))
             {
                 errors.Add($"Input '{name}' is required but was not provided.");
                 continue;
@@ -51,6 +51,12 @@ public static class InputTypeValidator
         if (depth > MaxDepth)
         {
             errors.Add($"'{path}': validation exceeded maximum depth ({MaxDepth}).");
+            return;
+        }
+
+        if (def.Schema is not null)
+        {
+            errors.AddRange(JsonSchemaContractValidator.ValidateInstance(node, def.Schema).Select(error => "'" + path + "': " + error));
             return;
         }
 

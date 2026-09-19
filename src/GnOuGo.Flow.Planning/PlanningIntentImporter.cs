@@ -15,7 +15,7 @@ public static partial class PlanningIntentImporter
         plan.Subflows = graph.Workflows.Where(w => w != main).Select(w => new IntentSubflow(w.Key, Inputs(w), Operations(w), Outputs(w))).ToList();
         return plan;
     }
-    private static List<IntentInput> Inputs(PlanningWorkflow flow) => flow.Inputs.Select(p => new IntentInput(p.Name, Type(p.Schema), !p.Required, p.Default is null ? null : Value(p.Default))).ToList();
+    private static List<IntentInput> Inputs(PlanningWorkflow flow) => flow.Inputs.Select(p => new IntentInput(p.Name, p.Schema.CapabilityId is null ? Type(p.Schema) : null, !p.Required, p.Default is null ? null : Value(p.Default))).ToList();
     private static List<IntentOutput> Outputs(PlanningWorkflow flow) => flow.Outputs.Select(p => new IntentOutput(p.Name, Value(p.Value))).ToList();
     private static List<IntentOperation> Operations(PlanningWorkflow flow)
     {

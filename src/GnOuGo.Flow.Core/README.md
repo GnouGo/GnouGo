@@ -1,8 +1,8 @@
 # GnOuGo.Flow — YAML Workflow DSL Engine
 
 `GeneratedFunctionDocumentation.Validate` exposes the generated-workflow JSDoc
-requirements for earlier construction checks. It uses the same validation as final
-semantic review and reports missing typed parameters and return documentation.
+requirements for earlier construction checks. It validates manually authored generated-function contracts and reports missing
+typed parameters and return documentation. Business intent does not contain helper functions.
 Documentation does not establish executable output provenance or runtime success.
 
 Continuing `on_error` handlers on `mcp.call` and `llm.call` with
@@ -23,6 +23,8 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 Core owns `PlanningSession`, `WorkflowIntentPlan`, `PlanningGraph`, typed contracts and provider-neutral planning interfaces. It references no other GnOuGo project. Hosts inject the separately publishable Planning implementation and Integrations persistence boundary.
 
 The flow is discovery → typed intent → graph → deterministic validation/scenarios → final approval. Models interpret meaning; the engine owns executable identities, types, dataflow and policy. Runtime confirmation for protected effects is separate from final artifact approval. See [workflow planning](../../docs/workflow-planning-v2.md).
+
+Workflow ports can carry an authoritative `schema` object when shorthand types cannot express a catalog contract. JSON Schema constraints and defaults survive parsing, contract export, scenario sampling and runtime input/output validation. Planning derives these ports; the model does not reproduce their schemas.
 
 ## MCP protocol compatibility
 
@@ -117,7 +119,7 @@ Step outputs are resolved through `StepOutputTypeResolver`: each step starts fro
 Planner v2 can pass `PlanningArtifactBinding` values through `IPlanningRuntime.ValidateAsync`
 to preserve compiler-derived operation ownership during artifact validation. The Core runtime
 checks these bindings against locked capabilities and actual executable calls, including
-the exact confirmation producer. Existing callers without bindings retain legacy validation.
+the exact confirmation producer. The standalone YAML runtime also validates manually authored workflows without planner bindings.
 
 ---
 

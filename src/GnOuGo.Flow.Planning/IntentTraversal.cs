@@ -52,9 +52,9 @@ internal static class IntentTraversal
         {
             var op = list[int.Parse(parts[position + 1], System.Globalization.CultureInfo.InvariantCulture)]; position += 2;
             if (op is CleanupIntentOperation cleanup) { list = cleanup.Operations; continue; }
-            if (op is EachIntentOperation each && parts[position] == "body") { owner += "___planning_body_" + op.Id; list = each.Body.Operations; position++; }
-            else if (op is ChooseIntentOperation choose && parts[position] is "then" or "otherwise") { owner += "___planning_" + parts[position] + "_" + op.Id; list = parts[position] == "then" ? choose.Then.Operations : choose.Otherwise.Operations; position++; }
-            else if (op is ParallelIntentOperation parallel && parts[position] == "branches") { var branch = parallel.Branches[int.Parse(parts[position + 1], System.Globalization.CultureInfo.InvariantCulture)]; owner += "___planning_branch_" + op.Id + "_" + branch.Name; list = branch.Body.Operations; position += 3; }
+            if (op is EachIntentOperation each && parts[position] == "body") { owner = PlanningGraphBuilder.BlockKey(owner, "body", op.Id); list = each.Body.Operations; position++; }
+            else if (op is ChooseIntentOperation choose && parts[position] is "then" or "otherwise") { owner = PlanningGraphBuilder.BlockKey(owner, parts[position], op.Id); list = parts[position] == "then" ? choose.Then.Operations : choose.Otherwise.Operations; position++; }
+            else if (op is ParallelIntentOperation parallel && parts[position] == "branches") { var branch = parallel.Branches[int.Parse(parts[position + 1], System.Globalization.CultureInfo.InvariantCulture)]; owner = PlanningGraphBuilder.BlockKey(owner, "branch", op.Id, branch.Name); list = branch.Body.Operations; position += 3; }
             else break;
         }
         return owner;

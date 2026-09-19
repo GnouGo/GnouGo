@@ -431,6 +431,7 @@ public static class WorkflowPlanDryRunValidator
 
     private static JsonNode? CreateSampleFromInputDef(InputDef? def, string? semanticName = null)
     {
+        if (def?.Schema is not null) return CreateSampleFromJsonSchema(def.Schema);
         if (def == null)
             return JsonValue.Create("dry-run");
 

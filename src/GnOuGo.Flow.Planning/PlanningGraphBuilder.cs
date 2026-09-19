@@ -48,7 +48,11 @@ public static class PlanningGraphBuilder
             {
                 var port = new PlanningPort { Name = input.Name, Required = !input.Optional, Schema = input.Type is null ? Hole() : Schema(input.Type), Default = input.Default is null ? null : scope.Value(input.Default) };
                 workflow.Inputs.Add(port);
-                if (input.Type is null) inferred.Add(() => port.Schema = scope.ExpectedInput(input.Name) ?? (port.Default is null ? Hole() : scope.Contract(port.Default)));
+                if (input.Type is null) inferred.Add(() =>
+                {
+                    port.Schema = scope.ExpectedInput(input.Name) ?? (port.Default is null ? Hole() : scope.Contract(port.Default));
+                    if (port.Default is null && PlanningGraphCompiler.ToJsonSchema(port.Schema, catalog).TryGetPropertyValue("default", out var value)) port.Default = PlanningJsonTransport.Literal(value);
+                });
             }
             scope.Build(operations, workflow.Steps);
             foreach (var output in outputs)
@@ -104,6 +108,7 @@ public static class PlanningGraphBuilder
     private static PlanningValue Compute(string text, params PlanningMember[] args) => new() { Kind = "compute", Text = text, Members = args.ToList() };
     private static PlanningSchema Wrapped(PlanningSchema schema) => new() { Type = "object", Properties = [new() { Name = "value", Schema = schema }] };
     private static string Generated(string role, string id) => "__planning_" + role + "_" + id;
+    internal static string BlockKey(string owner, params string[] parts) => "__planning_flow_" + string.Join("_", parts.Prepend(owner).Select(p => p.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + "_" + p));
 
     private sealed class BuilderScope(PlanningGraph graph, PlanningCatalog catalog, PlanningWorkflow workflow, List<IntentOperation> operations, List<Action> inferred)
     {
@@ -245,7 +250,7 @@ public static class PlanningGraphBuilder
                         break;
                     case EachIntentOperation each:
                         var loopKey = Generated("each", operation.Id);
-                        var body = Block(each.Body, Generated("body", operation.Id), operation.Id, Value(each.Items));
+                        var body = Block(each.Body, ["body", operation.Id], operation.Id, Value(each.Items));
                         var loop = new PlanningNode { Key = loopKey, Type = each.Parallel ? "loop.parallel" : "loop.sequential", If = node.If, Dependencies = node.Dependencies,
                             Input = Object(new PlanningMember("items", Value(each.Items))), Steps = [body.Call] };
                         destination.Add(loop);
@@ -255,7 +260,7 @@ public static class PlanningGraphBuilder
                         break;
                     case ChooseIntentOperation choice:
                         var switchKey = Generated("choose", operation.Id);
-                        var yes = Block(choice.Then, Generated("then", operation.Id)); var no = Block(choice.Otherwise, Generated("otherwise", operation.Id));
+                        var yes = Block(choice.Then, ["then", operation.Id]); var no = Block(choice.Otherwise, ["otherwise", operation.Id]);
                         destination.Add(new() { Key = switchKey, Type = "switch", If = node.If, Dependencies = node.Dependencies, Expr = Value(choice.Condition), Cases = [new("true", null, [yes.Call])], Default = [no.Call] });
                         node.Type = "set"; node.Dependencies = [switchKey]; node.OutputSchema = Wrapped(Hole());
                         node.Input = Object(new PlanningMember("value", Compute("branch[" + Quote(yes.Call.Key) + "] != null ? branch[" + Quote(yes.Call.Key) + "].outputs.value : branch[" + Quote(no.Call.Key) + "].outputs.value", new PlanningMember("branch", new() { Kind = "output", Source = switchKey }))));
@@ -268,7 +273,7 @@ public static class PlanningGraphBuilder
                         break;
                     case ParallelIntentOperation parallel:
                         var parallelKey = Generated("parallel", operation.Id);
-                        var branches = parallel.Branches.Select(b => (b.Name, Block: Block(b.Body, Generated("branch", operation.Id + "_" + b.Name)))).ToArray();
+                        var branches = parallel.Branches.Select(b => (b.Name, Block: Block(b.Body, ["branch", operation.Id, b.Name]))).ToArray();
                         destination.Add(new() { Key = parallelKey, Type = "parallel", If = node.If, Dependencies = node.Dependencies, Branches = branches.Select(b => new PlanningBranch([b.Block.Call])).ToList() });
                         node.Type = "set"; node.Dependencies = [parallelKey]; node.OutputSchema = Wrapped(Hole());
                         node.Input = Object(new PlanningMember("value", Object(branches.Select((b, i) => new PlanningMember(b.Name, new() { Kind = "output", Source = parallelKey, Path = ["branches", i.ToString(System.Globalization.CultureInfo.InvariantCulture), b.Block.Call.Key, "outputs", "value"] })).ToArray())));
@@ -285,9 +290,9 @@ public static class PlanningGraphBuilder
             if (schema.CapabilityId is not null) return new() { CapabilityId = schema.CapabilityId, SchemaPointer = schema.SchemaPointer + "/items" };
             return schema.Items ?? Hole();
         }
-        private (PlanningWorkflow Workflow, PlanningNode Call) Block(IntentBlock block, string key, string? iteration = null, PlanningValue? items = null)
+        private (PlanningWorkflow Workflow, PlanningNode Call) Block(IntentBlock block, string[] identity, string? iteration = null, PlanningValue? items = null)
         {
-            key = workflow.Key + "_" + key;
+            var key = BlockKey(workflow.Key, identity);
             var nested = new PlanningWorkflow { Key = key }; graph.Workflows.Add(nested);
             var scope = new BuilderScope(graph, catalog, nested, block.Operations, inferred);
             var arguments = new List<PlanningMember>();

@@ -40,6 +40,34 @@ internal static class PlanningModelCalls
         if (findings.Count != 0) throw new PlanningResponseException(findings.Select(f => new PlanningDiagnostic("INTENT_SCHEMA_INVALID", f.InstancePointer, f.Message, ValidationStage: "intent")).ToList());
         return json;
     }
+    internal static string ChoicePrompt(PlanningSession state, IReadOnlyList<(PlanningHole Hole, IReadOnlyList<PlanningChoice> Choices)> domains)
+    {
+        var intent = PlanningJsonTransport.Intent(state.IntentPlan!); var fields = new JsonArray();
+        foreach (var (hole, choices) in domains)
+        {
+            var operation = IntentTraversal.Located(state.IntentPlan!).FirstOrDefault(o => o.Operation.Id == hole.NodeKey && IntentTraversal.GraphOwner(state.IntentPlan!, o.Path) == hole.WorkflowKey);
+            IEnumerable<PlanningChoice> ordered = choices;
+            if (hole.Kind == "capability")
+            {
+                var eligible = choices.Select(c => c.Value!.ToString()).ToHashSet(StringComparer.Ordinal);
+                var ranking = PlanningCapabilityCards.Rank(state.Catalog!.Capabilities.Where(c => eligible.Contains(c.Id)), operation.Operation?.Purpose ?? state.Request.Prompt)
+                    .Select((c, i) => (c.Id, Index: i)).ToDictionary(c => c.Id, c => c.Index, StringComparer.Ordinal);
+                ordered = choices.OrderBy(c => ranking[c.Value!.ToString()]);
+            }
+            fields.Add((JsonNode)new JsonObject
+            {
+                ["target"] = hole.Id,
+                ["operation"] = operation.Path is null ? null : PlanningFieldPaths.Read(intent, operation.Path)?.DeepClone(),
+                ["choices"] = new JsonArray(ordered.Select(c => (JsonNode)new JsonObject
+                {
+                    ["id"] = c.Id, ["value"] = c.Value?.DeepClone(),
+                    ["capability"] = hole.Kind == "capability" ? PlanningCapabilityCards.Card(state.Catalog!.Capabilities.Single(cap => cap.Id == c.Value!.ToString())) : null
+                }).ToArray())
+            });
+        }
+        return "Select one issued choice ID for each target using its business operation and the user request. Ranking is advisory; all eligible choices are included. Do not create values.\n" +
+            new JsonObject { ["prompt"] = state.Request.Prompt, ["fields"] = fields }.ToJsonString();
+    }
     internal static string IntentPrompt(PlanningSession state) => """
         Interpret the request as business operations and return the strict WorkflowIntentPlan JSON.
         Use invoke with an issued capability ID and business arguments; use null when capability selection is unresolved.

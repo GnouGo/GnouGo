@@ -415,6 +415,7 @@ internal static class FlowTypeDescriptorConverter
 {
     public static FlowTypeDescriptor FromInputDef(InputDef definition)
     {
+        if (definition.Schema is not null) return FromJsonSchema(definition.Schema);
         var type = NormalizeWorkflowType(definition.Type);
         var descriptor = FromWorkflowSchemaParts(
             type,
@@ -448,6 +449,7 @@ internal static class FlowTypeDescriptorConverter
 
     public static FlowTypeDescriptor FromOutputDef(OutputDef definition)
     {
+        if (definition.Schema is not null) return FromJsonSchema(definition.Schema);
         var type = NormalizeWorkflowType(definition.Type);
         var descriptor = FromWorkflowSchemaParts(
             type,

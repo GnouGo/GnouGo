@@ -64,6 +64,21 @@ public sealed class BusinessCorrectionTests
         Assert.Equal(80, PlanningHoleEligibility.Choices(graph, catalog, Assert.Single(PlanningHoleEligibility.Find(graph, catalog))).Count);
     }
     [Fact]
+    public async Task RetrievalMissChoiceIncludesBusinessFragmentAndRanksAllEligibleCards()
+    {
+        var runtime = new TestRuntime(mcp: Factory(80)); var state = PlannerFixture.Session(); state.Catalog = await runtime.DiscoverAsync(state.Request, Ct);
+        var initiallyHidden = state.Catalog.Capabilities[79]; initiallyHidden.Description = "Distinctive astronomy measurement";
+        state.IntentPlan = new() { Operations = [new InvokeIntentOperation { Id = "measure", Purpose = "astronomy" }] };
+        state.Graph = PlanningGraphBuilder.Build(state.IntentPlan, state.Catalog);
+        var hole = Assert.Single(PlanningHoleEligibility.Find(state.Graph, state.Catalog)); var choices = PlanningHoleEligibility.Choices(state.Graph, state.Catalog, hole);
+        var prompt = PlanningModelCalls.ChoicePrompt(state, [(hole, choices)]);
+        var context = JsonNode.Parse(prompt[prompt.IndexOf('\n')..])!;
+        var field = context["fields"]![0]!;
+        Assert.Equal("measure", field["operation"]!["id"]!.ToString()); Assert.Equal("astronomy", field["operation"]!["purpose"]!.ToString());
+        Assert.Equal(80, field["choices"]!.AsArray().Count); Assert.Equal(initiallyHidden.Id, field["choices"]![0]!["capability"]!["id"]!.ToString());
+        Assert.Equal(choices.Select(c => c.Id).Order(), field["choices"]!.AsArray().Select(c => c!["id"]!.ToString()).Order());
+    }
+    [Fact]
     public async Task ChangedHostPolicyInvalidatesCatalogBeforeApproval()
     {
         var engine = new WorkflowEngine(); var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);

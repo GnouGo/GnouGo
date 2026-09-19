@@ -55,7 +55,7 @@ internal static class PlanningSchemaReferences
                 throw new InvalidOperationException("A JSON pointer escape must be ~0 or ~1.");
     }
 
-    private static IEnumerable<(string Path, JsonObject Schema)> Entries(PlanningCapability capability)
+    internal static IEnumerable<(string Path, JsonObject Schema)> Entries(PlanningCapability capability)
         => Walk(capability.InputSchema, "/input", 0).Concat(Walk(capability.OutputSchema, "/output", 0));
 
     private static IEnumerable<(string Path, JsonObject Schema)> Walk(JsonObject schema, string path, int depth)

@@ -1,76 +1,89 @@
 # Workflow planning
 
-`PlanningSession → WorkflowIntentPlan → PlanningGraph → Diagnostics → Approval`
+`Prompt → compact business intent → capability resolution → deterministic graph → validation → bounded corrections → compile → scenarios → approval`
 
-Natural-language interpretation is probabilistic. Construction, validation, compilation and execution authorization are deterministic. There is one planning path and no legacy compatibility mode.
+The LLM understands the business request. The engine builds and authorizes executable workflows. There is one planning path and no compatibility mode.
 
-## Reading the implementation
+## Three core files
 
-Start with `TypedWorkflowPlanner.cs`, `PlanningGraphBuilder.cs` and `PlanningGraphCompiler.cs` in `src/GnOuGo.Flow.Planning`. Core owns the provider-neutral session, intent, graph and runtime interfaces. Planning depends only on Core. Integrations and hosts supply models, capability discovery transports and persistence.
+Start in `src/GnOuGo.Flow.Planning`:
 
-1. Discover the entire allowed capability catalog without a model call. Retain authoritative schemas, executable identities, effects and artifact contracts. An oversized interpretation request fails with an explicit input-budget diagnostic.
-2. Ask for one strict `WorkflowIntentPlan`: workflows, typed ports, native steps or capability references, arguments, bindings, dependencies and control flow. The response cannot replace host policy or catalog contracts. A complete local workflow reaches final review with one call.
-3. Build the graph deterministically. Resolve exact references, preserve omitted optional values versus explicit null, order dependencies, and expose missing fields as typed holes. The graph is executable authority; assignments change it without rewriting the intent.
-4. Recompute finite hole domains from schemas, scope, availability and artifact contracts. Zero choices produce a located diagnostic; one resolves automatically; multiple choices use a bounded batch of issued IDs. Reject unissued IDs. Recompute domains after assignments. Missing computations and schemas use repair; missing business facts can use typed clarification. Runtime input declarations require no planning-time answer.
-5. Validate types, literal values, dataflow, availability, dependencies, cycles, expressions, capability targets, artifact provenance and explicit host policy. Unknown external effects require confirmation by default. A host-owned entrypoint gate encloses the body, subworkflows and finalizers; rejection, abandonment or unavailable confirmation prevents entry.
-6. Compile a valid, hole-free graph to YAML. Validate it using the runtime compiler and contract validator, then execute isolated scenarios for normal paths, branches, loops, failures, cancellation, cleanup and confirmation denial. Schemas/defaults/validated examples supply samples. Optional typed intent fixtures provide sample inputs and observation sequences when needed. Simulations do not establish live external correctness.
-7. Repair with exact diagnostics and the same intent response shape. Repairs may replace the entire plan. Rebuild and revalidate completely. Defaults are two repairs per user-submitted intent and eight total model calls. An unchanged candidate with unchanged failures stops early.
-8. Present intent, graph, YAML, findings and scenarios for final review. Approval binds the reviewed content and authoritative contracts. Any executable/content change invalidates it. Runtime write confirmation is separate from this approval.
+- `TypedWorkflowPlanner.cs` advances the durable session, dispatches bounded requests and manages validation and approval.
+- `PlanningGraphBuilder.cs` resolves operations, infers contracts, establishes scopes and dependencies, and lowers business control flow.
+- `PlanningGraphCompiler.cs` accepts a validated, hole-free graph and emits deterministic YAML and capability bindings.
 
-## Public boundaries and failure behavior
+Core owns provider-neutral contracts and runtime execution and references no other GnOuGo project. Planning depends only on Core and publishes independently. Integrations and hosts inject models, transports, policy and persistence.
 
-`IWorkflowPlanner.AdvanceAsync(PlanningSession, PlanningCommand, IPlanningRuntime, CancellationToken)` advances to the next durable checkpoint. Commands are `advance`, `answer`, `revise`, `edit_intent`, `configure_generation`, `approve` and `cancel`. Agent.Server adds `save` and explicit `retry_model`. Commands require the expected revision; approval/save require the current artifact hash. Explicit revisions reset the repair allowance and retain cumulative calls, tokens, cost and active time.
+## What the model describes
 
-`IPlanningRuntime` supplies discovery, model calls, executable/scenario validation, current-contract verification and checkpoints. `IPlanningRuntimeFactory.ReadApprovedYamlAsync` retrieves the trusted artifact by execution tenant, session and hash. `workflow.execute` verifies stored approval and rejects substituted prior-step YAML. Saving also verifies approval and current contracts. Existing workflows enter through graph import as baseline context and require complete validation and fresh approval.
+`WorkflowIntentPlan` contains a summary, inputs, operations, outputs, optional named subflows and business clarification questions. The entrypoint is implicit. Operation variants contain only their relevant fields:
 
-The model never returns YAML, permissions or transport targets. Names/descriptions cannot grant permission. There are no source-span ownership, semantic proof, behavior approval, semantic-review model or patch phases.
+| Operation | Business decision |
+| --- | --- |
+| `invoke` | Capability, arguments, optional business fallback |
+| `calculate` | Sandboxed calculation over named values |
+| `transform` | Model instruction and business data |
+| `choose` | Condition and two result-producing blocks |
+| `each` | Collection, iteration body and parallel preference |
+| `parallel` | Named independent blocks |
+| `call` | Named subflow and its arguments |
+| `cleanup` | Operations to run on exit |
 
-Domain publication rules belong to host integrations. Agent.Server's [review boundary](../src/GnOuGo.Agent.Server/Reviews/README.md) exposes evaluation and publication as catalog capabilities, captures original producer observations and owns the final confirmation/head-read/write sequence. The planner and Flow.Core contain no GitHub-specific routing or review rules.
+Operations have logical identifiers, optional dependencies and business conditions. References address an input, operation result, iteration value or index and a business field path. They never name runtime variable paths or result envelopes. Calculations use named business arguments; workflow-level helper functions and arbitrary executor settings are unavailable.
 
-## Intent and repair boundary
+Known input and output contracts come from capability schemas, native contracts and connected values. Static expression inference supports common literals, objects, arrays, arithmetic, comparisons, conditionals, member access and array mapping. An optional small type declaration describes only a new business value whose type cannot be derived. Unknown computations or conflicting types remain diagnostics; executing sample expressions never establishes a contract.
 
-`PlanningJsonTransport` serializes intent context and offline model fixtures through one canonical format. It removes inactive default union fields while retaining explicit nulls, omitted arguments, defaults, references and holes. Non-default invalid fields remain visible as repair evidence. This format does not change the schema-6 persistence DTOs.
+The builder creates MCP request/result wrappers, structured model results, helper subflows and captures, fixed arguments, result projections, fallback envelopes and cleanup availability guards. Internal names occupy a reserved namespace. Omitted arguments, a `missing` value, explicit null and declared defaults remain distinct. Default execution stops on failure without retry. Intent cannot configure technical retries.
 
-The response schema has separate primitive, array, object, capability-reference and hole variants. Arrays require item schemas. Objects require nonempty typed properties or typed additional properties. Capability references contain only `capabilityId` and `schemaPointer`. Fixture inputs must be literal objects; observation responses may be any recursive literal value. References, computations, omissions and holes are invalid within fixtures. Independent fixture and intent shape errors are reported together before graph validation can hide them. Omitted fixtures retain deterministic sampling, and runtime inputs need no planning-time clarification.
+Native workflow ports can retain an authoritative JSON `schema` when shorthand types cannot express its constraints. Validation, scenario sampling and runtime input/output checks preserve that schema, including defaults, patterns and numeric bounds. This is an engine-owned lowering detail, not a schema-copy task for the model.
 
-Session diagnostics retain graph coordinates. `PlanningDiagnosticLocations` derives repair locations without persisted mapping state: it matches workflow/step identifiers and member names, reverses graph reordering and MCP argument wrapping, and accounts for inserted confirmation and finalizer guards. A missing field points to an existing intent container and names the missing member. Each mapped finding names its workflow and step. Generated host defects produce `PLANNING_HOST_CONTRACT` and stop without consuming a repair.
+## Discovery and bounded decisions
 
-Repair context groups known binding consequences beneath the invalid producer schema and names dependent steps. Independent availability/scope failures remain separate, and all blocking findings remain in the session. Whole-intent replacement, complete rebuilding, approval invalidation, eight session calls and two repairs per submitted intent are unchanged. Durable receipt replay uses the response schema stored with its original reservation, even if a newer response format is now available.
+Discovery validates the full allowed catalog without a model call. Compact cards expose issued IDs, descriptions, editable argument signatures, business result fields and effects. Fixed arguments, transport details and full schema documents remain authoritative host data.
 
-## Budgets and restart
+Deterministic text retrieval ranks names, descriptions and producer metadata with stable ID tie-breaking. Initial context contains at most 24 cards and uses at most half the configured input allowance. The full allowed catalog remains available when an operation is unresolved. Retrieval affects exposure only; it cannot authorize a capability or prove a business match.
 
-One configured reasoning level (`medium` by default), 12,000 input tokens and 8,192 output tokens per request; eight session calls and two repairs per submitted intent. Hosts retain token, monetary and active-time limits. No recursive decision pages or automatic output escalation. Human waiting time is recorded separately.
+Finite holes use the same rule throughout: zero valid choices produce a located diagnostic; one resolves without a call; multiple choices require a bounded selection from issued IDs. Independent choices are batched, selections are validated, and dependent domains are recomputed. A domain that cannot fit the request budget fails explicitly instead of silently losing alternatives. Business assignments update intent before rebuilding; technical assignments are reproducible builder decisions. No candidate domains are persisted.
 
-Schema 6 uses fresh encrypted `*-v6` collections and Agent.Server's `.GnOuGo/data/gnougo-planning-v6.db`. Old formats are rejected without migration; existing user databases are untouched. Agent.Server retains EF Core/SQLite indexes and compiled models; payloads and receipts use only public KeyVault record APIs. All keys are tenant-scoped. Durable reservations precede dispatch. A completed receipt replays without another charge; an uncertain dispatch stops without redispatch. Restart replenishes no allowance. Saving reconciles a previously committed identical artifact before writing again.
+## Local correction and scenarios
 
-An operator can explicitly request `retry_model` for a stopped pending request. An available completion receipt is replayed. Otherwise Agent.Server retains the old request and call charge, accounts conservatively for unreported usage, and reserves a fresh request identity with the same prompt and limits. The estimate uses at least the configured input allowance or serialized request byte count, whichever is larger, and the entire enforced output allowance. It is budget accounting, not a provider usage receipt. The absolute correction is journaled before updating the cumulative ledger, so recovery after a crash does not charge it twice. Exhausted call, repair, token, or cost limits prevent another dispatch. Automatic restart never invokes this command.
+Corrections replace engine-issued argument values, declarations, operations, operation groups or literal fixture targets. Requests contain exact diagnostics, affected fragments, bindings and relevant authoritative contracts. Unknown targets, duplicate or overlapping edits and host-field changes are rejected. Application is atomic, followed by a complete rebuild and validation. Whole-intent generation is used when no valid intent was parsed or the user revises the request. Unchanged candidates with unchanged failures stop early.
+
+Session diagnostics retain graph coordinates. Repair locations are recomputed by logical identifiers, scopes and member names, including reordered steps, confirmation wrappers, nested control flow and cleanup. Missing arguments point to their existing container. Producer failures group their dependent binding consequences in repair context; independent and blocking findings remain visible. Generated host defects stop without spending a model repair.
+
+Scenarios sample schemas, defaults and validated producer examples first. Literal input/observation fixtures belong to the session, not initial intent. They are requested through the same repair budget only when deterministic sampling cannot satisfy a contract. Fixture failures are validated alongside intent failures. Runtime input declarations do not require planning-time answers. Isolated scenarios exercise normal execution, control flow, failures, cancellation, cleanup and rejected confirmation. They are validation evidence, not evidence of live external success.
+
+## Safety and public boundaries
+
+Deterministic checks cover capability existence, schemas and literals, bindings, conditional availability, dependencies/cycles, executable expressions, output contracts, artifact relationships and host policy. Names and descriptions never grant permissions. Unknown external effects require conservative confirmation. A host-generated gate encloses protected operations, including reachable subflows and finalizers; denial prevents entry. Final workflow approval remains separate from runtime confirmation.
+
+Producer metadata may declare `gnougo.result.detect_errors` as a boolean when a valid business result contains failure states. Discovery locks the corresponding executor error policy. This controls content-envelope heuristics only: an MCP `IsError` transport result still fails. The model cannot set this policy.
+
+`IWorkflowPlanner.AdvanceAsync(session, command, runtime, cancellation)` advances one durable checkpoint. Commands include `advance`, `answer`, `revise`, `edit_intent`, `configure_generation`, `approve` and `cancel`. Agent.Server also owns saving and explicit operator retry. Optimistic revisions protect every update; approval requires the exact reviewed artifact hash. Changes invalidate approval.
+
+`IPlanningRuntime` supplies discovery, model calls, executable/scenario validation, current-contract and host-policy verification, and checkpoints. Saving and `workflow.execute` retrieve trusted approved artifacts by tenant, session and hash and revalidate current contracts/policy. Arbitrary prior-step YAML cannot substitute for approval. Graph import projects supported saved workflows into compact revision context; unsupported executor constructs are rejected explicitly.
+
+Domain publication rules remain in injected host integrations. Agent.Server's [review boundary](../src/GnOuGo.Agent.Server/Reviews/README.md) captures original observations and owns review evaluation, separate confirmation, fresh head verification and durable publication. The planner has no PR-specific path.
+
+## Storage, budgets and restart
+
+Schema 7 uses fresh encrypted `*-v7` collections and Agent.Server's `.GnOuGo/data/gnougo-planning-v7.db`. Earlier formats are rejected with no adapter or migration; existing databases remain untouched. EF Core/SQLite indexes and compiled models remain in the host. Public KeyVault record APIs encrypt tenant-scoped payloads and receipts.
+
+One session owns intent, graph, diagnostics, scenarios/fixtures, approval, cumulative accounting and one pending model request. There are no semantic assessments, proof chains, persisted diagnostic maps or separate resolution ledgers.
+
+Defaults are eight calls, two repair attempts per submitted intent and medium reasoning. Standard request limits remain 12,000 input and 8,192 output tokens; hosts retain configured total-token, cost and active-time limits. The evaluation runner explicitly uses 96,000/32,768. User revisions reset only the repair allowance; restart replenishes nothing.
+
+Requests are reserved durably before dispatch. Completed receipts replay under their original response schemas without another charge. Uncertain dispatches stop without automatic resend. Agent.Server's explicit operator retry retains prior charges and conservatively accounts for unknown usage before reserving a new request; ordinary restart never invokes it. Saving reconciles an already committed identical artifact.
 
 ## Validation
 
 ```bash
-dotnet test tests/GnOuGo.Flow.Planning.Tests
-dotnet test tests/GnOuGo.Flow.Integrations.Tests
-dotnet test tests/GnOuGo.Agent.Server.Tests
-dotnet test GnOuGo.Agent.sln
-dotnet build GnOuGo.Agent.sln -warnaserror
-dotnet pack src/GnOuGo.Flow.Planning -c Release
-dotnet run --project tests/GnOuGo.Agent.Planning.Benchmark
-dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64
-dotnet run --project src/GnOuGo.Agent.Server -- --planning-persistence-smoke /tmp/gnougo-planning-smoke
+dotnet test GnOuGo.Agent.sln -m:1 -warnaserror
+dotnet build GnOuGo.Agent.sln -c Release -m:1 -warnaserror
+dotnet pack src/GnOuGo.Flow.Planning -c Release -m:1 -warnaserror
+dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark
+dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 -m:1 -warnaserror
 ```
 
-The corpus checks local computation, reading/transformation and protected writes with cleanup against independent expected outputs and effects. It reports calls, repairs and scenarios. See its README for live-model evaluation with all external effects mocked. Published smoke programs exercise source-generated session serialization, native execution and encrypted EF persistence.
-
-### Refactor verification — 2026-09-18
-
-Verified locally with .NET SDK 10.0.300 on macOS arm64:
-
-- Solution tests: 2,355 passed, zero failed, one environment-gated live Copilot test skipped.
-- Solution build with `-warnaserror -p:SkipClientBuild=true`: zero warnings and errors. Both Agent.Server and Flow.Server frontend builds passed separately.
-- Release packages: `GnOuGo.Flow.Core`, `GnOuGo.Flow.Planning`, and `GnOuGo.Flow.Integrations`.
-- Published Native AOT planner smoke: all three corpus cases passed, each with one interpretation call and zero repairs.
-- Published trimmed, self-contained Agent.Server persistence smoke: passed schema-6 encrypted storage, tenant isolation, and revision checks. Publication used `SkipClientBuild`, `SkipBundledServerTools`, and `SkipPlaywrightBrowserInstall`; bundled external tools were outside this persistence check.
-
-The offline corpus uses deterministic model fixtures and mocked external effects. The live-model adapter path is available but was not exercised in this verification.
-
-The subsequent [Agent.Server live validation report](planning-live-validation-2026-09-18.md) records the exact-prompt attempt, bounded failure, resulting fixes, and remaining execution/approval work.
+See the [benchmark runner](../tests/GnOuGo.Agent.Planning.Benchmark/README.md), [Native AOT smoke](../tests/GnOuGo.Flow.Planning.Smoke/README.md), and [current validation report](planning-business-intent-validation-2026-09-19.md). The [earlier live report](planning-live-validation-2026-09-18.md) is historical schema-6 evidence, not the current contract.

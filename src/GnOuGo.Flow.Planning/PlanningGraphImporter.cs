@@ -39,19 +39,26 @@ public static class PlanningGraphImporter
                 {
                     Name = p.Key,
                     Required = p.Value.Required,
-                    Schema = Schema(JsonSchemaConverter.InputDefToSchema(p.Value).AsObject()),
+                    Schema = PortSchema(JsonSchemaConverter.InputDefToSchema(p.Value).AsObject()),
                     Default = p.Value.Default is null ? null : Value(DefaultValue(p.Value.Default, p.Value.Type))
                 }).ToList(),
                 Outputs = (workflow.Outputs ?? []).Select(p => new PlanningOutput
                 {
                     Name = p.Key,
-                    Schema = Schema(JsonSchemaConverter.OutputDefToSchema(p.Value).AsObject()),
+                    Schema = PortSchema(JsonSchemaConverter.OutputDefToSchema(p.Value).AsObject()),
                     Value = new PlanningValue { Kind = "expression", Text = p.Value.Expr }
                 }).ToList(),
                 Steps = workflow.Steps.Select(s => Node(s, catalog)).ToList(),
                 Finally = workflow.Finally.Select(s => Node(s, catalog)).ToList()
             };
             graph.Workflows.Add(imported);
+        }
+        PlanningSchema PortSchema(JsonObject schema)
+        {
+            foreach (var capability in catalog?.Capabilities ?? [])
+                foreach (var entry in PlanningSchemaReferences.Entries(capability))
+                    if (JsonNode.DeepEquals(entry.Schema, schema)) return new() { CapabilityId = capability.Id, SchemaPointer = entry.Path };
+            return Schema(schema);
         }
         return graph;
     }
@@ -88,12 +95,13 @@ public static class PlanningGraphImporter
         if (step.Type == "mcp.call" && catalog is not null)
         {
             var candidates = catalog.Capabilities.Where(c => c.StepType == "mcp.call" && c.Server == step.Input?["server"]?.GetValue<string>() && c.Method == step.Input?["method"]?.GetValue<string>() &&
-                c.RequestBindings.All(binding => JsonNode.DeepEquals(PlanningGraphCompiler.ReadPointer(step.Input?["request"], binding.Path), binding.Value))).ToArray();
+                c.RequestBindings.All(binding => JsonNode.DeepEquals(PlanningGraphCompiler.ReadPointer(step.Input?["request"], binding.Path), binding.Value)) &&
+                c.FixedInput.All(binding => JsonNode.DeepEquals(step.Input?[binding.Key], binding.Value))).ToArray();
             if (candidates.Length != 1) throw new InvalidOperationException("An imported external call requires one unambiguous locked capability binding.");
             node.CapabilityId = candidates[0].Id;
-            if (input.Members.Any(m => m.Name is not ("server" or "method" or "kind" or "request" or "preserve_optional_nulls")))
+            if (input.Members.Any(m => m.Name is not ("server" or "method" or "kind" or "request" or "preserve_optional_nulls") && !candidates[0].FixedInput.ContainsKey(m.Name)))
                 throw new InvalidOperationException("Import external call options into an explicit catalog contract before compiling them.");
-            input.Members.RemoveAll(m => m.Name is "server" or "method" or "kind" or "preserve_optional_nulls");
+            input.Members.RemoveAll(m => m.Name is "server" or "method" or "kind" or "preserve_optional_nulls" || candidates[0].FixedInput.ContainsKey(m.Name));
         }
         return node;
     }

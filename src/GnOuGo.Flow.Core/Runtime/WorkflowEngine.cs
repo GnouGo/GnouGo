@@ -1134,14 +1134,13 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         Models.OutputDef definition,
         JsonNode? value)
     {
-        if (string.Equals(definition.Type, "any", StringComparison.OrdinalIgnoreCase))
+        if (definition.Schema is null && string.Equals(definition.Type, "any", StringComparison.OrdinalIgnoreCase))
             return;
 
-        if (value == null && WorkflowOutputAllowsNull(definition))
+        if (definition.Schema is null && value == null && WorkflowOutputAllowsNull(definition))
             return;
 
-        var schema = FlowTypeDescriptorConverter.ToRuntimeJsonSchema(
-            FlowTypeDescriptorConverter.FromOutputDef(definition));
+        var schema = Models.JsonSchemaConverter.OutputDefToSchema(definition, runtime: true);
         var errors = JsonSchemaContractValidator.ValidateInstance(value, schema);
         if (errors.Count == 0)
             return;
@@ -1153,7 +1152,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
 
     private static bool WorkflowOutputAllowsNull(Models.OutputDef definition)
     {
-        if (string.Equals(definition.Type, "any", StringComparison.OrdinalIgnoreCase))
+        if (definition.Schema is null && string.Equals(definition.Type, "any", StringComparison.OrdinalIgnoreCase))
             return true;
 
         return definition.Expr.Contains("?.", StringComparison.Ordinal)

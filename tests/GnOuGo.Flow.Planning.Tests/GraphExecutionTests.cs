@@ -107,6 +107,59 @@ public sealed class GraphExecutionTests
         graph.Functions = "function helper() { return 1; }";
         Assert.Throws<InvalidOperationException>(() => PlanningIntentImporter.Import(graph));
     }
+    [Fact]
+    public async Task CatalogConstraintsAndDefaultsSurvivePortsWithoutModelSchemaCopies()
+    {
+        var factory = new InMemoryMcpClientFactory(); var server = new MockMcpServerConfig();
+        var schema = JsonNode.Parse("""{"type":"object","properties":{"amount":{"type":"number","minimum":3,"maximum":10,"default":5}},"required":["amount"],"additionalProperties":false}""");
+        server.Tools.Add(new() { Name = "echo", EffectKind = "read", InputSchema = schema, OutputSchema = schema, ExampleResponse = new JsonObject { ["amount"] = 5 } });
+        server.ToolHandlers["echo"] = args => new() { Content = args?.DeepClone() }; factory.RegisterServer("fixture", server);
+        var runtime = new TestRuntime(mcp: factory); var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, Ct);
+        runtime.Plans.Clear(); runtime.Plans.Enqueue(new() { Inputs = [new("amount")], Operations = [new InvokeIntentOperation { Id = "echo", Capability = catalog.Capabilities[0].Id, Arguments = [new("amount", Ref("input", "amount"))] }], Outputs = [new("result", Ref("result", "echo", "amount"))] });
+        var state = await PlannerFixture.RunAsync(runtime);
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(";", state.Diagnostics.Select(d => d.Message))); Assert.Single(runtime.Calls);
+        Assert.Null(state.IntentPlan!.Inputs[0].Type); Assert.Null(state.IntentPlan.Inputs[0].Default);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!)); var main = document.Workflows[document.Entrypoint!];
+        Assert.Equal("3", main.Source.Inputs!["amount"].Schema!["minimum"]!.ToString()); Assert.Equal("10", main.Source.Outputs!["result"].Schema!["maximum"]!.ToString());
+        var engine = new WorkflowEngine { McpClientFactory = factory };
+        var result = await engine.ExecuteAsync(main, new JsonObject(), Ct); Assert.True(result.Success, result.Error?.Message); Assert.Equal("5", result.Outputs!["result"]!.ToString());
+        await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => engine.ExecuteAsync(main, new JsonObject { ["amount"] = 2 }, Ct));
+        await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => engine.ExecuteAsync(main, new JsonObject { ["amount"] = 11 }, Ct));
+        var imported = PlanningGraphImporter.Import(state.Yaml!, state.Catalog!); Assert.NotNull(imported.Workflows[0].Inputs[0].Schema.CapabilityId);
+    }
+    [Fact]
+    public async Task GeneratedScopesCannotCollideWithUserSubflowsOrUnderscoreSeparatedNames()
+    {
+        var intent = new WorkflowIntentPlan
+        {
+            Operations = [new ParallelIntentOperation { Id = "a_b", Branches = [new("c", new([], Num(1)))] }, new ParallelIntentOperation { Id = "a", Branches = [new("b_c", new([], Num(2)))] }],
+            Subflows = [new("main___planning_branch_a_b_c", [], [], [new("value", Num(3))])],
+            Outputs = [new("first", Ref("result", "a_b", "c")), new("second", Ref("result", "a", "b_c"))]
+        };
+        var state = await PlannerFixture.RunAsync(new TestRuntime(intent));
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(";", state.Diagnostics.Select(d => d.Message)));
+        Assert.Equal(state.Graph!.Workflows.Count, state.Graph.Workflows.Select(w => w.Key).Distinct().Count());
+        Assert.Contains(state.Graph.Workflows, w => w.Key == "__planning_flow_4_main_6_branch_3_a_b_1_c");
+        Assert.Contains(state.Graph.Workflows, w => w.Key == "__planning_flow_4_main_6_branch_1_a_3_b_c");
+    }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProducerBusinessFailureIsDataButTransportFailureStillStops(bool transportError)
+    {
+        var factory = new InMemoryMcpClientFactory(); var server = new MockMcpServerConfig();
+        server.Tools.Add(new() { Name = "check", EffectKind = "read", InputSchema = JsonNode.Parse("""{"type":"object","properties":{}}"""), OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"status":{"type":"string"}},"required":["status"]}"""), ExampleResponse = new JsonObject { ["status"] = "passed" }, Meta = JsonNode.Parse("""{"gnougo":{"result":{"detect_errors":false}}}""") });
+        server.ToolHandlers["check"] = _ => new() { IsError = transportError, Content = new JsonObject { ["status"] = "failed" } }; factory.RegisterServer("fixture", server);
+        var runtime = new TestRuntime(mcp: factory); var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, Ct);
+        runtime.Plans.Clear(); runtime.Plans.Enqueue(new() { Operations = [new InvokeIntentOperation { Id = "check", Capability = catalog.Capabilities[0].Id }], Outputs = [new("status", Ref("result", "check", "status"))] });
+        var state = await PlannerFixture.RunAsync(runtime);
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(";", state.Diagnostics.Select(d => d.Message)));
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
+        var result = await new WorkflowEngine { McpClientFactory = factory }.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), Ct);
+        Assert.Equal(!transportError, result.Success);
+        if (!transportError) Assert.Equal("failed", result.Outputs!["status"]!.ToString());
+        var imported = PlanningGraphImporter.Import(state.Yaml!, state.Catalog!); Assert.Equal(catalog.Capabilities[0].Id, imported.Workflows[0].Steps[0].CapabilityId);
+    }
     internal static IntentValue Ref(string kind, string source, params string[] path) => new() { Kind = kind, Source = source, Path = path.ToList() };
     internal static IntentValue Num(decimal number) => new() { Kind = "number", Number = number };
 }

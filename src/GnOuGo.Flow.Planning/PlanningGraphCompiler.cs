@@ -487,8 +487,11 @@ public sealed partial class PlanningGraphCompiler
     internal static JsonObject ToFlowSchema(JsonObject schema)
     {
         string[] supported = ["type", "description", "enum", "items", "properties", "required", "additionalProperties", "title", "$schema"];
-        if (schema.Any(field => !supported.Contains(field.Key, StringComparer.Ordinal)))
-            throw new InvalidOperationException("The authoritative schema contains constraints that cannot be preserved in a Flow port. Select a supported schema property or retain it as a step output schema.");
+        bool Extended(JsonObject contract) => contract.Any(field => !supported.Contains(field.Key, StringComparer.Ordinal))
+            || contract["items"] is JsonObject items && Extended(items)
+            || contract["properties"] is JsonObject properties && properties.Any(p => p.Value is JsonObject child && Extended(child))
+            || contract["additionalProperties"] is JsonObject additional && Extended(additional);
+        var extended = Extended(schema);
         var type = schema["type"];
         if (type is JsonArray union && union.Count(t => t?.GetValue<string>() != "null") != 1)
             throw new InvalidOperationException("A Flow port cannot represent this union schema without losing constraints.");
@@ -497,6 +500,7 @@ public sealed partial class PlanningGraphCompiler
         if (name is null) throw new InvalidOperationException("The schema cannot be represented by a Flow port type.");
         var result = new JsonObject { ["type"] = name };
         if (nullable) result["nullable"] = true;
+        if (extended) { result["schema"] = schema.DeepClone(); return result; }
         foreach (var field in new[] { "description", "enum" }) if (schema[field] is { } value) result[field] = value.DeepClone();
         if (schema["items"] is JsonObject items) result["items"] = ToFlowSchema(items);
         if (schema["properties"] is JsonObject properties)

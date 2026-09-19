@@ -37,13 +37,14 @@ public static class PlanningBenchmarkCases
         public List<string> Violations { get; } = [];
         private readonly Dictionary<string, JsonObject> _checks = new(StringComparer.Ordinal);
         private bool _reviewed, _evaluated;
-        private const string Directory = "/synthetic/review/workspace";
+        private string Directory => "/synthetic/review/workspace" + (variant == "nominal" ? "" : "/" + variant);
         public InMemoryMcpClientFactory Factory()
         {
             var factory = new InMemoryMcpClientFactory(); var server = new MockMcpServerConfig();
             void Add(string method, string description, string effect, string input, string output, JsonObject example, Func<JsonNode?, JsonObject> run)
             {
                 server.Tools.Add(new() { Name = method, Description = description, EffectKind = effect, InputSchema = JsonNode.Parse(input), OutputSchema = JsonNode.Parse(output), ExampleResponse = example });
+                if (method == "run_check") server.Tools[^1].Meta = JsonNode.Parse("""{"gnougo":{"result":{"detect_errors":false}}}""");
                 server.ToolHandlers[method] = args => { lock (Effects) { Effects.Add(method); return new() { Content = run(args) }; } };
             }
             const string empty = """{"type":"object","properties":{},"additionalProperties":false}""";
@@ -55,7 +56,7 @@ public static class PlanningBenchmarkCases
             if (name.StartsWith("review_", StringComparison.Ordinal))
             {
                 const string workspace = """{"type":"object","properties":{"directory":{"type":"string"}},"required":["directory"],"additionalProperties":false}""";
-                Add("clone_repository", "Clone a pull request repository once into an isolated directory. Cloner un dépôt pour reviewer une pull request.", "execute", """{"type":"object","properties":{"pr_url":{"type":"string"}},"required":["pr_url"],"additionalProperties":false}""", workspace, new() { ["directory"] = Directory }, _ => new() { ["directory"] = Directory });
+                Add("clone_repository", "Clone a pull request repository once into an isolated directory. Cloner un dépôt pour reviewer une pull request.", "execute", """{"type":"object","properties":{"pr_url":{"type":"string"}},"required":["pr_url"],"additionalProperties":false}""", workspace, new() { ["directory"] = Directory }, args => { if (args?["pr_url"]?.ToString() != Inputs(name, variant)["pr_url"]?.ToString()) Violations.Add("wrong_pull_request"); return new() { ["directory"] = Directory }; });
                 const string check = """{"type":"object","properties":{"name":{"type":"string"},"status":{"type":"string","enum":["passed","failed","incomplete"]},"evidence":{"type":"string"}},"required":["name","status","evidence"],"additionalProperties":false}""";
                 Add("run_check", "In the existing clone, install dependencies or run lint, unit or integration tests; records execution evidence without modifying tracked files.", "execute", """{"type":"object","properties":{"directory":{"type":"string"},"check":{"type":"string","enum":["dependencies","lint","unit","integration"]}},"required":["directory","check"],"additionalProperties":false}""", check, new() { ["name"] = "lint", ["status"] = "passed", ["evidence"] = "exit=0" }, args =>
                 {
@@ -65,9 +66,13 @@ public static class PlanningBenchmarkCases
                     if (!_checks.TryAdd(kind, result)) Violations.Add("duplicate_check:" + kind);
                     return (JsonObject)result.DeepClone();
                 });
-                Add("review_changes", "Review changed code against every user review instruction in the existing clone. Does not run checks or publish.", "read", """{"type":"object","properties":{"directory":{"type":"string"},"review_text":{"type":"string"}},"required":["directory","review_text"],"additionalProperties":false}""", """{"type":"object","properties":{"complete":{"type":"boolean"},"findings":{"type":"array","items":{"type":"string"}}},"required":["complete","findings"],"additionalProperties":false}""", new() { ["complete"] = true, ["findings"] = new JsonArray() }, args => { WorkingDirectory(args); _reviewed = !string.IsNullOrWhiteSpace(args?["review_text"]?.ToString()); return new() { ["complete"] = _reviewed, ["findings"] = new JsonArray() }; });
+                Add("review_changes", "Review changed code against every user review instruction in the existing clone. Does not run checks or publish.", "read", """{"type":"object","properties":{"directory":{"type":"string"},"review_text":{"type":"string"}},"required":["directory","review_text"],"additionalProperties":false}""", """{"type":"object","properties":{"complete":{"type":"boolean"},"findings":{"type":"array","items":{"type":"string"}}},"required":["complete","findings"],"additionalProperties":false}""", new() { ["complete"] = true, ["findings"] = new JsonArray() }, args => { WorkingDirectory(args); _reviewed = args?["review_text"]?.ToString() == Inputs(name, variant)["review_text"]?.ToString(); return new() { ["complete"] = _reviewed, ["findings"] = new JsonArray() }; });
                 Add("evaluate_review", "Evaluate captured check evidence and the code review; create the exact review draft. Failed checks request changes, incomplete verification comments, complete passes approve with zero findings.", "none", workspace, """{"type":"object","properties":{"draftId":{"type":"string"},"event":{"type":"string","enum":["APPROVE","REQUEST_CHANGES","COMMENT"]}},"required":["draftId","event"],"additionalProperties":false}""", new() { ["draftId"] = "draft", ["event"] = "APPROVE" }, args => { WorkingDirectory(args); _evaluated = _reviewed && _checks.Count == 4; if (!_evaluated) Violations.Add("incomplete_evaluation"); return new() { ["draftId"] = "draft", ["event"] = Event() }; });
-                Add("publish_review", "Publish only the stored evaluated draft, after separate runtime human confirmation and a fresh PR head check. These checks are owned by the publisher.", "write", """{"type":"object","properties":{"draftId":{"type":"string"}},"required":["draftId"],"additionalProperties":false}""", """{"type":"object","properties":{"published":{"type":"boolean"}},"required":["published"],"additionalProperties":false}""", new() { ["published"] = true }, args => { if (!_evaluated || args?["draftId"]?.ToString() != "draft") Violations.Add("unapproved_draft"); Effects.Add("confirmation"); Effects.Add("head_check"); Effects.Add("event:" + Event()); return new() { ["published"] = true }; });
+                Add("publish_review", "Publish only the stored evaluated draft, after separate runtime human confirmation and a fresh PR head check. These checks are owned by the publisher.", "write", """{"type":"object","properties":{"draftId":{"type":"string"}},"required":["draftId"],"additionalProperties":false}""", """{"type":"object","properties":{"published":{"type":"boolean"}},"required":["published"],"additionalProperties":false}""", new() { ["published"] = true }, args => { if (!_evaluated || args?["draftId"]?.ToString() != "draft") Violations.Add("unapproved_draft"); Effects.Add("confirmation");
+                    if (variant == "rejected") throw new InvalidOperationException("Publication confirmation rejected");
+                    Effects.Add("head_check");
+                    if (variant == "head_changed") throw new InvalidOperationException("PR head changed before publication");
+                    Effects.Add("event:" + Event()); return new() { ["published"] = true }; });
                 Add("remove_workspace", "Remove the single review clone in cleanup, including after failure or cancellation.", "lifecycle", workspace, empty, new(), args => { WorkingDirectory(args); return new(); });
             }
             if (name == "review_distractors")
@@ -78,7 +83,10 @@ public static class PlanningBenchmarkCases
         private string Event() => _checks.Values.Any(c => c["status"]?.ToString() == "failed") ? "REQUEST_CHANGES" : !_evaluated || _checks.Values.Any(c => c["status"]?.ToString() == "incomplete") ? "COMMENT" : "APPROVE";
         public bool Verify(RunResult result)
         {
-            if (name == "protected_cleanup") return (variant == "failure" || result.Success && result.Outputs?["result"]?.ToString() == "42") && Effects.SequenceEqual(new[] { "write", "cleanup" });
+            if (name == "protected_cleanup") return (variant == "failure" ? !result.Success : result.Success && result.Outputs?["result"]?.ToString() == "42") && Effects.SequenceEqual(new[] { "write", "cleanup" });
+            if (name.StartsWith("review_", StringComparison.Ordinal) && variant is "rejected" or "head_changed")
+                return !result.Success && Violations.Count == 0 && Effects.Count(e => e == "clone_repository") == 1 && _checks.Count == 4 && Effects.Last() == "remove_workspace"
+                    && Effects.Count(e => e == "confirmation") == 1 && !Effects.Any(e => e.StartsWith("event:", StringComparison.Ordinal)) && (variant != "head_changed" || Effects.Contains("head_check"));
             if (!result.Success || Violations.Count > 0) return false;
             if (name.StartsWith("review_", StringComparison.Ordinal))
                 return Effects.Count(e => e == "clone_repository") == 1 && Effects.Count(e => e == "run_check") == 4 && _checks.Keys.Order().SequenceEqual(new[] { "dependencies", "integration", "lint", "unit" }) &&

@@ -428,6 +428,7 @@ public static class WorkflowParser
             {
                 Type = type,
                 Nullable = nullable,
+                Schema = map.GetMapping("schema") is { } inputSchema ? YamlMapToJson(inputSchema) : null,
                 Required = required ?? true,
                 Default = map.Children.TryGetValue(new YamlScalarNode("default"), out var defaultNode)
                     ? ParseDefault(defaultNode) : null,
@@ -488,6 +489,7 @@ public static class WorkflowParser
                     Expr = map.GetScalar("expr") ?? "",
                     Type = type,
                     Nullable = nullable,
+                    Schema = map.GetMapping("schema") is { } outputSchema ? YamlMapToJson(outputSchema) : null,
                     Description = map.GetScalar("description"),
                     Enum = map.HasKey("enum") ? map.GetStringList("enum") : null
                 };
@@ -530,6 +532,7 @@ public static class WorkflowParser
                 {
                     Type = type,
                     Nullable = nullable,
+                    Schema = map.GetMapping("schema") is { } outputSchema ? YamlMapToJson(outputSchema) : null,
                     Description = map.GetScalar("description"),
                     Enum = map.HasKey("enum") ? map.GetStringList("enum") : null
                 };

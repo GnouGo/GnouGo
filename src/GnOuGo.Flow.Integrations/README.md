@@ -50,6 +50,6 @@ Host adapters can reuse `RoutingLLMClientAdapter.MapRequest` and `MapResponse` t
 
 Inject `TypedWorkflowPlanner` and `Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace()` into the engine. Planning remains separately publishable and depends only on Core.
 
-The factory stores schema-6 sessions, reservations, receipts and cumulative budgets through public encrypted KeyVault record APIs in `flow-planning-*-v6` collections. Exclusive tenant/session leases live under `.GnOuGo/data/flow-planning-v6/leases`. Old formats are rejected. Resume the same run ID and request; completed calls replay without a new charge and uncertain dispatches stop without redispatch.
+The factory stores schema-7 sessions, reservations, receipts and cumulative budgets through public encrypted KeyVault record APIs in `flow-planning-*-v7` collections. Exclusive tenant/session leases live under `.GnOuGo/data/flow-planning-v7/leases`. Old formats are rejected. Resume the same run ID and request; completed calls replay without a new charge and uncertain dispatches stop without redispatch.
 
 `ReadApprovedYamlAsync` verifies tenant ownership, stored approval, exact content and current capability contracts before `workflow.execute` receives YAML. Integrations propagate provider-neutral effect metadata; unknown MCP effects require conservative confirmation. See [architecture](../../docs/workflow-planning-v2.md).

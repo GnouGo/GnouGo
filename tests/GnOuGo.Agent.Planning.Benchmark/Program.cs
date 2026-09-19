@@ -43,7 +43,7 @@ foreach (var name in names)
             state = await planner.AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(state) }, runtime, CancellationToken.None);
             execution = state.Status == PlanningStatus.Approved;
             var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
-            var variants = name.StartsWith("review_", StringComparison.Ordinal) ? new[] { "nominal", "failure", "incomplete" } : name == "protected_cleanup" ? ["nominal", "failure"] : ["nominal", "alternate"];
+            var variants = name.StartsWith("review_", StringComparison.Ordinal) ? new[] { "nominal", "failure", "incomplete", "rejected", "head_changed" } : name == "protected_cleanup" ? ["nominal", "failure"] : ["nominal", "alternate"];
             foreach (var variant in variants)
             {
                 var sample = new PlanningBenchmarkCases.Environment(name, variant);
@@ -58,8 +58,9 @@ foreach (var name in names)
     {
         ["case"] = name, ["repetition"] = repetition, ["mode"] = isLive ? "live" : "fixture", ["first_pass_valid"] = firstPass,
         ["final_review"] = finalReview, ["execution_correct"] = execution,
-        ["calls"] = state.ModelCalls, ["repairs"] = state.RepairAttempts, ["input_tokens"] = runtime.InputTokens, ["output_tokens"] = runtime.OutputTokens,
-        ["usage_complete"] = runtime.UsageComplete, ["estimated_cost_eur"] = isLive ? runtime.Cost : null,
+        ["calls"] = state.ModelCalls, ["repairs"] = state.RepairAttempts, ["input_tokens"] = isLive && runtime.UsageComplete ? runtime.InputTokens : null, ["output_tokens"] = isLive && runtime.UsageComplete ? runtime.OutputTokens : null,
+        ["usage_complete"] = isLive ? runtime.UsageComplete : null, ["estimated_cost_eur"] = isLive && runtime.UsageComplete ? runtime.Cost : null,
+        ["known_cost_eur"] = isLive ? runtime.Cost : null,
         ["initial_request_bytes"] = runtime.InitialRequestBytes, ["initial_estimated_input_tokens"] = runtime.InitialEstimatedTokens,
         ["scenarios"] = state.Scenarios.Count, ["elapsed_ms"] = clock.ElapsedMilliseconds,
         ["diagnostics"] = new JsonArray(state.Diagnostics.Select(d => d.Code).Distinct().Select(d => (JsonNode?)JsonValue.Create(d)).ToArray()), ["failure"] = failure
@@ -75,7 +76,8 @@ Console.WriteLine(new JsonObject { ["summary"] = true, ["runs"] = total,
     ["first_pass_valid_rate"] = total == 0 ? 0 : results.Count(r => r!["first_pass_valid"]!.GetValue<bool>()) / (double)total,
     ["final_review_rate"] = total == 0 ? 0 : results.Count(r => r!["final_review"]!.GetValue<bool>()) / (double)total,
     ["execution_correct_rate"] = total == 0 ? 0 : results.Count(r => r!["execution_correct"]!.GetValue<bool>()) / (double)total,
-    ["complex_median_calls"] = complex.Length == 0 ? null : complex[(complex.Length - 1) / 2],
+    ["complex_median_calls"] = complex.Length == 0 ? null : (complex[(complex.Length - 1) / 2] + complex[complex.Length / 2]) / 2.0,
+    ["complex_final_review_within_two_calls_rate"] = complex.Length == 0 ? null : results.Count(r => r!["case"]!.ToString() is "collections" or "protected_cleanup" or "review_french" or "review_distractors" && r["final_review"]!.GetValue<bool>() && r["calls"]!.GetValue<int>() <= 2) / (double)complex.Length,
     ["complex_p75_calls"] = complex.Length == 0 ? null : complex[(int)Math.Ceiling(complex.Length * .75) - 1]
 }.ToJsonString());
 if (results.Any(r => !r!["execution_correct"]!.GetValue<bool>())) Environment.ExitCode = 1;

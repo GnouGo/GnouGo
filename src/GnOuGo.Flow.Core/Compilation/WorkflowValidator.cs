@@ -674,6 +674,15 @@ public sealed class WorkflowValidator
 
     private void ValidateInputDef(InputDef def, string wfName, string path, List<ValidationError> errors)
     {
+        if (def.Schema is not null)
+        {
+            foreach (var message in JsonSchemaContractValidator.ValidateSchema(def.Schema, strictProfile: false))
+                errors.Add(new() { Code = "INVALID_INPUT_SCHEMA", WorkflowName = wfName, Message = "Input '" + path + "': " + message });
+            if (def.Default is not null)
+                foreach (var message in JsonSchemaContractValidator.ValidateInstance(InputDefaultValueConverter.ConvertToNode(def.Default, def), def.Schema))
+                    errors.Add(new() { Code = "INVALID_INPUT_SCHEMA", WorkflowName = wfName, Message = "Input default '" + path + "': " + message });
+            return;
+        }
         // Unknown base type
         if (!KnownInputTypes.Contains(def.Type))
             errors.Add(new ValidationError
@@ -772,6 +781,12 @@ public sealed class WorkflowValidator
 
     private void ValidateOutputDef(OutputDef def, string wfName, string path, List<ValidationError> errors)
     {
+        if (def.Schema is not null)
+        {
+            foreach (var message in JsonSchemaContractValidator.ValidateSchema(def.Schema, strictProfile: false))
+                errors.Add(new() { Code = "INVALID_OUTPUT_SCHEMA", WorkflowName = wfName, Message = "Output '" + path + "': " + message });
+            return;
+        }
         // Unknown base type
         if (!KnownInputTypes.Contains(def.Type))
             errors.Add(new ValidationError
