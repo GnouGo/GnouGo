@@ -70,10 +70,40 @@ internal static class PlanningDiagnosticLocations
                 PlanningDiagnostic Edit(string location, string extra = "") => finding with { Location = location, Message = "Operation '" + match.Operation.Id + "': " + finding.Message + extra, ValidationStage = "intent" };
             }
             var block = IntentTraversal.Blocks(state.IntentPlan).FirstOrDefault(b => b.Workflow == workflow.Key);
-            if (block.Block is not null) return finding with { Location = block.Path + "/result", ValidationStage = "intent" };
-            var intentRoot = workflow.Key is "main" or PlanningConfirmationGuards.Body ? "" : "/subflows/" + state.IntentPlan.Subflows.FindIndex(s => s.Name == workflow.Key);
-            if (parts.Length >= 5 && parts[3] is "inputs" or "outputs")
-                return finding with { Location = intentRoot + "/" + parts[3] + "/" + parts[4], ValidationStage = "intent" };
+            if (parts.Length < 5 || !int.TryParse(parts[4], out var portIndex) || portIndex < 0) return Host(finding);
+            if (block.Block is not null)
+            {
+                if (parts[3] != "outputs" || portIndex >= workflow.Outputs.Count) return Host(finding);
+                var path = block.Path + "/result";
+                if (parts.ElementAtOrDefault(5) == "value") path = ValuePath(workflow.Outputs[portIndex].Value, block.Block.Result, parts[6..], path);
+                return finding with { Location = path, ValidationStage = "intent" };
+            }
+            var main = workflow.Key is "main" or PlanningConfirmationGuards.Body;
+            var subflow = state.IntentPlan.Subflows.FindIndex(s => s.Name == workflow.Key);
+            if (!main && subflow < 0) return Host(finding);
+            var intentRoot = main ? "" : "/subflows/" + subflow;
+            if (parts[3] == "inputs" && portIndex < workflow.Inputs.Count)
+            {
+                var port = workflow.Inputs[portIndex]; var inputs = main ? state.IntentPlan.Inputs : state.IntentPlan.Subflows[subflow].Inputs;
+                var target = inputs.FindIndex(p => p.Name == port.Name);
+                if (target < 0) return Host(finding);
+                var path = intentRoot + "/inputs/" + target;
+                if (parts.ElementAtOrDefault(5) == "default")
+                {
+                    if (port.Default is null || inputs[target].Default is not { } value) return Host(finding);
+                    path = ValuePath(port.Default, value, parts[6..], path + "/default");
+                }
+                return finding with { Location = path, Message = "Input '" + port.Name + "': " + finding.Message, ValidationStage = "intent" };
+            }
+            if (parts[3] == "outputs" && portIndex < workflow.Outputs.Count)
+            {
+                var port = workflow.Outputs[portIndex]; var outputs = main ? state.IntentPlan.Outputs : state.IntentPlan.Subflows[subflow].Outputs;
+                var target = outputs.FindIndex(p => p.Name == port.Name);
+                if (target < 0) return Host(finding);
+                var path = intentRoot + "/outputs/" + target;
+                if (parts.ElementAtOrDefault(5) == "value") path = ValuePath(port.Value, outputs[target].Value, parts[6..], path + "/value");
+                return finding with { Location = path, Message = "Output '" + port.Name + "': " + finding.Message, ValidationStage = "intent" };
+            }
             return Host(finding);
         }
     }

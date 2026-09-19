@@ -154,28 +154,23 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             var singleton = domains.FirstOrDefault(d => d.Choices.Count == 1);
             if (singleton.Hole is not null)
             {
-                state.Graph = PlanningHoleEligibility.Assign(state.Graph, state.Catalog, singleton.Hole, singleton.Choices[0].Value);
-                PlanningBusinessChoices.Reflect(state, singleton.Hole);
-                if (singleton.Hole.Kind != "schema") state.Graph = PlanningGraphBuilder.Build(state.IntentPlan!, state.Catalog);
+                PlanningBusinessChoices.Apply(state, [(singleton.Hole, singleton.Choices[0].Value)]);
                 continue;
             }
             var ambiguous = domains.Where(d => d.Choices.Count > 1).ToList();
             if (ambiguous.Count == 0)
             {
-                state.Diagnostics = domains.Select(d => new PlanningDiagnostic("HOLE_UNRESOLVED", d.Hole.Path, "No valid deterministic choice exists for this " + d.Hole.Kind + " field. Supply a typed value or revise its dependencies.")).ToList();
+                state.Diagnostics = domains.Select(d => new PlanningDiagnostic("HOLE_UNRESOLVED", d.Hole.Path, PlanningHoleEligibility.IsInputDefault(d.Hole)
+                    ? "No valid literal default is established. Repair the input declaration: use default: null when no default is intended, or supply a contract-valid literal. Declared runtime inputs need no planning-time answer."
+                    : "No valid deterministic choice exists for this " + d.Hole.Kind + " field. Supply a typed value or revise its dependencies.")).ToList();
                 state.Diagnostics.AddRange(PlanningExecutableValidation.Validate(state.Graph, state.Catalog).Where(d => d.Code != "CONFIRMATION_REQUIRED"));
                 state.Diagnostics.AddRange(PlanningValidationPipeline.FixtureShape(state));
                 state.Diagnostics.AddRange(PlanningFixtureSamples.Validate(state));
                 return;
             }
             var answers = (await PlanningModelCalls.CallAsync(state, runtime, "choices", PlanningModelCalls.ChoicePrompt(state, ambiguous), PlanningSchemas.Choices(ambiguous), ct)).AsObject();
-            foreach (var domain in ambiguous)
-            {
-                var choice = domain.Choices.Single(c => c.Id == answers[domain.Hole.Id]!.GetValue<string>());
-                state.Graph = PlanningHoleEligibility.Assign(state.Graph, state.Catalog, domain.Hole, choice.Value);
-                PlanningBusinessChoices.Reflect(state, domain.Hole);
-            }
-            state.Graph = PlanningGraphBuilder.Build(state.IntentPlan!, state.Catalog);
+            PlanningBusinessChoices.Apply(state, ambiguous.Select(domain =>
+                (domain.Hole, domain.Choices.Single(c => c.Id == answers[domain.Hole.Id]!.GetValue<string>()).Value)).ToArray());
             return; // Persist resolved business assignments before recomputing dependent domains.
         }
         await PlanningValidationPipeline.ValidateAsync(state, runtime, ct);

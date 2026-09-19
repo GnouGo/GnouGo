@@ -188,7 +188,13 @@ public static class PlanningGraphValidation
                 }
             }
             for (var i = 0; i < workflow.Inputs.Count; i++)
-                if (workflow.Inputs[i].Default is { } value) CheckValue(value, path + "/inputs/" + i + "/default");
+                if (workflow.Inputs[i].Default is { } value)
+                {
+                    var location = path + "/inputs/" + i + "/default";
+                    CheckValue(value, location);
+                    if (!IsLiteral(value)) errors.Add(new("INPUT_DEFAULT_INVALID", location,
+                        "Input defaults require literal values. Remove the default when this is a required runtime input; an explicit null value is different from no default."));
+                }
             for (var i = 0; i < workflow.Outputs.Count; i++)
             {
                 var output = workflow.Outputs[i];

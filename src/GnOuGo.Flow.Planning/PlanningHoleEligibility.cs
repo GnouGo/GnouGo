@@ -97,14 +97,15 @@ public static class PlanningHoleEligibility
             if (expected.TryGetPropertyValue("const", out var constant)) Literal(constant);
             else if (expected["enum"] is JsonArray values) foreach (var value in values) Literal(value);
             else if (expected.TryGetPropertyValue("default", out var defaultValue)) Literal(defaultValue);
-            try
+            // Defaults are evaluated before runtime data exists, including nested members/items.
+            if (!IsInputDefault(hole)) try
             {
                 foreach (var binding in PlanningDataflow.Index(workflow, catalog, graph, hole.NodeKey ?? PlanningDataflow.WorkflowOutputs).Values)
                     if (binding.Availability is "unconditional" or "nullable" && PlanningContractCompatibility.Fits(binding.Schema, expected) && ArtifactFits(binding.Value))
                         choices.Add(JsonSerializer.SerializeToNode(binding.Value, PlanningJsonContext.Default.PlanningValue));
             }
             catch (InvalidOperationException) { }
-            if (hole.Optional) choices.Add(JsonSerializer.SerializeToNode(new PlanningValue { Kind = PlanningValues.Omitted }, PlanningJsonContext.Default.PlanningValue));
+            if (hole.Optional && !IsInputDefault(hole)) choices.Add(JsonSerializer.SerializeToNode(new PlanningValue { Kind = PlanningValues.Omitted }, PlanningJsonContext.Default.PlanningValue));
             void Literal(JsonNode? value)
             {
                 if (PlanningContractValidation.ValidateInstance(value, expected).Count == 0 && ArtifactFits(PlanningJsonTransport.Literal(value)))
@@ -129,6 +130,12 @@ public static class PlanningHoleEligibility
             }
             return true;
         }
+    }
+
+    internal static bool IsInputDefault(PlanningHole hole)
+    {
+        var parts = hole.Path.Split('/');
+        return parts.Length >= 6 && parts[1] == "workflows" && parts[3] == "inputs" && parts[5] == "default";
     }
 
     internal static PlanningGraph Assign(PlanningGraph graph, PlanningCatalog catalog, PlanningHole hole, JsonNode? value)

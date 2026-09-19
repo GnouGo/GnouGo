@@ -1,11 +1,33 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Expressions;
 namespace GnOuGo.Flow.Planning;
 
 /// <summary>Only business assignments are reflected into intent; generated technical fields remain reproducible.</summary>
 internal static class PlanningBusinessChoices
 {
-    internal static void Reflect(PlanningSession state, PlanningHole hole)
+    internal static void Apply(PlanningSession state, IReadOnlyList<(PlanningHole Hole, JsonNode? Value)> assignments)
+    {
+        // Work on a private candidate: reflection and rebuilding must both succeed before publication.
+        var candidate = new PlanningSession { Catalog = state.Catalog, Graph = state.Graph,
+            IntentPlan = JsonSerializer.Deserialize(JsonSerializer.Serialize(state.IntentPlan, PlanningJsonContext.Default.WorkflowIntentPlan), PlanningJsonContext.Default.WorkflowIntentPlan) };
+        try
+        {
+            foreach (var (hole, value) in assignments)
+            {
+                candidate.Graph = PlanningHoleEligibility.Assign(candidate.Graph!, candidate.Catalog!, hole, value);
+                Reflect(candidate, hole);
+            }
+            if (assignments.Any(a => a.Hole.Kind != "schema")) candidate.Graph = PlanningGraphBuilder.Build(candidate.IntentPlan!, candidate.Catalog!);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or JsonException)
+        {
+            throw new WorkflowRuntimeException("PLANNING_HOST_CONTRACT", "The engine could not reflect an issued choice into business intent; no assignments were applied.", inner: ex);
+        }
+        state.IntentPlan = candidate.IntentPlan; state.Graph = candidate.Graph;
+    }
+    private static void Reflect(PlanningSession state, PlanningHole hole)
     {
         if (hole.Kind == "schema") return;
         var workflow = state.Graph!.Workflows.Single(w => w.Key == hole.WorkflowKey);

@@ -80,6 +80,7 @@ internal static class PlanningModelCalls
         The engine owns schemas, transports, defaults, retries, result envelopes, dependencies implied by bindings and confirmations.
         Never reproduce a capability's schema. Result references address its business payload directly.
         Inputs are runtime facts, not questions to answer during planning. Declare type only for a novel input with no derivable consumer contract.
+        Input default: null means no default. A supplied default must be a literal, never a runtime reference or computation; kind=null means an explicit null value.
         Values are literals, input/result/item/index references, objects, arrays, or pure compute expressions with named members as parameters.
         No runtime variables, network access or helper functions. A result reference uses the operation ID and business field path.
         calculate returns its value directly. transform follows instruction with the supplied business data; its structured result is inferred from its consumer.
