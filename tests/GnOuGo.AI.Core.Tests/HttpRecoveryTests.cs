@@ -152,6 +152,41 @@ public sealed class HttpRecoveryTests
             UseBackgroundMode = background, Tools = background ? null : [new LLMToolDef { Name = "effect" }]
         }, Ct));
     }
+    [Fact]
+    public async Task NonTransientSendFailureAndBackoffCancellationStayTerminalAcrossRestart()
+    {
+        var journal = new Journal(); var calls = 0;
+        using var http = new HttpClient(new Handler((_, _) => { calls++; throw new InvalidOperationException("Invalid request configuration"); }));
+        for (var restart = 0; restart < 2; restart++)
+        {
+            using var scope = new LLMHttpRetryContext("original", journal).Activate();
+            await Assert.ThrowsAsync<HttpRequestException>(() => Send(http, post: true));
+        }
+        Assert.Equal(1, calls);
+        journal = new Journal(); using var cancellation = new CancellationTokenSource();
+        using var unavailable = new HttpClient(new Handler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable))));
+        using (new LLMHttpRetryContext("cancelled", journal).Activate())
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => HttpRequestHelper.SendWithTransientRetryAsync(unavailable,
+                () => HttpRequestHelper.CreateJsonPost("https://provider.example/generate", "{}"u8.ToArray()), HttpCompletionOption.ResponseHeadersRead,
+                NullLogger.Instance, "test", new(), (_, token) => { cancellation.Cancel(); token.ThrowIfCancellationRequested(); return Task.CompletedTask; },
+                upper => upper, () => DateTimeOffset.UtcNow, cancellation.Token));
+        using (new LLMHttpRetryContext("cancelled", journal).Activate())
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Send(unavailable, post: true));
+        Assert.Single(journal.State!.Attempts);
+    }
+    [Fact]
+    public async Task UnrepresentableRetryAfterStopsWithoutClampingOrRetryingEarly()
+    {
+        var calls = 0;
+        using var http = new HttpClient(new Handler((_, _) =>
+        {
+            calls++; var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+            response.Headers.TryAddWithoutValidation("Retry-After", "999999999999999999999999999999");
+            return Task.FromResult(response);
+        }));
+        using var result = await Send(http);
+        Assert.Equal(1, calls); Assert.True(HttpRequestHelper.GetRetryMetadata(result)!.RetryExhausted);
+    }
     private static Task<HttpResponseMessage> Send(HttpClient http, bool post = false, LLMProviderRetryPolicyOptions? policy = null, CancellationToken? ct = null)
         => HttpRequestHelper.SendWithTransientRetryAsync(http,
             () => post ? HttpRequestHelper.CreateJsonPost("https://provider.example/generate", "{}"u8.ToArray()) : HttpRequestHelper.CreateGet("https://provider.example/models"),

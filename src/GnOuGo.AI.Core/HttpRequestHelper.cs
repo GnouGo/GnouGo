@@ -251,12 +251,13 @@ public static class HttpRequestHelper
                 originalFailure = ex;
                 attempt.Failure = ct.IsCancellationRequested ? "cancelled" : "timeout";
             }
-            catch (TimeoutException ex) { originalFailure = ex; attempt.Failure = "timeout"; }
+            catch (TimeoutException ex) { originalFailure = ex; attempt.Failure = ct.IsCancellationRequested ? "cancelled" : "timeout"; }
             catch (HttpRequestException ex)
             {
                 originalFailure = ex;
-                attempt.Failure = IsTransientTransport(ex) ? "transport" : "permanent";
+                attempt.Failure = ct.IsCancellationRequested ? "cancelled" : IsTransientTransport(ex) ? "transport" : "permanent";
             }
+            catch (Exception ex) { originalFailure = ex; attempt.Failure = ct.IsCancellationRequested ? "cancelled" : "permanent"; }
             finally { received?.Dispose(); }
             // A persistence failure is not a transport failure and must never trigger a resend.
             await SaveAsync(CancellationToken.None).ConfigureAwait(false);
@@ -267,9 +268,9 @@ public static class HttpRequestHelper
     }
 
     private static bool IsTransientTransport(HttpRequestException failure)
-        => failure.StatusCode is null && failure.HttpRequestError is HttpRequestError.Unknown
-            or HttpRequestError.NameResolutionError or HttpRequestError.ConnectionError
-            or HttpRequestError.HttpProtocolError or HttpRequestError.ResponseEnded;
+        => failure.StatusCode is null && failure.InnerException is not System.Security.Authentication.AuthenticationException &&
+            failure.HttpRequestError is HttpRequestError.Unknown or HttpRequestError.NameResolutionError or HttpRequestError.ConnectionError
+                or HttpRequestError.HttpProtocolError or HttpRequestError.ResponseEnded;
 
     private static HttpResponseMessage Restore(LLMHttpAttempt attempt, int status)
     {
@@ -353,9 +354,10 @@ public static class HttpRequestHelper
             }
             catch (OverflowException)
             {
-                return null;
+                return TimeSpan.MaxValue; // Honor an unrepresentably long delay by exhausting the budget.
             }
         }
+        if (raw.All(char.IsAsciiDigit)) return TimeSpan.MaxValue;
 
         if (!DateTimeOffset.TryParse(
                 raw,

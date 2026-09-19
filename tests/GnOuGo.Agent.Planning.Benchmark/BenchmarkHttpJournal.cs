@@ -22,7 +22,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         {
             ["input_ceiling"] = inputCeiling, ["output_ceiling"] = outputCeiling, ["cost_ceiling_eur"] = costCeiling
         };
-        if (inputCeiling <= 0 || outputCeiling <= 0 || costCeiling <= 0) throw new InvalidOperationException("Conservative attempt limits are required.");
+        if (inputCeiling <= 0 || outputCeiling <= 0 || costCeiling < 0) throw new InvalidOperationException("Conservative attempt limits are required.");
         record["transport"] = JsonSerializer.SerializeToNode(state, LLMHttpRetryJsonContext.Default.LLMHttpRetryState);
         var oldCount = existing?["transport"]?["Attempts"]?.AsArray().Count ?? 0;
         if (state.Attempts.Count > oldCount)
@@ -63,6 +63,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         if (requestId is not null && replacement is not null) rows[requestId] = replacement;
         var legacy = await campaign.Records.GetAsync("planning-evaluation-budgets", "benchmark", campaign.Id, BenchmarkCampaign.Author, ct);
         var snapshot = legacy is null ? null : JsonSerializer.Deserialize(legacy.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+        if (snapshot is not null && snapshot.EstimatedCostCurrency != "EUR") throw new InvalidOperationException("The existing campaign ledger must be denominated in EUR.");
         long calls = snapshot?.Calls ?? 0, input = snapshot?.InputTokens ?? 0, output = snapshot?.OutputTokens ?? 0;
         long reservedInput = 0, reservedOutput = 0, uncertain = 0, sessionCalls = 0;
         decimal cost = snapshot?.EstimatedCost ?? 0, reservedCost = 0;
