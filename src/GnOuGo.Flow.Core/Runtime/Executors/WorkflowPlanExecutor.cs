@@ -33,7 +33,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     MaxInputTokensPerRequest = generator["max_input_tokens"]?.GetValue<int>() ?? 12_000,
                     MaxOutputTokens = generator["max_output_tokens"]?.GetValue<int>() ?? 8_192
                 },
-                Policy = new()
+                Policy = ctx.Engine.PlanningPolicy ?? new()
                 {
                     Instructions = input["policy"]?["instructions"]?.GetValue<string>() ?? "",
                     AllowedStepTypes = (input["policy"]?["allowed_step_types"] as JsonArray ?? []).Select(v => v!.GetValue<string>()).ToList(),

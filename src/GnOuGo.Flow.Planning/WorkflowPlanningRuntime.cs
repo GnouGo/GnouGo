@@ -84,6 +84,8 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
     {
         try
         {
+            if (_engine.PlanningPolicy is { } policy && !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(policy, PlanningJsonContext.Default.PlanningPolicy), JsonSerializer.SerializeToNode(catalog.Policy, PlanningJsonContext.Default.PlanningPolicy)))
+                return [new("POLICY_CHANGED", "/policy", "The current host policy differs from the reviewed policy; rebuild and review the workflow.")];
             var current = await CapabilityDiscovery.DiscoverAsync(_engine, new PlanningRequest { Policy = catalog.Policy }, ct);
             if (!JsonNode.DeepEquals(catalog.StepContracts, current.StepContracts) || !catalog.AllowedStepTypes.SequenceEqual(current.AllowedStepTypes))
                 return [new("CATALOG_CHANGED", "/stepContracts", "The host's executable contracts changed; rebuild and review the workflow.")];

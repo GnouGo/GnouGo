@@ -1,39 +1,51 @@
+using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using GnOuGo.Flow.Core.Planning;
 namespace GnOuGo.Flow.Planning;
 
-internal static class PlanningCapabilityCards
+internal static partial class PlanningCapabilityCards
 {
-    internal static JsonObject Card(PlanningCapability capability) => new()
+    internal static IReadOnlyList<PlanningCapability> Shortlist(PlanningCatalog catalog, string query, int maxInputTokens)
     {
-        ["id"] = capability.Id, ["name"] = capability.Method ?? capability.Id,
-        ["description"] = capability.Description[..Math.Min(capability.Description.Length, 300)],
-        ["arguments"] = Signature(Editable(capability)), ["result"] = Signature(capability.OutputSchema), ["effect"] = capability.EffectKind
-    };
-    private static JsonObject Editable(PlanningCapability capability)
+        var terms = Words(query); var documents = catalog.Capabilities.Select(c => (Capability: c, Words: Words(c.Method + " " + c.Description + " " + c.Metadata?.ToJsonString()))).ToArray();
+        var frequencies = terms.ToDictionary(t => t, t => documents.Count(d => d.Words.Contains(t)), StringComparer.Ordinal);
+        var ranked = documents.OrderByDescending(d => terms.Where(d.Words.Contains).Sum(t => Math.Log(1 + (documents.Length + 1.0) / (frequencies[t] + 1))))
+            .ThenBy(d => d.Capability.Id, StringComparer.Ordinal);
+        var result = new List<PlanningCapability>(); var bytes = 0; var allowance = Math.Max(0, maxInputTokens / 2) * 3;
+        foreach (var entry in ranked.Take(24))
+        {
+            var size = Encoding.UTF8.GetByteCount(Card(entry.Capability).ToJsonString()) + 1;
+            if (bytes + size > allowance) break;
+            result.Add(entry.Capability); bytes += size;
+        }
+        return result;
+    }
+    private static HashSet<string> Words(string text) => Tokens().Matches(text.ToLowerInvariant()).Select(m => m.Value).ToHashSet(StringComparer.Ordinal);
+    [GeneratedRegex(@"[\p{L}\p{N}]+", RegexOptions.CultureInvariant)] private static partial Regex Tokens();
+    internal static JsonObject Card(PlanningCapability capability)
     {
-        var schema = (JsonObject)capability.InputSchema.DeepClone();
+        var input = capability.InputSchema.DeepClone().AsObject();
         foreach (var binding in capability.RequestBindings)
         {
-            var segments = binding.Path.Split('/').Skip(1).Select(p => p.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal)).ToArray();
-            var parent = schema;
-            foreach (var part in segments.SkipLast(1)) parent = parent["properties"]?[part] as JsonObject ?? new();
-            if (segments.Length > 0 && parent["properties"] is JsonObject properties) properties.Remove(segments[^1]);
+            var parts = binding.Path.Split('/').Skip(1).Select(p => p.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal)).ToArray();
+            JsonNode? parent = input;
+            for (var i = 0; i < parts.Length - 1; i++) parent = parent?["properties"]?[parts[i]];
+            if (parts.Length > 0 && parent?["properties"] is JsonObject fields) fields.Remove(parts[^1]);
         }
-        return schema;
+        return new() { ["id"] = capability.Id, ["name"] = capability.Method, ["description"] = capability.Description.Length > 300 ? capability.Description[..300] : capability.Description,
+            ["arguments"] = Signature(input), ["result"] = Signature(capability.OutputSchema), ["effect"] = capability.EffectKind };
     }
-    internal static string Signature(JsonNode? schema, int depth = 0)
+    private static string Signature(JsonObject schema, int depth = 0)
     {
-        if (schema is not JsonObject obj || obj.Count == 0) return "unknown";
-        var type = obj["type"]?.ToString() ?? "object";
-        if (depth >= 3) return type;
-        if (obj["properties"] is JsonObject fields)
+        var type = schema["type"]?.ToString() ?? "unknown";
+        if (depth > 3) return type;
+        if (schema["properties"] is JsonObject properties)
         {
-            var required = (obj["required"] as JsonArray ?? []).Select(n => n!.ToString()).ToHashSet(StringComparer.Ordinal);
-            return "{" + string.Join(",", fields.Select(f => f.Key + (required.Contains(f.Key) ? "!:" : "?:") + Signature(f.Value, depth + 1))) + "}";
+            var required = (schema["required"] as JsonArray ?? []).Select(n => n!.ToString()).ToHashSet(StringComparer.Ordinal);
+            return "{" + string.Join(",", properties.Select(p => p.Key + (required.Contains(p.Key) ? "!:" : "?:") + (p.Value is JsonObject child ? Signature(child, depth + 1) : "unknown"))) + "}";
         }
-        if (obj["items"] is { } item) return "array<" + Signature(item, depth + 1) + ">";
-        if (obj["enum"] is JsonArray options) return type + ":" + string.Join('|', options.Select(o => o?.ToString()));
-        return type;
+        if (schema["items"] is JsonObject items) return "[" + Signature(items, depth + 1) + "]";
+        return schema["enum"] is JsonArray values ? type + "=" + values.ToJsonString() : type;
     }
 }

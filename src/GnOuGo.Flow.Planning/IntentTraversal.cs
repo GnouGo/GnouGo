@@ -30,6 +30,35 @@ internal static class IntentTraversal
             case ParallelIntentOperation p: for (var i = 0; i < p.Branches.Count; i++) yield return (p.Branches[i].Body.Operations, "/branches/" + i + "/body/operations"); break;
         }
     }
+    internal static IEnumerable<(string Workflow, string Path, IntentBlock Block)> Blocks(WorkflowIntentPlan intent)
+    {
+        foreach (var (op, path) in Located(intent))
+        {
+            IEnumerable<(string Path, IntentBlock Block)> blocks = op switch
+            {
+                EachIntentOperation each => [(path + "/body", each.Body)],
+                ChooseIntentOperation choice => [(path + "/then", choice.Then), (path + "/otherwise", choice.Otherwise)],
+                ParallelIntentOperation parallel => parallel.Branches.Select((b, i) => (path + "/branches/" + i + "/body", b.Body)), _ => []
+            };
+            foreach (var block in blocks) yield return (GraphOwner(intent, block.Path + "/operations/0"), block.Path, block.Block);
+        }
+    }
+    internal static string GraphOwner(WorkflowIntentPlan intent, string path)
+    {
+        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var owner = "main"; var list = intent.Operations; var position = 0;
+        if (parts[0] == "subflows") { var subflow = intent.Subflows[int.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture)]; owner = subflow.Name; list = subflow.Operations; position = 2; }
+        while (position + 2 < parts.Length && parts[position] == "operations")
+        {
+            var op = list[int.Parse(parts[position + 1], System.Globalization.CultureInfo.InvariantCulture)]; position += 2;
+            if (op is CleanupIntentOperation cleanup) { list = cleanup.Operations; continue; }
+            if (op is EachIntentOperation each && parts[position] == "body") { owner += "___planning_body_" + op.Id; list = each.Body.Operations; position++; }
+            else if (op is ChooseIntentOperation choose && parts[position] is "then" or "otherwise") { owner += "___planning_" + parts[position] + "_" + op.Id; list = parts[position] == "then" ? choose.Then.Operations : choose.Otherwise.Operations; position++; }
+            else if (op is ParallelIntentOperation parallel && parts[position] == "branches") { var branch = parallel.Branches[int.Parse(parts[position + 1], System.Globalization.CultureInfo.InvariantCulture)]; owner += "___planning_branch_" + op.Id + "_" + branch.Name; list = branch.Body.Operations; position += 3; }
+            else break;
+        }
+        return owner;
+    }
     internal static IEnumerable<IntentValue> Values(IEnumerable<IntentOperation> operations)
     {
         foreach (var operation in Operations(operations))

@@ -85,7 +85,7 @@ public sealed class PlanningSessionService(
         };
         if (original is not null)
         {
-            var discovery = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory }, (_, _) => Task.CompletedTask);
+            var discovery = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory, PlanningPolicy = AgentPlanningPolicy.Create() }, (_, _) => Task.CompletedTask);
             state.Catalog = await discovery.DiscoverAsync(state.Request, ct);
             state.Request.Baseline = PlanningIntentImporter.Import(PlanningGraphImporter.Import(original, state.Catalog));
         }
@@ -235,6 +235,7 @@ public sealed class PlanningSessionService(
         var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation);
         var engine = new WorkflowEngine
         {
+            PlanningPolicy = AgentPlanningPolicy.Create(),
             LLMClient = journal, McpClientFactory = runtime.McpClientFactory, LLMCapabilities = runtime.LlmCapabilityResolver,
             ModelUsageCostEstimator = estimator, ExchangeRateProvider = exchangeRates,
             LlmDefaults = new() { Provider = runtime.Options.DefaultProvider, Model = runtime.Options.DefaultModel },
@@ -265,7 +266,7 @@ public sealed class PlanningSessionService(
             throw new PlanningConflictException("Saving requires approval of this exact validated artifact.");
         PlanningArtifactApproval.Verify(state);
         await using var runtime = await runtimeFactory.CreateAsync(ct);
-        var validation = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory }, (_, _) => Task.CompletedTask);
+        var validation = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory, PlanningPolicy = AgentPlanningPolicy.Create() }, (_, _) => Task.CompletedTask);
         var errors = await validation.ValidateCatalogAsync(state.Catalog!, ct);
         if (errors.Count == 0) errors = await validation.ValidateAsync(new(state.Yaml!, state.Request, state.Catalog!, PlanningGraphCompiler.CapabilityBindings(state.Graph!)), ct);
         if (errors.Count != 0)

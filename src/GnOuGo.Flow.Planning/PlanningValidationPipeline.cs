@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningValidationPipeline
@@ -16,7 +17,7 @@ internal static class PlanningValidationPipeline
     {
         var graph = state.Graph!; var catalog = state.Catalog!;
         PlanningConfirmationGuards.Apply(graph, catalog);
-        state.Diagnostics = PlanningExecutableValidation.Validate(graph, catalog).Concat(FixtureShape(state)).ToList();
+        state.Diagnostics = PlanningExecutableValidation.Validate(graph, catalog).Concat(FixtureShape(state)).Concat(PlanningFixtureSamples.Validate(state)).ToList();
         if (state.Diagnostics.Any(d => d.Required)) return;
         string yaml;
         try { yaml = new PlanningGraphCompiler().Compile(graph, catalog, state.Request.Name); }
@@ -24,7 +25,7 @@ internal static class PlanningValidationPipeline
         state.Diagnostics.AddRange((await runtime.ValidateAsync(new(yaml, state.Request, catalog, PlanningGraphCompiler.CapabilityBindings(graph)), ct)).Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph)));
         if (state.Diagnostics.Any(d => d.Required)) return;
         var fixtures = state.Fixtures;
-        var inputs = fixtures?.Inputs;
+        var inputs = fixtures?.Inputs ?? PlanningFixtureSamples.Domains(state).FirstOrDefault(d => d.Path == "/fixtures/inputs").Sample as JsonObject;
         var observations = new JsonObject();
         foreach (var observation in fixtures?.Observations ?? [])
         {

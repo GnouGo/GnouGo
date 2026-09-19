@@ -44,7 +44,15 @@ internal sealed class TestRuntime : IPlanningRuntime
         if (Respond is not null) return Task.FromResult(Respond(request));
         if (purpose == "choices") return Task.FromResult(new LLMResponse { Json = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, p.Value!["enum"]![0]!.DeepClone()))) });
         var plan = Plans.Count > 1 ? Plans.Dequeue() : Plans.Peek();
-        return Task.FromResult(new LLMResponse { Json = PlanningJsonTransport.Intent(plan) });
+        var candidate = PlanningJsonTransport.Intent(plan);
+        if (purpose == "repair" && request.StructuredOutputSchema!["properties"]?["changes"] is not null)
+        {
+            var context = JsonNode.Parse(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..])!;
+            candidate = new() { ["changes"] = new JsonArray(context["targets"]!.AsArray().Select(t => (JsonNode)new JsonObject {
+                ["target"] = t!["id"]!.DeepClone(), ["replacement"] = PlanningFieldPaths.Read(PlanningJsonTransport.Intent(plan), t["path"]!.GetValue<string>())?.DeepClone()
+            }).ToArray()) };
+        }
+        return Task.FromResult(new LLMResponse { Json = candidate });
     }
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => Validation is null ? Actual.ValidateAsync(request, ct) : Task.FromResult(Validation);
     public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct) => Actual.ValidateScenariosAsync(request, ct);

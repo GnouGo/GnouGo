@@ -81,6 +81,18 @@ public static class PlanningGraphBuilder
         }
     }
 
+    internal static List<PlanningDiagnostic> ValidateIntent(WorkflowIntentPlan intent)
+    {
+        var diagnostics = new List<PlanningDiagnostic>();
+        foreach (var group in IntentTraversal.Located(intent).GroupBy(o => IntentTraversal.GraphOwner(intent, o.Path)))
+            foreach (var duplicate in group.GroupBy(o => o.Operation.Id, StringComparer.Ordinal))
+                if (string.IsNullOrWhiteSpace(duplicate.Key) || duplicate.Key.StartsWith("__planning_", StringComparison.Ordinal) || duplicate.Count() > 1)
+                    foreach (var item in duplicate) diagnostics.Add(new("INTENT_IDENTIFIER_INVALID", item.Path, "Operation identifiers must be unique in their scope, nonempty and outside the reserved __planning_ namespace.", ValidationStage: "intent"));
+        foreach (var flow in intent.Subflows.Select((f, i) => (Flow: f, Index: i)))
+            if (flow.Flow.Name == "main" || string.IsNullOrWhiteSpace(flow.Flow.Name) || flow.Flow.Name.StartsWith("__planning_", StringComparison.Ordinal) || intent.Subflows.Count(f => f.Name == flow.Flow.Name) > 1)
+                diagnostics.Add(new("INTENT_IDENTIFIER_INVALID", "/subflows/" + flow.Index, "Subflow names must be distinct, nonempty and outside main and the reserved namespace.", ValidationStage: "intent"));
+        return diagnostics;
+    }
     public static PlanningSchema Schema(IntentType type) => new()
     {
         Type = type.Type, Nullable = type.Nullable, Enum = [.. type.Enum], Items = type.Items is null ? null : Schema(type.Items),
@@ -118,10 +130,24 @@ public static class PlanningGraphBuilder
             if (value.Kind == "input")
             {
                 var input = workflow.Inputs.FirstOrDefault(p => p.Name == value.Source);
-                if (input is not null && value.Path.Count == 0) return input.Schema;
+                if (input is not null) return At(input.Schema, value.Path);
             }
             if (value.Kind == "output" && _operations.GetValueOrDefault(value.Source ?? "") is InvokeIntentOperation invoke && catalog.Capabilities.FirstOrDefault(c => c.Id == invoke.Capability) is { } capability)
-                return new() { CapabilityId = capability.Id, SchemaPointer = "/output" + string.Concat(value.Path.Select(p => "/properties/" + PlanningSchemaReferences.Escape(p))) };
+                return At(new() { CapabilityId = capability.Id, SchemaPointer = "/output" }, value.Path);
+            if (value.Kind == "output" && PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).FirstOrDefault(n => n.Key == value.Source) is { } producer)
+            {
+                if (producer.OutputSchema is { } declared) return At(declared, value.Path);
+                if (producer.StructuredOutput is { } structured) return At(structured.Schema, value.Path);
+                if (producer.Type == "workflow.call" && graph.Workflows.FirstOrDefault(w => w.Key == PlanningGraphValidation.Member(producer.Input, "ref")?.Source) is { } called)
+                    return At(new() { Type = "object", Properties = called.Outputs.Select(p => new PlanningPort { Name = p.Name, Schema = p.Schema }).ToList() }, value.Path);
+            }
+            if (value.Kind == "array" && value.Items.Count > 0)
+            {
+                var item = Contract(value.Items[0]);
+                var expected = PlanningGraphCompiler.ToJsonSchema(item, catalog);
+                if (value.Items.Skip(1).Any(v => !PlanningContractCompatibility.Fits(PlanningGraphCompiler.ToJsonSchema(Contract(v), catalog), expected))) return Hole();
+                return new() { Type = "array", Items = item };
+            }
             if (value.Kind == "compute")
             {
                 PlanningComputations.Validate(value);
@@ -132,6 +158,26 @@ public static class PlanningGraphBuilder
             if (value.Kind == "object") return new() { Type = "object", Properties = value.Members.Select(m => new PlanningPort { Name = m.Name, Schema = Contract(m.Value) }).ToList() };
             var schema = PlanningGraphValidation.ResolveValueContract(graph, workflow, value, catalog);
             return PlanningValues.Established(schema) ? PlanningGraphImporter.Schema(schema) : Hole();
+        }
+        private PlanningSchema At(PlanningSchema schema, IReadOnlyList<string> path)
+        {
+            for (var i = 0; i < path.Count; i++)
+            {
+                if (schema.CapabilityId is not null)
+                {
+                    var contract = PlanningGraphCompiler.ToJsonSchema(schema, catalog); var pointer = schema.SchemaPointer ?? "/output";
+                    foreach (var segment in path.Skip(i))
+                    {
+                        if (contract["properties"] is System.Text.Json.Nodes.JsonObject fields && fields[segment] is System.Text.Json.Nodes.JsonObject field) { pointer += "/properties/" + PlanningFieldPaths.Escape(segment); contract = field; }
+                        else if (contract["items"] is System.Text.Json.Nodes.JsonObject item && uint.TryParse(segment, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out _)) { pointer += "/items"; contract = item; }
+                        else return Hole();
+                    }
+                    return new() { CapabilityId = schema.CapabilityId, SchemaPointer = pointer };
+                }
+                schema = schema.Type == "array" && uint.TryParse(path[i], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out _) ? schema.Items ?? Hole()
+                    : schema.Properties.FirstOrDefault(p => p.Name == path[i])?.Schema ?? schema.AdditionalProperties ?? Hole();
+            }
+            return schema;
         }
         public PlanningSchema? ExpectedInput(string name)
         {
@@ -164,7 +210,16 @@ public static class PlanningGraphBuilder
             foreach (var operation in items)
             {
                 CheckKey(operation.Id);
-                if (operation is CleanupIntentOperation cleanup) { Build(cleanup.Operations, workflow.Finally); continue; }
+                if (operation is CleanupIntentOperation cleanup)
+                {
+                    var start = workflow.Finally.Count; Build(cleanup.Operations, workflow.Finally);
+                    foreach (var child in workflow.Finally.Skip(start))
+                    {
+                        child.Dependencies = child.Dependencies.Concat(cleanup.After).Distinct(StringComparer.Ordinal).ToList();
+                        if (cleanup.When is not null) child.If = child.If is null ? Value(cleanup.When) : Compute("group && condition", new("group", Value(cleanup.When)), new("condition", child.If));
+                    }
+                    continue;
+                }
                 var node = new PlanningNode { Key = operation.Id, Purpose = operation.Purpose, Dependencies = [.. operation.After], If = operation.When is null ? null : Value(operation.When) };
                 switch (operation)
                 {
@@ -232,6 +287,7 @@ public static class PlanningGraphBuilder
         }
         private (PlanningWorkflow Workflow, PlanningNode Call) Block(IntentBlock block, string key, string? iteration = null, PlanningValue? items = null)
         {
+            key = workflow.Key + "_" + key;
             var nested = new PlanningWorkflow { Key = key }; graph.Workflows.Add(nested);
             var scope = new BuilderScope(graph, catalog, nested, block.Operations, inferred);
             var arguments = new List<PlanningMember>();

@@ -395,6 +395,7 @@ public sealed class SmartFlowService
             var engine = new WorkflowEngine
             {
                 WorkflowPlanner = new GnOuGo.Flow.Planning.TypedWorkflowPlanner(),
+                PlanningPolicy = GnOuGo.Agent.Server.Planning.AgentPlanningPolicy.Create(),
                 PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
                 LLMClient = runtime.LlmClient,
                 ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(runtime.Options),

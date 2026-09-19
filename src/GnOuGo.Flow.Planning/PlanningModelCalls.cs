@@ -43,6 +43,7 @@ internal static class PlanningModelCalls
     internal static string IntentPrompt(PlanningSession state) => """
         Interpret the request as business operations and return the strict WorkflowIntentPlan JSON.
         Use invoke with an issued capability ID and business arguments; use null when capability selection is unresolved.
+        Cards are a shortlist. If a required capability is absent, describe the operation purpose and leave its capability null so the engine can search the full catalog.
         The engine owns schemas, transports, defaults, retries, result envelopes, dependencies implied by bindings and confirmations.
         Never reproduce a capability's schema. Result references address its business payload directly.
         Inputs are runtime facts, not questions to answer during planning. Declare type only for a novel input with no derivable consumer contract.
@@ -61,7 +62,8 @@ internal static class PlanningModelCalls
         """ + "\n" + new JsonObject
         {
             ["prompt"] = state.Request.Prompt, ["hostInstructions"] = state.Request.Policy.Instructions,
-            ["capabilities"] = new JsonArray(state.Catalog!.Capabilities.Select(c => (JsonNode)PlanningCapabilityCards.Card(c)).ToArray()),
+            ["capabilities"] = new JsonArray(PlanningCapabilityCards.Shortlist(state.Catalog!, state.Request.Prompt, state.Request.Generation.MaxInputTokensPerRequest).Select(c => (JsonNode)PlanningCapabilityCards.Card(c)).ToArray()),
+            ["catalogSize"] = state.Catalog!.Capabilities.Count,
             ["baseline"] = state.IntentPlan is not null || state.Request.Baseline is null ? null : PlanningJsonTransport.Intent(state.Request.Baseline),
             ["currentIntent"] = state.IntentPlan is null ? null : PlanningJsonTransport.Intent(state.IntentPlan),
             ["diagnostics"] = JsonSerializer.SerializeToNode(PlanningDiagnosticLocations.ForIntent(state), PlanningJsonContext.Default.ListPlanningDiagnostic),

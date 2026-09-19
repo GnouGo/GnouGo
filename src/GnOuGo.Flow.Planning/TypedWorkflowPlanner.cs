@@ -39,6 +39,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     if ((state.RepairAttempts > session.RepairAttempts || session.PendingCall?.Purpose == "repair") &&
                         session.IntentPlan is not null && state.IntentPlan is not null && session.Diagnostics.Any(d => d.Required) && state.Diagnostics.Any(d => d.Required) &&
                         JsonNode.DeepEquals(JsonSerializer.SerializeToNode(session.IntentPlan, PlanningJsonContext.Default.WorkflowIntentPlan), JsonSerializer.SerializeToNode(state.IntentPlan, PlanningJsonContext.Default.WorkflowIntentPlan)) &&
+                        JsonNode.DeepEquals(JsonSerializer.SerializeToNode(session.Fixtures, PlanningJsonContext.Default.PlanningFixtures), JsonSerializer.SerializeToNode(state.Fixtures, PlanningJsonContext.Default.PlanningFixtures)) &&
                         session.Diagnostics.SequenceEqual(state.Diagnostics))
                     { state.Diagnostics.Add(new("REPAIR_NO_PROGRESS", "$", "The unchanged intent produced the same failures.")); Stop(state); }
                     break;
@@ -119,8 +120,19 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                 if (hostFailures.Count > 0) { state.Diagnostics.AddRange(hostFailures); Stop(state); return; }
                 if (state.RepairAttempts >= state.Request.MaxRepairAttempts) { Stop(state); return; }
             }
-            var candidate = await PlanningModelCalls.CallAsync(state, runtime, repair ? "repair" : "intent", PlanningModelCalls.IntentPrompt(state), PlanningSchemas.Intent(), ct);
-            var intent = JsonSerializer.Deserialize(candidate, PlanningJsonContext.Default.WorkflowIntentPlan)!;
+            WorkflowIntentPlan intent;
+            if (repair && state.IntentPlan is not null)
+            {
+                var targets = PlanningCorrections.Targets(state);
+                if (targets.Count == 0) { state.Diagnostics.Add(new("PLANNING_HOST_CONTRACT", "$", "No editable business target explains the blocking diagnostics.")); Stop(state); return; }
+                var correction = await PlanningModelCalls.CallAsync(state, runtime, "repair", PlanningCorrections.Prompt(state, targets), PlanningCorrections.Schema(targets), ct);
+                intent = PlanningCorrections.Apply(state, targets, correction);
+            }
+            else
+            {
+                var candidate = await PlanningModelCalls.CallAsync(state, runtime, repair ? "repair" : "intent", PlanningModelCalls.IntentPrompt(state), PlanningSchemas.Intent(), ct);
+                intent = JsonSerializer.Deserialize(candidate, PlanningJsonContext.Default.WorkflowIntentPlan)!;
+            }
             state.IntentPlan = intent; state.Graph = null; state.Diagnostics.Clear(); state.Scenarios.Clear(); Invalidate(state);
             if (intent.Questions.Count > 0)
             {
@@ -129,6 +141,8 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                 foreach (var question in intent.Questions) _ = PlanningGraphCompiler.ToJsonSchema(PlanningGraphBuilder.Schema(question.AnswerType), state.Catalog);
                 state.Status = PlanningStatus.Clarification; return;
             }
+            state.Diagnostics = PlanningGraphBuilder.ValidateIntent(intent);
+            if (state.Diagnostics.Count > 0) return;
             state.Graph = PlanningGraphBuilder.Build(intent, state.Catalog);
         }
         if (state.Graph is null) state.Graph = PlanningGraphBuilder.Build(state.IntentPlan!, state.Catalog);
@@ -139,25 +153,32 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             var domains = holes.Select(h => (Hole: h, Choices: PlanningHoleEligibility.Choices(state.Graph, state.Catalog, h))).ToArray();
             var singleton = domains.FirstOrDefault(d => d.Choices.Count == 1);
             if (singleton.Hole is not null)
-            { state.Graph = PlanningHoleEligibility.Assign(state.Graph, state.Catalog, singleton.Hole, singleton.Choices[0].Value); continue; }
+            {
+                state.Graph = PlanningHoleEligibility.Assign(state.Graph, state.Catalog, singleton.Hole, singleton.Choices[0].Value);
+                PlanningBusinessChoices.Reflect(state, singleton.Hole);
+                if (singleton.Hole.Kind != "schema") state.Graph = PlanningGraphBuilder.Build(state.IntentPlan!, state.Catalog);
+                continue;
+            }
             var ambiguous = domains.Where(d => d.Choices.Count > 1).ToList();
             if (ambiguous.Count == 0)
             {
                 state.Diagnostics = domains.Select(d => new PlanningDiagnostic("HOLE_UNRESOLVED", d.Hole.Path, "No valid deterministic choice exists for this " + d.Hole.Kind + " field. Supply a typed value or revise its dependencies.")).ToList();
                 state.Diagnostics.AddRange(PlanningExecutableValidation.Validate(state.Graph, state.Catalog).Where(d => d.Code != "CONFIRMATION_REQUIRED"));
                 state.Diagnostics.AddRange(PlanningValidationPipeline.FixtureShape(state));
+                state.Diagnostics.AddRange(PlanningFixtureSamples.Validate(state));
                 return;
             }
             string Prompt() => "Select one issued choice ID for each field. Use the request's meaning; do not create values.\n" + state.Request.Prompt + "\n" +
                 new JsonObject(ambiguous.Select(d => new KeyValuePair<string, JsonNode?>(d.Hole.Id, new JsonArray(d.Choices.Select(c => (JsonNode)new JsonObject { ["id"] = c.Id, ["value"] = c.Value?.DeepClone(), ["description"] = d.Hole.Kind == "capability" ? state.Catalog.Capabilities.FirstOrDefault(cap => cap.Id == c.Value?.ToString())?.Description : null }).ToArray())))).ToJsonString();
-            while (ambiguous.Count > 1 && PlanningJsonTransport.EstimateInputTokens(Prompt(), PlanningSchemas.Choices(ambiguous)) > state.Request.Generation.MaxInputTokensPerRequest) ambiguous.RemoveAt(ambiguous.Count - 1);
             var answers = (await PlanningModelCalls.CallAsync(state, runtime, "choices", Prompt(), PlanningSchemas.Choices(ambiguous), ct)).AsObject();
             foreach (var domain in ambiguous)
             {
                 var choice = domain.Choices.Single(c => c.Id == answers[domain.Hole.Id]!.GetValue<string>());
                 state.Graph = PlanningHoleEligibility.Assign(state.Graph, state.Catalog, domain.Hole, choice.Value);
+                PlanningBusinessChoices.Reflect(state, domain.Hole);
             }
-            return; // Persist the resolved graph before considering dependent holes.
+            state.Graph = PlanningGraphBuilder.Build(state.IntentPlan!, state.Catalog);
+            return; // Persist resolved business assignments before recomputing dependent domains.
         }
         await PlanningValidationPipeline.ValidateAsync(state, runtime, ct);
     }
