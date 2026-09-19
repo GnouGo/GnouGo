@@ -194,6 +194,14 @@ public static class PlanningGraphValidation
                     CheckValue(value, location);
                     if (!IsLiteral(value)) errors.Add(new("INPUT_DEFAULT_INVALID", location,
                         "Input defaults require literal values. Remove the default when this is a required runtime input; an explicit null value is different from no default."));
+                    else try
+                    {
+                        var schema = PlanningGraphCompiler.ToJsonSchema(workflow.Inputs[i].Schema, catalog);
+                        errors.AddRange(PlanningContractValidation.ValidateInstanceFindings(Literal(value), schema).Select(e => new PlanningDiagnostic(
+                            "INPUT_DEFAULT_INVALID", PlanningValues.LiteralLocation(value, location, e.InstancePointer),
+                            e.Message + " Repair the input declaration's default, not scenario data. Use default: null for no default; kind=null is an explicit value.", Rule: e.Rule)));
+                    }
+                    catch (InvalidOperationException) { /* The invalid input schema has its own diagnostic. */ }
                 }
             for (var i = 0; i < workflow.Outputs.Count; i++)
             {

@@ -181,6 +181,41 @@ public sealed class InputDefaultTests
         Assert.Equal(2, state.ModelCalls); Assert.Equal(0, state.RepairAttempts); Assert.Null(state.Yaml);
     }
 
+    [Theory]
+    [InlineData("boolean")]
+    [InlineData("string")]
+    [InlineData("number")]
+    [InlineData("array")]
+    public async Task InvalidLiteralDefaultTargetsDeclarationBeforeFixtures(string type)
+    {
+        var contract = new IntentType { Type = type, Items = type == "array" ? new() { Type = "number" } : null };
+        var plan = Plan(contract, new() { Kind = "null" }); var runtime = new TestRuntime(plan);
+        var state = PlannerFixture.Session(); state.Catalog = await runtime.DiscoverAsync(state.Request, Ct);
+        state.IntentPlan = plan; state.Graph = PlanningGraphBuilder.Build(plan, state.Catalog); state.ModelCalls = 1;
+        state = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Contains(state.Diagnostics, d => d.Code == "INPUT_DEFAULT_INVALID" && d.Location == "/workflows/0/inputs/0/default");
+        Assert.DoesNotContain(state.Diagnostics, d => d.ValidationStage == "fixtures");
+        var target = Assert.Single(PlanningCorrections.Targets(state)); Assert.Equal("/inputs/0", target.Path); Assert.Equal("input", target.Shape);
+        runtime.Plans.Clear(); runtime.Plans.Enqueue(Plan(contract, null));
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.RepairAttempts);
+        Assert.Null(state.IntentPlan!.Inputs[0].Default);
+    }
+
+    [Fact]
+    public async Task InvalidNestedLiteralDefaultMapsToSubflowDeclaration()
+    {
+        var type = new IntentType { Type = "object", Fields = [new("modes", new() { Type = "array", Items = new() { Type = "string", Enum = ["allowed"] } })] };
+        var plan = Plan(type, new() { Kind = "object", Members = [new("modes", new() { Kind = "array", Items = [new() { Kind = "string", Text = "wrong" }] })] });
+        var state = PlannerFixture.Session(); var runtime = new TestRuntime(); state.Catalog = await runtime.DiscoverAsync(state.Request, Ct);
+        state.IntentPlan = new() { Subflows = [new("child", plan.Inputs, plan.Operations, plan.Outputs)] };
+        state.Graph = PlanningGraphBuilder.Build(state.IntentPlan, state.Catalog);
+        state.Diagnostics = PlanningGraphValidation.Validate(state.Graph, state.Catalog).ToList();
+        Assert.Contains(state.Diagnostics, d => d.Code == "INPUT_DEFAULT_INVALID" && d.Location == "/workflows/1/inputs/0/default/members/0/value/items/0");
+        Assert.Contains(PlanningDiagnosticLocations.ForIntent(state), d => d.Code == "INPUT_DEFAULT_INVALID" && d.Location == "/subflows/0/inputs/0/default/members/0/value/items/0");
+        Assert.Equal("/subflows/0/inputs/0", Assert.Single(PlanningCorrections.Targets(state)).Path);
+    }
+
     private static WorkflowIntentPlan Plan(IntentType type, IntentValue? value) => new()
     {
         Inputs = [new("value", type, Default: value)],

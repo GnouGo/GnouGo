@@ -17,7 +17,8 @@ internal static class PlanningFixtureSamples
             catch (InvalidOperationException) { validInputs = false; continue; }
             fields[port.Name] = schema.DeepClone(); if (port.Required && port.Default is null) required.Add((JsonNode?)JsonValue.Create(port.Name));
             // An unresolved or invalid default belongs to intent repair, not fixture generation.
-            if (port.Default is not null && !PlanningGraphValidation.IsLiteral(port.Default)) { validInputs = false; continue; }
+            if (port.Default is not null && (!PlanningGraphValidation.IsLiteral(port.Default) ||
+                PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(port.Default), schema).Count > 0)) { validInputs = false; continue; }
             if (port.Default is not null) inputs[port.Name] = PlanningGraphValidation.Literal(port.Default);
             else if (port.Required) inputs[port.Name] = WorkflowPlanDryRunValidator.CreateSampleFromJsonSchema(schema);
         }
