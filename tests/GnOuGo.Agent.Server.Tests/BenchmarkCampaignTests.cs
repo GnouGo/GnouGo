@@ -11,6 +11,33 @@ public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     [Fact]
+    public void LiveAdapterUsesSynchronousRecoveryWithoutChangingReservedRequest()
+    {
+        var request = new LLMRequest
+        {
+            ClientRequestId = "session:1:hash", Prompt = "business request", UseBackgroundMode = true,
+            DisableTransportRetries = true, MaxTokens = 32768,
+            StructuredOutputSchema = new JsonObject { ["type"] = "object" }, StructuredOutputStrict = true
+        };
+        var original = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        var dispatched = KeyVaultBenchmarkModel.CreateDispatchRequest(request, "configured-provider", "configured-model");
+        Assert.False(dispatched.UseBackgroundMode); Assert.False(dispatched.DisableTransportRetries);
+        Assert.Equal("configured-provider", dispatched.Provider); Assert.Equal("configured-model", dispatched.Model);
+        Assert.Equal(request.ClientRequestId, dispatched.ClientRequestId); Assert.Equal(32768, dispatched.MaxTokens);
+        Assert.True(dispatched.StructuredOutputStrict);
+        Assert.True(JsonNode.DeepEquals(request.StructuredOutputSchema, dispatched.StructuredOutputSchema));
+        dispatched.StructuredOutputSchema!["type"] = "string";
+        Assert.Equal(original, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+    }
+
+    [Fact]
+    public void LiveAdapterRejectsToolsBeforeDispatch()
+    {
+        var request = new LLMRequest { Tools = [new()] };
+        Assert.Throws<InvalidOperationException>(() => KeyVaultBenchmarkModel.CreateDispatchRequest(request, "provider", "model"));
+    }
+
+    [Fact]
     public async Task HttpRecoveryPreservesUnknownAllowanceAndReplaysAfterReceiptWriteFailure()
     {
         var records = new Records(); var campaign = new BenchmarkCampaign(records, "recovery");

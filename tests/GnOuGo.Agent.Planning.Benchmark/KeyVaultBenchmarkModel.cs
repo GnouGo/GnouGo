@@ -52,13 +52,21 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
         if (pinnedRetry is null) await campaign.SaveAsync("planning-evaluation-configuration", "http-retry-policy", retryConfiguration, ct);
         return new(campaign, options);
     }
+    internal static LLMRequest CreateDispatchRequest(LLMRequest request, string provider, string model)
+    {
+        if (request.Tools is { Count: > 0 })
+            throw new InvalidOperationException("Benchmark recovery permits only side-effect-free generation without tools.");
+        var dispatched = JsonSerializer.Deserialize(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
+        dispatched.Provider = provider; dispatched.Model = model;
+        dispatched.DisableTransportRetries = false; // AI.Core owns the only retry loop.
+        // The planner may prefer background generation. This adapter owns synchronous HTTP
+        // recovery; change only its dispatch copy, never the durable planner reservation.
+        dispatched.UseBackgroundMode = false;
+        return dispatched;
+    }
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
-        var dispatched = JsonSerializer.Deserialize(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
-        dispatched.Provider = Provider; dispatched.Model = Model;
-        dispatched.DisableTransportRetries = false; // AI.Core owns the only retry loop.
-        if (dispatched.Tools is { Count: > 0 } || dispatched.UseBackgroundMode)
-            throw new InvalidOperationException("Benchmark recovery permits only side-effect-free synchronous generation.");
+        var dispatched = CreateDispatchRequest(request, Provider, Model);
         BenchmarkHttpJournal? journal = null;
         return await _campaign.CallAsync(request, async token =>
         {

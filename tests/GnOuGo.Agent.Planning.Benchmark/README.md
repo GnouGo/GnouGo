@@ -59,6 +59,8 @@ The built-in KeyVault model now uses AI.Core's single HTTP retry loop. Provider 
 configures total attempts, per-attempt timeout and the uncertain allowance (one by default).
 The policy is pinned separately in the campaign. Generation remains synchronous and without
 tools; workflow integrations remain mocked. No planner retry phase is introduced.
+The adapter selects synchronous generation on its dispatch copy even when the planner
+prefers background generation. The original reserved request and response schema stay intact.
 
 Before each HTTP send, an encrypted `planning-evaluation-http-attempts` record stores its fresh
 identity and a conservative token/cost allowance. Admission includes verified previous usage,
