@@ -197,7 +197,10 @@ public static class PlanningGraphBuilder
         private PlanningSchema? Expected(string kind, string source)
         {
             JsonObject? result = null; PlanningSchema? reference = null;
-            foreach (var invoke in _operations.Values.OfType<InvokeIntentOperation>())
+            // Business blocks capture the enclosing flow's inputs. Their consumers constrain
+            // those inputs too; result identifiers remain local to their operation scope.
+            var consumers = kind == "input" ? IntentTraversal.Operations(operations) : _operations.Values;
+            foreach (var invoke in consumers.OfType<InvokeIntentOperation>())
             {
                 var capability = catalog.Capabilities.FirstOrDefault(c => c.Id == invoke.Capability);
                 if (capability?.InputSchema["properties"] is not JsonObject properties) continue;

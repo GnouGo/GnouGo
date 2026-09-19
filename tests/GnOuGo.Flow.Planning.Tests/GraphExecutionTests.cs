@@ -127,6 +127,46 @@ public sealed class GraphExecutionTests
         await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => engine.ExecuteAsync(main, new JsonObject { ["amount"] = 11 }, Ct));
         var imported = PlanningGraphImporter.Import(state.Yaml!, state.Catalog!); Assert.NotNull(imported.Workflows[0].Inputs[0].Schema.CapabilityId);
     }
+    [Theory]
+    [InlineData("parallel")]
+    [InlineData("choose")]
+    [InlineData("each")]
+    public async Task InputsUsedOnlyInsideBusinessBlocksInheritCapabilityContracts(string kind)
+    {
+        var factory = new InMemoryMcpClientFactory(); var server = new MockMcpServerConfig();
+        var schema = JsonNode.Parse("""{"type":"object","properties":{"amount":{"type":"number","minimum":3,"maximum":10,"default":5}},"required":["amount"]}""");
+        server.Tools.Add(new() { Name = "echo", EffectKind = "read", InputSchema = schema, OutputSchema = schema, ExampleResponse = new JsonObject { ["amount"] = 5 } });
+        var observed = new List<decimal>();
+        server.ToolHandlers["echo"] = args => { observed.Add(decimal.Parse(args!["amount"]!.ToString(), System.Globalization.CultureInfo.InvariantCulture)); return new() { Content = args.DeepClone() }; };
+        factory.RegisterServer("fixture", server);
+        var runtime = new TestRuntime(mcp: factory); var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, Ct);
+        var body = new IntentBlock([new InvokeIntentOperation { Id = "consume", Capability = catalog.Capabilities[0].Id,
+            Arguments = [new("amount", Ref("input", "amount"))] }], Ref("result", "consume", "amount"));
+        IntentOperation operation = kind switch
+        {
+            "parallel" => new ParallelIntentOperation { Id = "group", Branches = [new("nested", new([
+                new ChooseIntentOperation { Id = "nested_choice", Condition = new() { Kind = "boolean", Boolean = true }, Then = body, Otherwise = new([], Ref("input", "amount")) }
+            ], Ref("result", "nested_choice")))] },
+            "choose" => new ChooseIntentOperation { Id = "group", Condition = new() { Kind = "boolean", Boolean = true }, Then = body, Otherwise = new([], Ref("input", "amount")) },
+            _ => new EachIntentOperation { Id = "group", Items = new() { Kind = "array", Items = [Num(1)] }, Body = body }
+        };
+        runtime.Plans.Clear(); runtime.Plans.Enqueue(new() { Inputs = [new("amount")], Operations = [operation], Outputs = [new("result", Ref("input", "amount"))] });
+        var state = await PlannerFixture.RunAsync(runtime);
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(";", state.Diagnostics.Select(d => d.Code + ": " + d.Message)));
+        Assert.Single(runtime.Calls); Assert.Null(state.IntentPlan!.Inputs[0].Type);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!)); var main = document.Workflows[document.Entrypoint!];
+        Assert.Equal("3", main.Source.Inputs!["amount"].Schema!["minimum"]!.ToString());
+        Assert.Equal("10", main.Source.Inputs["amount"].Schema!["maximum"]!.ToString());
+        var engine = new WorkflowEngine { McpClientFactory = factory };
+        foreach (var input in new[] { new JsonObject(), new JsonObject { ["amount"] = 8 } })
+        {
+            var result = await engine.ExecuteAsync(main, input, Ct);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(input["amount"]?.ToString() ?? "5", result.Outputs!["result"]!.ToString());
+        }
+        Assert.Equal([5m, 8m], observed);
+        await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => engine.ExecuteAsync(main, new JsonObject { ["amount"] = 11 }, Ct));
+    }
     [Fact]
     public async Task GeneratedScopesCannotCollideWithUserSubflowsOrUnderscoreSeparatedNames()
     {

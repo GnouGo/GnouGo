@@ -47,7 +47,9 @@ public sealed class BenchmarkMeasurementTests
         var run = new JsonObject { ["diagnostic_history"] = new JsonArray() };
         var state = new PlanningSession { ModelCalls = 1, Diagnostics = [new("INTENT_SCHEMA_INVALID", "/operations", "Missing business field")] };
         PlanningBenchmarkMeasurements.Capture(run, state); PlanningBenchmarkMeasurements.Capture(run, state);
-        state.ModelCalls = 2; state.Diagnostics.Clear(); PlanningBenchmarkMeasurements.Capture(run, state);
+        state.ModelCalls = 2; state.Status = PlanningStatus.Generating; state.PendingCall = new();
+        PlanningBenchmarkMeasurements.Capture(run, state);
+        state.PendingCall = null; state.Diagnostics.Clear(); PlanningBenchmarkMeasurements.Capture(run, state);
         var entry = Assert.Single(run["diagnostic_history"]!.AsArray()); Assert.Equal("invalid_intent", entry!["category"]!.ToString());
         Assert.Equal("provider_transport_failure", PlanningBenchmarkMeasurements.Category("MODEL_OUTPUT_LIMIT"));
         Assert.Equal("deterministic_builder_defect", PlanningBenchmarkMeasurements.Category("PLANNING_HOST_CONTRACT"));

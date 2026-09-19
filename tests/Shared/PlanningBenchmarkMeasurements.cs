@@ -26,6 +26,9 @@ public static class PlanningBenchmarkMeasurements
     };
     public static void Capture(JsonObject run, PlanningSession state)
     {
+        // A reservation still carries the preceding candidate's diagnostics. Do not
+        // attribute those to the new call before its response has been validated.
+        if (state.PendingCall is not null && state.Status == PlanningStatus.Generating) return;
         var history = run["diagnostic_history"]!.AsArray();
         foreach (var finding in state.Diagnostics.Where(d => d.Required))
         {

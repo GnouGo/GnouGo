@@ -28,7 +28,17 @@ var leasePath = live ? GnOuGoWorkspace.ResolveDatabasePath(null, Directory.GetCu
 if (leasePath is not null) Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
 await using var lease = leasePath is null ? null : new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 if (Option("--inspect-run") is { } inspect)
-{ Console.WriteLine((await campaign!.LoadAsync("planning-evaluation-runs", inspect))?.ToJsonString() ?? "null"); return; }
+{
+    var evidence = await campaign!.LoadAsync("planning-evaluation-runs", inspect);
+    if (evidence is not null && args.Contains("--include-receipts", StringComparer.Ordinal))
+    {
+        var calls = new JsonArray();
+        foreach (var id in evidence["usage_receipts"]!.AsObject().Select(p => p.Key))
+            calls.Add((JsonNode)new JsonObject { ["request"] = await campaign.LoadAsync("planning-evaluation-requests", id), ["receipt"] = await campaign.LoadAsync("planning-evaluation-receipts", id) });
+        evidence["model_requests"] = calls;
+    }
+    Console.WriteLine(evidence?.ToJsonString() ?? "null"); return;
+}
 using var configured = providerName is null ? null : await KeyVaultBenchmarkModel.CreateAsync(providerName, Option("--model"), campaign!, Directory.GetCurrentDirectory(), CancellationToken.None);
 ILLMClient? model = (ILLMClient?)configured ?? (command is null ? null : new CommandModel(command));
 string RunKey(string runPhase, string name, int repetition) => source + ":" + runPhase + ":" + name + ":" + repetition;
