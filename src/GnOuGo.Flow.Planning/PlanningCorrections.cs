@@ -83,14 +83,39 @@ internal static class PlanningCorrections
             .OfType<InvokeIntentOperation>().Select(o => o.Capability).ToHashSet(StringComparer.Ordinal);
         var query = string.Join(" ", state.Diagnostics.Select(d => d.Message));
         var relevant = state.Catalog!.Capabilities.Where(c => referenced.Contains(c.Id)).Concat(PlanningCapabilityCards.Shortlist(state.Catalog, query, state.Request.Generation.MaxInputTokensPerRequest)).DistinctBy(c => c.Id);
+        var operations = IntentTraversal.Located(state.IntentPlan).ToArray();
+        var blocks = IntentTraversal.Blocks(state.IntentPlan).ToArray();
+        string Scope(string path) => blocks.Where(b => path.StartsWith(b.Path + "/operations/", StringComparison.Ordinal)).OrderByDescending(b => b.Path.Length).Select(b => b.Path).FirstOrDefault()
+            ?? (path.StartsWith("/subflows/", StringComparison.Ordinal) ? string.Join('/', path.Split('/').Take(3)) : "/");
+        string Placement((IntentOperation Operation, string Path) item) => item.Operation is CleanupIntentOperation ? "cleanup_group" :
+            operations.Any(o => o.Operation is CleanupIntentOperation && item.Path.StartsWith(o.Path + "/operations/", StringComparison.Ordinal) && Scope(o.Path) == Scope(item.Path)) ? "finalizer" : "main";
+        var intent = PlanningJsonTransport.Intent(state.IntentPlan);
+        var diagnostics = PlanningDiagnosticLocations.ForIntent(state);
+        var dependencyTargets = new JsonArray();
+        foreach (var diagnostic in diagnostics.Where(d => d.Code is "DEPENDENCY_UNKNOWN" or "DEPENDENCY_SCOPE" or "DEPENDENCY_CYCLE"))
+        {
+            var item = operations.Where(o => diagnostic.Location == o.Path || diagnostic.Location.StartsWith(o.Path + "/", StringComparison.Ordinal)).OrderByDescending(o => o.Path.Length).FirstOrDefault();
+            if (item.Operation is null || dependencyTargets.Any(t => t!["path"]!.ToString() == item.Path)) continue;
+            var owner = IntentTraversal.GraphOwner(state.IntentPlan, item.Path);
+            var workflow = (owner == "main" ? state.Graph!.Workflows.FirstOrDefault(w => w.Key == PlanningConfirmationGuards.Body) : null)
+                ?? state.Graph!.Workflows.FirstOrDefault(w => w.Key == owner);
+            var eligible = workflow is null ? [] : PlanningStructureValidation.EligibleDependencies(workflow, item.Operation.Id);
+            var cleanup = operations.Where(o => o.Operation is CleanupIntentOperation && Scope(o.Path) == Scope(item.Path) && item.Operation.After.Contains(o.Operation.Id)).Select(o => o.Operation.Id).ToArray();
+            dependencyTargets.Add((JsonNode)new JsonObject { ["operation"] = item.Operation.Id, ["path"] = item.Path, ["scope"] = Scope(item.Path), ["placement"] = Placement(item),
+                ["eligibleAfter"] = new JsonArray(eligible.Select(id => (JsonNode)JsonValue.Create(id)).ToArray()),
+                ["explanation"] = (cleanup.Length == 0 ? "" : "Referenced cleanup group " + string.Join(", ", cleanup) + " is not an executable predecessor. ") +
+                    "These IDs are structurally eligible in the current graph, not business recommendations or permissions. Finalizers depending on a main operation require its completed result; adding such an edge can skip cleanup after failure. Empty after is valid when no extra sequencing is needed. All replacements are fully revalidated." });
+        }
         return "Correct only the issued business intent targets. Return changes with target IDs and typed replacements. Do not return a complete intent. " +
             "The engine owns transport, result channels, catalog schemas and permissions. Keep business result references and named computation parameters. " +
-            "Fix the exact diagnostics; unchanged replacements will stop. A group target permits topology changes. Fixture targets use recursive literal values only; never business references or computations.\n" + new JsonObject {
+            "Fix the exact diagnostics; unchanged replacements will stop. A group target permits topology changes. Fixture targets use recursive literal values only; never business references or computations.\n" + PlanningModelCalls.BusinessExamples + "\n" + new JsonObject {
                 ["request"] = state.Request.Prompt,
-                ["diagnostics"] = JsonSerializer.SerializeToNode(PlanningDiagnosticLocations.ForIntent(state), PlanningJsonContext.Default.ListPlanningDiagnostic),
+                ["diagnostics"] = JsonSerializer.SerializeToNode(diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic),
                 ["targets"] = new JsonArray(targets.Select(t => (JsonNode)new JsonObject { ["id"] = t.Id, ["path"] = t.Path, ["shape"] = t.Shape, ["fragment"] = t.Fragment?.DeepClone() }).ToArray()),
                 ["bindings"] = new JsonObject { ["inputs"] = PlanningJsonTransport.Intent(state.IntentPlan)["inputs"]!.DeepClone(),
-                    ["operations"] = new JsonArray(IntentTraversal.Located(state.IntentPlan).Select(o => (JsonNode)new JsonObject { ["id"] = o.Operation.Id, ["purpose"] = o.Operation.Purpose }).ToArray()) },
+                    ["operations"] = new JsonArray(operations.Select(o => (JsonNode)new JsonObject { ["id"] = o.Operation.Id, ["purpose"] = o.Operation.Purpose,
+                        ["kind"] = PlanningFieldPaths.Read(intent, o.Path)!["kind"]!.DeepClone(), ["scope"] = Scope(o.Path), ["placement"] = Placement(o) }).ToArray()) },
+                ["dependencyTargets"] = dependencyTargets,
                 ["fixtureContracts"] = new JsonArray(PlanningFixtureSamples.Domains(state).Where(d => targets.Any(t => t.Path == d.Path)).Select(d => (JsonNode)new JsonObject { ["path"] = d.Path, ["schema"] = d.Schema.DeepClone() }).ToArray()),
                 ["contracts"] = new JsonArray(relevant.Select(c => (JsonNode)new JsonObject { ["card"] = PlanningCapabilityCards.Card(c), ["arguments"] = c.InputSchema.DeepClone(), ["result"] = c.OutputSchema.DeepClone() }).ToArray())
             }.ToJsonString();

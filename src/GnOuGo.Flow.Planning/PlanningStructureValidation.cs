@@ -37,8 +37,7 @@ internal static class PlanningStructureValidation
                     findings.Add(new("WORKFLOW_REFERENCE_INVALID", location + "/input", "Only declared local workflow references are allowed."));
                 foreach (var dependency in node.Dependencies)
                     if (!keys.Contains(dependency)) findings.Add(new("DEPENDENCY_UNKNOWN", location + "/dependencies", "Unknown dependency: " + dependency));
-                    else if (nodes.Single(n => n.Node.Key == dependency).Path[..nodes.Single(n => n.Node.Key == dependency).Path.LastIndexOf('/')] != location[..location.LastIndexOf('/')] &&
-                        !(location.StartsWith(path + "/finally/", StringComparison.Ordinal) && workflow.Steps.Any(n => n.Key == dependency) && PlanningGraphBuilder.GuardsFinalizerSource(node, dependency)))
+                    else if (!DependencyInScope(workflow, node, location[path.Length..], dependency, nodes.Single(n => n.Node.Key == dependency).Path[path.Length..]))
                         findings.Add(new("DEPENDENCY_SCOPE", location + "/dependencies", "Dependencies must join sibling steps, or guarded finalizers to a completed main step. Depend on the completed container to cross another control-flow scope."));
             }
             var edges = nodes.ToDictionary(n => n.Node.Key, n => n.Node.Dependencies.Concat(PlanningGraphBuilder.References(n.Node).Where(v => v.Kind == "output").Select(v => v.Source!)).Where(keys.Contains).Distinct().ToArray());
@@ -62,5 +61,24 @@ internal static class PlanningStructureValidation
         if (total > catalog.Policy.MaxStepsTotal + (graph.Workflows.Any(w => w.Key == PlanningConfirmationGuards.Body) ? 3 : 0))
             findings.Add(new("STEP_LIMIT", "/workflows", "The workflow exceeds the configured step limit."));
         return findings;
+    }
+
+    // Relative graph paths keep confirmation wrappers and reordered steps out of intent context.
+    internal static bool DependencyInScope(PlanningWorkflow workflow, PlanningNode consumer, string location, string source, string sourceLocation, bool deriveFinalizerGuard = false)
+        => sourceLocation[..sourceLocation.LastIndexOf('/')] == location[..location.LastIndexOf('/')] ||
+            location.StartsWith("/finally/", StringComparison.Ordinal) && workflow.Steps.Any(n => n.Key == source) &&
+            (deriveFinalizerGuard || PlanningGraphBuilder.GuardsFinalizerSource(consumer, source));
+
+    internal static IReadOnlyList<string> EligibleDependencies(PlanningWorkflow workflow, string consumer)
+    {
+        var nodes = PlanningGraphValidation.Located(workflow.Steps, "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, "/finally")).ToArray();
+        var target = nodes.FirstOrDefault(n => n.Node.Key == consumer);
+        if (target.Node is null || nodes.Select(n => n.Node.Key).Distinct(StringComparer.Ordinal).Count() != nodes.Length) return [];
+        var edges = nodes.ToDictionary(n => n.Node.Key, n => n.Node.Dependencies.Concat(
+            PlanningGraphCompiler.Enumerate([n.Node]).SelectMany(PlanningGraphBuilder.References).Where(v => v.Kind == "output").Select(v => v.Source!)).ToArray(), StringComparer.Ordinal);
+        return nodes.Where(n => n.Node.Key != consumer && !n.Node.Key.StartsWith("__planning_", StringComparison.Ordinal) &&
+            DependencyInScope(workflow, target.Node, target.Path, n.Node.Key, n.Path, deriveFinalizerGuard: true) && !Reaches(n.Node.Key, consumer, []))
+            .Select(n => n.Node.Key).Order(StringComparer.Ordinal).ToArray();
+        bool Reaches(string from, string to, HashSet<string> visited) => from == to || visited.Add(from) && edges.TryGetValue(from, out var next) && next.Any(n => Reaches(n, to, visited));
     }
 }
