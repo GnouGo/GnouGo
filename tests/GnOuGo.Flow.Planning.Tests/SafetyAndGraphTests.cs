@@ -49,7 +49,7 @@ public sealed class SafetyAndGraphTests
     }
 
     [Fact]
-    public async Task FinalizerDependencyRunsOnlyAfterItsProducerCompletes()
+    public async Task FinalizerOrderingDoesNotRequireItsPredecessorToRun()
     {
         var runtime = new TestRuntime(); var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, Ct);
         foreach (var producerRuns in new[] { true, false })
@@ -62,7 +62,8 @@ public sealed class SafetyAndGraphTests
             var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, catalog)));
             var result = await new WorkflowEngine().ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), Ct);
             Assert.True(result.Success, result.Error?.Message);
-            Assert.Equal(producerRuns ? StepStatus.Succeeded : StepStatus.Skipped, result.StepResults.Last().Status);
+            Assert.Null(graph.Workflows[0].Finally[0].If);
+            Assert.Equal(StepStatus.Succeeded, result.StepResults.Last().Status);
         }
     }
 

@@ -104,7 +104,7 @@ internal static class PlanningCorrections
             dependencyTargets.Add((JsonNode)new JsonObject { ["operation"] = item.Operation.Id, ["path"] = item.Path, ["scope"] = Scope(item.Path), ["placement"] = Placement(item),
                 ["eligibleAfter"] = new JsonArray(eligible.Select(id => (JsonNode)JsonValue.Create(id)).ToArray()),
                 ["explanation"] = (cleanup.Length == 0 ? "" : "Referenced cleanup group " + string.Join(", ", cleanup) + " is not an executable predecessor. ") +
-                    "These IDs are structurally eligible in the current graph, not business recommendations or permissions. Finalizers depending on a main operation require its completed result; adding such an edge can skip cleanup after failure. Empty after is valid when no extra sequencing is needed. All replacements are fully revalidated." });
+                    "These IDs are structurally eligible in the current graph, not business recommendations or permissions. In cleanup, after expresses ordering only, not successful completion or result availability. The engine guards required resource bindings; when expresses an explicit business condition. Empty after is valid when no extra sequencing is needed. All replacements are fully revalidated." });
         }
         return "Correct only the issued business intent targets. Return changes with target IDs and typed replacements. Do not return a complete intent. " +
             "The engine owns transport, result channels, catalog schemas and permissions. Keep business result references and named computation parameters. " +

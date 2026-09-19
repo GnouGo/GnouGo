@@ -58,6 +58,7 @@ public abstract class IntentOperation
 {
     public string Id { get; set; } = "";
     public string Purpose { get; set; } = "";
+    /// <summary>Business ordering. In cleanup this does not require successful completion; bound resources and When determine availability.</summary>
     public List<string> After { get; set; } = [];
     public IntentValue? When { get; set; }
 }

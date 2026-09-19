@@ -11,7 +11,7 @@ internal static class PlanningModelCalls
     internal const string BusinessExamples = """
         Calculation example: text="amount * rate", members bind amount and rate to input references or literals. Do not assign to an undeclared name; a label is not a parameter binding.
         Cleanup example: acquire and perform are main operations; cleanup contains release bound to acquire's resource. Cleanup groups have no executable result and cannot be predecessors of main operations.
-        Finalizers already run after the main work ends. An explicit after dependency on a main operation requires that operation to have completed. For always-cleanup behavior, do not require successful completion of unrelated later work; bind the acquired resource and let the engine guard its availability.
+        Finalizers already run after the main work ends, including failure and cancellation. In cleanup, after expresses ordering only, not successful completion. Bind any required resource; the engine guards its availability. Use when for an explicit business condition.
         """;
     internal static async Task<JsonNode> CallAsync(PlanningSession state, IPlanningRuntime runtime, string purpose, string prompt, JsonObject schema, CancellationToken ct)
     {

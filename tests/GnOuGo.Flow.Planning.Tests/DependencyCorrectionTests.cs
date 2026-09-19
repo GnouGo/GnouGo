@@ -62,13 +62,13 @@ public sealed class DependencyCorrectionTests
     }
 
     [Fact]
-    public async Task FinalizerChoicesPermitGuardedMainStepsButDoNotMutateTheGraph()
+    public async Task FinalizerChoicesPermitMainStepOrderingButDoNotMutateTheGraph()
     {
         var state = await State(new() { Operations = [Number("resource"), new CleanupIntentOperation { Id = "cleanup", Operations = [Number("release", "absent")] }] });
         var before = PlanningGraphCompiler.Fingerprint(state.Graph!);
         var target = Assert.Single(Context(state)["dependencyTargets"]!.AsArray());
         Assert.Equal(["resource"], target!["eligibleAfter"]!.AsArray().Select(v => v!.ToString()));
-        Assert.Contains("completed", target["explanation"]!.ToString());
+        Assert.Contains("ordering only", target["explanation"]!.ToString());
         Assert.Equal(before, PlanningGraphCompiler.Fingerprint(state.Graph!));
     }
 
@@ -80,7 +80,7 @@ public sealed class DependencyCorrectionTests
         {
             Assert.Contains("amount * rate", prompt);
             Assert.Contains("undeclared", prompt);
-            Assert.Contains("successful", prompt);
+            Assert.Contains("ordering only, not successful completion", prompt);
             Assert.Contains("cleanup", prompt);
         }
     }

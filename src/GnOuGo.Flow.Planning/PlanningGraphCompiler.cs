@@ -179,7 +179,16 @@ public sealed partial class PlanningGraphCompiler
         if (emptySequence) result["input"] = new JsonObject();
         else if (computedSetInput) result["input"] = loweredInput;
         else if (input.Count > 0 || node.Type == "set") result["input"] = input;
-        if (node.If is not null) result["if"] = ToExpression(node.If, scope);
+        if (node.If is not null)
+        {
+            // The host's availability guard must run before evaluating a condition that
+            // consumes the guarded result. Ordinary computation parameters evaluate eagerly.
+            if (node.If is { Kind: "compute", Text: PlanningGraphBuilder.GuardedCondition, Members.Count: 2 } &&
+                node.If.Members.SingleOrDefault(m => m.Name == "available")?.Value is { } available &&
+                node.If.Members.SingleOrDefault(m => m.Name == "condition")?.Value is { } condition)
+                result["if"] = "${(" + ToExpression(available, scope)[2..^1] + ") && (" + ToExpression(condition, scope)[2..^1] + ")}";
+            else result["if"] = ToExpression(node.If, scope);
+        }
         if (node.Expr is not null) result["expr"] = ToExpression(node.Expr, scope);
         if (node.OutputSchema is not null && node.Type == "set") result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Catalog);
         if (node.StructuredOutput is { } structured)

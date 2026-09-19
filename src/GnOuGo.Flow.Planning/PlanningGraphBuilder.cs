@@ -8,6 +8,7 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Business operations become executable nodes here. No transport or result-envelope choices come from intent.</summary>
 public static class PlanningGraphBuilder
 {
+    internal const string GuardedCondition = "available && condition";
     public static PlanningGraph Build(WorkflowIntentPlan intent, PlanningCatalog catalog)
     {
         var graph = new PlanningGraph { Summary = intent.Summary };
@@ -30,11 +31,12 @@ public static class PlanningGraphBuilder
             foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Finally))
             {
                 var main = PlanningGraphCompiler.Enumerate(workflow.Steps).Select(n => n.Key).ToHashSet(StringComparer.Ordinal);
-                var required = References(node).Where(v => v.Kind == "output").Select(v => v.Source!).Concat(node.Dependencies).Where(main.Contains).Distinct().ToArray();
+                // Dependencies order execution; only consumed values require completed main results.
+                var required = References(node).Where(v => v.Kind == "output").Select(v => v.Source!).Where(main.Contains).Distinct().ToArray();
                 if (required.Length > 0)
                 {
                     var guard = AvailabilityGuard(required);
-                    node.If = node.If is null ? guard : Compute("available && condition", new("available", guard), new("condition", node.If));
+                    node.If = node.If is null ? guard : Compute(GuardedCondition, new("available", guard), new("condition", node.If));
                 }
             }
         }
