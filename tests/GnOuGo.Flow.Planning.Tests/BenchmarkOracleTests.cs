@@ -1,11 +1,44 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class BenchmarkOracleTests
 {
+    [Theory]
+    [InlineData("protected_cleanup", false)]
+    [InlineData("protected_cleanup", true)]
+    [InlineData("review_french", false)]
+    public async Task CancellationInterruptsWorkEvenWhenItIsTheLastMainStep(string name, bool nested)
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var sample = new PlanningBenchmarkCases.Environment(name, "cancelled"); sample.CancelDuringWork(cancellation);
+        var factory = sample.Factory(); var runtime = new TestRuntime(mcp: factory);
+        var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, TestContext.Current.CancellationToken);
+        var plan = PlanningCorpus.Intent(name, catalog);
+        if (name == "protected_cleanup")
+        {
+            // Reproduce a valid minimal proposal: the write is the last main operation,
+            // followed only by cleanup and a literal output. No extra cancellation checkpoint.
+            plan.Operations.RemoveAll(o => o is CalculateIntentOperation);
+            plan.Outputs = [new("result", new() { Kind = "number", Number = 42 })];
+        }
+        if (nested) plan = new() { Operations = [new CallIntentOperation { Id = "run", Flow = "job" }],
+            Subflows = [new("job", [], plan.Operations, plan.Outputs)], Outputs = [new("result", new() { Kind = "result", Source = "run", Path = ["result"] })] };
+        var graph = PlanningGraphBuilder.Build(plan, catalog); PlanningConfirmationGuards.Apply(graph, catalog);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, catalog)));
+        var engine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human() };
+        var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], PlanningBenchmarkCases.Inputs(name, "cancelled"), cancellation.Token);
+        Assert.True(cancellation.IsCancellationRequested); Assert.False(result.Success); Assert.Equal("CANCELLED", result.Error?.Code);
+        Assert.Equal(name == "protected_cleanup" ? new[] { "write", "cleanup" } : ["clone_repository", "run_check", "remove_workspace"], sample.Effects);
+        Assert.Empty(sample.Violations);
+    }
+
     [Theory]
     [InlineData("nominal", "APPROVE")]
     [InlineData("failure", "REQUEST_CHANGES")]

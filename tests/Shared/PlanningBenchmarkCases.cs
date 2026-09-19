@@ -35,6 +35,14 @@ public static class PlanningBenchmarkCases
     {
         public List<string> Effects { get; } = [];
         public Action<string>? AfterTool { get; set; }
+        public void CancelDuringWork(CancellationTokenSource cancellation) => AfterTool = method =>
+        {
+            if (method is not ("write" or "run_check")) return;
+            cancellation.Cancel();
+            // Interrupt the mocked operation before returning its response. Merely setting
+            // the token after the last completed step races with normal workflow completion.
+            cancellation.Token.ThrowIfCancellationRequested();
+        };
         public List<string> Violations { get; } = [];
         private readonly Dictionary<string, JsonObject> _checks = new(StringComparer.Ordinal);
         private bool _reviewed, _evaluated;

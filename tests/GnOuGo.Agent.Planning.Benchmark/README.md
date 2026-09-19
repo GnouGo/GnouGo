@@ -34,6 +34,10 @@ The existing encrypted request/receipt journal now also stores session checkpoin
 
 Rows include source/session identity, phase, per-variant execution outcomes, confirmation/cancellation checks, safety violations and provisional diagnostic categories. Classification codes are an initial aid, not proof: inspect exact evidence and the independent oracle before confirming a cause or editing production code. Keep semantic misunderstanding, retrieval miss, invalid intent, builder defect, inference limitation, validator/oracle defect and provider/transport failure distinct. Safely rejected proposals are not executed safety violations.
 
+Cancellation variants interrupt the mocked work operation before it returns a response,
+then require a cancelled result, cleanup and no publication. Cancelling only after the last
+operation completed can race with successful completion and is not a reliable interruption test.
+
 Summary gates use all 21 measured runs on one revision: at least 19 reach FinalReview, at least 16 reach it within two calls, median calls at most two, zero safety violations and every approved artifact passing independent execution. Missing cases, mixed revisions or execution failures cannot pass. Pilot and measured statistics remain separate. Unknown usage is never zero; known partial tokens/cost are reported separately. Costs are metadata/FX estimates from provider usage, not invoices.
 
 The [independent candidate report](../../docs/planning-candidate-reliability-2026-09-19.md) records the failed initial pilot, targeted nested-input inference correction and subsequent provider stop. No measured reliability gate was established.

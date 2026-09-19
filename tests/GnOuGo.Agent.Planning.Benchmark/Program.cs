@@ -124,7 +124,7 @@ foreach (var name in names)
                 {
                     using var cancellation = new CancellationTokenSource();
                     var sample = new PlanningBenchmarkCases.Environment(name, variant);
-                    if (variant == "cancelled") sample.AfterTool = method => { if (method == "write" || method == "run_check") cancellation.Cancel(); };
+                    if (variant == "cancelled") sample.CancelDuringWork(cancellation);
                     var denied = variant is "workflow_denied" or "permission_unavailable";
                     var runner = new WorkflowEngine { McpClientFactory = sample.Factory(), HumanInputProvider = variant == "permission_unavailable" ? null : new PlanningCorpus.Human(!denied) };
                     RunResult? result = null; string? error = null;
