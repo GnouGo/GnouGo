@@ -101,11 +101,11 @@ results. One independently detected cleanup failure prevented the measured cohor
 
 The subsequent [cleanup validation report](../../docs/planning-cleanup-validation-2026-09-19.md)
 records corrected cleanup ordering, a 21-run measured cohort and the cancellation-injection
-correction. Its latest pilot is blocked by a separate input-default hole defect; results from
-different revisions are kept separate and no overall reliability pass is claimed.
+correction. Its final recorded pilot was blocked by a separate input-default hole defect;
+that historical revision did not establish a reliability pass.
 
 The [input-default validation report](../../docs/planning-input-default-validation-2026-09-19.md)
 records literal-only default resolution, exact declaration repairs and atomic choice application.
-The latest pilot reached 6/7 FinalReview with every reviewed artifact passing independent execution.
+That report's pilot reached 6/7 FinalReview with every reviewed artifact passing independent execution.
 One model proposal exhausted its repairs, so measured evaluation remained gated. A recovered
 uncertain transport attempt retains its conservative allowance; restart added no dispatch or charge.
