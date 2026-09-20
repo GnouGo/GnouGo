@@ -55,11 +55,16 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         _source = new ActivitySource(ActivitySourceName, "1.0.0");
         _listener = new ActivityListener
         {
-            ShouldListenTo = source => string.Equals(source.Name, ActivitySourceName, StringComparison.Ordinal),
+            ShouldListenTo = source => string.Equals(source.Name, ActivitySourceName, StringComparison.Ordinal)
+                || source.Name == "GnOuGo.Agent.Planning",
             Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
             SampleUsingParentId = static (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded,
             ActivityStarted = activity => _localTraceStore.Track(activity),
-            ActivityStopped = activity => _localTraceStore.Complete(activity)
+            ActivityStopped = activity =>
+            {
+                _localTraceStore.Complete(activity);
+                if (activity.Source.Name == "GnOuGo.Agent.Planning") _collectorTracePersistence.Persist(activity);
+            }
         };
         ActivitySource.AddActivityListener(_listener);
         _meter  = new Meter(MeterName, "1.0.0");

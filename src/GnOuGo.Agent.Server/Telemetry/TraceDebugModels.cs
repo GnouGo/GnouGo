@@ -9,7 +9,8 @@ public sealed record TraceDebugSnapshot(
     TraceGroupDto? Trace,
     List<TraceLogDto> Logs,
     bool Pending,
-    string Message);
+    string Message,
+    IReadOnlyList<TraceSummaryDto>? AvailableTraces = null);
 
 public sealed record TraceLogDto(
     DateTimeOffset ReceivedUtc,

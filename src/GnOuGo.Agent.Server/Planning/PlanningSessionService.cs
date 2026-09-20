@@ -46,6 +46,26 @@ public sealed class PlanningSessionService(
     public Task<PlanningSession?> GetAsync(string id, CancellationToken ct) => store.LoadAsync(Tenant, id, ct);
     public Task<IReadOnlyList<PlanningSession>> ListAsync(CancellationToken ct) => store.ListAsync(Tenant, ct);
 
+    // Workflow-owned sessions are inspection-only here. Their original runtime owns all commands.
+    private const string WorkflowSessions = "flow-planning-sessions-v7";
+    public async Task<PlanningSession?> GetWorkflowSessionAsync(string id, CancellationToken ct)
+    {
+        var record = await records.GetAsync(WorkflowSessions, Tenant, id, EfPlanningSessionStore.Author, ct);
+        return record is null ? null : ReadWorkflowSession(record.Key, record.Value);
+    }
+
+    public async Task<IReadOnlyList<PlanningSession>> ListWorkflowSessionsAsync(CancellationToken ct)
+        => (await records.ListAsync(WorkflowSessions, Tenant, EfPlanningSessionStore.Author, ct))
+            .Select(record => ReadWorkflowSession(record.Key, record.Value)).OrderByDescending(s => s.UpdatedAtUtc).ToArray();
+
+    private PlanningSession ReadWorkflowSession(string key, string payload)
+    {
+        var state = JsonSerializer.Deserialize(payload, PlanningJsonContext.Default.PlanningSession);
+        if (state is null || state.SchemaVersion != 7 || state.Request.SessionId != key || state.Request.TenantId != Tenant)
+            throw new InvalidOperationException("The workflow planning session ownership or schema is invalid.");
+        return state;
+    }
+
     public async Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -194,8 +214,8 @@ public sealed class PlanningSessionService(
 
     private async Task<PlanningSession> AdvanceAsync(PlanningSession current, PlanningCommand command, CancellationToken ct)
     {
-        using var activity = Activities.StartActivity("planning.advance");
-        activity?.SetTag("tenant.id", Tenant); activity?.SetTag("gnougo.planning.session_id", current.Request.SessionId);
+        using var activity = Activities.StartActivity("planning.advance", ActivityKind.Internal, default(ActivityContext),
+            tags: new ActivityTagsCollection { ["tenant.id"] = Tenant, ["gnougo.planning.session_id"] = current.Request.SessionId });
         var clock = Stopwatch.StartNew();
         if (current.PendingCall is { } pending && await records.GetAsync(PlanningModelJournal.Collection, Tenant, current.Request.SessionId + ":" + pending.Id, EfPlanningSessionStore.Author, ct) is { } completion && completion.UpdatedAt > current.UpdatedAtUtc)
         {

@@ -62,6 +62,41 @@ public sealed class PlanningSessionLifecycleTests
         foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
             Assert.DoesNotContain("PRIVATE_INTENT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
     }
+    [Fact]
+    public async Task WorkflowSessionInspectionIsReadOnlyAndKeepsOriginsAndTenantsSeparate()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var designer = new PlanningSession { Request = new() { TenantId = "planning-tests", SessionId = "shared", Name = "designer", Prompt = "Return a value" } };
+        Assert.True(await fixture.Store.TrySaveAsync(designer, null, Ct));
+        var workflow = new PlanningSession { Request = new() { TenantId = "planning-tests", SessionId = "shared", Name = "chat", Prompt = "Return a value" },
+            Status = PlanningStatus.Stopped, ModelCalls = 1, RepairAttempts = 0, Revision = 3,
+            PendingCall = new() { Id = "reserved", Purpose = "intent", Request = new() { Prompt = "private" } } };
+        var payload = System.Text.Json.JsonSerializer.Serialize(workflow, PlanningJsonContext.Default.PlanningSession);
+        await fixture.Records.UpsertAsync("flow-planning-sessions-v7", "planning-tests", "shared", payload, "test", Ct);
+        await fixture.Records.UpsertAsync("flow-planning-sessions-v7", "other", "foreign", payload, "test", Ct);
+        var before = await fixture.Records.GetAsync("flow-planning-sessions-v7", "planning-tests", "shared", "test", Ct);
+        using (var service = Create(fixture, new TypedWorkflowPlanner(), AgentCatalog()))
+        {
+            Assert.Equal("designer", (await service.GetAsync("shared", Ct))!.Request.Name);
+            Assert.Equal("designer", Assert.Single(await service.ListAsync(Ct)).Request.Name);
+            var inspected = Assert.Single(await service.ListWorkflowSessionsAsync(Ct));
+            Assert.Equal("chat", inspected.Request.Name);
+            Assert.Equal(PlanningStatus.Stopped, inspected.Status);
+            Assert.Equal(1, inspected.ModelCalls);
+            Assert.Equal("reserved", inspected.PendingCall!.Id);
+            Assert.Null(await service.GetWorkflowSessionAsync("foreign", Ct));
+        }
+        using var reopened = Create(fixture, new TypedWorkflowPlanner(), AgentCatalog());
+        Assert.Equal(3, (await reopened.GetWorkflowSessionAsync("shared", Ct))!.Revision);
+        var after = await fixture.Records.GetAsync("flow-planning-sessions-v7", "planning-tests", "shared", "test", Ct);
+        Assert.Equal(before!.Value, after!.Value);
+        Assert.Equal(before.UpdatedAt, after.UpdatedAt);
+        workflow.Request.TenantId = "other";
+        await fixture.Records.UpsertAsync("flow-planning-sessions-v7", "planning-tests", "shared",
+            System.Text.Json.JsonSerializer.Serialize(workflow, PlanningJsonContext.Default.PlanningSession), "test", Ct);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => reopened.GetWorkflowSessionAsync("shared", Ct));
+    }
+
     internal static FakeMcpSession AgentCatalog() => new FakeMcpSession("GnOuGo.Agent.Mcp")
         .OnTool("agent_get_by_name", (_, _) => Task.FromResult(new McpCallResult { Content = new JsonObject { ["success"] = false, ["error_code"] = "NOT_FOUND" } }));
     internal static PlanningSessionService Create(PlanningPersistenceTests.StoreFixture fixture, IWorkflowPlanner planner, IMcpSession agents, ILLMClient? llm = null, TypedWorkflowPlanningSettings? settings = null)
