@@ -68,13 +68,7 @@ internal static class PlanningCorrections
         var schema = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject {
             ["changes"] = new JsonObject { ["type"] = "array", ["minItems"] = 1, ["maxItems"] = targets.Count, ["items"] = new JsonObject { ["anyOf"] = new JsonArray(variants) } } },
             ["required"] = new JsonArray("changes"), ["additionalProperties"] = false, ["$defs"] = PlanningSchemas.Definitions() };
-        var definitions = schema["$defs"]!.AsObject();
-        definitions["literal"] = new JsonObject { ["anyOf"] = new JsonArray(PlanningSchemas.Definitions()["value"]!["anyOf"]!.AsArray().Take(4).Select(v => v!.DeepClone()).Concat([Ref("literal_object"), Ref("literal_array")]).ToArray()) };
-        definitions["literal"]!["anyOf"]![0]!["properties"]!["kind"]!["enum"] = new JsonArray("null");
-        definitions["literal_object"] = LiteralContainer("object", "members", new JsonObject { ["type"] = "object", ["properties"] = new JsonObject { ["name"] = new JsonObject { ["type"] = "string" }, ["value"] = Ref("literal") }, ["required"] = new JsonArray("name", "value"), ["additionalProperties"] = false });
-        definitions["literal_array"] = LiteralContainer("array", "items", Ref("literal"));
         PlanningJsonTransport.PruneDefinitions(schema); return schema;
-        static JsonObject LiteralContainer(string kind, string name, JsonObject item) => new() { ["type"] = "object", ["properties"] = new JsonObject { ["kind"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(kind) }, [name] = new JsonObject { ["type"] = "array", ["items"] = item } }, ["required"] = new JsonArray("kind", name), ["additionalProperties"] = false };
         static JsonObject Ref(string shape) => new() { ["$ref"] = "#/$defs/" + shape };
     }
     internal static string Prompt(PlanningSession state, IReadOnlyList<Target> targets)

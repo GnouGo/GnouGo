@@ -14,6 +14,15 @@ internal static class PlanningSchemas
     {
         JsonObject Operation(string kind, params (string Name, JsonObject Schema)[] fields) => Object(new[] {
             ("kind", Enum(kind)), ("id", String()), ("purpose", String()), ("after", Array(String())), ("when", Nullable(Ref("value"))) }.Concat(fields).ToArray());
+        JsonObject Input(JsonObject type, JsonObject value) => Object(("name", String()), ("type", type), ("optional", Type("boolean")), ("default", value));
+        JsonObject BusinessType(bool nullableOnly = false)
+        {
+            JsonObject Nullability() => nullableOnly ? new() { ["type"] = "boolean", ["enum"] = new JsonArray(true) } : Type("boolean");
+            return new() { ["anyOf"] = new JsonArray(
+                Object(("type", Enum("string", "number", "integer", "boolean")), ("nullable", Nullability()), ("enum", Array(String()))),
+                Object(("type", Enum("array")), ("nullable", Nullability()), ("items", Ref("type"))),
+                Object(("type", Enum("object")), ("nullable", Nullability()), ("fields", NonEmptyArray(Ref("field"))))) };
+        }
         return new()
         {
             ["value"] = new JsonObject { ["anyOf"] = new JsonArray(
@@ -23,12 +32,21 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("input", "result", "item", "index")), ("source", String()), ("path", Array(String()))),
                 Object(("kind", Enum("compute", "template")), ("text", String()), ("members", Array(Ref("member"))))) },
             ["member"] = Object(("name", String()), ("value", Ref("value"))),
-            ["type"] = new JsonObject { ["anyOf"] = new JsonArray(
-                Object(("type", Enum("string", "number", "integer", "boolean")), ("nullable", Type("boolean")), ("enum", Array(String()))),
-                Object(("type", Enum("array")), ("nullable", Type("boolean")), ("items", Ref("type"))),
-                Object(("type", Enum("object")), ("nullable", Type("boolean")), ("fields", NonEmptyArray(Ref("field"))))) },
+            ["literal_null"] = Object(("kind", Enum("null"))),
+            ["literal_nonnull"] = new JsonObject { ["anyOf"] = new JsonArray(
+                Object(("kind", Enum("string")), ("text", String())), Object(("kind", Enum("number")), ("number", Type("number"))),
+                Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))), Ref("literal_object"), Ref("literal_array")) },
+            ["literal"] = new JsonObject { ["anyOf"] = new JsonArray(Ref("literal_null"), Ref("literal_nonnull")) },
+            ["literal_object"] = Object(("kind", Enum("object")), ("members", Array(Object(("name", String()), ("value", Ref("literal")))))),
+            ["literal_array"] = Object(("kind", Enum("array")), ("items", Array(Ref("literal")))),
+            ["type"] = BusinessType(),
+            ["nullable_type"] = BusinessType(nullableOnly: true),
             ["field"] = Object(("name", String()), ("type", Ref("type")), ("optional", Type("boolean"))),
-            ["input"] = Object(("name", String()), ("type", Nullable(Ref("type"))), ("optional", Type("boolean")), ("default", Nullable(Ref("value")))),
+            // JSON null is absence. A literal null requires a nullable declaration, or a
+            // derived contract whose nullability is checked by deterministic validation.
+            ["input"] = new JsonObject { ["anyOf"] = new JsonArray(
+                Input(Nullable(Ref("type")), Nullable(Ref("literal_nonnull"))),
+                Input(Nullable(Ref("nullable_type")), Ref("literal_null"))) },
             ["output"] = Object(("name", String()), ("value", Ref("value"))),
             ["block"] = Object(("operations", Array(Ref("operation"))), ("result", Ref("value"))),
             ["branch"] = Object(("name", String()), ("body", Ref("block"))),

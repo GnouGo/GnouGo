@@ -20,12 +20,13 @@ public sealed class InputDefaultTests
         var hole = Assert.Single(PlanningHoleEligibility.Find(state.Graph, state.Catalog));
         Assert.Equal("/workflows/0/inputs/0/default", hole.Path);
         Assert.Empty(PlanningHoleEligibility.Choices(state.Graph, state.Catalog, hole));
-        state.IntentPlan = null; state.Graph = null;
-        var corrected = Plan(new() { Type = type }, null); runtime.Plans.Enqueue(corrected);
+        // Existing sessions may contain holes accepted under their original response schema.
+        state.ModelCalls = 1;
+        var corrected = Plan(new() { Type = type }, null); runtime.Plans.Clear(); runtime.Plans.Enqueue(corrected);
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(";", state.Diagnostics.Select(d => d.Code + ":" + d.Message)));
         Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.RepairAttempts); Assert.Null(state.IntentPlan!.Inputs[0].Default);
-        var request = runtime.Calls[1]; var context = JsonNode.Parse(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..])!;
+        var request = Assert.Single(runtime.Calls); var context = JsonNode.Parse(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..])!;
         Assert.Contains(context["diagnostics"]!.AsArray(), d => d!["location"]!.ToString() == "/inputs/0/default");
         Assert.Equal("/inputs/0", context["targets"]![0]!["path"]!.ToString());
         Assert.Equal("input", context["targets"]![0]!["shape"]!.ToString());
@@ -44,6 +45,7 @@ public sealed class InputDefaultTests
         var graph = PlanningGraphBuilder.Build(plan, state.Catalog); var hole = Assert.Single(PlanningHoleEligibility.Find(graph, state.Catalog));
         var choices = PlanningHoleEligibility.Choices(graph, state.Catalog, hole);
         Assert.Equal(count, choices.Count); Assert.All(choices, c => Assert.Equal("string", c.Value!["kind"]!.ToString()));
+        state.IntentPlan = plan; state.Graph = graph; state.ModelCalls = 1;
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.True(state.Status == status, string.Join(";", state.Diagnostics.Select(d => d.Message)));
         Assert.Equal(calls, state.ModelCalls); Assert.Equal(0, state.RepairAttempts);
@@ -147,8 +149,10 @@ public sealed class InputDefaultTests
     [Fact]
     public async Task RuntimeReferenceDefaultIsDiagnosedBeforeFixtureSampling()
     {
-        var runtime = new TestRuntime(Plan(new() { Type = "string" }, new() { Kind = "input", Source = "value" }));
+        var plan = Plan(new() { Type = "string" }, new() { Kind = "input", Source = "value" }); var runtime = new TestRuntime(plan);
         var state = PlannerFixture.Session(); state.Request.MaxRepairAttempts = 0;
+        state.Catalog = await runtime.DiscoverAsync(state.Request, Ct); state.IntentPlan = plan;
+        state.Graph = PlanningGraphBuilder.Build(plan, state.Catalog); state.ModelCalls = 1;
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.Equal(PlanningStatus.Stopped, state.Status);
         Assert.Contains(state.Diagnostics, d => d.Code == "INPUT_DEFAULT_INVALID" && d.Location == "/workflows/0/inputs/0/default");
