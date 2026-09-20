@@ -119,7 +119,7 @@ public sealed partial class PlanningGraphCompiler
                 if (value is null) return;
                 try { if (expression) ToExpression(value, scope); else LowerValue(value, scope, !literal); }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException or GnOuGo.Flow.Core.Expressions.ExpressionParseException or Acornima.ParseErrorException)
-                { errors.Add(new("VALUE_LOWERING_INVALID", location, ex.Message, ValidationStage: "conversion")); }
+                { errors.Add(new("VALUE_LOWERING_INVALID", location + (ex.Data[ValueLocationKey] as string ?? ""), ex.Message, ValidationStage: "conversion")); }
             }
             foreach (var (node, location) in PlanningGraphValidation.Located(workflow.Steps, path + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, path + "/finally")))
             {
@@ -283,9 +283,14 @@ public sealed partial class PlanningGraphCompiler
             case "object":
                 EnsureUnique(value.Members.Select(m => m.Name), "member");
                 var obj = new JsonObject();
-                foreach (var member in value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted)) obj[member.Name] = LowerValue(member.Value, scope, allowReferences, depth + 1);
+                for (var i = 0; i < value.Members.Count; i++)
+                {
+                    var member = value.Members[i];
+                    if (member.Value.Kind != PlanningValues.Omitted)
+                        obj[member.Name] = AtValue("/members/" + i + "/value", () => LowerValue(member.Value, scope, allowReferences, depth + 1));
+                }
                 return obj;
-            case "array": return new JsonArray(value.Items.Select(v => LowerValue(v, scope, allowReferences, depth + 1)).ToArray());
+            case "array": return new JsonArray(value.Items.Select((v, i) => AtValue("/items/" + i, () => LowerValue(v, scope, allowReferences, depth + 1))).ToArray());
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
@@ -293,11 +298,12 @@ public sealed partial class PlanningGraphCompiler
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
-                foreach (var binding in value.Members)
+                for (var i = 0; i < value.Members.Count; i++)
                 {
+                    var binding = value.Members[i];
                     var marker = "{{" + binding.Name + "}}";
                     if (!template.Contains(marker, StringComparison.Ordinal)) throw new InvalidOperationException("A template binding has no matching placeholder.");
-                    template = template.Replace(marker, ToExpression(binding.Value, scope), StringComparison.Ordinal);
+                    template = template.Replace(marker, AtValue("/members/" + i + "/value", () => ToExpression(binding.Value, scope)), StringComparison.Ordinal);
                 }
                 if (TemplatePlaceholder().IsMatch(template)) throw new InvalidOperationException("A template placeholder has no declared binding.");
                 return JsonValue.Create(PlanningExpressionBindings.Template(template, scope.NodeIds, scope.NodeTypes));
@@ -349,7 +355,7 @@ public sealed partial class PlanningGraphCompiler
         {
             EnsureUnique(value.Members.Select(m => m.Name), "computation parameter");
             PlanningComputations.Validate(value);
-            expression = "((" + string.Join(",", value.Members.Select(m => m.Name)) + ") => (" + PlanningComputations.Expression(value.Text) + "))(" + string.Join(",", value.Members.Select(m => ExpressionBody(m.Value))) + ")";
+            expression = "((" + string.Join(",", value.Members.Select(m => m.Name)) + ") => (" + PlanningComputations.Expression(value.Text) + "))(" + string.Join(",", value.Members.Select((m, i) => AtValue("/members/" + i + "/value", () => ExpressionBody(m.Value)))) + ")";
         }
         else if (value.Kind == "template")
         {
@@ -373,9 +379,9 @@ public sealed partial class PlanningGraphCompiler
         else if (value.Kind == "object")
         {
             EnsureUnique(value.Members.Select(m => m.Name), "member");
-            expression = "({" + string.Join(",", value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted).Select(m => JsonSerializer.Serialize(m.Name, PlanningJsonContext.Default.String) + ":" + ExpressionBody(m.Value))) + "})";
+            expression = "({" + string.Join(",", value.Members.Select((m, i) => (Member: m, Index: i)).Where(m => m.Member.Value.Kind != PlanningValues.Omitted).Select(m => JsonSerializer.Serialize(m.Member.Name, PlanningJsonContext.Default.String) + ":" + AtValue("/members/" + m.Index + "/value", () => ExpressionBody(m.Member.Value)))) + "})";
         }
-        else if (value.Kind == "array") expression = "[" + string.Join(",", value.Items.Select(ExpressionBody)) + "]";
+        else if (value.Kind == "array") expression = "[" + string.Join(",", value.Items.Select((v, i) => AtValue("/items/" + i, () => ExpressionBody(v)))) + "]";
         else
         {
             var literal = LowerValue(value, scope, allowReferences: false);
@@ -387,6 +393,19 @@ public sealed partial class PlanningGraphCompiler
         {
             var resolved = ToExpression(member, scope);
             return resolved[2..^1];
+        }
+    }
+
+    private const string ValueLocationKey = "GnOuGo.Planning.ValueLocation";
+    // Add relative coordinates as a lowering error unwinds, preserving its original type/message.
+    // This is transient exception metadata, never part of a graph or persisted session.
+    private static T AtValue<T>(string path, Func<T> lower)
+    {
+        try { return lower(); }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException or GnOuGo.Flow.Core.Expressions.ExpressionParseException or Acornima.ParseErrorException)
+        {
+            ex.Data[ValueLocationKey] = path + (ex.Data[ValueLocationKey] as string ?? "");
+            throw;
         }
     }
 

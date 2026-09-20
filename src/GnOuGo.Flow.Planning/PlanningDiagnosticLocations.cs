@@ -7,7 +7,7 @@ internal static class PlanningDiagnosticLocations
     {
         if (state.IntentPlan is null || state.Graph is null) return state.Diagnostics.ToList();
         var operations = IntentTraversal.Located(state.IntentPlan).ToArray();
-        var mapped = state.Diagnostics.Select(Map).Distinct().ToList();
+        var mapped = state.Diagnostics.Select(d => Map(d)).Distinct().ToList();
         // Keep every decision in session diagnostics; repair context folds only known producer consequences into their root.
         foreach (var root in mapped.Where(d => d.Code is "SCHEMA_INVALID" or "STRUCTURED_OUTPUT_INVALID").ToArray())
         {
@@ -20,7 +20,7 @@ internal static class PlanningDiagnosticLocations
             mapped[index] = root with { Message = root.Message + " Dependent intent locations: " + string.Join(", ", dependent.Select(d => d.Location).Distinct()) };
         }
         return mapped;
-        PlanningDiagnostic Map(PlanningDiagnostic finding)
+        PlanningDiagnostic Map(PlanningDiagnostic finding, HashSet<string>? captures = null)
         {
             if (finding.ValidationStage is "intent" or "fixtures" || !finding.Location.StartsWith("/workflows/", StringComparison.Ordinal)) return finding;
             var parts = finding.Location.Split('/');
@@ -49,7 +49,8 @@ internal static class PlanningDiagnosticLocations
                         if (tail.Length >= 3 && tail[0] == "members" && int.TryParse(tail[1], out var mi) && mi < request.Members.Count)
                         {
                             var member = request.Members[mi]; var capability = state.Catalog!.Capabilities.FirstOrDefault(c => c.Id == invoke.Capability);
-                            if (capability?.RequestBindings.Any(b => b.Path == "/" + PlanningFieldPaths.Escape(member.Name)) == true) return Host(finding);
+                            var pointer = ValuePointer(request, tail);
+                            if (capability?.RequestBindings.Any(b => pointer == b.Path || pointer.StartsWith(b.Path + "/", StringComparison.Ordinal)) == true) return Host(finding);
                             var ii = invoke.Arguments.FindIndex(m => m.Name == member.Name);
                             if (ii < 0) return Edit(path, " Missing argument '" + member.Name + "'.");
                             path += "/" + ii + "/value";
@@ -73,6 +74,8 @@ internal static class PlanningDiagnosticLocations
             if (parts.Length < 5 || !int.TryParse(parts[4], out var portIndex) || portIndex < 0) return Host(finding);
             if (block.Block is not null)
             {
+                if (parts[3] == "inputs" && parts.ElementAtOrDefault(5) == "schema" && portIndex < workflow.Inputs.Count)
+                    return CaptureSource(finding, workflow, workflow.Inputs[portIndex].Name, captures ?? new(StringComparer.Ordinal));
                 if (parts[3] != "outputs" || portIndex >= workflow.Outputs.Count) return Host(finding);
                 var path = block.Path + "/result";
                 if (parts.ElementAtOrDefault(5) == "value") path = ValuePath(workflow.Outputs[portIndex].Value, block.Block.Result, parts[6..], path);
@@ -106,6 +109,56 @@ internal static class PlanningDiagnosticLocations
             }
             return Host(finding);
         }
+        PlanningDiagnostic CaptureSource(PlanningDiagnostic finding, PlanningWorkflow block, string input, HashSet<string> visited)
+        {
+            if (!visited.Add(block.Key + "/" + input)) return Host(finding);
+            var callers = state.Graph.Workflows.SelectMany((w, wi) => PlanningGraphValidation.Located(w.Steps, "/workflows/" + wi + "/steps")
+                .Concat(PlanningGraphValidation.Located(w.Finally, "/workflows/" + wi + "/finally"))
+                .Where(n => n.Node.Type == "workflow.call" && PlanningGraphValidation.Member(n.Node.Input, "ref") is { Kind: "workflow" } reference && reference.Source == block.Key)
+                .Select(n => (Workflow: w, Index: wi, n.Node))).ToArray();
+            if (callers.Length != 1) return Host(finding);
+            var caller = callers[0];
+            var value = PlanningGraphValidation.Member(caller.Node.Input, "args")?.Members.FirstOrDefault(m => m.Name == input)?.Value;
+            if (value is null) return Host(finding);
+            try
+            {
+                var contract = PlanningGraphValidation.ResolveValueContract(state.Graph, caller.Workflow, value, state.Catalog!);
+                // A valid incoming contract cannot explain a broken generated port.
+                if (PlanningValues.Established(contract) && PlanningContractValidation.ValidateSchema(contract, false).Count == 0) return Host(finding);
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { }
+            var root = "/workflows/" + caller.Index;
+            if (value.Kind == "input")
+            {
+                var source = caller.Workflow.Inputs.FindIndex(p => p.Name == value.Source);
+                return source < 0 ? Host(finding) : Map(finding with { Location = root + "/inputs/" + source + "/schema" }, visited);
+            }
+            var producer = PlanningGraphValidation.Located(caller.Workflow.Steps, root + "/steps")
+                .Concat(PlanningGraphValidation.Located(caller.Workflow.Finally, root + "/finally")).FirstOrDefault(n => n.Node.Key == value.Source);
+            if (producer.Node is null) return Host(finding);
+            if (value.Kind == "output") return Map(finding with { Location = producer.Path + "/outputSchema" }, visited);
+            if (value.Kind == "loop_item")
+            {
+                var items = producer.Node.Input.Members.FindIndex(m => m.Name == "items");
+                if (items >= 0) return Map(finding with { Location = producer.Path + "/input/members/" + items + "/value" }, visited);
+            }
+            return Host(finding);
+        }
+    }
+    private static string ValuePointer(PlanningValue value, string[] segments)
+    {
+        var path = "";
+        while (segments.Length >= 2)
+        {
+            if (segments.Length >= 3 && segments[0] == "members" && int.TryParse(segments[1], out var member) && member >= 0 && member < value.Members.Count)
+            {
+                path += "/" + PlanningFieldPaths.Escape(value.Members[member].Name); value = value.Members[member].Value; segments = segments[3..];
+            }
+            else if (segments[0] == "items" && int.TryParse(segments[1], out var item) && item >= 0 && item < value.Items.Count)
+            { path += "/" + item; value = value.Items[item]; segments = segments[2..]; }
+            else break;
+        }
+        return path;
     }
     private static string ValuePath(PlanningValue graph, IntentValue intent, string[] segments, string path)
     {
