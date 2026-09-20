@@ -299,8 +299,11 @@ public sealed class OpenAiLlmProviderTests
         Assert.Equal(["/v1/responses", "/v1/responses"], requests);
     }
 
-    [Fact]
-    public async Task CallAsync_ChatCompletionsBackgroundPolicyBypassesResponsesRoute()
+    [Theory]
+    [InlineData("https://proxy.example", "/v1/chat/completions")]
+    [InlineData("https://proxy.example/v1", "/v1/chat/completions")]
+    [InlineData("https://proxy.example/openai/deployments/model", "/openai/deployments/model/chat/completions")]
+    public async Task CallAsync_ChatCompletionsBackgroundPolicyBypassesResponsesRoute(string endpoint, string expectedPath)
     {
         var requests = new List<string>();
         var handler = new StubHttpMessageHandler(req =>
@@ -317,7 +320,7 @@ public sealed class OpenAiLlmProviderTests
         var provider = new OpenAiLLMProvider(http);
         var options = new ModelProviderOptions
         {
-            Url = "https://proxy.example",
+            Url = endpoint,
             ApiKey = "secret",
             Type = "openai",
             RequestPolicy = new LLMProviderRequestPolicyOptions
@@ -332,7 +335,7 @@ public sealed class OpenAiLlmProviderTests
             new LLMClientRequest { Prompt = "Hello", UseBackgroundMode = true },
             CancellationToken.None);
 
-        Assert.Equal(["/v1/chat/completions"], requests);
+        Assert.Equal([expectedPath], requests);
     }
 
     [Theory]

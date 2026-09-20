@@ -1,5 +1,9 @@
 # Provider budget verification — 2026-09-20
 
+Historical preflight: the user subsequently waived this prerequisite. See the
+[resumed native Desktop test](planning-desktop-protocol-2026-09-20.md). The observations below
+remain evidence of what was and was not verified; they no longer block the authorized test.
+
 ## Outcome
 
 The provider-only route remains **blocked before paid execution**. The configured service is an OIDC-authenticated internal gateway; no accessible administrative interface or authoritative contract was found that demonstrates an isolated, hard EUR 20 allowance covering both planner and Copilot inference. This is an unverified capability, not a finding that the gateway cannot support it.

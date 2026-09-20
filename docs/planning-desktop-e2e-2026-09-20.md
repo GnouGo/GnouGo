@@ -1,5 +1,9 @@
 # Real Desktop review validation — stopped at budget preflight
 
+Historical preflight: the user subsequently waived provider-budget verification. See the
+[resumed native Desktop test](planning-desktop-protocol-2026-09-20.md) for current results.
+The original observations below are retained unchanged.
+
 ## Result
 
 The requested real Desktop validation is **blocked before paid execution**. The configured integration does not establish the required EUR 20 aggregate ceiling across planner generation and Copilot inference. No real review or publication succeeded or was attempted in this validation.

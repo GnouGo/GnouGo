@@ -610,6 +610,21 @@ Discovery and validation failures appear as located diagnostics in the durable s
 
 ### Provider HTTP retries
 
+Planning requests use background mode. For an OpenAI-compatible deployment that supports
+Chat Completions but not Responses, select the protocol before starting Server or Desktop:
+
+```text
+--LLM:Models:<provider-name>:RequestPolicy:BackgroundProtocol=ChatCompletions
+```
+
+Replace `<provider-name>` with the configured provider key. This existing host setting survives
+the KeyVault credential overlay; it does not change the model, planning budgets or workflow.
+`Auto` selects Responses and does not probe for protocol support. An HTTP 404 on that route
+can appear as “The requested LLM model is unavailable”; inspect the recorded HTTP route and
+status before revising a workflow or changing models. A stopped request without a completion
+receipt still has unknown usage. Changing configuration does not authorize replaying that
+request identity or reset its accounting.
+
 Transport retries are owned by [AI.Core](../GnOuGo.AI.Core/README.md#http-resilience).
 The optional `retryPolicy` object in a KeyVault provider configuration controls `maxAttempts`,
 `maxUncertainRetries` and `attemptTimeoutMilliseconds`, plus bounded backoff settings.
