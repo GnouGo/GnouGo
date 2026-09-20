@@ -1276,14 +1276,10 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
             catch { return text; }
         }
 
-        // Multiple blocks → array
+        // Preserve protocol payloads, including embedded resources, with the SDK's AOT-safe metadata.
         var arr = new JsonArray();
         foreach (var block in result.Content)
-        {
-            arr.Add((JsonNode)(block is TextContentBlock tb
-                ? new JsonObject { ["type"] = "text", ["text"] = tb.Text }
-                : new JsonObject { ["type"] = block.Type }));
-        }
+            arr.Add(JsonSerializer.SerializeToNode(block, McpJsonUtilities.DefaultOptions.GetTypeInfo(typeof(ContentBlock))));
         return arr;
     }
 }

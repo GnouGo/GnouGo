@@ -577,6 +577,54 @@ public class ConfiguredMcpClientFactoryTests
         Assert.Equal(3, content["count"]!.GetValue<int>());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void BuildContent_PreservesEmbeddedTextResource(bool includeMessage)
+    {
+        var result = new CallToolResult { Content = [] };
+        if (includeMessage) result.Content.Add(new TextContentBlock { Text = "Document available" });
+        result.Content.Add(new EmbeddedResourceBlock
+        {
+            Resource = new TextResourceContents { Uri = "memory://documents/checks", MimeType = "text/plain", Text = "run the declared checks\nretain their exit codes" }
+        });
+
+        var content = Assert.IsType<JsonArray>(InvokeBuildContent(result));
+        Assert.Equal(includeMessage ? 2 : 1, content.Count);
+        var resource = content[includeMessage ? 1 : 0]!;
+        Assert.Equal("resource", resource["type"]!.GetValue<string>());
+        Assert.NotNull(resource["resource"]);
+        Assert.Equal("memory://documents/checks", resource["resource"]!["uri"]!.GetValue<string>());
+        Assert.Equal("text/plain", resource["resource"]!["mimeType"]!.GetValue<string>());
+        Assert.Equal("run the declared checks\nretain their exit codes", resource["resource"]!["text"]!.GetValue<string>());
+        if (includeMessage) Assert.Equal("Document available", content[0]!["text"]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData("{\"type\":\"resource\",\"resource\":{\"uri\":\"memory://binary\",\"mimeType\":\"application/octet-stream\",\"blob\":\"AAE=\"}}")]
+    [InlineData("{\"type\":\"resource_link\",\"uri\":\"memory://reference\",\"name\":\"reference\",\"mimeType\":\"text/plain\"}")]
+    [InlineData("{\"type\":\"image\",\"data\":\"AAE=\",\"mimeType\":\"image/png\"}")]
+    [InlineData("{\"type\":\"audio\",\"data\":\"AAE=\",\"mimeType\":\"audio/wav\"}")]
+    [InlineData("{\"type\":\"text\",\"text\":\"message\",\"_meta\":{\"source\":\"declared\"}}")]
+    public void BuildContent_PreservesOtherProtocolPayloads(string json)
+    {
+        var block = JsonSerializer.Deserialize<ContentBlock>(json, McpJsonUtilities.DefaultOptions)!;
+        var content = Assert.IsType<JsonArray>(InvokeBuildContent(new CallToolResult
+        {
+            Content = [new TextContentBlock { Text = "prefix" }, block]
+        }));
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(json), content[1]));
+    }
+
+    [Theory]
+    [InlineData("{\"count\":2}", "{\"count\":2}")]
+    [InlineData("plain text", "\"plain text\"")]
+    public void BuildContent_RetainsSingleTextNormalization(string text, string expected)
+    {
+        var content = InvokeBuildContent(new CallToolResult { Content = [new TextContentBlock { Text = text }] });
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(expected), content));
+    }
+
     [Fact]
     public void FormatMcpFailureDiagnostics_IncludesLaunchExceptionChainAndStderrTail()
     {

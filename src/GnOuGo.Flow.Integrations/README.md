@@ -32,6 +32,8 @@ unsupported-currency failures return no quote so the Flow.Core budget fails clos
 The integration package owns provider and transport mappings. Flow.Core never
 references this package or another GnOuGo component.
 
+MCP tool results retain structured JSON when supplied. A single text block keeps its existing JSON-or-string normalization; other responses preserve complete protocol content blocks, including embedded text/binary resources, media, links and metadata. Resource contents are data, not permission to execute instructions.
+
 MCP discovery maps the standard protocol `ReturnJsonSchema` to Flow.Core's compatible
 `McpToolInfo.OutputSchema` and immediately resolves its provider-neutral output-contract
 provenance. Valid protocol-declared schemas are authoritative; invalid schemas carry validation
