@@ -60,9 +60,9 @@ remain unknown. No Copilot inference occurred. The user's EUR 20 best-effort tar
 waiver of hard provider-budget verification remain in effect; previous benchmark ledgers
 and both Desktop attempts remain untouched.
 
-## Prepared correction
+## Approved configuration correction
 
-The proposed change is limited to this test agent's existing generator setting:
+The approved change is limited to this test agent's existing generator setting:
 
 ```diff
 -            max_output_tokens: 8192
@@ -75,11 +75,25 @@ valid. The 12,000 input-token limit, medium reasoning, eight calls, two repairs,
 and active-time limits, transport policy and approval gates stay unchanged. There is no
 planner refactor or automatic escalation mechanism.
 
-The user was asked to authorize this one setting change because the approved Desktop test
-plan expressly retained the bootstrap's request limits. **At this report's checkpoint the
-change is prepared but not applied, and no additional paid request has been sent.** A new
-request must have a new identity. Do not edit or resend either stopped request or reset
-its accounting. There is no reason to open a business-workflow revision for this failure.
+At report revision `0041557`, this change was prepared but not applied because the approved
+Desktop test plan expressly retained the bootstrap's request limits. The user subsequently
+approved the increase. It is now applied to `desktop-planning-e2e` through the running host's
+normal `agent_update` MCP operation and verified by `agent_get_by_name` read-back.
+
+Only `max_output_tokens` changed. The stored bootstrap had omitted the example's final
+newline; the update preserved that formatting and all other content, agent identity and
+original prompt. The repository example and production code remain unchanged. Agent ID:
+`158cb170-9f4f-4a54-a112-ab5a68a787be`. Updated stored-workflow SHA-256:
+`966478c847defc9afed16b92f4023ff098174017187e553d232d04068d134ed7`.
+
+The proposed workflow compiled successfully before writing. The temporary management probe
+built in Release with zero warnings/errors and verified the persisted workflow after writing.
+Before/after hashes and timestamps confirmed that both failed sessions, model reservations,
+completion receipts and budget records were unchanged. No inference request was dispatched
+by this configuration operation; a fresh native Desktop submission remains necessary.
+
+A new request must have a new identity. Do not edit or resend either stopped request or
+reset its accounting. There is no reason to open a business-workflow revision for this failure.
 
 ## Sanitized regressions and execution status
 
