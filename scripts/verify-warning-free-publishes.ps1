@@ -484,6 +484,8 @@ function Invoke-AgentServerSmoke {
         "--OtlpCollector:GrpcPort=$grpcPort",
         "--OtlpCollector:HttpPort=$httpPort",
         '--OpenTelemetry:Enabled=false',
+        '--TypedWorkflowPlanning:BackgroundProcessingEnabled=false',
+        "--TypedWorkflowPlanning:DatabasePath=$(Join-Path $DataDirectory 'planning.db')",
         "--Agent:DatabasePath=$(Join-Path $DataDirectory 'agent.db')",
         "--KeyVault:DatabasePath=$(Join-Path $DataDirectory 'keyvault.db')",
         "--DocsIngestorMcp:DatabasePath=$(Join-Path $DataDirectory 'docs-mcp.db')",
@@ -495,6 +497,10 @@ function Invoke-AgentServerSmoke {
     )
     $process = $null
     try {
+        [void] (Invoke-LoggedCommand `
+            -FilePath (Get-PublishedExecutable $PublishDirectory 'GnOuGo.Agent.Server') `
+            -Arguments @('--planning-persistence-smoke', (Join-Path $DataDirectory 'planning-persistence')) `
+            -LogPath (Join-Path $PublishDirectory 'planning-persistence-smoke.log'))
         $process = Start-PublishedProcess `
             -Executable (Get-PublishedExecutable $PublishDirectory 'GnOuGo.Agent.Server') `
             -WorkingDirectory $PublishDirectory `
