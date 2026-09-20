@@ -85,19 +85,29 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         catch (PlanningConflictException) { throw; }
         catch (ArgumentException) when (command.Kind != "advance") { throw; }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch (OperationCanceledException) { state.Diagnostics = [new(ErrorCodes.LlmBudgetExceeded, "$", "Active planning time was exhausted.")]; Stop(state); }
-        catch (PlanningResponseException ex) { state.Diagnostics = ex.Diagnostics; state.Status = PlanningStatus.Generating; Invalidate(state); }
+        catch (OperationCanceledException) { state.Diagnostics.Add(new(ErrorCodes.LlmBudgetExceeded, "$", "Active planning time was exhausted.")); Stop(state); }
+        catch (PlanningResponseException ex)
+        {
+            // A rejected correction never erases the errors in the unchanged executable proposal.
+            state.Diagnostics = (state.IntentPlan is null ? [] : state.Diagnostics).Concat(ex.Diagnostics).Distinct().ToList();
+            state.Status = PlanningStatus.Generating; Invalidate(state);
+        }
         catch (WorkflowRuntimeException ex)
         {
             if (ex.Code == "MODEL_INPUT_LIMIT")
             { state.Diagnostics.RemoveAll(d => d.Code == ex.Code); state.Diagnostics.Add(new(ex.Code, "$", ex.Message)); }
-            else state.Diagnostics = [new(ex.Code, "$", ex.Message)];
+            else state.Diagnostics.Add(new(ex.Code, "$", ex.Message));
             Stop(state);
         }
-        catch (JsonException ex) { state.Diagnostics = [new("INTENT_SCHEMA_INVALID", "$", ex.Message)]; state.Status = PlanningStatus.Generating; Invalidate(state); }
+        catch (JsonException ex)
+        {
+            if (state.IntentPlan is null) state.Diagnostics.Clear();
+            state.Diagnostics.Add(new("INTENT_SCHEMA_INVALID", state.IntentPlan is null ? "$" : "/changes", ex.Message));
+            state.Status = PlanningStatus.Generating; Invalidate(state);
+        }
         catch (Exception ex)
         {
-            state.Diagnostics = [new(state.PendingCall is null ? "PLANNING_INVALID" : "MODEL_DISPATCH_UNVERIFIABLE", "$", ex.Message)];
+            state.Diagnostics.Add(new(state.PendingCall is null ? "PLANNING_INVALID" : "MODEL_DISPATCH_UNVERIFIABLE", "$", ex.Message));
             if (state.PendingCall is not null || state.Catalog is null) Stop(state); else { state.Status = PlanningStatus.Generating; Invalidate(state); }
         }
         state.ActiveMilliseconds += clock.Elapsed.TotalMilliseconds;
@@ -123,9 +133,11 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             WorkflowIntentPlan intent;
             if (repair && state.IntentPlan is not null)
             {
-                var targets = PlanningCorrections.Targets(state);
+                var targets = PlanningCorrections.Batch(state);
                 if (targets.Count == 0) { state.Diagnostics.Add(new("PLANNING_HOST_CONTRACT", "$", "No editable business target explains the blocking diagnostics.")); Stop(state); return; }
-                var correction = await PlanningModelCalls.CallAsync(state, runtime, "repair", PlanningCorrections.Prompt(state, targets), PlanningCorrections.Schema(targets), ct);
+                var correction = await PlanningModelCalls.CallAsync(state, runtime, "repair", state.PendingCall?.Request.Prompt ?? PlanningCorrections.Prompt(state, targets),
+                    state.PendingCall?.Request.StructuredOutputSchema?.AsObject() ?? PlanningCorrections.Schema(targets), ct,
+                    PlanningCorrections.MaxInputTokens, PlanningCorrections.MaxOutputTokens);
                 intent = PlanningCorrections.Apply(state, targets, correction);
             }
             else

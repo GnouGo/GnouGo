@@ -13,7 +13,8 @@ internal static class PlanningModelCalls
         Cleanup example: acquire and perform are main operations; cleanup contains release bound to acquire's resource. Cleanup groups have no executable result and cannot be predecessors of main operations.
         Finalizers already run after the main work ends, including failure and cancellation. In cleanup, after expresses ordering only, not successful completion. Bind any required resource; the engine guards its availability. Use when for an explicit business condition.
         """;
-    internal static async Task<JsonNode> CallAsync(PlanningSession state, IPlanningRuntime runtime, string purpose, string prompt, JsonObject schema, CancellationToken ct)
+    internal static async Task<JsonNode> CallAsync(PlanningSession state, IPlanningRuntime runtime, string purpose, string prompt, JsonObject schema, CancellationToken ct,
+        int? maxInputTokens = null, int? maxOutputTokens = null)
     {
         if (state.PendingCall is null)
         {
@@ -22,13 +23,15 @@ internal static class PlanningModelCalls
             {
                 Provider = state.Request.Options["generator"]?["provider"]?.GetValue<string>(),
                 Model = state.Request.Options["generator"]?["model"]?.GetValue<string>() ?? "",
-                Prompt = prompt, StructuredOutputSchema = schema, StructuredOutputStrict = true, UseBackgroundMode = true
+                Prompt = prompt, StructuredOutputSchema = schema, StructuredOutputStrict = true, UseBackgroundMode = true,
+                MaxTokens = maxOutputTokens
             }, state.Request.Generation);
             var violations = PlanningContractValidation.ValidateSchema(schema, strict: true);
             if (violations.Count != 0) throw new InvalidOperationException("Invalid planner response schema: " + string.Join("; ", violations));
             var inputTokens = PlanningJsonTransport.EstimateInputTokens(prompt, schema);
-            if (inputTokens > state.Request.Generation.MaxInputTokensPerRequest)
-                throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", $"The complete request needs approximately {inputTokens} input tokens; the configured limit is {state.Request.Generation.MaxInputTokensPerRequest}. Increase the configured limit or narrow the request/catalog.");
+            var inputLimit = Math.Min(maxInputTokens ?? int.MaxValue, state.Request.Generation.MaxInputTokensPerRequest);
+            if (inputTokens > inputLimit)
+                throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", $"The complete request needs approximately {inputTokens} input tokens; the configured limit is {inputLimit}. Increase the configured limit or narrow the request/catalog.");
             var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
             request.ClientRequestId = state.Request.SessionId + ":" + (++state.ModelCalls) + ":" + hash;
             if (purpose == "repair") state.RepairAttempts++;
@@ -42,7 +45,13 @@ internal static class PlanningModelCalls
         if (response.CompletionStatus == "output_limit") throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT", "The model response was truncated; no output limit escalation is performed.");
         var json = response.Json?.DeepClone() ?? JsonNode.Parse(response.Text) ?? throw new JsonException("The model returned an empty response.");
         var findings = PlanningContractValidation.ValidateInstanceFindings(json, call.Request.StructuredOutputSchema!);
-        if (findings.Count != 0) throw new PlanningResponseException(findings.Select(f => new PlanningDiagnostic("INTENT_SCHEMA_INVALID", f.InstancePointer, f.Message, ValidationStage: "intent")).ToList());
+        if (findings.Count != 0)
+        {
+            var correction = purpose == "repair" && call.Request.StructuredOutputSchema?["properties"]?["changes"] is not null;
+            throw new PlanningResponseException(findings.Select(f => new PlanningDiagnostic("INTENT_SCHEMA_INVALID",
+                correction && !f.InstancePointer.StartsWith("/changes", StringComparison.Ordinal) ? "/changes" + f.InstancePointer : f.InstancePointer,
+                f.Message, ValidationStage: "intent")).ToList());
+        }
         return json;
     }
     internal static string ChoicePrompt(PlanningSession state, IReadOnlyList<(PlanningHole Hole, IReadOnlyList<PlanningChoice> Choices)> domains)

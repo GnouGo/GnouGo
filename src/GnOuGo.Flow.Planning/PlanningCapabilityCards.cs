@@ -26,7 +26,7 @@ internal static partial class PlanningCapabilityCards
     }
     private static HashSet<string> Words(string text) => Tokens().Matches(text.ToLowerInvariant()).Select(m => m.Value).ToHashSet(StringComparer.Ordinal);
     [GeneratedRegex(@"[\p{L}\p{N}]+", RegexOptions.CultureInvariant)] private static partial Regex Tokens();
-    internal static JsonObject Card(PlanningCapability capability)
+    internal static JsonObject EditableArguments(PlanningCapability capability)
     {
         var input = capability.InputSchema.DeepClone().AsObject();
         foreach (var binding in capability.RequestBindings)
@@ -34,10 +34,41 @@ internal static partial class PlanningCapabilityCards
             var parts = binding.Path.Split('/').Skip(1).Select(p => p.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal)).ToArray();
             JsonNode? parent = input;
             for (var i = 0; i < parts.Length - 1; i++) parent = parent?["properties"]?[parts[i]];
-            if (parts.Length > 0 && parent?["properties"] is JsonObject fields) fields.Remove(parts[^1]);
+            if (parts.Length > 0 && parent?["properties"] is JsonObject fields)
+            {
+                fields.Remove(parts[^1]);
+                if (parent["required"] is JsonArray required)
+                    for (var i = required.Count - 1; i >= 0; i--) if (required[i]?.ToString() == parts[^1]) required.RemoveAt(i);
+            }
         }
+        return input;
+    }
+    internal static JsonObject Card(PlanningCapability capability)
+    {
+        var input = EditableArguments(capability);
         return new() { ["id"] = capability.Id, ["name"] = capability.Method, ["description"] = capability.Description.Length > 300 ? capability.Description[..300] : capability.Description,
             ["arguments"] = Signature(input), ["result"] = Signature(capability.OutputSchema), ["effect"] = capability.EffectKind };
+    }
+    // Project only ordinary property paths. Keep the root and the path for contracts whose
+    // combinators or references cannot safely be detached; context reduction must not erase constraints.
+    internal static JsonObject ValueContract(JsonObject root, IReadOnlyList<string> path)
+    {
+        JsonNode? selected = root;
+        foreach (var part in path)
+        {
+            if (selected is not JsonObject obj || obj.Any(p => p.Key is not ("type" or "properties" or "required" or "additionalProperties" or "$defs" or "definitions" or "description" or "title" or "examples" or "default" or "$schema")))
+            { selected = null; break; }
+            selected = obj["properties"]?[part];
+        }
+        if (selected is JsonObject leaf)
+        {
+            var schema = leaf.DeepClone().AsObject();
+            if (root["$defs"] is { } definitions && !schema.ContainsKey("$defs")) schema["$defs"] = definitions.DeepClone();
+            if (schema["$defs"] is not null) PlanningJsonTransport.PruneDefinitions(schema);
+            if (PlanningContractValidation.ValidateSchema(schema).Count == 0)
+                return new() { ["schema"] = schema, ["path"] = new JsonArray() };
+        }
+        return new() { ["schema"] = root.DeepClone(), ["path"] = new JsonArray(path.Select(p => (JsonNode)JsonValue.Create(p)).ToArray()) };
     }
     private static string Signature(JsonObject schema, int depth = 0)
     {
