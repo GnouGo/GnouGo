@@ -71,6 +71,18 @@ Producer metadata may declare `gnougo.result.detect_errors` as a boolean when a 
 
 Domain publication rules remain in injected host integrations. Agent.Server's [review boundary](../src/GnOuGo.Agent.Server/Reviews/README.md) captures original observations and owns review evaluation, separate confirmation, fresh head verification and durable publication. The planner has no PR-specific path.
 
+## Inspecting planning traces
+
+Agent.Server's `/planning` page lists Designer and Chat sessions with a **Traces**
+action. Chat sessions open at `/planning/{id}?source=workflow` as read-only details;
+their originating workflow continues to own approvals and execution. The shared
+trace panel reads exact session/tenant matches from local capture and retained
+collector storage. Separate execution traces stay selectable by timestamp rather
+than being combined. Inspection never resumes planning or spends model allowance.
+See the [trace UI validation report](planning-traces-validation-2026-09-20.md) for
+restart, isolation, browser and build checks. Missing or expired traces are shown
+explicitly; encrypted request receipts remain independently retained.
+
 ## Storage, budgets and restart
 
 Schema 7 uses fresh encrypted `*-v7` collections and Agent.Server's `.GnOuGo/data/gnougo-planning-v7.db`. Earlier formats are rejected with no adapter or migration; existing databases remain untouched. EF Core/SQLite indexes and compiled models remain in the host. Public KeyVault record APIs encrypt tenant-scoped payloads and receipts.
