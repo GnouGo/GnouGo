@@ -94,3 +94,27 @@ execution, retaining eight calls, two repairs, medium reasoning and 12,000/32,76
 request token limits. The application must present the generated artifact for human
 approval before real execution. Runtime publication confirmation remains separate.
 No paid calls or external review actions were made during the offline work above.
+
+The tested correction was committed and pushed as **`5781258`**. A first Homebrew
+Git push timed out connecting to GitHub; macOS Git subsequently pushed normally,
+without force. The remote branch was verified at that commit.
+
+The rebuilt native Photino application was launched with the dedicated Desktop
+profile, planning background processing disabled and separate collector ports
+14317/14318. The embedded host started on port 58443. Public agent management
+confirmed the unchanged `workflow.plan → workflow.execute` bootstrap, medium
+reasoning, 12,000/32,768 token limits and eight calls. The bootstrap hash remained
+`966478c847defc9afed16b92f4023ff098174017187e553d232d04068d134ed7`.
+
+**Native submission is pending user action.** macOS returned
+`AXIsProcessTrusted() == false`, and the System Events query timed out with
+AppleEvent error `-1712`. The application was brought to the foreground, but no
+chat interaction or new planning run is claimed. The user was asked to submit the
+same saved PR #597 request in a fresh `desktop-planning-e2e` chat and leave approval
+pending. A public-record check found no new planning session at this point.
+
+No paid request, workflow approval, real repository execution or GitHub write was
+made in this correction/launch pass. The remaining limitations are the native UI
+handoff and the oversized repair context observed during replay; neither is hidden
+by the passing offline tests. Further failures must be classified from their new
+durable evidence before another production change.
