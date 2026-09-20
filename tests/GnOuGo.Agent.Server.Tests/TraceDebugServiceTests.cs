@@ -390,7 +390,7 @@ public sealed class TraceDebugServiceTests
         var first = "11111111111111111111111111111111";
         var second = "22222222222222222222222222222222";
         var wrong = "33333333333333333333333333333333";
-        await host.AddSpansAsync(Span(first, "session", tenant), Span(second, "session", tenant),
+        await host.AddSpansAsync(Span(first, "session", tenant), Span(first, "session", tenant), Span(second, "session", tenant),
             Span(wrong, "session-extra", tenant), Span("44444444444444444444444444444444", "session", Guid.NewGuid()),
             Span("55555555555555555555555555555555", "session", tenant, workflow ? "gnougo.planning.session_id" : "gnougo-flow.plan.session_id"));
         var log = CreateLog(first, "2222222222222222", 17, "Error", "Recorded failure", settings.ServiceName, 1);

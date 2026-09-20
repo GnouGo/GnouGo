@@ -1,6 +1,7 @@
 @page "/planning"
 @page "/planning/{SessionId}"
 @using GnOuGo.Agent.Server.Planning
+@using GnOuGo.Agent.Server.Components.Tracing
 @using GnOuGo.Flow.Core.Planning
 @using GnOuGo.Flow.Planning
 @using System.Text.Json.Nodes
@@ -14,7 +15,11 @@
     <a href="/">← Back to chat</a>
     <h1>Workflow designer</h1>
     @if (_error is not null) { <p role="alert" class="text-danger">@_error</p> }
-    @if (_state is null)
+    @if (_state is null && SessionId is not null)
+    {
+        <p role="status">@(_loading ? "Loading planning session..." : "Planning session not found or unavailable.")</p>
+    }
+    else if (_state is null)
     {
         <p>Describe the workflow you need. Review its steps and validation results before approving it.</p>
         <form @onsubmit="StartAsync" @onsubmit:preventDefault>
@@ -23,11 +28,23 @@
             <label><input type="checkbox" @bind="_reviseExisting" /> Revise an existing agent with this name</label>
             <button class="btn btn-primary" type="submit" disabled="@_busy">Create plan</button>
         </form>
-        <ul>@foreach (var session in _sessions) { <li><a href="@($"/planning/{session.Request.SessionId}")">@session.Request.Name</a> — @Phase(session.Status)</li> }</ul>
+        <ul>@foreach (var entry in _sessions)
+        {
+            var session = entry.Session;
+            <li @key="(entry.Workflow, session.Request.SessionId)">
+                <a href="@SessionUrl(session.Request.SessionId, entry.Workflow)">@session.Request.Name</a> — @Phase(session.Status)
+                <small>@(entry.Workflow ? "Chat" : "Designer") · <code>@session.Request.SessionId</code></small>
+                <button type="button" @onclick="() => OpenTraces(session.Request.SessionId, entry.Workflow)" aria-label="@($"Traces for {session.Request.Name}")">Traces</button>
+            </li>
+        }</ul>
     }
     else
     {
         <h2>@_state.Request.Name</h2>
+        <p>@(IsWorkflowSession ? "Chat" : "Designer") · <code>@_state.Request.SessionId</code>
+            <button type="button" @onclick="() => OpenTraces(_state.Request.SessionId, IsWorkflowSession)">Traces</button>
+        </p>
+        @if (IsWorkflowSession) { <p>This session is read-only here. Continue approvals and execution in the originating chat workflow.</p> }
         <p aria-live="polite"><strong>@Phase(_state.Status)</strong> · Revision @_state.Revision</p>
         <p>@_state.ModelCalls model calls · @_state.RepairAttempts repairs · @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") active</p>
         @if (_state.Usage is { } usage) { <p>Estimated cost @usage.EstimatedCost.ToString("0.00") @usage.EstimatedCostCurrency</p> }
@@ -40,7 +57,7 @@
                 <details><summary>@holes.Count unresolved fields</summary><ul>@foreach (var hole in holes) { <li>@hole.Kind: @hole.Path</li> }</ul></details>
             }
         }
-        @if (_state.Status == PlanningStatus.Clarification && _state.IntentPlan is { } intent)
+        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification && _state.IntentPlan is { } intent)
         {
             @foreach (var question in intent.Questions)
             {
@@ -60,16 +77,16 @@
             <p>Scenarios use simulated integrations.</p>
         }
         @if (_state.Yaml is { } yaml) { <details open><summary>Workflow YAML</summary><pre><code>@yaml</code></pre></details> }
-        @if (_state.Status == PlanningStatus.FinalReview)
+        @if (!IsWorkflowSession && _state.Status == PlanningStatus.FinalReview)
         { <button class="btn btn-primary" disabled="@_busy" @onclick="ApproveAndSaveAsync">Approve this revision and save</button> }
-        @if (_state.Status == PlanningStatus.Approved)
+        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Approved)
         { <button class="btn btn-primary" disabled="@_busy" @onclick='() => SubmitAsync("save")'>Save approved workflow</button> }
-        @if (_state.Status == PlanningStatus.Stopped && _state.PendingCall is not null)
+        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Stopped && _state.PendingCall is not null)
         {
             <p>The previous request has no confirmed result. Retrying retains its call count and adds a conservative token and cost estimate before using another call. Session limits remain unchanged.</p>
             <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("retry_model")'>Retry with retained usage</button>
         }
-        @if (_state.Status is not (PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled))
+        @if (!IsWorkflowSession && _state.Status is not (PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled))
         {
             <label for="plan-revision">Requested changes</label><textarea id="plan-revision" class="form-control" rows="3" @bind="_revision"></textarea>
             <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_revision))" @onclick='() => SubmitAsync("revise", _revision)'>Revise workflow</button>
@@ -86,24 +103,32 @@
         }
     }
 </main>
+<TraceSidebar PlanningSessionId="@_traceSessionId" WorkflowSession="_traceWorkflow" IsOpen="_tracesOpen" OnClose="CloseTraces" />
 @code {
     [Parameter] public string? SessionId { get; set; }
+    [SupplyParameterFromQuery(Name = "source")] public string? Source { get; set; }
+    private bool IsWorkflowSession => Source == "workflow";
     [SupplyParameterFromQuery(Name = "agent")] public string? AgentName { get; set; }
     private PlanningSession? _state;
-    private IReadOnlyList<PlanningSession> _sessions = [];
+    private IReadOnlyList<(PlanningSession Session, bool Workflow)> _sessions = [];
     private readonly Dictionary<string, string> _answers = new();
     private readonly CancellationTokenSource _lifetime = new();
     private Task? _polling;
     private string _name = "", _prompt = "", _revision = "", _reasoning = "medium";
     private int _inputLimit = 12_000, _outputLimit = 8_192;
     private string? _error;
-    private bool _busy, _reviseExisting;
+    private bool _busy, _reviseExisting, _loading, _tracesOpen, _traceWorkflow;
+    private string? _traceSessionId;
+    private long _viewVersion;
     private long _renderedRevision = -1;
     protected override async Task OnParametersSetAsync()
     {
-        _state = null; _answers.Clear(); _renderedRevision = -1;
+        _viewVersion++;
+        CloseTraces(); _traceSessionId = null;
+        _state = null; _answers.Clear(); _renderedRevision = -1; _error = null;
+        if (Source is not (null or "workflow")) { _error = "Unknown planning session source."; return; }
         if (SessionId is null && !string.IsNullOrWhiteSpace(AgentName)) { _name = AgentName; _reviseExisting = true; }
-        await RefreshAsync();
+        try { await RefreshAsync(); } catch (Exception ex) { _error = ex.Message; }
         if (_state is not null) { _reasoning = _state.Request.Generation.Reasoning; _inputLimit = _state.Request.Generation.MaxInputTokensPerRequest; _outputLimit = _state.Request.Generation.MaxOutputTokens; }
         _polling ??= PollAsync();
     }
@@ -115,9 +140,30 @@
     }
     private async Task RefreshAsync()
     {
-        if (SessionId is null) _sessions = await Planning.ListAsync(_lifetime.Token);
-        else _state = await Planning.GetAsync(SessionId, _lifetime.Token);
+        var version = _viewVersion; var id = SessionId; var workflow = IsWorkflowSession;
+        if (Source is not (null or "workflow")) return;
+        _loading = true;
+        try
+        {
+            if (id is null)
+            {
+                var designer = await Planning.ListAsync(_lifetime.Token);
+                var chat = await Planning.ListWorkflowSessionsAsync(_lifetime.Token);
+                if (version == _viewVersion)
+                    _sessions = designer.Select(s => (Session: s, Workflow: false)).Concat(chat.Select(s => (Session: s, Workflow: true)))
+                        .OrderByDescending(s => s.Session.UpdatedAtUtc).ToArray();
+            }
+            else
+            {
+                var state = workflow ? await Planning.GetWorkflowSessionAsync(id, _lifetime.Token) : await Planning.GetAsync(id, _lifetime.Token);
+                if (version == _viewVersion) _state = state;
+            }
+        }
+        finally { if (version == _viewVersion) _loading = false; }
     }
+    private static string SessionUrl(string id, bool workflow) => "/planning/" + Uri.EscapeDataString(id) + (workflow ? "?source=workflow" : "");
+    private void OpenTraces(string id, bool workflow) { _traceSessionId = id; _traceWorkflow = workflow; _tracesOpen = true; }
+    private void CloseTraces() => _tracesOpen = false;
     private async Task PollAsync()
     {
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
@@ -137,7 +183,7 @@
     }
     private async Task SubmitAsync(string kind, string? text = null, JsonObject? answers = null, PlanningGenerationOptions? generation = null)
     {
-        if (_state is null) return;
+        if (_state is null || IsWorkflowSession) return;
         _busy = true; _error = null;
         try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Answers = answers, Generation = generation }, _lifetime.Token); }
         catch (Exception ex) { _error = ex.Message; await RefreshAsync(); }

@@ -1,0 +1,2 @@
+.planning-trace-selector { display: block; padding: .75rem 1rem; }
+.planning-trace-selector select { display: block; max-width: 100%; margin-top: .4rem; padding: .4rem; color: var(--gnougo-text); background: var(--gnougo-surface); border: 1px solid var(--gnougo-border); }

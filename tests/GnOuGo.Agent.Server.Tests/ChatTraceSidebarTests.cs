@@ -111,8 +111,10 @@ public sealed class ChatTraceSidebarTests : BunitContext
             TraceId: traceId.ToHexString());
 
         var closed = false;
-        var cut = Render<ChatTraceSidebar>(parameters => parameters
-            .Add(p => p.Message, message)
+        var cut = Render<TraceSidebar>(parameters => parameters
+            .Add(p => p.ContextKey, message.MessageId)
+            .Add(p => p.CorrelationId, message.CorrelationId)
+            .Add(p => p.TraceId, message.TraceId)
             .Add(p => p.IsOpen, true)
             .Add(p => p.OnClose, EventCallback.Factory.Create(this, () => closed = true)));
 
@@ -143,7 +145,9 @@ public sealed class ChatTraceSidebarTests : BunitContext
         Assert.True(closed);
 
         cut.Render(parameters => parameters
-            .Add(p => p.Message, null)
+            .Add(p => p.ContextKey, null)
+            .Add(p => p.CorrelationId, null)
+            .Add(p => p.TraceId, null)
             .Add(p => p.IsOpen, false)
             .Add(p => p.OnClose, EventCallback.Factory.Create(this, () => closed = true)));
 
@@ -152,7 +156,7 @@ public sealed class ChatTraceSidebarTests : BunitContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains("Select a GnOuGo message", cut.Markup);
+            Assert.Contains("Select a trace", cut.Markup);
             Assert.DoesNotContain("Live logs for this answer", cut.Markup);
         });
     }

@@ -775,7 +775,9 @@
         </footer>
     </main>
 
-    <ChatTraceSidebar Message="_selectedTraceMessage"
+    <TraceSidebar ContextKey="@_selectedTraceMessage?.MessageId"
+                      CorrelationId="@_selectedTraceMessage?.CorrelationId"
+                      TraceId="@_selectedTraceMessage?.TraceId"
                       IsOpen="_traceSidebarOpen"
                       OnClose="CloseTraceSidebarAsync" />
 

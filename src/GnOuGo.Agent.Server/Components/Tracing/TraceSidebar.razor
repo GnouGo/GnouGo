@@ -9,10 +9,15 @@
     <header class="gnougo-trace-panel__header">
         <div>
             <div class="gnougo-trace-panel__eyebrow">OpenTelemetry / GenAI / RAG</div>
-            <h2 class="gnougo-trace-panel__title">Message Trace Debug</h2>
+            <h2 class="gnougo-trace-panel__title">@(PlanningSessionId is null ? "Message traces" : "Planning traces")</h2>
             <div class="gnougo-trace-panel__meta">
-                <span>Correlation: <code>@(Message?.CorrelationId ?? "n/a")</code></span>
-                <span>Trace: <code>@(_snapshot.TraceId ?? Message?.TraceId ?? "pending")</code></span>
+                @if (PlanningSessionId is not null)
+                {
+                    <span>Session: <code>@PlanningSessionId</code></span>
+                    <span>Origin: @(WorkflowSession ? "Chat" : "Designer")</span>
+                }
+                else { <span>Correlation: <code>@(CorrelationId ?? "n/a")</code></span> }
+                <span>Trace: <code>@(_snapshot.TraceId ?? TraceId ?? "pending")</code></span>
             </div>
         </div>
         <div class="gnougo-trace-panel__header-actions">
@@ -26,6 +31,17 @@
             <button class="gnougo-trace-panel__close" type="button" @onclick="HandleCloseAsync" aria-label="Close trace panel">x</button>
         </div>
     </header>
+    @if (PlanningSessionId is not null && _snapshot.AvailableTraces is { Count: > 1 } traces)
+    {
+        <label class="planning-trace-selector" for="planning-trace-select">Recorded execution
+            <select id="planning-trace-select" value="@(_selectedTraceId ?? _snapshot.TraceId)" @onchange="SelectTraceAsync">
+                @foreach (var trace in traces)
+                {
+                    <option value="@trace.TraceId">@trace.StartUtc.ToString("yyyy-MM-dd HH:mm:ss 'UTC'") — @trace.RootSpanName — @trace.TraceId</option>
+                }
+            </select>
+        </label>
+    }
     <nav class="gnougo-trace-panel__tabs" aria-label="Trace debug sections">
         <button class="gnougo-trace-panel__tab @GetTabClass(TracePanelTab.Traces)"
                 type="button"
@@ -45,12 +61,16 @@
         </button>
     </nav>
     <div class="gnougo-trace-panel__body">
-        @if (!IsOpen || Message is null)
+        @if (!IsOpen || !HasTarget)
         {
             <div class="gnougo-trace-panel__state">
-                <div class="gnougo-trace-panel__state-title">Select a GnOuGo message</div>
-                <div class="gnougo-trace-panel__state-text">Open a message trace to inspect the full RAG execution in real time.</div>
+                <div class="gnougo-trace-panel__state-title">Select a trace</div>
+                <div class="gnougo-trace-panel__state-text">Open a message or planning session to inspect its telemetry.</div>
             </div>
+        }
+        else if (_isLoading && _snapshot.Trace is null)
+        {
+            <div class="gnougo-trace-panel__state" role="status">Loading telemetry...</div>
         }
         else if (!_snapshot.Availability.Enabled)
         {
@@ -91,7 +111,7 @@
         {
             <ChatTraceTraces @key="GetPanelContentKey()"
                              Trace="_snapshot.Trace"
-                             CorrelationId="@Message.CorrelationId"
+                             CorrelationId="@CorrelationId"
                              SnapshotMessage="@_snapshot.Message"
                              SelectedSpanId="@_selectedSpanId"
                              SelectedSpanIdChanged="@OnSelectedSpanChanged"
@@ -100,7 +120,12 @@
     </div>
 </aside>
 @code {
-    [Parameter] public ChatMessageDto? Message { get; set; }
+    [Parameter] public string? ContextKey { get; set; }
+    [Parameter] public string? CorrelationId { get; set; }
+    [Parameter] public string? TraceId { get; set; }
+    [Parameter] public string? PlanningSessionId { get; set; }
+    [Parameter] public bool WorkflowSession { get; set; }
+    private bool HasTarget => ContextKey is not null || CorrelationId is not null || TraceId is not null || PlanningSessionId is not null;
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     private TraceDebugSnapshot _snapshot = new(
@@ -116,6 +141,7 @@
     private bool _isLoading;
     private string? _loadError;
     private string? _selectedSpanId;
+    private string? _selectedTraceId;
     private bool _renderFormatted = true;
     private bool _stickySpanSelection = true;
     private TracePanelTab _activeTab = TracePanelTab.Traces;
@@ -123,16 +149,18 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (!IsOpen || Message is null)
+        if (!IsOpen || !HasTarget)
         {
             StopRefreshLoop();
             _parameterKey = null;
             return;
         }
-        var nextKey = string.Join('|', Message.MessageId ?? string.Empty, Message.CorrelationId ?? string.Empty, Message.TraceId ?? string.Empty, IsOpen);
+        var nextKey = string.Join('|', ContextKey, CorrelationId, TraceId, PlanningSessionId, WorkflowSession, IsOpen);
         if (string.Equals(nextKey, _parameterKey, StringComparison.Ordinal))
             return;
         _parameterKey = nextKey;
+        _selectedTraceId = null;
+        _snapshot = EmptySnapshot();
         _selectedSpanId = null;
         _loadError = null;
         _activeTab = TracePanelTab.Traces;
@@ -155,9 +183,12 @@
         var ct = refreshCts.Token;
         try
         {
-            var correlationId = Message?.CorrelationId;
-            var traceId = Message?.TraceId;
-            await foreach (var snapshot in TraceDebug.StreamSnapshotsAsync(correlationId, traceId, ct))
+            var correlationId = CorrelationId;
+            var traceId = TraceId;
+            var snapshots = PlanningSessionId is { } session
+                ? TraceDebug.StreamPlanningSnapshotsAsync(session, WorkflowSession, _selectedTraceId, ct)
+                : TraceDebug.StreamSnapshotsAsync(correlationId, traceId, ct);
+            await foreach (var snapshot in snapshots)
             {
                 if (!IsRefreshActive(refreshCts))
                     break;
@@ -206,6 +237,21 @@
                 _refreshCts = null;
             refreshCts.Dispose();
         }
+    }
+
+    private static TraceDebugSnapshot EmptySnapshot() => new(new(true, "Loading telemetry."), null, null, null, [], false, "Loading telemetry.");
+
+    private Task SelectTraceAsync(ChangeEventArgs args)
+    {
+        _selectedTraceId = args.Value?.ToString();
+        _selectedSpanId = null;
+        _snapshot = EmptySnapshot();
+        _loadError = null;
+        StopRefreshLoop();
+        _refreshCts = new CancellationTokenSource();
+        _isLoading = true;
+        _ = RunRefreshLoopAsync(_refreshCts);
+        return Task.CompletedTask;
     }
 
     private void ApplySnapshot(TraceDebugSnapshot snapshot)

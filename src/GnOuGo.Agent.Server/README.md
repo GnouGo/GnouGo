@@ -14,6 +14,12 @@ This solution contains:
 
 Open `/planning` to create or revise a workflow. `/gnougo add`, reprompt and failure improvement open this durable designer. It displays progress, intent, graph, unresolved fields, findings, usage, scenarios and final review. Approving and saving requires the current revision and artifact hash. Runtime write confirmation remains a separate gate.
 
+The planning list includes **Designer** sessions and **Chat** sessions created by `workflow.plan`, including failed and stopped attempts. Select **Traces** in the list or session header to open the shared trace and log panel. Each recorded execution keeps its own trace identifier; use the timestamped selector when a session has several traces. The panel refreshes while open and stops refreshing when closed or when navigating to another session.
+
+Chat sessions open at `/planning/{sessionId}?source=workflow` as read-only diagnostics. Continue approvals, retries and execution in the originating chat workflow. Designer links retain `/planning/{sessionId}`. Opening either view never resumes planning or dispatches a model request. Sessions are read from their original encrypted, tenant-scoped stores; nothing is copied between stores or migrated.
+
+Trace lookup requires an exact planning-session attribute and the current tenant. It combines local capture with the embedded collector's retained records, so persisted traces remain inspectable after restart. Missing or expired telemetry is shown explicitly; lookup is bounded to 500 collector candidates and reports when that limit is reached. Trace availability is independent of model receipt retention. Only recorded usage is displayed in the trace panel; absent usage does not establish zero cost. Designer planning activities are captured locally even when OTLP export is disabled.
+
 `TypedWorkflowPlanning` configures `MaxRepairAttempts` (2), `MaxModelCalls` (8), `Reasoning` (`medium`), request token ceilings (12,000 input / 8,192 output), cumulative token/active-time limits and `DatabasePath`. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
 
 Schema-7 session payloads, model reservations/receipts and budgets use encrypted KeyVault records and tenant-scoped EF Core/SQLite indexes. The fresh default is `.GnOuGo/data/gnougo-planning-v7.db`; existing databases are untouched. Restart preserves resolved graphs and cumulative budgets. Completed calls replay without another charge; uncertain dispatches stop. Saving reconciles an already committed identical artifact.

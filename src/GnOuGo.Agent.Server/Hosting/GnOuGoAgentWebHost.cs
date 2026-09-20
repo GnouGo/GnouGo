@@ -509,6 +509,9 @@ public static class GnOuGoAgentWebHost
         ValidateLocalFallback(app.Services.GetRequiredService<LLMRuntimeOptionsStore>().Current);
 
         app.Services.InitializeOtlpCollectorAsync().GetAwaiter().GetResult();
+        // Planning can start before any chat resolves SmartFlowService. Capture its activities
+        // locally even when OTLP export is disabled.
+        _ = app.Services.GetRequiredService<AgentOTelTelemetry>();
 
         app.Lifetime.ApplicationStarted.Register(() => _ = InitializeMountedMcpServicesAsync(app));
 

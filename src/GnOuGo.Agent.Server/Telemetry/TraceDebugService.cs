@@ -90,14 +90,16 @@ public sealed class TraceDebugService
             {
                 ct.ThrowIfCancellationRequested();
                 var rows = await store.GetTraceSpansAsync(telemetryTenant, Convert.FromHexString(candidate.TraceId), ct).ConfigureAwait(false);
-                var spans = rows.Select(OtlpJson.SpanRecordToDto).Select(MapSpan).ToList();
+                var spans = rows.Select(OtlpJson.SpanRecordToDto).Select(MapSpan)
+                    .GroupBy(s => s.SpanId, StringComparer.Ordinal).Select(g => g.OrderByDescending(s => s.EndUtc).First()).ToList();
                 bool Owns(TraceSpanDto span) => span.Attributes.TryGetValue(attribute, out var value)
                     && string.Equals(value?.ToString(), sessionId, StringComparison.Ordinal)
                     && (!span.Attributes.TryGetValue("tenant.id", out var owner) ? telemetryTenant is not null || tenant == "default"
                         : string.Equals(owner?.ToString(), tenant, StringComparison.Ordinal));
                 if (!spans.Any(Owns) || spans.Any(s => s.Attributes.TryGetValue("tenant.id", out var owner) && owner?.ToString() != tenant)) continue;
-                if (!groups.ContainsKey(candidate.TraceId))
-                    groups[candidate.TraceId] = new(candidate.TraceId, spans.Min(s => s.StartUtc), spans.Max(s => s.EndUtc), spans);
+                if (groups.TryGetValue(candidate.TraceId, out var local))
+                    spans = local.Spans.Concat(spans).GroupBy(s => s.SpanId, StringComparer.Ordinal).Select(g => g.First()).ToList();
+                groups[candidate.TraceId] = new(candidate.TraceId, spans.Min(s => s.StartUtc), spans.Max(s => s.EndUtc), spans);
             }
             var selected = Select();
             if (selected is not null)
