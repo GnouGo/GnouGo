@@ -147,3 +147,28 @@ An incidental read-only diagnostic query found that telemetry date-range filteri
 an EF translation error. Unfiltered trace discovery and trace-by-ID inspection worked and
 provided the evidence above. This did not cause the planning failure and was not changed
 as part of the protocol correction.
+
+## Follow-up: Desktop restart and occupied telemetry ports
+
+Inspected source: `da769d4`. After the approved output-limit change, Desktop was reopened without launch arguments.
+Its startup log records empty arguments and a bind failure on `127.0.0.1:4317`.
+An older standalone Agent.Server process still owned 4317/4318; the isolated test Desktop
+was no longer running. Classification: **Desktop/host wiring — competing configured
+listeners**, unrelated to planner generation or model availability.
+
+The older host was left running. Desktop was relaunched on free telemetry ports 14317/14318,
+with matching OpenTelemetry and trace-debug URLs. It reused the same isolated databases,
+disabled planning background processing and explicit Chat Completions policy. A local
+`Launch GnOuGo E2E.command` launcher was created on the user's Desktop, resolved through
+`GnOuGoWorkspace`, to retain these arguments on subsequent launches. It contains no
+credentials, uses the existing Release binary and refuses to start if its telemetry ports
+are occupied. No production or planner code changed.
+
+Validation: launcher shell syntax and duplicate-launch rejection passed; native Photino page-loaded/client-ready callbacks
+arrived without browser fallback; the host health endpoint returned 200. Listener inspection
+confirmed that both hosts coexist on their separate ports. Agent-management read-back
+confirmed the approved 32,768 output-token limit, medium reasoning, 12,000 input-token limit,
+eight calls and unchanged workflow hash. Both failed sessions retained their revision,
+timestamps, request/receipt/budget hashes and call counts. No inference or GitHub write was
+issued by this startup correction. See the [Desktop README](../src/GnOuGo.Agent.Desktop/README.md)
+for reusable concurrent-host launch arguments.
