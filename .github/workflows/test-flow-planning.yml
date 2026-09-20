@@ -12,7 +12,6 @@ on:
       - '.github/workflows/test-flow-planning.yml'
       - 'GnOuGo.Agent.sln'
       - 'docs/workflow-planning-v2.md'
-      - 'docs/planner-codereview-convergence.md'
   workflow_dispatch:
 
 permissions:

@@ -15,11 +15,11 @@ The built-in KeyVault option uses the Agent host's configuration mapper without 
 
 JSONL output retains failures and reports first-pass validity, FinalReview, independent execution correctness, calls, repairs, verified input/output tokens, cost, initial request bytes (prompt plus response schema), estimated input tokens, scenarios and duration. The summary reports rates and cohort median/p75 calls. Nonzero exit means coverage or a cohort gate failed. `--case <name>` selects one frozen case. No generated YAML or model response is printed by the runner.
 
-Fixture rows leave token usage and cost unknown (`null`). Live rows report partial known cost separately when a missing receipt makes total usage unknown. Initial request measurements include the strict response schema. The [validation report](../../docs/planning-business-intent-validation-2026-09-19.md) distinguishes static request-size comparisons, fixture execution and incomplete live evaluation.
+Fixture rows leave token usage and cost unknown (`null`). Live rows report partial known cost separately when a missing receipt makes total usage unknown. Initial request measurements include the strict response schema. The [accepted reliability report](../../docs/planning-default-response-domains-2026-09-20.md) records the completed pilot and measured cohort. The [migration report](../../docs/planning-business-intent-validation-2026-09-19.md) retains earlier request-size comparisons and incomplete evaluation evidence.
 
 ## Independent candidate campaign
 
-Freeze the planner at `1f15bec` unless a classified live failure has a generic, reproducible cause. The runner defaults live evaluation to the seven candidate cases (all except `nullable_defaults`). `--cases` accepts a comma-separated selection without changing the frozen requests. Live evaluation requires a clean committed source tree.
+The architecture remains frozen from `1f15bec`, with targeted corrections through the accepted behavior revision `65dc34a`. Its 7/7 pilot and measured gates passed; do not seek replacement samples to erase its retained failure. The runner remains available for future regressions. The runner defaults live evaluation to the seven candidate cases (all except `nullable_defaults`). `--cases` accepts a comma-separated selection without changing the frozen requests. Live evaluation requires a clean committed source tree.
 
 ```bash
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
@@ -40,7 +40,7 @@ operation completed can race with successful completion and is not a reliable in
 
 Summary gates use all 21 measured runs on one revision: at least 19 reach FinalReview, at least 16 reach it within two calls, median calls at most two, zero safety violations and every approved artifact passing independent execution. Missing cases, mixed revisions or execution failures cannot pass. Pilot and measured statistics remain separate. Unknown usage is never zero; known partial tokens/cost are reported separately. Costs are metadata/FX estimates from provider usage, not invoices.
 
-The [independent candidate report](../../docs/planning-candidate-reliability-2026-09-19.md) records the failed initial pilot, targeted nested-input inference correction and subsequent provider stop. No measured reliability gate was established.
+The historical [independent candidate report](../../docs/planning-candidate-reliability-2026-09-19.md) records a failed initial pilot, targeted nested-input inference correction and subsequent provider stop. That campaign did not establish measured reliability. The later accepted cohort is documented separately; campaigns, revisions and costs must not be pooled into a success rate.
 
 ## Offline replay of recorded interpretation
 

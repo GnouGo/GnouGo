@@ -4,6 +4,8 @@
 
 The LLM understands the business request. The engine builds and authorizes executable workflows. There is one planning path and no compatibility mode.
 
+The architecture is frozen. The accepted behavior revision is `65dc34a`: the [live reliability evaluation](planning-default-response-domains-2026-09-20.md) passed the seven-case pilot and all measured gates, with 20/21 FinalReview, 18/21 within two physical calls, median one call, zero safety violations and 85/85 independent execution variants passing. This is evidence from one pinned model with mocked integrations, not a guarantee for arbitrary requests or real external execution. Later cleanup and documentation commits do not constitute another live evaluation.
+
 ## Three core files
 
 Start in `src/GnOuGo.Flow.Planning`:
@@ -34,6 +36,10 @@ Operations have logical identifiers, optional dependencies and business conditio
 Known input and output contracts come from capability schemas, native contracts and connected values. Static expression inference supports common literals, objects, arrays, arithmetic, comparisons, conditionals, member access and array mapping. An optional small type declaration describes only a new business value whose type cannot be derived. Unknown computations or conflicting types remain diagnostics; executing sample expressions never establishes a contract.
 
 The builder creates MCP request/result wrappers, structured model results, helper subflows and captures, fixed arguments, result projections, fallback envelopes and cleanup availability guards. Internal names occupy a reserved namespace. Omitted arguments, a `missing` value, explicit null and declared defaults remain distinct. Default execution stops on failure without retry. Intent cannot configure technical retries.
+
+New interpretation and correction schemas restrict input defaults to recursive literals, including subflow declarations. JSON `default: null` means absence; `default: {"kind":"null"}` is an explicit value and is excluded for declared non-nullable types. Inferred contracts and complete literal compatibility remain deterministic validation responsibilities. The engine never silently rewrites a default.
+
+Cleanup runs after main execution, including failure and cancellation. Its `after` dependencies express ordering, not successful completion or output availability. The builder derives availability guards from actual resource references; explicit conditions and permissions still apply. Cleanup cannot consume a resource whose acquisition failed or was skipped.
 
 Native workflow ports can retain an authoritative JSON `schema` when shorthand types cannot express its constraints. Validation, scenario sampling and runtime input/output checks preserve that schema, including defaults, patterns and numeric bounds. This is an engine-owned lowering detail, not a schema-copy task for the model.
 
@@ -75,6 +81,8 @@ Defaults are eight calls, two repair attempts per submitted intent and medium re
 
 Requests are reserved durably before dispatch. Completed receipts replay under their original response schemas without another charge. Uncertain dispatches stop without automatic resend. Agent.Server's explicit operator retry retains prior charges and conservatively accounts for unknown usage before reserving a new request; ordinary restart never invokes it. Saving reconciles an already committed identical artifact.
 
+Transport retries belong to AI.Core's shared HTTP layer, not the planner. It handles only transient failures within configured attempt/time limits, honoring `Retry-After` and caller cancellation. The benchmark explicitly supplies a durable HTTP journal for synchronous, side-effect-free generation: it may reserve conservative possible usage and retry one uncertain attempt under a new identity. This opt-in recovery does not apply to workflow effects or review publication, and it never replenishes session or campaign budgets. See the [retry contracts](../src/GnOuGo.AI.Core/README.md) and [benchmark recovery documentation](../tests/GnOuGo.Agent.Planning.Benchmark/README.md).
+
 ## Validation
 
 ```bash
@@ -86,4 +94,4 @@ dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark
 dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 -m:1 -warnaserror
 ```
 
-See the [benchmark runner](../tests/GnOuGo.Agent.Planning.Benchmark/README.md), [Native AOT smoke](../tests/GnOuGo.Flow.Planning.Smoke/README.md), and [current validation report](planning-business-intent-validation-2026-09-19.md). The [earlier live report](planning-live-validation-2026-09-18.md) is historical schema-6 evidence, not the current contract.
+See the [benchmark runner](../tests/GnOuGo.Agent.Planning.Benchmark/README.md), [Native AOT smoke](../tests/GnOuGo.Flow.Planning.Smoke/README.md), and [accepted reliability report](planning-default-response-domains-2026-09-20.md). The [business-intent migration report](planning-business-intent-validation-2026-09-19.md) and [earlier schema-6 live report](planning-live-validation-2026-09-18.md) retain historical evidence; they do not describe the final validation state.

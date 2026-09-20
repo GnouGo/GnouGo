@@ -4,6 +4,8 @@ A separately publishable planner depending only on Flow.Core.
 
 `Prompt → business intent → deterministic graph → validation → bounded correction → scenarios → approval`
 
+The architecture is frozen, with accepted behavior at `65dc34a`. The [reliability report](../../docs/planning-default-response-domains-2026-09-20.md) records a clean 7/7 pilot and 20/21 measured FinalReview, with zero safety violations. First-pass validity was 12/21; the integrations were mocked. See the [architecture](../../docs/workflow-planning-v2.md) for public boundaries and limitations.
+
 Start with `TypedWorkflowPlanner.cs`, `PlanningGraphBuilder.cs`, and `PlanningGraphCompiler.cs`. The model describes business operations. The builder owns executable nodes, capability bindings, schemas, result envelopes, internal subflows, ordering, and finalizer guards. The compiler only accepts valid, fully resolved graphs.
 
 Intent contains inputs, operations, outputs, optional named subflows and clarification questions. Its operation variants are `invoke`, `calculate`, `transform`, `choose`, `each`, `parallel`, `call`, and `cleanup`. Values address inputs, operation results and iteration values through business paths. Calculations use sandboxed expressions over named values. Authoritative JSON Schema constraints and defaults survive native port lowering, including inputs consumed only inside nested business blocks. Only new business values need type declarations; capability contracts remain catalog-owned. Omitted arguments, missing values, explicit null and defaults remain distinct. Fixtures belong to the session, not the interpretation response.
@@ -23,6 +25,8 @@ Cleanup runs after main execution, including failure and cancellation. Its `afte
 The graph remains executable authority. Validation checks capability identity, declared schemas, bindings, conditional availability, dependencies, expressions, artifact contracts and host policy. Protected effects require a host-generated runtime confirmation gate, including subflows and cleanup. Human approval of the final artifact is a separate gate. Saving and execution require trusted stored approval and current contracts.
 
 Hosts inject `IPlanningRuntime`. Schema-7 sessions retain cumulative budgets, one durable pending request, completion receipts, scenarios and approval. Earlier formats are rejected. Agent.Server uses new encrypted record namespaces and a new planning database; existing databases are untouched. Reserved requests replay under their original response schemas. Uncertain dispatches stop without automatic resend.
+
+Provider transport retries are owned by the shared HTTP layer. The benchmark can opt into durable, conservatively accounted recovery for one uncertain side-effect-free model attempt under a new identity. This is separate from planner repair and does not authorize retrying workflow effects or publication.
 
 Revision import projects supported saved workflows into business intent and rejects unrepresentable executor configuration explicitly. No raw graph escape hatch is exposed to the model.
 
