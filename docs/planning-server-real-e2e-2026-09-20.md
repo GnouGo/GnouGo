@@ -1,5 +1,9 @@
 # Real Server PR-review validation — 2026-09-20
 
+Follow-up: the authorized [64,000-token retry](planning-server-64k-retry-2026-09-20.md)
+passed repair preflight, then stopped on an unreceipted provider HTTP 500. The
+results below remain the historical 12,000-token attempt.
+
 ## Outcome
 
 **The real end-to-end objective remains blocked at planning.** The Server chat
