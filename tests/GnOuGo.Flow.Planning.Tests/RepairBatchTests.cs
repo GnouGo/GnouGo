@@ -328,4 +328,15 @@ public sealed class RepairBatchTests
         Assert.All(PlanningCorrections.Batch(state), target => Assert.Equal("value", target.Shape));
         Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
     }
+
+    [Fact]
+    public async Task FallbackCorrectionIncludesItsAuthoritativeResultContractWithoutAConsumer()
+    {
+        var (state, _) = await InvalidInvocations(1);
+        var operation = (InvokeIntentOperation)state.IntentPlan!.Operations[0];
+        operation.Fallback = new() { Kind = "string", Text = "invalid result" };
+        state.Diagnostics = [new("FALLBACK_INVALID", "/operations/0/fallback", "Expected the declared result object.", ValidationStage: "intent")];
+        var context = Context(new() { Prompt = PlanningCorrections.Prompt(state, PlanningCorrections.Batch(state)) });
+        Assert.True(JsonNode.DeepEquals(state.Catalog!.Capabilities[0].OutputSchema, Assert.Single(context["contracts"]!.AsArray())!["result"]));
+    }
 }

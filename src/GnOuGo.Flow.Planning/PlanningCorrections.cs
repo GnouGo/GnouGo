@@ -240,8 +240,14 @@ internal static class PlanningCorrections
             var capability = state.Catalog!.Capabilities.FirstOrDefault(c => c.Id == invoke.Capability);
             if (capability is not null)
             {
-                if (!contracts.Any(c => c!["id"]!.ToString() == capability.Id)) contracts.Add((JsonNode)new JsonObject {
-                    ["id"] = capability.Id, ["arguments"] = PlanningCapabilityCards.EditableArguments(capability) });
+                var contract = contracts.FirstOrDefault(c => c!["id"]!.ToString() == capability.Id)?.AsObject();
+                if (contract is null)
+                {
+                    contract = new() { ["id"] = capability.Id, ["arguments"] = PlanningCapabilityCards.EditableArguments(capability) };
+                    contracts.Add((JsonNode)contract);
+                }
+                if (invoke.Fallback is not null && targets.Any(t => Within(item.Path + "/fallback", t.Path) || Within(t.Path, item.Path + "/fallback")))
+                    contract["result"] = capability.OutputSchema.DeepClone();
             }
             else
             {
