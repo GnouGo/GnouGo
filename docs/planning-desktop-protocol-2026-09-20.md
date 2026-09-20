@@ -1,5 +1,10 @@
 # Desktop planning protocol diagnosis — 2026-09-20
 
+Follow-up: a fresh Desktop request received HTTP 200 through Chat Completions, confirming
+the route correction. It exhausted its output allowance before returning JSON; see the
+[output-limit diagnosis](planning-desktop-output-limit-2026-09-20.md). The original attempt
+and its unknown usage below are unchanged.
+
 ## Result and scope
 
 The native Desktop test reached `workflow.plan`, discovered 129 capabilities, and stopped

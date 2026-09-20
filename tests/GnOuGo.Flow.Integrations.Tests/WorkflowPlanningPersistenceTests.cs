@@ -48,6 +48,34 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
     }
 
     [Fact]
+    public async Task ReasoningOnlyOutputLimitReplaysItsReceiptAndUsageWithoutAnotherDispatch()
+    {
+        var client = new Client { Truncate = true }; LLMRequest request;
+        await using (var session = await Factory().OpenAsync(Context(client), Initial(), Ct))
+        {
+            request = Request(session.Session, "one");
+            session.Session.PendingCall = new() { Id = request.ClientRequestId!, Purpose = "intent", Request = request };
+            await session.Runtime.CheckpointAsync(session.Session, Ct);
+            var response = await session.Runtime.CallAsync(request, "intent", Ct);
+            Assert.Equal("output_limit", response.CompletionStatus);
+            Assert.Empty(response.Text); Assert.Null(response.Json);
+            Assert.Equal(8192, response.Usage!["completion_tokens_details"]!["reasoning_tokens"]!.GetValue<int>());
+        }
+        await using (var reopened = await Factory().OpenAsync(Context(client), Initial(), Ct))
+        {
+            Assert.Equal(request.ClientRequestId, reopened.Session.PendingCall!.Id);
+            Assert.True(JsonNode.DeepEquals(request.StructuredOutputSchema, reopened.Session.PendingCall.Request.StructuredOutputSchema));
+            var replay = await reopened.Runtime.CallAsync(request, "intent", Ct);
+            Assert.Equal("output_limit", replay.CompletionStatus); Assert.Empty(replay.Text); Assert.Null(replay.Json);
+            Assert.Equal(1, reopened.Session.Usage!.Calls);
+            Assert.Equal(12, reopened.Session.Usage.InputTokens);
+            Assert.Equal(8192, reopened.Session.Usage.OutputTokens);
+            Assert.Equal(8204, reopened.Session.Usage.TotalTokens);
+        }
+        Assert.Equal(1, client.Calls); Assert.Equal(8192, Assert.Single(client.Ceilings));
+    }
+
+    [Fact]
     public async Task UnverifiableDispatchStopsAcrossRestartAndRetainsItsBudget()
     {
         var client = new Client { Fail = true }; LLMRequest request;
@@ -140,7 +168,9 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
             Interlocked.Increment(ref _calls);
             lock (Ceilings) Ceilings.Add(request.MaxTokens);
             if (Fail) throw new IOException("interrupted");
-            return Task.FromResult(new LLMResponse { CompletionStatus = Truncate ? "output_limit" : "completed", Json = new JsonObject { ["value"] = "secret result" }, Usage = new JsonObject { ["total_tokens"] = 5 } });
+            return Task.FromResult(Truncate
+                ? new LLMResponse { CompletionStatus = "output_limit", Text = "", Usage = JsonNode.Parse("""{"prompt_tokens":12,"completion_tokens":8192,"completion_tokens_details":{"reasoning_tokens":8192},"total_tokens":8204}""") }
+                : new LLMResponse { CompletionStatus = "completed", Json = new JsonObject { ["value"] = "secret result" }, Usage = new JsonObject { ["total_tokens"] = 5 } });
         }
     }
     public void Dispose() { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); }

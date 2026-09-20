@@ -625,6 +625,14 @@ status before revising a workflow or changing models. A stopped request without 
 receipt still has unknown usage. Changing configuration does not authorize replaying that
 request identity or reset its accounting.
 
+A provider's completion-token limit can include reasoning tokens as well as returned JSON.
+An `output_limit` receipt with empty text can therefore reflect exhausted reasoning allowance,
+not an oversized plan. Check the stored usage and original request ceiling. The generic
+bootstrap sets `generator.max_output_tokens: 8192`; the accepted live benchmark explicitly
+used 32768. An agreed change to that setting applies to a new request, preserves medium
+reasoning and the call/repair budgets, and does not change earlier reservations or receipts.
+The planner never raises the ceiling or retries a truncated response automatically.
+
 Transport retries are owned by [AI.Core](../GnOuGo.AI.Core/README.md#http-resilience).
 The optional `retryPolicy` object in a KeyVault provider configuration controls `maxAttempts`,
 `maxUncertainRetries` and `attemptTimeoutMilliseconds`, plus bounded backoff settings.

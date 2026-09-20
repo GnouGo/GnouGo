@@ -5,6 +5,38 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class IntentPlanningTests
 {
     [Fact]
+    public async Task ReasoningOnlyOutputLimitStopsWithoutRepairOrAutomaticEscalation()
+    {
+        var runtime = new TestRuntime { Respond = _ => new()
+        {
+            CompletionStatus = "output_limit", Text = "",
+            Usage = JsonNode.Parse("""{"prompt_tokens":12,"completion_tokens":8192,"completion_tokens_details":{"reasoning_tokens":8192},"total_tokens":8204}""")
+        } };
+        var state = await PlannerFixture.RunAsync(runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Equal("MODEL_OUTPUT_LIMIT", Assert.Single(state.Diagnostics).Code);
+        Assert.Equal(8192, Assert.Single(runtime.Calls).MaxTokens);
+        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.RepairAttempts);
+        Assert.Null(state.IntentPlan); Assert.Null(state.Graph); Assert.Null(state.Yaml); Assert.Null(state.PendingCall);
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Single(runtime.Calls);
+    }
+
+    [Theory]
+    [InlineData(8192)]
+    [InlineData(32768)]
+    public async Task ExplicitOutputCeilingIsPreservedDuringInterpretation(int ceiling)
+    {
+        var runtime = new TestRuntime(); var state = PlannerFixture.Session();
+        state.Request.Generation.MaxOutputTokens = ceiling;
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        var request = Assert.Single(runtime.Calls);
+        Assert.Equal(ceiling, request.MaxTokens); Assert.Equal("medium", request.Reasoning);
+        Assert.True(request.RequireOutputTokenLimit); Assert.Equal(0, state.RepairAttempts);
+    }
+
+    [Fact]
     public async Task PendingInterpretationKeepsItsPhaseAfterProviderFailure()
     {
         var runtime = new TestRuntime { Respond = _ => throw new IOException("Provider unavailable") };
