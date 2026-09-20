@@ -1642,13 +1642,7 @@ on_error:
 | `LLM_BUDGET_UNVERIFIABLE` | No | Usage, pricing, or a configured durable ledger could not verify an active budget safely |
 | `MCP_CONNECTION_ERROR` | Yes | Cannot connect to MCP server |
 | `MCP_TOOL_ERROR` | No | MCP tool returned an error |
-| `CAPABILITY_PREFLIGHT_UNAVAILABLE` | No | A required operation has no exact available capability |
-| `CAPABILITY_PREFLIGHT_DISCOVERY_FAILED` | No | A required catalog could not be discovered reliably |
-| `CAPABILITY_PREFLIGHT_INFERENCE_FAILED` | No | Capability inventory inference was invalid or incomplete |
-| `CAPABILITY_PREFLIGHT_REDUNDANT_ARTIFACT_PRODUCER` | No | The workflow contains an artifact materializer that was not locked by capability preflight |
-| `WORKFLOW_PLAN_REPAIR_STALLED` | No | The same diagnostics survived two repair attempts |
 | `TEMPLATE_PLAN` | No | Typed planning stopped before approval |
-| `TEMPLATE_POLICY` | No | Generated workflow violates policy constraints |
 | `HUMAN_INPUT_TIMEOUT` | No | User didn't respond within `timeout_ms` |
 | `NO_HITL_PROVIDER` | No | No human input provider configured |
 

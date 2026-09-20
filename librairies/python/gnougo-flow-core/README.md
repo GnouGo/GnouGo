@@ -1456,12 +1456,7 @@ on_error:
 | `MCP_CONNECTION_ERROR` | Yes | Cannot connect to MCP server |
 | `MCP_CALL_ERROR` / `MCP_PROMPT_ERROR` | Depends | MCP tool/prompt failure or transport cancellation |
 | `MCP_TIMEOUT` | Yes | Configured MCP call timeout elapsed |
-| `TEMPLATE_POLICY` | No | Generated workflow violates policy constraints |
-| `CAPABILITY_PREFLIGHT_UNAVAILABLE` | No | A required locked capability cannot be resolved or represented |
-| `CAPABILITY_PREFLIGHT_DISCOVERY_FAILED` | No | Capability catalog discovery failed closed |
-| `CAPABILITY_PREFLIGHT_INFERENCE_FAILED` | No | Inventory, matching, selector, or catalog safety validation failed |
-| `CAPABILITY_PREFLIGHT_REDUNDANT_ARTIFACT_PRODUCER` | No | Locked operations would redundantly produce the same consumed artifact |
-| `WORKFLOW_PLAN_REPAIR_STALLED` | No | Two repair attempts repeated the same normalized diagnostics |
+| `TEMPLATE_PLAN` | No | Workflow routing or isolated dry-run validation failed |
 | `WORKFLOW_FINALIZATION_FAILED` | Depends | Cleanup failed after otherwise successful execution |
 | `WORKFLOW_FINALIZATION_TIMEOUT` | Yes | Cleanup exceeded its independent timeout; attached as finalization detail |
 | `HUMAN_INPUT_TIMEOUT` | No | User didn't respond within `timeout_ms` |
