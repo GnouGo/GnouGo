@@ -255,7 +255,10 @@ internal static class PlanningCorrections
                 var query = invoke.Purpose + " " + string.Join(" ", invoke.Arguments.Select(a => a.Name)) + " " +
                     string.Join(" ", IntentTraversal.Values([invoke]).Select(v => v.Source + " " + string.Join(" ", v.Path)));
                 alternatives.Add((JsonNode)new JsonObject { ["path"] = item.Path, ["advisory"] = true,
-                    ["capabilities"] = new JsonArray(PlanningCapabilityCards.Rank(state.Catalog.Capabilities, query).Take(4).Select(c => (JsonNode)PlanningCapabilityCards.Card(c)).ToArray()) });
+                    // A rejected tool name is useful retrieval evidence, never an executable alias.
+                    ["capabilities"] = new JsonArray(PlanningCapabilityCards.Rank(state.Catalog.Capabilities, query)
+                        .OrderByDescending(c => !string.IsNullOrWhiteSpace(invoke.Capability) && c.Method == invoke.Capability)
+                        .Take(4).Select(c => (JsonNode)PlanningCapabilityCards.Card(c)).ToArray()) });
             }
         }
         return "Correct only the issued business intent targets. Return changes with target IDs and typed replacements. Do not return a complete intent. " +

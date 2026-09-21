@@ -110,6 +110,40 @@ public sealed class RepairBatchTests
     }
 
     [Fact]
+    public async Task UnissuedToolNameKeepsItsAllowedMatchesInRepairAdviceWithoutResolvingIt()
+    {
+        var runtime = new TestRuntime(mcp: BusinessCorrectionTests.Factory(6, """{"count":{"type":"number"}}""", ["count"]));
+        var state = PlannerFixture.Session(); state.Catalog = await runtime.DiscoverAsync(state.Request, Ct); state.ModelCalls = 1;
+        var expected = state.Catalog.Capabilities.Last();
+        foreach (var capability in state.Catalog.Capabilities.Where(c => c != expected))
+            capability.Description = "Read recent laboratory sensor temperature measurements with count and provenance.";
+        var invoke = new InvokeIntentOperation { Id = "observe", Purpose = "Read recent laboratory sensor temperature measurements with count and provenance.",
+            Capability = expected.Method, Arguments = [new("count", new() { Kind = "string", Text = "invalid" })] };
+        state.IntentPlan = new() { Operations = [invoke] };
+        state.Graph = PlanningGraphBuilder.Build(state.IntentPlan, state.Catalog);
+        state.Diagnostics = PlanningExecutableValidation.Validate(state.Graph, state.Catalog).ToList();
+        Assert.Contains(state.Diagnostics, d => d.Code == "CAPABILITY_UNKNOWN");
+        var targets = PlanningCorrections.Batch(state);
+        var context = Context(new() { Prompt = PlanningCorrections.Prompt(state, targets) });
+        var advice = Assert.Single(context["alternatives"]!.AsArray())!["capabilities"]!.AsArray();
+        Assert.Equal(expected.Id, advice[0]!["id"]!.ToString());
+        Assert.Equal(4, advice.Count);
+        Assert.Equal(expected.Method, invoke.Capability);
+        Assert.Contains(PlanningExecutableValidation.Validate(state.Graph, state.Catalog), d => d.Code == "CAPABILITY_UNKNOWN");
+        Assert.Empty(runtime.Calls);
+        runtime.Respond = _ => new() { Json = new JsonObject { ["changes"] = new JsonArray(new JsonObject {
+            ["target"] = Assert.Single(targets).Id,
+            ["replacement"] = PlanningJsonTransport.Intent(new() { Operations = [new InvokeIntentOperation { Id = "observe", Capability = expected.Id,
+                Arguments = [new("count", new() { Kind = "number", Number = 3 })] }] })["operations"]![0]!.DeepClone()
+        }) } };
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.Single(runtime.Calls);
+        Assert.Equal(1, state.RepairAttempts);
+        Assert.Null(state.ApprovedHash);
+    }
+
+    [Fact]
     public async Task ReservedLargeBatchReplaysItsExactSchemaTargetsAndOutputCeiling()
     {
         var (state, runtime) = await InvalidInvocations(4); var targets = PlanningCorrections.Targets(state);
