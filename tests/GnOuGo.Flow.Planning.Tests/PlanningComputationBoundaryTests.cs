@@ -6,6 +6,14 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class PlanningComputationBoundaryTests
 {
+    [Fact]
+    public void CallbackCollectionKeepsItsItemContractAndExtraArgumentsStayOpaque()
+    {
+        var args = new Dictionary<string, JsonObject> { ["rows"] = JsonNode.Parse("""{"type":"array","items":{"type":"object","properties":{"label":{"type":"string"}},"required":["label"],"additionalProperties":false}}""")!.AsObject() };
+        PlanningComputationContracts.Validate("rows.map((row, index, source) => source[index].label)", args);
+        Assert.Throws<InvalidOperationException>(() => PlanningComputationContracts.Validate("rows.map((row, index, source) => source[index].invented)", args));
+        Assert.Throws<InvalidOperationException>(() => PlanningComputationContracts.Validate("rows.map((row, index, source, absent) => absent.invented)", args));
+    }
     private static GroundedPlan Calculation(string text) => new()
     {
         Inputs = [new("quantity", new() { Type = "number" }, false, new() { Kind = "number", Number = 4 })],
@@ -49,6 +57,17 @@ public sealed class PlanningComputationBoundaryTests
         Assert.Equal(3, runtime.Calls.Count);
         Assert.Equal(1, state.ReplanAttempts);
         Assert.Null(state.ApprovedHash);
+    }
+
+    [Fact]
+    public async Task HostContractDisagreementStopsBeforeFixtureCallsOrReplanning()
+    {
+        var runtime = new TestRuntime { Validation = [new("STEP_REFERENCE_NOT_AVAILABLE", "workflow:main/field:outputs.message", "Injected disagreement with validated lowering.")] };
+        var state = await PlannerFixture.RunAsync(runtime);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Equal(2, runtime.Calls.Count); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_HOST_CONTRACT");
+        Assert.Null(state.Yaml); Assert.Empty(state.Scenarios);
     }
 
     [Fact]

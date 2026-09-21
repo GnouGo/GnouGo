@@ -119,7 +119,7 @@ public static class WorkflowPlanSemanticValidator
             var functionDefinitions = BuildFunctionDefinitions(workflow.Functions, $"workflows.{workflowName}.functions", globalFunctionDefinitions);
             ValidateLoopResultsFunctionCalls(allSteps, workflowName, functionDefinitions, errors);
             ValidateStepList(
-                allSteps,
+                workflow.Steps,
                 workflowName,
                 document.Workflows,
                 workflow.Inputs,
@@ -132,6 +132,21 @@ public static class WorkflowPlanSemanticValidator
                 mcpContracts,
                 stepContracts,
                 errors);
+
+            // Outputs are evaluated only after successful main execution and successful finalization.
+            // Failure-path guards remain in the executable workflow; their truth here needs a proof.
+            var guaranteed = workflow.Steps.Where(s => string.IsNullOrWhiteSpace(s.If) &&
+                !(s.OnError?.Cases.Any(c => c.Action == "continue") ?? false) &&
+                symbols.TryGetStepOutput(s.Id, out var output) && output.Kind == FlowTypeKind.Object)
+                .Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
+            foreach (var finalizer in workflow.Finally)
+            {
+                var proven = WorkflowResultAvailability.GuardHolds(finalizer.If, guaranteed);
+                ValidateStep(finalizer, workflowName, document.Workflows, workflow.Inputs, knownContracts, symbols, allStepIds,
+                    allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors, proven);
+                if ((proven || string.IsNullOrWhiteSpace(finalizer.If)) && !(finalizer.OnError?.Cases.Any(c => c.Action == "continue") ?? false) &&
+                    symbols.TryGetStepOutput(finalizer.Id, out var output) && output.Kind == FlowTypeKind.Object) guaranteed.Add(finalizer.Id);
+            }
 
             if (workflow.Outputs != null)
             {
@@ -882,7 +897,8 @@ public static class WorkflowPlanSemanticValidator
         IReadOnlySet<string> knownEmptyStringReferences,
         Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
         IReadOnlyDictionary<string, StepContract> stepContracts,
-        List<WorkflowSemanticValidationError> errors)
+        List<WorkflowSemanticValidationError> errors,
+        bool conditionProven = false)
     {
         ValidateString(step.If, workflowName, step.Id, "if", symbols, allowedFunctionNames, errors);
         ValidateString(step.Expr, workflowName, step.Id, "expr", symbols, allowedFunctionNames, errors);
@@ -926,7 +942,7 @@ public static class WorkflowPlanSemanticValidator
             step.Id,
             errors);
 
-        var stepIsConditional = !string.IsNullOrWhiteSpace(step.If);
+        var stepIsConditional = !conditionProven && !string.IsNullOrWhiteSpace(step.If);
         FlowTypeDescriptor? resolvedStepOutputType = null;
 
         if (step.OnError != null)

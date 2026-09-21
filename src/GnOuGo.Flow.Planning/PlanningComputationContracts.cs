@@ -85,7 +85,8 @@ internal static class PlanningComputationContracts
             Walk(collection, scope, messages);
             var local = new Dictionary<string, JsonObject>(scope, StringComparer.Ordinal);
             for (var i = 0; i < callback.Params.Count; i++)
-                if (callback.Params[i] is Identifier parameter) local[parameter.Name] = i == 0 ? item : new() { ["type"] = "integer" };
+                if (callback.Params[i] is Identifier parameter) local[parameter.Name] = i switch
+                { 0 => item, 1 => new() { ["type"] = "integer" }, 2 => Schema(collection.Object, scope)!, _ => GroundedTypes.Opaque() };
             Walk(callback.Body, local, messages); return;
         }
         if (node is MemberExpression { Computed: true } dynamicMember && Name(dynamicMember) is null && Schema(dynamicMember.Object, scope) is { } dynamicOwner &&

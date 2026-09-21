@@ -17,12 +17,21 @@ internal static class PlanningValidationPipeline
     {
         var graph = state.Graph!; var catalog = state.Catalog!;
         PlanningConfirmationGuards.Apply(graph, catalog);
-        state.Diagnostics = PlanningExecutableValidation.Validate(graph, catalog).Concat(FixtureShape(state)).Concat(PlanningFixtureSamples.Validate(state)).ToList();
+        state.Diagnostics = PlanningExecutableValidation.Validate(graph, catalog).ToList();
         if (state.Diagnostics.Any(d => d.Required)) return;
         string yaml;
         try { yaml = new PlanningGraphCompiler().Compile(graph, catalog, state.Request.Name); }
         catch (WorkflowCompilationException ex) { state.Diagnostics.AddRange(PlanningExecutableValidation.CompilerErrors(ex, graph)); return; }
         state.Diagnostics.AddRange((await runtime.ValidateAsync(new(yaml, state.Request, catalog, PlanningGraphCompiler.CapabilityBindings(graph)), ct)).Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph)));
+        if (state.Diagnostics.Any(d => d.Required))
+        {
+            // A validated grounded plan and validated lowering must agree with the host compiler/contracts.
+            // A disagreement is a host boundary defect, not a reason to spend model calls editing business intent.
+            state.Diagnostics = state.Diagnostics.Select(d => d.Required ? d with { Code = "PLANNING_HOST_CONTRACT", Message = d.Code + ": " + d.Message } : d).ToList();
+            state.Status = PlanningStatus.Stopped; state.Yaml = null; state.ApprovedHash = null; return;
+        }
+        state.Diagnostics.AddRange(FixtureShape(state));
+        state.Diagnostics.AddRange(PlanningFixtureSamples.Validate(state));
         if (state.Diagnostics.Any(d => d.Required)) return;
         var fixtures = state.Fixtures;
         var inputs = fixtures?.Inputs ?? PlanningFixtureSamples.Domains(state).FirstOrDefault(d => d.Path == "/fixtures/inputs").Sample as JsonObject;

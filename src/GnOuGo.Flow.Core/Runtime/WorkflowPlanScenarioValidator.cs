@@ -42,7 +42,17 @@ public static class WorkflowPlanScenarioValidator
                 if (step.If is not null)
                 {
                     definitions.Add(new($"guard:true:{workflowName}:{step.Id}", workflowName, step.Id, "guard_true"));
-                    definitions.Add(new($"guard:false:{workflowName}:{step.Id}", workflowName, step.Id, "guard_false"));
+                    var required = WorkflowResultAvailability.RequiredResults(step.If);
+                    var guaranteed = workflow.Steps.Where(s => s.If is null && !(s.OnError?.Cases.Any(c => c.Action == "continue") ?? false) &&
+                        (s.Type is "mcp.call" or "llm.call" or "workflow.call" || s.Type == "set" && s.Input is JsonObject)).Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
+                    if (workflow.Finally.Contains(step) && required.Count > 0 && required.All(guaranteed.Contains))
+                    {
+                        // Make availability false by failing each actual producer. Overriding the guard alone
+                        // would create an impossible successful state and invalidate guaranteed workflow outputs.
+                        foreach (var source in required.Order(StringComparer.Ordinal))
+                            definitions.Add(new($"guard:unavailable:{workflowName}:{step.Id}:{source}", workflowName, source, "failure", UnavailableGuard: step.Id));
+                    }
+                    else definitions.Add(new($"guard:false:{workflowName}:{step.Id}", workflowName, step.Id, "guard_false"));
                 }
                 if (step.Type is "mcp.call" or "llm.call" && Enumerate(workflow.Steps).Contains(step))
                 {
@@ -88,6 +98,11 @@ public static class WorkflowPlanScenarioValidator
             var observed = new System.Collections.Concurrent.ConcurrentDictionary<string, int>(StringComparer.Ordinal);
             engine.Registry.Register(new FailureExecutor(new McpCallExecutor(), scenario, cancellation, fault, observations, observed, telemetry));
             engine.Registry.Register(new FailureExecutor(new LlmCallExecutor(), scenario, cancellation, fault, observations, observed, telemetry));
+            if (scenario.UnavailableGuard is not null)
+            {
+                engine.Registry.Register(new FailureExecutor(new SetExecutor(), scenario, cancellation, fault, observations, observed, telemetry));
+                engine.Registry.Register(new FailureExecutor(new WorkflowCallExecutor(), scenario, cancellation, fault, observations, observed, telemetry));
+            }
             var diagnostics = new List<PlanningDiagnostic>();
             string outcome;
             try
@@ -119,6 +134,10 @@ public static class WorkflowPlanScenarioValidator
                     expectedFailure = !run.Success && !external.Any(k => telemetry.Statuses.TryGetValue(k, out var status) && status != StepStatus.Skipped);
                     if (!expectedFailure) diagnostics.Add(new("CONFIRMATION_BYPASSED", "$", "Denied or unavailable confirmation did not prevent external execution."));
                 }
+                if (scenario.UnavailableGuard is not null && (!fault.Injected ||
+                    !telemetry.Statuses.TryGetValue(scenario.Workflow + ":" + scenario.UnavailableGuard, out var availabilityStatus) || availabilityStatus != StepStatus.Skipped))
+                    diagnostics.Add(new("FINALIZATION_AVAILABILITY_INVALID", "workflow:" + scenario.Workflow + "/step:" + scenario.UnavailableGuard,
+                        "The finalizer must remain skipped when a required acquisition fails."));
                 outcome = reached && (run.Success || expectedFailure) ? "passed" : "inconclusive";
                 if (diagnostics.Count != 0) outcome = "inconclusive";
                 if (!reached) diagnostics.Add(new("SCENARIO_UNREACHED", "workflow:" + scenario.Workflow + "/step:" + scenario.Step, "The synthetic input did not reach this required scenario."));
@@ -174,7 +193,7 @@ public static class WorkflowPlanScenarioValidator
         }
     }
 
-    private sealed record Scenario(string Id, string? Workflow, string? Step, string Kind, int CaseIndex = -1);
+    private sealed record Scenario(string Id, string? Workflow, string? Step, string Kind, int CaseIndex = -1, string? UnavailableGuard = null);
     private sealed class Injection { public bool Injected { get; set; } }
     private sealed class FailureExecutor(IStepExecutor inner, Scenario scenario, CancellationTokenSource cancellation, Injection fault, JsonObject? observations, System.Collections.Concurrent.ConcurrentDictionary<string, int> observed, CoverageTelemetry telemetry) : IStepExecutor
     {

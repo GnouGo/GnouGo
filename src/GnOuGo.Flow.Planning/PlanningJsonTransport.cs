@@ -39,7 +39,56 @@ internal static class PlanningJsonTransport
             foreach (var key in new[] { "allOf", "anyOf", "oneOf", "prefixItems" })
                 if (current[key] is JsonArray children) foreach (var child in children.OfType<JsonObject>()) Visit(child);
         }
-        Visit(result); return result;
+        Visit(result);
+        // Keep every assertion while factoring repeated schema subtrees into ordinary local references.
+        // Existing reference scopes are left intact; literal defaults/consts are never traversed as schemas.
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var hasReferences = false;
+        void Count(JsonObject node)
+        {
+            if (node.ContainsKey("$ref") || node.ContainsKey("$id") || node.ContainsKey("$defs") || node.ContainsKey("definitions")) hasReferences = true;
+            var key = Prompt(node); if (key.Length >= 192) counts[key] = counts.GetValueOrDefault(key) + 1;
+            foreach (var child in Children(node)) Count(child);
+        }
+        Count(result);
+        if (hasReferences) return result;
+        var definitions = new JsonObject(); var names = new Dictionary<string, string>(StringComparer.Ordinal);
+        JsonObject Factor(JsonObject node, bool root = false)
+        {
+            var key = Prompt(node);
+            if (!root && counts.GetValueOrDefault(key) > 1)
+            {
+                if (!names.TryGetValue(key, out var name))
+                {
+                    name = "contract_" + names.Count; names.Add(key, name);
+                    definitions[name] = Factor(node.DeepClone().AsObject(), root: true);
+                }
+                return new() { ["$ref"] = "#/$defs/" + name };
+            }
+            foreach (var child in Children(node).ToArray())
+            {
+                var replacement = Factor(child);
+                if (!ReferenceEquals(child, replacement))
+                {
+                    if (child.Parent is JsonObject parent) parent[parent.Single(p => ReferenceEquals(p.Value, child)).Key] = replacement;
+                    else if (child.Parent is JsonArray array) array[array.IndexOf(child)] = replacement;
+                }
+            }
+            return node;
+        }
+        result = Factor(result, root: true);
+        if (definitions.Count > 0) result["$defs"] = definitions;
+        return result;
+
+        static IEnumerable<JsonObject> Children(JsonObject node)
+        {
+            foreach (var map in new[] { "properties", "patternProperties", "dependentSchemas" })
+                if (node[map] is JsonObject children) foreach (var child in children.Select(p => p.Value).OfType<JsonObject>()) yield return child;
+            foreach (var key in new[] { "items", "additionalProperties", "contains", "not", "if", "then", "else", "propertyNames", "unevaluatedProperties", "unevaluatedItems" })
+                if (node[key] is JsonObject child) yield return child;
+            foreach (var key in new[] { "allOf", "anyOf", "oneOf", "prefixItems" })
+                if (node[key] is JsonArray children) foreach (var child in children.OfType<JsonObject>()) yield return child;
+        }
     }
     internal static JsonNode ModelGrounded(JsonNode json, JsonNode schema, bool unpack = false)
     {

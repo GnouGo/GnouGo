@@ -7,6 +7,8 @@ internal static class SemanticReplanning
 {
     internal static async Task ApplyAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
+        var previousPlan = state.SemanticPlan;
+        var previousGrounding = state.Grounding;
         if (state.SemanticPlan is null)
         {
             var regenerated = await PlanningModelCalls.CallAsync(state, runtime, "replan", SemanticPlanning.Prompt(state) + "\nCorrect the previously invalid response using the required schema.", SemanticPlanning.Schema(), ct);
@@ -33,7 +35,7 @@ internal static class SemanticReplanning
             schema["required"] = new JsonArray("actions", "questions"); PlanningJsonTransport.PruneDefinitions(schema);
             var prompt = """
                 Replan this business action/subgraph atomically to address the blocking diagnostics.
-                Preserve every required business outcome and the exposed output names. You may decompose actions and add adapters during subsequent grounding.
+                Preserve every required business outcome and each exposed output declaration exactly (name, description, type and optionality). You may decompose actions and add adapters during subsequent grounding.
                 Return replacement semantic actions, not local JSON patches or technical capability bindings. Keep referenced action IDs and output names at the boundary.
                 A none_of_the_above result means no catalog capability performs that action: decompose into supported business behavior or ask a business clarification.
                 Approval is host-owned and happens at FinalReview after compilation and scenarios. Do not ask the user to approve execution as a business clarification.
@@ -47,8 +49,9 @@ internal static class SemanticReplanning
                 ["outputs"] = new JsonArray(), ["subflows"] = new JsonArray(), ["questions"] = response["questions"]!.DeepClone() };
             var replacement = JsonSerializer.Deserialize(shell, PlanningJsonContext.Default.SemanticPlan)!;
             foreach (var action in target)
-                if (!SemanticPlanning.Actions(replacement).Any(a => a.Id == action.Id && action.Outputs.All(o => a.Outputs.Any(p => p.Name == o.Name))))
-                    throw new PlanningResponseException([new("REPLAN_BOUNDARY_INVALID", "/actions/" + action.Id, "The replacement must preserve the required action identity and output names at its boundary.")]);
+                if (!SemanticPlanning.Actions(replacement).Any(a => a.Id == action.Id && action.Outputs.All(o => a.Outputs.Any(p =>
+                    JsonNode.DeepEquals(JsonSerializer.SerializeToNode(o, PlanningJsonContext.Default.SemanticPort), JsonSerializer.SerializeToNode(p, PlanningJsonContext.Default.SemanticPort))))))
+                    throw new PlanningResponseException([new("REPLAN_BOUNDARY_INVALID", "/actions/" + action.Id, "The replacement must preserve the required action identity and complete business output requirements at its boundary.")]);
             if (single >= 0) { container.RemoveAt(single); container.InsertRange(single, replacement.Actions); }
             else { container.Clear(); container.AddRange(replacement.Actions); }
             candidate.Questions = replacement.Questions;
@@ -58,7 +61,9 @@ internal static class SemanticReplanning
             { state.Diagnostics.Add(new("REPLAN_NO_PROGRESS", "/actions", "The replacement did not change the semantic plan.")); state.Status = PlanningStatus.Stopped; return; }
             state.SemanticPlan = candidate;
         }
-        state.Grounding = null; state.BindingProgress = null; state.GroundedPlan = null; state.Graph = null; state.Yaml = null; state.ApprovedHash = null; state.Fixtures = null; state.Scenarios.Clear();
+        state.Grounding = previousPlan is not null && previousGrounding is not null
+            ? CapabilityGrounder.Reground(state, previousPlan, previousGrounding) : null;
+        state.BindingProgress = null; state.GroundedPlan = null; state.Graph = null; state.Yaml = null; state.ApprovedHash = null; state.Fixtures = null; state.Scenarios.Clear();
         state.Diagnostics = SemanticPlanning.Validate(state.SemanticPlan);
         if (state.SemanticPlan.Questions.Count > 0 && state.Diagnostics.Count == 0)
         {

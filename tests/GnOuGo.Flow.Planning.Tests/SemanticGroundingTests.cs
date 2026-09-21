@@ -44,6 +44,13 @@ public sealed class SemanticGroundingTests
             var prompt = CapabilityGrounder.Prompt(state, page);
             Assert.Contains("Declared release operation at the end.", prompt);
             Assert.True(PlanningJsonTransport.EstimateInputTokens(prompt, CapabilityGrounder.Schema(page)) <= 3500);
+            var rows = JsonNode.Parse(prompt[prompt.IndexOf("\n{", StringComparison.Ordinal)..])!["capabilities"]!.AsArray();
+            foreach (var row in rows)
+            {
+                var capability = state.Catalog.Capabilities.Single(c => c.Id == row![0]!.ToString());
+                Assert.Equal(capability.Method, row![1]!.ToString()); Assert.Equal(capability.EffectKind, row[2]!.ToString());
+                Assert.Equal(capability.Description, row[3]!.ToString()); Assert.True(JsonNode.DeepEquals(capability.Metadata, row[4]));
+            }
         }
     }
     [Fact]
@@ -71,6 +78,26 @@ public sealed class SemanticGroundingTests
         foreach (var page in state.Grounding.Pages)
             state.Grounding.Results.Add(new(page.Id, page.ActionIds.Select(a => new GroundingDecision(a, "none_of_the_above", [], "No match.")).ToList()));
         state.Catalog!.Capabilities[0].EffectKind = "write";
+        Assert.Throws<PlanningConflictException>(() => CapabilityGrounder.Decisions(state));
+    }
+
+    [Fact]
+    public void AtomicSemanticReplacementReusesOnlyUnchangedActionCoverage()
+    {
+        var state = State(14); state.Request.Generation.MaxInputTokensPerRequest = 3500;
+        foreach (var capability in state.Catalog!.Capabilities) capability.Description = new string('x', 1400);
+        var before = state.SemanticPlan!; var previous = CapabilityGrounder.Create(state);
+        foreach (var page in previous.Pages)
+            previous.Results.Add(new(page.Id, page.ActionIds.Select(a => new GroundingDecision(a, "none_of_the_above", [], "No match in this catalog page.")).ToList()));
+        state.SemanticPlan = JsonSerializer.Deserialize(JsonSerializer.Serialize(before, PlanningJsonContext.Default.SemanticPlan), PlanningJsonContext.Default.SemanticPlan)!;
+        state.SemanticPlan.Actions[0].Purpose = "Read an alternative observation";
+        state.Grounding = CapabilityGrounder.Reground(state, before, previous);
+        Assert.All(state.Grounding.Results.SelectMany(r => r.Decisions), d => Assert.Equal("release", d.ActionId));
+        var pending = state.Grounding.Pages.Where(p => state.Grounding.Results.All(r => r.PageId != p.Id)).ToArray();
+        Assert.All(pending, p => Assert.Equal(new[] { "collect" }, p.ActionIds));
+        foreach (var page in pending) state.Grounding.Results.Add(new(page.Id, [new("collect", "none_of_the_above", [], "The replacement still has no match.")]));
+        Assert.Equal(2, CapabilityGrounder.Decisions(state).Count);
+        state.Catalog.Capabilities[0].Description = "Changed catalog semantics";
         Assert.Throws<PlanningConflictException>(() => CapabilityGrounder.Decisions(state));
     }
     [Theory]
@@ -150,6 +177,18 @@ public sealed class SemanticGroundingTests
             Assert.Equal(PlanningContractValidation.ValidateInstance(JsonNode.Parse(sample), schema).Count, PlanningContractValidation.ValidateInstance(JsonNode.Parse(sample), compact).Count);
         var data = new JsonObject { ["text"] = "évaluer <not HTML>" };
         Assert.True(JsonNode.DeepEquals(data, JsonNode.Parse(PlanningJsonTransport.Prompt(data))));
+    }
+
+    [Fact]
+    public void RepeatedContractFragmentsAreFactoredWithoutChangingAcceptedValues()
+    {
+        var item = JsonNode.Parse("""{"type":"object","properties":{"name":{"type":"string","minLength":2,"maxLength":20},"quantity":{"type":"integer","minimum":2,"maximum":8},"enabled":{"type":"boolean"}},"required":["name","quantity","enabled"],"additionalProperties":false}""")!;
+        var schema = new JsonObject { ["type"] = "array", ["prefixItems"] = new JsonArray(item.DeepClone(), item.DeepClone(), item.DeepClone()), ["minItems"] = 3, ["maxItems"] = 3 };
+        var compact = PlanningJsonTransport.ContractPrompt(schema);
+        Assert.NotNull(compact["$defs"]); Assert.True(compact.ToJsonString().Length < schema.ToJsonString().Length);
+        foreach (var sample in new[] { "[]", "[{}, {}, {}]", "[{\"name\":\"ab\",\"quantity\":2,\"enabled\":true},{\"name\":\"cd\",\"quantity\":8,\"enabled\":false},{\"name\":\"ef\",\"quantity\":4,\"enabled\":true}]" })
+            Assert.Equal(PlanningContractValidation.ValidateInstance(JsonNode.Parse(sample), schema).Count == 0, PlanningContractValidation.ValidateInstance(JsonNode.Parse(sample), compact).Count == 0);
+        Assert.True(JsonNode.DeepEquals(compact, PlanningJsonTransport.ContractPrompt(compact)));
     }
     [Fact]
     public async Task CompleteMatchesAreSelectedBeforeLargeBindingContractsAreLoaded()

@@ -20,3 +20,9 @@ Sessions use schema 8, new encrypted record namespaces and a fresh EF Core SQLit
 The package [README](../src/GnOuGo.Flow.Planning/README.md) contains build, packaging and test commands. Historical reports retain the observed failures and old performance measurements; they are not evidence of success for this architecture.
 
 Provider strict JSON formatting is requested when the exact business schema supports it. Optional fields retain their original standard JSON Schema; runtime instance validation always enforces the complete contract, regardless of formatting mode.
+
+Catalog rows retain full producer descriptions and metadata. Binding views factor repeated schemas with local references and export named business results; intermediate implementation results remain private. Later batches have schema-enforced empty input/subflow declarations. These transport reductions preserve catalog coverage and every schema assertion.
+
+Atomic semantic replacements preserve complete output declarations and reuse coverage only for unchanged action definitions against the identical catalog. Bound replanning expands through captured producers, dependent consumers and named-subflow callers before selecting the enclosing scope. Unrelated subflows remain immutable.
+
+Core validates successful cleanup outputs using proven producer-availability guards. Scenarios make those guards false by failing each actual producer and verifying skipped cleanup. They do not manufacture a successful acquisition with an impossible false availability guard. Arbitrary conditions still receive both branch tests. Host compiler disagreements stop before fixture generation or model replanning.

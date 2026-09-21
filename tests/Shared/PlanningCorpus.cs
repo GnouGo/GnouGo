@@ -100,7 +100,7 @@ public static class PlanningCorpus
         if (purpose == "grounding")
         {
             var context = JsonNode.Parse(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..])!;
-            var ids = context["capabilities"]!.AsArray().Select(c => c!["id"]!.GetValue<string>()).ToHashSet();
+            var ids = context["capabilities"]!.AsArray().Select(c => c![0]!.GetValue<string>()).ToHashSet();
             return new() { Json = new JsonObject { ["decisions"] = new JsonArray(context["actions"]!.AsArray().Select(a =>
             {
                 var id = a!["id"]!.GetValue<string>();

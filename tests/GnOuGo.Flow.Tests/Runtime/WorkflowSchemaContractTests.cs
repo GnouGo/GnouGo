@@ -9,6 +9,37 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class WorkflowSchemaContractTests
 {
+    [Fact]
+    public async Task SuccessfulFinalizationExposesOnlyProvablyAvailableResults()
+    {
+        const string yaml = """
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: acquire
+                    type: set
+                    input: { resource: acquired }
+                finally:
+                  - id: release
+                    type: set
+                    if: '${data.steps["acquire"] != null}'
+                    input: { released: true }
+                outputs:
+                  released: '${data.steps.release.released}'
+            """;
+        var document = WorkflowParser.Parse(yaml);
+        WorkflowPlanSemanticValidator.Validate(document);
+        var result = await new WorkflowEngine().ExecuteAsync(new WorkflowCompiler().Compile(document).Workflows["main"], new JsonObject(), TestContext.Current.CancellationToken);
+        Assert.True(result.Success, result.Error?.Message); Assert.True(result.Outputs!["released"]!.GetValue<bool>());
+        var scenarios = await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken);
+        Assert.All(scenarios, scenario => Assert.Equal("passed", scenario.Outcome));
+        Assert.Contains(scenarios, scenario => scenario.Id == "guard:unavailable:main:release:acquire");
+        foreach (var guard in new[] { "false", "data.steps[\"acquire\"] != null && false", "data.steps[\"missing\"] != null", "data.steps[\"acquire\"] != null || true" })
+            Assert.Throws<WorkflowSemanticValidationException>(() => WorkflowPlanSemanticValidator.Validate(WorkflowParser.Parse(yaml.Replace("data.steps[\"acquire\"] != null", guard, StringComparison.Ordinal))));
+        var conditional = WorkflowParser.Parse(yaml); conditional.Workflows["main"].Steps[0].If = "${false}";
+        Assert.Throws<WorkflowSemanticValidationException>(() => WorkflowPlanSemanticValidator.Validate(conditional));
+    }
     private const string Yaml = """
         version: 1
         workflows:
@@ -92,6 +123,16 @@ public sealed class WorkflowSchemaContractTests
         Assert.Null(ExpressionContractInference.Infer("JSON.parse(text)", args));
         Assert.Null(ExpressionContractInference.Infer("raw.trim()", args));
         Assert.Equal(2, ExpressionContractInference.Infer("text === 'a' ? 'accepted' : 'rejected'", args)!["anyOf"]!.AsArray().Count);
+    }
+
+    [Fact]
+    public void CallbackCollectionAndUnaryOperatorsCannotInventNumericResults()
+    {
+        var args = new Dictionary<string, JsonObject> { ["values"] = new() { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" } } };
+        Assert.Equal("array", ExpressionContractInference.Infer("values.map((value, index, source) => source)", args)!["items"]!["type"]!.ToString());
+        Assert.Equal("string", ExpressionContractInference.Infer("typeof 1", args)!["type"]!.ToString());
+        Assert.Null(ExpressionContractInference.Infer("void 1", args));
+        Assert.Equal("integer", ExpressionContractInference.Infer("values.map((value, index) => index)", args)!["items"]!["type"]!.ToString());
     }
 
 }

@@ -74,12 +74,19 @@ public static class ExpressionContractInference
                 if (binary.Operator == Operator.Addition && (a.Kind == FlowTypeKind.String || b.Kind == FlowTypeKind.String)) return FlowTypeDescriptor.String;
                 return Numeric(a) && Numeric(b) ? FlowTypeDescriptor.Number : FlowTypeDescriptor.Any;
             case UnaryExpression unary:
-                return unary.Operator == Operator.LogicalNot ? FlowTypeDescriptor.Boolean : Numeric(Type(unary.Argument)) ? FlowTypeDescriptor.Number : FlowTypeDescriptor.Any;
+                return unary.Operator switch
+                {
+                    Operator.LogicalNot => FlowTypeDescriptor.Boolean,
+                    Operator.TypeOf => FlowTypeDescriptor.String,
+                    Operator.UnaryPlus or Operator.UnaryNegation or Operator.BitwiseNot when Numeric(Type(unary.Argument)) => FlowTypeDescriptor.Number,
+                    _ => FlowTypeDescriptor.Any
+                };
             case CallExpression { Callee: MemberExpression { Computed: false, Property: Identifier { Name: "map" } } member, Arguments.Count: 1 } call:
                 var collection = Type(member.Object);
                 if (collection.Kind != FlowTypeKind.Array || call.Arguments[0] is not ArrowFunctionExpression arrow || arrow.Params.Any(p => p is not Identifier)) return FlowTypeDescriptor.Any;
                 var scope = variables.ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
-                for (var i = 0; i < arrow.Params.Count; i++) scope[((Identifier)arrow.Params[i]).Name] = i == 0 ? collection.Items! : FlowTypeDescriptor.Integer;
+                for (var i = 0; i < arrow.Params.Count; i++) scope[((Identifier)arrow.Params[i]).Name] = i switch
+                { 0 => collection.Items!, 1 => FlowTypeDescriptor.Integer, 2 => collection, _ => FlowTypeDescriptor.Any };
                 return FlowTypeDescriptor.Array(Infer(arrow.Body, scope));
             case CallExpression { Callee: MemberExpression { Computed: false, Object: Identifier { Name: "JSON" }, Property: Identifier { Name: "stringify" } }, Arguments.Count: 1 } json when !variables.ContainsKey("JSON"):
                 // Serialization of a declared JSON container/scalar has a string result. Parsing never creates a field contract.

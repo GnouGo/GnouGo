@@ -1530,9 +1530,9 @@ Increase these limits only for trusted workflows; prefer simplifying expressions
 
 Define reusable functions in the `functions:` block (document-level or workflow-level).
 Runtime functions use JSDoc with typed `@param` entries for every parameter and a
-typed `@returns` entry. Planner models supply only unresolved expression text over
+typed `@returns` entry. The binding model supplies explicit calculations over
 declared parameters. The deterministic compiler generates any required function
-wrapper and documentation; repairs cannot replace a global function block.
+wrapper and documentation; replanning replaces complete grounded scopes.
 
 Scope rules:
 

@@ -117,7 +117,15 @@ internal static class GroundedBindingBatches
             "This is one complete binding subgraph. Implement only the issued semantic actions. Use established result operation IDs and exact contracts to consume previous values. " +
             (first ? "Declare the workflow inputs and named subflows. Give every input an explicit business type, including inputs first consumed by later batches." : "Return empty inputs and subflows; they are already established.") +
             (final ? " Declare all required workflow outputs." : " Return empty outputs; workflow outputs are bound in the last batch.");
-        return (prompt, PlanningSchemas.Grounded(capabilities));
+        var schema = PlanningSchemas.Grounded(capabilities);
+        void Empty(string field)
+        {
+            schema["properties"]![field] = new JsonObject { ["type"] = "array", ["items"] = PlanningSchemas.String(), ["maxItems"] = 0 };
+        }
+        if (!first) { Empty("inputs"); Empty("subflows"); }
+        if (!final) Empty("outputs");
+        PlanningJsonTransport.PruneDefinitions(schema);
+        return (prompt, schema);
     }
 
     private static JsonObject Boundary(GroundedPlan plan, ValidatedGroundedPlan? validated, PlanningCatalog catalog)
@@ -126,7 +134,8 @@ internal static class GroundedBindingBatches
         return new()
         {
             ["inputs"] = new JsonArray(plan.Inputs.Select(i => (JsonNode)new JsonObject { ["name"] = i.Name, ["contract"] = PlanningJsonTransport.ContractPrompt(validated.Types.Input("main", i.Name)) }).ToArray()),
-            ["results"] = new JsonArray(plan.Operations.Where(o => o is not CleanupGroundedOperation).Select(o => (JsonNode)new JsonObject
+            // Intermediate operations are private to accepted subgraphs. Only named business results cross the boundary.
+            ["results"] = new JsonArray(plan.Operations.Where(o => o is not CleanupGroundedOperation && o.BusinessOutputs.Count > 0).Select(o => (JsonNode)new JsonObject
             { ["id"] = o.Id, ["semanticAction"] = o.SemanticAction,
                 ["businessOutputs"] = new JsonArray(o.BusinessOutputs.Select(b => (JsonNode)new JsonObject { ["name"] = b.Name, ["path"] = new JsonArray(b.Path.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()) }).ToArray()),
                 ["when"] = o.When is null ? null : JsonSerializer.SerializeToNode(o.When, PlanningJsonContext.Default.GroundedValue),
