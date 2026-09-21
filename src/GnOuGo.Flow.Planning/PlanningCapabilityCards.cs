@@ -21,7 +21,9 @@ internal static partial class PlanningCapabilityCards
     {
         var terms = Words(query); var documents = capabilities.Select(c => (Capability: c, Words: Words(c.Method + " " + c.Description + " " + c.Metadata?.ToJsonString()))).ToArray();
         var frequencies = terms.ToDictionary(t => t, t => documents.Count(d => d.Words.Contains(t)), StringComparer.Ordinal);
-        return documents.OrderByDescending(d => terms.Where(d.Words.Contains).Sum(t => Math.Log(1 + (documents.Length + 1.0) / (frequencies[t] + 1))))
+        // Normalize document length so verbose descriptions cannot win merely by
+        // accumulating incidental query terms. Ranking remains advisory only.
+        return documents.OrderByDescending(d => terms.Where(d.Words.Contains).Sum(t => Math.Log(1 + (documents.Length + 1.0) / (frequencies[t] + 1))) / Math.Sqrt(Math.Max(1, d.Words.Count)))
             .ThenBy(d => d.Capability.Id, StringComparer.Ordinal).Select(d => d.Capability);
     }
     private static HashSet<string> Words(string text) => Tokens().Matches(text.ToLowerInvariant()).Select(m => m.Value).ToHashSet(StringComparer.Ordinal);
