@@ -655,3 +655,13 @@ New OpenAI configurations use **Background — Responses API**; choose **Chat Co
 The Save confirmation and `/llm list` show the selection. Saving preserves unrelated settings,
 stores the selection encrypted in KeyVault, and applies it to new calls immediately. The existing
 post-save credential check uses the selected protocol; reserved planning calls and receipts stay unchanged.
+
+### Inspectable model calls
+
+Enable `TraceDebug:Enabled=true` for retained content, then open
+**Traces → Pipeline / LLM calls** from chat or Workflow designer. Expand a
+call to inspect its retained prompt/schema, response, tool calls and repair
+context, with byte sizes, labelled token estimates, reported usage and HTTP
+attempts. Content loads on demand from encrypted tenant-scoped storage; missing
+usage is unknown. Historical planner requests remain available as journal history
+when trace links have expired. See [configuration, retention and limitations](../../docs/llm-protocol-and-traces.md).
