@@ -38,7 +38,7 @@ internal static class PlanningCorrections
         var ready = ordered.Where(t => !ordered.Any(other => other != t && DependsOn(t, other))).ToArray();
         // Cycles already have topology targets. Do not fabricate a broader target to evade limits.
         if (ready.Length == 0) ready = [ordered[0]];
-        static bool Group(Target t) => t.Shape is "operations" or "subflow" || t.Shape == "operation" && t.Fragment?["kind"]?.ToString() is "choose" or "each" or "parallel" or "cleanup";
+        static bool Group(Target t) => t.Shape is "block" or "operations" or "subflow" || t.Shape == "operation" && t.Fragment?["kind"]?.ToString() is "choose" or "each" or "parallel" or "cleanup";
         var batch = Group(ready[0]) ? new List<Target> { ready[0] } : ready.Where(t => !Group(t)).Take(MaxTargets).ToList();
         var allowance = Math.Min(MaxInputTokens, state.Request.Generation.MaxInputTokensPerRequest);
         while (true)
@@ -83,7 +83,8 @@ internal static class PlanningCorrections
     private static Dictionary<string, HashSet<string>> Dependencies(WorkflowIntentPlan intent, JsonObject json)
     {
         var operations = IntentTraversal.Located(intent).ToArray();
-        var paths = operations.Select(o => o.Path).Concat(Walk(json, "").Where(p => p.Node is JsonObject && p.Path.Split('/').Reverse().Skip(1).FirstOrDefault() is "inputs" or "outputs").Select(p => p.Path));
+        var paths = operations.Select(o => o.Path).Concat(IntentTraversal.Blocks(intent).Select(b => b.Path))
+            .Concat(Walk(json, "").Where(p => p.Node is JsonObject && p.Path.Split('/').Reverse().Skip(1).FirstOrDefault() is "inputs" or "outputs").Select(p => p.Path));
         var result = paths.Distinct(StringComparer.Ordinal).ToDictionary(p => p, _ => new HashSet<string>(StringComparer.Ordinal), StringComparer.Ordinal);
         foreach (var (path, upstream) in result)
         {
@@ -157,10 +158,38 @@ internal static class PlanningCorrections
                 else { shape = segments[port] == "inputs" ? "input" : "output"; path = string.Join('/', segments.Take(port + 2)); }
             }
             if (PlanningFieldPaths.ReadOptional(intent, path) is not { } fragment) continue;
+            // A value-only edit cannot introduce a checked conversion before an opaque
+            // result crosses a typed boundary. Issue an existing topology target instead.
+            if (diagnostic.Code is "SCHEMA_REFERENCE_INVALID" or "SCHEMA_INVALID" or "OUTPUT_TYPE_MISMATCH" or "OUTPUT_REFERENCE_INVALID"
+                && ConversionTarget(state, intent, path) is { } conversion)
+            {
+                path = conversion.Path; shape = conversion.Shape;
+                fragment = PlanningFieldPaths.Read(intent, path)!;
+            }
             targets.Add(new("target_" + PlanningGraphCompiler.Fingerprint(path)[..16], path, shape, fragment.DeepClone()));
         }
         // A group replacement subsumes nested edits. Atomic responses may not overlap.
         return targets.DistinctBy(t => t.Path).Where(t => !targets.Any(parent => parent.Path != t.Path && t.Path.StartsWith(parent.Path + "/", StringComparison.Ordinal))).ToArray();
+    }
+
+    private static (string Path, string Shape)? ConversionTarget(PlanningSession state, JsonObject intent, string path)
+    {
+        var plan = state.IntentPlan!;
+        var operations = IntentTraversal.Located(plan).ToArray();
+        foreach (var (node, location) in Walk(PlanningFieldPaths.ReadOptional(intent, path), path))
+        {
+            if (node is not JsonObject value || value["kind"]?.ToString() != "result"
+                || Source(plan, intent, value, location) is not { } source
+                || operations.FirstOrDefault(o => o.Path == source).Operation is not InvokeIntentOperation invoke
+                || state.Catalog!.Capabilities.FirstOrDefault(c => c.Id == invoke.Capability)?.OutputSchema.Count != 0) continue;
+            var block = IntentTraversal.Blocks(plan).Where(b => Within(location, b.Path) && Within(source, b.Path))
+                .OrderByDescending(b => b.Path.Length).FirstOrDefault();
+            if (block.Block is not null) return (block.Path, "block");
+            // The enclosing list allows retaining the producer and adding a calculation
+            // under its former business ID, so existing consumers need no invented value.
+            return (source[..source.LastIndexOf("/operations/", StringComparison.Ordinal)] + "/operations", "operations");
+        }
+        return null;
     }
     internal static JsonObject Schema(IReadOnlyList<Target> targets)
     {
@@ -220,10 +249,12 @@ internal static class PlanningCorrections
                 if (node is not JsonObject value || value["kind"]?.ToString() is not ("input" or "result" or "item" or "index")) continue;
                 var source = Source(plan, intent, value, location);
                 if (!selected.Contains(path) && (source is null || !selected.Contains(source))) continue;
+                if (bindings.Any(b => b!["location"]!.ToString() == location)) continue;
                 var fieldPath = (value["path"] as JsonArray ?? []).Select(p => p!.ToString()).ToArray();
                 var root = source is null ? null : Contract(state, source);
                 var binding = new JsonObject { ["location"] = location, ["value"] = value.DeepClone(), ["sourcePath"] = source,
-                    ["contract"] = root is null ? null : PlanningCapabilityCards.ValueContract(root, fieldPath) };
+                    ["contract"] = root is null ? null : PlanningCapabilityCards.ValueContract(root, fieldPath),
+                    ["contractStatus"] = root is null ? "unresolved" : root.Count == 0 ? "absent" : "declared" };
                 // For downstream consumers, expose the binding's expected contract, not every argument.
                 var consumer = operations.FirstOrDefault(o => o.Path == path).Operation;
                 if (consumer is InvokeIntentOperation invoke && state.Catalog!.Capabilities.FirstOrDefault(c => c.Id == invoke.Capability) is { } capability)
@@ -252,7 +283,7 @@ internal static class PlanningCorrections
             else
             {
                 // Advisory retrieval is independent of malformed arguments and deterministic eligibility.
-                var query = invoke.Purpose + " " + string.Join(" ", invoke.Arguments.Select(a => a.Name)) + " " +
+                var query = invoke.Id + " " + invoke.Purpose + " " + string.Join(" ", invoke.Arguments.Select(a => a.Name)) + " " +
                     string.Join(" ", IntentTraversal.Values([invoke]).Select(v => v.Source + " " + string.Join(" ", v.Path)));
                 alternatives.Add((JsonNode)new JsonObject { ["path"] = item.Path, ["advisory"] = true,
                     // A rejected tool name is useful retrieval evidence, never an executable alias.
@@ -263,6 +294,8 @@ internal static class PlanningCorrections
         }
         return "Correct only the issued business intent targets. Return changes with target IDs and typed replacements. Do not return a complete intent. " +
             "The engine owns transport, result channels, catalog schemas and permissions. Keep business result references and named computation parameters. " +
+            "An absent producer contract does not declare any fields or imply JSON text. When a topology target permits it, keep the real invocation and add a local calculate with an explicit derived resultType before crossing a typed boundary. " +
+            "Validate required fields and types and throw on invalid data; parse JSON only after checking for a string. Do not use templates, coercions or fallback values to manufacture missing evidence. A known contract remains authoritative. " +
             "Fix the exact diagnostics; unchanged replacements will stop. A group target permits topology changes. Fixture targets use recursive literal values only; never business references or computations. " +
             "Deferred targets remain blocking and will be reconsidered after complete validation. Advisory capabilities do not grant permissions or replace deterministic eligibility.\n" + PlanningModelCalls.BusinessExamples + "\n" + new JsonObject {
                 ["request"] = state.Request.Prompt, ["hostInstructions"] = state.Request.Policy.Instructions,
