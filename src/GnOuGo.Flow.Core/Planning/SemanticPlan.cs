@@ -36,11 +36,13 @@ public sealed class CapabilityGrounding
     public string SemanticHash { get; set; } = "";
     public List<GroundingPage> Pages { get; set; } = [];
     public List<GroundingPageResult> Results { get; set; } = [];
+    public List<GroundingSelection>? Selections { get; set; }
 }
 
 public sealed record GroundingPage(string Id, List<string> ActionIds, List<string> CapabilityIds);
 public sealed record GroundingPageResult(string PageId, List<GroundingDecision> Decisions);
 public sealed record GroundingDecision(string ActionId, string Outcome, List<GroundingMatch> Matches, string Reason);
+public sealed record GroundingSelection(string ActionId, List<string> CapabilityIds, string Reason);
 public sealed record GroundingMatch(string CapabilityId, string Reason);
 
 public static class PlanningPhase

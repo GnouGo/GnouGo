@@ -8,6 +8,23 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningJsonTransport
 {
+    // Prompt JSON is model input, never HTML. Literal Unicode avoids expanding business text into escape sequences.
+    internal static string Prompt(JsonNode value) => value.ToJsonString(new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+    internal static JsonObject ContractPrompt(JsonObject schema)
+    {
+        var result = schema.DeepClone().AsObject();
+        void Visit(JsonObject current)
+        {
+            foreach (var annotation in new[] { "description", "title", "examples", "$comment", "$schema" }) current.Remove(annotation);
+            foreach (var map in new[] { "properties", "$defs", "definitions", "patternProperties", "dependentSchemas" })
+                if (current[map] is JsonObject children) foreach (var child in children.Select(p => p.Value).OfType<JsonObject>()) Visit(child);
+            foreach (var key in new[] { "items", "additionalProperties", "contains", "not", "if", "then", "else", "propertyNames", "unevaluatedProperties", "unevaluatedItems" })
+                if (current[key] is JsonObject child) Visit(child);
+            foreach (var key in new[] { "allOf", "anyOf", "oneOf", "prefixItems" })
+                if (current[key] is JsonArray children) foreach (var child in children.OfType<JsonObject>()) Visit(child);
+        }
+        Visit(result); return result;
+    }
     internal static JsonObject Grounded(GroundedPlan plan)
     {
         var json = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.GroundedPlan)!.AsObject();

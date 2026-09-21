@@ -15,6 +15,7 @@ public static class PlanningArtifactApproval
             throw new PlanningConflictException("The saved semantic plan and capability grounding are invalid.");
         var validated = GroundedPlanValidator.Validate(state.GroundedPlan, state.Catalog);
         if (validated.Plan is null) throw new PlanningConflictException("The saved grounded plan failed deterministic revalidation.");
+        if (CapabilityGrounder.ValidateBusinessOutputs(state, validated.Plan).Count > 0) throw new PlanningConflictException("A required business output is not established.");
         var rebuilt = PlanningGraphBuilder.Build(validated.Plan);
         PlanningConfirmationGuards.Apply(rebuilt, state.Catalog);
         if (!JsonNode.DeepEquals(JsonSerializer.SerializeToNode(rebuilt, PlanningJsonContext.Default.PlanningGraph),

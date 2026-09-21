@@ -130,4 +130,49 @@ public sealed class SemanticGroundingTests
         var valid = PlannerFixture.Greeting(); valid.Inputs.Add(new("a", new() { Type = "number", Nullable = true }, true, new()));
         Assert.NotNull(GroundedPlanValidator.Validate(valid, catalog).Plan);
     }
+    [Fact]
+    public void PromptContractsRetainEveryConstraintAndLiteralAnnotationNamedProperty()
+    {
+        var schema = JsonNode.Parse("""{"type":"object","description":"Documentation","properties":{"description":{"type":"string","description":"Label","enum":["a","b"],"default":"a"},"value":{"const":{"description":"Literal data","examples":[1]}}},"required":["description"],"additionalProperties":false}""")!.AsObject();
+        var compact = PlanningJsonTransport.ContractPrompt(schema);
+        Assert.Null(compact["description"]); Assert.NotNull(compact["properties"]!["description"]);
+        Assert.True(JsonNode.DeepEquals(schema["properties"]!["value"]!["const"], compact["properties"]!["value"]!["const"]));
+        foreach (var sample in new[] { "{}", "{\"description\":\"a\"}", "{\"description\":\"wrong\"}", "{\"description\":\"b\",\"extra\":1}" })
+            Assert.Equal(PlanningContractValidation.ValidateInstance(JsonNode.Parse(sample), schema).Count, PlanningContractValidation.ValidateInstance(JsonNode.Parse(sample), compact).Count);
+        var data = new JsonObject { ["text"] = "évaluer <not HTML>" };
+        Assert.True(JsonNode.DeepEquals(data, JsonNode.Parse(PlanningJsonTransport.Prompt(data))));
+    }
+    [Fact]
+    public async Task CompleteMatchesAreSelectedBeforeLargeBindingContractsAreLoaded()
+    {
+        var state = State(12); state.Grounding = CapabilityGrounder.Create(state);
+        foreach (var page in state.Grounding.Pages)
+            state.Grounding.Results.Add(new(page.Id, page.ActionIds.Select(a => new GroundingDecision(a, "matched", page.CapabilityIds.Select(id => new GroundingMatch(id, "Declared viable implementation")).ToList(), "Viable implementations")).ToList()));
+        var runtime = new TestRuntime { Respond = _ => new() { Json = new JsonObject { ["selections"] = new JsonArray(state.SemanticPlan!.Actions.Select(a => (JsonNode)new JsonObject {
+            ["actionId"] = a.Id, ["capabilityIds"] = new JsonArray("cap_0"), ["reason"] = "Direct declared implementation" }).ToArray()) } } };
+        await CapabilitySelection.ApplyAsync(state, runtime, Ct);
+        Assert.Single(runtime.Calls); Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(12, CapabilityGrounder.Decisions(state)[0].Matches.Count);
+        var prompt = CapabilityGrounder.BindingPrompt(state);
+        Assert.Contains("cap_0", prompt); Assert.DoesNotContain("cap_11", prompt);
+        Assert.Throws<PlanningResponseException>(() => CapabilitySelection.Validate(state, [new("collect", ["unissued"], "Guess")]));
+    }
+    [Fact]
+    public void GroundingCanRealizeBusinessEvaluationAndLeafCleanupWithDeclaredCapabilities()
+    {
+        var state = State(); state.SemanticPlan!.Actions[0].Kind = "calculate"; state.SemanticPlan.Actions[1].Kind = "cleanup";
+        var pages = CapabilityGrounder.Create(state).Pages;
+        Assert.All(state.SemanticPlan.Actions, a => Assert.Contains(pages, p => p.ActionIds.Contains(a.Id)));
+        Assert.False(SemanticPlanning.External(state.SemanticPlan.Actions[0])); Assert.True(SemanticPlanning.External(state.SemanticPlan.Actions[1]));
+    }
+    [Fact]
+    public async Task AnUnchangedSemanticReplanStopsAndPreservesUnrelatedActions()
+    {
+        var state = State(); var original = SemanticPlanning.Hash(state.SemanticPlan!);
+        state.Diagnostics = [new("NONE_OF_THE_ABOVE", "/actions/collect", "No semantic match")];
+        var runtime = new TestRuntime { Respond = _ => new() { Json = new JsonObject { ["actions"] = new JsonArray(SemanticPlanning.Json(new() { Actions = [state.SemanticPlan!.Actions[0]] })["actions"]![0]!.DeepClone()), ["questions"] = new JsonArray() } } };
+        await SemanticReplanning.ApplyAsync(state, runtime, Ct);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(original, SemanticPlanning.Hash(state.SemanticPlan!));
+        Assert.Equal(2, state.SemanticPlan!.Actions.Count); Assert.Equal(1, state.ReplanAttempts);
+    }
 }

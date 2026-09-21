@@ -22,7 +22,7 @@ public sealed class PlanningSessionLifecycleTests
         state.Catalog = await runtime.DiscoverAsync(state.Request, Ct); state.Graph = PlanningGraphBuilder.Build(GroundedPlanValidator.RequireValid(state.GroundedPlan, state.Catalog));
         state.SemanticPlan = new() { Actions = [new() { Id = "value", Kind = "calculate", Purpose = "Return the supplied value" }] };
         state.GroundedPlan.Operations[0].SemanticAction = "value";
-        state.Grounding = new() { CatalogHash = PlanningGraphCompiler.Fingerprint(System.Text.Json.JsonSerializer.Serialize(state.Catalog, PlanningJsonContext.Default.PlanningCatalog)),
+        state.Grounding = new() { Selections = [new("value", [], "Native implementation")], Pages = [new("page", ["value"], [])], Results = [new("page", [new("value", "none_of_the_above", [], "Native implementation")])], CatalogHash = PlanningGraphCompiler.Fingerprint(System.Text.Json.JsonSerializer.Serialize(state.Catalog, PlanningJsonContext.Default.PlanningCatalog)),
             SemanticHash = PlanningGraphCompiler.Fingerprint(System.Text.Json.JsonSerializer.Serialize(state.SemanticPlan, PlanningJsonContext.Default.SemanticPlan)) };
         state.Yaml = new PlanningGraphCompiler().Compile(state.Graph, state.Catalog, state.Request.Name);
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));

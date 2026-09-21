@@ -58,7 +58,8 @@ public sealed class IntentBoundaryTests
         var response = PlanningJsonTransport.Grounded(PlannerFixture.Greeting()); response["operations"]![0]!["value"]!["number"] = null;
         state.PendingCall = new() { Id = "reserved", Purpose = "binding", Request = new() { Prompt = "Original reserved prompt", StructuredOutputSchema = schema } };
         state.SemanticPlan = GnOuGo.Planning.Examples.PlanningCorpus.Semantic(PlannerFixture.Greeting());
-        state.Grounding = CapabilityGrounder.Create(state);
+        state.Grounding = CapabilityGrounder.Create(state); state.Grounding.Results = state.Grounding.Pages.Select(p => new GroundingPageResult(p.Id, p.ActionIds.Select(id => new GroundingDecision(id, "none_of_the_above", [], "Native implementation")).ToList())).ToList();
+        state.Grounding.Selections = state.SemanticPlan.Actions.Select(a => new GroundingSelection(a.Id, [], "Native implementation")).ToList();
         response["operations"]![0]!["semanticAction"] = state.SemanticPlan.Actions[0].Id;
         response["operations"]![0]!["businessOutputs"] = new JsonArray(new JsonObject { ["name"] = "value", ["path"] = new JsonArray() });
         runtime.Respond = request => { Assert.Equal("Original reserved prompt", request.Prompt); Assert.True(JsonNode.DeepEquals(schema, request.StructuredOutputSchema)); return new() { Json = response }; };

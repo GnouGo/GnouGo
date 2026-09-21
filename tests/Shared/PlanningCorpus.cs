@@ -91,10 +91,10 @@ public static class PlanningCorpus
             return new() { Json = new JsonObject { ["decisions"] = new JsonArray(context["actions"]!.AsArray().Select(a =>
             {
                 var id = a!["id"]!.GetValue<string>();
-                var op = GroundedTraversal.Located(plan).Select(p => p.Operation).OfType<InvokeGroundedOperation>().Single(o => o.SemanticAction == id);
-                var matched = op.Capability is not null && ids.Contains(op.Capability);
+                var op = GroundedTraversal.Located(plan).Select(p => p.Operation).OfType<InvokeGroundedOperation>().SingleOrDefault(o => o.SemanticAction == id);
+                var matched = op?.Capability is not null && ids.Contains(op.Capability);
                 return (JsonNode)new JsonObject { ["actionId"] = id, ["outcome"] = matched ? "matched" : "none_of_the_above", ["reason"] = "Scripted semantic fixture decision.",
-                    ["matches"] = matched ? new JsonArray(new JsonObject { ["capabilityId"] = op.Capability, ["reason"] = "The fixture declares this behavior." }) : new JsonArray() };
+                    ["matches"] = matched ? new JsonArray(new JsonObject { ["capabilityId"] = op!.Capability, ["reason"] = "The fixture declares this behavior." }) : new JsonArray() };
             }).ToArray()) } };
         }
         if (purpose == "replan")

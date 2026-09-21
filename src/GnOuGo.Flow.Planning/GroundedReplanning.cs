@@ -20,7 +20,7 @@ internal static class GroundedReplanning
         string[] fields = block.Block is not null ? ["operations", "result"] : ["inputs", "operations", "outputs"];
         var source = path.Length == 0 ? json : PlanningFieldPaths.Read(json, path)!.AsObject();
         var fragment = new JsonObject(fields.Select(f => new KeyValuePair<string, JsonNode?>(f, source[f]?.DeepClone())));
-        var ids = CapabilityGrounder.Decisions(state).SelectMany(d => d.Matches).Select(m => m.CapabilityId).Distinct();
+        var ids = state.Grounding!.Selections!.SelectMany(s => s.CapabilityIds).Distinct();
         var schema = PlanningSchemas.Grounded(ids);
         var properties = schema["properties"]!.AsObject();
         if (block.Block is not null)

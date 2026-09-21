@@ -159,13 +159,18 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             return;
         }
         var decisions = CapabilityGrounder.Decisions(state);
-        state.Diagnostics = decisions.Where(d => d.Outcome == "none_of_the_above")
+        state.Diagnostics = decisions.Where(d => d.Outcome == "none_of_the_above" && SemanticPlanning.Actions(state.SemanticPlan).Any(a => a.Id == d.ActionId && SemanticPlanning.External(a)))
             .Select(d => new PlanningDiagnostic("NONE_OF_THE_ABOVE", "/actions/" + d.ActionId, d.Reason, ValidationStage: "grounding")).ToList();
         if (state.Diagnostics.Count > 0) return;
+        if (state.Grounding.Selections is null)
+        {
+            state.Phase = PlanningPhase.Grounding;
+            await CapabilitySelection.ApplyAsync(state, runtime, ct); return;
+        }
         if (state.GroundedPlan is null)
         {
             state.Phase = PlanningPhase.Binding;
-            var ids = decisions.SelectMany(d => d.Matches).Select(m => m.CapabilityId).Distinct();
+            var ids = state.Grounding.Selections.SelectMany(s => s.CapabilityIds).Distinct();
             var json = await PlanningModelCalls.CallAsync(state, runtime, "binding", CapabilityGrounder.BindingPrompt(state), PlanningSchemas.Grounded(ids), ct);
             state.GroundedPlan = JsonSerializer.Deserialize(json, PlanningJsonContext.Default.GroundedPlan)!;
         }
@@ -175,6 +180,8 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         var validation = GroundedPlanValidator.Validate(state.GroundedPlan, state.Catalog);
         state.Diagnostics = validation.Diagnostics.ToList();
         if (validation.Plan is null) return;
+        state.Diagnostics = CapabilityGrounder.ValidateBusinessOutputs(state, validation.Plan);
+        if (state.Diagnostics.Count > 0) return;
         state.Graph = PlanningGraphBuilder.Build(validation.Plan);
         state.Phase = PlanningPhase.Scenarios;
         await PlanningValidationPipeline.ValidateAsync(state, runtime, ct);
