@@ -29,6 +29,7 @@ internal sealed class TestRuntime : IPlanningRuntime
     internal readonly Queue<WorkflowIntentPlan> Plans = new();
     internal Func<LLMRequest, LLMResponse>? Respond;
     internal IReadOnlyList<PlanningDiagnostic>? Validation { get; set; }
+    internal Exception? ValidationFailure;
     internal IReadOnlyList<PlanningDiagnostic>? CatalogChanges;
     internal int Discoveries;
     internal readonly WorkflowPlanningRuntime Actual;
@@ -54,7 +55,9 @@ internal sealed class TestRuntime : IPlanningRuntime
         }
         return Task.FromResult(new LLMResponse { Json = candidate });
     }
-    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => Validation is null ? Actual.ValidateAsync(request, ct) : Task.FromResult(Validation);
+    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => ValidationFailure is { } failure
+        ? Task.FromException<IReadOnlyList<PlanningDiagnostic>>(failure)
+        : Validation is null ? Actual.ValidateAsync(request, ct) : Task.FromResult(Validation);
     public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct) => Actual.ValidateScenariosAsync(request, ct);
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => CatalogChanges is null ? Actual.ValidateCatalogAsync(catalog, ct) : Task.FromResult(CatalogChanges);
     public Task CheckpointAsync(PlanningSession state, CancellationToken ct)

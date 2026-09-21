@@ -108,7 +108,9 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         catch (Exception ex)
         {
             state.Diagnostics.Add(new(state.PendingCall is null ? "PLANNING_INVALID" : "MODEL_DISPATCH_UNVERIFIABLE", "$", ex.Message));
-            if (state.PendingCall is not null || state.Catalog is null) Stop(state); else { state.Status = PlanningStatus.Generating; Invalidate(state); }
+            // Only explicit candidate diagnostics are repairable. Unexpected host failures
+            // must not repeat indefinitely or spend model calls on a broken engine state.
+            Stop(state);
         }
         state.ActiveMilliseconds += clock.Elapsed.TotalMilliseconds;
         state.Revision++; state.UpdatedAtUtc = _time.GetUtcNow();

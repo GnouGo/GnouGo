@@ -159,7 +159,7 @@ public static class PlanningGraphBuilder
             {
                 PlanningComputations.Validate(value);
                 var args = value.Members.ToDictionary(m => m.Name, m => PlanningGraphCompiler.ToJsonSchema(Contract(m.Value), catalog), StringComparer.Ordinal);
-                var type = ExpressionContractInference.Infer(value.Text!, args);
+                var type = ExpressionContractInference.Infer(PlanningComputations.Expression(value.Text), args);
                 return type is null ? Hole() : PlanningGraphImporter.Schema(type);
             }
             if (value.Kind == "object") return new() { Type = "object", Properties = value.Members.Select(m => new PlanningPort { Name = m.Name, Schema = Contract(m.Value) }).ToList() };
