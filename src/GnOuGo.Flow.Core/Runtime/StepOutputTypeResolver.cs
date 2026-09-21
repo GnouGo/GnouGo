@@ -15,6 +15,7 @@ internal static class StepOutputTypeResolver
         return step.Type switch
         {
             "set" => ResolveSet(step, symbols),
+            "value.validate" => step.OutputSchema is null ? FlowTypeDescriptor.Any : FlowTypeDescriptorConverter.FromJsonSchema(step.OutputSchema),
             "assert.non_null" => ResolveAssertNonNull(step, symbols),
             "template.render" => ResolveTemplateRender(step),
             "llm.call" => ResolveLlmCall(step),

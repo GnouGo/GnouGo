@@ -6,9 +6,8 @@ public sealed record PlanningCommandDto(string Kind, long ExpectedRevision, stri
 public sealed record PlanningValidationDto(string Code, string Location, string Message, bool Required);
 public sealed record PlanningScenarioDto(string Id, string Outcome, string Description);
 public sealed record PlanningQuestionDto(string Id, string Question, JsonObject AnswerSchema);
-public sealed record PlanningHoleDto(string Id, string Kind, string Location);
 public sealed record PlanningSessionDto(string Id, string Name, long Revision, string Status, string Summary, string Diagram,
-    JsonObject? IntentPlan, string? Yaml, string? ArtifactHash, string? ApprovedHash,
-    IReadOnlyList<PlanningHoleDto> Holes, IReadOnlyList<PlanningValidationDto> Diagnostics, IReadOnlyList<PlanningScenarioDto> Scenarios,
-    IReadOnlyList<PlanningQuestionDto> Questions, int Calls, int RepairAttempts, long InputTokens, long OutputTokens,
-    decimal EstimatedCost, string Currency, double ActiveMilliseconds, double HumanWaitMilliseconds);
+    JsonObject? SemanticPlan, JsonObject? GroundedPlan, string? Yaml, string? ArtifactHash, string? ApprovedHash,
+    IReadOnlyList<PlanningValidationDto> Diagnostics, IReadOnlyList<PlanningScenarioDto> Scenarios,
+    IReadOnlyList<PlanningQuestionDto> Questions, int Calls, int ReplanAttempts, long InputTokens, long OutputTokens,
+    decimal EstimatedCost, string Currency, double ActiveMilliseconds, double HumanWaitMilliseconds, string Phase);

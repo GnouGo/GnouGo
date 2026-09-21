@@ -4,12 +4,6 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningValues
 {
     internal const string Omitted = "omitted";
-    internal const string Hole = "hole";
-    internal static bool HasUnresolved(JsonNode? node) => node switch
-    {
-        JsonObject obj => obj["kind"]?.ToString() == Hole || obj["type"]?.ToString() == Hole || obj.Any(p => HasUnresolved(p.Value)),
-        JsonArray array => array.Any(HasUnresolved), _ => false
-    };
     internal static string LiteralLocation(PlanningValue value, string root, string pointer)
     {
         foreach (var token in pointer.Split('/').Skip(1))
@@ -30,6 +24,7 @@ internal static class PlanningValues
     internal static bool Established(JsonObject schema) => Established(schema, schema, 0);
     private static bool Established(JsonObject schema, JsonObject root, int depth)
     {
+        if (GroundedTypes.IsOpaque(schema)) return true;
         if (depth > 32) return false;
         if (schema.ContainsKey("const") || schema["enum"] is JsonArray { Count: > 0 }) return true;
         if (schema["$ref"] is JsonValue reference)

@@ -78,7 +78,6 @@ internal static class PlanningDataflow
 
         bool Available(string key)
         {
-            if (!includeUnresolved && PlanningValues.HasUnresolved(JsonSerializer.SerializeToNode(nodes.Single(n => n.Key == key), PlanningJsonContext.Default.PlanningNode))) return false;
             if (consumer is null) return true;
             foreach (var condition in Guards(key))
             {

@@ -11,6 +11,8 @@ internal static class PlanningContractCompatibility
     private static bool Fits(JsonObject actual, JsonObject expected, JsonObject sourceRoot, JsonObject targetRoot, int depth, int[] work)
     {
         if (depth > 32 || --work[0] < 0) return false;
+        if (GroundedTypes.IsOpaque(expected)) return true;
+        if (GroundedTypes.IsOpaque(actual)) return expected.Count == 0;
         // This proof implements the runtime's JSON Schema vocabulary. An explicitly
         // declared extension vocabulary needs an implementation, not a model guess.
         if (expected.ContainsKey("$vocabulary") || targetRoot.ContainsKey("$vocabulary")) return false;

@@ -6,10 +6,17 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 internal static class PlannerFixture
 {
-    internal static WorkflowIntentPlan Greeting(string message = "Hello") => new()
+    internal static PlanningGraph Build(GroundedPlan plan, PlanningCatalog catalog) => PlanningGraphBuilder.Build(GroundedPlanValidator.RequireValid(plan, catalog));
+    internal static InMemoryMcpClientFactory Factory(int count, string fields = "{}", string[]? required = null)
+    {
+        var factory = new InMemoryMcpClientFactory(); var server = new MockMcpServerConfig();
+        for (var i = 0; i < count; i++) server.Tools.Add(new() { Name = "read_" + i, Description = "Read a value", EffectKind = "read", InputSchema = new JsonObject { ["type"] = "object", ["properties"] = JsonNode.Parse(fields), ["required"] = new JsonArray((required ?? []).Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()), ["additionalProperties"] = false }, OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"number"}},"required":["value"]}""") });
+        factory.RegisterServer("fixture", server); return factory;
+    }
+    internal static GroundedPlan Greeting(string message = "Hello") => new()
     {
         Summary = "Return a greeting",
-        Operations = [new CalculateIntentOperation { Id = "greet", Value = new() { Kind = "string", Text = message } }],
+        Operations = [new CalculateGroundedOperation { Id = "greet", Value = new() { Kind = "string", Text = message } }],
         Outputs = [new("message", new() { Kind = "result", Source = "greet" })]
     };
     internal static PlanningSession Session() => new() { Request = new() { TenantId = "test", Prompt = "Return a greeting", Options = new() { ["generator"] = new JsonObject { ["model"] = "test" } } } };
@@ -26,14 +33,14 @@ internal sealed class TestRuntime : IPlanningRuntime
 {
     internal readonly List<LLMRequest> Calls = [];
     internal readonly List<PlanningSession> Checkpoints = [];
-    internal readonly Queue<WorkflowIntentPlan> Plans = new();
+    internal readonly Queue<GroundedPlan> Plans = new();
     internal Func<LLMRequest, LLMResponse>? Respond;
     internal IReadOnlyList<PlanningDiagnostic>? Validation { get; set; }
     internal Exception? ValidationFailure;
-    internal IReadOnlyList<PlanningDiagnostic>? CatalogChanges;
+    internal IReadOnlyList<PlanningDiagnostic>? CatalogChanges { get; set; }
     internal int Discoveries;
     internal readonly WorkflowPlanningRuntime Actual;
-    internal TestRuntime(WorkflowIntentPlan? plan = null, IMcpClientFactory? mcp = null)
+    internal TestRuntime(GroundedPlan? plan = null, IMcpClientFactory? mcp = null)
     {
         Plans.Enqueue(plan ?? PlannerFixture.Greeting());
         Actual = new(new WorkflowEngine { McpClientFactory = mcp }, (_, _) => Task.CompletedTask);
@@ -43,18 +50,10 @@ internal sealed class TestRuntime : IPlanningRuntime
     {
         Calls.Add(request);
         if (Respond is not null) return Task.FromResult(Respond(request));
-        if (purpose == "choices") return Task.FromResult(new LLMResponse { Json = new JsonObject(request.StructuredOutputSchema!["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, p.Value!["enum"]![0]!.DeepClone()))) });
-        var plan = Plans.Count > 1 ? Plans.Dequeue() : Plans.Peek();
-        var candidate = PlanningJsonTransport.Intent(plan);
-        if (purpose == "repair" && request.StructuredOutputSchema!["properties"]?["changes"] is not null)
-        {
-            var context = JsonNode.Parse(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..])!;
-            candidate = new() { ["changes"] = new JsonArray(context["targets"]!.AsArray().Select(t => (JsonNode)new JsonObject {
-                ["target"] = t!["id"]!.DeepClone(), ["replacement"] = PlanningFieldPaths.Read(PlanningJsonTransport.Intent(plan), t["path"]!.GetValue<string>())?.DeepClone()
-            }).ToArray()) };
-        }
-        return Task.FromResult(new LLMResponse { Json = candidate });
+        var plan = purpose == "replan" && Plans.Count > 1 ? Plans.Dequeue() : Plans.Peek();
+        return Task.FromResult(GnOuGo.Planning.Examples.PlanningCorpus.FixtureResponse(request, purpose, plan));
     }
+
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => ValidationFailure is { } failure
         ? Task.FromException<IReadOnlyList<PlanningDiagnostic>>(failure)
         : Validation is null ? Actual.ValidateAsync(request, ct) : Task.FromResult(Validation);

@@ -4,20 +4,22 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningSchemas
 {
-    internal static JsonObject Intent(IEnumerable<string>? capabilityIds = null)
+    internal static JsonObject Grounded(IEnumerable<string>? capabilityIds = null)
     {
         var root = Object(("summary", String()), ("inputs", Array(Ref("input"))), ("operations", Array(Ref("operation"))),
             ("outputs", Array(Ref("output"))), ("subflows", Array(Ref("subflow"))), ("questions", Array(Ref("question"))));
-        root["$defs"] = Definitions(capabilityIds); return root;
+        var definitions = Definitions(capabilityIds);
+        if (capabilityIds is not null && !capabilityIds.Any()) definitions["operation"]!["anyOf"]!.AsArray().RemoveAt(0);
+        root["$defs"] = definitions; return root;
     }
     internal static JsonObject Definitions(IEnumerable<string>? capabilityIds = null)
     {
-        // The unrestricted form validates stored intent shape, including deferred errors.
+        // The unrestricted form validates stored intent shape, without executable escape hatches.
         // Newly issued model requests always supply their exposed/allowed identities.
         var ids = capabilityIds?.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
-        var capability = ids is null ? Nullable(String()) : ids.Length == 0 ? Type("null") : Nullable(Enum(ids));
+        var capability = ids is null || ids.Length == 0 ? String() : Enum(ids);
         JsonObject Operation(string kind, params (string Name, JsonObject Schema)[] fields) => Object(new[] {
-            ("kind", Enum(kind)), ("id", String()), ("purpose", String()), ("after", Array(String())), ("when", Nullable(Ref("value"))) }.Concat(fields).ToArray());
+            ("kind", Enum(kind)), ("id", String()), ("semanticAction", String()), ("businessOutputs", Array(Object(("name", String()), ("path", Array(String()))))), ("purpose", String()), ("after", Array(String())), ("when", Nullable(Ref("value"))) }.Concat(fields).ToArray());
         JsonObject Input(JsonObject type, JsonObject value) => Object(("name", String()), ("type", type), ("optional", Type("boolean")), ("default", value));
         JsonObject BusinessType(bool nullableOnly = false)
         {
@@ -30,7 +32,7 @@ internal static class PlanningSchemas
         return new()
         {
             ["value"] = new JsonObject { ["anyOf"] = new JsonArray(
-                Object(("kind", Enum("null", "missing"))), Object(("kind", Enum("string")), ("text", String())),
+                Object(("kind", Enum("null"))), Object(("kind", Enum("string")), ("text", String())),
                 Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
                 Object(("kind", Enum("object")), ("members", Array(Ref("member")))), Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
                 Object(("kind", Enum("input", "result", "item", "index")), ("source", String()), ("path", Array(String()))),
@@ -59,24 +61,23 @@ internal static class PlanningSchemas
             ["operation"] = new JsonObject { ["anyOf"] = new JsonArray(
                 Operation("invoke", ("capability", capability), ("arguments", Array(Ref("member"))), ("fallback", Nullable(Ref("value")))),
                 Operation("calculate", ("value", Ref("value")), ("resultType", Nullable(Ref("type")))),
-                Operation("transform", ("instruction", String()), ("data", Array(Ref("member"))), ("resultType", Nullable(Ref("type")))),
+                Operation("transform", ("instruction", String()), ("data", Array(Ref("member"))), ("resultType", Ref("type"))),
                 Operation("choose", ("condition", Ref("value")), ("then", Ref("block")), ("otherwise", Ref("block"))),
                 Operation("each", ("items", Ref("value")), ("parallel", Type("boolean")), ("body", Ref("block"))),
                 Operation("parallel", ("branches", Array(Ref("branch")))),
                 Operation("call", ("flow", String()), ("arguments", Array(Ref("member")))),
-                Operation("cleanup", ("operations", Array(Ref("operation"))))) }
+                Operation("cleanup", ("operations", Array(Ref("operation")))),
+                Operation("validate", ("value", Ref("value")), ("format", Enum("json_value", "json_text")), ("resultType", Ref("type")))) }
         };
     }
-    internal static JsonObject Choices(IEnumerable<(PlanningHole Hole, IReadOnlyList<PlanningChoice> Choices)> holes)
-        => Object(holes.Select(h => (h.Hole.Id, Enum(h.Choices.Select(c => c.Id).ToArray()))).ToArray());
-    private static JsonObject String() => Type("string");
-    private static JsonObject Type(string type) => new() { ["type"] = type };
-    private static JsonObject Enum(params string[] values) => new() { ["type"] = "string", ["enum"] = new JsonArray(values.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()) };
-    private static JsonObject Ref(string name) => new() { ["$ref"] = "#/$defs/" + name };
-    private static JsonObject Nullable(JsonObject schema) => new() { ["anyOf"] = new JsonArray(schema, Type("null")) };
-    private static JsonObject Array(JsonObject item) => new() { ["type"] = "array", ["items"] = item };
-    private static JsonObject NonEmptyArray(JsonObject item) { var array = Array(item); array["minItems"] = 1; return array; }
-    private static JsonObject Object(params (string Name, JsonObject Schema)[] fields) => new()
+    internal static JsonObject String() => Type("string");
+    internal static JsonObject Type(string type) => new() { ["type"] = type };
+    internal static JsonObject Enum(params string[] values) => new() { ["type"] = "string", ["enum"] = new JsonArray(values.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()) };
+    internal static JsonObject Ref(string name) => new() { ["$ref"] = "#/$defs/" + name };
+    internal static JsonObject Nullable(JsonObject schema) => new() { ["anyOf"] = new JsonArray(schema, Type("null")) };
+    internal static JsonObject Array(JsonObject item) => new() { ["type"] = "array", ["items"] = item };
+    internal static JsonObject NonEmptyArray(JsonObject item) { var array = Array(item); array["minItems"] = 1; return array; }
+    internal static JsonObject Object(params (string Name, JsonObject Schema)[] fields) => new()
     {
         ["type"] = "object",
         ["properties"] = new JsonObject(fields.Select(f => new KeyValuePair<string, JsonNode?>(f.Name, f.Schema))),

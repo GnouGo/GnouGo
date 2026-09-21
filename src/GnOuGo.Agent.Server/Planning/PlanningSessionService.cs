@@ -47,7 +47,7 @@ public sealed class PlanningSessionService(
     public Task<IReadOnlyList<PlanningSession>> ListAsync(CancellationToken ct) => store.ListAsync(Tenant, ct);
 
     // Workflow-owned sessions are inspection-only here. Their original runtime owns all commands.
-    private const string WorkflowSessions = "flow-planning-sessions-v7";
+    private const string WorkflowSessions = "flow-planning-sessions-v8";
     public async Task<PlanningSession?> GetWorkflowSessionAsync(string id, CancellationToken ct)
     {
         var record = await records.GetAsync(WorkflowSessions, Tenant, id, EfPlanningSessionStore.Author, ct);
@@ -61,7 +61,7 @@ public sealed class PlanningSessionService(
     private PlanningSession ReadWorkflowSession(string key, string payload)
     {
         var state = JsonSerializer.Deserialize(payload, PlanningJsonContext.Default.PlanningSession);
-        if (state is null || state.SchemaVersion != 7 || state.Request.SessionId != key || state.Request.TenantId != Tenant)
+        if (state is null || state.SchemaVersion != 8 || state.Request.SessionId != key || state.Request.TenantId != Tenant)
             throw new InvalidOperationException("The workflow planning session ownership or schema is invalid.");
         return state;
     }
@@ -98,7 +98,7 @@ public sealed class PlanningSessionService(
                 Options = options,
                 Policy = AgentPlanningPolicy.Create(),
                 MaxModelCalls = settings.Value.MaxModelCalls,
-                MaxRepairAttempts = settings.Value.MaxRepairAttempts,
+                MaxReplanAttempts = settings.Value.MaxReplanAttempts,
                 Generation = new() { Reasoning = settings.Value.Reasoning, MaxInputTokensPerRequest = settings.Value.MaxInputTokensPerRequest, MaxOutputTokens = settings.Value.MaxOutputTokens }
             },
             UpdatedAtUtc = DateTimeOffset.UtcNow
@@ -107,7 +107,7 @@ public sealed class PlanningSessionService(
         {
             var discovery = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory, PlanningPolicy = AgentPlanningPolicy.Create() }, (_, _) => Task.CompletedTask);
             state.Catalog = await discovery.DiscoverAsync(state.Request, ct);
-            state.Request.Baseline = PlanningIntentImporter.Import(PlanningGraphImporter.Import(original, state.Catalog));
+            state.Request.RevisionContext = PlanningRevisionContext.FromGraph(PlanningGraphImporter.Import(original, state.Catalog));
         }
         PlanningGenerationPolicy.Validate(state.Request.Generation);
         if (!await store.TrySaveAsync(state, expectedRevision: null, ct)) throw new PlanningConflictException("The planning session already exists.");
@@ -223,7 +223,7 @@ public sealed class PlanningSessionService(
             current.UpdatedAtUtc = completion.UpdatedAt;
         }
 
-        if (command.Kind is "cancel" or "edit_intent" or "revise" or "configure_generation" or "answer")
+        if (command.Kind is "cancel" or "edit_semantic" or "revise" or "configure_generation" or "answer")
         {
             var recordedUsage = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, current.Request.SessionId, EfPlanningSessionStore.Author, ct);
             if (recordedUsage is not null) current.Usage = JsonSerializer.Deserialize(recordedUsage.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
@@ -274,7 +274,7 @@ public sealed class PlanningSessionService(
         var updated = await planner.AdvanceAsync(current, command, adapter, ct);
         activity?.SetTag("gnougo.planning.status", updated.Status);
         activity?.SetTag("gnougo.planning.calls", updated.ModelCalls);
-        activity?.SetTag("gnougo.planning.repairs", updated.RepairAttempts);
+        activity?.SetTag("gnougo.planning.replans", updated.ReplanAttempts);
         activity?.SetTag("gnougo.planning.diagnostics", string.Join(",", updated.Diagnostics.Select(d => d.Code).Distinct()));
         PhaseDuration.Record(clock.Elapsed.TotalSeconds, new KeyValuePair<string, object?>("tenant.id", Tenant));
         return updated;

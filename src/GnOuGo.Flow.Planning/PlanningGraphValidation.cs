@@ -331,7 +331,7 @@ public static class PlanningGraphValidation
                             var target = graph.Workflows.FirstOrDefault(w => w.Key == Member(producer.Input, "ref")?.Source);
                             schema = target is null ? null : ObjectSchema(target.Outputs.Select(o => (o.Name, PlanningGraphCompiler.ToJsonSchema(o.Schema, catalog))));
                         }
-                        else if (producer.Type == "set") schema = producer.OutputSchema is not null ? PlanningGraphCompiler.ToJsonSchema(producer.OutputSchema, catalog) : ValueSchema(producer.Input, visiting);
+                        else if (producer.Type is "set" or "value.validate") schema = producer.OutputSchema is not null ? PlanningGraphCompiler.ToJsonSchema(producer.OutputSchema, catalog) : ValueSchema(producer.Input, visiting);
                         else if (producer.Type == "sequence") schema = ChildSchema(producer.Steps, visiting);
                         else if (producer.Type == "parallel")
                         {
@@ -370,7 +370,7 @@ public static class PlanningGraphValidation
                             schema = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema;
                         else schema = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema ?? BuiltInStepContracts.Get(producer.Type)?.OutputSchema;
                         if (schema is null) throw new InvalidOperationException("The producer needs an explicit typed output contract.");
-                        return AtPath(schema, value.Path);
+                        return AtPath(schema.Count == 0 ? GroundedTypes.Opaque() : schema, value.Path);
                     }
                     finally { visiting.Remove(producer.Key); }
                 }
@@ -461,6 +461,8 @@ public static class PlanningGraphValidation
     internal static bool TypesFit(JsonObject actual, JsonObject expected, int depth = 0, bool allowUnresolved = false)
     {
         if (depth > 32) return false;
+        if (GroundedTypes.IsOpaque(expected)) return true;
+        if (GroundedTypes.IsOpaque(actual)) return false;
         if (allowUnresolved && actual.Count == 0) return true; // set enforces the asserted schema at runtime
         if ((actual["anyOf"] ?? actual["oneOf"]) is JsonArray variants)
             return variants.Count != 0 && variants.All(v => v is JsonObject variant && TypesFit(variant, expected, depth + 1, allowUnresolved));
@@ -495,7 +497,7 @@ public static class PlanningGraphValidation
         return true;
     }
 
-    private static JsonObject AtPath(JsonObject root, List<string> path)
+    internal static JsonObject AtPath(JsonObject root, List<string> path)
     {
         return Read(root, 0, 0);
         JsonObject Read(JsonObject current, int position, int depth)
@@ -562,6 +564,7 @@ public static class PlanningGraphValidation
 
     internal static void RequireTyped(JsonObject schema, int depth)
     {
+        if (GroundedTypes.IsOpaque(schema)) return;
         if (depth > 32) throw new InvalidOperationException("Schema nesting exceeds 32 levels.");
         if (schema.ContainsKey("const") || schema["enum"] is JsonArray { Count: > 0 }) return;
         if (schema["allOf"] is JsonArray && PlanningValues.Established(schema)) return;

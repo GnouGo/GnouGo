@@ -20,7 +20,7 @@ public sealed class PlanningModelRecoveryTests
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = await SeedAsync(fixture); var old = state.PendingCall!;
         await PrepareAsync(state, fixture);
-        Assert.Equal(5, state.ModelCalls); Assert.Equal(0, state.RepairAttempts);
+        Assert.Equal(5, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(PlanningStatus.Generating, state.Status); Assert.NotEqual(old.Id, state.PendingCall!.Id);
         Assert.Equal(old.Request.Prompt, state.PendingCall.Request.Prompt); Assert.Equal(100, state.ActiveMilliseconds);
         Assert.True(state.Usage!.InputTokens >= 12_010); Assert.Equal(69, state.Usage.OutputTokens);
@@ -56,7 +56,7 @@ public sealed class PlanningModelRecoveryTests
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = await SeedAsync(fixture); var pending = state.PendingCall!.Id;
         if (exhausted == "calls") state.Request.MaxModelCalls = 4;
-        if (exhausted == "repairs") { state.PendingCall.Purpose = "repair"; state.RepairAttempts = 2; }
+        if (exhausted == "repairs") { state.PendingCall.Purpose = "replan"; state.ReplanAttempts = 2; }
         var limits = exhausted == "tokens" ? Limits with { MaxTotalTokens = 20 }
             : exhausted == "cost" ? Limits with { MaxEstimatedCost = new(0.02m, "EUR") } : Limits;
         await PlanningModelRecovery.PrepareAsync(state, fixture.Records, limits, new Estimator(), new TestExchangeRateProvider(), Ct);

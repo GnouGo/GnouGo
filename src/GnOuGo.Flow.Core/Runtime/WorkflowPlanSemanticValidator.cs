@@ -1074,9 +1074,12 @@ public static class WorkflowPlanSemanticValidator
         List<WorkflowSemanticValidationError> errors)
     {
         if (step.OutputSchema == null)
+        {
+            if (step.Type == "value.validate") errors.Add(new WorkflowSemanticValidationError { Code = "VALIDATION_SCHEMA_REQUIRED", WorkflowName = workflowName, StepId = step.Id, Field = "output_schema", Message = "value.validate requires a literal output schema." });
             return;
+        }
 
-        if (!string.Equals(step.Type, "set", StringComparison.Ordinal))
+        if (step.Type is not ("set" or "value.validate"))
         {
             errors.Add(new WorkflowSemanticValidationError
             {
@@ -1137,6 +1140,10 @@ public static class WorkflowPlanSemanticValidator
                 Message = "set output_schema root must declare type: object."
             });
         }
+
+        // This executor validates the whole value at runtime before publishing output.
+        // Its source may be opaque; the ordinary set assertion rules remain unchanged.
+        if (step.Type == "value.validate") return;
 
         if (step.Input == null)
             return;

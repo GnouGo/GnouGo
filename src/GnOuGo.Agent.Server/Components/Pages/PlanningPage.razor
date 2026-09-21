@@ -45,19 +45,16 @@
             <button type="button" @onclick="() => OpenTraces(_state.Request.SessionId, IsWorkflowSession)">Traces</button>
         </p>
         @if (IsWorkflowSession) { <p>This session is read-only here. Continue approvals and execution in the originating chat workflow.</p> }
-        <p aria-live="polite"><strong>@Phase(_state.Status)</strong> · Revision @_state.Revision</p>
-        <p>@_state.ModelCalls model calls · @_state.RepairAttempts repairs · @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") active</p>
+        <p aria-live="polite"><strong>@Phase(_state.Status)</strong> · @_state.Phase · Revision @_state.Revision</p>
+        <p>@_state.ModelCalls model calls · @_state.ReplanAttempts replans · @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") active</p>
         @if (_state.Usage is { } usage) { <p>Estimated cost @usage.EstimatedCost.ToString("0.00") @usage.EstimatedCostCurrency</p> }
-        <p>@_state.IntentPlan?.Summary</p>
+        <p>@_state.SemanticPlan?.Summary</p>
         @if (_state.Graph is { } graph)
         {
             <MarkdownContent Content="@("```mermaid\n" + PlanningReviewFormatter.Diagram(graph) + "\n```")" />
-            @if (_state.Catalog is { } catalog && PlanningHoleEligibility.Find(graph, catalog) is { Count: > 0 } holes)
-            {
-                <details><summary>@holes.Count unresolved fields</summary><ul>@foreach (var hole in holes) { <li>@hole.Kind: @hole.Path</li> }</ul></details>
-            }
+
         }
-        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification && _state.IntentPlan is { } intent)
+        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification && _state.SemanticPlan is { } intent)
         {
             @foreach (var question in intent.Questions)
             {
@@ -194,7 +191,7 @@
     private Task AnswerAsync()
     {
         var answers = new JsonObject();
-        foreach (var question in _state!.IntentPlan!.Questions)
+        foreach (var question in _state!.SemanticPlan!.Questions)
         {
             var text = _answers.GetValueOrDefault(question.Id) ?? "";
             if (PlanningGraphBuilder.Schema(question.AnswerType).Type == "string") answers[question.Id] = text;

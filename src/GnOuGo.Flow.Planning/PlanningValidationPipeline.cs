@@ -36,8 +36,7 @@ internal static class PlanningValidationPipeline
             { state.Diagnostics.Add(new("SCENARIO_OBSERVATION_INVALID", "/fixtures/observations", "Observations require an existing external step and literal results.")); continue; }
             var schema = node.StructuredOutput is not null ? PlanningGraphCompiler.ToJsonSchema(node.StructuredOutput.Schema, catalog)
                 : catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId)?.OutputSchema;
-            if (schema is null || schema.Count == 0)
-            { state.Diagnostics.Add(new("SCENARIO_OBSERVATION_SCHEMA", "/fixtures/observations", "The observed result needs a declared schema.")); continue; }
+            schema = schema is null || schema.Count == 0 ? GroundedTypes.Opaque() : schema;
             var key = (workflow!.Key == graph.Entrypoint ? "main" : "w_" + PlanningGraphCompiler.Fingerprint(workflow.Key)[..16]) + ":n_" + PlanningGraphCompiler.Fingerprint(node.Key)[..16];
             observations[key] = new JsonObject { ["schema"] = schema.DeepClone(), ["channel"] = node.StructuredOutput is null ? "response" : "json", ["responses"] = new JsonArray(observation.Responses.Select(v => v?.DeepClone()).ToArray()) };
         }

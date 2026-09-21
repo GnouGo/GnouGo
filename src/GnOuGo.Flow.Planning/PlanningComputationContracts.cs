@@ -73,7 +73,7 @@ internal static class PlanningComputationContracts
             return;
         }
         if (node is MemberExpression member && Name(member) is { } name && Schema(member.Object, scope) is { } schema &&
-            (schema.Count == 0 || schema["type"]?.ToString() == "object" || schema["properties"] is JsonObject) &&
+            (schema.Count == 0 || GroundedTypes.IsOpaque(schema) || schema["type"]?.ToString() == "object" || schema["properties"] is JsonObject) &&
             (schema["properties"] is not JsonObject fields || !fields.ContainsKey(name)) && schema["additionalProperties"] is not JsonObject &&
             name is not ("toString" or "hasOwnProperty" or "valueOf" or "toLocaleString"))
             messages.Add(("COMPUTATION_FIELD_UNDECLARED", MemberIdentity(member), "Property '" + name + "' is not declared by this computation parameter's producer contract. Declared fields: " + string.Join(", ", (schema["properties"] as JsonObject ?? []).Select(p => p.Key)) +

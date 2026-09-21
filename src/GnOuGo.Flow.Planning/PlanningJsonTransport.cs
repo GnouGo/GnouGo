@@ -8,9 +8,9 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningJsonTransport
 {
-    internal static JsonObject Intent(WorkflowIntentPlan plan)
+    internal static JsonObject Grounded(GroundedPlan plan)
     {
-        var json = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.WorkflowIntentPlan)!.AsObject();
+        var json = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.GroundedPlan)!.AsObject();
         Compact(json); return json;
     }
     internal static void Compact(JsonNode? value)

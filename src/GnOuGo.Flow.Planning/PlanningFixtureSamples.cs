@@ -16,7 +16,7 @@ internal static class PlanningFixtureSamples
             try { schema = PlanningGraphCompiler.ToJsonSchema(port.Schema, state.Catalog!); }
             catch (InvalidOperationException) { validInputs = false; continue; }
             fields[port.Name] = schema.DeepClone(); if (port.Required && port.Default is null) required.Add((JsonNode?)JsonValue.Create(port.Name));
-            // An unresolved or invalid default belongs to intent repair, not fixture generation.
+            // An unresolved or invalid default belongs to grounded replanning, not fixture generation.
             if (port.Default is not null && (!PlanningGraphValidation.IsLiteral(port.Default) ||
                 PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(port.Default), schema).Count > 0)) { validInputs = false; continue; }
             if (port.Default is not null) inputs[port.Name] = PlanningGraphValidation.Literal(port.Default);
@@ -30,9 +30,10 @@ internal static class PlanningFixtureSamples
                 var capability = state.Catalog!.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
                 try { schema = node.StructuredOutput is null ? capability?.OutputSchema : PlanningGraphCompiler.ToJsonSchema(node.StructuredOutput.Schema, state.Catalog); }
                 catch (InvalidOperationException) { continue; }
-                if (schema is null || schema.Count == 0) continue;
+                if (schema is null) continue;
+                if (schema.Count == 0) schema = GroundedTypes.Opaque();
                 var sample = capability?.ExampleResponse is { } example && PlanningContractValidation.ValidateInstance(example, schema).Count == 0 ? example.DeepClone()
-                    : WorkflowPlanDryRunValidator.CreateArtifactSample(schema, capability?.ArtifactContract);
+                    : GroundedTypes.IsOpaque(schema) ? null : WorkflowPlanDryRunValidator.CreateArtifactSample(schema, capability?.ArtifactContract);
                 yield return ("/fixtures/observations/" + PlanningFieldPaths.Escape(workflow.Key) + "/" + PlanningFieldPaths.Escape(node.Key), schema, sample);
             }
     }
@@ -44,7 +45,7 @@ internal static class PlanningFixtureSamples
             var supplied = Values(state, domain.Path);
             if (supplied is null)
             {
-                if (PlanningContractValidation.ValidateInstance(domain.Sample, domain.Schema).Count > 0)
+                if (GroundedTypes.IsOpaque(domain.Schema) && domain.Sample is null || PlanningContractValidation.ValidateInstance(domain.Sample, domain.Schema).Count > 0)
                     findings.Add(new("SCENARIO_FIXTURE_REQUIRED", domain.Path, "Deterministic sampling cannot satisfy this contract; supply literal scenario data.", ValidationStage: "fixtures"));
             }
             else if (supplied.Count == 0 || supplied.Any(value => PlanningContractValidation.ValidateInstance(value, domain.Schema).Count > 0))

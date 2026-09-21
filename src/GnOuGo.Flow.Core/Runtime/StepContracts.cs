@@ -47,6 +47,7 @@ public static class BuiltInStepContracts
                 Object(new[] { "decisions" }, ("decisions", OpenObject())),
                 OpenObject(),
                 inputRequired: true),
+            ["value.validate"] = Contract(Object(new[] { "value" }, ("value", Any()), ("format", Enum("json_value", "json_text"))), Object(("value", Any())), inputRequired: true),
             ["set"] = Contract(OpenObject(), OpenObject(), inputRequired: true),
             ["assert.non_null"] = Contract(OpenObject(), OpenObject(), inputRequired: true),
             ["template.render"] = Contract(
@@ -186,7 +187,7 @@ public static class BuiltInStepContracts
                 ("amount", Number()), ("currency", String()))), ("unverifiable", Enum("fail")))),
         ("generator", Object(("provider", String()), ("model", String()), ("reasoning", String()),
             ("max_input_tokens", PositiveInteger()), ("max_output_tokens", PositiveInteger()))),
-        ("max_repair_attempts", new JsonObject { ["type"] = "integer", ["minimum"] = 0, ["maximum"] = 10, ["default"] = 2 }),
+        ("max_replan_attempts", new JsonObject { ["type"] = "integer", ["minimum"] = 0, ["maximum"] = 10, ["default"] = 2 }),
         ("policy", Object(("instructions", String()), ("allowed_step_types", Array(String())),
             ("denied_capability_ids", Array(String())), ("require_external_confirmation", Boolean()))),
         ("limits", Object(("max_steps_total", PositiveInteger()))));

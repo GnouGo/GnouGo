@@ -17,6 +17,33 @@ public static class ExpressionContractInference
         FlowTypeDescriptor Type(Node child) => Infer(child, variables);
         switch (node)
         {
+            case CallExpression { Callee: ArrowFunctionExpression { Params.Count: 0 } function, Arguments.Count: 0 }:
+                return Type(function.Body);
+            case ReturnStatement statement: return statement.Argument is null ? FlowTypeDescriptor.Null : Type(statement.Argument);
+            case BlockStatement block:
+                var locals = variables.ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
+                var returns = new List<FlowTypeDescriptor>();
+                foreach (var statement in block.Body)
+                {
+                    switch (statement)
+                    {
+                        case VariableDeclaration declaration:
+                            foreach (var variable in declaration.Declarations)
+                            {
+                                if (variable.Id is not Identifier id || variable.Init is null) return FlowTypeDescriptor.Any;
+                                locals[id.Name] = Infer(variable.Init, locals);
+                            }
+                            break;
+                        case ReturnStatement returned:
+                            returns.Add(Infer(returned, locals)); return FlowTypeDescriptor.Union(returns);
+                        case IfStatement conditional:
+                            returns.Add(Infer(conditional.Consequent, locals));
+                            if (conditional.Alternate is not null) returns.Add(Infer(conditional.Alternate, locals));
+                            break;
+                        default: return FlowTypeDescriptor.Any;
+                    }
+                }
+                return FlowTypeDescriptor.Any; // Fall-through does not establish a result contract.
             case Identifier identifier: return variables.GetValueOrDefault(identifier.Name) ?? FlowTypeDescriptor.Any;
             case Literal literal: return literal.Value switch { null => FlowTypeDescriptor.Null, string => FlowTypeDescriptor.String, bool => FlowTypeDescriptor.Boolean, _ => FlowTypeDescriptor.Number };
             case TemplateLiteral: return FlowTypeDescriptor.String;

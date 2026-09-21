@@ -17,12 +17,12 @@ foreach (var name in PlanningCorpus.Names)
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, CancellationToken.None);
         state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
     }
-    if (state.Status != PlanningStatus.FinalReview || state.ModelCalls != 1 || environment.Effects.Count != 0) throw new InvalidOperationException(JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic));
+    if (state.Status != PlanningStatus.FinalReview || state.ModelCalls > state.Request.MaxModelCalls || environment.Effects.Count != 0) throw new InvalidOperationException(JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic));
     state = await planner.AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(state) }, runtime, CancellationToken.None);
     if (state.Status != PlanningStatus.Approved) throw new InvalidOperationException("Approval failed.");
     var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
     var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], PlanningBenchmarkCases.Inputs(name, "nominal"), CancellationToken.None);
     if (!environment.Verify(result)) throw new InvalidOperationException("Independent result assertion failed: " + result.Error?.Message);
-    Console.WriteLine(name + ": passed, calls=1, repairs=0, scenarios=" + state.Scenarios.Count);
+    Console.WriteLine(name + ": passed, calls=" + state.ModelCalls + ", replans=" + state.ReplanAttempts + ", scenarios=" + state.Scenarios.Count);
 }
 Console.WriteLine("Planner Native AOT smoke passed.");

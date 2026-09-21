@@ -109,12 +109,12 @@ public sealed class LlmTraceCaptureTests : BunitContext
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = new PlanningSession { Request = new() { SessionId = "session", TenantId = "tenant" } };
-        if (workflow) await fixture.Records.UpsertAsync("flow-planning-sessions-v7", "tenant", "session", JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
+        if (workflow) await fixture.Records.UpsertAsync("flow-planning-sessions-v8", "tenant", "session", JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
         else Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var prefix = workflow ? "flow" : "agent";
         var key = workflow ? "session:1:hash" : "session:session:1:hash";
         var request = new LLMRequest { ClientRequestId = "session:1:hash", Prompt = "original request", StructuredOutputSchema = new JsonObject { ["type"] = "object" } };
-        var record = await fixture.Records.UpsertAsync(prefix + "-planning-model-requests-v7", "tenant", key, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), "test", Ct);
+        var record = await fixture.Records.UpsertAsync(prefix + "-planning-model-requests-v8", "tenant", key, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), "test", Ct);
         var store = Store(fixture);
         Assert.Contains("uncertain", Assert.Single(await store.HistoryAsync("session", workflow, Ct)).Status);
         var content = await store.LoadJournalAsync("session", workflow, key, Ct);
@@ -122,7 +122,7 @@ public sealed class LlmTraceCaptureTests : BunitContext
         Assert.Contains("unknown", content.OutputStatus);
         Assert.Null(await store.LoadJournalAsync("unrelated", workflow, key, Ct));
         await store.PurgeAsync(Ct);
-        Assert.Equal(record, await fixture.Records.GetAsync(prefix + "-planning-model-requests-v7", "tenant", key, "test", Ct));
+        Assert.Equal(record, await fixture.Records.GetAsync(prefix + "-planning-model-requests-v8", "tenant", key, "test", Ct));
         Assert.Empty(await fixture.Records.ListAsync(LlmTraceContentStore.Collection, "tenant", "test", Ct));
     }
 
@@ -179,9 +179,9 @@ public sealed class LlmTraceCaptureTests : BunitContext
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = new PlanningSession { Request = new() { SessionId = "session", TenantId = "tenant" } };
-        await fixture.Records.UpsertAsync("flow-planning-sessions-v7", "tenant", "session", JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
+        await fixture.Records.UpsertAsync("flow-planning-sessions-v8", "tenant", "session", JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
         var request = new LLMRequest { ClientRequestId = "session:1:hash", Prompt = "JOURNALED_PRIVATE_INPUT" };
-        var reservation = await fixture.Records.UpsertAsync("flow-planning-model-requests-v7", "tenant", request.ClientRequestId, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), "test", Ct);
+        var reservation = await fixture.Records.UpsertAsync("flow-planning-model-requests-v8", "tenant", request.ClientRequestId, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), "test", Ct);
         var harness = SmartFlowTestFactory.CreateTelemetryHarness(); using var telemetry = harness.Telemetry;
         var local = new LocalTraceDebugStore(new TestOptionsMonitor<OpenTelemetrySettings>(new() { TenantId = "tenant" }));
         var store = Store(fixture);
@@ -191,10 +191,10 @@ public sealed class LlmTraceCaptureTests : BunitContext
         Assert.DoesNotContain("JOURNALED_PRIVATE", diagnostic.Value);
         var record = JsonSerializer.Deserialize(diagnostic.Value, LlmTraceJsonContext.Default.LlmTraceContent)!;
         Assert.Equal("flow", record.Journal);
-        await fixture.Records.UpsertAsync("flow-planning-model-receipts-v7", "tenant", request.ClientRequestId, JsonSerializer.Serialize(response, PlanningJsonContext.Default.LLMResponse), "test", Ct);
+        await fixture.Records.UpsertAsync("flow-planning-model-receipts-v8", "tenant", request.ClientRequestId, JsonSerializer.Serialize(response, PlanningJsonContext.Default.LLMResponse), "test", Ct);
         var reopened = await Store(fixture).LoadAsync(diagnostic.Key, record.TraceId, record.SpanId, "session", Ct);
         Assert.Contains("JOURNALED_PRIVATE_OUTPUT", reopened!.Output);
-        Assert.Equal(reservation, await fixture.Records.GetAsync("flow-planning-model-requests-v7", "tenant", request.ClientRequestId, "test", Ct));
+        Assert.Equal(reservation, await fixture.Records.GetAsync("flow-planning-model-requests-v8", "tenant", request.ClientRequestId, "test", Ct));
     }
 
     [Fact]
@@ -243,12 +243,12 @@ public sealed class LlmTraceCaptureTests : BunitContext
         records.Values.Add(new(LlmTraceContentStore.Collection, "tenant", "expired", "{}", DateTimeOffset.UtcNow.AddDays(-8), DateTimeOffset.UtcNow));
         records.Values.Add(new(LlmTraceContentStore.Collection, "tenant", "recent", "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
         records.Values.Add(new(LlmTraceContentStore.Collection, "other", "expired", "{}", DateTimeOffset.UtcNow.AddDays(-8), DateTimeOffset.UtcNow));
-        records.Values.Add(new("flow-planning-model-requests-v7", "tenant", "request", "{}", DateTimeOffset.UtcNow.AddDays(-8), DateTimeOffset.UtcNow));
+        records.Values.Add(new("flow-planning-model-requests-v8", "tenant", "request", "{}", DateTimeOffset.UtcNow.AddDays(-8), DateTimeOffset.UtcNow));
         var store = new LlmTraceContentStore(records, new TestOptionsMonitor<TraceDebugSettings>(new()), Options.Create(new OpenTelemetrySettings { TenantId = "tenant" }), fixture.Store);
         Assert.Null(await store.LoadAsync("expired", "trace", "span", null, Ct));
         await store.PurgeAsync(Ct);
         Assert.Equal(3, records.Values.Count);
-        Assert.Contains(records.Values, r => r.Collection == "flow-planning-model-requests-v7");
+        Assert.Contains(records.Values, r => r.Collection == "flow-planning-model-requests-v8");
         Assert.Contains(records.Values, r => r.TenantId == "other");
     }
 

@@ -18,14 +18,14 @@ internal static class PlanningPersistenceSmoke
         var store = new EfPlanningSessionStore(factory, records);
         var state = new PlanningSession { Request = new() { TenantId = "smoke", SessionId = Guid.NewGuid().ToString("N"), Prompt = "Private published smoke content" } };
         if (!await store.TrySaveAsync(state, null, CancellationToken.None)) throw new InvalidOperationException("Insert failed.");
-        state.Revision = 1; state.Status = PlanningStatus.Stopped; state.ModelCalls = 2; state.RepairAttempts = 1;
-        state.IntentPlan = new() { Summary = "Private intent" };
+        state.Revision = 1; state.Status = PlanningStatus.Stopped; state.ModelCalls = 2; state.ReplanAttempts = 1;
+        state.GroundedPlan = new() { Summary = "Private grounded plan" };
         state.Graph = new() { Workflows = [new() { Key = "main" }] };
-        state.Diagnostics = [new("HOLE_UNRESOLVED", "/workflows/0", "An input is missing.")];
+        state.Diagnostics = [new("GROUNDING_INCOMPLETE", "/workflows/0", "An input is missing.")];
         if (!await store.TrySaveAsync(state, 0, CancellationToken.None)) throw new InvalidOperationException("Update failed.");
         var reopened = new EfPlanningSessionStore(factory, KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory));
         var restored = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
-        if (restored?.SchemaVersion != 7 || restored.Revision != 1 || restored.ModelCalls != 2 || restored.RepairAttempts != 1 || restored.IntentPlan?.Summary != "Private intent" || restored.Graph is null || restored.Diagnostics.Count != 1 ||
+        if (restored?.SchemaVersion != 8 || restored.Revision != 1 || restored.ModelCalls != 2 || restored.ReplanAttempts != 1 || restored.GroundedPlan?.Summary != "Private grounded plan" || restored.Graph is null || restored.Diagnostics.Count != 1 ||
             await reopened.LoadAsync("another-tenant", state.Request.SessionId, CancellationToken.None) is not null || (await reopened.ListAsync("smoke", CancellationToken.None)).Count == 0)
             throw new InvalidOperationException("Published persistence or tenant isolation failed.");
         state.Revision = 2;
@@ -35,6 +35,6 @@ internal static class PlanningPersistenceSmoke
             if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)) is { } bytes &&
                 (bytes.Contains("Private published smoke content", StringComparison.Ordinal) || bytes.Contains("Private published review smoke", StringComparison.Ordinal)))
                 throw new InvalidOperationException("Sensitive session content was persisted unencrypted.");
-        Console.WriteLine("Schema-7 planning persistence smoke passed.");
+        Console.WriteLine("Schema-8 planning persistence smoke passed.");
     }
 }

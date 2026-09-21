@@ -134,6 +134,6 @@ public sealed class PlanningTraceUiTests : BunitContext
     };
 
     private static Task StoreWorkflow(PlanningPersistenceTests.StoreFixture fixture, PlanningSession state)
-        => fixture.Records.UpsertAsync("flow-planning-sessions-v7", "planning-tests", state.Request.SessionId,
+        => fixture.Records.UpsertAsync("flow-planning-sessions-v8", "planning-tests", state.Request.SessionId,
             JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
 }

@@ -43,7 +43,7 @@ public sealed class ApprovedExecutionTests
                 var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
                 Assert.True(result.Success, result.Error?.Message); Assert.Equal("42", result.Outputs!["result"]!.ToJsonString());
             }
-            Assert.Equal(1, model.Calls); Assert.Equal(1, human.Reviews);
+            Assert.Equal(2, model.Calls); Assert.Equal(1, human.Reviews);
             await Assert.ThrowsAsync<PlanningConflictException>(() => factory.ReadApprovedYamlAsync(new() { Engine = engine, Limits = new() { TenantId = "other" }, Step = new(), Data = new() }, "unknown", "forged", TestContext.Current.CancellationToken));
         }
         finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); Directory.Delete(directory, true); }
@@ -52,7 +52,7 @@ public sealed class ApprovedExecutionTests
     {
         internal int Calls;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
-        { Calls++; return Task.FromResult(new LLMResponse { Json = PlanningJsonTransport.Intent(PlanningCorpus.Intent("local", new())), Usage = new JsonObject { ["total_tokens"] = 15 } }); }
+        { Calls++; var response = PlanningCorpus.FixtureResponse(request, request.StructuredOutputSchema?["properties"]?["actions"] is not null ? "semantic" : "binding", PlanningCorpus.Intent("local", new())); response.Usage = new JsonObject { ["total_tokens"] = 15 }; return Task.FromResult(response); }
     }
     private sealed class Human : IHumanInputProvider
     {
