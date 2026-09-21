@@ -165,6 +165,29 @@ public sealed class RepairRecoveryTests
         Assert.Contains(PlanningExecutableValidation.Validate(state.Graph!, state.Catalog), d => d.Code == "OUTPUT_REFERENCE_INVALID");
     }
 
+    [Fact]
+    public async Task UntypedPayloadInATypedArgumentDoesNotExpandToTheWholeWorkflow()
+    {
+        var (state, _) = await Untyped();
+        var source = ((ParallelIntentOperation)state.IntentPlan!.Operations[0]).Branches[0].Body.Operations[0];
+        var consumer = new PlanningCapability { Id = "consumer", Server = "laboratory", Method = "consume", Kind = "tool", StepType = "mcp.call", EffectKind = "read",
+            InputSchema = JsonNode.Parse("""{"type":"object","properties":{"count":{"type":"number"}},"required":["count"]}""")!.AsObject(),
+            OutputSchema = JsonNode.Parse("""{"type":"number"}""")!.AsObject() };
+        state.Catalog!.Capabilities.Add(consumer);
+        state.IntentPlan = new() { Operations = [source, new InvokeIntentOperation { Id = "consume", Capability = consumer.Id,
+            Arguments = [new("count", new() { Kind = "result", Source = "read", Path = ["count"] })] },
+            new CalculateIntentOperation { Id = "unrelated", Purpose = new string('z', 36_000), Value = new() { Kind = "number", Number = 1 } }] };
+        Rebuild(state);
+        Assert.Contains(state.Diagnostics, d => d.Code == "OUTPUT_REFERENCE_INVALID");
+        var targets = PlanningCorrections.Batch(state); var target = Assert.Single(targets);
+        Assert.Equal("/operations/1/arguments/0/value", target.Path); Assert.Equal("value", target.Shape);
+        var context = Context(PlanningCorrections.Prompt(state, targets));
+        var binding = Assert.Single(context["bindings"]!["values"]!.AsArray());
+        Assert.Equal("absent", binding!["contractStatus"]!.ToString());
+        Assert.Equal("number", binding["consumerArgument"]!["schema"]!["type"]!.ToString());
+        Assert.DoesNotContain(new string('z', 100), context.ToJsonString());
+    }
+
     [Theory]
     [InlineData(false, 1)]
     [InlineData(true, 2)]

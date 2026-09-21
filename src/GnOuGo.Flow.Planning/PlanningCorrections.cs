@@ -176,13 +176,18 @@ internal static class PlanningCorrections
     {
         var plan = state.IntentPlan!;
         var operations = IntentTraversal.Located(plan).ToArray();
+        var blocks = IntentTraversal.Blocks(plan).ToArray();
         foreach (var (node, location) in Walk(PlanningFieldPaths.ReadOptional(intent, path), path))
         {
+            // Argument computations already have a receiving contract. Only exported
+            // results need a topology edit to declare a new local result contract.
+            if (!blocks.Any(b => Within(location, b.Path + "/result"))
+                && !location.StartsWith(FlowPath(location) + "/outputs/", StringComparison.Ordinal)) continue;
             if (node is not JsonObject value || value["kind"]?.ToString() != "result"
                 || Source(plan, intent, value, location) is not { } source
                 || operations.FirstOrDefault(o => o.Path == source).Operation is not InvokeIntentOperation invoke
                 || state.Catalog!.Capabilities.FirstOrDefault(c => c.Id == invoke.Capability)?.OutputSchema.Count != 0) continue;
-            var block = IntentTraversal.Blocks(plan).Where(b => Within(location, b.Path) && Within(source, b.Path))
+            var block = blocks.Where(b => Within(location, b.Path) && Within(source, b.Path))
                 .OrderByDescending(b => b.Path.Length).FirstOrDefault();
             if (block.Block is not null) return (block.Path, "block");
             // The enclosing list allows retaining the producer and adding a calculation
