@@ -416,7 +416,7 @@ public sealed class SmartFlowService
                 Logger = _logger,
                 Limits = new ExecutionLimits
                 {
-                    LogStepContent = true,
+                    LogStepContent = false,
                     RunId = correlationId,
                     ExecutionId = correlationId,
                     AgentId = resolvedWorkflow.Agent?.Id,

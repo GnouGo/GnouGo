@@ -61,19 +61,37 @@ public sealed class StepExecutionContext
     public StringInterpolator Interpolator => ExecutionScope?.Interpolator ?? Engine.Interpolator;
     public CompiledDocument? ActiveDocument => ExecutionScope?.Workflow?.Document ?? Engine.CompiledDocument;
 
-    /// <summary>
-    /// Executes an LLM call through the active provider-neutral usage budget, when configured.
-    /// </summary>
+    private static readonly ActivitySource ModelActivities = new("GnOuGo.Flow.Llm");
 
-    public async Task<LLMResponse> CallLLMAsync(
+    /// <summary>Executes an LLM call through the active provider-neutral usage budget, when configured.</summary>
+
+    public async Task<LLMResponse> CallLLMAsync(ILLMClient client, LLMRequest request, string stage, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(request);
+        using var activity = ModelActivities.StartActivity("workflow.model", ActivityKind.Internal, default(ActivityContext),
+            tags: new ActivityTagsCollection { ["gnougo.llm.stage"] = stage, ["gnougo.llm.request_id"] = request.ClientRequestId,
+                ["gnougo-flow.step.id"] = Step?.Id, ["gnougo-flow.step.type"] = Step?.Type });
+        try
+        {
+            var response = await CallModelAsync(client, request, stage, ct).ConfigureAwait(false);
+            activity?.SetStatus(ActivityStatusCode.Ok);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            activity?.SetTag("error.type", ex.GetType().Name);
+            activity?.SetStatus(ActivityStatusCode.Error);
+            throw;
+        }
+    }
+
+    private async Task<LLMResponse> CallModelAsync(
         ILLMClient client,
         LLMRequest request,
         string stage,
         CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(client);
-        ArgumentNullException.ThrowIfNull(request);
-
         if (LLMUsageBudget is null)
         {
             try

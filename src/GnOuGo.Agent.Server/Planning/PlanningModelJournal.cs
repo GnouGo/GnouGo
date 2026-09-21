@@ -49,6 +49,7 @@ internal sealed class PlanningModelJournal(
             {
                 db.Attach(existing); existing.Status = "completed"; await db.SaveChangesAsync(ct);
             }
+            Activity.Current?.SetTag("gnougo.llm.status", "replayed");
             return completed;
         }
         var row = new PlanningCallIndex { TenantId = tenantId, SessionId = sessionId, RequestHash = key, PayloadKey = sessionId + ":" + key };

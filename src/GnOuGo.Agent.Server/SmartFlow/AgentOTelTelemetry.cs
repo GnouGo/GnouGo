@@ -56,14 +56,14 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
         _listener = new ActivityListener
         {
             ShouldListenTo = source => string.Equals(source.Name, ActivitySourceName, StringComparison.Ordinal)
-                || source.Name == "GnOuGo.Agent.Planning",
+                || source.Name is "GnOuGo.Agent.Planning" or "GnOuGo.Flow.Llm",
             Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
             SampleUsingParentId = static (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded,
             ActivityStarted = activity => _localTraceStore.Track(activity),
             ActivityStopped = activity =>
             {
                 _localTraceStore.Complete(activity);
-                if (activity.Source.Name == "GnOuGo.Agent.Planning") _collectorTracePersistence.Persist(activity);
+                if (activity.Source.Name is "GnOuGo.Agent.Planning" or "GnOuGo.Flow.Llm") _collectorTracePersistence.Persist(activity);
             }
         };
         ActivitySource.AddActivityListener(_listener);
@@ -306,7 +306,7 @@ public sealed class AgentOTelTelemetry : IWorkflowTelemetry, IDisposable
                            ?? TryReadLongTag(activity, "gen_ai.usage.output_tokens")
                            ?? TryReadLongTag(activity, "gen_ai.usage.completion_tokens")
                            ?? TryReadLongTag(activity, "llm.usage.completion_tokens");
-        if (!inputTokens.HasValue && !outputTokens.HasValue)
+        if (!inputTokens.HasValue || !outputTokens.HasValue)
             return;
 
         var providerType = activity.GetTagItem("gen_ai.system") as string;

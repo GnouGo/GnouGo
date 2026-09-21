@@ -1,0 +1,31 @@
+@using GnOuGo.Agent.Server.Telemetry
+@inject IJSRuntime JS
+<section class="llm-document">
+    <h4>@Title — @Status</h4>
+    @if (Bytes is { } size) { <p>@size.ToString("N0") UTF-8 bytes (retained logical document)</p> }
+    @if (Text is not null)
+    {
+        <div class="llm-document__controls">
+            <button type="button" @onclick="() => _formatted = !_formatted">@(_formatted ? "Formatted" : "Raw")</button>
+            <button type="button" @onclick="CopyAsync">Copy @Title.ToLowerInvariant()</button>
+            <input aria-label="Search retained content" placeholder="Search retained content" @bind="_search" @bind:event="oninput" />
+            @if (_search.Length > 0) { <span>@Matches match(es)</span> }
+            <span role="status">@_copyStatus</span>
+        </div>
+        @TraceDebugValueRenderer.RenderValue(Text, _formatted)
+    }
+</section>
+@code {
+    [Parameter] public string Title { get; set; } = "Content";
+    [Parameter] public string Status { get; set; } = "unavailable";
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public int? Bytes { get; set; }
+    private bool _formatted = true;
+    private string _search = "", _copyStatus = "";
+    private int Matches => string.IsNullOrEmpty(_search) || Text is null ? 0 : (Text.Length - Text.Replace(_search, "", StringComparison.OrdinalIgnoreCase).Length) / _search.Length;
+    private async Task CopyAsync()
+    {
+        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", Text); _copyStatus = "Copied"; }
+        catch (JSException) { _copyStatus = "Clipboard unavailable; select the retained text to copy."; }
+    }
+}

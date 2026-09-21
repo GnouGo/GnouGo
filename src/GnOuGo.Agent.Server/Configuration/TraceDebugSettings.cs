@@ -25,6 +25,10 @@ public sealed class TraceDebugSettings
 
     public int RefreshIntervalSeconds { get; set; } = 2;
 
+    public int ContentRetentionDays { get; set; } = 7;
+
+    public int MaxDocumentBytes { get; set; } = 2 * 1024 * 1024;
+
     public int RequestTimeoutSeconds { get; set; } = 10;
 }
 

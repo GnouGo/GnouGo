@@ -258,7 +258,17 @@ public static class HttpRequestHelper
                 attempt.Failure = ct.IsCancellationRequested ? "cancelled" : IsTransientTransport(ex) ? "transport" : "permanent";
             }
             catch (Exception ex) { originalFailure = ex; attempt.Failure = ct.IsCancellationRequested ? "cancelled" : "permanent"; }
-            finally { received?.Dispose(); }
+            finally
+            {
+                received?.Dispose();
+                System.Diagnostics.Activity.Current?.AddEvent(new System.Diagnostics.ActivityEvent("gnougo.llm.transport.attempt",
+                    tags: new System.Diagnostics.ActivityTagsCollection {
+                        ["gnougo.llm.transport.attempt"] = state.Attempts.Count,
+                        ["gnougo.llm.transport.request_id"] = attempt.Id,
+                        ["http.request.method"] = request.Method.Method,
+                        ["http.response.status_code"] = attempt.Status,
+                        ["error.type"] = attempt.Failure }));
+            }
             // A persistence failure is not a transport failure and must never trigger a resend.
             await SaveAsync(CancellationToken.None).ConfigureAwait(false);
             ct.ThrowIfCancellationRequested();

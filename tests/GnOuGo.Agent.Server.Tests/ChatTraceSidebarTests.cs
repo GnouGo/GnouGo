@@ -118,7 +118,7 @@ public sealed class ChatTraceSidebarTests : BunitContext
             .Add(p => p.IsOpen, true)
             .Add(p => p.OnClose, EventCallback.Factory.Create(this, () => closed = true)));
 
-        cut.WaitForAssertion(() => Assert.Contains("Live trace for this answer", cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains("Workflow trace", cut.Markup));
 
         var logsTab = cut.FindAll("button")
             .Single(button => button.TextContent.Contains("Logs", StringComparison.Ordinal));

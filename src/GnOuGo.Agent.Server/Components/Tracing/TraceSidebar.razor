@@ -8,7 +8,7 @@
 <aside class="gnougo-trace-panel @(IsOpen ? "gnougo-trace-panel--open" : string.Empty)" aria-hidden="@(!IsOpen)">
     <header class="gnougo-trace-panel__header">
         <div>
-            <div class="gnougo-trace-panel__eyebrow">OpenTelemetry / GenAI / RAG</div>
+            <div class="gnougo-trace-panel__eyebrow">OpenTelemetry / GenAI</div>
             <h2 class="gnougo-trace-panel__title">@(PlanningSessionId is null ? "Message traces" : "Planning traces")</h2>
             <div class="gnougo-trace-panel__meta">
                 @if (PlanningSessionId is not null)
@@ -43,6 +43,8 @@
         </label>
     }
     <nav class="gnougo-trace-panel__tabs" aria-label="Trace debug sections">
+        <button class="gnougo-trace-panel__tab @GetTabClass(TracePanelTab.Pipeline)" type="button" role="tab"
+                aria-selected="@(_activeTab == TracePanelTab.Pipeline)" @onclick="() => SelectTab(TracePanelTab.Pipeline)">Pipeline / LLM calls</button>
         <button class="gnougo-trace-panel__tab @GetTabClass(TracePanelTab.Traces)"
                 type="button"
                 role="tab"
@@ -86,6 +88,10 @@
                 <div class="gnougo-trace-panel__state-text">@_loadError</div>
             </div>
         }
+        else if (_activeTab == TracePanelTab.Pipeline)
+        {
+            <TracePipeline @key="GetPanelContentKey()" Trace="_snapshot.Trace" SessionId="@PipelineSessionId" WorkflowSession="@PipelineWorkflowSession" />
+        }
         else if (_activeTab == TracePanelTab.Logs)
         {
             <ChatTraceLogs @key="GetPanelContentKey()"
@@ -125,6 +131,11 @@
     [Parameter] public string? TraceId { get; set; }
     [Parameter] public string? PlanningSessionId { get; set; }
     [Parameter] public bool WorkflowSession { get; set; }
+    private bool PipelineWorkflowSession => PlanningSessionId is not null ? WorkflowSession
+        : _snapshot.Trace?.Spans.Any(s => s.Attributes.ContainsKey("gnougo-flow.plan.session_id")) == true;
+    private string? PipelineSessionId => PlanningSessionId ?? _snapshot.Trace?.Spans
+        .Select(s => TracePipeline.Value(s, PipelineWorkflowSession ? "gnougo-flow.plan.session_id" : "gnougo.planning.session_id"))
+        .Where(s => s is not null).Distinct(StringComparer.Ordinal).Take(2).ToArray() switch { [var session] => session, _ => null };
     private bool HasTarget => ContextKey is not null || CorrelationId is not null || TraceId is not null || PlanningSessionId is not null;
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
@@ -143,7 +154,6 @@
     private string? _selectedSpanId;
     private string? _selectedTraceId;
     private bool _renderFormatted = true;
-    private bool _stickySpanSelection = true;
     private TracePanelTab _activeTab = TracePanelTab.Traces;
     private bool _isDisposed;
 
@@ -197,14 +207,6 @@
                 {
                     if (!IsRefreshActive(refreshCts))
                         return;
-
-                    // Keep selected span detail stable while user is inspecting one span.
-                    if (_stickySpanSelection
-                        && _activeTab == TracePanelTab.Traces
-                        && !string.IsNullOrWhiteSpace(_selectedSpanId))
-                    {
-                        return;
-                    }
 
                     ApplySnapshot(snapshot);
                     _isLoading = false;
@@ -329,6 +331,7 @@
 
     private enum TracePanelTab
     {
+        Pipeline,
         Traces,
         Logs
     }

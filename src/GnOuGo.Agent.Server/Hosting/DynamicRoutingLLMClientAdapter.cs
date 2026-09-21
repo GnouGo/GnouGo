@@ -1,3 +1,4 @@
+using GnOuGo.Agent.Server.Telemetry;
 using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;
@@ -18,23 +19,32 @@ internal sealed class DynamicRoutingLLMClientAdapter : ILLMClient
     private readonly LLMRuntimeOptionsStore _store;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILocalLLMRuntime? _localRuntime;
+    private readonly LlmTraceCapture? _capture;
 
     public DynamicRoutingLLMClientAdapter(
         HttpClient http,
         LLMRuntimeOptionsStore store,
         ILoggerFactory loggerFactory,
-        ILocalLLMRuntime? localRuntime = null)
+        ILocalLLMRuntime? localRuntime = null,
+        LlmTraceCapture? capture = null)
     {
         _http = http;
         _store = store;
         _loggerFactory = loggerFactory;
         _localRuntime = localRuntime;
+        _capture = capture;
     }
 
-    public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+    public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+    {
+        var options = _store.Current;
+        return _capture is null ? DispatchAsync(request, options, ct)
+            : _capture.CallAsync(request, options, (value, token) => DispatchAsync(value, options, token), ct);
+    }
+
+    private async Task<LLMResponse> DispatchAsync(LLMRequest request, LLMOptions options, CancellationToken ct)
     {
         // Always read the LATEST options — picks up any /llm wizard changes.
-        var options = _store.Current;
         var providers = RoutingLLMClient.CreateDefaultProviders(_http, _loggerFactory).AsEnumerable();
         if (_localRuntime is not null)
             providers = providers.Append(new LocalLLMProvider(_localRuntime));

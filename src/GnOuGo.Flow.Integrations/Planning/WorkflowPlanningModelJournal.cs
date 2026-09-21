@@ -34,6 +34,7 @@ internal sealed class WorkflowPlanningModelJournal(StepExecutionContext context,
             var completed = await records.GetAsync(Receipts, planning.TenantId, key, WorkflowPlanningRuntimeFactory.Author, ct);
             if (completed is not null)
             {
+                Activity.Current?.SetTag("gnougo.llm.status", "replayed");
                 Event("replayed");
                 return JsonSerializer.Deserialize(completed.Value, PlanningJsonContext.Default.LLMResponse)
                     ?? throw new PlanningConflictException("The encrypted model receipt is invalid.");

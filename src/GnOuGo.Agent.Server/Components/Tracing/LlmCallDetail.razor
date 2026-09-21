@@ -1,0 +1,76 @@
+@using GnOuGo.Agent.Server.Telemetry
+@implements IDisposable
+@inject IServiceProvider Services
+<button type="button" class="llm-call__expand" aria-expanded="@_open" @onclick="ToggleAsync">@(_open ? "Hide" : "Inspect") request / response</button>
+@if (_open)
+{
+    @if (_loading) { <p role="status">Loading encrypted content…</p> }
+    else if (_content is null) { <p role="status">@_message</p> }
+    else
+    {
+        @if (_content.Input is not null)
+        {
+            var parts = LlmTraceCapture.Breakdown(_content.Input);
+            <table class="llm-breakdown">
+                <caption>Prompt analysis — logical content, not provider usage or wire encoding. Estimates use UTF-8 bytes ÷ 4.</caption>
+                <thead><tr><th>Section</th><th>Exact UTF-8 bytes</th><th>Estimated tokens</th></tr></thead>
+                <tbody>@foreach (var part in parts) { <tr><td>@part.Name</td><td>@part.Bytes</td><td>@part.EstimatedTokens</td></tr> }</tbody>
+            </table>
+        }
+        <LlmTraceDocument Title="Request and response schema" Text="@_content.Input" Status="@_content.InputStatus" Bytes="_content.InputBytes" />
+        <LlmTraceDocument Title="Response and tool calls" Text="@_content.Output" Status="@_content.OutputStatus" Bytes="_content.OutputBytes" />
+    }
+}
+@code {
+    [Parameter] public string? Status { get; set; }
+    private string? _status;
+    [Parameter] public string? Reference { get; set; }
+    [Parameter] public string TraceId { get; set; } = "";
+    [Parameter] public string SpanId { get; set; } = "";
+    [Parameter] public string? SessionId { get; set; }
+    [Parameter] public bool WorkflowSession { get; set; }
+    [Parameter] public string? JournalKey { get; set; }
+    private CancellationTokenSource? _load;
+    private bool _open, _loading;
+    private LlmTraceContent? _content;
+    private string _message = "No retained model content. External MCP tools expose only the telemetry they supply.";
+    private string? _identity;
+    protected override async Task OnParametersSetAsync()
+    {
+        var identity = string.Join('|', Reference, TraceId, SpanId, SessionId, WorkflowSession, JournalKey);
+        if (_identity == identity)
+        {
+            if (_status != Status && _open) { _status = Status; await LoadAsync(); }
+            return;
+        }
+        _status = Status;
+        _identity = identity; Dispose(); _content = null; _open = false; _loading = false;
+    }
+    private async Task ToggleAsync()
+    {
+        _open = !_open;
+        if (!_open) { Dispose(); _content = null; return; }
+        await LoadAsync();
+    }
+    private async Task LoadAsync()
+    {
+        Dispose();
+        var store = Services.GetService<LlmTraceContentStore>();
+        if (store is null) { _message = "Encrypted trace content is unavailable on this host."; return; }
+        if (!store.Enabled) { _message = "Detailed capture is disabled. Enable TraceDebug:Enabled to retain inputs and outputs for new calls and inspect existing planner journals."; return; }
+        var load = new CancellationTokenSource(); _load = load; _loading = true;
+        try
+        {
+            var content = JournalKey is not null && SessionId is not null
+                ? await store.LoadJournalAsync(SessionId, WorkflowSession, JournalKey, load.Token)
+                : Reference is not null ? await store.LoadAsync(Reference, TraceId, SpanId, SessionId, load.Token) : null;
+            if (_load != load || load.IsCancellationRequested) return;
+            _content = content;
+            _message = "Content unavailable: capture disabled, not retained, expired, or ownership could not be verified.";
+        }
+        catch (OperationCanceledException) when (load.IsCancellationRequested) { }
+        catch (Exception) { if (_load == load) _message = "Encrypted content is currently unavailable."; }
+        finally { if (_load == load) _loading = false; }
+    }
+    public void Dispose() { var load = _load; _load = null; load?.Cancel(); load?.Dispose(); }
+}

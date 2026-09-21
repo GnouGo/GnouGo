@@ -1,0 +1,4 @@
+.llm-document { margin-block: 1rem; max-width: 100%; }
+.llm-document__controls { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-bottom: .5rem; }
+.llm-document__controls button, .llm-document__controls input { padding: .4rem .6rem; }
+.llm-document ::deep pre { max-height: 32rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }

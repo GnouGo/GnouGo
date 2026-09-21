@@ -168,7 +168,7 @@ public sealed class LlmCallExecutor : IStepExecutor
 
 
             // ── Thinking: preview first 120 chars of the LLM response ──
-            if (!string.IsNullOrWhiteSpace(response.Text))
+            if (ctx.Limits.LogStepContent && !string.IsNullOrWhiteSpace(response.Text))
             {
                 var preview = response.Text.Length > 120
                     ? response.Text[..120] + "…"

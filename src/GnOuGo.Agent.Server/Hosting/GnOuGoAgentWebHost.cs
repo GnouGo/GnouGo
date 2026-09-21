@@ -239,6 +239,7 @@ public static class GnOuGoAgentWebHost
                         .AddSource(AgentOTelTelemetry.ActivitySourceName)
                         .AddSource("GnOuGo.AI.Core.Routing")
                         .AddSource("GnOuGo.Agent.Planning")
+                        .AddSource("GnOuGo.Flow.Llm")
                         .AddSource("GnOuGo.AI.Local.Models")
                         .AddSource("GnOuGo.AI.Local.Inference");
 
@@ -418,7 +419,8 @@ public static class GnOuGoAgentWebHost
             llmCapabilityResolver: sp.GetService<ILLMCapabilityResolver>(),
             humanInputProvider: sp.GetRequiredService<AgentHumanInputProvider>(),
             localRuntime: sp.GetRequiredService<ILocalLLMRuntime>(),
-            reviews: sp.GetRequiredService<GnOuGo.Agent.Server.Reviews.ReviewPublicationService>()));
+            reviews: sp.GetRequiredService<GnOuGo.Agent.Server.Reviews.ReviewPublicationService>(),
+            capture: sp.GetRequiredService<LlmTraceCapture>()));
         builder.Services.AddSingleton<CollectorTracePersistence>();
         builder.Services.AddSingleton<ILoggerProvider, CollectorLoggerProvider>();
 
@@ -436,7 +438,8 @@ public static class GnOuGoAgentWebHost
                 http,
                 store,
                 loggerFactory,
-                sp.GetRequiredService<ILocalLLMRuntime>());
+                sp.GetRequiredService<ILocalLLMRuntime>(),
+                sp.GetRequiredService<LlmTraceCapture>());
         });
         builder.Services.AddSingleton<CachedLlmModelCatalog>(sp =>
         {
@@ -491,6 +494,9 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddHostedService(sp => sp.GetRequiredService<GnOuGo.Agent.Server.Planning.PlanningSessionService>());
         builder.Services.AddSingleton<SmartFlowService>();
         builder.Services.AddSingleton<TraceDebugService>();
+        builder.Services.AddSingleton<LlmTraceCapture>();
+        builder.Services.AddSingleton<LlmTraceContentStore>();
+        builder.Services.AddHostedService<LlmTraceRetentionWorker>();
 
         AddAgentRazorComponents(builder.Services);
 

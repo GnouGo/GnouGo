@@ -1,0 +1,135 @@
+@using GnOuGo.Agent.Server.Telemetry
+@implements IDisposable
+@inject IServiceProvider Services
+<div class="trace-pipeline">
+    <h3>Pipeline / LLM calls</h3>
+    <p>Logical model calls are counted once. HTTP attempts and workflow stages are shown separately. Missing usage remains unknown.</p>
+    @if (Trace is not null)
+    {
+        var calls = Calls(Trace);
+        var knownInput = calls.Sum(c => Number(c, "gen_ai.usage.input_tokens", "gen_ai.usage.prompt_tokens") ?? 0);
+        var knownOutput = calls.Sum(c => Number(c, "gen_ai.usage.output_tokens", "gen_ai.usage.completion_tokens") ?? 0);
+        var reported = calls.Count(c => !c.Events.Any(e => e.Name == "gnougo.llm.transport.attempt" && e.Attributes.GetValueOrDefault("error.type") is not null) && Number(c, "gen_ai.usage.input_tokens", "gen_ai.usage.prompt_tokens") is not null && Number(c, "gen_ai.usage.output_tokens", "gen_ai.usage.completion_tokens") is not null);
+        <p><strong>@calls.Count calls</strong> · Known usage: @knownInput input / @knownOutput output tokens · complete usage for @reported/@calls.Count calls @(reported < calls.Count ? "(incomplete coverage)" : "")</p>
+        @foreach (var costs in calls.Where(c => Value(c, "gnougo.llm.cost_currency") is not null && Value(c, "gnougo.llm.estimated_cost") is not null).GroupBy(c => Value(c, "gnougo.llm.cost_currency")))
+        {
+            <p>Known estimated cost: @costs.Sum(c => decimal.TryParse(Value(c, "gnougo.llm.estimated_cost"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : 0) @costs.Key · reported for @costs.Count()/@calls.Count calls</p>
+        }
+        @foreach (var group in calls.GroupBy(c => Phase(Value(c, "gnougo.llm.stage"))))
+        {
+            <section class="trace-pipeline__phase"><h4>@group.Key</h4>
+            @foreach (var call in group)
+            {
+                <article class="llm-call" @key="call.SpanId">
+                    <h5>#@(calls.IndexOf(call) + 1) · @(Value(call, "gnougo-flow.workflow.name") ?? "workflow") / @(Value(call, "gnougo-flow.step.id") ?? call.Name)</h5>
+                    <p>@(Value(call, "gen_ai.provider.name", "gen_ai.system") ?? "unknown provider") · @(Value(call, "gen_ai.request.model") ?? "unknown model") · @(Value(call, "gnougo.llm.protocol") ?? "protocol unavailable")</p>
+                    <p><strong>@(Value(call, "gnougo.llm.status") ?? (call.StatusCode == 2 ? "failed" : call.DurationMs > 0 ? "completed" : "pending"))</strong> · @TraceDebugUiHelpers.FormatDuration(TraceDebugUiHelpers.GetSpanDurationMs(call)) · Input: @(Number(call, "gen_ai.usage.input_tokens", "gen_ai.usage.prompt_tokens")?.ToString() ?? "unknown") · Output: @(Number(call, "gen_ai.usage.output_tokens", "gen_ai.usage.completion_tokens")?.ToString() ?? "unknown") · Estimated cost: @(Value(call, "gnougo.llm.estimated_cost") ?? "unknown") @Value(call, "gnougo.llm.cost_currency")</p>
+                    @if (Value(call, "gnougo.llm.repair.targets") is { } targets) { <p>Repair targets: @targets · deferred targets: @(Value(call, "gnougo.llm.repair.deferred") ?? "unknown")</p> }
+                    @if (Value(call, "error.type") is { } error) { <p>Error: @error</p> }
+                    <LlmCallDetail Status="@Value(call, "gnougo.llm.status")" Reference="@Value(call, "gnougo.llm.content_ref")" TraceId="@(Value(call, "gnougo.llm.trace_id") ?? Trace.TraceId)" SpanId="@call.SpanId" SessionId="@SessionId" WorkflowSession="WorkflowSession" />
+                    @if (call.Events.Any(e => e.Name == "gnougo.llm.transport.attempt"))
+                    {
+                        <details><summary>Transport attempts (included in this call)</summary>
+                            <p>Reported usage belongs to the returned completion. Possible usage from uncertain attempts is unknown; this view does not replace the durable accounting ledger.</p>
+                            @foreach (var attempt in call.Events.Where(e => e.Name == "gnougo.llm.transport.attempt"))
+                            { <p>@attempt.TimeUtc.ToString("HH:mm:ss.fff") @string.Join(" · ", attempt.Attributes.Select(a => a.Key + "=" + a.Value))</p> }
+                        </details>
+                    }
+                </article>
+            }
+            </section>
+        }
+        <details class="trace-pipeline__stages"><summary>Recorded workflow stages, tool boundaries and diagnostics (not additional model calls)</summary>
+            @foreach (var span in Trace.Spans.Where(s => !calls.Contains(s)).OrderBy(s => s.StartUtc))
+            {
+                <details><summary>@span.StartUtc.ToString("HH:mm:ss") · @span.Name · @(Value(span, "gnougo.llm.status") ?? TraceDebugUiHelpers.GetStatusLabel(span.StatusCode)) · @TraceDebugUiHelpers.FormatDuration(span.DurationMs)</summary>
+                    @if (Value(span, "gnougo-flow.step.type") == "mcp.call") { <p>External MCP boundary. Internal model content and usage are unavailable unless supplied by the tool.</p> }
+                    @foreach (var evt in span.Events) { <p>@evt.Name — @string.Join(" · ", evt.Attributes.Select(a => a.Key + "=" + a.Value))</p> }
+                </details>
+            }
+        </details>
+    }
+    else { <p>No retained trace spans. Journal history, when available, is separate from execution telemetry.</p> }
+    @if (SessionId is not null)
+    {
+        <section class="trace-pipeline__history"><h4>Planning journal history</h4>
+            <p>Durable requests and receipts; these entries are not fabricated trace spans or additional model calls. Original receipt schemas remain unchanged.</p>
+            @if (_loading) { <p>Loading journal index…</p> }
+            else if (_history.Count == 0) { <p>@_historyMessage</p> }
+            @foreach (var call in _history)
+            {
+                <article class="llm-call" @key="call.Key">
+                    <h5>@call.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss 'UTC'") · @call.Provider / @call.Model</h5>
+                    <p>@call.Status · Input: @(call.InputTokens?.ToString() ?? "unknown") · Output: @(call.OutputTokens?.ToString() ?? "unknown") · Protocol / cost: unavailable in historical journal metadata</p>
+                    <LlmCallDetail JournalKey="@call.Key" SessionId="@SessionId" WorkflowSession="WorkflowSession" />
+                </article>
+            }
+        </section>
+    }
+</div>
+@code {
+    [Parameter] public TraceGroupDto? Trace { get; set; }
+    [Parameter] public string? SessionId { get; set; }
+    [Parameter] public bool WorkflowSession { get; set; }
+    private IReadOnlyList<LlmJournalCall> _history = [];
+    private string? _loadedSession;
+    private string _historyMessage = "No retained journal calls.";
+    private CancellationTokenSource? _load;
+    private bool _loading;
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = SessionId + ":" + WorkflowSession;
+        if (_loadedSession == key) return;
+        _loadedSession = key; Dispose(); _history = [];
+        if (SessionId is null || Services.GetService<LlmTraceContentStore>() is not { } store) return;
+        var load = new CancellationTokenSource(); _load = load; _loading = true;
+        try
+        {
+            var history = await store.HistoryAsync(SessionId, WorkflowSession, load.Token);
+            if (_load == load && !load.IsCancellationRequested) _history = history;
+        }
+        catch (OperationCanceledException) when (load.IsCancellationRequested) { }
+        catch (Exception) { if (_load == load) _historyMessage = "Journal history is currently unavailable."; }
+        finally { if (_load == load) _loading = false; }
+    }
+    internal static string? Value(TraceSpanDto span, params string[] names) => TraceDebugUiHelpers.GetFirstAttribute(span.Attributes, names);
+    internal static long? Number(TraceSpanDto span, params string[] names) => long.TryParse(Value(span, names), out var value) ? value : null;
+    internal static string Phase(string? stage) => stage switch
+    {
+        "workflow.plan.intent" => "Planning interpretation",
+        "workflow.plan.choices" => "Capability choices",
+        "workflow.plan.repair" => "Repairs",
+        null => "External / unclassified model calls",
+        "configuration.or.preparation" => "Routing and preparation",
+        _ when stage.StartsWith("workflow.plan", StringComparison.Ordinal) => "Planning",
+        _ => "Workflow execution"
+    };
+    internal static List<TraceSpanDto> Calls(TraceGroupDto trace)
+    {
+        bool Candidate(TraceSpanDto span) => span.Attributes.ContainsKey("gnougo.llm.call_id")
+            || span.Kind == 3 && span.Attributes.ContainsKey("gen_ai.operation.name") && span.Attributes.ContainsKey("gen_ai.request.model");
+        bool HasModelChild(TraceSpanDto span)
+        {
+            var visited = new HashSet<string>(StringComparer.Ordinal) { span.SpanId };
+            var queue = new Queue<string>(); queue.Enqueue(span.SpanId);
+            while (queue.TryDequeue(out var parent))
+                foreach (var child in trace.Spans.Where(s => s.ParentSpanId == parent))
+                    if (visited.Add(child.SpanId)) { if (Candidate(child)) return true; queue.Enqueue(child.SpanId); }
+            return false;
+        }
+        var byId = trace.Spans.GroupBy(s => s.SpanId, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        bool HasCapturedParent(TraceSpanDto span)
+        {
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            while (span.ParentSpanId is { } parent && seen.Add(parent) && byId.TryGetValue(parent, out var ancestor))
+            {
+                if (ancestor.Attributes.ContainsKey("gnougo.llm.call_id")) return true;
+                span = ancestor;
+            }
+            return false;
+        }
+        return trace.Spans.Where(s => Candidate(s) && !HasCapturedParent(s) && (s.Attributes.ContainsKey("gnougo.llm.call_id") || !HasModelChild(s)))
+            .OrderBy(s => s.StartUtc).ThenBy(s => s.SpanId, StringComparer.Ordinal).ToList();
+    }
+    public void Dispose() { var load = _load; _load = null; load?.Cancel(); load?.Dispose(); }
+}

@@ -1567,7 +1567,7 @@ public sealed class ConfigureProvidersServiceTests
         Assert.True(llm.LastRequest.UseBackgroundMode);
         var saved = await keyVaultStore.GetSecretValueAsync("LLM--Models--openai", token);
         Assert.Equal(stored, JsonNode.Parse(saved!)!["backgroundProtocol"]!.GetValue<string>());
-        Assert.Contains(events, e => e.Text.Contains(selection, StringComparison.Ordinal));
+        Assert.Contains(events, e => e.Text?.Contains(selection, StringComparison.Ordinal) == true);
         Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "✅ Credentials validated. Provider 'openai' is ready.");
     }
 
