@@ -16,7 +16,7 @@ public sealed class BenchmarkExecutionTests
         var state = new PlanningSession { Request = new() { TenantId = "benchmark", Prompt = PlanningBenchmarkCases.Prompt(name) } };
         for (var i = 0; i < 30 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); i++)
             state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
-        Assert.True(state.Status == PlanningStatus.FinalReview, JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic));
+        Assert.True(state.Status == PlanningStatus.FinalReview, JsonSerializer.Serialize(runtime.DiagnosticHistory, PlanningJsonContext.Default.ListPlanningDiagnostic));
         Assert.InRange(state.ModelCalls, 2, state.Request.MaxModelCalls);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
         var variants = name.StartsWith("review_", StringComparison.Ordinal) ? new[] { "nominal", "failure", "incomplete", "rejected", "head_changed" } : name == "protected_cleanup" ? ["nominal", "failure"] : ["nominal", "alternate"];

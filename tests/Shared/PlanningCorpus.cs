@@ -46,7 +46,7 @@ public static class PlanningCorpus
                 break;
             case "review_french":
             case "review_distractors":
-                plan.Inputs = [new("pr_url"), new("review_text")];
+                plan.Inputs = [new("pr_url", new() { Type = "string" }), new("review_text", new() { Type = "string" })];
                 plan.Operations.Add(Invoke("clone", "clone_repository", new GroundedMember("pr_url", Ref("input", "pr_url"))));
                 foreach (var check in new[] { "dependencies", "lint", "unit", "integration" })
                 {
@@ -69,17 +69,30 @@ public static class PlanningCorpus
     // Test-only scripted stage responses. Independent execution oracles remain separate.
     public static SemanticPlan Semantic(GroundedPlan plan)
     {
-        var actions = new List<SemanticAction>();
+        var actions = new Dictionary<GroundedOperation, SemanticAction>();
         foreach (var (operation, path) in GroundedTraversal.Located(plan))
         {
             operation.SemanticAction = "a_" + PlanningGraphCompiler.Fingerprint(path)[..12];
             operation.BusinessOutputs = operation is CleanupGroundedOperation ? [] : [new("value", [])];
-            actions.Add(new() { Id = operation.SemanticAction, Kind = operation is InvokeGroundedOperation ? "action" : "calculate",
+            actions[operation] = new() { Id = operation.SemanticAction, Kind = operation switch {
+                InvokeGroundedOperation => "action", CleanupGroundedOperation => "cleanup", EachGroundedOperation => "each", ChooseGroundedOperation => "choose", ParallelGroundedOperation => "parallel", CallGroundedOperation => "call", _ => "calculate" },
                 Purpose = string.IsNullOrWhiteSpace(operation.Purpose) ? "Perform " + operation.Id : operation.Purpose,
-                Outputs = operation is CleanupGroundedOperation ? [] : [new("value", "The required result")] });
+                Outputs = operation is CleanupGroundedOperation ? [] : [new("value", "The required result")] };
         }
-        return new() { Summary = plan.Summary, Actions = actions };
+        SemanticAction Tree(GroundedOperation operation)
+        {
+            var action = actions[operation];
+            action.Blocks = operation switch {
+                CleanupGroundedOperation cleanup => [new("body", cleanup.Operations.Select(Tree).ToList(), [])],
+                EachGroundedOperation each => [new("body", each.Body.Operations.Select(Tree).ToList(), [])],
+                ChooseGroundedOperation choose => [new("then", choose.Then.Operations.Select(Tree).ToList(), []), new("otherwise", choose.Otherwise.Operations.Select(Tree).ToList(), [])],
+                ParallelGroundedOperation parallel => parallel.Branches.Select(b => new SemanticBlock(b.Name, b.Body.Operations.Select(Tree).ToList(), [])).ToList(), _ => [] };
+            return action;
+        }
+        return new() { Summary = plan.Summary, Actions = plan.Operations.Select(Tree).ToList(),
+            Subflows = plan.Subflows.Select(f => new SemanticSubflow(f.Name, [], f.Operations.Select(Tree).ToList(), [])).ToList() };
     }
+
     public static LLMResponse FixtureResponse(LLMRequest request, string purpose, GroundedPlan plan)
     {
         var semantic = Semantic(plan);
@@ -96,6 +109,17 @@ public static class PlanningCorpus
                 return (JsonNode)new JsonObject { ["actionId"] = id, ["outcome"] = matched ? "matched" : "none_of_the_above", ["reason"] = "Scripted semantic fixture decision.",
                     ["matches"] = matched ? new JsonArray(new JsonObject { ["capabilityId"] = op!.Capability, ["reason"] = "The fixture declares this behavior." }) : new JsonArray() };
             }).ToArray()) } };
+        }
+        if (purpose == "binding" && request.Prompt.Contains("This is one complete binding subgraph.", StringComparison.Ordinal))
+        {
+            var reader = new System.Text.Json.Utf8JsonReader(System.Text.Encoding.UTF8.GetBytes(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..]));
+            var context = JsonNode.Parse(ref reader)!;
+            var ids = context["semanticPlan"]!["actions"]!.AsArray().Select(a => a!["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
+            var batch = new GroundedPlan { Summary = plan.Summary, Operations = plan.Operations.Where(o => ids.Contains(o.SemanticAction)).ToList(),
+                Inputs = request.Prompt.Contains("Declare the workflow inputs and named subflows.", StringComparison.Ordinal) ? plan.Inputs : [],
+                Subflows = request.Prompt.Contains("Declare the workflow inputs and named subflows.", StringComparison.Ordinal) ? plan.Subflows : [],
+                Outputs = request.Prompt.Contains("Declare all required workflow outputs.", StringComparison.Ordinal) ? plan.Outputs : [] };
+            return new() { Json = PlanningJsonTransport.ModelGrounded(PlanningJsonTransport.Grounded(batch), request.StructuredOutputSchema!) };
         }
         if (purpose == "replan")
         {
@@ -116,6 +140,7 @@ public static class PlanningCorpus
     {
         private readonly WorkflowPlanningRuntime _actual = new(engine, (_, _) => Task.CompletedTask);
         private PlanningCatalog? _catalog;
+        public List<PlanningDiagnostic> DiagnosticHistory { get; } = [];
         public async Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => _catalog = await _actual.DiscoverAsync(request, ct);
         public async Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
         {
@@ -126,6 +151,6 @@ public static class PlanningCorpus
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => _actual.ValidateAsync(request, ct);
         public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct) => _actual.ValidateScenariosAsync(request, ct);
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => _actual.ValidateCatalogAsync(catalog, ct);
-        public Task CheckpointAsync(PlanningSession state, CancellationToken ct) => Task.CompletedTask;
+        public Task CheckpointAsync(PlanningSession state, CancellationToken ct) { DiagnosticHistory.AddRange(state.Diagnostics.Where(d => !DiagnosticHistory.Contains(d))); return Task.CompletedTask; }
     }
 }

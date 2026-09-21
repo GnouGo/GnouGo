@@ -43,6 +43,7 @@ internal sealed class GroundedTypes
     private readonly PlanningCatalog _catalog;
     private readonly Dictionary<string, Scope> _scopes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, JsonObject> _results = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, bool> _structuredStrict = new(StringComparer.Ordinal);
     private readonly HashSet<string> _resolving = new(StringComparer.Ordinal);
     internal static JsonObject Opaque() => new() { ["x-gnougo-opaque"] = true };
     internal static bool IsOpaque(JsonObject value) => value["x-gnougo-opaque"]?.ToString() == "true";
@@ -81,6 +82,7 @@ internal sealed class GroundedTypes
     }
     internal JsonObject Input(string owner, string name) => Input(_scopes[owner], name);
     internal JsonObject Result(string owner, string id) => Result(_scopes[owner], id);
+    internal bool StructuredStrict(string owner, string id) => _structuredStrict[owner + ":" + id];
     internal JsonObject Value(string owner, GroundedValue value) => Value(_scopes[owner], value);
     private JsonObject Input(Scope scope, string name)
     {
@@ -145,10 +147,14 @@ internal sealed class GroundedTypes
                     result = Value(scope, calculate.Value);
                     break;
                 case TransformGroundedOperation transform:
-                    result = Declared(transform.ResultType, id); break;
+                    result = Declared(transform.ResultType, transform.ResultContract, id);
+                    // Provider strict-format eligibility is separate from mandatory runtime instance validation.
+                    // Optional fields retain their exact standard JSON Schema; do not rewrite their contracts.
+                    _structuredStrict[key] = PlanningContractValidation.ValidateSchema(Object([("value", result)]), strict: true).Count == 0;
+                    break;
                 case ValidateGroundedOperation validate:
                     if (validate.Format is not ("json_value" or "json_text")) throw new InvalidOperationException("Unknown validation format.");
-                    result = Declared(validate.ResultType, id); break;
+                    result = Declared(validate.ResultType, validate.ResultContract, id); break;
                 case EachGroundedOperation: result = new() { ["type"] = "array", ["items"] = Block("body").DeepClone() }; break;
                 case ChooseGroundedOperation:
                     var yes = Block("then"); var no = Block("otherwise");
@@ -165,8 +171,21 @@ internal sealed class GroundedTypes
         }
         finally { _resolving.Remove(key); }
     }
-    private JsonObject Declared(BusinessType? type, string id)
+    private JsonObject Declared(BusinessType? type, GroundedContractReference? reference, string id)
     {
+        if (reference is not null)
+        {
+            if (type is not null) throw new InvalidOperationException("Choose one output contract: a business type or an authoritative reference, not both.");
+            var capability = _catalog.Capabilities.SingleOrDefault(c => c.Id == reference.Capability);
+            if (capability is null || _catalog.Policy.DeniedCapabilityIds.Contains(capability.Id) || !_catalog.AllowedStepTypes.Contains(capability.StepType))
+                throw new InvalidOperationException("Output contract reference requires an exact authorized capability identity.");
+            var root = reference.Direction switch { "input" => capability.InputSchema, "output" => capability.OutputSchema, _ => throw new InvalidOperationException("Contract direction must be input or output.") };
+            if (root.Count == 0) throw new InvalidOperationException("An opaque producer has no authoritative output contract to reference.");
+            var pointer = "/" + reference.Direction + string.Concat(reference.Path.Select(p => "/properties/" + PlanningSchemaReferences.Escape(p)));
+            var resolved = PlanningSchemaReferences.Resolve(new() { CapabilityId = capability.Id, SchemaPointer = pointer }, _catalog);
+            PlanningGraphValidation.RequireTyped(resolved, 0);
+            return resolved;
+        }
         if (type is null || type.Type == "opaque") throw new InvalidOperationException("Declare the new business result type for " + id);
         var schema = PlanningGraphCompiler.ToJsonSchema(PlanningGraphBuilder.Schema(type), _catalog);
         PlanningGraphValidation.RequireTyped(schema, 0);

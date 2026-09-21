@@ -16,6 +16,8 @@ public sealed class GroundedPlan
 public sealed record GroundedInput(string Name, BusinessType? Type = null, bool Optional = false, GroundedValue? Default = null);
 public sealed record GroundedOutput(string Name, GroundedValue Value);
 public sealed record GroundedBusinessOutput(string Name, List<string> Path);
+/// <summary>An exact authoritative contract used by a new runtime validation boundary, never attributed to its source value.</summary>
+public sealed record GroundedContractReference(string Capability, string Direction, List<string> Path);
 public sealed record GroundedSubflow(string Name, List<GroundedInput> Inputs, List<GroundedOperation> Operations, List<GroundedOutput> Outputs);
 public sealed record GroundedMember(string Name, GroundedValue Value);
 public sealed record GroundedBlock(List<GroundedOperation> Operations, GroundedValue Result);
@@ -80,6 +82,7 @@ public sealed class TransformGroundedOperation : GroundedOperation
     public string Instruction { get; set; } = "";
     public List<GroundedMember> Data { get; set; } = [];
     public BusinessType? ResultType { get; set; }
+    public GroundedContractReference? ResultContract { get; set; }
 }
 public sealed class ChooseGroundedOperation : GroundedOperation
 {
@@ -112,7 +115,8 @@ public sealed class ValidateGroundedOperation : GroundedOperation
 {
     public GroundedValue Value { get; set; } = new();
     public string Format { get; set; } = "json_value";
-    public BusinessType ResultType { get; set; } = new();
+    public BusinessType? ResultType { get; set; }
+    public GroundedContractReference? ResultContract { get; set; }
 }
 
 public sealed record PlanningQuestion(string Id, string Question, BusinessType AnswerType);

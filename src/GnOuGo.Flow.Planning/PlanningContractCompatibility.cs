@@ -163,7 +163,10 @@ internal static class PlanningContractCompatibility
                 foreach (var low in new[] { "minimum", "exclusiveMinimum" })
                     foreach (var high in new[] { "maximum", "exclusiveMaximum" })
                         if (Number(a[low]) is { } min && Number(b[high]) is { } max && (min > max || min == max && (low == "exclusiveMinimum" || high == "exclusiveMaximum"))) return true;
-        if (lt.SequenceEqual(["object"]) && rt.SequenceEqual(["object"]))
+        // Object-only keywords still constrain objects when a branch omits type.
+        // One side proves that the intersection can contain only objects.
+        if (lt.SequenceEqual(["object"]) && (rt.Length == 0 || rt.SequenceEqual(["object"])) ||
+            rt.SequenceEqual(["object"]) && lt.Length == 0)
         {
             // A pattern may admit a required member even when additionalProperties
             // is false. Do not use that fallback to prove union exclusivity.

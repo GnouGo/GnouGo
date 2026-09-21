@@ -79,4 +79,14 @@ public sealed class BindingBatchTests
         var invalid = GroundedPlanValidator.Validate(plan, catalog);
         Assert.Null(invalid.Plan); Assert.Contains(invalid.Diagnostics, d => d.Message.Contains("duration", StringComparison.Ordinal));
     }
+    [Fact]
+    public void UntypedOneOfBranchesUseDeclaredDiscriminatorsWithoutLosingExclusivity()
+    {
+        var actual = JsonNode.Parse("""{"type":"object","required":["mode","text"],"additionalProperties":false,"properties":{"mode":{"type":"string","enum":["alpha"]},"text":{"type":"string"}}}""")!.AsObject();
+        var expected = JsonNode.Parse("""{"type":"object","required":["mode"],"properties":{"mode":{"type":"string","enum":["alpha","beta"]},"text":{"type":["string","null"]}},"oneOf":[{"properties":{"mode":{"const":"alpha"}},"required":["mode"]},{"properties":{"mode":{"const":"beta"}},"required":["mode"]}]}""")!.AsObject();
+        Assert.True(PlanningContractCompatibility.Fits(actual, expected));
+        expected["oneOf"]!.AsArray().Add(new JsonObject { ["properties"] = new JsonObject { ["text"] = new JsonObject { ["type"] = "string" } } });
+        Assert.False(PlanningContractCompatibility.Fits(actual, expected));
+    }
+
 }

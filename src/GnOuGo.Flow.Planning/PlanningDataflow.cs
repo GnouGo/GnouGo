@@ -81,6 +81,8 @@ internal static class PlanningDataflow
             if (consumer is null) return true;
             foreach (var condition in Guards(key))
             {
+                if (consumer == WorkflowOutputs && workflow.Finally.Any(n => n.Key == key) &&
+                    PlanningGraphBuilder.FinalizerAvailableOnSuccess(nodes.Single(n => n.Key == key), workflow)) continue;
                 if (consumer != WorkflowOutputs && locations[consumer].StartsWith("/finally/", StringComparison.Ordinal) &&
                     PlanningGraphBuilder.GuardsFinalizerSource(nodes.Single(n => n.Key == consumer), key)) continue;
                 if (consumer == WorkflowOutputs || !Guards(consumer).Any(guard => JsonNode.DeepEquals(

@@ -89,9 +89,10 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         }
         catch (WorkflowRuntimeException ex)
         {
+            var location = ex.Details?["location"]?.ToString() ?? "$";
             if (ex.Code == "MODEL_INPUT_LIMIT")
-            { state.Diagnostics.RemoveAll(d => d.Code == ex.Code); state.Diagnostics.Add(new(ex.Code, "$", ex.Message)); }
-            else state.Diagnostics.Add(new(ex.Code, "$", ex.Message));
+            { state.Diagnostics.RemoveAll(d => d.Code == ex.Code); state.Diagnostics.Add(new(ex.Code, location, ex.Message)); }
+            else state.Diagnostics.Add(new(ex.Code, location, ex.Message));
             Stop(state);
         }
         catch (JsonException ex)

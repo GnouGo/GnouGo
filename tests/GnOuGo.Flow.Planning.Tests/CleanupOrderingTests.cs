@@ -163,6 +163,32 @@ public sealed class CleanupOrderingTests
         Assert.Contains(GroundedPlanValidator.Validate(plan, catalog).Diagnostics, d => d.Message.Contains("Invalid dependency: last", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CleanupResultsAreExportedOnlyAfterSuccessfulResourceAcquisition(bool acquisitionFails)
+    {
+        var effects = new List<string>();
+        var factory = Factory(true, (method, _) => {
+            effects.Add(method);
+            if (method == "acquire" && acquisitionFails) throw new InvalidOperationException("Acquisition failed");
+            return method == "acquire" ? new JsonObject { ["resource"] = "owned", ["ready"] = true } : new JsonObject();
+        });
+        var catalog = await new TestRuntime(mcp: factory).DiscoverAsync(PlannerFixture.Session().Request, Ct);
+        var release = Invoke(catalog, "release"); release.Arguments = [new("resource", new() { Kind = "result", Source = "acquire", Path = ["resource"] })];
+        var plan = new GroundedPlan { Operations = [Invoke(catalog, "acquire"), new CleanupGroundedOperation { Id = "cleanup", Operations = [release] }], Outputs = [new("cleanupResult", new() { Kind = "result", Source = "release" })] };
+        var graph = PlannerFixture.Build(plan, catalog); PlanningConfirmationGuards.Apply(graph, catalog);
+        var yaml = new PlanningGraphCompiler().Compile(graph, catalog, "cleanup-result");
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        var result = await new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human() }.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), Ct);
+        Assert.Equal(!acquisitionFails, result.Success);
+        if (acquisitionFails) { Assert.DoesNotContain("release", effects); Assert.Null(result.Outputs); }
+        else { Assert.Contains("release", effects); Assert.NotNull(result.Outputs!["cleanupResult"]); }
+        var body = graph.Workflows.Single(w => w.Finally.Any(n => n.Key == "release"));
+        body.Finally.Single().If = new() { Kind = "boolean", Boolean = false };
+        Assert.Contains(PlanningDataflow.Validate(graph, catalog), d => d.Required);
+    }
+
     private static CalculateGroundedOperation Number(string id, params string[] after) => new() { Id = id, After = [.. after], Value = new() { Kind = "number", Number = 1 } };
     private static InvokeGroundedOperation Invoke(PlanningCatalog catalog, string method, string[]? after = null) => new()
     { Id = method, Capability = catalog.Capabilities.Single(c => c.Method == method).Id, After = after?.ToList() ?? [] };

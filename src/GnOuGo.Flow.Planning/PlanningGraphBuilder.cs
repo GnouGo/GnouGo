@@ -151,7 +151,7 @@ public static class PlanningGraphBuilder
                     case TransformGroundedOperation transform:
                         node.Type = "llm.call";
                         node.Input = Object(new PlanningMember("prompt", Compute("instruction + '\\nBusiness data: ' + JSON.stringify(values)", new("instruction", Text(transform.Instruction)), new("values", Object(transform.Data.Select(d => new PlanningMember(d.Name, Value(d.Value))).ToArray())))));
-                        node.StructuredOutput = new(Wrapped(GroundedTypes.Schema(types.Result(workflow.Key, operation.Id))));
+                        node.StructuredOutput = new(Wrapped(GroundedTypes.Schema(types.Result(workflow.Key, operation.Id))), types.StructuredStrict(workflow.Key, operation.Id));
                         break;
                     case ValidateGroundedOperation validate:
                         node.Type = "value.validate";
@@ -262,5 +262,20 @@ public static class PlanningGraphBuilder
         var guard = node.If?.Kind == "compute" ? node.If.Members.FirstOrDefault(m => m.Name == "available")?.Value : node.If;
         return guard?.Kind == "expression" && guard.Text?.Split(" && ", StringSplitOptions.None)
             .Contains(AvailabilityGuard([source]).Text, StringComparer.Ordinal) == true;
+    }
+    internal static bool FinalizerAvailableOnSuccess(PlanningNode node, PlanningWorkflow workflow)
+    {
+        var required = References(node).Where(v => v.Kind == "output").Select(v => v.Source!).Distinct().ToArray();
+        if (required.Length == 0 || node.If?.Kind != "expression") return false;
+        foreach (var id in required)
+        {
+            var producer = workflow.Steps.SingleOrDefault(n => n.Key == id);
+            if (producer is null || producer.If is not null || producer.OnError.Any(h => h.Action == "continue") ||
+                !(producer.Type is "mcp.call" or "llm.call" or "workflow.call" || producer.Type == "set" && producer.Input.Kind == "object")) return false;
+        }
+        // Workflow outputs are evaluated only after successful main execution and successful finalization.
+        // Recognize the exact generated guard; arbitrary conditions remain conditional.
+        return JsonNode.DeepEquals(JsonSerializer.SerializeToNode(node.If, PlanningJsonContext.Default.PlanningValue),
+            JsonSerializer.SerializeToNode(AvailabilityGuard(required), PlanningJsonContext.Default.PlanningValue));
     }
 }

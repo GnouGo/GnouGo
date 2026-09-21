@@ -8,6 +8,7 @@ namespace GnOuGo.Flow.Planning;
 internal static class GroundedBindingBatches
 {
     internal static bool Required(PlanningSession state) => state.BindingProgress is not null ||
+        SemanticPlanning.Actions(state.SemanticPlan!).Sum(a => Weight(state, a, descendants: false)) > OutputCapacity(state) ||
         PlanningJsonTransport.EstimateInputTokens(CapabilityGrounder.BindingPrompt(state), PlanningSchemas.Grounded(state.Grounding!.Selections!.SelectMany(s => s.CapabilityIds))) > state.Request.Generation.MaxInputTokensPerRequest;
 
     internal static async Task ApplyAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct, bool replan = false)
@@ -15,16 +16,27 @@ internal static class GroundedBindingBatches
         var progress = state.BindingProgress ??= new();
         // Durable prefixes are data, not validation receipts. Re-establish their types after restart.
         var accepted = progress.CompletedActions.Count == 0 ? null : GroundedPlanValidator.RequireValid(progress.Accepted, state.Catalog!);
-        var boundary = Boundary(progress.Accepted, accepted);
+        var boundary = Boundary(progress.Accepted, accepted, state.Catalog!);
         var remaining = Ordered(state.SemanticPlan!).Where(a => !progress.CompletedActions.Contains(a.Id)).ToArray();
         if (progress.CurrentActions.Count == 0)
         {
+            var all = Request(state, remaining.Select(a => a.Id).ToList(), boundary);
+            var total = remaining.Sum(a => Weight(state, a));
+            var batches = Math.Max(PlanningJsonTransport.EstimateInputTokens(all.Prompt, all.Schema) <= state.Request.Generation.MaxInputTokensPerRequest ? 1 : 2,
+                (int)Math.Ceiling((double)total / OutputCapacity(state)));
+            if (state.ModelCalls + batches > state.Request.MaxModelCalls)
+                throw new WorkflowRuntimeException("BINDING_BUDGET_INSUFFICIENT", "The complete binding work requires at least " + batches + " bounded batches.", details: new JsonObject { ["location"] = "/actions/" + remaining[0].Id });
+            var target = (double)total / batches; var weight = 0;
             foreach (var action in remaining)
             {
+                var nextWeight = Weight(state, action);
+                if (progress.CurrentActions.Count > 0 && weight + nextWeight > target && target - weight < weight + nextWeight - target) break;
                 var next = progress.CurrentActions.Append(action.Id).ToList();
                 var request = Request(state, next, boundary);
                 if (PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.Schema) > state.Request.Generation.MaxInputTokensPerRequest) break;
                 progress.CurrentActions = next;
+                weight += nextWeight;
+                if (weight >= target) break;
             }
             if (progress.CurrentActions.Count == 0)
                 throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", "An indivisible semantic subgraph and its established boundary exceed the input allowance at /actions/" + remaining[0].Id + ".");
@@ -81,6 +93,16 @@ internal static class GroundedBindingBatches
         if (final) { state.GroundedPlan = combined; state.BindingProgress = null; }
     }
 
+    // A planning estimate, not a raised ceiling: reserve response space for reasoning and JSON framing.
+    // Partition complete business work rather than treating an almost-full input as a small output request.
+    private static int OutputCapacity(PlanningSession state) => Math.Max(1, state.Request.Generation.MaxOutputTokens * 2 / 3);
+    private static int Weight(PlanningSession state, SemanticAction action, bool descendants = true)
+    {
+        var selected = state.Grounding!.Selections!.FirstOrDefault(s => s.ActionId == action.Id)?.CapabilityIds ?? [];
+        var weight = 300 + action.Outputs.Count * 60 + selected.Sum(id => 200 + (state.Catalog!.Capabilities.Single(c => c.Id == id).InputSchema["properties"] as JsonObject ?? new()).Count * 45);
+        return weight + (descendants ? action.Blocks.SelectMany(b => b.Actions).Sum(a => Weight(state, a)) : 0);
+    }
+
     private static (string Prompt, JsonObject Schema) Request(PlanningSession state, List<string> ids, JsonObject boundary)
     {
         var first = state.BindingProgress!.CompletedActions.Count == 0;
@@ -93,12 +115,12 @@ internal static class GroundedBindingBatches
         var capabilities = state.Grounding!.Selections!.Where(s => actionIds.Contains(s.ActionId)).SelectMany(s => s.CapabilityIds);
         var prompt = CapabilityGrounder.BindingPrompt(state, fragment, boundary) + "\n" +
             "This is one complete binding subgraph. Implement only the issued semantic actions. Use established result operation IDs and exact contracts to consume previous values. " +
-            (first ? "Declare the workflow inputs and named subflows." : "Return empty inputs and subflows; they are already established.") +
+            (first ? "Declare the workflow inputs and named subflows. Give every input an explicit business type, including inputs first consumed by later batches." : "Return empty inputs and subflows; they are already established.") +
             (final ? " Declare all required workflow outputs." : " Return empty outputs; workflow outputs are bound in the last batch.");
         return (prompt, PlanningSchemas.Grounded(capabilities));
     }
 
-    private static JsonObject Boundary(GroundedPlan plan, ValidatedGroundedPlan? validated)
+    private static JsonObject Boundary(GroundedPlan plan, ValidatedGroundedPlan? validated, PlanningCatalog catalog)
     {
         if (validated is null) return new();
         return new()
@@ -108,6 +130,7 @@ internal static class GroundedBindingBatches
             { ["id"] = o.Id, ["semanticAction"] = o.SemanticAction,
                 ["businessOutputs"] = new JsonArray(o.BusinessOutputs.Select(b => (JsonNode)new JsonObject { ["name"] = b.Name, ["path"] = new JsonArray(b.Path.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()) }).ToArray()),
                 ["when"] = o.When is null ? null : JsonSerializer.SerializeToNode(o.When, PlanningJsonContext.Default.GroundedValue),
+                ["artifacts"] = o is InvokeGroundedOperation invoke ? JsonSerializer.SerializeToNode(catalog.Capabilities.Single(c => c.Id == invoke.Capability).ArtifactContract, PlanningJsonContext.Default.McpArtifactContract) : null,
                 ["contract"] = PlanningJsonTransport.ContractPrompt(validated.Types.Result("main", o.Id)) }).ToArray())
         };
     }

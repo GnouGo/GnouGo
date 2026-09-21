@@ -127,6 +127,9 @@ internal static class CapabilityGrounder
                     errors.Add(new("SEMANTIC_OUTPUT_UNGROUNDED", "/actions/" + action.Id + "/outputs/" + output.Name, "The required business output has no explicit grounded result mapping."));
         foreach (var operation in operations)
         {
+            var contractReference = operation switch { TransformGroundedOperation transform => transform.ResultContract, ValidateGroundedOperation validate => validate.ResultContract, _ => null };
+            if (contractReference is not null && !state.Grounding.Selections.SelectMany(s => s.CapabilityIds).Contains(contractReference.Capability, StringComparer.Ordinal))
+                errors.Add(new("GROUNDING_CONTRACT_INVALID", "/operations/" + operation.Id, "An adapter contract must use an issued, selected capability schema."));
             var action = actions.FirstOrDefault(a => a.Id == operation.SemanticAction);
             if (operation.BusinessOutputs.Select(o => o.Name).Distinct().Count() != operation.BusinessOutputs.Count ||
                 operation.BusinessOutputs.Any(o => action is null || !action.Outputs.Any(p => p.Name == o.Name)))
@@ -172,19 +175,24 @@ internal static class CapabilityGrounder
             All required business outputs must be mapped; intermediate operations may have empty businessOutputs.
             Use exact capability IDs only. Map named business values to real argument names and declared result paths.
             Use only declared fields and arguments. Omit optional arguments unless needed; null is a value, not omission.
+            Artifact consumers must bind the original declared producer path of the required kind. Matching strings, literals and model rewrites do not establish resource identity. Pure aliases preserve identity.
             An absent output contract is OPAQUE. Pass its WHOLE result intact through branches and subflows or to a transform.
             Before field access on opaque data, add validate with an explicit business resultType and format json_value or json_text.
             validate checks the whole runtime value; json_text explicitly parses JSON text. Failure stops execution. Never infer JSON text or fields from examples.
             calculate uses executable JavaScript over explicitly named members; every variable must be bound. Calculations have no asserted resultType: their types are inferred.
             compute.text is JavaScript, never prose. Example: "flag ? 'accepted' : 'rejected'" with member flag. Objects use kind object and members; strings use template with {{name}} placeholders.
             Use simple typed expressions. Unknown or nullable computations need an explicit validate boundary before stricter consumers. For business interpretation use transform with a declared resultType.
-            transform MUST declare its resultType and receives actual source data; it cannot substitute for external observations or claim checks ran.
+            transform and validate MUST choose exactly one resultType or resultContract; set the other to null.
+            Prefer resultContract for an existing consumer contract: {capability: issuedId, direction: input, path: [argumentName]} validates the complete value against that argument schema. direction output similarly selects an authoritative result contract.
+            The host resolves that exact schema and enforces it at runtime. This does not change the original source contract. Do not duplicate large existing schemas as business types.
+            transform receives actual source data; it cannot substitute for external observations or claim checks ran.
             choose has a boolean condition and two result blocks. each returns ordered body results. parallel returns named branch results.
             Conditional results require the same condition at consumers, or a choose that supplies both outcomes. Cleanup runs on exit and binds the acquired resource. The host guards resource availability; do not add a redundant when to cleanup or export conditional cleanup results unconditionally.
             Named subflows declare input types; opaque permits whole values, not fields.
             """ + "\n" + PlanningJsonTransport.Prompt(new JsonObject { ["semanticPlan"] = PlanningJsonTransport.BusinessContext(SemanticPlanning.Json(fragment ?? state.SemanticPlan!)), ["establishedBoundary"] = boundary?.DeepClone(), ["instructions"] = state.Request.Policy.Instructions,
                 ["capabilities"] = new JsonArray(state.Catalog!.Capabilities.Where(c => ids.Contains(c.Id)).Select(c => (JsonNode)new JsonObject { ["id"] = c.Id, ["name"] = c.Method,
-                    ["arguments"] = PlanningJsonTransport.ContractPrompt(PlanningCapabilityArguments.EditableArguments(c)), ["result"] = c.OutputSchema.Count == 0 ? null : PlanningJsonTransport.ContractPrompt(c.OutputSchema), ["effect"] = c.EffectKind }).ToArray()),
+                    ["arguments"] = PlanningJsonTransport.ContractPrompt(PlanningCapabilityArguments.EditableArguments(c)), ["result"] = c.OutputSchema.Count == 0 ? null : PlanningJsonTransport.ContractPrompt(c.OutputSchema), ["effect"] = c.EffectKind,
+                    ["artifacts"] = JsonSerializer.SerializeToNode(c.ArtifactContract, PlanningJsonContext.Default.McpArtifactContract) }).ToArray()),
                 ["matches"] = new JsonArray(decisions.Where(d => actionIds.Contains(d.ActionId)).Select(d => (JsonNode)new JsonObject { ["actionId"] = d.ActionId, ["capabilityIds"] = new JsonArray(selected.Single(s => s.ActionId == d.ActionId).CapabilityIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()) }).ToArray()) });
     }
 }
