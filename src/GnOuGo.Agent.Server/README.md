@@ -658,7 +658,7 @@ post-save credential check uses the selected protocol; reserved planning calls a
 
 ### Inspectable model calls
 
-Enable `TraceDebug:Enabled=true` for retained content, then open
+The shared `appsettings.json` enables `TraceDebug:Enabled=true` for retained content. Open
 **Traces → Pipeline / LLM calls** from chat or Workflow designer. Expand a
 call to inspect its retained prompt/schema, response, tool calls and repair
 context, with byte sizes, labelled token estimates, reported usage and HTTP

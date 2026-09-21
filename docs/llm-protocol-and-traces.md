@@ -44,9 +44,9 @@ internal model content and usage are explicitly unavailable otherwise.
 
 ## Content storage and retention
 
-`TraceDebug.Enabled=true` enables detailed capture. The repository appsettings file
-keeps it disabled by default; start the host with `--TraceDebug:Enabled=true` or
-set the equivalent host configuration when you want retained inputs and outputs. `TraceDebug.ContentRetentionDays`
+`TraceDebug.Enabled=true` enables detailed capture. The shared repository
+`appsettings.json` enables it for Server and Desktop. Set `--TraceDebug:Enabled=false`
+to disable retained-content capture and reads. `TraceDebug.ContentRetentionDays`
 defaults to **7**, and `TraceDebug.MaxDocumentBytes` defaults to **2097152** per
 input/output document. Oversized documents are labelled, never silently truncated.
 Disabling capture prevents new content storage and content reads; metadata spans

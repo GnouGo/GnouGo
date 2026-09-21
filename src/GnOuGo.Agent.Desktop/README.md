@@ -9,6 +9,11 @@ dotnet run --project src/GnOuGo.Agent.Desktop --no-build
 
 Build the Agent.Server frontend with the repository's pnpm workspace before the first run. Development builds stage the bundled MCP tools beside the executable.
 
+Desktop copies Agent.Server's shared `appsettings.json`, which enables
+`TraceDebug.Enabled`. Open **Traces → Pipeline / LLM calls** to inspect retained
+requests and responses. Content is stored encrypted, with seven-day retention
+for new diagnostic records. See [trace configuration](../../docs/llm-protocol-and-traces.md).
+
 Databases resolve through GnOuGo.Workspace under the shared workspace. Telemetry initialization preserves existing data, including in development mode and when another host has the database open. Development mode makes tenant IDs optional for telemetry; it does not reset storage. The shell chooses an available application HTTP port; embedded OTLP ports remain configurable through Agent.Server settings.
 
 If another host already owns OTLP ports 4317/4318, launch Desktop with distinct collector
