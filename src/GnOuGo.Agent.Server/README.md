@@ -646,3 +646,12 @@ Omitting it preserves the base policy. Providing it replaces that policy, with d
 unspecified fields. Malformed settings fail validation; `Retry-After` cannot be disabled.
 Uncertain generation recovery requires a host accounting journal. The live planning benchmark
 supplies it; ordinary planning journals retain their single-attempt safety boundary.
+
+### Generation protocol
+
+`/llm add` and `/llm edit openai` expose **Generation protocol** on the connection card.
+New OpenAI configurations use **Background — Responses API**; choose **Chat Completions — foreground** for gateways without the Responses endpoint.
+`Auto` continues to mean background Responses. There is no automatic protocol fallback.
+The Save confirmation and `/llm list` show the selection. Saving preserves unrelated settings,
+stores the selection encrypted in KeyVault, and applies it to new calls immediately. The existing
+post-save credential check uses the selected protocol; reserved planning calls and receipts stay unchanged.

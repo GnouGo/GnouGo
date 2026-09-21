@@ -458,16 +458,7 @@ public sealed class ConfigureProvidersService
             runId,
             "llm_add.connection",
             $"Configure {provider} connection:",
-            [
-                new HumanInputFieldDef
-                {
-                    Name = "url",
-                    Type = "string",
-                    Required = true,
-                    Description = "Provider endpoint URL",
-                    Default = defaults.Url
-                }
-            ],
+            ConnectionFields(provider, defaults.Url, LLMBackgroundProtocolMode.Responses),
             JsonValue.Create($"Default URL: {defaults.Url}"));
 
         await foreach (var evt in EmitHumanInputRequestAsync(connectionRequest, r => response = r, ct))
@@ -503,6 +494,8 @@ public sealed class ConfigureProvidersService
 
         if (auth is null)
             yield break;
+
+        auth = auth with { BackgroundProtocol = ReadSelectedProtocol(provider, connection, LLMBackgroundProtocolMode.Responses) };
 
         string? model = null;
         await foreach (var evt in CollectModelSelectionAsync(runId, provider, defaults.Model, BuildProviderOptions(provider, url, auth), selected => model = selected, ct))
@@ -736,16 +729,7 @@ public sealed class ConfigureProvidersService
             runId,
             "llm_edit.connection",
             $"Edit LLM provider '{provider}':",
-            [
-                new HumanInputFieldDef
-                {
-                    Name = "url",
-                    Type = "string",
-                    Required = true,
-                    Description = "Provider endpoint URL",
-                    Default = existing.Url
-                }
-            ]);
+            ConnectionFields(provider, existing.Url, existing.BackgroundProtocol ?? EffectiveProtocol(provider)));
         await foreach (var evt in EmitHumanInputRequestAsync(connectionRequest, r => response = r, ct))
             yield return evt;
         var connection = ReadFieldResponse(response, connectionRequest.Fields!);
@@ -780,6 +764,12 @@ public sealed class ConfigureProvidersService
 
         if (auth is null)
             yield break;
+
+        auth = auth with
+        {
+            ApiVersion = existing.ApiVersion,
+            BackgroundProtocol = ReadSelectedProtocol(provider, connection, existing.BackgroundProtocol ?? EffectiveProtocol(provider))
+        };
 
         string? model = null;
         await foreach (var evt in CollectModelSelectionAsync(runId, provider, existing.Model, BuildProviderOptions(provider, url, auth), selected => model = selected, ct))
@@ -2371,6 +2361,37 @@ public sealed class ConfigureProvidersService
             _ => new ProviderDefaults("https://api.openai.com/v1", "gpt-4o", ["api_key", "oidc"])
         };
 
+    private bool IsOpenAiCompatible(string provider)
+        => string.Equals(_optionsStore.Current.ResolveProvider(provider)?.ResolvedType ?? NormalizeProviderTypeForConfig(provider), "openai", StringComparison.OrdinalIgnoreCase);
+
+    private LLMBackgroundProtocolMode EffectiveProtocol(string provider)
+        => _optionsStore.Current.ResolveProvider(provider)?.RequestPolicy.BackgroundProtocol ?? LLMBackgroundProtocolMode.Auto;
+
+    private List<HumanInputFieldDef> ConnectionFields(string provider, string url, LLMBackgroundProtocolMode protocol)
+    {
+        var fields = new List<HumanInputFieldDef>
+        {
+            new() { Name = "url", Type = "string", Required = true, Description = "Provider endpoint URL", Default = url }
+        };
+        if (IsOpenAiCompatible(provider))
+            fields.Add(new() { Name = "generation_protocol", Type = "select", Required = true,
+                Description = "Generation protocol", Options = [LlmGenerationProtocol.BackgroundLabel, LlmGenerationProtocol.ChatLabel],
+                Default = LlmGenerationProtocol.Label(protocol) });
+        return fields;
+    }
+
+    private LLMBackgroundProtocolMode? ReadSelectedProtocol(string provider, Dictionary<string, string> fields, LLMBackgroundProtocolMode current)
+    {
+        if (!IsOpenAiCompatible(provider)) return null;
+        return fields.GetValueOrDefault("generation_protocol") switch
+        {
+            null or "" => current,
+            LlmGenerationProtocol.BackgroundLabel => LLMBackgroundProtocolMode.Responses,
+            LlmGenerationProtocol.ChatLabel => LLMBackgroundProtocolMode.ChatCompletions,
+            _ => throw new InvalidOperationException("Invalid generation protocol selection.")
+        };
+    }
+
     private static ModelProviderOptions BuildProviderOptions(string provider, string url, LlmProviderConfig auth)
         => new()
         {
@@ -2382,7 +2403,8 @@ public sealed class ConfigureProvidersService
             Scopes = auth.OidcScopes,
             ClientSecret = auth.OidcClientSecret,
             PrivateKeyPem = auth.OidcPrivateKeyPem,
-            ApiVersion = auth.ApiVersion
+            ApiVersion = auth.ApiVersion,
+            RequestPolicy = new() { BackgroundProtocol = auth.BackgroundProtocol ?? LLMBackgroundProtocolMode.Auto }
         };
 
     private async Task SaveLlmProviderConfigAsync(string provider, string url, string model, LlmProviderConfig auth, CancellationToken ct)
@@ -2392,7 +2414,7 @@ public sealed class ConfigureProvidersService
         span.SetTag("gen_ai.system", provider);
         span.SetTag("gen_ai.request.model", model);
         span.SetTag("gnougo.agent.llm.auth_type", auth.AuthType);
-        var payload = new JsonObject
+        var fields = new JsonObject
         {
             ["provider"] = provider,
             ["type"] = NormalizeProviderTypeForConfig(provider),
@@ -2413,6 +2435,14 @@ public sealed class ConfigureProvidersService
             existingSecrets,
             KeyVaultConfigSecretKind.LlmProvider,
             provider);
+        var prior = await _keyVaultStore.GetSecretValueAsync(targetSecretKey, ct);
+        var payload = string.IsNullOrWhiteSpace(prior) ? new JsonObject()
+            : JsonNode.Parse(prior) as JsonObject ?? throw new InvalidOperationException("Stored provider configuration must be an object.");
+        foreach (var field in fields)
+            payload[field.Key] = field.Value?.DeepClone();
+        if (auth.BackgroundProtocol is { } protocol)
+            payload["backgroundProtocol"] = protocol.ToString();
+        _ = LlmGenerationProtocol.Read(payload); // Fail before saving malformed configuration.
         span.SetTag("keyvault.secret.key", targetSecretKey);
         span.SetTag(
             "gnougo.agent.configure.overwrite",
@@ -2468,7 +2498,8 @@ public sealed class ConfigureProvidersService
                 OidcScopes: ReadConfigString(config, "oidcScopes", "oidc_scopes") ?? "",
                 OidcClientSecret: ReadConfigString(config, "oidcClientSecret", "oidc_client_secret") ?? "",
                 OidcPrivateKeyPem: ReadConfigString(config, "oidcPrivateKeyPem", "oidc_private_key_pem") ?? "",
-                ApiVersion: ReadConfigString(config, "apiVersion", "api_version") ?? "");
+                ApiVersion: ReadConfigString(config, "apiVersion", "api_version") ?? "",
+                BackgroundProtocol: LlmGenerationProtocol.Read(config));
             span.SetTag("gnougo.agent.configure.found_existing", true);
             span.SetTag("gnougo.agent.llm.auth_type", result.AuthType);
             span.SetTag("gen_ai.request.model", result.Model);
@@ -2499,10 +2530,11 @@ public sealed class ConfigureProvidersService
             ["llm_oidc_scopes"] = auth.OidcScopes,
             ["llm_oidc_client_secret"] = auth.OidcClientSecret,
             ["llm_oidc_private_key_pem"] = auth.OidcPrivateKeyPem,
-            ["llm_api_version"] = auth.ApiVersion
+            ["llm_api_version"] = auth.ApiVersion,
+            ["llm_background_protocol"] = auth.BackgroundProtocol?.ToString()
         };
 
-    private static string RenderLlmConfigSummary(
+    private string RenderLlmConfigSummary(
         string provider,
         string url,
         string model,
@@ -2519,6 +2551,8 @@ public sealed class ConfigureProvidersService
         sb.AppendLine($"| Provider | {EscapeMarkdownCell(provider)} |");
         sb.AppendLine($"| URL | {EscapeMarkdownCell(url)} |");
         sb.AppendLine($"| Model | {EscapeMarkdownCell(model)} |");
+        if (IsOpenAiCompatible(provider))
+            sb.AppendLine($"| Generation protocol | {LlmGenerationProtocol.Label(auth.BackgroundProtocol ?? EffectiveProtocol(provider))} |");
         sb.AppendLine($"| Auth | {EscapeMarkdownCell(auth.AuthType)} |");
         if (!string.IsNullOrWhiteSpace(auth.ApiKey))
             sb.AppendLine("| API Key | •••••••• |");
@@ -3118,7 +3152,7 @@ public sealed class ConfigureProvidersService
         LLMModelMetadata Metadata,
         LLMModelMetadataResolution Resolution,
         bool ShouldPersist);
-    private sealed record LlmProviderConfig(string Url, string Model, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret, string OidcPrivateKeyPem, string ApiVersion = "");
+    private sealed record LlmProviderConfig(string Url, string Model, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret, string OidcPrivateKeyPem, string ApiVersion = "", LLMBackgroundProtocolMode? BackgroundProtocol = null);
     private sealed record McpServerConfig(string Name, string Transport, string Description, string Url, string Command, IReadOnlyList<string> Args, string AuthType, string ApiKey, string OidcIssuer, string OidcClientId, string OidcScopes, string OidcClientSecret);
     private sealed record McpListRow(string Name, string Source, string Editable, string Key, string Version, string Stored);
     private sealed record EmbeddingProviderConfig(string Name, string Provider, string? Model, string? EndpointUrl, string? BaseUrl, string? ApiKey, string? ApiKeySecretKey, int Dimensions);
@@ -3491,7 +3525,8 @@ public sealed class ConfigureProvidersService
                 OidcScopes: ReadConfigString(configJson, "oidcScopes", "oidc_scopes") ?? string.Empty,
                 OidcClientSecret: ReadConfigString(configJson, "oidcClientSecret", "oidc_client_secret") ?? string.Empty,
                 OidcPrivateKeyPem: ReadConfigString(configJson, "oidcPrivateKeyPem", "oidc_private_key_pem") ?? string.Empty,
-                ApiVersion: ReadConfigString(configJson, "apiVersion", "api_version") ?? string.Empty);
+                ApiVersion: ReadConfigString(configJson, "apiVersion", "api_version") ?? string.Empty,
+                BackgroundProtocol: LlmGenerationProtocol.Read(configJson));
 
             providers.Add(new ConfiguredLlmProvider(provider, secret, config));
             secretSpan.SetTag("gnougo.agent.llm.provider", provider);
@@ -3516,8 +3551,8 @@ public sealed class ConfigureProvidersService
         var sb = new StringBuilder();
         sb.AppendLine("# 🤖 Configured LLM Providers");
         sb.AppendLine();
-        sb.AppendLine("| Provider | Default | Model | Key | Version | Stored |");
-        sb.AppendLine("|----------|---------|-------|-----|---------|--------|");
+        sb.AppendLine("| Provider | Default | Model | Generation protocol | Key | Version | Stored |");
+        sb.AppendLine("|----------|---------|-------|---------------------|-----|---------|--------|");
 
         foreach (var provider in providers
                      .OrderByDescending(p => string.Equals(p.Provider, currentDefaultProvider, StringComparison.OrdinalIgnoreCase))
@@ -3528,7 +3563,7 @@ public sealed class ConfigureProvidersService
                 ? isDefault ? currentDefaultModel : ""
                 : provider.Config.Model;
             sb.AppendLine(
-                $"| {EscapeMarkdownCell(provider.Provider)} | {(isDefault ? "✅ yes" : "") } | {EscapeMarkdownCell(model)} | `{EscapeBackticks(provider.Secret.Key)}` | {provider.Secret.LatestVersion} | {EscapeMarkdownCell(FormatTimestamp(provider.Secret.CreatedAt))} |");
+                $"| {EscapeMarkdownCell(provider.Provider)} | {(isDefault ? "✅ yes" : "") } | {EscapeMarkdownCell(model)} | {(IsOpenAiCompatible(provider.Provider) ? LlmGenerationProtocol.Label(provider.Config.BackgroundProtocol ?? EffectiveProtocol(provider.Provider)) : "—")} | `{EscapeBackticks(provider.Secret.Key)}` | {provider.Secret.LatestVersion} | {EscapeMarkdownCell(FormatTimestamp(provider.Secret.CreatedAt))} |");
         }
 
         if (!string.IsNullOrWhiteSpace(localProvider.Key))
@@ -3541,7 +3576,7 @@ public sealed class ConfigureProvidersService
                 ? currentDefaultModel
                 : installed.FirstOrDefault(static item => item.Status == LocalModelStatus.Installed)?.Id ?? "not installed";
             sb.AppendLine(
-                $"| {EscapeMarkdownCell(localProvider.Key)} | {(isDefault ? "✅ yes" : "")} | {EscapeMarkdownCell(model)} | `(built-in)` | — | host asset |");
+                $"| {EscapeMarkdownCell(localProvider.Key)} | {(isDefault ? "✅ yes" : "")} | {EscapeMarkdownCell(model)} | — | `(built-in)` | — | host asset |");
         }
 
         return sb.ToString().TrimEnd();
@@ -3857,7 +3892,8 @@ public sealed class ConfigureProvidersService
                 oidcScopes: oidcScopes,
                 oidcClientSecret: oidcClientSecret,
                 oidcPrivateKeyPem: oidcPrivateKeyPem,
-                apiVersion: apiVersion);
+                apiVersion: apiVersion,
+                backgroundProtocol: LlmGenerationProtocol.Parse(outputs["llm_background_protocol"]));
 
             _logger.LogInformation(
                 "LLM provider '{Provider}' applied to runtime options (no restart required).", provider);
@@ -3909,6 +3945,7 @@ public sealed class ConfigureProvidersService
                 Model       = string.IsNullOrWhiteSpace(model) ? "gpt-4o-mini" : model,
                 Prompt      = "Reply with the single word: ok",
                 MaxTokens   = 64,
+                UseBackgroundMode = IsOpenAiCompatible(provider),
             }, ct);
         }
         catch (Exception ex)
@@ -3920,7 +3957,7 @@ public sealed class ConfigureProvidersService
             validationError = fullMessage.Contains("401") || fullMessage.Contains("Unauthorized")
                 ? "The provided credentials appear to be invalid, revoked, or unauthorized."
                 : fullMessage.Contains("404") || fullMessage.Contains("model")
-                    ? $"Authentication succeeded but model '{model}' was not found. You can change the model with `/llm`."
+                    ? $"The selected endpoint or model '{model}' was not found. Check the URL, model and generation protocol with `/llm edit {provider}`."
                     : $"{fullMessage} (URL: {providerUrl})";
 
             _logger.LogWarning(ex, "LLM provider '{Provider}' validation failed (url={Url}): {Error}", provider, providerUrl, fullMessage);

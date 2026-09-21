@@ -76,7 +76,8 @@ public sealed class LLMRuntimeOptionsStore
         string? oidcScopes = null,
         string? oidcClientSecret = null,
         string? oidcPrivateKeyPem = null,
-        string? apiVersion = null)
+        string? apiVersion = null,
+        LLMBackgroundProtocolMode? backgroundProtocol = null)
     {
         lock (_lock)
         {
@@ -98,6 +99,11 @@ public sealed class LLMRuntimeOptionsStore
             if (existing is null)
                 existing = new ModelProviderOptions();
 
+            if (backgroundProtocol is { } protocol)
+            {
+                if (!Enum.IsDefined(protocol)) throw new ArgumentOutOfRangeException(nameof(backgroundProtocol));
+                existing.RequestPolicy.BackgroundProtocol = protocol;
+            }
             existing.Url = url;
             var normalizedAuthType = authType?.Trim().ToLowerInvariant();
             if (!string.IsNullOrWhiteSpace(normalizedAuthType))

@@ -126,6 +126,9 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
                     : existingProvider?.RetryPolicy.Clone() ?? new LLMProviderRetryPolicyOptions()
             };
 
+            if (LlmGenerationProtocol.Read(config) is { } protocol)
+                effective.Models[provider].RequestPolicy.BackgroundProtocol = protocol;
+
             if (string.Equals(effective.DefaultProvider, provider, StringComparison.OrdinalIgnoreCase)
                 && !string.IsNullOrWhiteSpace(model))
             {

@@ -11,6 +11,35 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class KeyVaultRuntimeConfigStoreTests
 {
     [Theory]
+    [InlineData("\"Responses\"", "Responses")]
+    [InlineData("\"ChatCompletions\"", "ChatCompletions")]
+    [InlineData("\"Auto\"", "Auto")]
+    [InlineData("null", null)]
+    [InlineData("1", null)]
+    [InlineData("\"fallback\"", null)]
+    public async Task StoredProtocolOverridesBaseAndRejectsInvalidValues(string json, string? expected)
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), "gnougo-protocol-" + Guid.NewGuid().ToString("N") + ".db");
+        var services = new ServiceCollection(); services.AddLogging(); services.AddKeyVaultMcpPersistence(dbPath);
+        services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
+        await using var provider = services.BuildServiceProvider();
+        try
+        {
+            await provider.InitializeKeyVaultMcpAsync(ct: TestContext.Current.CancellationToken);
+            var store = provider.GetRequiredService<IKeyVaultRuntimeConfigStore>();
+            await store.SaveSecretValueAsync("LLM--Models--openai", "{\"provider\":\"openai\",\"url\":\"https://provider.example/v1\",\"backgroundProtocol\":" + json + "}", TestContext.Current.CancellationToken);
+            if (expected is null)
+                await Assert.ThrowsAsync<InvalidOperationException>(() => store.BuildEffectiveOptionsAsync(new LLMOptions(), TestContext.Current.CancellationToken));
+            else
+            {
+                var options = await store.BuildEffectiveOptionsAsync(new LLMOptions(), TestContext.Current.CancellationToken);
+                Assert.Equal(expected, options.Models["openai"].RequestPolicy.BackgroundProtocol.ToString());
+            }
+        }
+        finally { File.Delete(dbPath); }
+    }
+
+    [Theory]
     [InlineData("{\"maxAttempts\":3,\"maxUncertainRetries\":0,\"attemptTimeoutMilliseconds\":12345}", true)]
     [InlineData("{\"attemptTimeoutMilliseconds\":0}", false)]
     [InlineData("{\"maxUncertainRetries\":-1}", false)]
