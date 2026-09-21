@@ -6,6 +6,8 @@ The LLM understands the business request. The engine builds and authorizes execu
 
 The architecture is frozen. The accepted behavior revision is `65dc34a`: the [live reliability evaluation](planning-default-response-domains-2026-09-20.md) passed the seven-case pilot and all measured gates, with 20/21 FinalReview, 18/21 within two physical calls, median one call, zero safety violations and 85/85 independent execution variants passing. This is evidence from one pinned model with mocked integrations, not a guarantee for arbitrary requests or real external execution. Later cleanup and documentation commits do not constitute another live evaluation.
 
+The [real Server follow-up](planning-server-live-2026-09-21.md) records four PR-review planning attempts and small deterministic inference/retrieval corrections through `f18d890`. None reached executable approval; the last stopped on an uncertain provider HTTP 500. This evidence remains separate from the accepted benchmark cohort.
+
 ## Three core files
 
 Start in `src/GnOuGo.Flow.Planning`:

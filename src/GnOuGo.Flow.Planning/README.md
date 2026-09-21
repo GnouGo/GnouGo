@@ -36,6 +36,8 @@ Typed repair requests are bounded to 12,000 estimated input tokens **including t
 
 The [repair-batch validation report](../../docs/planning-repair-batches-2026-09-20.md) records retained-evidence request-size measurements, offline checks and the unresolved provider gate. Those measurements did not dispatch a model or resume a stopped session.
 
+The [real Server validation report](../../docs/planning-server-live-2026-09-21.md) records four subsequent chat attempts, three reproduced fixes and the final uncertain HTTP 500 dispatch. No real PR review reached execution; the accepted mocked reliability results do not establish this product path's success.
+
 Cleanup runs after main execution, including failure and cancellation. Its `after` edges express ordering only; they do not require predecessor success or establish result availability. The builder guards actual resource references, while explicit `when` conditions still apply. The compiler short-circuits availability before evaluating a condition that needs the resource. A failed or skipped acquisition therefore cannot supply a resource to cleanup. Stored executable graphs and approvals are not rebuilt implicitly; revised intents require fresh validation and approval. An artifact whose stored YAML no longer matches current compilation must be revised and reviewed again.
 
 The graph remains executable authority. Validation checks capability identity, declared schemas, bindings, conditional availability, dependencies, expressions, artifact contracts and host policy. Protected effects require a host-generated runtime confirmation gate, including subflows and cleanup. Human approval of the final artifact is a separate gate. Saving and execution require trusted stored approval and current contracts.
