@@ -40,6 +40,8 @@ The [repair-batch validation report](../../docs/planning-repair-batches-2026-09-
 
 The [Designer recovery report](../../docs/planning-designer-recovery-2026-09-21.md) records capability-advice and untyped-boundary regressions, a failed single live planning attempt, and the subsequent offline correction to argument targeting. Request-size improvements do not establish a successful live repair.
 
+The [follow-up Designer test on a3f56bc](../../docs/planning-designer-live-a3f56bc-2026-09-21.md) stopped before repair: the provider exhausted the 8,192-token output allowance in reasoning and returned no intent. Its completed receipt and charges are preserved; no further attempt or limit increase was made.
+
 The [real Server validation report](../../docs/planning-server-live-2026-09-21.md) records four subsequent chat attempts, three reproduced fixes and the final uncertain HTTP 500 dispatch. No real PR review reached execution; the accepted mocked reliability results do not establish this product path's success.
 
 Cleanup runs after main execution, including failure and cancellation. Its `after` edges express ordering only; they do not require predecessor success or establish result availability. The builder guards actual resource references, while explicit `when` conditions still apply. The compiler short-circuits availability before evaluating a condition that needs the resource. A failed or skipped acquisition therefore cannot supply a resource to cleanup. Stored executable graphs and approvals are not rebuilt implicitly; revised intents require fresh validation and approval. An artifact whose stored YAML no longer matches current compilation must be revised and reviewed again.
