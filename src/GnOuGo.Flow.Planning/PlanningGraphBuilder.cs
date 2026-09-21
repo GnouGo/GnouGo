@@ -150,6 +150,9 @@ public static class PlanningGraphBuilder
             }
             if (value.Kind == "array" && value.Items.Count > 0)
             {
+                // Literal strings establish all permitted values, not just the first item's singleton enum.
+                if (value.Items.All(v => v.Kind == "string"))
+                    return new() { Type = "array", Items = new() { Type = "string", Enum = value.Items.Select(v => v.Text ?? "").Distinct(StringComparer.Ordinal).ToList() } };
                 var item = Contract(value.Items[0]);
                 var expected = PlanningGraphCompiler.ToJsonSchema(item, catalog);
                 if (value.Items.Skip(1).Any(v => !PlanningContractCompatibility.Fits(PlanningGraphCompiler.ToJsonSchema(Contract(v), catalog), expected))) return Hole();
