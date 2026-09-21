@@ -54,6 +54,15 @@ internal static class PlanningModelCalls
         }
         return json;
     }
+    internal static JsonObject IntentSchema(PlanningSession state)
+    {
+        var exposed = PlanningCapabilityCards.Shortlist(state.Catalog!, state.Request.Prompt, state.Request.Generation.MaxInputTokensPerRequest).Select(c => c.Id);
+        var revision = state.IntentPlan ?? state.Request.Baseline;
+        var retained = revision is null ? [] : IntentTraversal.Located(revision).Select(o => o.Operation).OfType<InvokeIntentOperation>()
+            .Select(o => o.Capability).OfType<string>();
+        var allowed = state.Catalog!.Capabilities.Where(c => !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id)).Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
+        return PlanningSchemas.Intent(exposed.Concat(retained).Where(allowed.Contains));
+    }
     internal static string ChoicePrompt(PlanningSession state, IReadOnlyList<(PlanningHole Hole, IReadOnlyList<PlanningChoice> Choices)> domains)
     {
         var intent = PlanningJsonTransport.Intent(state.IntentPlan!); var fields = new JsonArray();

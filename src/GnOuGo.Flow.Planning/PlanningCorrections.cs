@@ -43,7 +43,7 @@ internal static class PlanningCorrections
         var allowance = Math.Min(MaxInputTokens, state.Request.Generation.MaxInputTokensPerRequest);
         while (true)
         {
-            var size = PlanningJsonTransport.EstimateInputTokens(Prompt(state, batch), Schema(batch));
+            var size = PlanningJsonTransport.EstimateInputTokens(Prompt(state, batch), Schema(batch, state.Catalog));
             if (size <= allowance) return batch;
             if (batch.Count == 1) throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", $"Repair target {batch[0].Id} at {batch[0].Path} needs approximately {size} input tokens including its response schema; the repair limit is {allowance}. No request was reserved.");
             batch.RemoveAt(batch.Count - 1);
@@ -196,7 +196,7 @@ internal static class PlanningCorrections
         }
         return null;
     }
-    internal static JsonObject Schema(IReadOnlyList<Target> targets)
+    internal static JsonObject Schema(IReadOnlyList<Target> targets, PlanningCatalog? catalog = null)
     {
         var variants = targets.Select(t => (JsonNode)new JsonObject {
             ["type"] = "object", ["properties"] = new JsonObject {
@@ -209,7 +209,8 @@ internal static class PlanningCorrections
             ["required"] = new JsonArray("target", "replacement"), ["additionalProperties"] = false }).ToArray();
         var schema = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject {
             ["changes"] = new JsonObject { ["type"] = "array", ["minItems"] = 1, ["maxItems"] = targets.Count, ["items"] = new JsonObject { ["anyOf"] = new JsonArray(variants) } } },
-            ["required"] = new JsonArray("changes"), ["additionalProperties"] = false, ["$defs"] = PlanningSchemas.Definitions() };
+            ["required"] = new JsonArray("changes"), ["additionalProperties"] = false, ["$defs"] = PlanningSchemas.Definitions(
+                catalog?.Capabilities.Where(c => !catalog.Policy.DeniedCapabilityIds.Contains(c.Id)).Select(c => c.Id)) };
         PlanningJsonTransport.PruneDefinitions(schema); return schema;
         static JsonObject Ref(string shape) => new() { ["$ref"] = "#/$defs/" + shape };
     }

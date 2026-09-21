@@ -6,21 +6,17 @@ public sealed class BusinessCorrectionTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     [Theory]
-    [InlineData(0, 1, PlanningStatus.Stopped)]
-    [InlineData(1, 1, PlanningStatus.FinalReview)]
-    [InlineData(2, 2, PlanningStatus.FinalReview)]
-    public async Task ZeroOneAndMultipleCapabilityDomainsRespectCallBounds(int count, int calls, string status)
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task UnspecifiedCapabilityRequiresRepairRegardlessOfStructuralDomainSize(int count)
     {
-        var factory = Factory(count); var plan = new WorkflowIntentPlan { Operations = [new InvokeIntentOperation { Id = "read", Purpose = "Read a value" }] };
-        var runtime = new TestRuntime(plan, factory); var state = PlannerFixture.Session(); state.Request.MaxRepairAttempts = 0;
+        var plan = new WorkflowIntentPlan { Operations = [new InvokeIntentOperation { Id = "read", Purpose = "Read a value" }] };
+        var runtime = new TestRuntime(plan, Factory(count)); var state = PlannerFixture.Session(); state.Request.MaxRepairAttempts = 0;
         state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.True(state.Status == status, string.Join(";", state.Diagnostics.Select(d => d.Message))); Assert.Equal(calls, state.ModelCalls);
-        if (count > 0)
-        {
-            var invoke = Assert.IsType<InvokeIntentOperation>(Assert.Single(state.IntentPlan!.Operations)); Assert.NotNull(invoke.Capability);
-            var rebuilt = PlanningGraphBuilder.Build(state.IntentPlan, state.Catalog!); Assert.Empty(PlanningHoleEligibility.Find(rebuilt, state.Catalog!));
-        }
-        else Assert.Contains(state.Diagnostics, d => d.Code == "HOLE_UNRESOLVED");
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(1, state.ModelCalls);
+        Assert.Null(Assert.IsType<InvokeIntentOperation>(Assert.Single(state.IntentPlan!.Operations)).Capability);
+        Assert.Contains(state.Diagnostics, d => d.Code == "HOLE_UNRESOLVED");
     }
     [Fact]
     public async Task SingletonArgumentResolutionUpdatesIntentAndUsesNoModelChoice()
@@ -53,7 +49,7 @@ public sealed class BusinessCorrectionTests
         Assert.DoesNotContain("currentIntent", runtime.Calls.Single().Prompt);
     }
     [Fact]
-    public async Task RetrievalIsStableBoundedAndCannotRemoveFullCatalogChoices()
+    public async Task RetrievalIsStableBoundedAndKeepsHistoricalChoiceDomains()
     {
         var runtime = new TestRuntime(mcp: Factory(80)); var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, Ct);
         catalog.Capabilities[79].Description = "Distinctive astronomy measurement";
@@ -64,7 +60,7 @@ public sealed class BusinessCorrectionTests
         Assert.Equal(80, PlanningHoleEligibility.Choices(graph, catalog, Assert.Single(PlanningHoleEligibility.Find(graph, catalog))).Count);
     }
     [Fact]
-    public async Task RetrievalMissChoiceIncludesBusinessFragmentAndRanksAllEligibleCards()
+    public async Task HistoricalChoicePromptIncludesBusinessFragmentAndAllEligibleCards()
     {
         var runtime = new TestRuntime(mcp: Factory(80)); var state = PlannerFixture.Session(); state.Catalog = await runtime.DiscoverAsync(state.Request, Ct);
         var initiallyHidden = state.Catalog.Capabilities[79]; initiallyHidden.Description = "Distinctive astronomy measurement";
@@ -124,16 +120,19 @@ public sealed class BusinessCorrectionTests
     [Fact]
     public async Task InvalidChoiceIdsCannotBecomeExecutableAndUseBoundedLocalRepair()
     {
-        var runtime = new TestRuntime(mcp: Factory(2)); var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, Ct);
-        var plan = new WorkflowIntentPlan { Operations = [new InvokeIntentOperation { Id = "read" }] }; var calls = 0;
+        var runtime = new TestRuntime(mcp: Factory(1, """{"mode":{"type":"string","enum":["first","second"]}}""", ["mode"]));
+        var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, Ct);
+        var plan = new WorkflowIntentPlan { Operations = [new InvokeIntentOperation { Id = "read", Capability = catalog.Capabilities[0].Id }] }; var calls = 0;
         runtime.Respond = request =>
         {
             calls++;
             if (calls == 1) return new() { Json = PlanningJsonTransport.Intent(plan) };
             if (calls == 2) return new() { Json = new JsonObject { [request.StructuredOutputSchema!["properties"]!.AsObject().First().Key] = "unissued" } };
             var context = JsonNode.Parse(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..])!;
-            ((InvokeIntentOperation)plan.Operations[0]).Capability = catalog.Capabilities[0].Id;
-            return new() { Json = new JsonObject { ["changes"] = new JsonArray(new JsonObject { ["target"] = context["targets"]![0]!["id"]!.DeepClone(), ["replacement"] = PlanningJsonTransport.Intent(plan)["operations"]!.DeepClone() }) } };
+            ((InvokeIntentOperation)plan.Operations[0]).Arguments = [new("mode", new() { Kind = "string", Text = "first" })];
+            var target = context["targets"]![0]!;
+            return new() { Json = new JsonObject { ["changes"] = new JsonArray(new JsonObject { ["target"] = target["id"]!.DeepClone(),
+                ["replacement"] = PlanningFieldPaths.Read(PlanningJsonTransport.Intent(plan), target["path"]!.ToString())!.DeepClone() }) } };
         };
         var state = await PlannerFixture.RunAsync(runtime);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(";", state.Diagnostics.Select(d => d.Message))); Assert.Equal(3, calls); Assert.Equal(1, state.RepairAttempts);

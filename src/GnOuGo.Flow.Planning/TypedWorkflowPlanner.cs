@@ -123,7 +123,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
     {
         state.Status = PlanningStatus.Generating;
         if (state.Catalog is null) { state.Catalog = await runtime.DiscoverAsync(state.Request, ct); return; }
-        if (state.PendingCall?.Purpose is "intent" or "repair" || state.IntentPlan is null || state.Diagnostics.Any(d => d.Required))
+        if (state.PendingCall?.Purpose is "intent" or "repair" || state.PendingCall is null && (state.IntentPlan is null || state.Diagnostics.Any(d => d.Required)))
         {
             var repair = state.PendingCall is { } pending ? pending.Purpose == "repair" : state.ModelCalls > 0 && state.Diagnostics.Any(d => d.Required);
             if (repair && state.PendingCall is null)
@@ -138,13 +138,13 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                 var targets = PlanningCorrections.Batch(state);
                 if (targets.Count == 0) { state.Diagnostics.Add(new("PLANNING_HOST_CONTRACT", "$", "No editable business target explains the blocking diagnostics.")); Stop(state); return; }
                 var correction = await PlanningModelCalls.CallAsync(state, runtime, "repair", state.PendingCall?.Request.Prompt ?? PlanningCorrections.Prompt(state, targets),
-                    state.PendingCall?.Request.StructuredOutputSchema?.AsObject() ?? PlanningCorrections.Schema(targets), ct,
+                    state.PendingCall?.Request.StructuredOutputSchema?.AsObject() ?? PlanningCorrections.Schema(targets, state.Catalog), ct,
                     PlanningCorrections.MaxInputTokens, PlanningCorrections.MaxOutputTokens);
                 intent = PlanningCorrections.Apply(state, targets, correction);
             }
             else
             {
-                var candidate = await PlanningModelCalls.CallAsync(state, runtime, repair ? "repair" : "intent", PlanningModelCalls.IntentPrompt(state), PlanningSchemas.Intent(), ct);
+                var candidate = await PlanningModelCalls.CallAsync(state, runtime, repair ? "repair" : "intent", PlanningModelCalls.IntentPrompt(state), PlanningModelCalls.IntentSchema(state), ct);
                 intent = JsonSerializer.Deserialize(candidate, PlanningJsonContext.Default.WorkflowIntentPlan)!;
             }
             state.IntentPlan = intent; state.Graph = null; state.Diagnostics.Clear(); state.Scenarios.Clear(); Invalidate(state);
@@ -164,23 +164,38 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         {
             var holes = PlanningHoleEligibility.Find(state.Graph, state.Catalog);
             if (holes.Count == 0) break;
-            var domains = holes.Select(h => (Hole: h, Choices: PlanningHoleEligibility.Choices(state.Graph, state.Catalog, h))).ToArray();
+            // Tool identity is a business decision, not an argument-compatibility inference.
+            // Only already reserved choice requests retain the former capability domain.
+            var replayChoices = state.PendingCall?.Purpose == "choices";
+            var domains = holes.Select(h => (Hole: h, Choices: h.Kind == "capability" && !replayChoices
+                ? (IReadOnlyList<PlanningChoice>)[] : PlanningHoleEligibility.Choices(state.Graph, state.Catalog, h))).ToArray();
             var singleton = domains.FirstOrDefault(d => d.Choices.Count == 1);
-            if (singleton.Hole is not null)
+            if (singleton.Hole is not null && !replayChoices)
             {
                 PlanningBusinessChoices.Apply(state, [(singleton.Hole, singleton.Choices[0].Value)]);
                 continue;
             }
             var ambiguous = domains.Where(d => d.Choices.Count > 1).ToList();
-            if (ambiguous.Count == 0)
+            if (!replayChoices && (ambiguous.Count == 0 || holes.Any(h => h.Kind == "capability")))
             {
-                state.Diagnostics = domains.Select(d => new PlanningDiagnostic("HOLE_UNRESOLVED", d.Hole.Path, PlanningHoleEligibility.IsInputDefault(d.Hole)
+                state.Diagnostics = domains.Where(d => d.Choices.Count == 0).Select(d => new PlanningDiagnostic("HOLE_UNRESOLVED", d.Hole.Path, d.Hole.Kind == "capability"
+                    ? "No business capability is selected. Repair this operation using an exact allowed catalog ID or revise the operation. Argument compatibility alone cannot select its behavior."
+                    : PlanningHoleEligibility.IsInputDefault(d.Hole)
                     ? "No valid literal default is established. Repair the input declaration: use default: null when no default is intended, or supply a contract-valid literal. Declared runtime inputs need no planning-time answer."
                     : "No valid deterministic choice exists for this " + d.Hole.Kind + " field. Supply a typed value or revise its dependencies.")).ToList();
-                state.Diagnostics.AddRange(PlanningExecutableValidation.Validate(state.Graph, state.Catalog).Where(d => d.Code != "CONFIRMATION_REQUIRED"));
+                // Pending finite value choices still contain engine holes, not invalid
+                // executable values. Complete resolution before the full validation pass.
+                if (ambiguous.Count == 0)
+                    state.Diagnostics.AddRange(PlanningExecutableValidation.Validate(state.Graph, state.Catalog).Where(d => d.Code != "CONFIRMATION_REQUIRED"));
                 state.Diagnostics.AddRange(PlanningValidationPipeline.FixtureShape(state));
                 state.Diagnostics.AddRange(PlanningFixtureSamples.Validate(state));
                 return;
+            }
+            if (replayChoices)
+            {
+                var issued = state.PendingCall!.Request.StructuredOutputSchema!["properties"]!.AsObject();
+                ambiguous = domains.Where(d => issued.ContainsKey(d.Hole.Id)).ToList();
+                if (ambiguous.Count != issued.Count) throw new PlanningConflictException("The reserved choice targets no longer match the graph.");
             }
             var answers = (await PlanningModelCalls.CallAsync(state, runtime, "choices", PlanningModelCalls.ChoicePrompt(state, ambiguous), PlanningSchemas.Choices(ambiguous), ct)).AsObject();
             PlanningBusinessChoices.Apply(state, ambiguous.Select(domain =>

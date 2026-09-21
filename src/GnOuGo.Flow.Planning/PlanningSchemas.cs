@@ -4,14 +4,18 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningSchemas
 {
-    internal static JsonObject Intent()
+    internal static JsonObject Intent(IEnumerable<string>? capabilityIds = null)
     {
         var root = Object(("summary", String()), ("inputs", Array(Ref("input"))), ("operations", Array(Ref("operation"))),
             ("outputs", Array(Ref("output"))), ("subflows", Array(Ref("subflow"))), ("questions", Array(Ref("question"))));
-        root["$defs"] = Definitions(); return root;
+        root["$defs"] = Definitions(capabilityIds); return root;
     }
-    internal static JsonObject Definitions()
+    internal static JsonObject Definitions(IEnumerable<string>? capabilityIds = null)
     {
+        // The unrestricted form validates stored intent shape, including deferred errors.
+        // Newly issued model requests always supply their exposed/allowed identities.
+        var ids = capabilityIds?.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        var capability = ids is null ? Nullable(String()) : ids.Length == 0 ? Type("null") : Nullable(Enum(ids));
         JsonObject Operation(string kind, params (string Name, JsonObject Schema)[] fields) => Object(new[] {
             ("kind", Enum(kind)), ("id", String()), ("purpose", String()), ("after", Array(String())), ("when", Nullable(Ref("value"))) }.Concat(fields).ToArray());
         JsonObject Input(JsonObject type, JsonObject value) => Object(("name", String()), ("type", type), ("optional", Type("boolean")), ("default", value));
@@ -53,7 +57,7 @@ internal static class PlanningSchemas
             ["subflow"] = Object(("name", String()), ("inputs", Array(Ref("input"))), ("operations", Array(Ref("operation"))), ("outputs", Array(Ref("output")))),
             ["question"] = Object(("id", String()), ("question", String()), ("answerType", Ref("type"))),
             ["operation"] = new JsonObject { ["anyOf"] = new JsonArray(
-                Operation("invoke", ("capability", Nullable(String())), ("arguments", Array(Ref("member"))), ("fallback", Nullable(Ref("value")))),
+                Operation("invoke", ("capability", capability), ("arguments", Array(Ref("member"))), ("fallback", Nullable(Ref("value")))),
                 Operation("calculate", ("value", Ref("value")), ("resultType", Nullable(Ref("type")))),
                 Operation("transform", ("instruction", String()), ("data", Array(Ref("member"))), ("resultType", Nullable(Ref("type")))),
                 Operation("choose", ("condition", Ref("value")), ("then", Ref("block")), ("otherwise", Ref("block"))),
