@@ -18,13 +18,27 @@ internal static partial class PlanningCapabilityCards
         return result;
     }
     internal static IEnumerable<PlanningCapability> Rank(IEnumerable<PlanningCapability> capabilities, string query)
+        => RankWithExcerpts(capabilities, query).Select(m => m.Capability);
+
+    internal static IEnumerable<(PlanningCapability Capability, string Description)> RankWithExcerpts(IEnumerable<PlanningCapability> capabilities, string query)
     {
         var terms = Words(query); var documents = capabilities.Select(c => (Capability: c, Words: Words(c.Method + " " + c.Description + " " + c.Metadata?.ToJsonString()))).ToArray();
         var frequencies = terms.ToDictionary(t => t, t => documents.Count(d => d.Words.Contains(t)), StringComparer.Ordinal);
-        // Normalize document length so verbose descriptions cannot win merely by
-        // accumulating incidental query terms. Ranking remains advisory only.
-        return documents.OrderByDescending(d => terms.Where(d.Words.Contains).Sum(t => Math.Log(1 + (documents.Length + 1.0) / (frequencies[t] + 1))) / Math.Sqrt(Math.Max(1, d.Words.Count)))
-            .ThenBy(d => d.Capability.Id, StringComparer.Ordinal).Select(d => d.Capability);
+        double Score(HashSet<string> words) => terms.Where(words.Contains).Sum(t => Math.Log(1 + (documents.Length + 1.0) / (frequencies[t] + 1))) / Math.Sqrt(Math.Max(1, words.Count));
+        // A producer can declare several operations on separate lines. Retain the
+        // whole-document score, but do not dilute a relevant operation with unrelated
+        // lines. Frequencies count capabilities once; repeating lines adds no weight.
+        return documents.Select(d =>
+        {
+            var score = Score(d.Words); var description = d.Capability.Description;
+            foreach (var line in description.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var lineScore = Score(Words(d.Capability.Method + " " + line));
+                if (lineScore > score) { score = lineScore; description = line; }
+            }
+            return (d.Capability, Description: description, Score: score);
+        }).OrderByDescending(m => m.Score).ThenBy(m => m.Capability.Id, StringComparer.Ordinal)
+            .Select(m => (m.Capability, m.Description));
     }
     private static HashSet<string> Words(string text) => Tokens().Matches(text.ToLowerInvariant()).Select(m => m.Value).ToHashSet(StringComparer.Ordinal);
     [GeneratedRegex(@"[\p{L}\p{N}]+", RegexOptions.CultureInvariant)] private static partial Regex Tokens();
@@ -45,10 +59,11 @@ internal static partial class PlanningCapabilityCards
         }
         return input;
     }
-    internal static JsonObject Card(PlanningCapability capability)
+    internal static JsonObject Card(PlanningCapability capability, string? description = null)
     {
         var input = EditableArguments(capability);
-        return new() { ["id"] = capability.Id, ["name"] = capability.Method, ["description"] = capability.Description.Length > 300 ? capability.Description[..300] : capability.Description,
+        description ??= capability.Description;
+        return new() { ["id"] = capability.Id, ["name"] = capability.Method, ["description"] = description.Length > 300 ? description[..300] : description,
             ["arguments"] = Signature(input), ["result"] = Signature(capability.OutputSchema), ["effect"] = capability.EffectKind };
     }
     // Project only ordinary property paths. Keep the root and the path for contracts whose
