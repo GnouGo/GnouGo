@@ -74,7 +74,6 @@ public sealed class InvokeGroundedOperation : GroundedOperation
 public sealed class CalculateGroundedOperation : GroundedOperation
 {
     public GroundedValue Value { get; set; } = new();
-    public BusinessType? ResultType { get; set; }
 }
 public sealed class TransformGroundedOperation : GroundedOperation
 {

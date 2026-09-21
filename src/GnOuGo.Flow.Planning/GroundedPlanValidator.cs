@@ -99,7 +99,17 @@ internal sealed class GroundedTypes
                     if (contract is null || PlanningContractCompatibility.Fits(required, contract)) contract = required.DeepClone().AsObject();
                 }
         }
-        contract ??= declaration.Default is null ? null : Value(scope, declaration.Default);
+        if (contract is null && declaration.Default is not null)
+        {
+            contract = Value(scope, declaration.Default).DeepClone().AsObject();
+            // A default supplies a type, not an authorization to restrict future inputs to that sample.
+            void Widen(JsonNode? node)
+            {
+                if (node is JsonObject obj) { obj.Remove("enum"); foreach (var child in obj.Select(p => p.Value)) Widen(child); }
+                else if (node is JsonArray array) foreach (var child in array) Widen(child);
+            }
+            Widen(contract);
+        }
         if (contract is null || !PlanningValues.Established(contract)) throw new InvalidOperationException("Declare the business type of input: " + name);
         scope.InputContracts[name] = contract;
         return contract;
@@ -133,11 +143,6 @@ internal sealed class GroundedTypes
                     result = contract.Count == 0 ? Opaque() : contract.DeepClone().AsObject(); break;
                 case CalculateGroundedOperation calculate:
                     result = Value(scope, calculate.Value);
-                    if (calculate.ResultType is not null)
-                    {
-                        var asserted = PlanningGraphCompiler.ToJsonSchema(PlanningGraphBuilder.Schema(calculate.ResultType), _catalog);
-                        if (!PlanningContractCompatibility.Fits(result, asserted)) throw new InvalidOperationException("A calculation cannot assert an unproven result contract; use an explicit validate operation.");
-                    }
                     break;
                 case TransformGroundedOperation transform:
                     result = Declared(transform.ResultType, id); break;
@@ -199,12 +204,15 @@ internal sealed class GroundedTypes
                 var planningValue = Convert(value);
                 PlanningComputations.Validate(planningValue);
                 var args = value.Members.ToDictionary(m => m.Name, m => Value(scope, m.Value), StringComparer.Ordinal);
+                PlanningComputationContracts.Validate(PlanningComputations.Expression(value.Text), args);
                 var inferred = ExpressionContractInference.Infer(PlanningComputations.Expression(value.Text), args);
-                return inferred is not null && PlanningValues.Established(inferred) ? inferred : throw new InvalidOperationException("The computation result cannot be established. Use typed parameters and an explicit validated boundary for opaque data.");
+                // Safe syntax and projections are checked above. Unproved results remain whole opaque values;
+                // only an explicit runtime validation boundary can establish their fields or narrower type.
+                return inferred is not null && PlanningValues.Established(inferred) ? inferred : Opaque();
             case "template": return new() { ["type"] = "string" };
             case "string": return new() { ["type"] = "string", ["enum"] = new JsonArray(value.Text ?? "") };
-            case "number": return new() { ["type"] = value.Number % 1 == 0 ? "integer" : "number" };
-            case "boolean": return new() { ["type"] = "boolean" };
+            case "number": return new() { ["type"] = value.Number % 1 == 0 ? "integer" : "number", ["enum"] = new JsonArray(JsonValue.Create(value.Number)) };
+            case "boolean": return new() { ["type"] = "boolean", ["enum"] = new JsonArray(JsonValue.Create(value.Boolean)) };
             case "null": return new() { ["type"] = "null" };
             default: throw new InvalidOperationException("Unresolved or unsupported grounded value: " + value.Kind);
         }
@@ -283,7 +291,13 @@ internal sealed class GroundedTypes
                             var values = new PlanningValue { Kind = "object", Members = invoke.Arguments.Select(a => new PlanningMember(a.Name, Convert(a.Value))).ToList() };
                             PlanningGraphBuilder.ApplyBindings(values, cap);
                             arguments = Object(values.Members.Select(m => (m.Name, Value(scope, ToGrounded(m.Value)))));
-                            if (!PlanningContractCompatibility.Fits(arguments, cap.InputSchema)) throw new InvalidOperationException("Arguments do not satisfy the authoritative input contract for " + invoke.Id);
+                            if (!PlanningContractCompatibility.Fits(arguments, cap.InputSchema))
+                            {
+                                var fields = cap.InputSchema["properties"] as JsonObject ?? new();
+                                var invalid = arguments["properties"]!.AsObject().Where(p => fields[p.Key] is JsonObject expected && !PlanningContractCompatibility.Fits(p.Value!.AsObject(), expected)).Select(p => p.Key).ToArray();
+                                var missing = (cap.InputSchema["required"] as JsonArray ?? []).Select(p => p!.ToString()).Except(arguments["properties"]!.AsObject().Select(p => p.Key)).ToArray();
+                                throw new InvalidOperationException("Arguments do not satisfy the authoritative input contract for " + invoke.Id + ". Incompatible members: " + string.Join(", ", invalid) + ". Missing required members: " + string.Join(", ", missing) + ".");
+                            }
                             break;
                         case ChooseGroundedOperation choose: Boolean(scope, choose.Condition); break;
                         case EachGroundedOperation each: if (Value(scope, each.Items)["type"]?.ToString() != "array") throw new InvalidOperationException("Each requires an array."); break;

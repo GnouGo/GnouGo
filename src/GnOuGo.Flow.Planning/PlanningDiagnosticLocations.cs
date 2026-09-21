@@ -66,7 +66,7 @@ internal static class PlanningDiagnosticLocations
                 else if (suffix.StartsWith("/if", StringComparison.Ordinal) && match.Operation.When is not null) path += "/when";
                 else if (suffix.StartsWith("/expr", StringComparison.Ordinal) && match.Operation is ChooseGroundedOperation) path += "/condition";
                 else if (suffix.Contains("Schema", StringComparison.Ordinal) || suffix.StartsWith("/structuredOutput", StringComparison.Ordinal))
-                    path += match.Operation switch { CalculateGroundedOperation { ResultType: not null } or TransformGroundedOperation { ResultType: not null } => "/resultType", CalculateGroundedOperation => "/value", _ => "" };
+                    path += match.Operation switch { TransformGroundedOperation { ResultType: not null } => "/resultType", CalculateGroundedOperation => "/value", _ => "" };
                 return Edit(path);
                 PlanningDiagnostic Edit(string location, string extra = "") => finding with { Location = location, Message = "Operation '" + match.Operation.Id + "': " + finding.Message + extra, ValidationStage = "intent" };
             }

@@ -9,7 +9,7 @@ public sealed class PlanningComputationBoundaryTests
     private static GroundedPlan Calculation(string text) => new()
     {
         Inputs = [new("quantity", new() { Type = "number" }, false, new() { Kind = "number", Number = 4 })],
-        Operations = [new CalculateGroundedOperation { Id = "total", ResultType = new() { Type = "number" }, Value = new() { Kind = "compute", Text = text,
+        Operations = [new CalculateGroundedOperation { Id = "total", Value = new() { Kind = "compute", Text = text,
             Members = [new("quantity", new() { Kind = "input", Source = "quantity" })] } }],
         Outputs = [new("total", new() { Kind = "result", Source = "total" })]
     };

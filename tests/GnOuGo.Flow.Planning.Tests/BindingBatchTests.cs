@@ -1,0 +1,82 @@
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Expressions;
+namespace GnOuGo.Flow.Planning.Tests;
+
+public sealed class BindingBatchTests
+{
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    private static async Task<(PlanningSession State, TestRuntime Runtime)> Setup()
+    {
+        var state = PlannerFixture.Session(); var runtime = new TestRuntime();
+        state.Catalog = await runtime.DiscoverAsync(state.Request, Ct);
+        state.SemanticPlan = new() { Summary = "Bind independent complete actions", Actions = Enumerable.Range(0, 3).Select(i => new SemanticAction
+        { Id = "a" + i, Kind = "calculate", Purpose = new string((char)('a' + i), 6000), Outputs = [new("value", "Computed value")], After = i == 0 ? [] : ["a" + (i - 1)] }).ToList(), Outputs = [new("last", "a2.value")] };
+        state.Grounding = CapabilityGrounder.Create(state);
+        foreach (var page in state.Grounding.Pages) state.Grounding.Results.Add(new(page.Id, page.ActionIds.Select(a => new GroundingDecision(a, "none_of_the_above", [], "Pure calculation.")).ToList()));
+        state.Grounding.Selections = state.SemanticPlan.Actions.Select(a => new GroundingSelection(a.Id, [], "Pure calculation.")).ToList();
+        state.Request.Generation.MaxInputTokensPerRequest = 7500;
+        runtime.Respond = request =>
+        {
+            var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..]));
+            var context = JsonNode.Parse(ref reader)!;
+            var actions = context["semanticPlan"]!["actions"]!.AsArray();
+            var plan = new GroundedPlan { Summary = "Bound batch", Operations = actions.Select(a => (GroundedOperation)new CalculateGroundedOperation
+            { Id = a!["id"]!.ToString(), SemanticAction = a["id"]!.ToString(), BusinessOutputs = [new("value", [])], Value = new() { Kind = "number", Number = 1 } }).ToList(),
+                Outputs = context["semanticPlan"]?["outputs"] is null ? [] : [new("last", new() { Kind = "result", Source = "a2" })] };
+            return new() { Json = PlanningJsonTransport.ModelGrounded(PlanningJsonTransport.Grounded(plan), request.StructuredOutputSchema!) };
+        };
+        return (state, runtime);
+    }
+    [Fact]
+    public async Task CompleteBatchesPreserveActionsAndRevalidateAcrossRestarts()
+    {
+        var (state, runtime) = await Setup();
+        Assert.True(GroundedBindingBatches.Required(state));
+        for (var i = 0; i < 3 && state.GroundedPlan is null; i++)
+        {
+            await GroundedBindingBatches.ApplyAsync(state, runtime, Ct);
+            Assert.Empty(state.Diagnostics);
+            state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+        }
+        Assert.NotNull(state.GroundedPlan); Assert.Null(state.BindingProgress);
+        Assert.Equal(new[] { "a0", "a1", "a2" }, state.GroundedPlan.Operations.Select(o => o.SemanticAction));
+        Assert.InRange(runtime.Calls.Count, 2, 3);
+        Assert.All(runtime.Calls, r => Assert.True(PlanningJsonTransport.EstimateInputTokens(r.Prompt, r.StructuredOutputSchema!.AsObject()) <= 7500));
+        Assert.Empty(CapabilityGrounder.ValidateBindings(state));
+        Assert.NotNull(GroundedPlanValidator.Validate(state.GroundedPlan, state.Catalog!).Plan);
+    }
+    [Fact]
+    public async Task InsufficientRemainingCallsStopsBeforeDispatch()
+    {
+        var (state, runtime) = await Setup(); state.ModelCalls = 7;
+        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => GroundedBindingBatches.ApplyAsync(state, runtime, Ct));
+        Assert.Equal("BINDING_BUDGET_INSUFFICIENT", error.Code); Assert.Empty(runtime.Calls); Assert.Null(state.PendingCall);
+    }
+    [Fact]
+    public async Task ReloadedPrefixCannotInventAContract()
+    {
+        var (state, runtime) = await Setup();
+        await GroundedBindingBatches.ApplyAsync(state, runtime, Ct);
+        Assert.NotNull(state.BindingProgress);
+        ((CalculateGroundedOperation)state.BindingProgress.Accepted.Operations[0]).Value = new() { Kind = "result", Source = "unissued" };
+        await Assert.ThrowsAsync<InvalidOperationException>(() => GroundedBindingBatches.ApplyAsync(state, runtime, Ct));
+        Assert.Single(runtime.Calls);
+    }
+    [Fact]
+    public async Task LiteralArgumentsRetainTheirRangeAndFiniteValueProofs()
+    {
+        var catalog = await new TestRuntime().DiscoverAsync(PlannerFixture.Session().Request, Ct);
+        catalog.Capabilities.Add(new() { Id = "bounded", StepType = "mcp.call", InputSchema = JsonNode.Parse("""
+            {"type":"object","required":["duration","confirm"],"additionalProperties":false,"properties":{"duration":{"type":"integer","minimum":1,"maximum":60000},"confirm":{"type":"boolean","const":false}}}
+            """)!.AsObject() });
+        var op = new InvokeGroundedOperation { Id = "bounded", Capability = "bounded", Arguments = [new("duration", new() { Kind = "number", Number = 30000 }), new("confirm", new() { Kind = "boolean", Boolean = false })] };
+        var plan = new GroundedPlan { Operations = [op] };
+        Assert.NotNull(GroundedPlanValidator.Validate(plan, catalog).Plan);
+        op.Arguments[0].Value.Number = 60001;
+        var invalid = GroundedPlanValidator.Validate(plan, catalog);
+        Assert.Null(invalid.Plan); Assert.Contains(invalid.Diagnostics, d => d.Message.Contains("duration", StringComparison.Ordinal));
+    }
+}

@@ -55,6 +55,15 @@ public sealed class SemanticGroundingTests
         Assert.All(CapabilityGrounder.Decisions(state), d => { Assert.Equal("none_of_the_above", d.Outcome); Assert.Empty(d.Matches); });
     }
     [Fact]
+    public void ReaderOnlyCleanupCandidatesRemainACompleteCatalogMiss()
+    {
+        var state = State(1); state.SemanticPlan!.Actions = [new() { Id = "release", Kind = "cleanup", Purpose = "Release the acquired resource" }];
+        state.Grounding = CapabilityGrounder.Create(state);
+        foreach (var page in state.Grounding.Pages) state.Grounding.Results.Add(new(page.Id, [new("release", "matched", [new("cap_0", "Has compatible arguments")], "Proposed cleanup")]));
+        var decision = Assert.Single(CapabilityGrounder.Decisions(state));
+        Assert.Equal("none_of_the_above", decision.Outcome); Assert.Empty(decision.Matches);
+    }
+    [Fact]
     public void PartialCoverageAndChangedCatalogCannotAuthorizeBinding()
     {
         var state = State(); state.Grounding = CapabilityGrounder.Create(state);

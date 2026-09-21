@@ -24,3 +24,5 @@ dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 --self-c
 ```
 
 The eight-case offline corpus retains independent execution assertions. Historical two-call and repair measurements describe the previous architecture, not this pipeline. See [architecture](../../docs/workflow-planning-v2.md); final live evidence is recorded separately from simulated scenarios.
+
+Oversized binding requests are split at complete semantic subgraphs. Each accepted prefix is persisted and revalidated after restart; subsequent batches consume its established value contracts. Calculation result types are inferred, and unproved whole results stay opaque until `value.validate` establishes a narrower runtime contract. All batches and replans share the configured call allowance.

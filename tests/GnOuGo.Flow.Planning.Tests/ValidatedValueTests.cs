@@ -80,8 +80,37 @@ public sealed class ValidatedValueTests
         var catalog = await new TestRuntime().DiscoverAsync(PlannerFixture.Session().Request, TestContext.Current.CancellationToken);
         catalog.Capabilities.Add(new() { Id = "opaque", StepType = "mcp.call", InputSchema = new() { ["type"] = "object" } });
         var plan = new GroundedPlan { Operations = [new InvokeGroundedOperation { Id = "raw", Capability = "opaque" },
-            new CalculateGroundedOperation { Id = "cast", Value = new() { Kind = "result", Source = "raw" }, ResultType = new() { Type = "number" } }] };
+            new CalculateGroundedOperation { Id = "cast", Value = new() { Kind = "result", Source = "raw" } }], Outputs = [new("field", new() { Kind = "result", Source = "cast", Path = ["invented"] })] };
         Assert.Null(GroundedPlanValidator.Validate(plan, catalog).Plan);
+        var json = PlanningJsonTransport.Grounded(plan); json["operations"]![1]!["resultType"] = new JsonObject { ["type"] = "number", ["nullable"] = false, ["enum"] = new JsonArray() };
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(json, PlanningSchemas.Grounded()));
+    }
+    [Theory]
+    [InlineData("raw.hidden === 1")]
+    [InlineData("(() => { const box = { value: raw }; return box.value.hidden === 1; })()")]
+    [InlineData("raw[key] === 1")]
+    [InlineData("JSON.parse(raw).hidden === 1")]
+    public async Task OpaqueProjectionsFailBeforeGraphConstruction(string text)
+    {
+        var catalog = await new TestRuntime().DiscoverAsync(PlannerFixture.Session().Request, TestContext.Current.CancellationToken);
+        catalog.Capabilities.Add(new() { Id = "source", StepType = "mcp.call", InputSchema = new() { ["type"] = "object" } });
+        var plan = new GroundedPlan { Operations = [new InvokeGroundedOperation { Id = "raw", Capability = "source" }, new CalculateGroundedOperation
+        { Id = "predicate", Value = new() { Kind = "compute", Text = text, Members = [new("raw", new() { Kind = "result", Source = "raw" }), new("key", new() { Kind = "string", Text = "hidden" })] } }] };
+        Assert.Null(GroundedPlanValidator.Validate(plan, catalog).Plan);
+    }
+    [Fact]
+    public async Task UnprovedPureComputationRequiresValidationBeforeProjection()
+    {
+        var catalog = await new TestRuntime().DiscoverAsync(PlannerFixture.Session().Request, TestContext.Current.CancellationToken);
+        var plan = new GroundedPlan { Operations = [new CalculateGroundedOperation { Id = "parsed", Value = new() { Kind = "compute", Text = "JSON.parse(text)", Members = [new("text", new() { Kind = "string", Text = "{\"count\":4}" })] } },
+            new ValidateGroundedOperation { Id = "valid", Value = new() { Kind = "result", Source = "parsed" }, ResultType = new() { Type = "object", Fields = [new("count", new() { Type = "integer" })] } }],
+            Outputs = [new("count", new() { Kind = "result", Source = "valid", Path = ["count"] })] };
+        var validated = GroundedPlanValidator.RequireValid(plan, catalog);
+        Assert.True(GroundedTypes.IsOpaque(validated.Types.Result("main", "parsed")));
+        var yaml = new PlanningGraphCompiler().Compile(PlanningGraphBuilder.Build(validated), catalog, "validated-computation");
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        var execution = await new WorkflowEngine().ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
+        Assert.True(execution.Success, execution.Error?.Message); Assert.Equal("4", execution.Outputs!["count"]!.ToString());
     }
     [Fact]
     public async Task OpaqueFixtureGenerationSharesTheCallBudgetAndReachesReviewThroughValidation()

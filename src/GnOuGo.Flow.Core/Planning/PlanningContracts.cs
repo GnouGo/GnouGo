@@ -85,6 +85,7 @@ public sealed class PlanningSession
     public GroundedPlan? GroundedPlan { get; set; }
     public SemanticPlan? SemanticPlan { get; set; }
     public CapabilityGrounding? Grounding { get; set; }
+    public GroundedBindingProgress? BindingProgress { get; set; }
     public string Phase { get; set; } = PlanningPhase.Semantic;
     public PlanningGraph? Graph { get; set; }
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];

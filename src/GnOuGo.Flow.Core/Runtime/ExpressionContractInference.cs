@@ -7,9 +7,12 @@ namespace GnOuGo.Flow.Core.Runtime;
 public static class ExpressionContractInference
 {
     public static JsonObject? Infer(string expression, IReadOnlyDictionary<string, JsonObject> arguments)
+        => Infer(new Parser().ParseExpression(expression), arguments);
+
+    public static JsonObject? Infer(Node expression, IReadOnlyDictionary<string, JsonObject> arguments)
     {
         var variables = arguments.ToDictionary(p => p.Key, p => FlowTypeDescriptorConverter.FromJsonSchema(p.Value), StringComparer.Ordinal);
-        var result = Infer(new Parser().ParseExpression(expression), variables);
+        var result = Infer(expression, variables);
         return result.IsOpaque ? null : FlowTypeDescriptorConverter.ToRuntimeJsonSchema(result);
     }
     private static FlowTypeDescriptor Infer(Node node, IReadOnlyDictionary<string, FlowTypeDescriptor> variables)
@@ -45,7 +48,7 @@ public static class ExpressionContractInference
                 }
                 return FlowTypeDescriptor.Any; // Fall-through does not establish a result contract.
             case Identifier identifier: return variables.GetValueOrDefault(identifier.Name) ?? FlowTypeDescriptor.Any;
-            case Literal literal: return literal.Value switch { null => FlowTypeDescriptor.Null, string => FlowTypeDescriptor.String, bool => FlowTypeDescriptor.Boolean, _ => FlowTypeDescriptor.Number };
+            case Literal literal: return literal.Value switch { null => FlowTypeDescriptor.Null, string text => FlowTypeDescriptor.Enum(text), bool => FlowTypeDescriptor.Boolean, _ => FlowTypeDescriptor.Number };
             case TemplateLiteral: return FlowTypeDescriptor.String;
             case ArrayExpression array: return FlowTypeDescriptor.Array(FlowTypeDescriptor.Union(array.Elements.Where(e => e is not null).Select(e => Type(e!))));
             case ObjectExpression obj:
@@ -78,6 +81,28 @@ public static class ExpressionContractInference
                 var scope = variables.ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
                 for (var i = 0; i < arrow.Params.Count; i++) scope[((Identifier)arrow.Params[i]).Name] = i == 0 ? collection.Items! : FlowTypeDescriptor.Integer;
                 return FlowTypeDescriptor.Array(Infer(arrow.Body, scope));
+            case CallExpression { Callee: MemberExpression { Computed: false, Object: Identifier { Name: "JSON" }, Property: Identifier { Name: "stringify" } }, Arguments.Count: 1 } json when !variables.ContainsKey("JSON"):
+                // Serialization of a declared JSON container/scalar has a string result. Parsing never creates a field contract.
+                return Type(json.Arguments[0]).IsOpaque ? FlowTypeDescriptor.Any : FlowTypeDescriptor.String;
+            case CallExpression { Callee: MemberExpression { Computed: false, Property: Identifier method } receiver }:
+                var target = Type(receiver.Object);
+                if (target.Kind == FlowTypeKind.String)
+                    return method.Name switch
+                    {
+                        "trim" or "trimStart" or "trimEnd" or "toLowerCase" or "toUpperCase" or "slice" or "substring" or "replace" or "replaceAll" or "concat" => FlowTypeDescriptor.String,
+                        "split" => FlowTypeDescriptor.Array(FlowTypeDescriptor.String),
+                        "includes" or "startsWith" or "endsWith" => FlowTypeDescriptor.Boolean,
+                        _ => FlowTypeDescriptor.Any
+                    };
+                if (target.Kind == FlowTypeKind.Array)
+                    return method.Name switch
+                    {
+                        "filter" or "slice" or "toReversed" or "toSorted" => target,
+                        "every" or "some" or "includes" => FlowTypeDescriptor.Boolean,
+                        "join" => FlowTypeDescriptor.String,
+                        _ => FlowTypeDescriptor.Any
+                    };
+                return FlowTypeDescriptor.Any;
             default: return FlowTypeDescriptor.Any;
         }
     }

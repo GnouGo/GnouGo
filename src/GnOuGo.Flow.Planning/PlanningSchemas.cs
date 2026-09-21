@@ -70,7 +70,7 @@ internal static class PlanningSchemas
             ["question"] = Object(("id", String()), ("question", String()), ("answerType", Ref("type"))),
             ["operation"] = new JsonObject { ["anyOf"] = new JsonArray(
                 Operation("invoke", ("capability", capability), ("arguments", Array(Ref("member"))), ("fallback", Nullable(Ref("value")))),
-                Operation("calculate", ("value", Ref("value")), ("resultType", Nullable(Ref("type")))),
+                Operation("calculate", ("value", Ref("value"))),
                 Operation("transform", ("instruction", String()), ("data", Array(Ref("member"))), ("resultType", Ref("type"))),
                 Operation("choose", ("condition", Ref("value")), ("then", Ref("block")), ("otherwise", Ref("block"))),
                 Operation("each", ("items", Ref("value")), ("parallel", Type("boolean")), ("body", Ref("block"))),

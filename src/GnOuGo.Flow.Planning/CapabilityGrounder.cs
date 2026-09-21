@@ -107,14 +107,16 @@ internal static class CapabilityGrounder
         return SemanticPlanning.Actions(state.SemanticPlan!).Where(SemanticPlanning.Groundable).Select(a =>
         {
             var matches = grounding.Results.SelectMany(r => r.Decisions).Where(d => d.ActionId == a.Id).SelectMany(d => d.Matches).DistinctBy(m => m.CapabilityId).ToList();
+            if (a.Kind == "cleanup" && a.Blocks.Count == 0)
+                matches.RemoveAll(m => state.Catalog.Capabilities.Single(c => c.Id == m.CapabilityId).EffectKind is "read" or "none");
             return new GroundingDecision(a.Id, matches.Count == 0 ? "none_of_the_above" : "matched", matches, matches.Count == 0 ? "No semantically matching capability in the complete authorized catalog." : "Matches retained from every catalog page.");
         }).ToList();
     }
-    internal static List<PlanningDiagnostic> ValidateBindings(PlanningSession state)
+    internal static List<PlanningDiagnostic> ValidateBindings(PlanningSession state, ISet<string>? includedActions = null)
     {
         if (state.Grounding!.Selections is null) return [new("GROUNDING_SELECTION_REQUIRED", "/grounding", "Concrete selections are required before binding.")];
         CapabilitySelection.Validate(state, state.Grounding.Selections);
-        var errors = new List<PlanningDiagnostic>(); var actions = SemanticPlanning.Actions(state.SemanticPlan!).ToArray();
+        var errors = new List<PlanningDiagnostic>(); var actions = SemanticPlanning.Actions(state.SemanticPlan!).Where(a => includedActions is null || includedActions.Contains(a.Id)).ToArray();
         var operations = GroundedTraversal.Located(state.GroundedPlan!).Select(p => p.Operation).ToArray();
         var decisions = Decisions(state).ToDictionary(d => d.ActionId, StringComparer.Ordinal);
         foreach (var action in actions)
@@ -155,12 +157,13 @@ internal static class CapabilityGrounder
         }
         return errors;
     }
-    internal static string BindingPrompt(PlanningSession state)
+    internal static string BindingPrompt(PlanningSession state, SemanticPlan? fragment = null, JsonObject? boundary = null)
     {
         var decisions = Decisions(state);
         var selected = state.Grounding!.Selections ?? throw new PlanningConflictException("Select a concrete implementation before binding.");
         CapabilitySelection.Validate(state, selected);
-        var ids = selected.SelectMany(s => s.CapabilityIds).ToHashSet(StringComparer.Ordinal);
+        var actionIds = SemanticPlanning.Actions(fragment ?? state.SemanticPlan!).Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
+        var ids = selected.Where(s => actionIds.Contains(s.ActionId)).SelectMany(s => s.CapabilityIds).ToHashSet(StringComparer.Ordinal);
         return """
             Implement the SemanticPlan as GroundedPlan JSON, using the semantic matches and full authoritative contracts below.
             In business context, omitted lists are empty, omitted type is null, and omitted optional/nullable flags are false.
@@ -168,18 +171,20 @@ internal static class CapabilityGrounder
             businessOutputs maps each required semantic output name to a path in that operation's result (empty path means the whole result).
             All required business outputs must be mapped; intermediate operations may have empty businessOutputs.
             Use exact capability IDs only. Map named business values to real argument names and declared result paths.
-            Use only declared fields and arguments.
+            Use only declared fields and arguments. Omit optional arguments unless needed; null is a value, not omission.
             An absent output contract is OPAQUE. Pass its WHOLE result intact through branches and subflows or to a transform.
             Before field access on opaque data, add validate with an explicit business resultType and format json_value or json_text.
             validate checks the whole runtime value; json_text explicitly parses JSON text. Failure stops execution. Never infer JSON text or fields from examples.
-            calculate uses a pure expression over explicitly named members; every variable must be bound. Do not assert unknown calculation types.
+            calculate uses executable JavaScript over explicitly named members; every variable must be bound. Calculations have no asserted resultType: their types are inferred.
+            compute.text is JavaScript, never prose. Example: "flag ? 'accepted' : 'rejected'" with member flag. Objects use kind object and members; strings use template with {{name}} placeholders.
+            Use simple typed expressions. Unknown or nullable computations need an explicit validate boundary before stricter consumers. For business interpretation use transform with a declared resultType.
             transform MUST declare its resultType and receives actual source data; it cannot substitute for external observations or claim checks ran.
             choose has a boolean condition and two result blocks. each returns ordered body results. parallel returns named branch results.
-            Conditional results require the same condition at consumers, or a choose that supplies both outcomes. Cleanup runs on exit and binds the acquired resource.
+            Conditional results require the same condition at consumers, or a choose that supplies both outcomes. Cleanup runs on exit and binds the acquired resource. The host guards resource availability; do not add a redundant when to cleanup or export conditional cleanup results unconditionally.
             Named subflows declare input types; opaque permits whole values, not fields.
-            """ + "\n" + PlanningJsonTransport.Prompt(new JsonObject { ["semanticPlan"] = PlanningJsonTransport.BusinessContext(SemanticPlanning.Json(state.SemanticPlan!)), ["instructions"] = state.Request.Policy.Instructions,
+            """ + "\n" + PlanningJsonTransport.Prompt(new JsonObject { ["semanticPlan"] = PlanningJsonTransport.BusinessContext(SemanticPlanning.Json(fragment ?? state.SemanticPlan!)), ["establishedBoundary"] = boundary?.DeepClone(), ["instructions"] = state.Request.Policy.Instructions,
                 ["capabilities"] = new JsonArray(state.Catalog!.Capabilities.Where(c => ids.Contains(c.Id)).Select(c => (JsonNode)new JsonObject { ["id"] = c.Id, ["name"] = c.Method,
                     ["arguments"] = PlanningJsonTransport.ContractPrompt(PlanningCapabilityArguments.EditableArguments(c)), ["result"] = c.OutputSchema.Count == 0 ? null : PlanningJsonTransport.ContractPrompt(c.OutputSchema), ["effect"] = c.EffectKind }).ToArray()),
-                ["matches"] = new JsonArray(decisions.Select(d => (JsonNode)new JsonObject { ["actionId"] = d.ActionId, ["capabilityIds"] = new JsonArray(selected.Single(s => s.ActionId == d.ActionId).CapabilityIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()) }).ToArray()) });
+                ["matches"] = new JsonArray(decisions.Where(d => actionIds.Contains(d.ActionId)).Select(d => (JsonNode)new JsonObject { ["actionId"] = d.ActionId, ["capabilityIds"] = new JsonArray(selected.Single(s => s.ActionId == d.ActionId).CapabilityIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()) }).ToArray()) });
     }
 }

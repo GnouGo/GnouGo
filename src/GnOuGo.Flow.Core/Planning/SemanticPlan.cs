@@ -45,6 +45,15 @@ public sealed record GroundingDecision(string ActionId, string Outcome, List<Gro
 public sealed record GroundingSelection(string ActionId, List<string> CapabilityIds, string Reason);
 public sealed record GroundingMatch(string CapabilityId, string Reason);
 
+/// <summary>Durable, non-executable binding work. Accepted prefixes are revalidated on every continuation.</summary>
+public sealed class GroundedBindingProgress
+{
+    public List<string> CompletedActions { get; set; } = [];
+    public List<string> CurrentActions { get; set; } = [];
+    public GroundedPlan Accepted { get; set; } = new();
+    public GroundedPlan? Candidate { get; set; }
+}
+
 public static class PlanningPhase
 {
     public const string Semantic = "semantic", Grounding = "grounding", Binding = "binding",

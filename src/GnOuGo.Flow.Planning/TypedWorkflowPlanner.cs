@@ -54,7 +54,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     ArgumentException.ThrowIfNullOrWhiteSpace(command.Text);
                     state.Request.Baseline = state.SemanticPlan;
                     state.Request.Prompt = command.Kind == "edit_semantic" ? command.Text.Trim() : state.Request.Prompt + "\nRequested revision: " + command.Text.Trim();
-                    state.RejectedProposalHash = null; state.SemanticPlan = null; state.Grounding = null; state.GroundedPlan = null; state.Graph = null; state.Catalog = null; state.Fixtures = null; state.ReplanAttempts = 0;
+                    state.RejectedProposalHash = null; state.SemanticPlan = null; state.Grounding = null; state.BindingProgress = null; state.GroundedPlan = null; state.Graph = null; state.Catalog = null; state.Fixtures = null; state.ReplanAttempts = 0;
                     state.Diagnostics.Clear(); state.Scenarios.Clear(); state.Yaml = null; state.ApprovedHash = null; state.Status = PlanningStatus.Generating; state.Phase = PlanningPhase.Semantic;
                     break;
                 case "answer":
@@ -66,7 +66,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                             throw new ArgumentException("An answer violates the question's schema: " + question.Id);
                         state.Answers.Add(new(question.Question, new() { [question.Id] = command.Answers[question.Id]?.DeepClone() }));
                     }
-                    state.SemanticPlan = null; state.Grounding = null; state.GroundedPlan = null; state.Graph = null; state.Diagnostics.Clear(); state.Status = PlanningStatus.Generating; state.Phase = PlanningPhase.Semantic;
+                    state.SemanticPlan = null; state.Grounding = null; state.BindingProgress = null; state.GroundedPlan = null; state.Graph = null; state.Diagnostics.Clear(); state.Status = PlanningStatus.Generating; state.Phase = PlanningPhase.Semantic;
                     break;
                 case "configure_generation":
                     if (state.PendingCall is not null || command.Generation is null) throw new PlanningConflictException("Generation settings cannot replace a pending request.");
@@ -126,7 +126,8 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         {
             if (state.PendingCall is null && state.ReplanAttempts >= state.Request.MaxReplanAttempts) { Stop(state); return; }
             state.Phase = PlanningPhase.Replanning;
-            if (state.GroundedPlan is not null) await GroundedReplanning.ApplyAsync(state, runtime, ct);
+            if (state.BindingProgress is not null) await GroundedBindingBatches.ApplyAsync(state, runtime, ct, replan: true);
+            else if (state.GroundedPlan is not null) await GroundedReplanning.ApplyAsync(state, runtime, ct);
             else if (state.Grounding?.Selections is not null)
             {
                 var schema = PlanningSchemas.Grounded(state.Grounding.Selections.SelectMany(s => s.CapabilityIds));
@@ -186,9 +187,17 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         if (state.GroundedPlan is null)
         {
             state.Phase = PlanningPhase.Binding;
+            if (GroundedBindingBatches.Required(state))
+            {
+                await GroundedBindingBatches.ApplyAsync(state, runtime, ct);
+                if (state.GroundedPlan is null) return;
+            }
+            else
+            {
             var ids = state.Grounding.Selections.SelectMany(s => s.CapabilityIds).Distinct();
             var json = await PlanningModelCalls.CallAsync(state, runtime, "binding", CapabilityGrounder.BindingPrompt(state), PlanningSchemas.Grounded(ids), ct);
             state.GroundedPlan = JsonSerializer.Deserialize(json, PlanningJsonContext.Default.GroundedPlan)!;
+            }
         }
         state.Phase = PlanningPhase.Validation;
         state.Diagnostics = CapabilityGrounder.ValidateBindings(state);

@@ -523,6 +523,7 @@ public sealed partial class PlanningGraphCompiler
             return new() { ["type"] = "any", ["nullable"] = PlanningContractValidation.ValidateInstance(null, schema).Count == 0, ["schema"] = schema.DeepClone() };
         string[] supported = ["type", "description", "enum", "items", "properties", "required", "additionalProperties", "title", "$schema"];
         bool Extended(JsonObject contract) => contract.Any(field => !supported.Contains(field.Key, StringComparer.Ordinal))
+            || contract.ContainsKey("enum") && contract["type"]?.ToString() != "string"
             || contract["items"] is JsonObject items && Extended(items)
             || contract["properties"] is JsonObject properties && properties.Any(p => p.Value is JsonObject child && Extended(child))
             || contract["additionalProperties"] is JsonObject additional && Extended(additional);

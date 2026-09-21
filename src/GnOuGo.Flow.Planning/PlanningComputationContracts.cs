@@ -1,12 +1,19 @@
 using Acornima.Ast;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Planning;
 
 /// <summary>Checks statically named projections on typed parameters and simple aliases.</summary>
 internal static class PlanningComputationContracts
 {
+    internal static void Validate(string expression, IReadOnlyDictionary<string, JsonObject> parameters)
+    {
+        var messages = new HashSet<(string Code, string Rule, string Message)>();
+        Walk(new Acornima.Parser().ParseExpression(expression), new(parameters, StringComparer.Ordinal), messages);
+        if (messages.Count > 0) throw new InvalidOperationException(string.Join("; ", messages.Select(m => m.Message)));
+    }
     private static readonly HashSet<string> ArrayMembers = new(StringComparer.Ordinal)
     {
         "length", "at", "concat", "copyWithin", "entries", "every", "fill", "filter", "find", "findIndex", "findLast", "findLastIndex", "flat", "flatMap", "forEach",
@@ -69,9 +76,21 @@ internal static class PlanningComputationContracts
         {
             if (variable.Init is { } initializer) Walk(initializer, scope, messages);
             if (Schema(variable.Init, scope) is { } contract) scope[identifier.Name] = contract;
-            else scope.Remove(identifier.Name);
+            else scope[identifier.Name] = GroundedTypes.Opaque();
             return;
         }
+        if (node is CallExpression { Callee: MemberExpression { Property: Identifier { Name: "map" or "filter" or "every" or "some" } } collection, Arguments.Count: 1 } call &&
+            call.Arguments[0] is ArrowFunctionExpression callback && Schema(collection.Object, scope)?["items"] is JsonObject item)
+        {
+            Walk(collection, scope, messages);
+            var local = new Dictionary<string, JsonObject>(scope, StringComparer.Ordinal);
+            for (var i = 0; i < callback.Params.Count; i++)
+                if (callback.Params[i] is Identifier parameter) local[parameter.Name] = i == 0 ? item : new() { ["type"] = "integer" };
+            Walk(callback.Body, local, messages); return;
+        }
+        if (node is MemberExpression { Computed: true } dynamicMember && Name(dynamicMember) is null && Schema(dynamicMember.Object, scope) is { } dynamicOwner &&
+            (GroundedTypes.IsOpaque(dynamicOwner) || dynamicOwner.Count == 0 || HasType(dynamicOwner, "object")))
+            messages.Add(("COMPUTATION_FIELD_UNDECLARED", MemberIdentity(dynamicMember), "A dynamic projection cannot establish fields of an opaque or closed object; validate the whole value before projection."));
         if (node is MemberExpression member && Name(member) is { } name && Schema(member.Object, scope) is { } schema &&
             (schema.Count == 0 || GroundedTypes.IsOpaque(schema) || schema["type"]?.ToString() == "object" || schema["properties"] is JsonObject) &&
             (schema["properties"] is not JsonObject fields || !fields.ContainsKey(name)) && schema["additionalProperties"] is not JsonObject &&
@@ -95,12 +114,17 @@ internal static class PlanningComputationContracts
     private static JsonObject? Schema(Node? node, Dictionary<string, JsonObject> scope) => node switch
     {
         Identifier identifier => scope.GetValueOrDefault(identifier.Name),
+        ObjectExpression obj when obj.Properties.All(p => p is Property { Computed: false }) => GroundedTypes.Object(obj.Properties.Cast<Property>().Select(p =>
+            ((p.Key as Identifier)?.Name ?? (p.Key as StringLiteral)?.Value ?? "", Schema(p.Value, scope) ?? GroundedTypes.Opaque()))),
+        ArrayExpression array => new() { ["type"] = "array", ["items"] = new JsonObject { ["anyOf"] = new JsonArray(array.Elements.Select(e => (JsonNode)(Schema(e, scope) ?? GroundedTypes.Opaque()).DeepClone()).ToArray()) } },
+        Literal literal => new() { ["type"] = literal.Value switch { null => "null", string => "string", bool => "boolean", _ => "number" } },
         LogicalExpression { Operator: Acornima.Operator.LogicalOr or Acornima.Operator.NullishCoalescing } expression => Schema(expression.Left, scope),
         MemberExpression member when Schema(member.Object, scope) is { } parent && HasType(parent, "array") &&
             (member.Computed && (member.Property is NumericLiteral || Schema(member.Property, scope) is { } indexContract && (HasType(indexContract, "integer") || HasType(indexContract, "number"))) ||
              Name(member) is { } index && uint.TryParse(index, out _)) => parent["items"] as JsonObject,
         MemberExpression member when Name(member) is { } name => Schema(member.Object, scope)?["properties"]?[name] as JsonObject,
-        _ => null
+        null => null,
+        _ => ExpressionContractInference.Infer(node, scope) ?? GroundedTypes.Opaque()
     };
 
     private static bool HasType(JsonObject schema, string type) => schema["type"]?.ToString() == type || schema["type"] is JsonArray types && types.Any(t => t?.ToString() == type);

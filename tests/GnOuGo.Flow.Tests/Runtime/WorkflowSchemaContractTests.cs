@@ -83,4 +83,15 @@ public sealed class WorkflowSchemaContractTests
         Assert.Equal("number", ExpressionContractInference.Infer("values.map(value => value * 2)", args)!["items"]!["type"]!.ToString());
         Assert.Null(ExpressionContractInference.Infer("unknown(values)", args));
     }
+    [Fact]
+    public void PureSerializationAndStringOperationsHaveConservativeContracts()
+    {
+        var args = new Dictionary<string, JsonObject> { ["text"] = new() { ["type"] = "string" }, ["raw"] = new() { ["x-gnougo-opaque"] = true } };
+        Assert.Equal("string", ExpressionContractInference.Infer("text.trim().toLowerCase()", args)!["type"]!.ToString());
+        Assert.Equal("string", ExpressionContractInference.Infer("JSON.stringify({original: raw})", args)!["type"]!.ToString());
+        Assert.Null(ExpressionContractInference.Infer("JSON.parse(text)", args));
+        Assert.Null(ExpressionContractInference.Infer("raw.trim()", args));
+        Assert.Equal(2, ExpressionContractInference.Infer("text === 'a' ? 'accepted' : 'rejected'", args)!["anyOf"]!.AsArray().Count);
+    }
+
 }

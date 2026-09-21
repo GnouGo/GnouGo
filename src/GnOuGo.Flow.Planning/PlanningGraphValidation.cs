@@ -377,8 +377,8 @@ public static class PlanningGraphValidation
                 return value.Kind switch
                 {
                     "string" => new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(value.Text ?? "") },
-                    "number" => new JsonObject { ["type"] = value.Number is { } n && n == decimal.Truncate(n) ? "integer" : "number" },
-                    "boolean" => new JsonObject { ["type"] = "boolean" },
+                    "number" => new JsonObject { ["type"] = value.Number is { } n && n == decimal.Truncate(n) ? "integer" : "number", ["enum"] = new JsonArray(JsonValue.Create(value.Number)) },
+                    "boolean" => new JsonObject { ["type"] = "boolean", ["enum"] = new JsonArray(JsonValue.Create(value.Boolean)) },
                     "template" => new JsonObject { ["type"] = "string" },
                     "null" => new JsonObject { ["type"] = "null" },
                     "object" => ObjectSchema(value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted).Select(m => (m.Name, ValueSchema(m.Value, visiting) ?? new JsonObject()))),

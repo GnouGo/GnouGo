@@ -58,7 +58,7 @@ internal static class SemanticReplanning
             { state.Diagnostics.Add(new("REPLAN_NO_PROGRESS", "/actions", "The replacement did not change the semantic plan.")); state.Status = PlanningStatus.Stopped; return; }
             state.SemanticPlan = candidate;
         }
-        state.Grounding = null; state.GroundedPlan = null; state.Graph = null; state.Yaml = null; state.ApprovedHash = null; state.Fixtures = null; state.Scenarios.Clear();
+        state.Grounding = null; state.BindingProgress = null; state.GroundedPlan = null; state.Graph = null; state.Yaml = null; state.ApprovedHash = null; state.Fixtures = null; state.Scenarios.Clear();
         state.Diagnostics = SemanticPlanning.Validate(state.SemanticPlan);
         if (state.SemanticPlan.Questions.Count > 0 && state.Diagnostics.Count == 0)
         {
