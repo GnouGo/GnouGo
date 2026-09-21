@@ -10,6 +10,22 @@ internal static class PlanningJsonTransport
 {
     // Prompt JSON is model input, never HTML. Literal Unicode avoids expanding business text into escape sequences.
     internal static string Prompt(JsonNode value) => value.ToJsonString(new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+    internal static JsonObject BusinessContext(JsonObject plan)
+    {
+        var result = plan.DeepClone().AsObject();
+        void Visit(JsonNode? node)
+        {
+            if (node is JsonArray array) { foreach (var item in array) Visit(item); return; }
+            if (node is not JsonObject obj) return;
+            foreach (var key in obj.Select(p => p.Key).ToArray())
+            {
+                Visit(obj[key]);
+                if (obj[key] is null || obj[key] is JsonArray { Count: 0 } || obj[key] is JsonObject { Count: 0 } ||
+                    key is "optional" or "nullable" && obj[key] is JsonValue value && value.TryGetValue<bool>(out var flag) && !flag) obj.Remove(key);
+            }
+        }
+        Visit(result); return result;
+    }
     internal static JsonObject ContractPrompt(JsonObject schema)
     {
         var result = schema.DeepClone().AsObject();
@@ -22,6 +38,31 @@ internal static class PlanningJsonTransport
                 if (current[key] is JsonObject child) Visit(child);
             foreach (var key in new[] { "allOf", "anyOf", "oneOf", "prefixItems" })
                 if (current[key] is JsonArray children) foreach (var child in children.OfType<JsonObject>()) Visit(child);
+        }
+        Visit(result); return result;
+    }
+    internal static JsonNode ModelGrounded(JsonNode json, JsonNode schema, bool unpack = false)
+    {
+        var result = json.DeepClone();
+        if (schema["$defs"]?["implementation"] is null) return result;
+        void Visit(JsonNode? node)
+        {
+            if (node is JsonArray array) { foreach (var item in array) Visit(item); return; }
+            if (node is not JsonObject obj) return;
+            foreach (var child in obj.Select(p => p.Value).ToArray()) Visit(child);
+            if (unpack && obj["implementation"] is JsonObject implementation && obj.ContainsKey("id"))
+            {
+                obj.Remove("implementation");
+                foreach (var field in implementation) obj.Add(field.Key, field.Value?.DeepClone());
+            }
+            else if (!unpack && obj.ContainsKey("id") && obj.ContainsKey("kind"))
+            {
+                string[] common = ["id", "semanticAction", "businessOutputs", "purpose", "after", "when"];
+                var body = new JsonObject();
+                foreach (var key in obj.Select(p => p.Key).Where(k => !common.Contains(k)).ToArray())
+                { body[key] = obj[key]?.DeepClone(); obj.Remove(key); }
+                obj["implementation"] = body;
+            }
         }
         Visit(result); return result;
     }
@@ -47,7 +88,7 @@ internal static class PlanningJsonTransport
             fields = obj["type"]?.ToString() switch
             {
                 "object" => ["type", "nullable", "fields"], "array" => ["type", "nullable", "items"],
-                "string" or "number" or "integer" or "boolean" => ["type", "nullable", "enum"], _ => null
+                "string" or "number" or "integer" or "boolean" or "opaque" => ["type", "nullable", "enum"], _ => null
             };
         if (fields is not null)
             foreach (var key in obj.Select(p => p.Key).Where(k => !fields.Contains(k, StringComparer.Ordinal)).ToArray())

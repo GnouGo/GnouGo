@@ -78,7 +78,7 @@ public static class PlanningCorpus
                 Purpose = string.IsNullOrWhiteSpace(operation.Purpose) ? "Perform " + operation.Id : operation.Purpose,
                 Outputs = operation is CleanupGroundedOperation ? [] : [new("value", "The required result")] });
         }
-        return new() { Summary = plan.Summary, Actions = actions, Questions = plan.Questions };
+        return new() { Summary = plan.Summary, Actions = actions };
     }
     public static LLMResponse FixtureResponse(LLMRequest request, string purpose, GroundedPlan plan)
     {
@@ -102,13 +102,13 @@ public static class PlanningCorpus
             if (request.StructuredOutputSchema?["properties"]?["operations"] is not null)
             {
                 var grounded = PlanningJsonTransport.Grounded(plan);
-                return new() { Json = new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, grounded[p.Key]?.DeepClone()))) };
+                return new() { Json = PlanningJsonTransport.ModelGrounded(new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, grounded[p.Key]?.DeepClone()))), request.StructuredOutputSchema) };
             }
             if (request.StructuredOutputSchema?["properties"]?["summary"] is not null) return new() { Json = SemanticPlanning.Json(semantic) };
             var json = SemanticPlanning.Json(semantic);
             return new() { Json = new JsonObject { ["actions"] = json["actions"]!.DeepClone(), ["questions"] = json["questions"]!.DeepClone() } };
         }
-        return new() { Json = PlanningJsonTransport.Grounded(plan) };
+        return new() { Json = PlanningJsonTransport.ModelGrounded(PlanningJsonTransport.Grounded(plan), request.StructuredOutputSchema!) };
     }
     public sealed class Human(bool answer = true) : IHumanInputProvider
     { public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct) => Task.FromResult<JsonNode?>(new JsonObject { ["response"] = answer }); }

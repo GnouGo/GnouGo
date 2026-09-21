@@ -175,4 +175,18 @@ public sealed class SemanticGroundingTests
         Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(original, SemanticPlanning.Hash(state.SemanticPlan!));
         Assert.Equal(2, state.SemanticPlan!.Actions.Count); Assert.Equal(1, state.ReplanAttempts);
     }
+    [Fact]
+    public void FactoredBindingTransportPreservesNestedOperationsAndRejectsUnissuedFields()
+    {
+        var plan = PlannerFixture.Greeting();
+        plan.Operations.Add(new ParallelGroundedOperation { Id = "branches", Branches = [new("one", new([new CalculateGroundedOperation { Id = "inner", Value = new() { Kind = "number", Number = 3 } }], new() { Kind = "result", Source = "inner" }))] });
+        var flat = PlanningJsonTransport.Grounded(plan); var schema = PlanningSchemas.Grounded([]);
+        var wire = PlanningJsonTransport.ModelGrounded(flat, schema);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(wire, schema));
+        Assert.True(JsonNode.DeepEquals(flat, PlanningJsonTransport.ModelGrounded(wire, schema, unpack: true)));
+        wire["operations"]![0]!["implementation"]!["policy"] = "bypass";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(wire, schema));
+        Assert.True(schema.ToJsonString().Length < PlanningSchemas.Grounded().ToJsonString().Length);
+    }
 }

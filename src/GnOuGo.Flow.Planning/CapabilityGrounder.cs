@@ -163,11 +163,12 @@ internal static class CapabilityGrounder
         var ids = selected.SelectMany(s => s.CapabilityIds).ToHashSet(StringComparer.Ordinal);
         return """
             Implement the SemanticPlan as GroundedPlan JSON, using the semantic matches and full authoritative contracts below.
-            Preserve every action and required output. Every operation's semanticAction names the business action it implements.
+            In business context, omitted lists are empty, omitted type is null, and omitted optional/nullable flags are false.
+            Use short operation IDs and brief purposes. Preserve every action and required output. Every operation's semanticAction names the business action it implements.
             businessOutputs maps each required semantic output name to a path in that operation's result (empty path means the whole result).
             All required business outputs must be mapped; intermediate operations may have empty businessOutputs.
             Use exact capability IDs only. Map named business values to real argument names and declared result paths.
-            No missing values, invented fields, transport wrappers, technical retries, fixtures or host policy fields.
+            Use only declared fields and arguments.
             An absent output contract is OPAQUE. Pass its WHOLE result intact through branches and subflows or to a transform.
             Before field access on opaque data, add validate with an explicit business resultType and format json_value or json_text.
             validate checks the whole runtime value; json_text explicitly parses JSON text. Failure stops execution. Never infer JSON text or fields from examples.
@@ -175,9 +176,8 @@ internal static class CapabilityGrounder
             transform MUST declare its resultType and receives actual source data; it cannot substitute for external observations or claim checks ran.
             choose has a boolean condition and two result blocks. each returns ordered body results. parallel returns named branch results.
             Conditional results require the same condition at consumers, or a choose that supplies both outcomes. Cleanup runs on exit and binds the acquired resource.
-            Each block result and workflow output uses established data. Named subflows declare their input types. Preserve authoritative constraints and defaults.
-            Return the grounded operations only; schemas of capabilities remain catalog-owned.
-            """ + "\n" + PlanningJsonTransport.Prompt(new JsonObject { ["semanticPlan"] = SemanticPlanning.Json(state.SemanticPlan!), ["instructions"] = state.Request.Policy.Instructions,
+            Named subflows declare input types; opaque permits whole values, not fields.
+            """ + "\n" + PlanningJsonTransport.Prompt(new JsonObject { ["semanticPlan"] = PlanningJsonTransport.BusinessContext(SemanticPlanning.Json(state.SemanticPlan!)), ["instructions"] = state.Request.Policy.Instructions,
                 ["capabilities"] = new JsonArray(state.Catalog!.Capabilities.Where(c => ids.Contains(c.Id)).Select(c => (JsonNode)new JsonObject { ["id"] = c.Id, ["name"] = c.Method,
                     ["arguments"] = PlanningJsonTransport.ContractPrompt(PlanningCapabilityArguments.EditableArguments(c)), ["result"] = c.OutputSchema.Count == 0 ? null : PlanningJsonTransport.ContractPrompt(c.OutputSchema), ["effect"] = c.EffectKind }).ToArray()),
                 ["matches"] = new JsonArray(decisions.Select(d => (JsonNode)new JsonObject { ["actionId"] = d.ActionId, ["capabilityIds"] = new JsonArray(selected.Single(s => s.ActionId == d.ActionId).CapabilityIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()) }).ToArray()) });

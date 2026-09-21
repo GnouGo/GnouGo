@@ -36,6 +36,7 @@ internal static class SemanticReplanning
                 Preserve every required business outcome and the exposed output names. You may decompose actions and add adapters during subsequent grounding.
                 Return replacement semantic actions, not local JSON patches or technical capability bindings. Keep referenced action IDs and output names at the boundary.
                 A none_of_the_above result means no catalog capability performs that action: decompose into supported business behavior or ask a business clarification.
+                Approval is host-owned and happens at FinalReview after compilation and scenarios. Do not ask the user to approve execution as a business clarification.
                 Never substitute a model assertion for a required external observation or silently omit requested work.
                 """ + "\n" + new JsonObject { ["request"] = state.Request.Prompt, ["semanticPlan"] = SemanticPlanning.Json(state.SemanticPlan),
                     ["targetIds"] = new JsonArray(target.Select(a => (JsonNode?)JsonValue.Create(a.Id)).ToArray()),

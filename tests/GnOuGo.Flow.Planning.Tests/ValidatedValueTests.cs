@@ -104,4 +104,24 @@ public sealed class ValidatedValueTests
         Assert.Empty(state.Catalog!.Capabilities.Single().OutputSchema);
         PlanningArtifactApproval.Verify(state);
     }
+    [Fact]
+    public async Task OpaqueAliasesCanCrossNamedSubflowContractsWithoutAcquiringFields()
+    {
+        var catalog = await new TestRuntime().DiscoverAsync(PlannerFixture.Session().Request, TestContext.Current.CancellationToken);
+        var plan = new GroundedPlan { Inputs = [new("raw", new() { Type = "opaque" })],
+            Operations = [new CallGroundedOperation { Id = "forward", Flow = "identity", Arguments = [new("raw", new() { Kind = "input", Source = "raw" })] }],
+            Outputs = [new("result", new() { Kind = "result", Source = "forward", Path = ["raw"] })],
+            Subflows = [new("identity", [new("raw", new() { Type = "opaque" })], [], [new("raw", new() { Kind = "input", Source = "raw" })])] };
+        var valid = GroundedPlanValidator.Validate(plan, catalog); Assert.NotNull(valid.Plan);
+        var graph = PlanningGraphBuilder.Build(valid.Plan);
+        Assert.True(GroundedTypes.IsOpaque(PlanningGraphCompiler.ToJsonSchema(graph.Workflows[0].Outputs[0].Schema, catalog)));
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, catalog)));
+        foreach (var value in new[] { "null", "{\"description\":\"untrusted sample\"}" })
+        {
+            var raw = JsonNode.Parse(value);
+            var result = await new WorkflowEngine().ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["raw"] = raw }, TestContext.Current.CancellationToken);
+            Assert.True(result.Success, result.Error?.Message); Assert.True(JsonNode.DeepEquals(raw, result.Outputs!["result"]));
+        }
+        plan.Outputs[0].Value.Path.Add("fabricated"); Assert.Null(GroundedPlanValidator.Validate(plan, catalog).Plan);
+    }
 }

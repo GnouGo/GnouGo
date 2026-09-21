@@ -34,6 +34,7 @@ internal sealed class TestRuntime : IPlanningRuntime
     internal readonly List<LLMRequest> Calls = [];
     internal readonly List<PlanningSession> Checkpoints = [];
     internal readonly Queue<GroundedPlan> Plans = new();
+    internal List<PlanningQuestion> Questions = [];
     internal Func<LLMRequest, LLMResponse>? Respond;
     internal IReadOnlyList<PlanningDiagnostic>? Validation { get; set; }
     internal Exception? ValidationFailure;
@@ -51,7 +52,13 @@ internal sealed class TestRuntime : IPlanningRuntime
         Calls.Add(request);
         if (Respond is not null) return Task.FromResult(Respond(request));
         var plan = purpose == "replan" && Plans.Count > 1 ? Plans.Dequeue() : Plans.Peek();
-        return Task.FromResult(GnOuGo.Planning.Examples.PlanningCorpus.FixtureResponse(request, purpose, plan));
+        var response = GnOuGo.Planning.Examples.PlanningCorpus.FixtureResponse(request, purpose, plan);
+        if (purpose == "semantic" && Questions.Count > 0)
+        {
+            var semantic = GnOuGo.Planning.Examples.PlanningCorpus.Semantic(plan); semantic.Questions = Questions;
+            response.Json = SemanticPlanning.Json(semantic);
+        }
+        return Task.FromResult(response);
     }
 
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => ValidationFailure is { } failure

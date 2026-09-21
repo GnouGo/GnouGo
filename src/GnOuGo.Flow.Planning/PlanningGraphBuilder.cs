@@ -87,7 +87,7 @@ public static class PlanningGraphBuilder
                 diagnostics.Add(new("INTENT_IDENTIFIER_INVALID", "/subflows/" + flow.Index, "Subflow names must be distinct, nonempty and outside main and the reserved namespace.", ValidationStage: "intent"));
         return diagnostics;
     }
-    public static PlanningSchema Schema(BusinessType type) => new()
+    public static PlanningSchema Schema(BusinessType type) => type.Type == "opaque" ? GroundedTypes.Schema(GroundedTypes.Opaque()) : new()
     {
         Type = type.Type, Nullable = type.Nullable, Enum = [.. type.Enum], Items = type.Items is null ? null : Schema(type.Items),
         Properties = type.Fields.Select(f => new PlanningPort { Name = f.Name, Required = !f.Optional, Schema = Schema(f.Type) }).ToList()

@@ -6,7 +6,7 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Semantic selection among completely covered matches, before loading binding contracts.</summary>
 internal static class CapabilitySelection
 {
-    internal static async Task ApplyAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
+    internal static async Task ApplyAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct, string purpose = "selection")
     {
         var decisions = CapabilityGrounder.Decisions(state);
         if (decisions.All(d => d.Matches.Count <= 1))
@@ -30,7 +30,7 @@ internal static class CapabilitySelection
                     ["matches"] = new JsonArray(d.Matches.Select(m => (JsonNode)new JsonObject { ["id"] = m.CapabilityId, ["evidence"] = m.Reason }).ToArray()) }).ToArray()),
                 ["capabilities"] = new JsonArray(state.Catalog!.Capabilities.Where(c => ids.Contains(c.Id)).Select(c => (JsonNode)new JsonObject {
                     ["id"] = c.Id, ["description"] = c.Description, ["effect"] = c.EffectKind }).ToArray()) });
-        var response = await PlanningModelCalls.CallAsync(state, runtime, "selection", prompt, schema, ct);
+        var response = await PlanningModelCalls.CallAsync(state, runtime, purpose, prompt, schema, ct);
         var selections = response["selections"]!.AsArray().Select(s => new GroundingSelection(s!["actionId"]!.GetValue<string>(),
             s["capabilityIds"]!.AsArray().Select(c => c!.GetValue<string>()).ToList(), s["reason"]!.GetValue<string>())).ToList();
         Validate(state, selections);

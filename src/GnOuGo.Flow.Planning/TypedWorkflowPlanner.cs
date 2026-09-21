@@ -54,7 +54,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     ArgumentException.ThrowIfNullOrWhiteSpace(command.Text);
                     state.Request.Baseline = state.SemanticPlan;
                     state.Request.Prompt = command.Kind == "edit_semantic" ? command.Text.Trim() : state.Request.Prompt + "\nRequested revision: " + command.Text.Trim();
-                    state.SemanticPlan = null; state.Grounding = null; state.GroundedPlan = null; state.Graph = null; state.Catalog = null; state.Fixtures = null; state.ReplanAttempts = 0;
+                    state.RejectedProposalHash = null; state.SemanticPlan = null; state.Grounding = null; state.GroundedPlan = null; state.Graph = null; state.Catalog = null; state.Fixtures = null; state.ReplanAttempts = 0;
                     state.Diagnostics.Clear(); state.Scenarios.Clear(); state.Yaml = null; state.ApprovedHash = null; state.Status = PlanningStatus.Generating; state.Phase = PlanningPhase.Semantic;
                     break;
                 case "answer":
@@ -127,6 +127,22 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             if (state.PendingCall is null && state.ReplanAttempts >= state.Request.MaxReplanAttempts) { Stop(state); return; }
             state.Phase = PlanningPhase.Replanning;
             if (state.GroundedPlan is not null) await GroundedReplanning.ApplyAsync(state, runtime, ct);
+            else if (state.Grounding?.Selections is not null)
+            {
+                var schema = PlanningSchemas.Grounded(state.Grounding.Selections.SelectMany(s => s.CapabilityIds));
+                var prompt = CapabilityGrounder.BindingPrompt(state) + "\nReplace the invalid complete binding response. Diagnostics: " + JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic);
+                var replacement = await PlanningModelCalls.CallAsync(state, runtime, "replan", prompt, schema, ct);
+                state.GroundedPlan = JsonSerializer.Deserialize(replacement, PlanningJsonContext.Default.GroundedPlan)!; state.Diagnostics.Clear();
+            }
+            else if (state.Grounding is not null && state.Grounding.Pages.FirstOrDefault(p => !state.Grounding.Results.Any(r => r.PageId == p.Id)) is { } incomplete)
+            {
+                var replacement = await PlanningModelCalls.CallAsync(state, runtime, "replan", CapabilityGrounder.Prompt(state, incomplete), CapabilityGrounder.Schema(incomplete), ct);
+                state.Grounding.Results.Add(CapabilityGrounder.Read(incomplete, replacement)); state.Diagnostics.Clear();
+            }
+            else if (state.Grounding is not null && !state.Diagnostics.Any(d => d.Code == "NONE_OF_THE_ABOVE"))
+            {
+                await CapabilitySelection.ApplyAsync(state, runtime, ct, "replan"); state.Diagnostics.Clear();
+            }
             else await SemanticReplanning.ApplyAsync(state, runtime, ct);
             return;
         }

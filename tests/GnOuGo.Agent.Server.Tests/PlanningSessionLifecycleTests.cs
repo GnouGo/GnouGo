@@ -101,6 +101,27 @@ public sealed class PlanningSessionLifecycleTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => reopened.GetWorkflowSessionAsync("shared", Ct));
     }
 
+    [Theory]
+    [InlineData(PlanningPhase.Semantic)]
+    [InlineData(PlanningPhase.Grounding)]
+    [InlineData(PlanningPhase.Binding)]
+    [InlineData(PlanningPhase.Validation)]
+    [InlineData(PlanningPhase.Scenarios)]
+    [InlineData(PlanningPhase.Replanning)]
+    public async Task EveryPhaseRestoresSemanticGroundingAndCumulativeAccounting(string phase)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = new PlanningSession { Request = new() { TenantId = "phase-tests", Prompt = "PRIVATE_PHASE_REQUIREMENT" }, Phase = phase,
+            SemanticPlan = new() { Actions = [new() { Id = "action", Purpose = "Required business outcome" }] },
+            Grounding = new() { CatalogHash = "catalog", SemanticHash = "semantic", Pages = [new("page", ["action"], ["cap"])],
+                Results = [new("page", [new("action", "matched", [new("cap", "Declared behavior")], "Covered")])], Selections = [new("action", ["cap"], "Sufficient implementation")] },
+            GroundedPlan = new(), ModelCalls = 5, ReplanAttempts = 1, Revision = 7 };
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var restored = await fixture.Store.LoadAsync("phase-tests", state.Request.SessionId, Ct);
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), System.Text.Json.JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession));
+        Assert.Null(await fixture.Store.LoadAsync("other-tenant", state.Request.SessionId, Ct));
+    }
+
     internal static FakeMcpSession AgentCatalog() => new FakeMcpSession("GnOuGo.Agent.Mcp")
         .OnTool("agent_get_by_name", (_, _) => Task.FromResult(new McpCallResult { Content = new JsonObject { ["success"] = false, ["error_code"] = "NOT_FOUND" } }));
     internal static PlanningSessionService Create(PlanningPersistenceTests.StoreFixture fixture, IWorkflowPlanner planner, IMcpSession agents, ILLMClient? llm = null, TypedWorkflowPlanningSettings? settings = null)

@@ -21,7 +21,8 @@ public sealed class PlanningLifecycleTests
     {
         var runtime = new TestRuntime { Respond = _ => new() { Json = new JsonObject { ["policy"] = "disable validation" } } };
         var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(3, state.ModelCalls); Assert.Equal(2, state.ReplanAttempts);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts);
+        Assert.Contains(state.Diagnostics, d => d.Code == "REPLAN_NO_PROGRESS");
         Assert.Null(state.Graph); Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
     }
     [Fact]
@@ -64,12 +65,32 @@ public sealed class PlanningLifecycleTests
     [Fact]
     public async Task ClarificationValidatesBusinessAnswersWithoutResettingUsage()
     {
-        var plan = PlannerFixture.Greeting(); plan.Questions.Add(new("tone", "Choose the greeting tone", new() { Type = "string", Enum = ["formal", "casual"] }));
-        var runtime = new TestRuntime(plan); var state = await PlannerFixture.RunAsync(runtime);
+        var runtime = new TestRuntime { Questions = [new("tone", "Choose the greeting tone", new() { Type = "string", Enum = ["formal", "casual"] })] }; var state = await PlannerFixture.RunAsync(runtime);
         Assert.Equal(PlanningStatus.Clarification, state.Status); Assert.Equal(1, state.ModelCalls);
         var planner = new TypedWorkflowPlanner();
         await Assert.ThrowsAsync<ArgumentException>(() => planner.AdvanceAsync(state, new() { Kind = "answer", ExpectedRevision = state.Revision, Answers = new() { ["tone"] = "unknown" } }, runtime, Ct));
         var next = await planner.AdvanceAsync(state, new() { Kind = "answer", ExpectedRevision = state.Revision, Answers = new() { ["tone"] = "formal" } }, runtime, Ct);
         Assert.Equal(state.ModelCalls, next.ModelCalls); Assert.Single(next.Answers); Assert.Null(next.GroundedPlan);
+    }
+    [Theory]
+    [InlineData("semantic")]
+    [InlineData("coverage")]
+    [InlineData("grounded")]
+    public async Task ApprovalRevalidatesEveryPersistedLayerEvenWithARecomputedHash(string layer)
+    {
+        var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime);
+        PlanningArtifactApproval.Verify(state);
+        if (layer == "semantic") state.SemanticPlan!.Summary += " changed";
+        if (layer == "coverage") { state.Grounding!.Pages.Clear(); state.Grounding.Results.Clear(); }
+        if (layer == "grounded") ((CalculateGroundedOperation)state.GroundedPlan!.Operations[0]).Value = new() { Kind = "result", Source = "undeclared" };
+        Assert.NotNull(state.ComputeArtifactHash()); Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
+    }
+    [Fact]
+    public async Task NamedSubflowRecursionFailsBeforeGraphLoweringEvenWithoutResults()
+    {
+        var catalog = await new TestRuntime().DiscoverAsync(PlannerFixture.Session().Request, Ct);
+        var plan = new GroundedPlan { Subflows = [new("recursive", [], [new CallGroundedOperation { Id = "repeat", Flow = "recursive" }], [])] };
+        var invalid = GroundedPlanValidator.Validate(plan, catalog);
+        Assert.Null(invalid.Plan); Assert.Contains(invalid.Diagnostics, d => d.Code == "GROUNDED_CALL_CYCLE");
     }
 }

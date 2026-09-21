@@ -7,10 +7,19 @@ internal static class PlanningSchemas
     internal static JsonObject Grounded(IEnumerable<string>? capabilityIds = null)
     {
         var root = Object(("summary", String()), ("inputs", Array(Ref("input"))), ("operations", Array(Ref("operation"))),
-            ("outputs", Array(Ref("output"))), ("subflows", Array(Ref("subflow"))), ("questions", Array(Ref("question"))));
+            ("outputs", Array(Ref("output"))), ("subflows", Array(Ref("subflow"))));
         var definitions = Definitions(capabilityIds);
         if (capabilityIds is not null && !capabilityIds.Any()) definitions["operation"]!["anyOf"]!.AsArray().RemoveAt(0);
-        root["$defs"] = definitions; return root;
+        if (capabilityIds is not null)
+        {
+            var variants = definitions["operation"]!["anyOf"]!.AsArray();
+            string[] common = ["id", "semanticAction", "businessOutputs", "purpose", "after", "when"];
+            var commonFields = variants[0]!["properties"]!.AsObject().Where(p => common.Contains(p.Key)).Select(p => (p.Key, p.Value!.DeepClone().AsObject())).ToArray();
+            definitions["implementation"] = new JsonObject { ["anyOf"] = new JsonArray(variants.Select(v => (JsonNode)Object(v!["properties"]!.AsObject()
+                .Where(p => !common.Contains(p.Key)).Select(p => (p.Key, p.Value!.DeepClone().AsObject())).ToArray())).ToArray()) };
+            definitions["operation"] = Object(commonFields.Concat(new[] { ("implementation", Ref("implementation")) }).ToArray());
+        }
+        root["$defs"] = definitions; PlanningJsonTransport.PruneDefinitions(root); return root;
     }
     internal static JsonObject Definitions(IEnumerable<string>? capabilityIds = null)
     {
@@ -19,18 +28,21 @@ internal static class PlanningSchemas
         var ids = capabilityIds?.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         var capability = ids is null || ids.Length == 0 ? String() : Enum(ids);
         JsonObject Operation(string kind, params (string Name, JsonObject Schema)[] fields) => Object(new[] {
-            ("kind", Enum(kind)), ("id", String()), ("semanticAction", String()), ("businessOutputs", Array(Object(("name", String()), ("path", Array(String()))))), ("purpose", String()), ("after", Array(String())), ("when", Nullable(Ref("value"))) }.Concat(fields).ToArray());
+            ("kind", Enum(kind)), ("id", String()), ("semanticAction", String()), ("businessOutputs", Ref("business_outputs")), ("purpose", String()), ("after", Ref("strings")), ("when", Ref("optional_value")) }.Concat(fields).ToArray());
         JsonObject Input(JsonObject type, JsonObject value) => Object(("name", String()), ("type", type), ("optional", Type("boolean")), ("default", value));
         JsonObject BusinessType(bool nullableOnly = false)
         {
             JsonObject Nullability() => nullableOnly ? new() { ["type"] = "boolean", ["enum"] = new JsonArray(true) } : Type("boolean");
             return new() { ["anyOf"] = new JsonArray(
-                Object(("type", Enum("string", "number", "integer", "boolean")), ("nullable", Nullability()), ("enum", Array(String()))),
+                Object(("type", Enum("string", "number", "integer", "boolean", "opaque")), ("nullable", Nullability()), ("enum", Array(String()))),
                 Object(("type", Enum("array")), ("nullable", Nullability()), ("items", Ref("type"))),
                 Object(("type", Enum("object")), ("nullable", Nullability()), ("fields", NonEmptyArray(Ref("field"))))) };
         }
         return new()
         {
+            ["strings"] = Array(String()),
+            ["optional_value"] = Nullable(Ref("value")),
+            ["business_outputs"] = Array(Object(("name", String()), ("path", Array(String())))),
             ["value"] = new JsonObject { ["anyOf"] = new JsonArray(
                 Object(("kind", Enum("null"))), Object(("kind", Enum("string")), ("text", String())),
                 Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
@@ -50,9 +62,7 @@ internal static class PlanningSchemas
             ["field"] = Object(("name", String()), ("type", Ref("type")), ("optional", Type("boolean"))),
             // JSON null is absence. A literal null requires a nullable declaration, or a
             // derived contract whose nullability is checked by deterministic validation.
-            ["input"] = new JsonObject { ["anyOf"] = new JsonArray(
-                Input(Nullable(Ref("type")), Nullable(Ref("literal_nonnull"))),
-                Input(Nullable(Ref("nullable_type")), Ref("literal_null"))) },
+            ["input"] = Input(Nullable(Ref("type")), Nullable(Ref("literal"))),
             ["output"] = Object(("name", String()), ("value", Ref("value"))),
             ["block"] = Object(("operations", Array(Ref("operation"))), ("result", Ref("value"))),
             ["branch"] = Object(("name", String()), ("body", Ref("block"))),

@@ -12,12 +12,14 @@ internal static class GroundedReplanning
         if (diagnostics.Any(d => d.Required && d.Code == "PLANNING_HOST_CONTRACT"))
         { state.Diagnostics = diagnostics; state.Status = PlanningStatus.Stopped; return; }
         var json = PlanningJsonTransport.Grounded(state.GroundedPlan!);
-        var owners = state.Diagnostics.Where(d => d.Required && d.Location.StartsWith("/scopes/", StringComparison.Ordinal))
-            .Select(d => d.Location.Split('/')[2]).Distinct().ToArray();
+        var owners = diagnostics.Where(d => d.Required).Select(d =>
+            d.Location.StartsWith("/scopes/", StringComparison.Ordinal) ? d.Location.Split('/')[2] :
+            d.Location.StartsWith("/operations/", StringComparison.Ordinal) || d.Location.StartsWith("/subflows/", StringComparison.Ordinal)
+                ? GroundedTraversal.GraphOwner(state.GroundedPlan!, d.Location) : "main").Distinct().ToArray();
         var block = owners.Length == 1 ? GroundedTraversal.Blocks(state.GroundedPlan!).FirstOrDefault(b => b.Workflow == owners[0]) : default;
         var subflow = owners.Length == 1 ? state.GroundedPlan!.Subflows.FindIndex(f => f.Name == owners[0]) : -1;
         var path = block.Block is not null ? block.Path : subflow >= 0 ? "/subflows/" + subflow : "";
-        string[] fields = block.Block is not null ? ["operations", "result"] : ["inputs", "operations", "outputs"];
+        string[] fields = block.Block is not null ? ["operations", "result"] : owners.Length > 1 ? ["inputs", "operations", "outputs", "subflows"] : ["inputs", "operations", "outputs"];
         var source = path.Length == 0 ? json : PlanningFieldPaths.Read(json, path)!.AsObject();
         var fragment = new JsonObject(fields.Select(f => new KeyValuePair<string, JsonNode?>(f, source[f]?.DeepClone())));
         var ids = state.Grounding!.Selections!.SelectMany(s => s.CapabilityIds).Distinct();

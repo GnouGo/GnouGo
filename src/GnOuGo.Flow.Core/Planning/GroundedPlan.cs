@@ -11,7 +11,6 @@ public sealed class GroundedPlan
     public List<GroundedOperation> Operations { get; set; } = [];
     public List<GroundedOutput> Outputs { get; set; } = [];
     public List<GroundedSubflow> Subflows { get; set; } = [];
-    public List<PlanningQuestion> Questions { get; set; } = [];
 }
 
 public sealed record GroundedInput(string Name, BusinessType? Type = null, bool Optional = false, GroundedValue? Default = null);

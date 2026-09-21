@@ -162,7 +162,7 @@ internal sealed class GroundedTypes
     }
     private JsonObject Declared(BusinessType? type, string id)
     {
-        if (type is null) throw new InvalidOperationException("Declare the new business result type for " + id);
+        if (type is null || type.Type == "opaque") throw new InvalidOperationException("Declare the new business result type for " + id);
         var schema = PlanningGraphCompiler.ToJsonSchema(PlanningGraphBuilder.Schema(type), _catalog);
         PlanningGraphValidation.RequireTyped(schema, 0);
         return schema;
@@ -219,6 +219,18 @@ internal sealed class GroundedTypes
     internal List<PlanningDiagnostic> Validate()
     {
         var findings = new List<PlanningDiagnostic>();
+        var visitedFlows = new HashSet<string>(StringComparer.Ordinal); var activeFlows = new HashSet<string>(StringComparer.Ordinal);
+        bool VisitFlow(Scope scope)
+        {
+            if (activeFlows.Contains(scope.Key)) return false;
+            if (!visitedFlows.Add(scope.Key)) return true;
+            activeFlows.Add(scope.Key);
+            foreach (var call in GroundedTraversal.Operations(scope.Operations).OfType<CallGroundedOperation>())
+                if (_scopes.TryGetValue(call.Flow, out var target) && !VisitFlow(target)) return false;
+            activeFlows.Remove(scope.Key); return true;
+        }
+        foreach (var scope in _scopes.Values.Where(s => s.Parent is null))
+            if (!VisitFlow(scope)) { findings.Add(new("GROUNDED_CALL_CYCLE", "/scopes/" + scope.Key, "Named subflows cannot recursively invoke themselves.")); break; }
         foreach (var scope in _scopes.Values)
         {
             var root = "/scopes/" + scope.Key;
@@ -252,9 +264,11 @@ internal sealed class GroundedTypes
                     foreach (var dependency in operation.After)
                         if (!scope.Direct.ContainsKey(dependency) || dependency == operation.Id || !scope.Finalizers.Contains(operation.Id) && scope.Finalizers.Contains(dependency))
                             throw new InvalidOperationException("Invalid dependency: " + dependency);
-                    foreach (var reference in GroundedTraversal.Values([operation]).Where(v => v.Kind == "result" && scope.Direct.ContainsKey(v.Source ?? "")))
+                    foreach (var reference in GroundedTraversal.OwnValues(operation, includeBlockResults: false).SelectMany(GroundedTraversal.Values).Where(v => v.Kind == "result"))
                     {
-                        var producer = scope.Direct[reference.Source!];
+                        var producerScope = scope;
+                        while (!producerScope.Direct.ContainsKey(reference.Source!) && producerScope.Parent is not null) producerScope = producerScope.Parent;
+                        if (!producerScope.Direct.TryGetValue(reference.Source!, out var producer)) continue;
                         if (producer.When is not null && !scope.Finalizers.Contains(operation.Id) && !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(producer.When, PlanningJsonContext.Default.GroundedValue), JsonSerializer.SerializeToNode(operation.When, PlanningJsonContext.Default.GroundedValue)))
                             throw new InvalidOperationException("A conditional producer is unavailable outside its condition: " + producer.Id);
                     }

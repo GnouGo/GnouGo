@@ -518,9 +518,9 @@ public sealed partial class PlanningGraphCompiler
 
     internal static JsonObject ToFlowSchema(JsonObject schema)
     {
-        if (GroundedTypes.IsOpaque(schema)) return new() { ["type"] = "any", ["schema"] = schema.DeepClone() };
+        if (GroundedTypes.IsOpaque(schema)) return new() { ["type"] = "any", ["nullable"] = true, ["schema"] = schema.DeepClone() };
         if (schema["type"] is null && (schema["anyOf"] is JsonArray || schema["oneOf"] is JsonArray))
-            return new() { ["type"] = "any", ["schema"] = schema.DeepClone() };
+            return new() { ["type"] = "any", ["nullable"] = PlanningContractValidation.ValidateInstance(null, schema).Count == 0, ["schema"] = schema.DeepClone() };
         string[] supported = ["type", "description", "enum", "items", "properties", "required", "additionalProperties", "title", "$schema"];
         bool Extended(JsonObject contract) => contract.Any(field => !supported.Contains(field.Key, StringComparer.Ordinal))
             || contract["items"] is JsonObject items && Extended(items)

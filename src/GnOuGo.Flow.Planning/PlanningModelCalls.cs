@@ -41,10 +41,14 @@ internal static class PlanningModelCalls
         var findings = PlanningContractValidation.ValidateInstanceFindings(json, call.Request.StructuredOutputSchema!);
         if (findings.Count != 0)
         {
+            var rejectedHash = PlanningGraphCompiler.Fingerprint(json.ToJsonString());
+            if (state.RejectedProposalHash == rejectedHash) throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated an unchanged invalid proposal.");
+            state.RejectedProposalHash = rejectedHash;
             throw new PlanningResponseException(findings.Select(f => new PlanningDiagnostic("PLANNING_RESPONSE_INVALID",
-                f.InstancePointer, f.Message, ValidationStage: purpose)).ToList());
+                f.InstancePointer.Replace("/implementation/", "/", StringComparison.Ordinal), f.Message, ValidationStage: purpose)).ToList());
         }
-        return json;
+        state.RejectedProposalHash = null;
+        return PlanningJsonTransport.ModelGrounded(json, call.Request.StructuredOutputSchema!, unpack: true);
     }
 
 }
