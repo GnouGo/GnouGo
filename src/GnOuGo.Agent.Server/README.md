@@ -1,5 +1,11 @@
 # GnOuGo.Agent (Blazor + Minimal API)
 
+Frontend builds require Node.js 22.12+ (CI uses Node.js 24). Mermaid 12 requires
+ES2024 browser support, including Safari/WebKit 17.4+ for the desktop webview.
+Diagrams explicitly retain the existing Dagre layout, classic look, and custom
+theme. The lazy ELK engine is an upstream prebuilt module with a separate 1,500 kB
+bundle limit; all other Agent chunks retain an enforced 700 kB limit.
+
 Workflow planning uses `User request → SemanticPlan → capability grounding → GroundedPlan → deterministic validation → PlanningGraph → compile → scenarios → approval`; see [the planning architecture](../../docs/workflow-planning-v2.md). The planning page offers **Retry with retained usage** after an uncertain model dispatch. This explicit action preserves the failed call, conservatively accounts for missing usage, and reserves a new call within existing session limits. A stored completion is reused instead. Restart never silently redispatches an uncertain request. Workflow approval and runtime publication confirmation remain separate.
 
 Workflow Designer keeps incompatible saved sessions visible as **Unavailable**, with their origin, identity and existing traces. Other sessions remain usable. These entries cannot be resumed, approved or executed; start a new plan instead. Encrypted historical payloads and uncertain reservations remain unchanged, and startup recovery skips records that cannot satisfy the current strict session format.

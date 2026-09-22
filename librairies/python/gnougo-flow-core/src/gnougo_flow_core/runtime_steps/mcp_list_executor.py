@@ -346,7 +346,7 @@ The discovered `tools` and `prompts` arrays can be passed directly into `mcp.cal
             return _build_aggregate_result(server_results, include_set, ctx)
         except WorkflowRuntimeException:
             raise
-        except TimeoutError as exc:
+        except (TimeoutError, asyncio.TimeoutError) as exc:
             raise WorkflowRuntimeException(ErrorCodes.MCP_TIMEOUT, f"mcp.list timed out after {timeout_ms}ms", retryable=True) from exc
         except Exception as exc:
             raise WorkflowRuntimeException(ErrorCodes.MCP_LIST_ERROR, f"mcp.list failed: {exc}", retryable=False) from exc

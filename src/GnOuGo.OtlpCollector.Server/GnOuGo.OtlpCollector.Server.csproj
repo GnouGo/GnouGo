@@ -115,17 +115,17 @@
     <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/collector/trace/v1/trace_service.proto" ProtoRoot="Protos/otlp-proto" GrpcServices="Server" />
     <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/collector/logs/v1/logs_service.proto" ProtoRoot="Protos/otlp-proto" GrpcServices="Server" />
     <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/collector/metrics/v1/metrics_service.proto" ProtoRoot="Protos/otlp-proto" GrpcServices="Server" />
-    <PackageReference Include="Grpc.Tools" Version="2.83.0">
+    <PackageReference Include="Grpc.Tools" Version="2.84.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Google.Protobuf" Version="3.35.1" />
+    <PackageReference Include="Google.Protobuf" Version="3.36.2" />
 
     <!-- gRPC server -->
-    <PackageReference Include="Grpc.AspNetCore" Version="2.83.0" />
+    <PackageReference Include="Grpc.AspNetCore" Version="2.84.0" />
 
     <!-- EF Core SQLite storage -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
   </ItemGroup>
 

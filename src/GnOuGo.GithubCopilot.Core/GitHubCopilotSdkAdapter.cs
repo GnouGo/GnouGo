@@ -831,7 +831,7 @@ internal sealed class GitHubCopilotSdkSession : ICopilotSdkSession
         => (await _session.Rpc.Mode.GetAsync(cancellationToken)).Value;
 
     public Task SetModeAsync(string mode, CancellationToken cancellationToken)
-        => _session.Rpc.Mode.SetAsync(new SessionMode(mode), cancellationToken);
+        => _session.Rpc.Mode.SetAsync(new SessionMode(mode), cancellationToken: cancellationToken);
 
     public async Task<CopilotPlanResult> ReadPlanAsync(CancellationToken cancellationToken)
     {

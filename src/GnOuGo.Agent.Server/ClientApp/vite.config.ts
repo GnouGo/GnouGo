@@ -6,14 +6,32 @@ import path from 'node:path';
 //   wwwroot/ui/app.css
 //   wwwroot/ui/chunks/*
 export default defineConfig({
+  base: '/ui/',
+  plugins: [{
+    name: 'diagram-chunk-budgets',
+    generateBundle(_options, bundle) {
+      for (const chunk of Object.values(bundle)) {
+        if (chunk.type !== 'chunk') continue;
+        // Mermaid 12 ships ELK as one prebuilt module (about 1.46 MB).
+        // It stays lazy-loaded; retain the 700 kB budget for every other chunk.
+        const modules = Object.keys(chunk.modules).map(id => id.replaceAll('\\', '/'));
+        const isElk = modules.length === 2
+          && modules.some(id => id.endsWith('/elkjs/lib/elk.bundled.js'))
+          && modules.some(id => /\/mermaid\/dist\/chunks\/mermaid\.core\/elk-[^/]+\.mjs$/.test(id));
+        const budget = isElk ? 1500 : 700;
+        if (Buffer.byteLength(chunk.code) > budget * 1000) {
+          this.error(`${chunk.fileName} exceeds its ${budget} kB chunk budget`);
+        }
+      }
+    },
+  }],
   build: {
     outDir: path.resolve(import.meta.dirname, '../wwwroot/ui'),
     emptyOutDir: true,
     sourcemap: false,
     cssCodeSplit: false,
-    // Mermaid's optional architecture grammar is a single upstream module and
-    // cannot be split further. It is loaded only when a diagram is rendered.
-    chunkSizeWarningLimit: 700,
+    // The plugin above enforces the smaller limit except for the ELK module.
+    chunkSizeWarningLimit: 1500,
     rolldownOptions: {
       input: path.resolve(import.meta.dirname, 'src/main.ts'),
       output: {

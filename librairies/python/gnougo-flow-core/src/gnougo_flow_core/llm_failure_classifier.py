@@ -26,7 +26,7 @@ def classify_llm_failure(exception: BaseException) -> WorkflowRuntimeException |
         if isinstance(current, WorkflowRuntimeException) and current.code in _STABLE_LLM_ERROR_CODES:
             return current
 
-        if isinstance(current, TimeoutError):
+        if isinstance(current, (TimeoutError, asyncio.TimeoutError)):
             return WorkflowRuntimeException(
                 ErrorCodes.LLM_TIMEOUT,
                 str(current),

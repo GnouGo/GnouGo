@@ -19,7 +19,7 @@ exit codes separately from assistant text and tool invocation success. Incomplet
 missing or conflicting observations cannot certify successful work. This additive
 result field defaults to an empty list when reading older serialized results.
 
-The library pins `GitHub.Copilot.SDK` `1.0.11` and maintains an explicit GA allowlist. Experimental, preview, insiders, fleet, fork, remote/cloud sandbox, canvas, extensions, manual compaction, history truncation, agent-management, citations, and unknown RPC APIs are rejected.
+The library pins `GitHub.Copilot.SDK` `1.0.14`, bundles Copilot CLI `1.0.88`, and maintains an explicit GA allowlist. The CLI version supplies the native runtime wrapper and its adjacent runtime library required by this SDK. Experimental, preview, insiders, fleet, fork, remote/cloud sandbox, canvas, extensions, manual compaction, history truncation, agent-management, citations, and unknown RPC APIs are rejected.
 
 It provides:
 

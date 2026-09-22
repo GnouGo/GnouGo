@@ -14,7 +14,7 @@
     <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL3050;IL3055</WarningsAsErrors>
     <NoWarn>$(NoWarn);GHCP001</NoWarn>
     <!-- Pin the GA CLI runtime explicitly so Native AOT publication is deterministic. -->
-    <CopilotCliVersion>1.0.52</CopilotCliVersion>
+    <CopilotCliVersion>1.0.88</CopilotCliVersion>
   </PropertyGroup>
 
   <!-- This Native AOT tool intentionally consumes the EF Core-backed KeyVault
@@ -29,7 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
   </ItemGroup>
 

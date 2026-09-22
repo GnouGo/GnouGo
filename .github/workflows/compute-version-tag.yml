@@ -36,7 +36,7 @@ jobs:
       is_release: ${{ steps.tag.outputs.is_release }}
       version_tag: ${{ steps.tag.outputs.version_tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           token: ${{ secrets.GIT_TOKEN || github.token }}
@@ -68,7 +68,7 @@ jobs:
 
       - name: Bump version and compute tag (dry-run)
         id: tag_version
-        uses: mathieudutour/github-tag-action@v6.0
+        uses: mathieudutour/github-tag-action@v6.2
         with:
           github_token: ${{ secrets.GIT_TOKEN || github.token }}
           dry_run: true
