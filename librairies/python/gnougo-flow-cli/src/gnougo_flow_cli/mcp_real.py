@@ -80,7 +80,7 @@ class RealMcpSession:
                     McpToolInfo(
                         name=getattr(t, "name", ""),
                         description=getattr(t, "description", None),
-                        input_schema=getattr(t, "inputSchema", None),
+                        input_schema=t.input_schema,
                     )
                 )
             return tools
@@ -97,7 +97,7 @@ class RealMcpSession:
                         uri=str(getattr(r, "uri", "")),
                         name=getattr(r, "name", ""),
                         description=getattr(r, "description", None),
-                        mime_type=getattr(r, "mimeType", None),
+                        mime_type=r.mime_type,
                     )
                 )
             return resources
@@ -142,11 +142,11 @@ class RealMcpSession:
             content_blocks = []
             for block in result.content:
                 if hasattr(block, "model_dump"):
-                    content_blocks.append(block.model_dump())
+                    content_blocks.append(block.model_dump(by_alias=True))
                 else:
                     content_blocks.append(str(block))
             return McpCallResult(
-                is_error=bool(getattr(result, "isError", False)),
+                is_error=result.is_error,
                 content=content_blocks,
                 usage=None,
                 model=None,
@@ -205,4 +205,3 @@ class RealMcpFactory:
 
     def has_servers(self) -> bool:
         return bool(self._servers)
-

@@ -5,7 +5,14 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: '../wwwroot',
-    emptyOutDir: true
+    emptyOutDir: true,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [{ name: 'react-vendor', test: /node_modules\/(react|react-dom|scheduler)\// }]
+        }
+      }
+    }
   },
   server: {
     port: 5301,
@@ -17,4 +24,3 @@ export default defineConfig({
     }
   }
 })
-

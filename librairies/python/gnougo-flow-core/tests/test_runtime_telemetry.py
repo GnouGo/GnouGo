@@ -1,7 +1,7 @@
 import pytest
 
 from gnougo_flow_core.compilation import WorkflowCompiler
-from gnougo_flow_core.models import LLMResponse, LLMToolCall, McpCallResult, McpServerMetadata, McpToolInfo
+from gnougo_flow_core.models import LLMResponse, LLMToolCall, McpCallResult, McpToolInfo
 from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import ITelemetrySpan, WorkflowEngine
 

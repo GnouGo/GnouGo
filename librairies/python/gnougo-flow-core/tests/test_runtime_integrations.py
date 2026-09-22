@@ -6,8 +6,6 @@ from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import WorkflowEngine
 
 
-
-
 class FakeLLMClient:
     async def call_async(self, request):
         if request.tools:
@@ -106,7 +104,11 @@ async def test_runtime_llm_mcp_and_artifact_execute() -> None:
     engine.llm_client = FakeLLMClient()
     engine.mcp_client_factory = FakeMcpFactory()
 
-    result = await engine.execute_async(compiled.workflows["main"], {"artifact": 'version: 1\nworkflows:\n  main:\n    steps:\n      - id: built\n        type: set\n        input: {ok: true}\n'})
+    artifact = (
+        "version: 1\nworkflows:\n  main:\n    steps:\n"
+        "      - id: built\n        type: set\n        input: {ok: true}\n"
+    )
+    result = await engine.execute_async(compiled.workflows["main"], {"artifact": artifact})
 
     assert result.success is True
     assert result.outputs["llm_json"] is True

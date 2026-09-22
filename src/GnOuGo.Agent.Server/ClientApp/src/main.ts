@@ -54,6 +54,9 @@ function loadMermaid() {
       startOnLoad: false,
       securityLevel: 'strict',
       theme: 'base',
+      // Preserve the existing diagram layout and appearance across Mermaid 12.
+      layout: 'dagre',
+      look: 'classic',
       flowchart: {
         htmlLabels: false,
       },

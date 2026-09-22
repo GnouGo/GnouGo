@@ -8,10 +8,6 @@ from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import WorkflowEngine
 
 
-
-
-
-
 class _Telemetry:
     def __init__(self) -> None:
         self.workflow_starts = []

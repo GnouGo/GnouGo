@@ -1,0 +1,56 @@
+name: Frontend and Python dependency validation
+
+on:
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'src/**/ClientApp/**'
+      - 'librairies/python/**'
+      - '.github/workflows/test-dependencies.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontends:
+    name: Build all nine frontends
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --strict-peer-dependencies
+      - run: pnpm --recursive --workspace-concurrency=2 run build
+      - run: pnpm --recursive --if-present test
+
+  python:
+    name: Python ${{ matrix.python }} tests, lint and packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: astral-sh/setup-uv@v5
+      - name: Validate both locked Python packages
+        env:
+          UV_PYTHON: ${{ matrix.python }}
+        run: |
+          for project in gnougo-flow-core gnougo-flow-cli; do
+            cd "$GITHUB_WORKSPACE/librairies/python/$project"
+            uv run --locked --extra dev ruff check .
+            uv run --locked --extra dev pytest -q
+            uv build --out-dir "$RUNNER_TEMP/python-dist/$project"
+          done

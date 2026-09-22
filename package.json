@@ -1,12 +1,14 @@
 {
   "name": "gnougo-workspace",
   "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "packageManager": "pnpm@10.14.0",
   "pnpm": {
     "overrides": {
-      "esbuild": "0.28.1",
-      "tinyexec": "1.1.2"
+      "esbuild": "0.28.2",
+      "tinyexec": "1.3.1"
     }
   }
 }
-

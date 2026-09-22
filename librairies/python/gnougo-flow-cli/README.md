@@ -7,10 +7,16 @@ using [Planner v2](../../../docs/workflow-planning-v2.md).
 ## Install, test, and build
 
 ```sh
-uv sync --extra dev
-uv run pytest -q
-python -m build
+uv sync --locked --extra dev
+uv run --locked --extra dev ruff check .
+uv run --locked --extra dev pytest -q
+uv build
 ```
+
+Python 3.10+ remains supported. The MCP 2 adapter reads the SDK's snake_case
+model attributes and preserves camelCase wire aliases in returned content blocks.
+The stdio integration test covers discovery, tool success/error results, prompts,
+resources, and reconnecting to a real local SDK server.
 
 ## Usage
 
