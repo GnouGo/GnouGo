@@ -98,7 +98,7 @@ public sealed class PlanningSessionLifecycleTests
         workflow.Request.TenantId = "other";
         await fixture.Records.UpsertAsync("flow-planning-sessions-v8", "planning-tests", "shared",
             System.Text.Json.JsonSerializer.Serialize(workflow, PlanningJsonContext.Default.PlanningSession), "test", Ct);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => reopened.GetWorkflowSessionAsync("shared", Ct));
+        await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.GetWorkflowSessionAsync("shared", Ct));
     }
 
     [Theory]

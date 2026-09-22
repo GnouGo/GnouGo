@@ -2,6 +2,8 @@
 
 Workflow planning uses `User request → SemanticPlan → capability grounding → GroundedPlan → deterministic validation → PlanningGraph → compile → scenarios → approval`; see [the planning architecture](../../docs/workflow-planning-v2.md). The planning page offers **Retry with retained usage** after an uncertain model dispatch. This explicit action preserves the failed call, conservatively accounts for missing usage, and reserves a new call within existing session limits. A stored completion is reused instead. Restart never silently redispatches an uncertain request. Workflow approval and runtime publication confirmation remain separate.
 
+Workflow Designer keeps incompatible saved sessions visible as **Unavailable**, with their origin, identity and existing traces. Other sessions remain usable. These entries cannot be resumed, approved or executed; start a new plan instead. Encrypted historical payloads and uncertain reservations remain unchanged, and startup recovery skips records that cannot satisfy the current strict session format.
+
 For pull-request reviews, the host exposes `GnOuGo.Review` / `review_evaluate` and `review_publish`. Original execution observations establish individual check outcomes; the host confirms the stored review, reads the current head afterward, and records the single publication attempt durably. Raw review writes cannot bypass this operation on the configured GitHub integration. See [review publication](Reviews/README.md) for configuration, contracts and restart behavior.
 
 This solution contains:

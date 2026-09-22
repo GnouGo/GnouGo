@@ -30,6 +30,21 @@ internal static class PlanningPersistenceSmoke
             throw new InvalidOperationException("Published persistence or tenant isolation failed.");
         state.Revision = 2;
         if (await reopened.TrySaveAsync(state, 0, CancellationToken.None)) throw new InvalidOperationException("A stale update was accepted.");
+        var legacy = new PlanningSession { Request = new() { TenantId = "smoke", SessionId = Guid.NewGuid().ToString("N"), Name = "Legacy smoke session" },
+            ModelCalls = 1, PendingCall = new() { Id = "uncertain" }, GroundedPlan = new() { Operations = [new CalculateGroundedOperation { Id = "value" }] } };
+        if (!await store.TrySaveAsync(legacy, null, CancellationToken.None)) throw new InvalidOperationException("Legacy fixture insert failed.");
+        string legacyKey;
+        await using (var db = factory.CreateDbContext()) legacyKey = (await db.Sessions.SingleAsync(s => s.TenantId == "smoke" && s.SessionId == legacy.Request.SessionId)).PayloadKey;
+        var payload = System.Text.Json.JsonSerializer.SerializeToNode(legacy, PlanningJsonContext.Default.PlanningSession)!;
+        payload["groundedPlan"]!["operations"]![0]!["resultType"] = new System.Text.Json.Nodes.JsonObject { ["type"] = "string" };
+        var before = await records.UpsertAsync(EfPlanningSessionStore.Collection, "smoke", legacyKey, payload.ToJsonString(), "smoke");
+        var history = await EfPlanningSessionStore.InspectAllAsync(factory, records, "smoke", CancellationToken.None);
+        if (history.Single(s => s.Entry.SessionId == legacy.Request.SessionId) is not { Entry.Available: false, Session: null } ||
+            (await reopened.ListAsync("smoke", CancellationToken.None)).Any(s => s.Request.SessionId == legacy.Request.SessionId) ||
+            before != await records.GetAsync(EfPlanningSessionStore.Collection, "smoke", legacyKey, "smoke"))
+            throw new InvalidOperationException("Incompatible history isolation failed.");
+        try { await reopened.LoadAsync("smoke", legacy.Request.SessionId, CancellationToken.None); throw new InvalidOperationException("Incompatible history was admitted."); }
+        catch (PlanningConflictException) { }
         await Reviews.ReviewPersistenceSmoke.RunAsync(records);
         foreach (var file in Directory.EnumerateFiles(directory, "*.db"))
             if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)) is { } bytes &&

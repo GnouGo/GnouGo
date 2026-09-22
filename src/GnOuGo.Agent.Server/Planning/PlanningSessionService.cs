@@ -50,21 +50,35 @@ public sealed class PlanningSessionService(
     private const string WorkflowSessions = "flow-planning-sessions-v8";
     public async Task<PlanningSession?> GetWorkflowSessionAsync(string id, CancellationToken ct)
     {
-        var record = await records.GetAsync(WorkflowSessions, Tenant, id, EfPlanningSessionStore.Author, ct);
-        return record is null ? null : ReadWorkflowSession(record.Key, record.Value);
+        return (await InspectAsync(id, true, ct))?.RequireSession();
     }
 
     public async Task<IReadOnlyList<PlanningSession>> ListWorkflowSessionsAsync(CancellationToken ct)
         => (await records.ListAsync(WorkflowSessions, Tenant, EfPlanningSessionStore.Author, ct))
-            .Select(record => ReadWorkflowSession(record.Key, record.Value)).OrderByDescending(s => s.UpdatedAtUtc).ToArray();
+            .Select(ReadWorkflowSession).Where(s => s.Session is not null).Select(s => s.Session!).OrderByDescending(s => s.UpdatedAtUtc).ToArray();
 
-    private PlanningSession ReadWorkflowSession(string key, string payload)
+    internal async Task<IReadOnlyList<PlanningSessionListEntry>> ListHistoryAsync(CancellationToken ct)
     {
-        var state = JsonSerializer.Deserialize(payload, PlanningJsonContext.Default.PlanningSession);
-        if (state is null || state.SchemaVersion != 8 || state.Request.SessionId != key || state.Request.TenantId != Tenant)
-            throw new InvalidOperationException("The workflow planning session ownership or schema is invalid.");
-        return state;
+        var designer = await EfPlanningSessionStore.InspectAllAsync(contexts, records, Tenant, ct);
+        var chat = await records.ListAsync(WorkflowSessions, Tenant, EfPlanningSessionStore.Author, ct);
+        return designer.Concat(chat.Select(ReadWorkflowSession)).Select(s => s.Entry).OrderByDescending(s => s.UpdatedAtUtc).ToArray();
     }
+
+    internal async Task<PlanningSessionInspection?> InspectAsync(string id, bool workflow, CancellationToken ct)
+    {
+        if (workflow)
+        {
+            var record = await records.GetAsync(WorkflowSessions, Tenant, id, EfPlanningSessionStore.Author, ct);
+            return record is null ? null : ReadWorkflowSession(record);
+        }
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        var tenant = Tenant;
+        var row = await db.Sessions.AsNoTracking().SingleOrDefaultAsync(s => s.TenantId == tenant && s.SessionId == id, ct);
+        return row is null ? null : await EfPlanningSessionStore.InspectAsync(records, row, ct);
+    }
+
+    private PlanningSessionInspection ReadWorkflowSession(KeyVaultRecordValue record)
+        => PlanningSessionHistory.Read(record.Value, Tenant, record.Key, true, record.UpdatedAt);
 
     public async Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null)
     {

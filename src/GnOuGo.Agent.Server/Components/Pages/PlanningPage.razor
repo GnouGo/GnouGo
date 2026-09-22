@@ -15,7 +15,15 @@
     <a href="/">← Back to chat</a>
     <h1>Workflow designer</h1>
     @if (_error is not null) { <p role="alert" class="text-danger">@_error</p> }
-    @if (_state is null && SessionId is not null)
+    @if (_entry is { Available: false })
+    {
+        <h2>@_entry.Name</h2>
+        <p>@(_entry.Workflow ? "Chat" : "Designer") · <code>@_entry.SessionId</code>
+            <button type="button" @onclick="() => OpenTraces(_entry.SessionId, _entry.Workflow)">Traces</button>
+        </p>
+        <p role="status"><strong>Unavailable</strong> — @PlanningSessionInspection.UnavailableMessage</p>
+    }
+    else if (_state is null && SessionId is not null)
     {
         <p role="status">@(_loading ? "Loading planning session..." : "Planning session not found or unavailable.")</p>
     }
@@ -30,11 +38,10 @@
         </form>
         <ul>@foreach (var entry in _sessions)
         {
-            var session = entry.Session;
-            <li @key="(entry.Workflow, session.Request.SessionId)">
-                <a href="@SessionUrl(session.Request.SessionId, entry.Workflow)">@session.Request.Name</a> — @Phase(session.Status)
-                <small>@(entry.Workflow ? "Chat" : "Designer") · <code>@session.Request.SessionId</code></small>
-                <button type="button" @onclick="() => OpenTraces(session.Request.SessionId, entry.Workflow)" aria-label="@($"Traces for {session.Request.Name}")">Traces</button>
+            <li @key="(entry.Workflow, entry.SessionId)">
+                <a href="@SessionUrl(entry.SessionId, entry.Workflow)">@entry.Name</a> — @(entry.Available ? Phase(entry.Status) : "Unavailable")
+                <small>@(entry.Workflow ? "Chat" : "Designer") · <code>@entry.SessionId</code> · @entry.UpdatedAtUtc.ToString("u")</small>
+                <button type="button" @onclick="() => OpenTraces(entry.SessionId, entry.Workflow)" aria-label="@($"Traces for {entry.Name}")">Traces</button>
             </li>
         }</ul>
     }
@@ -107,7 +114,8 @@
     private bool IsWorkflowSession => Source == "workflow";
     [SupplyParameterFromQuery(Name = "agent")] public string? AgentName { get; set; }
     private PlanningSession? _state;
-    private IReadOnlyList<(PlanningSession Session, bool Workflow)> _sessions = [];
+    private PlanningSessionListEntry? _entry;
+    private IReadOnlyList<PlanningSessionListEntry> _sessions = [];
     private readonly Dictionary<string, string> _answers = new();
     private readonly CancellationTokenSource _lifetime = new();
     private Task? _polling;
@@ -122,7 +130,7 @@
     {
         _viewVersion++;
         CloseTraces(); _traceSessionId = null;
-        _state = null; _answers.Clear(); _renderedRevision = -1; _error = null;
+        _state = null; _entry = null; _answers.Clear(); _renderedRevision = -1; _error = null;
         if (Source is not (null or "workflow")) { _error = "Unknown planning session source."; return; }
         if (SessionId is null && !string.IsNullOrWhiteSpace(AgentName)) { _name = AgentName; _reviseExisting = true; }
         try { await RefreshAsync(); } catch (Exception ex) { _error = ex.Message; }
@@ -144,16 +152,13 @@
         {
             if (id is null)
             {
-                var designer = await Planning.ListAsync(_lifetime.Token);
-                var chat = await Planning.ListWorkflowSessionsAsync(_lifetime.Token);
-                if (version == _viewVersion)
-                    _sessions = designer.Select(s => (Session: s, Workflow: false)).Concat(chat.Select(s => (Session: s, Workflow: true)))
-                        .OrderByDescending(s => s.Session.UpdatedAtUtc).ToArray();
+                var entries = await Planning.ListHistoryAsync(_lifetime.Token);
+                if (version == _viewVersion) { _sessions = entries; _error = null; }
             }
             else
             {
-                var state = workflow ? await Planning.GetWorkflowSessionAsync(id, _lifetime.Token) : await Planning.GetAsync(id, _lifetime.Token);
-                if (version == _viewVersion) _state = state;
+                var inspection = await Planning.InspectAsync(id, workflow, _lifetime.Token);
+                if (version == _viewVersion) { _state = inspection?.Session; _entry = inspection?.Entry; _error = null; }
             }
         }
         finally { if (version == _viewVersion) _loading = false; }
