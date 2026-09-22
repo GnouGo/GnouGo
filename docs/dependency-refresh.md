@@ -39,6 +39,10 @@ remain .NET 10 and Python 3.10+; prerelease upgrades are not requested.
   See the [Mermaid release notes](https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4012.0.0).
 - EF-backed components retain EF Core/SQLite and their compiled-model/AOT checks.
   Workstation settings, endpoints and credentials remain ignored and unpublished.
+- The Mermaid/Chevrotain dependency tree pins an older `lodash-es`; override it
+  to 4.18.1 to address [template code injection](https://github.com/advisories/GHSA-r5fr-rjxr-66jc)
+  and [prototype pollution](https://github.com/advisories/GHSA-f23m-r3pf-42rh).
+  Re-run `pnpm audit` after lockfile changes.
 
 ## Reproduce validation
 

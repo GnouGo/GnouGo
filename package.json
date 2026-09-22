@@ -8,6 +8,7 @@
   "pnpm": {
     "overrides": {
       "esbuild": "0.28.2",
+      "lodash-es": "4.18.1",
       "tinyexec": "1.3.1"
     }
   }
