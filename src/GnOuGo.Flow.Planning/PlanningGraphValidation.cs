@@ -381,7 +381,7 @@ public static class PlanningGraphValidation
                     "boolean" => new JsonObject { ["type"] = "boolean", ["enum"] = new JsonArray(JsonValue.Create(value.Boolean)) },
                     "template" => new JsonObject { ["type"] = "string" },
                     "null" => new JsonObject { ["type"] = "null" },
-                    "object" => ObjectSchema(value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted).Select(m => (m.Name, ValueSchema(m.Value, visiting) ?? new JsonObject()))),
+                    "object" => ObjectSchema(value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted).Select(m => (m.Name, ValueSchema(m.Value, visiting) ?? new JsonObject())), closed: true),
                     "array" when value.Items.Count == 0 => new JsonObject { ["type"] = "array", ["maxItems"] = 0 },
                     "array" => new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["anyOf"] = new JsonArray(value.Items.Select(v => (JsonNode?)(ValueSchema(v, visiting) ?? new JsonObject())).ToArray()) } },
                     _ => null
@@ -458,44 +458,8 @@ public static class PlanningGraphValidation
         }
     }
 
-    internal static bool TypesFit(JsonObject actual, JsonObject expected, int depth = 0, bool allowUnresolved = false)
-    {
-        if (depth > 32) return false;
-        if (GroundedTypes.IsOpaque(expected)) return true;
-        if (GroundedTypes.IsOpaque(actual)) return false;
-        if (allowUnresolved && actual.Count == 0) return true; // set enforces the asserted schema at runtime
-        if ((actual["anyOf"] ?? actual["oneOf"]) is JsonArray variants)
-            return variants.Count != 0 && variants.All(v => v is JsonObject variant && TypesFit(variant, expected, depth + 1, allowUnresolved));
-        static string[] Types(JsonNode? node) => node is JsonArray a ? a.Select(n => n!.GetValue<string>()).ToArray() : node is JsonValue v ? [v.GetValue<string>()] : [];
-        var source = Types(actual["type"]); var target = Types(expected["type"]);
-        if (source.Length == 0 || !source.All(t => target.Contains(t, StringComparer.Ordinal) || t == "integer" && target.Contains("number", StringComparer.Ordinal))) return false;
-        // A null-only producer has one possible value even without an explicit enum.
-        // Validate that value against the complete destination contract; object and
-        // array constraints do not apply to null, while enum/const still do.
-        if (source.Length == 1 && source[0] == "null") return PlanningContractValidation.ValidateInstance(null, expected).Count == 0;
-        if (expected["enum"] is JsonArray allowed && (actual["enum"] is not JsonArray declared || declared.Any(value => !allowed.Any(option => JsonNode.DeepEquals(option, value))))) return false;
-        if (actual["properties"] is JsonObject producedProperties)
-            foreach (var (name, produced) in producedProperties.Where(p => (expected["properties"] as JsonObject)?.ContainsKey(p.Key) != true))
-            {
-                if (expected["additionalProperties"] is JsonValue extra && extra.TryGetValue<bool>(out var allowedExtra) && !allowedExtra) return false;
-                if (expected["additionalProperties"] is JsonObject extraContract && extraContract.Count != 0 &&
-                    (produced is not JsonObject producedContract || !TypesFit(producedContract, extraContract, depth + 1, allowUnresolved))) return false;
-            }
-        if (expected["properties"] is JsonObject properties)
-        {
-            var required = (expected["required"] as JsonArray ?? []).Select(v => v!.GetValue<string>()).ToHashSet(StringComparer.Ordinal);
-            foreach (var (name, property) in properties)
-            {
-                var produced = actual["properties"]?[name] as JsonObject ?? actual["additionalProperties"] as JsonObject;
-                if (produced is null) { if (required.Contains(name)) return false; }
-                else if (property is not JsonObject contract || !TypesFit(produced, contract, depth + 1, allowUnresolved)) return false;
-            }
-        }
-        var emptyArray = actual["maxItems"] is JsonValue maximum && maximum.TryGetValue<int>(out var count) && count == 0;
-        if (expected["items"] is JsonObject items && !emptyArray &&
-            (actual["items"] is not JsonObject producedItems || !TypesFit(producedItems, items, depth + 1, allowUnresolved))) return false;
-        return true;
-    }
+    internal static bool TypesFit(JsonObject actual, JsonObject expected, bool allowUnresolved = false) =>
+        PlanningContractCompatibility.Fits(actual, expected, allowUnresolved);
 
     internal static JsonObject AtPath(JsonObject root, List<string> path)
     {
@@ -548,14 +512,15 @@ public static class PlanningGraphValidation
         _ => throw new InvalidOperationException("A schema configuration requires literals, not data references or expressions.")
     };
 
-    private static JsonObject ObjectSchema(IEnumerable<(string Name, JsonObject Schema)> properties)
+    private static JsonObject ObjectSchema(IEnumerable<(string Name, JsonObject Schema)> properties, bool closed = false)
     {
         var members = properties.ToArray();
         return new()
         {
             ["type"] = "object",
             ["properties"] = new JsonObject(members.Select(p => new KeyValuePair<string, JsonNode?>(p.Name, p.Schema.DeepClone()))),
-            ["required"] = new JsonArray(members.Select(p => (JsonNode?)JsonValue.Create(p.Name)).ToArray())
+            ["required"] = new JsonArray(members.Select(p => (JsonNode?)JsonValue.Create(p.Name)).ToArray()),
+            ["additionalProperties"] = !closed
         };
     }
 

@@ -18,24 +18,16 @@ internal static class PlanningValidationPipeline
         var graph = state.Graph!; var catalog = state.Catalog!;
         PlanningConfirmationGuards.Apply(graph, catalog);
         state.Diagnostics = PlanningExecutableValidation.Validate(graph, catalog).ToList();
-        if (state.Diagnostics.Any(d => d.Code == "BINDING_UNAVAILABLE"))
-        {
-            state.Diagnostics = state.Diagnostics.Select(d => d.Code == "BINDING_UNAVAILABLE" ? d with
-                { Code = "PLANNING_HOST_CONTRACT", Message = "Lowering changed validated availability: " + d.Message } : d).ToList();
-            state.Status = PlanningStatus.Stopped; state.Yaml = null; state.ApprovedHash = null; return;
-        }
-        if (state.Diagnostics.Any(d => d.Required)) return;
+        if (StopOnHostDisagreement(state)) return;
         string yaml;
         try { yaml = new PlanningGraphCompiler().Compile(graph, catalog, state.Request.Name); }
-        catch (WorkflowCompilationException ex) { state.Diagnostics.AddRange(PlanningExecutableValidation.CompilerErrors(ex, graph)); return; }
-        state.Diagnostics.AddRange((await runtime.ValidateAsync(new(yaml, state.Request, catalog, PlanningGraphCompiler.CapabilityBindings(graph)), ct)).Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph)));
-        if (state.Diagnostics.Any(d => d.Required))
+        catch (WorkflowCompilationException ex)
         {
-            // A validated grounded plan and validated lowering must agree with the host compiler/contracts.
-            // A disagreement is a host boundary defect, not a reason to spend model calls editing business intent.
-            state.Diagnostics = state.Diagnostics.Select(d => d.Required ? d with { Code = "PLANNING_HOST_CONTRACT", Message = d.Code + ": " + d.Message } : d).ToList();
-            state.Status = PlanningStatus.Stopped; state.Yaml = null; state.ApprovedHash = null; return;
+            state.Diagnostics.AddRange(PlanningExecutableValidation.CompilerErrors(ex, graph));
+            StopOnHostDisagreement(state); return;
         }
+        state.Diagnostics.AddRange((await runtime.ValidateAsync(new(yaml, state.Request, catalog, PlanningGraphCompiler.CapabilityBindings(graph)), ct)).Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph)));
+        if (StopOnHostDisagreement(state)) return;
         state.Diagnostics.AddRange(FixtureShape(state));
         state.Diagnostics.AddRange(PlanningFixtureSamples.Validate(state));
         if (state.Diagnostics.Any(d => d.Required)) return;
@@ -67,5 +59,17 @@ internal static class PlanningValidationPipeline
             state.Diagnostics.AddRange((scenario.Diagnostics.Count > 0 ? scenario.Diagnostics : [new("SCENARIO_INCONCLUSIVE", scenario.Id, scenario.Description)]).Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph)));
         if (state.Diagnostics.Any(d => d.Required)) return;
         state.Yaml = yaml; state.ApprovedHash = null; state.Status = PlanningStatus.FinalReview;
+    }
+
+    private static bool StopOnHostDisagreement(PlanningSession state)
+    {
+        if (!state.Diagnostics.Any(d => d.Required)) return false;
+        // The graph comes only from validated grounded bindings. Static lowering,
+        // compiler and host-contract disagreements cannot be fixed by model replanning.
+        state.Diagnostics = state.Diagnostics.Select(d => d.Required ? d with
+            { Code = "PLANNING_HOST_CONTRACT", Message = d.Code + ": " + d.Message } : d).ToList();
+        state.Status = PlanningStatus.Stopped; state.Yaml = null; state.ApprovedHash = null;
+        state.Scenarios.Clear();
+        return true;
     }
 }

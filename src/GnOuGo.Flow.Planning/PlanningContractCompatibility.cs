@@ -6,13 +6,23 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Conservative contract inclusion, never sample-based type inference.</summary>
 internal static class PlanningContractCompatibility
 {
-    internal static bool Fits(JsonObject actual, JsonObject expected) => Fits(actual, expected, actual, expected, 0, [2048]);
+    internal static bool Fits(JsonObject actual, JsonObject expected, bool allowUnresolved = false) =>
+        Fits(actual, expected, actual, expected, 0, new ProofWork(allowUnresolved));
 
-    private static bool Fits(JsonObject actual, JsonObject expected, JsonObject sourceRoot, JsonObject targetRoot, int depth, int[] work)
+    private sealed class ProofWork(bool allowUnresolved)
     {
-        if (depth > 32 || --work[0] < 0) return false;
+        internal int Remaining = 2048;
+        internal bool AllowUnresolved { get; } = allowUnresolved;
+    }
+
+    private static bool Fits(JsonObject actual, JsonObject expected, JsonObject sourceRoot, JsonObject targetRoot, int depth, ProofWork work)
+    {
+        if (depth > 32 || --work.Remaining < 0) return false;
         if (GroundedTypes.IsOpaque(expected)) return true;
         if (GroundedTypes.IsOpaque(actual)) return expected.Count == 0;
+        // Only existing set/structured-fallback runtime assertions may establish
+        // unresolved computation values. Explicit producer opacity is never narrowed.
+        if (work.AllowUnresolved && actual.Count == 0) return true;
         // This proof implements the runtime's JSON Schema vocabulary. An explicitly
         // declared extension vocabulary needs an implementation, not a model guess.
         if (expected.ContainsKey("$vocabulary") || targetRoot.ContainsKey("$vocabulary")) return false;
@@ -130,7 +140,7 @@ internal static class PlanningContractCompatibility
         return true;
     }
 
-    private static bool FitsNode(JsonNode? actual, JsonNode? expected, JsonObject sourceRoot, JsonObject targetRoot, int depth, int[] work)
+    private static bool FitsNode(JsonNode? actual, JsonNode? expected, JsonObject sourceRoot, JsonObject targetRoot, int depth, ProofWork work)
     {
         if (actual is JsonValue { } a && a.TryGetValue<bool>(out var allowed) && !allowed) return true;
         if (expected is null || expected is JsonValue { } e && e.TryGetValue<bool>(out var any) && any) return true;
@@ -138,9 +148,9 @@ internal static class PlanningContractCompatibility
         return actual is JsonObject source && expected is JsonObject target && Fits(source, target, sourceRoot, targetRoot, depth, work);
     }
 
-    private static bool Disjoint(JsonObject left, JsonObject right, JsonObject leftRoot, JsonObject rightRoot, int depth, int[] work)
+    private static bool Disjoint(JsonObject left, JsonObject right, JsonObject leftRoot, JsonObject rightRoot, int depth, ProofWork work)
     {
-        if (depth > 32 || --work[0] < 0) return false;
+        if (depth > 32 || --work.Remaining < 0) return false;
         if (left["$ref"] is JsonValue lr)
         {
             var siblings = left.DeepClone().AsObject(); siblings.Remove("$ref");
