@@ -7,14 +7,14 @@ using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Planning;
 
-/// <summary>Independent technical checks run together, before a bounded repair.</summary>
+/// <summary>Independent technical checks run together, before a bounded replan.</summary>
 public static class PlanningExecutableValidation
 {
     public static IReadOnlyList<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningCatalog catalog)
     {
         var errors = PlanningStructureValidation.Validate(graph, catalog).ToList();
         // Only broken identities or cycles prevent safe traversal. Report independent
-        // contract errors together so one scope error does not consume an entire repair.
+        // contract errors together so one scope error does not consume an entire replan.
         if (errors.Any(d => d.Code is "WORKFLOW_IDENTITIES_INVALID" or "NODE_IDENTITIES_INVALID" or "PORT_IDENTITIES_INVALID" or "ENTRYPOINT_INVALID" or "DEPENDENCY_CYCLE")) return errors;
         errors.AddRange(PlanningComputationContracts.Findings(graph, catalog));
         errors.AddRange(PlanningArtifactBindings.PrerequisiteFindings(graph, catalog));

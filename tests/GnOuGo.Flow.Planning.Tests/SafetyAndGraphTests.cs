@@ -25,14 +25,14 @@ public sealed class SafetyAndGraphTests
         factory.RegisterServer("test", config);
         var runtime = new TestRuntime(mcp: factory);
         var initial = PlannerFixture.Session(); var catalog = await runtime.DiscoverAsync(initial.Request, Ct);
-        var plan = new WorkflowIntentPlan { Summary = "Perform the action and clean up", Operations = [
-            new InvokeIntentOperation { Id = "action", Capability = catalog.Capabilities.Single(c => c.Method == "action").Id },
-            new CleanupIntentOperation { Id = "finalize", Operations = [new InvokeIntentOperation { Id = "cleanup", After = ["action"], Capability = catalog.Capabilities.Single(c => c.Method == "cleanup").Id }] }
+        var plan = new GroundedPlan { Summary = "Perform the action and clean up", Operations = [
+            new InvokeGroundedOperation { Id = "action", Capability = catalog.Capabilities.Single(c => c.Method == "action").Id },
+            new CleanupGroundedOperation { Id = "finalize", Operations = [new InvokeGroundedOperation { Id = "cleanup", After = ["action"], Capability = catalog.Capabilities.Single(c => c.Method == "cleanup").Id }] }
         ] };
         runtime.Plans.Clear(); runtime.Plans.Enqueue(plan);
         var state = await PlannerFixture.RunAsync(runtime);
         Assert.True(state.Status == PlanningStatus.FinalReview, JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic));
-        Assert.Single(runtime.Calls);
+        Assert.Equal(3, runtime.Calls.Count);
         Assert.Empty(effects); // All validation uses isolated integrations.
         Assert.Contains(state.Scenarios, s => s.Id.StartsWith("confirmation:rejected", StringComparison.Ordinal) && s.Outcome == "passed");
         foreach (var answer in new bool?[] { false, null, true })
@@ -54,11 +54,11 @@ public sealed class SafetyAndGraphTests
         var runtime = new TestRuntime(); var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, Ct);
         foreach (var producerRuns in new[] { true, false })
         {
-            var plan = new WorkflowIntentPlan { Operations = [
-                new CalculateIntentOperation { Id = "resource", When = new() { Kind = "boolean", Boolean = producerRuns }, Value = new() { Kind = "number", Number = 1 } },
-                new CleanupIntentOperation { Id = "finalize", Operations = [new CalculateIntentOperation { Id = "cleanup", After = ["resource"], Value = new() { Kind = "boolean", Boolean = true } }] }
+            var plan = new GroundedPlan { Operations = [
+                new CalculateGroundedOperation { Id = "resource", When = new() { Kind = "boolean", Boolean = producerRuns }, Value = new() { Kind = "number", Number = 1 } },
+                new CleanupGroundedOperation { Id = "finalize", Operations = [new CalculateGroundedOperation { Id = "cleanup", After = ["resource"], Value = new() { Kind = "boolean", Boolean = true } }] }
             ] };
-            var graph = PlanningGraphBuilder.Build(plan, catalog);
+            var graph = PlannerFixture.Build(plan, catalog);
             var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, catalog)));
             var result = await new WorkflowEngine().ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), Ct);
             Assert.True(result.Success, result.Error?.Message);
@@ -71,20 +71,20 @@ public sealed class SafetyAndGraphTests
     public async Task ExplicitDependenciesOrderStepsAndCyclesAreRejected()
     {
         var runtime = new TestRuntime(); var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, Ct);
-        var plan = PlannerFixture.Greeting(); plan.Operations.Insert(0, new CalculateIntentOperation { Id = "after", After = ["greet"], Value = new() { Kind = "number", Number = 1 } });
-        var graph = PlanningGraphBuilder.Build(plan, catalog);
+        var plan = PlannerFixture.Greeting(); plan.Operations.Insert(0, new CalculateGroundedOperation { Id = "after", After = ["greet"], Value = new() { Kind = "number", Number = 1 } });
+        var graph = PlannerFixture.Build(plan, catalog);
         Assert.Equal(["greet", "after"], graph.Workflows[0].Steps.Select(s => s.Key));
-        plan.Operations[1].After.Add("after"); graph = PlanningGraphBuilder.Build(plan, catalog);
-        Assert.Contains(PlanningExecutableValidation.Validate(graph, catalog), d => d.Code == "DEPENDENCY_CYCLE");
-        Assert.Contains(PlanningExecutableValidation.Validate(graph, catalog), d => d.Code == "DEPENDENCY_CYCLE" && d.Message.Contains("greet") && d.Message.Contains("after"));
+        plan.Operations[1].After.Add("after");
+        var invalid = GroundedPlanValidator.Validate(plan, catalog);
+        Assert.Null(invalid.Plan); Assert.Contains(invalid.Diagnostics, d => d.Message.Contains("Cyclic", StringComparison.Ordinal));
     }
     [Fact]
     public async Task ConditionalResultsAreNotAvailableToUnconditionalConsumers()
     {
         var runtime = new TestRuntime(); var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, Ct);
         var plan = PlannerFixture.Greeting(); plan.Operations[0].When = new() { Kind = "boolean", Boolean = false };
-        var graph = PlanningGraphBuilder.Build(plan, catalog);
-        Assert.Contains(PlanningExecutableValidation.Validate(graph, catalog), d => d.Code == "BINDING_UNAVAILABLE");
+        var invalid = GroundedPlanValidator.Validate(plan, catalog);
+        Assert.Null(invalid.Plan); Assert.Contains(invalid.Diagnostics, d => d.Message.Contains("conditional", StringComparison.Ordinal));
     }
     [Fact]
     public async Task RestartResumesResolvedGraphAndReviewWithoutInterpretation()
@@ -101,7 +101,7 @@ public sealed class SafetyAndGraphTests
         var runtime = new TestRuntime(); var state = PlannerFixture.Session(); state.Request.Generation.MaxInputTokensPerRequest = 1024;
         state.Request.Prompt = new string('x', 100000);
         state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.Empty(runtime.Calls); Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_INPUT_LIMIT");
+        Assert.Empty(runtime.Calls); Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_INPUT_LIMIT" && d.Location == "/phases/semantic");
         using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new TypedWorkflowPlanner().AdvanceAsync(PlannerFixture.Session(), new(), runtime, cancellation.Token));
     }

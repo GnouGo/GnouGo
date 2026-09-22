@@ -17,7 +17,7 @@ public sealed class WorkflowValidator
     {
         "sequence", "parallel",
         "loop.sequential", "loop.parallel",
-        "switch", "decision.evaluate", "set", "assert.non_null",
+        "switch", "decision.evaluate", "set", "value.validate", "assert.non_null",
         "template.render",
         "llm.call",
         "workflow.call", "workflow.route", "workflow.plan", "workflow.execute",
@@ -458,9 +458,12 @@ public sealed class WorkflowValidator
     private static void ValidateStepOutputSchema(StepDef step, string wfName, List<ValidationError> errors)
     {
         if (step.OutputSchema == null)
+        {
+            if (step.Type == "value.validate") errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = "output_schema", Message = "value.validate requires a literal output schema." });
             return;
+        }
 
-        if (!string.Equals(step.Type, "set", StringComparison.Ordinal))
+        if (step.Type is not ("set" or "value.validate"))
         {
             errors.Add(new ValidationError
             {

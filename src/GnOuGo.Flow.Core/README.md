@@ -20,9 +20,11 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 
 ## Typed planning
 
-Core owns `PlanningSession`, `WorkflowIntentPlan`, `PlanningGraph`, typed contracts and provider-neutral planning interfaces. It references no other GnOuGo project. Hosts inject the separately publishable Planning implementation and Integrations persistence boundary.
+Core owns `PlanningSession`, `SemanticPlan` / `GroundedPlan`, `PlanningGraph`, typed contracts and provider-neutral planning interfaces. It references no other GnOuGo project. Hosts inject the separately publishable Planning implementation and Integrations persistence boundary.
 
-The flow is discovery → typed intent → graph → deterministic validation/scenarios → final approval. Models interpret meaning; the engine owns executable identities, types, dataflow and policy. Runtime confirmation for protected effects is separate from final artifact approval. See [workflow planning](../../docs/workflow-planning-v2.md).
+Expression inference treats a typed string's literal-regex `match()` result as an array of nullable strings or null. Capture aliases support string methods; optional captures and missing indexes never establish presence. Dynamic patterns and opaque receivers remain uninferred, and runtime failures or `value.validate` still prevent invalid values reaching consumers.
+
+The flow is request → semantic plan → complete capability grounding → grounded plan → deterministic validation → graph → compilation → scenarios → final approval. Models interpret meaning; the engine owns executable identities, types, dataflow and policy. Runtime confirmation for protected effects is separate from final artifact approval. See [workflow planning](../../docs/workflow-planning-v2.md).
 
 Workflow ports can carry an authoritative `schema` object when shorthand types cannot express a catalog contract. JSON Schema constraints and defaults survive parsing, contract export, scenario sampling and runtime input/output validation. Planning derives these ports; the model does not reproduce their schemas.
 
@@ -648,7 +650,7 @@ Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best to
 | Batch/auto | `data.steps.<id>.results` (array) |
 | LLM-assisted | `data.steps.<id>.text`, `data.steps.<id>.json` |
 
-> **Important:** The `response` object is tool-specific. `workflow.plan` treats single-tool MCP responses as opaque unless the tool advertises a valid protocol `ReturnJsonSchema`, exposed through the compatibility `OutputSchema` property. Access `data.steps.<id>.response.<field>` only when that authoritative schema declares the field. Otherwise pass the whole response with `json(data.steps.<id>.response)` or add an `llm.call`/`mcp.call` normalization step with strict `structured_output`.
+> **Important:** The `response` object is tool-specific. `workflow.plan` treats single-tool MCP responses as opaque unless the tool advertises a valid protocol `ReturnJsonSchema`, exposed through the compatibility `OutputSchema` property. Access `data.steps.<id>.response.<field>` only when that authoritative schema declares the field. Otherwise pass the whole response intact, or use `value.validate` with explicit `json_value` / `json_text` format and a literal `output_schema` before accessing fields. Samples never establish output contracts.
 >
 > When an MCP server returns protocol `structuredContent`, `mcp.call` uses that value as `response`. `McpOutputContractResolution` records the discovered schema provenance as `protocol_schema`, `example`, or `description`. Only an error-free `protocol_schema` resolution is authoritative. Example- and description-derived shapes remain prompt hints and never prove nested response fields or capability data flow.
 
@@ -1305,9 +1307,13 @@ Before each selected workflow runs, `workflow.route` emits a `gnougo-flow.step.t
 
 ---
 
+### `value.validate` — Validate an opaque whole value
+
+Accepts `input.value` and `input.format` (`json_value` by default, or explicit `json_text`). The step requires a literal `output_schema` describing its `{value: ...}` output. JSON text is parsed only in text mode. Parsing or schema failure stops the step before downstream effects; the source producer's contract is unchanged. Typed extraction follows through ordinary expressions. Finalizers retain resource-availability guards.
+
 ### `workflow.plan` — Typed workflow planning
 
-Runs the injected planner to typed clarification or final artifact review. A complete plan needs one interpretation call; discovery and singleton holes need none. Missing runtime inputs remain declared inputs. Repairs replace the intent and are fully revalidated.
+Runs the injected semantic/grounded planner to business clarification or final artifact review. Semantic generation has no capability catalog. Grounding covers every authorized capability, then binding uses authoritative contracts. Missing runtime inputs remain declared inputs. Atomic replanning replaces an action or affected scope and reruns validation. Grounding, selection, binding, fixtures and replanning share the total call budget.
 
 ```yaml
 - id: plan
@@ -1319,7 +1325,7 @@ Runs the injected planner to typed clarification or final artifact review. A com
       reasoning: medium
       max_input_tokens: 12000
       max_output_tokens: 8192
-    max_repair_attempts: 2
+    max_replan_attempts: 2
     llm_budget:
       max_calls: 8
       max_total_tokens: 15000000
@@ -1526,9 +1532,9 @@ Increase these limits only for trusted workflows; prefer simplifying expressions
 
 Define reusable functions in the `functions:` block (document-level or workflow-level).
 Runtime functions use JSDoc with typed `@param` entries for every parameter and a
-typed `@returns` entry. Planner models supply only unresolved expression text over
+typed `@returns` entry. The binding model supplies explicit calculations over
 declared parameters. The deterministic compiler generates any required function
-wrapper and documentation; repairs cannot replace a global function block.
+wrapper and documentation; replanning replaces complete grounded scopes.
 
 Scope rules:
 

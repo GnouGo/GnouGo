@@ -25,7 +25,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             {
                 TenantId = ctx.Limits.TenantId ?? "default", Name = input["name"]?.GetValue<string>() ?? "generated",
                 Prompt = input["raw_prompt"]?.GetValue<string>() ?? "", Options = options,
-                MaxRepairAttempts = input["max_repair_attempts"]?.GetValue<int>() ?? 2,
+                MaxReplanAttempts = input["max_replan_attempts"]?.GetValue<int>() ?? 2,
                 MaxModelCalls = input["llm_budget"]?["max_calls"]?.GetValue<int>() ?? 8,
                 Generation = new()
                 {
@@ -54,12 +54,12 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 if (state.Status == PlanningStatus.Clarification)
                 {
                     var answers = new JsonObject();
-                    foreach (var question in state.IntentPlan!.Questions)
+                    foreach (var question in state.SemanticPlan!.Questions)
                     {
                         var answer = await human.RequestInputAsync(new HumanInputRequest
                         {
                             RunId = state.Request.SessionId, StepId = question.Id,
-                            Prompt = question.Question + "\nReturn a JSON value of this business type: " + System.Text.Json.JsonSerializer.Serialize(question.AnswerType, PlanningJsonContext.Default.IntentType),
+                            Prompt = question.Question + "\nReturn a JSON value of this business type: " + System.Text.Json.JsonSerializer.Serialize(question.AnswerType, PlanningJsonContext.Default.BusinessType),
                             Mode = "text", AllowAbandon = true
                         }, ct);
                         if (HumanInputContract.IsAbandoned(answer)) { command.Kind = "cancel"; break; }
@@ -75,7 +75,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     {
                         RunId = state.Request.SessionId, StepId = "review-" + state.Revision,
                         Prompt = "Review the validated workflow. Scenario checks use simulated integrations.",
-                        Context = JsonValue.Create(state.IntentPlan?.Summary + "\n\n```yaml\n" + state.Yaml + "\n```"),
+                        Context = JsonValue.Create(state.SemanticPlan?.Summary + "\n\n```yaml\n" + state.Yaml + "\n```"),
                         Mode = "choice", Choices = ["approve", "revise", "cancel"], AllowAbandon = true
                     }, ct);
                     command.Kind = HumanInputContract.IsAbandoned(answer) ? "cancel" : (answer is JsonObject obj ? obj["response"] : answer)?.GetValue<string>() ?? "cancel";

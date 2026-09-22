@@ -41,13 +41,13 @@ internal static class PlanningEndpoints
     }
 
     internal static PlanningSessionDto ToDto(PlanningSession state) => new(
-        state.Request.SessionId, state.Request.Name, state.Revision, state.Status, state.IntentPlan?.Summary ?? "", PlanningReviewFormatter.Diagram(state.Graph),
-        state.IntentPlan is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(state.IntentPlan, PlanningJsonContext.Default.WorkflowIntentPlan)!.AsObject(),
+        state.Request.SessionId, state.Request.Name, state.Revision, state.Status, state.SemanticPlan?.Summary ?? "", PlanningReviewFormatter.Diagram(state.Graph),
+        state.SemanticPlan is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(state.SemanticPlan, PlanningJsonContext.Default.SemanticPlan)!.AsObject(),
+        state.GroundedPlan is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(state.GroundedPlan, PlanningJsonContext.Default.GroundedPlan)!.AsObject(),
         state.Yaml, PlanningArtifactApproval.Hash(state), state.ApprovedHash,
-        state.Graph is null || state.Catalog is null ? [] : PlanningHoleEligibility.Find(state.Graph, state.Catalog).Select(h => new PlanningHoleDto(h.Id, h.Kind, h.Path)).ToArray(),
         state.Diagnostics.Select(d => new PlanningValidationDto(d.Code, d.Location, d.Message, d.Required)).ToArray(),
         state.Scenarios.Select(s => new PlanningScenarioDto(s.Id, s.Outcome, s.Description)).ToArray(),
-        state.Status == PlanningStatus.Clarification ? state.IntentPlan!.Questions.Select(q => new PlanningQuestionDto(q.Id, q.Question, PlanningGraphCompiler.ToJsonSchema(PlanningGraphBuilder.Schema(q.AnswerType), state.Catalog!))).ToArray() : [],
-        state.ModelCalls, state.RepairAttempts, state.Usage?.InputTokens ?? 0, state.Usage?.OutputTokens ?? 0,
-        state.Usage?.EstimatedCost ?? 0, state.Usage?.EstimatedCostCurrency ?? "", state.ActiveMilliseconds, state.HumanWaitMilliseconds);
+        state.Status == PlanningStatus.Clarification ? state.SemanticPlan!.Questions.Select(q => new PlanningQuestionDto(q.Id, q.Question, PlanningGraphCompiler.ToJsonSchema(PlanningGraphBuilder.Schema(q.AnswerType), state.Catalog!))).ToArray() : [],
+        state.ModelCalls, state.ReplanAttempts, state.Usage?.InputTokens ?? 0, state.Usage?.OutputTokens ?? 0,
+        state.Usage?.EstimatedCost ?? 0, state.Usage?.EstimatedCostCurrency ?? "", state.ActiveMilliseconds, state.HumanWaitMilliseconds, state.Phase);
 }

@@ -47,24 +47,38 @@ public sealed class PlanningSessionService(
     public Task<IReadOnlyList<PlanningSession>> ListAsync(CancellationToken ct) => store.ListAsync(Tenant, ct);
 
     // Workflow-owned sessions are inspection-only here. Their original runtime owns all commands.
-    private const string WorkflowSessions = "flow-planning-sessions-v7";
+    private const string WorkflowSessions = "flow-planning-sessions-v8";
     public async Task<PlanningSession?> GetWorkflowSessionAsync(string id, CancellationToken ct)
     {
-        var record = await records.GetAsync(WorkflowSessions, Tenant, id, EfPlanningSessionStore.Author, ct);
-        return record is null ? null : ReadWorkflowSession(record.Key, record.Value);
+        return (await InspectAsync(id, true, ct))?.RequireSession();
     }
 
     public async Task<IReadOnlyList<PlanningSession>> ListWorkflowSessionsAsync(CancellationToken ct)
         => (await records.ListAsync(WorkflowSessions, Tenant, EfPlanningSessionStore.Author, ct))
-            .Select(record => ReadWorkflowSession(record.Key, record.Value)).OrderByDescending(s => s.UpdatedAtUtc).ToArray();
+            .Select(ReadWorkflowSession).Where(s => s.Session is not null).Select(s => s.Session!).OrderByDescending(s => s.UpdatedAtUtc).ToArray();
 
-    private PlanningSession ReadWorkflowSession(string key, string payload)
+    internal async Task<IReadOnlyList<PlanningSessionListEntry>> ListHistoryAsync(CancellationToken ct)
     {
-        var state = JsonSerializer.Deserialize(payload, PlanningJsonContext.Default.PlanningSession);
-        if (state is null || state.SchemaVersion != 7 || state.Request.SessionId != key || state.Request.TenantId != Tenant)
-            throw new InvalidOperationException("The workflow planning session ownership or schema is invalid.");
-        return state;
+        var designer = await EfPlanningSessionStore.InspectAllAsync(contexts, records, Tenant, ct);
+        var chat = await records.ListAsync(WorkflowSessions, Tenant, EfPlanningSessionStore.Author, ct);
+        return designer.Concat(chat.Select(ReadWorkflowSession)).Select(s => s.Entry).OrderByDescending(s => s.UpdatedAtUtc).ToArray();
     }
+
+    internal async Task<PlanningSessionInspection?> InspectAsync(string id, bool workflow, CancellationToken ct)
+    {
+        if (workflow)
+        {
+            var record = await records.GetAsync(WorkflowSessions, Tenant, id, EfPlanningSessionStore.Author, ct);
+            return record is null ? null : ReadWorkflowSession(record);
+        }
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        var tenant = Tenant;
+        var row = await db.Sessions.AsNoTracking().SingleOrDefaultAsync(s => s.TenantId == tenant && s.SessionId == id, ct);
+        return row is null ? null : await EfPlanningSessionStore.InspectAsync(records, row, ct);
+    }
+
+    private PlanningSessionInspection ReadWorkflowSession(KeyVaultRecordValue record)
+        => PlanningSessionHistory.Read(record.Value, Tenant, record.Key, true, record.UpdatedAt);
 
     public async Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null)
     {
@@ -98,7 +112,7 @@ public sealed class PlanningSessionService(
                 Options = options,
                 Policy = AgentPlanningPolicy.Create(),
                 MaxModelCalls = settings.Value.MaxModelCalls,
-                MaxRepairAttempts = settings.Value.MaxRepairAttempts,
+                MaxReplanAttempts = settings.Value.MaxReplanAttempts,
                 Generation = new() { Reasoning = settings.Value.Reasoning, MaxInputTokensPerRequest = settings.Value.MaxInputTokensPerRequest, MaxOutputTokens = settings.Value.MaxOutputTokens }
             },
             UpdatedAtUtc = DateTimeOffset.UtcNow
@@ -107,7 +121,7 @@ public sealed class PlanningSessionService(
         {
             var discovery = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory, PlanningPolicy = AgentPlanningPolicy.Create() }, (_, _) => Task.CompletedTask);
             state.Catalog = await discovery.DiscoverAsync(state.Request, ct);
-            state.Request.Baseline = PlanningIntentImporter.Import(PlanningGraphImporter.Import(original, state.Catalog));
+            state.Request.RevisionContext = PlanningRevisionContext.FromGraph(PlanningGraphImporter.Import(original, state.Catalog));
         }
         PlanningGenerationPolicy.Validate(state.Request.Generation);
         if (!await store.TrySaveAsync(state, expectedRevision: null, ct)) throw new PlanningConflictException("The planning session already exists.");
@@ -223,7 +237,7 @@ public sealed class PlanningSessionService(
             current.UpdatedAtUtc = completion.UpdatedAt;
         }
 
-        if (command.Kind is "cancel" or "edit_intent" or "revise" or "configure_generation" or "answer")
+        if (command.Kind is "cancel" or "edit_semantic" or "revise" or "configure_generation" or "answer")
         {
             var recordedUsage = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, current.Request.SessionId, EfPlanningSessionStore.Author, ct);
             if (recordedUsage is not null) current.Usage = JsonSerializer.Deserialize(recordedUsage.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
@@ -274,7 +288,7 @@ public sealed class PlanningSessionService(
         var updated = await planner.AdvanceAsync(current, command, adapter, ct);
         activity?.SetTag("gnougo.planning.status", updated.Status);
         activity?.SetTag("gnougo.planning.calls", updated.ModelCalls);
-        activity?.SetTag("gnougo.planning.repairs", updated.RepairAttempts);
+        activity?.SetTag("gnougo.planning.replans", updated.ReplanAttempts);
         activity?.SetTag("gnougo.planning.diagnostics", string.Join(",", updated.Diagnostics.Select(d => d.Code).Distinct()));
         PhaseDuration.Record(clock.Elapsed.TotalSeconds, new KeyValuePair<string, object?>("tenant.id", Tenant));
         return updated;

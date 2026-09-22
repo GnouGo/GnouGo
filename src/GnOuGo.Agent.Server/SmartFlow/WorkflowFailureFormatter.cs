@@ -112,7 +112,7 @@ internal static class WorkflowFailureFormatter
             builder.AppendLine().AppendLine(error.Code switch
             {
                 ErrorCodes.CapabilityPreflightUnavailable => "Terminal capability failure:",
-                ErrorCodes.CapabilityPreflightInferenceFailed => "Automatic capability-contract repair outcome:",
+                ErrorCodes.CapabilityPreflightInferenceFailed => "Capability grounding outcome:",
                 _ => "Intent clarification outcome:"
             });
             builder.Append("- Outcome: ").AppendLine(Sanitize(planningOutcome, 80));
@@ -270,11 +270,11 @@ internal static class WorkflowFailureFormatter
             }
             else if (onlyAmbiguousMatches)
             {
-                builder.Append("Clarify the observable behavior, scope, or runtime policy that distinguishes the remaining capability choices.");
+                builder.Append("Clarify the observable behavior, scope, or runtime policy that distinguishes the remaining capability matches.");
             }
             else if (onlyContractGaps)
             {
-                builder.Append("Automatic contract repair was exhausted. A safe behavior-only relaxation was unavailable, declined, or outside the remaining clarification budget; planning stopped before generation and persistence.");
+                builder.Append("Capability grounding could not establish a safe binding. Revise the business action or supply the missing required information.");
             }
             else
             {

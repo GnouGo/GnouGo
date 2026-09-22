@@ -17,6 +17,46 @@ public sealed class PlanningTraceUiTests : BunitContext
 {
     private static CancellationToken Ct => Xunit.TestContext.Current.CancellationToken;
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task IncompatibleHistoryRemainsVisibleWithoutBlockingHealthySessions(bool workflow)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        Configure(fixture);
+        Assert.True(await fixture.Store.TrySaveAsync(Session("healthy-designer", "healthy designer", PlanningStatus.Stopped), null, Ct));
+        await StoreWorkflow(fixture, Session("healthy-chat", "healthy chat", PlanningStatus.FinalReview));
+        var legacy = await PlanningHistoryTests.StoreLegacyAsync(fixture, workflow);
+        var traceId = Capture("legacy", workflow, "historical planning trace");
+        var cut = Render<PlanningPage>();
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("healthy designer", cut.Markup);
+            Assert.Contains("healthy chat", cut.Markup);
+            Assert.Contains("legacy session", cut.Markup);
+            Assert.Contains("Unavailable", cut.Markup);
+            Assert.DoesNotContain("could not be mapped", cut.Markup);
+        });
+        cut.Find("button[aria-label='Traces for legacy session']").Click();
+        cut.WaitForAssertion(() => Assert.Contains(traceId, cut.Markup));
+        var source = workflow ? "?source=workflow" : "";
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/legacy" + source);
+        cut.Render(p => p.Add(c => c.SessionId, "legacy"));
+        cut.WaitForAssertion(() => Assert.Contains("This saved planning session cannot be loaded by the current version. Start a new plan.", cut.Markup));
+        Assert.DoesNotContain("Approve this revision", cut.Markup);
+        Assert.DoesNotContain("Retry with retained usage", cut.Markup);
+        Assert.DoesNotContain("Revise workflow", cut.Markup);
+        Assert.DoesNotContain("Cancel planning", cut.Markup);
+        cut.Find("main button").Click();
+        cut.WaitForAssertion(() => Assert.Contains(traceId, cut.Markup));
+        // A second load must remain read-only, including the uncertain reservation.
+        cut.Render(p => p.Add(c => c.SessionId, "legacy"));
+        cut.WaitForAssertion(() => Assert.Contains("cannot be loaded by the current version", cut.Markup));
+        var after = await fixture.Records.GetAsync(legacy.Collection, legacy.TenantId, legacy.Key, "test", Ct);
+        Assert.Equal(legacy, after);
+        await DisposeComponentsAsync();
+    }
+
     [Fact]
     public async Task ListShowsBothOriginsAndOpensSelectedSessionTraces()
     {
@@ -134,6 +174,6 @@ public sealed class PlanningTraceUiTests : BunitContext
     };
 
     private static Task StoreWorkflow(PlanningPersistenceTests.StoreFixture fixture, PlanningSession state)
-        => fixture.Records.UpsertAsync("flow-planning-sessions-v7", "planning-tests", state.Request.SessionId,
+        => fixture.Records.UpsertAsync("flow-planning-sessions-v8", "planning-tests", state.Request.SessionId,
             JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
 }

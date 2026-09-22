@@ -60,7 +60,7 @@ internal static class PlanningModelRecovery
         if (state.ModelCalls >= Math.Min(state.Request.MaxModelCalls, limits.MaxCalls ?? int.MaxValue) ||
             limits.MaxTotalTokens is { } tokens && corrected.TotalTokens >= tokens ||
             limits.MaxEstimatedCost is { } cost && corrected.EstimatedCost >= cost.Amount ||
-            pending.Purpose == "repair" && state.RepairAttempts >= state.Request.MaxRepairAttempts)
+            pending.Purpose == "replan" && state.ReplanAttempts >= state.Request.MaxReplanAttempts)
         {
             state.Diagnostics = [new(ErrorCodes.LlmBudgetExceeded, "$", "Recovery retained the failed dispatch and its estimated usage; no retry allowance remains.")];
             return;
@@ -69,7 +69,7 @@ internal static class PlanningModelRecovery
         request.ClientRequestId = null;
         var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         request.ClientRequestId = session + ":" + (++state.ModelCalls) + ":" + hash;
-        if (pending.Purpose == "repair") state.RepairAttempts++;
+        if (pending.Purpose == "replan") state.ReplanAttempts++;
         state.PendingCall = new() { Id = request.ClientRequestId, Purpose = pending.Purpose, Request = request };
         state.Status = PlanningStatus.Generating; state.Diagnostics.Clear(); state.Yaml = null; state.ApprovedHash = null;
     }

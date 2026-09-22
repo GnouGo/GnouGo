@@ -119,7 +119,7 @@ public static class WorkflowPlanSemanticValidator
             var functionDefinitions = BuildFunctionDefinitions(workflow.Functions, $"workflows.{workflowName}.functions", globalFunctionDefinitions);
             ValidateLoopResultsFunctionCalls(allSteps, workflowName, functionDefinitions, errors);
             ValidateStepList(
-                allSteps,
+                workflow.Steps,
                 workflowName,
                 document.Workflows,
                 workflow.Inputs,
@@ -132,6 +132,21 @@ public static class WorkflowPlanSemanticValidator
                 mcpContracts,
                 stepContracts,
                 errors);
+
+            // Outputs are evaluated only after successful main execution and successful finalization.
+            // Failure-path guards remain in the executable workflow; their truth here needs a proof.
+            var guaranteed = workflow.Steps.Where(s => string.IsNullOrWhiteSpace(s.If) &&
+                !(s.OnError?.Cases.Any(c => c.Action == "continue") ?? false) &&
+                symbols.TryGetStepOutput(s.Id, out var output) && output.Kind == FlowTypeKind.Object)
+                .Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
+            foreach (var finalizer in workflow.Finally)
+            {
+                var proven = WorkflowResultAvailability.GuardHolds(finalizer.If, guaranteed);
+                ValidateStep(finalizer, workflowName, document.Workflows, workflow.Inputs, knownContracts, symbols, allStepIds,
+                    allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors, proven);
+                if ((proven || string.IsNullOrWhiteSpace(finalizer.If)) && !(finalizer.OnError?.Cases.Any(c => c.Action == "continue") ?? false) &&
+                    symbols.TryGetStepOutput(finalizer.Id, out var output) && output.Kind == FlowTypeKind.Object) guaranteed.Add(finalizer.Id);
+            }
 
             if (workflow.Outputs != null)
             {
@@ -882,7 +897,8 @@ public static class WorkflowPlanSemanticValidator
         IReadOnlySet<string> knownEmptyStringReferences,
         Dictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
         IReadOnlyDictionary<string, StepContract> stepContracts,
-        List<WorkflowSemanticValidationError> errors)
+        List<WorkflowSemanticValidationError> errors,
+        bool conditionProven = false)
     {
         ValidateString(step.If, workflowName, step.Id, "if", symbols, allowedFunctionNames, errors);
         ValidateString(step.Expr, workflowName, step.Id, "expr", symbols, allowedFunctionNames, errors);
@@ -926,7 +942,7 @@ public static class WorkflowPlanSemanticValidator
             step.Id,
             errors);
 
-        var stepIsConditional = !string.IsNullOrWhiteSpace(step.If);
+        var stepIsConditional = !conditionProven && !string.IsNullOrWhiteSpace(step.If);
         FlowTypeDescriptor? resolvedStepOutputType = null;
 
         if (step.OnError != null)
@@ -1074,9 +1090,12 @@ public static class WorkflowPlanSemanticValidator
         List<WorkflowSemanticValidationError> errors)
     {
         if (step.OutputSchema == null)
+        {
+            if (step.Type == "value.validate") errors.Add(new WorkflowSemanticValidationError { Code = "VALIDATION_SCHEMA_REQUIRED", WorkflowName = workflowName, StepId = step.Id, Field = "output_schema", Message = "value.validate requires a literal output schema." });
             return;
+        }
 
-        if (!string.Equals(step.Type, "set", StringComparison.Ordinal))
+        if (step.Type is not ("set" or "value.validate"))
         {
             errors.Add(new WorkflowSemanticValidationError
             {
@@ -1137,6 +1156,10 @@ public static class WorkflowPlanSemanticValidator
                 Message = "set output_schema root must declare type: object."
             });
         }
+
+        // This executor validates the whole value at runtime before publishing output.
+        // Its source may be opaque; the ordinary set assertion rules remain unchanged.
+        if (step.Type == "value.validate") return;
 
         if (step.Input == null)
             return;

@@ -12,6 +12,31 @@ public sealed class CleanupOrderingTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Fact]
+    public async Task FinalizerChainsGuardEarlierCleanupResultsAndExposeSuccessfulOutputs()
+    {
+        var catalog = await new TestRuntime().DiscoverAsync(PlannerFixture.Session().Request, Ct);
+        var plan = new GroundedPlan
+        {
+            Operations = [new CalculateGroundedOperation { Id = "acquire", Value = new() { Kind = "object", Members = [new("resource", new() { Kind = "string", Text = "owned" })] } },
+                new CleanupGroundedOperation { Id = "cleanup", Operations = [
+                    new CalculateGroundedOperation { Id = "release", Value = new() { Kind = "object", Members = [new("resource", new() { Kind = "result", Source = "acquire", Path = ["resource"] }), new("released", new() { Kind = "boolean", Boolean = true })] } },
+                    new CalculateGroundedOperation { Id = "verify", Value = new() { Kind = "result", Source = "release" } }] }],
+            Outputs = [new("released", new() { Kind = "result", Source = "verify", Path = ["released"] })]
+        };
+        var graph = PlannerFixture.Build(plan, catalog);
+        Assert.True(PlanningGraphBuilder.GuardsFinalizerSource(graph.Workflows[0].Finally[1], "release"));
+        Assert.Empty(PlanningExecutableValidation.Validate(graph, catalog));
+        var yaml = new PlanningGraphCompiler().Compile(graph, catalog);
+        var document = WorkflowParser.Parse(yaml);
+        WorkflowPlanSemanticValidator.Validate(document);
+        var scenarios = await WorkflowPlanScenarioValidator.ValidateAsync(document, null, Ct);
+        Assert.All(scenarios, scenario => Assert.True(scenario.Outcome == "passed", scenario.Id + ": " + string.Join("; ", scenario.Diagnostics.Select(d => d.Code + ": " + d.Message))));
+        Assert.Equal(5, scenarios.Count);
+        graph.Workflows[0].Finally[0].If = new() { Kind = "boolean", Boolean = false };
+        Assert.Contains(PlanningDataflow.Validate(graph, catalog), d => d.Required);
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]
@@ -28,12 +53,12 @@ public sealed class CleanupOrderingTests
             return new();
         });
         var runtime = new TestRuntime(mcp: factory); var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, Ct);
-        var cleanup = new CleanupIntentOperation { Id = "finalize", After = groupDependency ? ["perform"] : [], Operations =
+        var cleanup = new CleanupGroundedOperation { Id = "finalize", After = groupDependency ? ["perform"] : [], Operations =
             [Invoke(catalog, "release", groupDependency ? [] : ["perform"])] };
         var plan = Plan([Invoke(catalog, "perform"), cleanup], nested);
         runtime.Plans.Clear(); runtime.Plans.Enqueue(plan);
         var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Single(runtime.Calls); Assert.Empty(effects);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(3, runtime.Calls.Count); Assert.Empty(effects);
         var body = state.Graph!.Workflows.Single(w => w.Finally.Any(n => n.Key == "release"));
         Assert.Equal(["perform"], body.Finally[0].Dependencies); Assert.Null(body.Finally[0].If);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
@@ -74,8 +99,8 @@ public sealed class CleanupOrderingTests
             var release = Invoke(catalog, "release", ["perform"]);
             release.Arguments = [new("resource", new() { Kind = "result", Source = "acquire", Path = ["resource"] })];
             release.When = new() { Kind = "result", Source = "acquire", Path = ["ready"] };
-            var graph = PlanningGraphBuilder.Build(Plan([acquire, Invoke(catalog, "perform", ["acquire"]),
-                new CleanupIntentOperation { Id = "finalize", Operations = [release] }], nested), catalog);
+            var graph = PlannerFixture.Build(Plan([acquire, Invoke(catalog, "perform", ["acquire"]),
+                new CleanupGroundedOperation { Id = "finalize", Operations = [release] }], nested), catalog);
             PlanningConfirmationGuards.Apply(graph, catalog);
             var body = graph.Workflows.Single(w => w.Finally.Any(n => n.Key == "release"));
             var finalizer = Assert.Single(body.Finally);
@@ -105,11 +130,11 @@ public sealed class CleanupOrderingTests
     public async Task ConditionOnlyReferencesAreGuardedAndExplicitFalseIsPreserved()
     {
         var runtime = new TestRuntime(); var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, Ct);
-        foreach (var condition in new[] { new IntentValue { Kind = "result", Source = "resource" }, new IntentValue { Kind = "boolean", Boolean = false } })
+        foreach (var condition in new[] { new GroundedValue { Kind = "result", Source = "resource" }, new GroundedValue { Kind = "boolean", Boolean = false } })
         {
-            var graph = PlanningGraphBuilder.Build(new() { Operations = [
-                new CalculateIntentOperation { Id = "resource", When = new() { Kind = "boolean", Boolean = false }, Value = new() { Kind = "boolean", Boolean = true } },
-                new CleanupIntentOperation { Id = "finalize", When = condition, After = ["resource"], Operations = [Number("release")] }
+            var graph = PlannerFixture.Build(new() { Operations = [
+                new CalculateGroundedOperation { Id = "resource", When = new() { Kind = "boolean", Boolean = false }, Value = new() { Kind = "boolean", Boolean = true } },
+                new CleanupGroundedOperation { Id = "finalize", When = condition, After = ["resource"], Operations = [Number("release")] }
             ] }, catalog);
             Assert.Equal(condition.Kind == "result", PlanningGraphBuilder.GuardsFinalizerSource(graph.Workflows[0].Finally[0], "resource"));
             var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, catalog)));
@@ -121,8 +146,8 @@ public sealed class CleanupOrderingTests
     [Fact]
     public async Task StoredGraphSurvivesRestartAndExplicitRevisionNeedsFreshApproval()
     {
-        var plan = new WorkflowIntentPlan { Operations = [Number("main"),
-            new CleanupIntentOperation { Id = "finalize", Operations = [Number("release", "main")] }] };
+        var plan = new GroundedPlan { Operations = [Number("main"),
+            new CleanupGroundedOperation { Id = "finalize", Operations = [Number("release", "main")] }] };
         var runtime = new TestRuntime(plan); var state = await PlannerFixture.RunAsync(runtime);
         // A persisted graph may still contain the former completion guard. Restart keeps
         // its executable meaning; only an explicit revision rebuilds from business intent.
@@ -139,7 +164,7 @@ public sealed class CleanupOrderingTests
         Assert.Null(revised.ApprovedHash); Assert.Null(revised.Graph); Assert.Null(revised.Yaml);
         revised = await PlannerFixture.RunAsync(nextRuntime, revised);
         Assert.Equal(PlanningStatus.FinalReview, revised.Status); Assert.Null(revised.Graph!.Workflows[0].Finally[0].If);
-        Assert.NotEqual(state.Yaml, revised.Yaml); Assert.Equal(state.ModelCalls + 1, revised.ModelCalls);
+        Assert.NotEqual(state.Yaml, revised.Yaml); Assert.Equal(state.ModelCalls + 2, revised.ModelCalls);
         await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(revised,
             new() { Kind = "approve", ExpectedRevision = revised.Revision, ArtifactHash = state.ApprovedHash }, nextRuntime, Ct));
         Assert.Equal(original, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
@@ -150,28 +175,54 @@ public sealed class CleanupOrderingTests
     {
         var runtime = new TestRuntime(); var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, Ct);
         var first = Number("first"); var last = Number("last", "first");
-        var plan = new WorkflowIntentPlan { Operations = [Number("main"), new CleanupIntentOperation { Id = "finalize", After = ["main"], Operations = [last, first] }] };
-        var graph = PlanningGraphBuilder.Build(plan, catalog);
+        var plan = new GroundedPlan { Operations = [Number("main"), new CleanupGroundedOperation { Id = "finalize", After = ["main"], Operations = [last, first] }] };
+        var graph = PlannerFixture.Build(plan, catalog);
         Assert.Equal(["first", "last"], graph.Workflows[0].Finally.Select(n => n.Key));
         Assert.All(graph.Workflows[0].Finally, n => Assert.Null(n.If));
         Assert.Empty(PlanningExecutableValidation.Validate(graph, catalog));
         first.After = ["last"];
-        Assert.Contains(PlanningExecutableValidation.Validate(PlanningGraphBuilder.Build(plan, catalog), catalog), d => d.Code == "DEPENDENCY_CYCLE" && d.Location.StartsWith("/workflows/0/finally/", StringComparison.Ordinal));
+        Assert.Contains(GroundedPlanValidator.Validate(plan, catalog).Diagnostics, d => d.Message.Contains("Cyclic", StringComparison.Ordinal));
         first.After = ["missing"];
-        Assert.Contains(PlanningExecutableValidation.Validate(PlanningGraphBuilder.Build(plan, catalog), catalog), d => d.Code == "DEPENDENCY_UNKNOWN" && d.Location == "/workflows/0/finally/0/dependencies");
+        Assert.Contains(GroundedPlanValidator.Validate(plan, catalog).Diagnostics, d => d.Message.Contains("Invalid dependency: missing", StringComparison.Ordinal));
         first.After = []; plan.Operations[0].After = ["last"];
-        Assert.Contains(PlanningExecutableValidation.Validate(PlanningGraphBuilder.Build(plan, catalog), catalog), d => d.Code == "DEPENDENCY_SCOPE" && d.Location == "/workflows/0/steps/0/dependencies");
+        Assert.Contains(GroundedPlanValidator.Validate(plan, catalog).Diagnostics, d => d.Message.Contains("Invalid dependency: last", StringComparison.Ordinal));
     }
 
-    private static CalculateIntentOperation Number(string id, params string[] after) => new() { Id = id, After = [.. after], Value = new() { Kind = "number", Number = 1 } };
-    private static InvokeIntentOperation Invoke(PlanningCatalog catalog, string method, string[]? after = null) => new()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CleanupResultsAreExportedOnlyAfterSuccessfulResourceAcquisition(bool acquisitionFails)
+    {
+        var effects = new List<string>();
+        var factory = Factory(true, (method, _) => {
+            effects.Add(method);
+            if (method == "acquire" && acquisitionFails) throw new InvalidOperationException("Acquisition failed");
+            return method == "acquire" ? new JsonObject { ["resource"] = "owned", ["ready"] = true } : new JsonObject();
+        });
+        var catalog = await new TestRuntime(mcp: factory).DiscoverAsync(PlannerFixture.Session().Request, Ct);
+        var release = Invoke(catalog, "release"); release.Arguments = [new("resource", new() { Kind = "result", Source = "acquire", Path = ["resource"] })];
+        var plan = new GroundedPlan { Operations = [Invoke(catalog, "acquire"), new CleanupGroundedOperation { Id = "cleanup", Operations = [release] }], Outputs = [new("cleanupResult", new() { Kind = "result", Source = "release" })] };
+        var graph = PlannerFixture.Build(plan, catalog); PlanningConfirmationGuards.Apply(graph, catalog);
+        var yaml = new PlanningGraphCompiler().Compile(graph, catalog, "cleanup-result");
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        var result = await new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human() }.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), Ct);
+        Assert.Equal(!acquisitionFails, result.Success);
+        if (acquisitionFails) { Assert.DoesNotContain("release", effects); Assert.Null(result.Outputs); }
+        else { Assert.Contains("release", effects); Assert.NotNull(result.Outputs!["cleanupResult"]); }
+        var body = graph.Workflows.Single(w => w.Finally.Any(n => n.Key == "release"));
+        body.Finally.Single().If = new() { Kind = "boolean", Boolean = false };
+        Assert.Contains(PlanningDataflow.Validate(graph, catalog), d => d.Required);
+    }
+
+    private static CalculateGroundedOperation Number(string id, params string[] after) => new() { Id = id, After = [.. after], Value = new() { Kind = "number", Number = 1 } };
+    private static InvokeGroundedOperation Invoke(PlanningCatalog catalog, string method, string[]? after = null) => new()
     { Id = method, Capability = catalog.Capabilities.Single(c => c.Method == method).Id, After = after?.ToList() ?? [] };
-    private static WorkflowIntentPlan Plan(List<IntentOperation> operations, bool nested)
+    private static GroundedPlan Plan(List<GroundedOperation> operations, bool nested)
     {
         operations.Add(Number("finish", "perform"));
-        var outputs = new List<IntentOutput> { new("result", new() { Kind = "result", Source = "finish" }) };
+        var outputs = new List<GroundedOutput> { new("result", new() { Kind = "result", Source = "finish" }) };
         return nested
-            ? new() { Operations = [new CallIntentOperation { Id = "run", Flow = "job" }], Subflows = [new("job", [], operations, outputs)],
+            ? new() { Operations = [new CallGroundedOperation { Id = "run", Flow = "job" }], Subflows = [new("job", [], operations, outputs)],
                 Outputs = [new("result", new() { Kind = "result", Source = "run", Path = ["result"] })] }
             : new() { Operations = operations, Outputs = outputs };
     }

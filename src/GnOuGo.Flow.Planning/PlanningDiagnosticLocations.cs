@@ -5,10 +5,13 @@ internal static class PlanningDiagnosticLocations
 {
     internal static List<PlanningDiagnostic> ForIntent(PlanningSession state)
     {
-        if (state.IntentPlan is null || state.Graph is null) return state.Diagnostics.ToList();
-        var operations = IntentTraversal.Located(state.IntentPlan).ToArray();
-        var mapped = state.Diagnostics.Select(d => Map(d)).Distinct().ToList();
-        // Keep every decision in session diagnostics; repair context folds only known producer consequences into their root.
+        if (state.GroundedPlan is null || state.Graph is null) return state.Diagnostics.ToList();
+        var operations = GroundedTraversal.Located(state.GroundedPlan).ToArray();
+        // A failed workflow call propagates its callee's failure. Keep both in the
+        // scenario evidence, but replan the located cause rather than treating a
+        // generated confirmation wrapper as a defective host operation.
+        var mapped = state.Diagnostics.Where(d => !PropagatedScenarioFailure(d)).Select(d => Map(d)).Distinct().ToList();
+        // Keep every decision in session diagnostics; replanning context folds only known producer consequences into their root.
         foreach (var root in mapped.Where(d => d.Code is "SCHEMA_INVALID" or "STRUCTURED_OUTPUT_INVALID").ToArray())
         {
             var operation = operations.Where(o => root.Location == o.Path || root.Location.StartsWith(o.Path + "/", StringComparison.Ordinal)).OrderByDescending(o => o.Path.Length).FirstOrDefault().Operation;
@@ -20,6 +23,23 @@ internal static class PlanningDiagnosticLocations
             mapped[index] = root with { Message = root.Message + " Dependent intent locations: " + string.Join(", ", dependent.Select(d => d.Location).Distinct()) };
         }
         return mapped;
+        bool PropagatedScenarioFailure(PlanningDiagnostic finding)
+        {
+            if (finding.Code != "SCENARIO_EXECUTION_FAILED") return false;
+            var call = state.Graph.Workflows.SelectMany((w, wi) => PlanningGraphValidation.Located(w.Steps, "/workflows/" + wi + "/steps")
+                .Concat(PlanningGraphValidation.Located(w.Finally, "/workflows/" + wi + "/finally")))
+                .FirstOrDefault(n => n.Path == finding.Location && n.Node.Type == "workflow.call").Node;
+            if (call is null || PlanningGraphValidation.Member(call.Input, "ref") is not { Kind: "workflow", Source: { } target }) return false;
+            var index = state.Graph.Workflows.FindIndex(w => w.Key == target);
+            if (index < 0) return false;
+            var targetPath = "/workflows/" + index + "/";
+            return state.Scenarios.Where(s => s.Outcome != "passed").Any(s =>
+            {
+                var failures = s.Diagnostics.Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, state.Graph))
+                    .Where(d => d.Required && d.Code == "SCENARIO_EXECUTION_FAILED").ToArray();
+                return failures.Any(d => d.Location == finding.Location) && failures.Any(d => d.Location.StartsWith(targetPath, StringComparison.Ordinal));
+            });
+        }
         PlanningDiagnostic Map(PlanningDiagnostic finding, HashSet<string>? captures = null)
         {
             if (finding.ValidationStage is "intent" or "fixtures" || !finding.Location.StartsWith("/workflows/", StringComparison.Ordinal)) return finding;
@@ -30,7 +50,7 @@ internal static class PlanningDiagnosticLocations
                 .Where(n => finding.Location == n.Path || finding.Location.StartsWith(n.Path + "/", StringComparison.Ordinal)).OrderByDescending(n => n.Path.Length).FirstOrDefault();
             if (located.Node is { } node)
             {
-                var owned = operations.Where(o => IntentTraversal.GraphOwner(state.IntentPlan, o.Path) == (workflow.Key == PlanningConfirmationGuards.Body ? "main" : workflow.Key)).ToArray();
+                var owned = operations.Where(o => GroundedTraversal.GraphOwner(state.GroundedPlan, o.Path) == (workflow.Key == PlanningConfirmationGuards.Body ? "main" : workflow.Key)).ToArray();
                 var match = owned.FirstOrDefault(o => o.Operation.Id == node.Key);
                 if (match.Operation is null) match = owned.Where(o => node.Key.EndsWith("_" + o.Operation.Id, StringComparison.Ordinal)).OrderByDescending(o => o.Operation.Id.Length).FirstOrDefault();
                 if (match.Operation is null || finding.Code == "CONFIRMATION_REQUIRED") return Host(finding);
@@ -39,7 +59,7 @@ internal static class PlanningDiagnosticLocations
                 var suffix = normalized.Location[located.Path.Length..];
                 if (suffix.StartsWith("/input", StringComparison.Ordinal))
                 {
-                    if (match.Operation is InvokeIntentOperation invoke)
+                    if (match.Operation is InvokeGroundedOperation invoke)
                     {
                         var request = node.Type == "mcp.call" ? PlanningGraphValidation.Member(node.Input, "request")! : node.Input;
                         var requestPath = node.Type == "mcp.call" ? "/input/members/" + node.Input.Members.FindIndex(m => m.Name == "request") + "/value" : "/input";
@@ -57,20 +77,20 @@ internal static class PlanningDiagnosticLocations
                             path = ValuePath(member.Value, invoke.Arguments[ii].Value, tail.Skip(3).ToArray(), path);
                         }
                     }
-                    else if (match.Operation is CalculateIntentOperation calculation && suffix.StartsWith("/input/members/0/value", StringComparison.Ordinal))
+                    else if (match.Operation is CalculateGroundedOperation calculation && suffix.StartsWith("/input/members/0/value", StringComparison.Ordinal))
                         path = ValuePath(node.Input.Members[0].Value, calculation.Value, suffix["/input/members/0/value".Length..].Split('/', StringSplitOptions.RemoveEmptyEntries), path + "/value");
-                    else if (match.Operation is TransformIntentOperation) return Edit(path);
-                    else if (match.Operation is EachIntentOperation && node.Type is "loop.parallel" or "loop.sequential") path += "/items";
+                    else if (match.Operation is TransformGroundedOperation) return Edit(path);
+                    else if (match.Operation is EachGroundedOperation && node.Type is "loop.parallel" or "loop.sequential") path += "/items";
                     else if (node.Type == "set" && finding.Code.StartsWith("COMPUTATION_", StringComparison.Ordinal)) return Host(finding);
                 }
                 else if (suffix.StartsWith("/if", StringComparison.Ordinal) && match.Operation.When is not null) path += "/when";
-                else if (suffix.StartsWith("/expr", StringComparison.Ordinal) && match.Operation is ChooseIntentOperation) path += "/condition";
+                else if (suffix.StartsWith("/expr", StringComparison.Ordinal) && match.Operation is ChooseGroundedOperation) path += "/condition";
                 else if (suffix.Contains("Schema", StringComparison.Ordinal) || suffix.StartsWith("/structuredOutput", StringComparison.Ordinal))
-                    path += match.Operation switch { CalculateIntentOperation { ResultType: not null } or TransformIntentOperation { ResultType: not null } => "/resultType", CalculateIntentOperation => "/value", _ => "" };
+                    path += match.Operation switch { TransformGroundedOperation { ResultType: not null } => "/resultType", CalculateGroundedOperation => "/value", _ => "" };
                 return Edit(path);
                 PlanningDiagnostic Edit(string location, string extra = "") => finding with { Location = location, Message = "Operation '" + match.Operation.Id + "': " + finding.Message + extra, ValidationStage = "intent" };
             }
-            var block = IntentTraversal.Blocks(state.IntentPlan).FirstOrDefault(b => b.Workflow == workflow.Key);
+            var block = GroundedTraversal.Blocks(state.GroundedPlan).FirstOrDefault(b => b.Workflow == workflow.Key);
             if (parts.Length < 5 || !int.TryParse(parts[4], out var portIndex) || portIndex < 0) return Host(finding);
             if (block.Block is not null)
             {
@@ -82,12 +102,12 @@ internal static class PlanningDiagnosticLocations
                 return finding with { Location = path, ValidationStage = "intent" };
             }
             var main = workflow.Key is "main" or PlanningConfirmationGuards.Body;
-            var subflow = state.IntentPlan.Subflows.FindIndex(s => s.Name == workflow.Key);
+            var subflow = state.GroundedPlan.Subflows.FindIndex(s => s.Name == workflow.Key);
             if (!main && subflow < 0) return Host(finding);
             var intentRoot = main ? "" : "/subflows/" + subflow;
             if (parts[3] == "inputs" && portIndex < workflow.Inputs.Count)
             {
-                var port = workflow.Inputs[portIndex]; var inputs = main ? state.IntentPlan.Inputs : state.IntentPlan.Subflows[subflow].Inputs;
+                var port = workflow.Inputs[portIndex]; var inputs = main ? state.GroundedPlan.Inputs : state.GroundedPlan.Subflows[subflow].Inputs;
                 var target = inputs.FindIndex(p => p.Name == port.Name);
                 if (target < 0) return Host(finding);
                 var path = intentRoot + "/inputs/" + target;
@@ -100,7 +120,7 @@ internal static class PlanningDiagnosticLocations
             }
             if (parts[3] == "outputs" && portIndex < workflow.Outputs.Count)
             {
-                var port = workflow.Outputs[portIndex]; var outputs = main ? state.IntentPlan.Outputs : state.IntentPlan.Subflows[subflow].Outputs;
+                var port = workflow.Outputs[portIndex]; var outputs = main ? state.GroundedPlan.Outputs : state.GroundedPlan.Subflows[subflow].Outputs;
                 var target = outputs.FindIndex(p => p.Name == port.Name);
                 if (target < 0) return Host(finding);
                 var path = intentRoot + "/outputs/" + target;
@@ -160,7 +180,7 @@ internal static class PlanningDiagnosticLocations
         }
         return path;
     }
-    private static string ValuePath(PlanningValue graph, IntentValue intent, string[] segments, string path)
+    private static string ValuePath(PlanningValue graph, GroundedValue intent, string[] segments, string path)
     {
         while (segments.Length >= 3 && segments[0] == "members" && int.TryParse(segments[1], out var index) && index < graph.Members.Count)
         {

@@ -39,6 +39,8 @@ public sealed class PlanningOutput
 /// <summary>A structural schema or an exact JSON pointer into an authoritative capability schema.</summary>
 public sealed class PlanningSchema
 {
+    /// <summary>Host-established complete contract, including explicit opaque values.</summary>
+    public JsonObject? Contract { get; set; }
     public string Type { get; set; } = "string";
     public bool Nullable { get; set; }
     public string? Description { get; set; }

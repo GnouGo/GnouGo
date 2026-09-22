@@ -1,0 +1,408 @@
+{
+  "testedImplementation": "9142625f70770a04e97ff044ab5f03bcd6cb6f3a",
+  "scope": "Literal regex capture typing; no new live acceptance runs, approvals or external execution.",
+  "preFixReproduction": {
+    "planningTests": 23,
+    "failed": 13,
+    "passed": 10,
+    "diagnostic": "GROUNDED_CONTRACT_INVALID",
+    "location": "/scopes/main/operations/captures"
+  },
+  "verification": {
+    "fullSuites": {
+      "flow": {
+        "total": 859,
+        "passed": 859,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "planning": {
+        "total": 194,
+        "passed": 194,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "integrations": {
+        "total": 76,
+        "passed": 76,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "server": {
+        "total": 389,
+        "passed": 389,
+        "failed": 0,
+        "notExecuted": 0
+      }
+    },
+    "totalPassed": 1518,
+    "solutionBuild": {
+      "configuration": "Release",
+      "warnings": 0,
+      "errors": 0,
+      "includesFrontendBuilds": true
+    },
+    "nativeAot": {
+      "rid": "osx-arm64",
+      "warnings": 0,
+      "cases": [
+        {
+          "case": "local",
+          "outcome": "passed",
+          "calls": 3,
+          "replans": 0,
+          "scenarios": 1
+        },
+        {
+          "case": "read_transform",
+          "outcome": "passed",
+          "calls": 3,
+          "replans": 0,
+          "scenarios": 3
+        },
+        {
+          "case": "nullable_defaults",
+          "outcome": "passed",
+          "calls": 3,
+          "replans": 0,
+          "scenarios": 3
+        },
+        {
+          "case": "conditional",
+          "outcome": "passed",
+          "calls": 3,
+          "replans": 0,
+          "scenarios": 5
+        },
+        {
+          "case": "collections",
+          "outcome": "passed",
+          "calls": 3,
+          "replans": 0,
+          "scenarios": 1
+        },
+        {
+          "case": "protected_cleanup",
+          "outcome": "passed",
+          "calls": 3,
+          "replans": 0,
+          "scenarios": 5
+        },
+        {
+          "case": "review_french",
+          "outcome": "passed",
+          "calls": 4,
+          "replans": 0,
+          "scenarios": 21
+        },
+        {
+          "case": "review_distractors",
+          "outcome": "passed",
+          "calls": 4,
+          "replans": 0,
+          "scenarios": 21
+        }
+      ]
+    }
+  },
+  "readOnlySavedCandidate": {
+    "capturedAt": "2026-09-22T09:50:04.1904370+00:00",
+    "sessionId": "7d5fb82aed7d42239e8ffb7ae12e91b4",
+    "recordSha256": "9ab17abcb3dcffc134bba90e83b2779005dfb0838c836c3b0fdc8c3e42a31849",
+    "promptBytes": 680,
+    "promptSha256": "8f9c138913d4fd8e136760df3b7e20fe4cf7623f02fa9fa4c46220bcaae1cf85",
+    "catalogCount": 129,
+    "catalogHash": "3635f655617248b7ec5ab9d4ec793264d70325dc44ade8a58d82eec44b109634",
+    "candidateOperationCount": 7,
+    "currentActions": [
+      "a1",
+      "a2"
+    ],
+    "completedActions": [],
+    "revision": 16,
+    "status": "stopped",
+    "phase": "replanning",
+    "modelCalls": 7,
+    "replanAttempts": 2,
+    "activeMilliseconds": 408423.6133,
+    "usage": {
+      "startedAtUtc": "2026-09-22T09:07:37.445258+00:00",
+      "calls": 7,
+      "inputTokens": 41422,
+      "outputTokens": 29937,
+      "totalTokens": 71359,
+      "estimatedCost": 0.9618973020017406,
+      "estimatedCostCurrency": "EUR",
+      "exchangeRates": [
+        {
+          "sourceCurrency": "USD",
+          "targetCurrency": "EUR",
+          "rate": 0.8703220191470844,
+          "asOfUtc": "2026-09-21T00:00:00+00:00",
+          "source": "ecb_reference_rates"
+        }
+      ],
+      "estimatedCostUsd": 1.10522
+    },
+    "settings": {
+      "reasoning": "medium",
+      "maxInputTokensPerRequest": 12000,
+      "maxOutputTokens": 8192,
+      "generator": {
+        "provider": "OpenAi",
+        "model": "gpt-5.5-2026-04-24"
+      },
+      "llm_budget": {
+        "max_calls": 8,
+        "max_total_tokens": 15000000,
+        "max_elapsed_ms": 18000000,
+        "max_estimated_cost": {
+          "amount": 50,
+          "currency": "EUR"
+        }
+      }
+    },
+    "limits": {
+      "maxModelCalls": 8,
+      "maxReplanAttempts": 2
+    },
+    "savedDiagnostics": [
+      {
+        "code": "GROUNDED_CONTRACT_INVALID",
+        "location": "/scopes/main/operations/pa",
+        "message": "Property 'replace' is not declared by this computation parameter's producer contract. Declared fields: . Select an established producer binding or obtain the missing runtime observation; trying alternative field names cannot establish that data.; Property 'replace' is not declared by this computation parameter's producer contract. Declared fields: . Select an established producer binding or obtain the missing runtime observation; trying alternative field names cannot establish that data."
+      },
+      {
+        "code": "GROUNDED_CONTRACT_INVALID",
+        "location": "/scopes/main/operations/pv",
+        "message": "Property 'replace' is not declared by this computation parameter's producer contract. Declared fields: . Select an established producer binding or obtain the missing runtime observation; trying alternative field names cannot establish that data.; Property 'replace' is not declared by this computation parameter's producer contract. Declared fields: . Select an established producer binding or obtain the missing runtime observation; trying alternative field names cannot establish that data."
+      }
+    ],
+    "bindingDiagnostics": [],
+    "groundedDiagnostics": [],
+    "businessOutputDiagnostics": [],
+    "hostConfirmationRequired": true,
+    "graphDiagnostics": [],
+    "compilerSucceeded": true,
+    "recordsBefore": {
+      "agent-planning-sessions-v7": {
+        "count": 61,
+        "sha256": "40648aef80c7af26a52f15a225fd6fd68bc838de63883cb67c756800a33a7bdd"
+      },
+      "agent-planning-sessions-v8": {
+        "count": 241,
+        "sha256": "f1c4ebca2650a3f49a7b586e14bc52dbe54c6c575cf2a070acc390c086698eb0"
+      },
+      "agent-planning-model-requests-v8": {
+        "count": 95,
+        "sha256": "8b89378c7f4ca3b8e9108769e3cfac2fcd2080be7ebc34a5c745732e96faa730"
+      },
+      "agent-planning-model-receipts-v8": {
+        "count": 94,
+        "sha256": "b674d756e72b5d3cc6ba8960694b586aa7dddaf16987f41f01071a23fdc727ae"
+      },
+      "agent-planning-budgets-v8": {
+        "count": 17,
+        "sha256": "a3ec69540b5031c10ddfe8b7509cf1bed84000443104fcf6e5b2456ed04b114e"
+      },
+      "flow-planning-sessions-v7": {
+        "count": 12,
+        "sha256": "d03711ad91bb76855ff09a8e0224a42dbc9db0658f055248207e7ee4fe69c018"
+      },
+      "flow-planning-sessions-v8": {
+        "count": 15,
+        "sha256": "1598bf18c7c56527bfa7935b3d789cdf2b5271ad5c97806c4b8a2492ac0b381b"
+      },
+      "flow-planning-model-requests-v8": {
+        "count": 102,
+        "sha256": "b724efeefed4909a42afdf3d66fb3e34d99978cc97776f7aaf6954935464eda4"
+      },
+      "flow-planning-model-receipts-v8": {
+        "count": 101,
+        "sha256": "d993a31ad7714c61f75937c2338d1023446829dc6e6812efda71459cdbfd6105"
+      },
+      "flow-planning-budgets-v8": {
+        "count": 15,
+        "sha256": "270a555a0ced16ae8dd94d6bc0c596258533323340ce396d683807262ad5053d"
+      }
+    },
+    "recordsAfter": {
+      "agent-planning-sessions-v7": {
+        "count": 61,
+        "sha256": "40648aef80c7af26a52f15a225fd6fd68bc838de63883cb67c756800a33a7bdd"
+      },
+      "agent-planning-sessions-v8": {
+        "count": 241,
+        "sha256": "f1c4ebca2650a3f49a7b586e14bc52dbe54c6c575cf2a070acc390c086698eb0"
+      },
+      "agent-planning-model-requests-v8": {
+        "count": 95,
+        "sha256": "8b89378c7f4ca3b8e9108769e3cfac2fcd2080be7ebc34a5c745732e96faa730"
+      },
+      "agent-planning-model-receipts-v8": {
+        "count": 94,
+        "sha256": "b674d756e72b5d3cc6ba8960694b586aa7dddaf16987f41f01071a23fdc727ae"
+      },
+      "agent-planning-budgets-v8": {
+        "count": 17,
+        "sha256": "a3ec69540b5031c10ddfe8b7509cf1bed84000443104fcf6e5b2456ed04b114e"
+      },
+      "flow-planning-sessions-v7": {
+        "count": 12,
+        "sha256": "d03711ad91bb76855ff09a8e0224a42dbc9db0658f055248207e7ee4fe69c018"
+      },
+      "flow-planning-sessions-v8": {
+        "count": 15,
+        "sha256": "1598bf18c7c56527bfa7935b3d789cdf2b5271ad5c97806c4b8a2492ac0b381b"
+      },
+      "flow-planning-model-requests-v8": {
+        "count": 102,
+        "sha256": "b724efeefed4909a42afdf3d66fb3e34d99978cc97776f7aaf6954935464eda4"
+      },
+      "flow-planning-model-receipts-v8": {
+        "count": 101,
+        "sha256": "d993a31ad7714c61f75937c2338d1023446829dc6e6812efda71459cdbfd6105"
+      },
+      "flow-planning-budgets-v8": {
+        "count": 15,
+        "sha256": "270a555a0ced16ae8dd94d6bc0c596258533323340ce396d683807262ad5053d"
+      }
+    },
+    "recordsUnchanged": true,
+    "coverage": [
+      {
+        "id": "page_0",
+        "actionIds": [
+          "a1",
+          "a2",
+          "a3",
+          "a4",
+          "a5",
+          "a6",
+          "a7",
+          "a9"
+        ],
+        "capabilityCount": 32,
+        "completed": true,
+        "decisionCount": 8
+      },
+      {
+        "id": "page_1",
+        "actionIds": [
+          "a1",
+          "a2",
+          "a3",
+          "a4",
+          "a5",
+          "a6",
+          "a7",
+          "a9"
+        ],
+        "capabilityCount": 97,
+        "completed": true,
+        "decisionCount": 8
+      }
+    ],
+    "traceId": "2b3877048d6d528d16ba8ed4c399a488",
+    "origin": "Designer",
+    "originalImplementation": "36b384dfb88a7ef1329e5dd7406d04f3257536fc",
+    "recordedScenarios": 0,
+    "requestCount": 7,
+    "receiptCount": 7,
+    "hasPendingCall": false,
+    "hasApproval": false,
+    "newModelCalls": 0,
+    "newReplans": 0
+  },
+  "requestSettingsEvidence": [
+    {
+      "clientRequestId": "7d5fb82aed7d42239e8ffb7ae12e91b4:1:8c7ffe815f7bd0ab4f6923ef895bedcdb0a3d264937543efff2d297bcd6a6f4c",
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "reasoning": "medium",
+      "maxTokens": 8192,
+      "requireOutputTokenLimit": true,
+      "disableTransportRetries": true,
+      "promptSha256": "02d7271e7c41dd878c19b9630527a6dbe581200892749408d7fd6d657564ef70"
+    },
+    {
+      "clientRequestId": "7d5fb82aed7d42239e8ffb7ae12e91b4:2:a838300c1f9ef683c8d07029d126e1e147e2915e2baf118789a8d434d22ed282",
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "reasoning": "medium",
+      "maxTokens": 8192,
+      "requireOutputTokenLimit": true,
+      "disableTransportRetries": true,
+      "promptSha256": "ca9b6c7b3479b018b6c467045017d22ad9fb1ae2e23e8fde0bef33445d243615"
+    },
+    {
+      "clientRequestId": "7d5fb82aed7d42239e8ffb7ae12e91b4:3:cdd56ecd69c5972a094493cf840ae98d88a0764f6c3cec7d75d095d896cce4f9",
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "reasoning": "medium",
+      "maxTokens": 8192,
+      "requireOutputTokenLimit": true,
+      "disableTransportRetries": true,
+      "promptSha256": "31430d395f41c67d53a84884ae784008d479bb3df211aa79c1e29a8969dc85bb"
+    },
+    {
+      "clientRequestId": "7d5fb82aed7d42239e8ffb7ae12e91b4:4:881ad6af9100719c8698f1e68a5281a2236b11a04d53f55f69c434d4ff736f67",
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "reasoning": "medium",
+      "maxTokens": 8192,
+      "requireOutputTokenLimit": true,
+      "disableTransportRetries": true,
+      "promptSha256": "7696f9ed70b3acfdc38a4f88225185d39e491a3e6948c96e9021dff4ecf67044"
+    },
+    {
+      "clientRequestId": "7d5fb82aed7d42239e8ffb7ae12e91b4:5:b6feee0b1e4c3ac3c17417fd83a3140ff7f05a42af0b7506be5790e37f2cd377",
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "reasoning": "medium",
+      "maxTokens": 8192,
+      "requireOutputTokenLimit": true,
+      "disableTransportRetries": true,
+      "promptSha256": "ac999fcc63464b17bf563303ce688a89a76eca8e4f3c9fca754496c068c4fee0"
+    },
+    {
+      "clientRequestId": "7d5fb82aed7d42239e8ffb7ae12e91b4:6:35d998b665d2f1e3482a6f03f6b444cfc861cda5364c0702705951de9fdafa96",
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "reasoning": "medium",
+      "maxTokens": 8192,
+      "requireOutputTokenLimit": true,
+      "disableTransportRetries": true,
+      "promptSha256": "75ff63e1dbea0bd62b563b0eb733bc3b86bd0340c9c79877a75c9633f5a8a33a"
+    },
+    {
+      "clientRequestId": "7d5fb82aed7d42239e8ffb7ae12e91b4:7:bc33dd282bb756df4ec6ebd77081b35394ceb5fca7ebbae6823df99e4c9f127d",
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "reasoning": "medium",
+      "maxTokens": 8192,
+      "requireOutputTokenLimit": true,
+      "disableTransportRetries": true,
+      "promptSha256": "427b015b61bf665faafb8ad7dc680c6d0bbc4eb516bc9617992592f64d53cc4d"
+    }
+  ],
+  "limitations": [
+    "The saved candidate implements only the first binding batch (a1/a2, seven operations); remaining workflow generation and scenarios were not performed.",
+    "The persisted session remains stopped with seven calls and two replans. No records or accounting were reset.",
+    "The previous six-run live acceptance campaign is unchanged; its overall acceptance criterion remains unmet."
+  ],
+  "recordAccess": "Public KeyVault record-store APIs with workspace path resolution and tenant identity validation. Payloads were held in memory only. Before/after hashes cover all rows and timestamps in ten planning collections, including historical evidence and uncertain reservations.",
+  "snapshotAlgorithm": "SHA-256 over newline-joined entries sorted by ordinal key: key + colon + SHA-256(record value UTF-8) + colon + updatedAt in round-trip format.",
+  "localLogSha256": {
+    "regression-before.log": "bc3501c3de080097eef420533972b535ab35a07bfe554f24c76083e48b4b8e83",
+    "regression-after.log": "f32ff461fb0e9ebee2ccb253c5ae86fa1a2c406a40657b2676e8674d86bac225",
+    "core-focused.log": "f4c9cbcf19ee75ef338f557e4dc5edc3b7858cdfbf8790c09b1e35fdeb257e0c",
+    "flow-tests.log": "8c06cb3960170de4e58a40989e41447c19dcf195a672ecbd099f96d6842f442c",
+    "planning-tests.log": "9572ccc7e56e6637ac6b1d88000c3304483537866c1c0a2f3e7d52ae9cae4a9f",
+    "integrations-tests.log": "5bda8962e5896249dff4f9aa727fc8e66c95d2f2d04cec64d54a9f8f630fd180",
+    "server-tests.log": "78c0a2f16bb9b407c771b59b2203ad8135137aae91a366da9d0650f0fbd8db83",
+    "solution-build.log": "1b65fd6ed5006715e23fa605d3b62a4294090003b9cdbdecf1b9458f7e23d43d",
+    "aot-publish.log": "dfc817e4842e4753f5b36150b7e32bdce2c2c5179d9a40bddf8eb587b684d860",
+    "aot-smoke.log": "0793d537fca9285d27e5323ffc44661167d69751c37250af0f63daea09bda89a"
+  }
+}

@@ -26,7 +26,6 @@ public sealed partial class PlanningGraphCompiler
     public string Compile(PlanningGraph graph, PlanningCatalog catalog, string name = "generated")
     {
         ArgumentNullException.ThrowIfNull(graph);
-        if (PlanningValues.HasUnresolved(PlanningFieldPaths.Json(graph))) throw new InvalidOperationException("Resolve every executable hole before compilation.");
         var diagnostics = PlanningExecutableValidation.Validate(graph, catalog);
         if (diagnostics.Count != 0) throw new InvalidOperationException(string.Join("; ", diagnostics.Select(d => d.Code + " at " + d.Location + ": " + d.Message)));
         if (graph.Workflows.Count == 0 || graph.Workflows.Count > 100)
@@ -190,7 +189,7 @@ public sealed partial class PlanningGraphCompiler
             else result["if"] = ToExpression(node.If, scope);
         }
         if (node.Expr is not null) result["expr"] = ToExpression(node.Expr, scope);
-        if (node.OutputSchema is not null && node.Type == "set") result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Catalog);
+        if (node.OutputSchema is not null && node.Type is "set" or "value.validate") result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Catalog);
         if (node.StructuredOutput is { } structured)
         {
             if (input.ContainsKey("structured_output")) throw new InvalidOperationException("Use one typed structured-output declaration, not a second input schema.");
@@ -484,6 +483,11 @@ public sealed partial class PlanningGraphCompiler
     public static JsonObject ToJsonSchema(PlanningSchema schema, PlanningCatalog catalog, int depth = 0)
     {
         if (depth > 32) throw new InvalidOperationException("Schema nesting exceeds 32 levels.");
+        if (schema.Contract is not null)
+        {
+            if (schema.CapabilityId is not null || schema.SchemaPointer is not null) throw new InvalidOperationException("A resolved contract cannot also select a capability schema.");
+            return schema.Contract.DeepClone().AsObject();
+        }
         if (schema.CapabilityId is not null) return PlanningSchemaReferences.Resolve(schema, catalog);
         if (schema.SchemaPointer is not null) throw new InvalidOperationException("A schemaPointer requires a capabilityId.");
         if (schema.Type is not ("string" or "number" or "integer" or "boolean" or "object" or "array"))
@@ -514,8 +518,12 @@ public sealed partial class PlanningGraphCompiler
 
     internal static JsonObject ToFlowSchema(JsonObject schema)
     {
+        if (GroundedTypes.IsOpaque(schema)) return new() { ["type"] = "any", ["nullable"] = true, ["schema"] = schema.DeepClone() };
+        if (schema["type"] is null && (schema["anyOf"] is JsonArray || schema["oneOf"] is JsonArray))
+            return new() { ["type"] = "any", ["nullable"] = PlanningContractValidation.ValidateInstance(null, schema).Count == 0, ["schema"] = schema.DeepClone() };
         string[] supported = ["type", "description", "enum", "items", "properties", "required", "additionalProperties", "title", "$schema"];
         bool Extended(JsonObject contract) => contract.Any(field => !supported.Contains(field.Key, StringComparer.Ordinal))
+            || contract.ContainsKey("enum") && contract["type"]?.ToString() != "string"
             || contract["items"] is JsonObject items && Extended(items)
             || contract["properties"] is JsonObject properties && properties.Any(p => p.Value is JsonObject child && Extended(child))
             || contract["additionalProperties"] is JsonObject additional && Extended(additional);

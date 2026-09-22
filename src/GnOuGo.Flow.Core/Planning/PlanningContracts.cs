@@ -11,11 +11,12 @@ public sealed class PlanningRequest
     public string SessionId { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "generated";
     public string Prompt { get; set; } = "";
-    public WorkflowIntentPlan? Baseline { get; set; }
+    public SemanticPlan? Baseline { get; set; }
+    public string? RevisionContext { get; set; }
     public JsonObject? FailureEvidence { get; set; }
     public JsonObject Options { get; set; } = new();
     public PlanningPolicy Policy { get; set; } = new();
-    public int MaxRepairAttempts { get; set; } = 2;
+    public int MaxReplanAttempts { get; set; } = 2;
     public int MaxModelCalls { get; set; } = 8;
     public PlanningGenerationOptions Generation { get; set; } = new();
 }
@@ -62,7 +63,9 @@ public sealed class PlanningSession
     public string? ComputeArtifactHash() => Yaml is null ? null : Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(new JsonObject
     {
         ["yaml"] = Yaml,
-        ["intent"] = JsonSerializer.SerializeToNode(IntentPlan, PlanningJsonContext.Default.WorkflowIntentPlan),
+        ["groundedPlan"] = JsonSerializer.SerializeToNode(GroundedPlan, PlanningJsonContext.Default.GroundedPlan),
+        ["semanticPlan"] = JsonSerializer.SerializeToNode(SemanticPlan, PlanningJsonContext.Default.SemanticPlan),
+        ["grounding"] = JsonSerializer.SerializeToNode(Grounding, PlanningJsonContext.Default.CapabilityGrounding),
         ["graph"] = JsonSerializer.SerializeToNode(Graph, PlanningJsonContext.Default.PlanningGraph),
         ["catalog"] = JsonSerializer.SerializeToNode(Catalog, PlanningJsonContext.Default.PlanningCatalog),
         ["diagnostics"] = JsonSerializer.SerializeToNode(Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic),
@@ -70,7 +73,7 @@ public sealed class PlanningSession
         ["fixtures"] = JsonSerializer.SerializeToNode(Fixtures, PlanningJsonContext.Default.PlanningFixtures)
     }.ToJsonString())));
 
-    public int SchemaVersion { get; set; } = 7;
+    public int SchemaVersion { get; set; } = 8;
     public PlanningRequest Request { get; set; } = new();
     public long Revision { get; set; }
     public string Status { get; set; } = PlanningStatus.Created;
@@ -79,16 +82,21 @@ public sealed class PlanningSession
     public double ActiveMilliseconds { get; set; }
     public double HumanWaitMilliseconds { get; set; }
     public PlanningCatalog? Catalog { get; set; }
-    public WorkflowIntentPlan? IntentPlan { get; set; }
+    public GroundedPlan? GroundedPlan { get; set; }
+    public SemanticPlan? SemanticPlan { get; set; }
+    public CapabilityGrounding? Grounding { get; set; }
+    public GroundedBindingProgress? BindingProgress { get; set; }
+    public string Phase { get; set; } = PlanningPhase.Semantic;
     public PlanningGraph? Graph { get; set; }
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
     public List<PlanningScenarioResult> Scenarios { get; set; } = [];
     public PlanningFixtures? Fixtures { get; set; }
     public List<PlanningAnswer> Answers { get; set; } = [];
     public int ClarificationRounds { get; set; }
-    public int RepairAttempts { get; set; }
+    public int ReplanAttempts { get; set; }
     public int ModelCalls { get; set; }
     public PlanningModelCall? PendingCall { get; set; }
+    public string? RejectedProposalHash { get; set; }
     public LLMUsageBudgetSnapshot? Usage { get; set; }
     public string? Yaml { get; set; }
     public string? ApprovedHash { get; set; }
@@ -98,7 +106,7 @@ public sealed class PlanningSession
 public sealed class PlanningModelCall
 {
     public string Id { get; set; } = "";
-    public string Purpose { get; set; } = "intent";
+    public string Purpose { get; set; } = "semantic";
     public LLMRequest Request { get; set; } = new();
 }
 
@@ -169,19 +177,22 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(PlanningGenerationOptions))]
 [JsonSerializable(typeof(PlanningCatalog))]
 [JsonSerializable(typeof(PlanningCapability))]
-[JsonSerializable(typeof(WorkflowIntentPlan))]
-[JsonSerializable(typeof(IntentOperation))]
-[JsonSerializable(typeof(IntentValue))]
-[JsonSerializable(typeof(IntentType))]
-[JsonSerializable(typeof(IntentInput))]
-[JsonSerializable(typeof(IntentOutput))]
+[JsonSerializable(typeof(GroundedPlan))]
+[JsonSerializable(typeof(SemanticPlan))]
+[JsonSerializable(typeof(SemanticAction))]
+[JsonSerializable(typeof(CapabilityGrounding))]
+[JsonSerializable(typeof(GroundingPageResult))]
+[JsonSerializable(typeof(GroundedOperation))]
+[JsonSerializable(typeof(GroundedValue))]
+[JsonSerializable(typeof(BusinessType))]
+[JsonSerializable(typeof(GroundedInput))]
+[JsonSerializable(typeof(GroundedOutput))]
 [JsonSerializable(typeof(PlanningFixtures))]
 [JsonSerializable(typeof(PlanningGraph))]
 [JsonSerializable(typeof(PlanningWorkflow))]
 [JsonSerializable(typeof(PlanningNode))]
 [JsonSerializable(typeof(PlanningSchema))]
 [JsonSerializable(typeof(PlanningValue))]
-[JsonSerializable(typeof(PlanningHole))]
 [JsonSerializable(typeof(List<PlanningDiagnostic>))]
 [JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(LLMRequest))]

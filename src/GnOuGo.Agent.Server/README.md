@@ -1,6 +1,8 @@
 # GnOuGo.Agent (Blazor + Minimal API)
 
-Workflow planning uses `PlanningSession → WorkflowIntentPlan → PlanningGraph → Diagnostics → Approval`; see [the planning architecture](../../docs/workflow-planning-v2.md). The planning page offers **Retry with retained usage** after an uncertain model dispatch. This explicit action preserves the failed call, conservatively accounts for missing usage, and reserves a new call within existing session limits. A stored completion is reused instead. Restart never silently redispatches an uncertain request. Workflow approval and runtime publication confirmation remain separate.
+Workflow planning uses `User request → SemanticPlan → capability grounding → GroundedPlan → deterministic validation → PlanningGraph → compile → scenarios → approval`; see [the planning architecture](../../docs/workflow-planning-v2.md). The planning page offers **Retry with retained usage** after an uncertain model dispatch. This explicit action preserves the failed call, conservatively accounts for missing usage, and reserves a new call within existing session limits. A stored completion is reused instead. Restart never silently redispatches an uncertain request. Workflow approval and runtime publication confirmation remain separate.
+
+Workflow Designer keeps incompatible saved sessions visible as **Unavailable**, with their origin, identity and existing traces. Other sessions remain usable. These entries cannot be resumed, approved or executed; start a new plan instead. Encrypted historical payloads and uncertain reservations remain unchanged, and startup recovery skips records that cannot satisfy the current strict session format.
 
 For pull-request reviews, the host exposes `GnOuGo.Review` / `review_evaluate` and `review_publish`. Original execution observations establish individual check outcomes; the host confirms the stored review, reads the current head afterward, and records the single publication attempt durably. Raw review writes cannot bypass this operation on the configured GitHub integration. See [review publication](Reviews/README.md) for configuration, contracts and restart behavior.
 
@@ -12,7 +14,7 @@ This solution contains:
 
 ### Typed workflow designer
 
-Open `/planning` to create or revise a workflow. `/gnougo add`, reprompt and failure improvement open this durable designer. It displays progress, intent, graph, unresolved fields, findings, usage, scenarios and final review. Approving and saving requires the current revision and artifact hash. Runtime write confirmation remains a separate gate.
+Open `/planning` to create or revise a workflow. `/gnougo add`, reprompt and failure improvement open this durable designer. It displays progress, semantic plan, grounding phase, graph, findings, usage, scenarios and final review. Approving and saving requires the current revision and artifact hash. Runtime write confirmation remains a separate gate.
 
 The planning list includes **Designer** sessions and **Chat** sessions created by `workflow.plan`, including failed and stopped attempts. Select **Traces** in the list or session header to open the shared trace and log panel. Each recorded execution keeps its own trace identifier; use the timestamped selector when a session has several traces. The panel refreshes while open and stops refreshing when closed or when navigating to another session.
 
@@ -20,9 +22,9 @@ Chat sessions open at `/planning/{sessionId}?source=workflow` as read-only diagn
 
 Trace lookup requires an exact planning-session attribute and the current tenant. It combines local capture with the embedded collector's retained records, so persisted traces remain inspectable after restart. Missing or expired telemetry is shown explicitly; lookup is bounded to 500 collector candidates and reports when that limit is reached. Trace availability is independent of model receipt retention. Trace usage totals cover recorded attributes only and are not a complete billing ledger; absent telemetry does not establish zero provider usage or cost. Designer planning activities are captured locally even when OTLP export is disabled.
 
-`TypedWorkflowPlanning` configures `MaxRepairAttempts` (2), `MaxModelCalls` (8), `Reasoning` (`medium`), request token ceilings (12,000 input / 8,192 output), cumulative token/active-time limits and `DatabasePath`. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
+`TypedWorkflowPlanning` configures `MaxReplanAttempts` (2), `MaxModelCalls` (8), `Reasoning` (`medium`), request token ceilings (12,000 input / 8,192 output), cumulative token/active-time limits and `DatabasePath`. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
 
-Schema-7 session payloads, model reservations/receipts and budgets use encrypted KeyVault records and tenant-scoped EF Core/SQLite indexes. The fresh default is `.GnOuGo/data/gnougo-planning-v7.db`; existing databases are untouched. Restart preserves resolved graphs and cumulative budgets. Completed calls replay without another charge; uncertain dispatches stop. Saving reconciles an already committed identical artifact.
+Schema-8 session payloads, model reservations/receipts and budgets use encrypted KeyVault records and tenant-scoped EF Core/SQLite indexes. The fresh default is `.GnOuGo/data/gnougo-planning-v8.db`; existing databases are untouched. Restart preserves resolved graphs and cumulative budgets. Completed calls replay without another charge; uncertain dispatches stop. Saving reconciles an already committed identical artifact.
 
 See [the planning architecture](../../docs/workflow-planning-v2.md) for public contracts, policy boundaries, diagnostics and validation commands.
 
@@ -301,7 +303,7 @@ known to be current.
 
 ## Main routing workflow and conversation history
 
-Workflow creation and improvement use the durable intent-to-graph planner described above. Revision imports the existing workflow as baseline context and carries failure diagnostics separately. Every revised artifact undergoes complete validation and fresh approval. Model, MCP and human integrations remain host-owned.
+Workflow creation and improvement use the durable semantic grounding planner described above. Revision imports the existing workflow as baseline context and carries failure diagnostics separately. Every revised artifact undergoes complete validation and fresh approval. Model, MCP and human integrations remain host-owned.
 
 The Blazor chat session now carries a server-facing `ConversationId`. The UI keeps its local transcript for display, while `SmartFlowService` loads recent server-side messages into the routing workflow as `history` and appends the user/assistant turn after a successful answer. HTTP clients can also pass `conversationId` and `prompt` on `/api/chat` or `/api/chat/stream`; if omitted, the server creates a new conversation id and returns/emits it.
 
@@ -612,7 +614,7 @@ Example:
 dotnet test "C:\github\GnouGo\tests\GnOuGo.Agent.Server.Tests\GnOuGo.Agent.Server.Tests.csproj"
 ```
 
-Discovery and validation failures appear as located diagnostics in the durable session. Revise the intent to rebuild against current capabilities. Catalog revalidation requires no model call. Cumulative usage survives retries and restart.
+Discovery and validation failures appear as located diagnostics in the durable session. Revise the semantic plan to rebuild against current capabilities. Catalog revalidation requires no model call. Cumulative usage survives retries and restart.
 
 ### Provider HTTP retries
 
@@ -636,7 +638,7 @@ An `output_limit` receipt with empty text can therefore reflect exhausted reason
 not an oversized plan. Check the stored usage and original request ceiling. The generic
 bootstrap sets `generator.max_output_tokens: 8192`; the accepted live benchmark explicitly
 used 32768. An agreed change to that setting applies to a new request, preserves medium
-reasoning and the call/repair budgets, and does not change earlier reservations or receipts.
+reasoning and the call/replanning budgets, and does not change earlier reservations or receipts.
 The planner never raises the ceiling or retries a truncated response automatically.
 
 Transport retries are owned by [AI.Core](../GnOuGo.AI.Core/README.md#http-resilience).
@@ -660,7 +662,7 @@ post-save credential check uses the selected protocol; reserved planning calls a
 
 The shared `appsettings.json` enables `TraceDebug:Enabled=true` for retained content. Open
 **Traces → Pipeline / LLM calls** from chat or Workflow designer. Expand a
-call to inspect its retained prompt/schema, response, tool calls and repair
+call to inspect its retained prompt/schema, response, tool calls and replanning
 context, with byte sizes, labelled token estimates, reported usage and HTTP
 attempts. Content loads on demand from encrypted tenant-scoped storage; missing
 usage is unknown. Historical planner requests remain available as journal history

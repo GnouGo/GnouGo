@@ -474,8 +474,8 @@ public sealed class WorkflowFailureFormatterTests
         Assert.Contains("Terminal capability failure", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Contains("Submitted clarification forms: 1", presentation.UserMessage, StringComparison.Ordinal);
         Assert.Contains("Submitted clarification questions: 1", presentation.UserMessage, StringComparison.Ordinal);
-        Assert.Contains("Automatic contract repair was exhausted", presentation.UserMessage, StringComparison.Ordinal);
-        Assert.Contains("planning stopped before generation and persistence", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Capability grounding could not establish a safe binding", presentation.UserMessage, StringComparison.Ordinal);
+        Assert.Contains("Revise the business action or supply the missing required information", presentation.UserMessage, StringComparison.Ordinal);
     }
 
     [Fact]

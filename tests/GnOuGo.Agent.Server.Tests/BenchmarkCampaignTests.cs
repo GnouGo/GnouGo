@@ -151,7 +151,7 @@ public sealed class BenchmarkCampaignTests
     {
         var records = new Records(); var campaign = new BenchmarkCampaign(records, "recorded");
         var request = new LLMRequest { ClientRequestId = "session:1:hash", Prompt = "original prompt", StructuredOutputSchema = new JsonObject { ["type"] = "string" } };
-        var state = new PlanningSession { Request = new() { TenantId = "benchmark", SessionId = "session", Name = "local", Prompt = "original prompt" }, ModelCalls = 3, RepairAttempts = 2 };
+        var state = new PlanningSession { Request = new() { TenantId = "benchmark", SessionId = "session", Name = "local", Prompt = "original prompt" }, ModelCalls = 3, ReplanAttempts = 2 };
         await campaign.SaveAsync("planning-evaluation-runs", "source:pilot:local:1", new() { ["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession) }, Ct);
         await campaign.SaveAsync("planning-evaluation-requests", request.ClientRequestId, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), Ct);
         await campaign.SaveAsync("planning-evaluation-receipts", request.ClientRequestId, JsonSerializer.SerializeToNode(new LLMResponse { Text = "\"recorded\"" }, PlanningJsonContext.Default.LLMResponse)!.AsObject(), Ct);
@@ -168,7 +168,7 @@ public sealed class BenchmarkCampaignTests
         Assert.Equal(before, records.Writes);
         Assert.True(JsonNode.DeepEquals(snapshot, await campaign.InspectAsync(Ct)));
         var unchanged = (await campaign.LoadAsync("planning-evaluation-runs", "source:pilot:local:1", Ct))!["session"]!;
-        Assert.Equal(3, unchanged["modelCalls"]!.GetValue<int>()); Assert.Equal(2, unchanged["repairAttempts"]!.GetValue<int>());
+        Assert.Equal(3, unchanged["modelCalls"]!.GetValue<int>()); Assert.Equal(2, unchanged["replanAttempts"]!.GetValue<int>());
         Assert.Equal(8, unchanged["request"]!["maxModelCalls"]!.GetValue<int>());
     }
     [Fact]

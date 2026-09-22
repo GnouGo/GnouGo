@@ -25,12 +25,12 @@ public sealed class BenchmarkOracleTests
         {
             // Reproduce a valid minimal proposal: the write is the last main operation,
             // followed only by cleanup and a literal output. No extra cancellation checkpoint.
-            plan.Operations.RemoveAll(o => o is CalculateIntentOperation);
+            plan.Operations.RemoveAll(o => o is CalculateGroundedOperation);
             plan.Outputs = [new("result", new() { Kind = "number", Number = 42 })];
         }
-        if (nested) plan = new() { Operations = [new CallIntentOperation { Id = "run", Flow = "job" }],
+        if (nested) plan = new() { Operations = [new CallGroundedOperation { Id = "run", Flow = "job" }],
             Subflows = [new("job", [], plan.Operations, plan.Outputs)], Outputs = [new("result", new() { Kind = "result", Source = "run", Path = ["result"] })] };
-        var graph = PlanningGraphBuilder.Build(plan, catalog); PlanningConfirmationGuards.Apply(graph, catalog);
+        var graph = PlannerFixture.Build(plan, catalog); PlanningConfirmationGuards.Apply(graph, catalog);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, catalog)));
         var engine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human() };
         var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], PlanningBenchmarkCases.Inputs(name, "cancelled"), cancellation.Token);

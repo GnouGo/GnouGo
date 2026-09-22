@@ -32,7 +32,7 @@ public static class PlanningBenchmarkMeasurements
         var history = run["diagnostic_history"]!.AsArray();
         foreach (var finding in state.Diagnostics.Where(d => d.Required))
         {
-            var entry = new JsonObject { ["calls"] = state.ModelCalls, ["repairs"] = state.RepairAttempts, ["code"] = finding.Code, ["location"] = finding.Location,
+            var entry = new JsonObject { ["calls"] = state.ModelCalls, ["repairs"] = state.ReplanAttempts, ["code"] = finding.Code, ["location"] = finding.Location,
                 ["message"] = finding.Message, ["category"] = Category(finding.Code), ["classification_status"] = "provisional" };
             if (!history.Any(existing => JsonNode.DeepEquals(existing, entry))) history.Add((JsonNode)entry);
         }

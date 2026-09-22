@@ -17,12 +17,19 @@ internal static class PlanningValidationPipeline
     {
         var graph = state.Graph!; var catalog = state.Catalog!;
         PlanningConfirmationGuards.Apply(graph, catalog);
-        state.Diagnostics = PlanningExecutableValidation.Validate(graph, catalog).Concat(FixtureShape(state)).Concat(PlanningFixtureSamples.Validate(state)).ToList();
-        if (state.Diagnostics.Any(d => d.Required)) return;
+        state.Diagnostics = PlanningExecutableValidation.Validate(graph, catalog).ToList();
+        if (StopOnHostDisagreement(state)) return;
         string yaml;
         try { yaml = new PlanningGraphCompiler().Compile(graph, catalog, state.Request.Name); }
-        catch (WorkflowCompilationException ex) { state.Diagnostics.AddRange(PlanningExecutableValidation.CompilerErrors(ex, graph)); return; }
+        catch (WorkflowCompilationException ex)
+        {
+            state.Diagnostics.AddRange(PlanningExecutableValidation.CompilerErrors(ex, graph));
+            StopOnHostDisagreement(state); return;
+        }
         state.Diagnostics.AddRange((await runtime.ValidateAsync(new(yaml, state.Request, catalog, PlanningGraphCompiler.CapabilityBindings(graph)), ct)).Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph)));
+        if (StopOnHostDisagreement(state)) return;
+        state.Diagnostics.AddRange(FixtureShape(state));
+        state.Diagnostics.AddRange(PlanningFixtureSamples.Validate(state));
         if (state.Diagnostics.Any(d => d.Required)) return;
         var fixtures = state.Fixtures;
         var inputs = fixtures?.Inputs ?? PlanningFixtureSamples.Domains(state).FirstOrDefault(d => d.Path == "/fixtures/inputs").Sample as JsonObject;
@@ -36,8 +43,7 @@ internal static class PlanningValidationPipeline
             { state.Diagnostics.Add(new("SCENARIO_OBSERVATION_INVALID", "/fixtures/observations", "Observations require an existing external step and literal results.")); continue; }
             var schema = node.StructuredOutput is not null ? PlanningGraphCompiler.ToJsonSchema(node.StructuredOutput.Schema, catalog)
                 : catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId)?.OutputSchema;
-            if (schema is null || schema.Count == 0)
-            { state.Diagnostics.Add(new("SCENARIO_OBSERVATION_SCHEMA", "/fixtures/observations", "The observed result needs a declared schema.")); continue; }
+            schema = schema is null || schema.Count == 0 ? GroundedTypes.Opaque() : schema;
             var key = (workflow!.Key == graph.Entrypoint ? "main" : "w_" + PlanningGraphCompiler.Fingerprint(workflow.Key)[..16]) + ":n_" + PlanningGraphCompiler.Fingerprint(node.Key)[..16];
             observations[key] = new JsonObject { ["schema"] = schema.DeepClone(), ["channel"] = node.StructuredOutput is null ? "response" : "json", ["responses"] = new JsonArray(observation.Responses.Select(v => v?.DeepClone()).ToArray()) };
         }
@@ -53,5 +59,17 @@ internal static class PlanningValidationPipeline
             state.Diagnostics.AddRange((scenario.Diagnostics.Count > 0 ? scenario.Diagnostics : [new("SCENARIO_INCONCLUSIVE", scenario.Id, scenario.Description)]).Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph)));
         if (state.Diagnostics.Any(d => d.Required)) return;
         state.Yaml = yaml; state.ApprovedHash = null; state.Status = PlanningStatus.FinalReview;
+    }
+
+    private static bool StopOnHostDisagreement(PlanningSession state)
+    {
+        if (!state.Diagnostics.Any(d => d.Required)) return false;
+        // The graph comes only from validated grounded bindings. Static lowering,
+        // compiler and host-contract disagreements cannot be fixed by model replanning.
+        state.Diagnostics = state.Diagnostics.Select(d => d.Required ? d with
+            { Code = "PLANNING_HOST_CONTRACT", Message = d.Code + ": " + d.Message } : d).ToList();
+        state.Status = PlanningStatus.Stopped; state.Yaml = null; state.ApprovedHash = null;
+        state.Scenarios.Clear();
+        return true;
     }
 }

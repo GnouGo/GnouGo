@@ -55,7 +55,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
     {
         var evidence = await LoadAsync("planning-evaluation-runs", runKey, ct) ?? throw new InvalidOperationException("No recorded run.");
         var saved = JsonSerializer.Deserialize(evidence["session"], PlanningJsonContext.Default.PlanningSession) ?? throw new InvalidOperationException("No recorded session.");
-        if (saved.SchemaVersion != 7) throw new InvalidOperationException("Unsupported recorded session format.");
+        if (saved.SchemaVersion != 8) throw new InvalidOperationException("Unsupported recorded session format.");
         var prefix = Id + ":" + saved.Request.SessionId + ":1:";
         var reservations = (await records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct)).Where(r => r.Key.StartsWith(prefix, StringComparison.Ordinal)).ToArray();
         if (reservations.Length != 1) throw new InvalidOperationException("Replay requires one original interpretation reservation.");
@@ -65,7 +65,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         var response = JsonSerializer.Deserialize(receipt, PlanningJsonContext.Default.LLMResponse)!;
         if (request.StructuredOutputSchema is null) throw new InvalidOperationException("The original response schema is missing.");
         // Only this detached in-memory session is bounded to one stored response.
-        saved.Request.MaxModelCalls = 1; saved.Request.MaxRepairAttempts = 0;
+        saved.Request.MaxModelCalls = 1; saved.Request.MaxReplanAttempts = 0;
         var state = new PlanningSession { Request = saved.Request, Catalog = saved.Catalog, Status = PlanningStatus.Generating,
             ModelCalls = 1, PendingCall = new() { Id = request.ClientRequestId!, Purpose = "intent", Request = request } };
         return (state, new ReplayReceipt(request, response));

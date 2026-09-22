@@ -18,8 +18,12 @@ public sealed class PlanningSessionLifecycleTests
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask);
         var state = new PlanningSession { Request = new() { TenantId = "planning-tests", Name = "test", Prompt = "Return value", Policy = AgentPlanningPolicy.Create() }, Status = PlanningStatus.FinalReview,
-            IntentPlan = new() { Operations = [new CalculateIntentOperation { Id = "value", Value = new() { Kind = "string", Text = "hello" } }] }, Scenarios = [new("nominal", "passed", "Executed", [])] };
-        state.Catalog = await runtime.DiscoverAsync(state.Request, Ct); state.Graph = PlanningGraphBuilder.Build(state.IntentPlan, state.Catalog);
+            GroundedPlan = new() { Operations = [new CalculateGroundedOperation { Id = "value", Value = new() { Kind = "string", Text = "hello" } }] }, Scenarios = [new("nominal", "passed", "Executed", [])] };
+        state.Catalog = await runtime.DiscoverAsync(state.Request, Ct); state.Graph = PlanningGraphBuilder.Build(GroundedPlanValidator.RequireValid(state.GroundedPlan, state.Catalog));
+        state.SemanticPlan = new() { Actions = [new() { Id = "value", Kind = "calculate", Purpose = "Return the supplied value" }] };
+        state.GroundedPlan.Operations[0].SemanticAction = "value";
+        state.Grounding = new() { Selections = [new("value", [], "Native implementation")], Pages = [new("page", ["value"], [])], Results = [new("page", [new("value", "none_of_the_above", [], "Native implementation")])], CatalogHash = PlanningGraphCompiler.Fingerprint(System.Text.Json.JsonSerializer.Serialize(state.Catalog, PlanningJsonContext.Default.PlanningCatalog)),
+            SemanticHash = PlanningGraphCompiler.Fingerprint(System.Text.Json.JsonSerializer.Serialize(state.SemanticPlan, PlanningJsonContext.Default.SemanticPlan)) };
         state.Yaml = new PlanningGraphCompiler().Compile(state.Graph, state.Catalog, state.Request.Name);
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var writes = 0; string? saved = null;
@@ -46,13 +50,13 @@ public sealed class PlanningSessionLifecycleTests
     public async Task EncryptedSessionRestartRetainsAuthorityBudgetsAndTenantIsolation(string status)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var state = new PlanningSession { Request = new() { TenantId = "one", SessionId = "same", Prompt = "PRIVATE_INTENT" }, Status = status, ModelCalls = 3, RepairAttempts = 1, ActiveMilliseconds = 100,
+        var state = new PlanningSession { Request = new() { TenantId = "one", SessionId = "same", Prompt = "PRIVATE_INTENT" }, Status = status, ModelCalls = 3, ReplanAttempts = 1, ActiveMilliseconds = 100,
             PendingCall = status == PlanningStatus.Generating ? new() { Id = "reserved", Purpose = "intent", Request = new() { Prompt = "PRIVATE_MODEL_REQUEST" } } : null };
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var other = new PlanningSession { Request = new() { TenantId = "two", SessionId = "same", Prompt = "OTHER" } };
         Assert.True(await fixture.Store.TrySaveAsync(other, null, Ct));
         var restored = (await fixture.Store.LoadAsync("one", "same", Ct))!;
-        Assert.Equal(status, restored.Status); Assert.Equal(3, restored.ModelCalls); Assert.Equal(1, restored.RepairAttempts); Assert.Equal(100, restored.ActiveMilliseconds);
+        Assert.Equal(status, restored.Status); Assert.Equal(3, restored.ModelCalls); Assert.Equal(1, restored.ReplanAttempts); Assert.Equal(100, restored.ActiveMilliseconds);
         Assert.Equal(state.PendingCall?.Id, restored.PendingCall?.Id);
         restored.Revision++; Assert.True(await fixture.Store.TrySaveAsync(restored, 0, Ct));
         restored.Revision++; Assert.False(await fixture.Store.TrySaveAsync(restored, 0, Ct));
@@ -69,12 +73,12 @@ public sealed class PlanningSessionLifecycleTests
         var designer = new PlanningSession { Request = new() { TenantId = "planning-tests", SessionId = "shared", Name = "designer", Prompt = "Return a value" } };
         Assert.True(await fixture.Store.TrySaveAsync(designer, null, Ct));
         var workflow = new PlanningSession { Request = new() { TenantId = "planning-tests", SessionId = "shared", Name = "chat", Prompt = "Return a value" },
-            Status = PlanningStatus.Stopped, ModelCalls = 1, RepairAttempts = 0, Revision = 3,
+            Status = PlanningStatus.Stopped, ModelCalls = 1, ReplanAttempts = 0, Revision = 3,
             PendingCall = new() { Id = "reserved", Purpose = "intent", Request = new() { Prompt = "private" } } };
         var payload = System.Text.Json.JsonSerializer.Serialize(workflow, PlanningJsonContext.Default.PlanningSession);
-        await fixture.Records.UpsertAsync("flow-planning-sessions-v7", "planning-tests", "shared", payload, "test", Ct);
-        await fixture.Records.UpsertAsync("flow-planning-sessions-v7", "other", "foreign", payload, "test", Ct);
-        var before = await fixture.Records.GetAsync("flow-planning-sessions-v7", "planning-tests", "shared", "test", Ct);
+        await fixture.Records.UpsertAsync("flow-planning-sessions-v8", "planning-tests", "shared", payload, "test", Ct);
+        await fixture.Records.UpsertAsync("flow-planning-sessions-v8", "other", "foreign", payload, "test", Ct);
+        var before = await fixture.Records.GetAsync("flow-planning-sessions-v8", "planning-tests", "shared", "test", Ct);
         using (var service = Create(fixture, new TypedWorkflowPlanner(), AgentCatalog()))
         {
             Assert.Equal("designer", (await service.GetAsync("shared", Ct))!.Request.Name);
@@ -88,13 +92,34 @@ public sealed class PlanningSessionLifecycleTests
         }
         using var reopened = Create(fixture, new TypedWorkflowPlanner(), AgentCatalog());
         Assert.Equal(3, (await reopened.GetWorkflowSessionAsync("shared", Ct))!.Revision);
-        var after = await fixture.Records.GetAsync("flow-planning-sessions-v7", "planning-tests", "shared", "test", Ct);
+        var after = await fixture.Records.GetAsync("flow-planning-sessions-v8", "planning-tests", "shared", "test", Ct);
         Assert.Equal(before!.Value, after!.Value);
         Assert.Equal(before.UpdatedAt, after.UpdatedAt);
         workflow.Request.TenantId = "other";
-        await fixture.Records.UpsertAsync("flow-planning-sessions-v7", "planning-tests", "shared",
+        await fixture.Records.UpsertAsync("flow-planning-sessions-v8", "planning-tests", "shared",
             System.Text.Json.JsonSerializer.Serialize(workflow, PlanningJsonContext.Default.PlanningSession), "test", Ct);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => reopened.GetWorkflowSessionAsync("shared", Ct));
+        await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.GetWorkflowSessionAsync("shared", Ct));
+    }
+
+    [Theory]
+    [InlineData(PlanningPhase.Semantic)]
+    [InlineData(PlanningPhase.Grounding)]
+    [InlineData(PlanningPhase.Binding)]
+    [InlineData(PlanningPhase.Validation)]
+    [InlineData(PlanningPhase.Scenarios)]
+    [InlineData(PlanningPhase.Replanning)]
+    public async Task EveryPhaseRestoresSemanticGroundingAndCumulativeAccounting(string phase)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = new PlanningSession { Request = new() { TenantId = "phase-tests", Prompt = "PRIVATE_PHASE_REQUIREMENT" }, Phase = phase,
+            SemanticPlan = new() { Actions = [new() { Id = "action", Purpose = "Required business outcome" }] },
+            Grounding = new() { CatalogHash = "catalog", SemanticHash = "semantic", Pages = [new("page", ["action"], ["cap"])],
+                Results = [new("page", [new("action", "matched", [new("cap", "Declared behavior")], "Covered")])], Selections = [new("action", ["cap"], "Sufficient implementation")] },
+            GroundedPlan = new(), ModelCalls = 5, ReplanAttempts = 1, Revision = 7 };
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var restored = await fixture.Store.LoadAsync("phase-tests", state.Request.SessionId, Ct);
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), System.Text.Json.JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession));
+        Assert.Null(await fixture.Store.LoadAsync("other-tenant", state.Request.SessionId, Ct));
     }
 
     internal static FakeMcpSession AgentCatalog() => new FakeMcpSession("GnOuGo.Agent.Mcp")
