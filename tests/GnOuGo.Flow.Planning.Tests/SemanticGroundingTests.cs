@@ -137,6 +137,23 @@ public sealed class SemanticGroundingTests
         }
     }
     [Fact]
+    public void CatalogPackingFitsLargeAndSmallDescriptionsWithoutDroppingEvidence()
+    {
+        var state = State(4);
+        foreach (var capability in state.Catalog!.Capabilities) capability.Description = new string('x', capability.Id is "cap_0" or "cap_1" ? 1800 : 1000);
+        var pair = new GroundingPage("probe", ["collect", "release"], ["cap_1", "cap_3"]);
+        state.Request.Generation.MaxInputTokensPerRequest = PlanningJsonTransport.EstimateInputTokens(CapabilityGrounder.Prompt(state, pair), CapabilityGrounder.Schema(pair));
+        var coverage = CapabilityGrounder.Create(state);
+        Assert.Equal(2, coverage.Pages.Count);
+        Assert.Equal(state.Catalog.Capabilities.Select(c => c.Id).Order(), coverage.Pages.SelectMany(p => p.CapabilityIds).Order());
+        Assert.All(coverage.Pages, page =>
+        {
+            Assert.Equal(2, page.CapabilityIds.Count);
+            Assert.True(PlanningJsonTransport.EstimateInputTokens(CapabilityGrounder.Prompt(state, page), CapabilityGrounder.Schema(page)) <= state.Request.Generation.MaxInputTokensPerRequest);
+            foreach (var id in page.CapabilityIds) Assert.Contains(state.Catalog.Capabilities.Single(c => c.Id == id).Description, CapabilityGrounder.Prompt(state, page));
+        });
+    }
+    [Fact]
     public void CoverageIncludesEveryCapabilityAndUnabridgedDescription()
     {
         var state = State(14); state.Request.Generation.MaxInputTokensPerRequest = 3500;

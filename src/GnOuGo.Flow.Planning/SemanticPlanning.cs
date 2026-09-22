@@ -50,6 +50,8 @@ internal static class SemanticPlanning
         When actions or decisions depend on external facts, include actions to observe those facts first. An identifier or location is not the resource's contents.
         Express required ordering through dependencies. Introduce collections, branches and subflows when the business behavior requires them; do not prescribe incidental implementation detail.
         Use the fewest business actions that keep each requested outcome explicit; grounding owns technical decomposition.
+        Combine related work with the same business purpose and dependencies into one action with multiple outcomes. Grounding can expand it into several calls.
+        Keep incidental setup and formatting within their business action unless they have independent requested outcomes or distinct availability requirements.
         Cleanup releases concrete resources acquired by this workflow. Do not invent hypothetical resources or extra work unrelated to the requested outcomes.
         Use short, globally unique action IDs. Inputs and outputs are named business values; sources identify input.name or actionId.outputName.
         Blocks describe the branches or body; named subflows may be reused. Cleanup runs on exit including failures and cancellation.

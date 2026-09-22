@@ -24,27 +24,21 @@ internal static class CapabilityGrounder
 
         void Pack(List<string> group)
         {
-            var pages = new List<GroundingPage>(); var page = new GroundingPage("pending", group, []);
-            foreach (var id in ids)
+            var pages = new List<GroundingPage>();
+            // First-fit decreasing packs complete descriptions without wasting a page when
+            // a large indivisible capability appears between smaller catalog entries.
+            foreach (var id in ids.OrderByDescending(id => System.Text.Encoding.UTF8.GetByteCount(PlanningJsonTransport.Prompt(CatalogRow(catalog.Capabilities.Single(c => c.Id == id))))).ThenBy(id => id, StringComparer.Ordinal))
             {
-                var next = page with { CapabilityIds = [.. page.CapabilityIds, id] };
-                if (!Fits(next))
+                var index = pages.FindIndex(page => Fits(page with { CapabilityIds = [.. page.CapabilityIds, id] }));
+                if (index >= 0) { pages[index] = pages[index] with { CapabilityIds = [.. pages[index].CapabilityIds, id] }; continue; }
+                var page = new GroundingPage("pending", group, [id]);
+                if (!Fits(page))
                 {
-                    if (page.CapabilityIds.Count == 0)
-                    {
-                        if (group.Count == 1) throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", "The full capability description and decision schema cannot fit for this action and capability.", details: new JsonObject { ["location"] = "/grounding/actions/" + group[0] + "/capabilities/" + id });
-                        var middle = group.Count / 2; Pack(group.Take(middle).ToList()); Pack(group.Skip(middle).ToList()); return;
-                    }
-                    pages.Add(page); page = new("pending", group, [id]);
-                    if (!Fits(page))
-                    {
-                        if (group.Count == 1) throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", "An indivisible grounding request exceeds the configured input allowance.", details: new JsonObject { ["location"] = "/grounding/actions/" + group[0] + "/capabilities/" + id });
-                        var middle = group.Count / 2; Pack(group.Take(middle).ToList()); Pack(group.Skip(middle).ToList()); return;
-                    }
+                    if (group.Count == 1) throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", "The full capability description and decision schema cannot fit for this action and capability.", details: new JsonObject { ["location"] = "/grounding/actions/" + group[0] + "/capabilities/" + id });
+                    var middle = group.Count / 2; Pack(group.Take(middle).ToList()); Pack(group.Skip(middle).ToList()); return;
                 }
-                else page = next;
+                pages.Add(page);
             }
-            if (page.CapabilityIds.Count > 0) pages.Add(page);
             foreach (var p in pages) result.Pages.Add(p with { Id = "page_" + result.Pages.Count });
         }
         bool Fits(GroundingPage page) => PlanningJsonTransport.EstimateInputTokens(Prompt(state, page), Schema(page)) <= state.Request.Generation.MaxInputTokensPerRequest;
@@ -75,6 +69,8 @@ internal static class CapabilityGrounder
     }
     internal static string Prompt(PlanningSession state, GroundingPage page) => """
         Match each business action against every capability on this catalog page using its declared behavior.
+        Classify semantic suitability only. Do not derive arguments, design adapters, prove topology or plan call sequences; binding handles these later with full schemas.
+        A match is a viable candidate, not executable authorization. Keep reasons to one short clause quoting the relevant declared behavior.
         Return all semantically viable matches with a short explanation grounded in the description/metadata.
         Matching argument shapes alone cannot establish suitability. A reader cannot perform a required write, execution or cleanup.
         If none matches the action, return outcome none_of_the_above and an empty matches array. Do not force a choice.
@@ -85,12 +81,9 @@ internal static class CapabilityGrounder
         {
             ["request"] = state.Request.Prompt,
             ["actions"] = new JsonArray(SemanticPlanning.Actions(state.SemanticPlan!).Where(a => page.ActionIds.Contains(a.Id)).Select(a => (JsonNode)SemanticPlanning.ActionContext(a)).ToArray()),
-            ["capabilities"] = new JsonArray(page.CapabilityIds.Select(id =>
-            {
-                var c = state.Catalog!.Capabilities.Single(c => c.Id == id);
-                return (JsonNode)new JsonArray(JsonValue.Create(c.Id), JsonValue.Create(c.Method), JsonValue.Create(c.EffectKind), JsonValue.Create(c.Description), c.Metadata?.DeepClone());
-            }).ToArray())
+            ["capabilities"] = new JsonArray(page.CapabilityIds.Select(id => (JsonNode)CatalogRow(state.Catalog!.Capabilities.Single(c => c.Id == id))).ToArray())
         });
+    private static JsonArray CatalogRow(PlanningCapability capability) => new(JsonValue.Create(capability.Id), JsonValue.Create(capability.Method), JsonValue.Create(capability.EffectKind), JsonValue.Create(capability.Description), capability.Metadata?.DeepClone());
     internal static JsonObject Schema(GroundingPage page) => PlanningSchemas.Object(("decisions", PlanningSchemas.Array(PlanningSchemas.Object(
         ("actionId", PlanningSchemas.Enum(page.ActionIds.ToArray())), ("outcome", PlanningSchemas.Enum("matched", "none_of_the_above")),
         ("matches", PlanningSchemas.Array(PlanningSchemas.Object(("capabilityId", page.CapabilityIds.Count == 0 ? PlanningSchemas.String() : PlanningSchemas.Enum(page.CapabilityIds.ToArray())), ("reason", PlanningSchemas.String())))),

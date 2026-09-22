@@ -199,7 +199,7 @@ public static class PlanningGraphValidation
                         var schema = PlanningGraphCompiler.ToJsonSchema(workflow.Inputs[i].Schema, catalog);
                         errors.AddRange(PlanningContractValidation.ValidateInstanceFindings(Literal(value), schema).Select(e => new PlanningDiagnostic(
                             "INPUT_DEFAULT_INVALID", PlanningValues.LiteralLocation(value, location, e.InstancePointer),
-                            e.Message + " Repair the input declaration's default, not scenario data. Use default: null for no default; kind=null is an explicit value.", Rule: e.Rule)));
+                            e.Message + " Correct the input declaration's default. Use default: null for no default; kind=null is an explicit value.", Rule: e.Rule)));
                     }
                     catch (InvalidOperationException) { /* The invalid input schema has its own diagnostic. */ }
                 }

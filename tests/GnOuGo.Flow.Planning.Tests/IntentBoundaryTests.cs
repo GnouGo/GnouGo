@@ -22,6 +22,24 @@ public sealed class IntentBoundaryTests
         Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(PlanningJsonTransport.Grounded(intent), PlanningSchemas.Grounded()));
     }
     [Theory]
+    [InlineData("transform")]
+    [InlineData("validate")]
+    public void AdaptersRequireExactlyOneContractInTheIssuedResponseSchema(string kind)
+    {
+        GroundedOperation operation = kind == "transform" ? new TransformGroundedOperation { Id = "adapt" } : new ValidateGroundedOperation { Id = "adapt" };
+        var schema = PlanningSchemas.Grounded(["renamed_producer"]);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+        var json = PlanningJsonTransport.ModelGrounded(PlanningJsonTransport.Grounded(new() { Operations = [operation] }), schema);
+        var body = json["operations"]![0]!["implementation"]!;
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(json, schema));
+        body["resultType"] = new JsonObject { ["type"] = "string", ["nullable"] = false, ["enum"] = new JsonArray() };
+        Assert.Empty(PlanningContractValidation.ValidateInstance(json, schema));
+        body["resultContract"] = new JsonObject { ["capability"] = "renamed_producer", ["direction"] = "output", ["path"] = new JsonArray() };
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(json, schema));
+        body["resultType"] = null;
+        Assert.Empty(PlanningContractValidation.ValidateInstance(json, schema));
+    }
+    [Theory]
     [InlineData("object")]
     [InlineData("array")]
     public void IncompleteNovelTypesFailTheResponseBoundary(string type)

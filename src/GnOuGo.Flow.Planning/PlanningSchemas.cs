@@ -48,7 +48,7 @@ internal static class PlanningSchemas
             ["strings"] = Array(String()),
             ["optional_value"] = Nullable(Ref("value")),
             ["business_outputs"] = Array(Object(("name", String()), ("path", Array(String())))),
-            ["result_contract"] = Nullable(Object(("capability", capability.DeepClone().AsObject()), ("direction", Enum("input", "output")), ("path", Array(String())))),
+            ["result_contract"] = Object(("capability", capability.DeepClone().AsObject()), ("direction", Enum("input", "output")), ("path", Array(String()))),
             ["value"] = new JsonObject { ["anyOf"] = new JsonArray(
                 Object(("kind", Enum("null"))), Object(("kind", Enum("string")), ("text", String())),
                 Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
@@ -77,13 +77,15 @@ internal static class PlanningSchemas
             ["operation"] = new JsonObject { ["anyOf"] = new JsonArray(
                 Operation("invoke", ("capability", capability), ("arguments", Array(Ref("member"))), ("fallback", Nullable(Ref("value")))),
                 Operation("calculate", ("value", Ref("value"))),
-                Operation("transform", ("instruction", String()), ("data", Array(Ref("member"))), ("resultType", Nullable(Ref("type"))), ("resultContract", Ref("result_contract"))),
+                Operation("transform", ("instruction", String()), ("data", Array(Ref("member"))), ("resultType", Ref("type")), ("resultContract", Type("null"))),
+                Operation("transform", ("instruction", String()), ("data", Array(Ref("member"))), ("resultType", Type("null")), ("resultContract", Ref("result_contract"))),
                 Operation("choose", ("condition", Ref("value")), ("then", Ref("block")), ("otherwise", Ref("block"))),
                 Operation("each", ("items", Ref("value")), ("parallel", Type("boolean")), ("body", Ref("block"))),
                 Operation("parallel", ("branches", Array(Ref("branch")))),
                 Operation("call", ("flow", String()), ("arguments", Array(Ref("member")))),
                 Operation("cleanup", ("operations", Array(Ref("operation")))),
-                Operation("validate", ("value", Ref("value")), ("format", Enum("json_value", "json_text")), ("resultType", Nullable(Ref("type"))), ("resultContract", Ref("result_contract")))) }
+                Operation("validate", ("value", Ref("value")), ("format", Enum("json_value", "json_text")), ("resultType", Ref("type")), ("resultContract", Type("null"))),
+                Operation("validate", ("value", Ref("value")), ("format", Enum("json_value", "json_text")), ("resultType", Type("null")), ("resultContract", Ref("result_contract")))) }
         };
     }
     internal static JsonObject String() => Type("string");
