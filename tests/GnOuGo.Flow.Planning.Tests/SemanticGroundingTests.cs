@@ -8,6 +8,53 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class SemanticGroundingTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    [Fact]
+    public async Task UnambiguousActionsRemainAccountedForWithoutModelReselection()
+    {
+        var state = State(); state.Grounding = CapabilityGrounder.Create(state);
+        foreach (var page in state.Grounding.Pages)
+            state.Grounding.Results.Add(new(page.Id, page.ActionIds.Select(a => new GroundingDecision(a, "matched", page.CapabilityIds.Where(id => a == "collect" || id == "cap_1")
+                .Select(id => new GroundingMatch(id, "Declared behavior")).ToList(), "Covered")).ToList()));
+        var runtime = new TestRuntime { Respond = request =>
+        {
+            Assert.Equal(new[] { "collect" }, request.StructuredOutputSchema!["properties"]!["selections"]!["properties"]!.AsObject().Select(p => p.Key));
+            Assert.Contains("establishedSelections", request.Prompt);
+            return new() { Json = JsonNode.Parse("""{"selections":{"collect":{"capabilities":{"cap_0":true,"cap_1":false},"reason":"Direct declared reader"}}}""") };
+        } };
+        await CapabilitySelection.ApplyAsync(state, runtime, Ct);
+        Assert.Equal(2, state.Grounding.Selections!.Count);
+        Assert.Equal(new[] { "cap_1" }, state.Grounding.Selections.Single(s => s.ActionId == "release").CapabilityIds);
+        Assert.Equal(1, state.ModelCalls);
+    }
+    [Fact]
+    public void SelectionSchemaPreventsCrossActionIdentitiesAndDuplicateChoices()
+    {
+        var schema = CapabilitySelection.Schema([new("left", "matched", [new("renamed_a", "Reads the left source")], "Covered"),
+            new("right", "matched", [new("renamed_b", "Releases the right resource")], "Covered")]);
+        var response = JsonNode.Parse("""{"selections":{"left":{"capabilities":{"renamed_a":true},"reason":"Declared reader"},"right":{"capabilities":{"renamed_b":true},"reason":"Declared release"}}}""")!;
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
+        response["selections"]!["left"]!["capabilities"]!["renamed_b"] = true;
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
+        response["selections"]!["left"]!["capabilities"] = new JsonArray("renamed_a", "renamed_a");
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
+    }
+    [Fact]
+    public async Task InvalidSelectionGetsLocatedFeedbackAndUnchangedRetryStops()
+    {
+        var state = State(); state.Grounding = CapabilityGrounder.Create(state);
+        foreach (var page in state.Grounding.Pages)
+            state.Grounding.Results.Add(new(page.Id, page.ActionIds.Select(a => new GroundingDecision(a, "matched", page.CapabilityIds.Select(id => new GroundingMatch(id, "Declared behavior")).ToList(), "Covered")).ToList()));
+        var runtime = new TestRuntime { Respond = _ => new() { Json = new JsonObject { ["selections"] = new JsonObject(state.SemanticPlan!.Actions.Select(a =>
+            new KeyValuePair<string, JsonNode?>(a.Id, new JsonObject { ["capabilities"] = new JsonObject { ["cap_0"] = false, ["cap_1"] = false }, ["reason"] = "No selection" }))) } } };
+        var invalid = await Assert.ThrowsAsync<PlanningResponseException>(() => CapabilitySelection.ApplyAsync(state, runtime, Ct));
+        Assert.Contains(invalid.Diagnostics, d => d.Location == "/actions/collect" && d.Message.Contains("requires at least one", StringComparison.Ordinal));
+        state.Diagnostics = invalid.Diagnostics;
+        var repeated = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => CapabilitySelection.ApplyAsync(state, runtime, Ct, "replan"));
+        Assert.Equal("REPLAN_NO_PROGRESS", repeated.Code);
+        Assert.Contains("requires at least one", runtime.Calls[1].Prompt); Assert.Null(state.Grounding.Selections);
+        Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts);
+    }
     [Theory]
     [InlineData("collect", false, "SEMANTIC_BINDING_BLOCKED")]
     [InlineData("invented", false, "BINDING_BLOCKER_INVALID")]
@@ -226,11 +273,11 @@ public sealed class SemanticGroundingTests
         state.Grounding = CapabilityGrounder.Create(state);
         foreach (var page in state.Grounding.Pages)
             state.Grounding.Results.Add(new(page.Id, page.ActionIds.Select(a => new GroundingDecision(a, "matched", page.CapabilityIds.Select(id => new GroundingMatch(id, "Declared viable implementation")).ToList(), "Viable implementations")).ToList()));
-        var runtime = new TestRuntime { Respond = _ => new() { Json = new JsonObject { ["selections"] = new JsonArray(state.SemanticPlan!.Actions.Select(a => (JsonNode)new JsonObject {
-            ["actionId"] = a.Id, ["capabilityIds"] = new JsonArray("cap_0"), ["reason"] = "Direct declared implementation" }).ToArray()) } } };
+        var runtime = new TestRuntime { Respond = _ => new() { Json = new JsonObject { ["selections"] = new JsonObject(state.SemanticPlan!.Actions.Select(a => new KeyValuePair<string, JsonNode?>(a.Id, new JsonObject {
+            ["capabilities"] = new JsonObject(state.Catalog.Capabilities.Select(c => new KeyValuePair<string, JsonNode?>(c.Id, JsonValue.Create(c.Id == "cap_0")))), ["reason"] = "Direct declared implementation" }))) } } };
         await CapabilitySelection.ApplyAsync(state, runtime, Ct);
         Assert.Single(runtime.Calls); Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
-        Assert.Contains("Original comparison evidence", runtime.Calls[0].Prompt);
+        Assert.DoesNotContain("Original comparison evidence", runtime.Calls[0].Prompt);
         Assert.Equal(12, CapabilityGrounder.Decisions(state)[0].Matches.Count);
         var prompt = CapabilityGrounder.BindingPrompt(state);
         Assert.Contains("cap_0", prompt); Assert.DoesNotContain("cap_11", prompt);

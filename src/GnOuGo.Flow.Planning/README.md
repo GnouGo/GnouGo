@@ -30,3 +30,5 @@ Oversized binding requests are split at complete semantic subgraphs. Each accept
 Catalog pages retain complete descriptions; binding views factor repeated contracts through local references. Unchanged semantic actions retain validated grounding coverage after atomic replanning. Host compiler validation runs before fixture generation. Availability scenarios fail required producers and verify skipped finalizers, preserving successful cleanup output contracts.
 
 Binding preserves semantic parameter descriptions and selected capability metadata. Selection includes declared artifact prerequisites. A binding response may report located missing prerequisites without any executable operations; the coordinator then replans the semantic action/subgraph atomically. Cleanup guards include earlier finalizers, and successful availability proofs follow the complete dependency chain.
+
+Ambiguous selection uses one scoped boolean map per action, preventing duplicate and cross-action identities. Unique matches are resolved without model reselection. The selection view retains behavior and artifact prerequisites; full parameter descriptions belong to binding.
