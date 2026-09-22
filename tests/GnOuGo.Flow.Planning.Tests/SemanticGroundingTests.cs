@@ -9,6 +9,23 @@ public sealed class SemanticGroundingTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     [Fact]
+    public void RawObservationsCannotMasqueradeAsARequiredBusinessRecord()
+    {
+        var state = State(1);
+        state.Catalog!.Capabilities[0].OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"content":{"type":"string"}},"required":["content"]}""")!.AsObject();
+        var original = state.Catalog.Capabilities[0].OutputSchema.DeepClone();
+        state.SemanticPlan!.Actions = [new() { Id = "collect", Outputs = [new("evidence", "Requested record", new() { Type = "object", Fields = [new("observations", new() { Type = "string" })] })] }];
+        var source = new InvokeGroundedOperation { Id = "raw", SemanticAction = "collect", Capability = "cap_0", BusinessOutputs = [new("evidence", [])] };
+        state.GroundedPlan = new() { Operations = [source] };
+        var error = Assert.Single(CapabilityGrounder.ValidateBusinessOutputs(state, GroundedPlanValidator.RequireValid(state.GroundedPlan, state.Catalog)));
+        Assert.Equal("BUSINESS_OUTPUT_UNSATISFIED", error.Code); Assert.Contains("raw", error.Message); Assert.Contains("collect.evidence", error.Message);
+        source.BusinessOutputs.Clear();
+        state.GroundedPlan.Operations.Add(new CalculateGroundedOperation { Id = "mapped", SemanticAction = "collect", BusinessOutputs = [new("evidence", [])],
+            Value = new() { Kind = "object", Members = [new("observations", new() { Kind = "result", Source = "raw", Path = ["content"] })] } });
+        Assert.Empty(CapabilityGrounder.ValidateBusinessOutputs(state, GroundedPlanValidator.RequireValid(state.GroundedPlan, state.Catalog)));
+        Assert.True(JsonNode.DeepEquals(original, state.Catalog.Capabilities[0].OutputSchema));
+    }
+    [Fact]
     public void ReplanningFeedbackSharesMessagesWithoutDroppingLocationsOrSeverity()
     {
         var diagnostics = new List<PlanningDiagnostic> { new("INVALID", "/operations/first", "Preserve the complete diagnostic.", ValidationStage: "grounded", Rule: "opaque"),

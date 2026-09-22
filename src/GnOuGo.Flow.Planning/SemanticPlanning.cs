@@ -47,14 +47,15 @@ internal static class SemanticPlanning
         These categories describe business intent; grounding may realize a calculation or transformation through a declared specialized capability.
         Cleanup contains a block of resource-release actions and exposes no result itself. External actions inside that block have ordinary named outputs.
         Describe conditions and calculations in ordinary language. Use choose, each, parallel, call and cleanup for business topology.
-        When decisions depend on external facts, include actions to observe those facts before interpretation. An identifier or location is not the resource's contents.
+        When actions or decisions depend on external facts, include actions to observe those facts first. An identifier or location is not the resource's contents.
         Express required ordering through dependencies. Introduce collections, branches and subflows when the business behavior requires them; do not prescribe incidental implementation detail.
         Use the fewest business actions that keep each requested outcome explicit; grounding owns technical decomposition.
         Cleanup releases concrete resources acquired by this workflow. Do not invent hypothetical resources or extra work unrelated to the requested outcomes.
         Use short, globally unique action IDs. Inputs and outputs are named business values; sources identify input.name or actionId.outputName.
         Blocks describe the branches or body; named subflows may be reused. Cleanup runs on exit including failures and cancellation.
         Types describe desired business values, not guarantees from an external producer. Use type=null unless the user explicitly requires a particular shape.
-        Describe required information in the output description; do not invent detailed records or add pass-through actions merely to structure the plan.
+        A list of information to retain belongs in the output description, not invented JSON field names. Specify a record type only for an explicitly requested serialized shape.
+        Do not add pass-through actions merely to structure the plan.
         Keep purposes and descriptions concise. Do not invent missing facts.
         The host owns compilation, simulated scenarios, FinalReview, workflow approval and protected-action confirmations.
         These are pipeline controls, not semantic actions to ground. Do not add actions to obtain execution approval, discover tools, compile, or run planning scenarios.

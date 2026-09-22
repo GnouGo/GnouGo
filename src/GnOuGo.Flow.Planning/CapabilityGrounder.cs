@@ -179,7 +179,7 @@ internal static class CapabilityGrounder
                 var actual = PlanningGraphValidation.AtPath(validated.Types.Result(GroundedTraversal.GraphOwner(state.GroundedPlan!, path), operation.Id), output.Path);
                 var required = PlanningGraphCompiler.ToJsonSchema(PlanningGraphBuilder.Schema(requirement.Type), state.Catalog!);
                 if (!PlanningContractCompatibility.Fits(actual, required)) errors.Add(new("BUSINESS_OUTPUT_UNSATISFIED", path + "/businessOutputs/" + output.Name,
-                    "The implementation does not establish the required business output contract. Add an explicit validated adapter or revise the implementation, never the producer contract."));
+                    "Operation '" + operation.Id + "' maps its result to '" + action.Id + "." + output.Name + "' without establishing the required business output contract. Keep raw observations as an intermediate; map a compatible typed computation or validated transformation. Validation alone cannot rename or create missing fields. Never change the producer contract."));
             }
         }
         return errors;
@@ -196,6 +196,7 @@ internal static class CapabilityGrounder
             In business context, omitted lists are empty, type is null, and optional/nullable flags are false.
             Use short IDs and purposes. Preserve every action and outcome; each operation's semanticAction identifies its business action.
             businessOutputs maps required semantic output names to result paths (empty path = whole result); intermediates may map none.
+            A typed business output must match its required shape. Raw invocation results are intermediates when their contract differs; map the outcome on a typed computation or validated transformation of actual observations. Validation checks a value; it cannot rename or create fields.
             Return blockedActions=[] when complete. For missing observations, artifact producers or decisions, promptly name existing affected actions and reasons in blockedActions; return empty inputs, operations, outputs and subflows. Never invent evidence to force a binding.
             Use exact issued capability IDs, argument names and declared result paths. Omit unneeded optional arguments; null is not omission.
             Artifact inputs require the original declared producer path and kind. Matching strings or model rewrites cannot establish identity; pure aliases preserve it.

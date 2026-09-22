@@ -49,6 +49,32 @@ public sealed class BindingBatchTests
         Assert.NotNull(GroundedPlanValidator.Validate(state.GroundedPlan, state.Catalog!).Plan);
     }
     [Fact]
+    public async Task ComplexBindingsReserveReasoningSpaceWithinTheEightCallBudget()
+    {
+        var state = PlannerFixture.Session(); var runtime = new TestRuntime();
+        state.Catalog = await runtime.DiscoverAsync(state.Request, Ct);
+        state.Catalog.Capabilities.Add(new() { Id = "renamed_operation", StepType = "mcp.call", InputSchema = new JsonObject
+        { ["type"] = "object", ["properties"] = new JsonObject(Enumerable.Range(0, 10).Select(i => new KeyValuePair<string, JsonNode?>("arg" + i, new JsonObject { ["type"] = "string" }))) } });
+        state.SemanticPlan = new() { Actions = Enumerable.Range(0, 9).Select(i => new SemanticAction { Id = "a" + i, Outputs = [new("evidence", "Original observations")] }).ToList() };
+        state.Grounding = CapabilityGrounder.Create(state);
+        foreach (var page in state.Grounding.Pages) state.Grounding.Results.Add(new(page.Id, page.ActionIds.Select(a => new GroundingDecision(a, "matched", [new("renamed_operation", "Declared behavior")], "Covered")).ToList()));
+        state.Grounding.Selections = state.SemanticPlan.Actions.Select(a => new GroundingSelection(a.Id, ["renamed_operation"], "Declared behavior")).ToList();
+        state.ModelCalls = 4; // Semantic planning, two complete catalog pages and concrete selection.
+        runtime.Respond = request =>
+        {
+            var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..]));
+            var actions = JsonNode.Parse(ref reader)!["semanticPlan"]!["actions"]!.AsArray();
+            Assert.InRange(actions.Count, 1, 3);
+            var plan = new GroundedPlan { Operations = actions.Select(a => (GroundedOperation)new InvokeGroundedOperation
+            { Id = a!["id"]!.ToString(), SemanticAction = a["id"]!.ToString(), Capability = "renamed_operation", BusinessOutputs = [new("evidence", [])] }).ToList() };
+            return new() { Json = PlanningJsonTransport.ModelGrounded(PlanningJsonTransport.Grounded(plan), request.StructuredOutputSchema!) };
+        };
+        for (var i = 0; i < 3; i++) { await GroundedBindingBatches.ApplyAsync(state, runtime, Ct); Assert.Empty(state.Diagnostics); }
+        Assert.NotNull(state.GroundedPlan); Assert.Equal(9, state.GroundedPlan.Operations.Count);
+        Assert.Equal(7, state.ModelCalls); Assert.Equal(8, state.Request.MaxModelCalls);
+        Assert.Equal(8192, state.Request.Generation.MaxOutputTokens); Assert.Equal(3, runtime.Calls.Count);
+    }
+    [Fact]
     public async Task InsufficientRemainingCallsStopsBeforeDispatch()
     {
         var (state, runtime) = await Setup(); state.ModelCalls = 7;

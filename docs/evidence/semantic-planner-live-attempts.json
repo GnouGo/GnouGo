@@ -4974,6 +4974,688 @@
           "outputTokens": 29472
         }
       }
+    },
+    {
+      "session": "f4cb86325ebf4276b28c51acf6614550",
+      "status": "stopped",
+      "phase": "binding",
+      "revision": 11,
+      "modelCalls": 5,
+      "replans": 0,
+      "pending": null,
+      "pendingPhase": null,
+      "promptHash": "8f9c138913d4fd8e136760df3b7e20fe4cf7623f02fa9fa4c46220bcaae1cf85",
+      "promptBytes": 680,
+      "catalogCount": 129,
+      "catalogHash": "3635f655617248b7ec5ab9d4ec793264d70325dc44ade8a58d82eec44b109634",
+      "pages": 2,
+      "completedPages": 2,
+      "settings": {
+        "reasoning": "medium",
+        "maxInputTokensPerRequest": 12000,
+        "maxOutputTokens": 8192
+      },
+      "limits": {
+        "calls": 8,
+        "replans": 2
+      },
+      "diagnostics": [
+        {
+          "code": "MODEL_OUTPUT_LIMIT",
+          "location": "/phases/binding",
+          "validationStage": null
+        }
+      ],
+      "scenarios": [],
+      "usage": {
+        "startedAtUtc": "2026-09-22T00:52:50.13015+00:00",
+        "calls": 5,
+        "inputTokens": 30578,
+        "outputTokens": 24102,
+        "totalTokens": 54680,
+        "estimatedCost": 0.7623585726718886,
+        "estimatedCostCurrency": "EUR",
+        "exchangeRates": [
+          {
+            "sourceCurrency": "USD",
+            "targetCurrency": "EUR",
+            "rate": 0.8703220191470844,
+            "asOfUtc": "2026-09-21T00:00:00+00:00",
+            "source": "ecb_reference_rates"
+          }
+        ],
+        "estimatedCostUsd": 0.87595
+      },
+      "bindingCompleted": 0,
+      "bindingCurrent": [
+        "clone",
+        "observe",
+        "identify",
+        "deps"
+      ],
+      "approved": false,
+      "activeMs": 244326.02270000003,
+      "traceIds": [
+        "2c6edad7af734a2a14657190c0e65596",
+        "2ee6b42b2b46ba0059e7c1b25e6c2630",
+        "b7799783330e033d95d1051f61658140",
+        "c2be7b72130bdb84ab640e36f502ba2e",
+        "e45fa186aad9abc2084b83efa1b329f2"
+      ],
+      "receipts": [
+        {
+          "requestKey": "f4cb86325ebf4276b28c51acf6614550:f4cb86325ebf4276b28c51acf6614550:1:5ec20984a752550f47f74b2e529f1816a3eb12a043ec0394d9a6aa92b8639d56",
+          "reserved": "2026-09-22T00:52:50.1413930+00:00",
+          "completed": "2026-09-22T00:53:20.6757160+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 3862,
+          "schemaBytes": 3358,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 2997,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 1538,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 10,
+              "engine_ttft_ms": 186,
+              "engine_ttlt_ms": 28815,
+              "pre_inference_ms": 151,
+              "service_tbt_ms": 10,
+              "service_ttft_ms": 414,
+              "service_ttlt_ms": 29041,
+              "user_visible_ttft_ms": 262
+            },
+            "prompt_tokens": 1398,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 4395
+          },
+          "responseStage": "semantic"
+        },
+        {
+          "requestKey": "f4cb86325ebf4276b28c51acf6614550:f4cb86325ebf4276b28c51acf6614550:2:8b7933e1906ba49e43b37bc2b1d474968080059f397c161b26a83a2ee18a22c2",
+          "reserved": "2026-09-22T00:53:49.5996480+00:00",
+          "completed": "2026-09-22T00:54:27.6162570+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 32818,
+          "schemaBytes": 2361,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 3580,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 2049,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 10,
+              "engine_ttft_ms": 194,
+              "engine_ttlt_ms": 35906,
+              "pre_inference_ms": 97,
+              "service_tbt_ms": 10,
+              "service_ttft_ms": 420,
+              "service_ttlt_ms": 36079,
+              "user_visible_ttft_ms": 323
+            },
+            "prompt_tokens": 8549,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 12129
+          },
+          "responseStage": "grounding"
+        },
+        {
+          "requestKey": "f4cb86325ebf4276b28c51acf6614550:f4cb86325ebf4276b28c51acf6614550:3:88cfd805cd6070245c5117611c054dce008cc82b29a4dccc663ce8dccf7417de",
+          "reserved": "2026-09-22T00:54:27.6444460+00:00",
+          "completed": "2026-09-22T00:55:16.6662790+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 29414,
+          "schemaBytes": 2950,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 4462,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 3070,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 11,
+              "engine_ttft_ms": 218,
+              "engine_ttlt_ms": 47757,
+              "pre_inference_ms": 117,
+              "service_tbt_ms": 11,
+              "service_ttft_ms": 409,
+              "service_ttlt_ms": 47944,
+              "user_visible_ttft_ms": 292
+            },
+            "prompt_tokens": 8237,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 12699
+          },
+          "responseStage": "grounding"
+        },
+        {
+          "requestKey": "f4cb86325ebf4276b28c51acf6614550:f4cb86325ebf4276b28c51acf6614550:4:17a902033401de1f88efa135656c2e0d673fe8f2a798b6d21acb7d3780fd7587",
+          "reserved": "2026-09-22T00:55:16.7039270+00:00",
+          "completed": "2026-09-22T00:56:10.7383360+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 20519,
+          "schemaBytes": 3530,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 4871,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 4069,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 11,
+              "engine_ttft_ms": 221,
+              "engine_ttlt_ms": 52532,
+              "pre_inference_ms": 118,
+              "service_tbt_ms": 11,
+              "service_ttft_ms": 443,
+              "service_ttlt_ms": 52720,
+              "user_visible_ttft_ms": 324
+            },
+            "prompt_tokens": 5172,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 10043
+          },
+          "responseStage": "selection"
+        },
+        {
+          "requestKey": "f4cb86325ebf4276b28c51acf6614550:f4cb86325ebf4276b28c51acf6614550:5:ff31852d7b1d83918cbfdffac2251279b87970fdbc602b667b03d34335fa597e",
+          "reserved": "2026-09-22T00:56:10.7876370+00:00",
+          "completed": "2026-09-22T00:57:19.7277320+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 24675,
+          "schemaBytes": 9586,
+          "completionStatus": "output_limit",
+          "usage": {
+            "completion_tokens": 8192,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 8192,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 8,
+              "engine_ttft_ms": 238,
+              "engine_ttlt_ms": 67684,
+              "pre_inference_ms": 222,
+              "service_tbt_ms": 8,
+              "service_ttft_ms": 541,
+              "service_ttlt_ms": 67983,
+              "user_visible_ttft_ms": 319
+            },
+            "prompt_tokens": 7222,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 15414
+          },
+          "responseStage": "binding"
+        }
+      ],
+      "source": "47bdc01138bee3e42027139b4b08a1c7ff5206d8",
+      "attempt": "designer-09",
+      "submittedAt": "2026-09-22T00:52:49.980Z",
+      "responseStageCostsIncludingRetries": {
+        "semantic": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 1398,
+          "outputTokens": 2997
+        },
+        "grounding": {
+          "reservedCalls": 2,
+          "completedCalls": 2,
+          "inputTokens": 16786,
+          "outputTokens": 8042
+        },
+        "selection": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 5172,
+          "outputTokens": 4871
+        },
+        "binding": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 7222,
+          "outputTokens": 8192
+        }
+      }
+    },
+    {
+      "session": "595bf0e7671a63bb287cdf236b6be439aec73bde7363cb6de09742e31ef8862c",
+      "status": "stopped",
+      "phase": "replanning",
+      "revision": 13,
+      "modelCalls": 8,
+      "replans": 4,
+      "pending": null,
+      "pendingPhase": null,
+      "promptHash": "6755b57df5804c26b9dca0c1babe62a31b9d2404ae7b5b96ff174cced1611649",
+      "promptBytes": 2761,
+      "catalogCount": 129,
+      "catalogHash": "3635f655617248b7ec5ab9d4ec793264d70325dc44ade8a58d82eec44b109634",
+      "pages": 1,
+      "completedPages": 1,
+      "settings": {
+        "reasoning": "medium",
+        "maxInputTokensPerRequest": 64000,
+        "maxOutputTokens": 32768
+      },
+      "limits": {
+        "calls": 8,
+        "replans": 6
+      },
+      "diagnostics": [
+        {
+          "code": "BUSINESS_OUTPUT_UNSATISFIED",
+          "location": "/operations/18/businessOutputs/pytestEvidence",
+          "validationStage": null
+        },
+        {
+          "code": "BUSINESS_OUTPUT_UNSATISFIED",
+          "location": "/operations/19/businessOutputs/ruffCheckEvidence",
+          "validationStage": null
+        },
+        {
+          "code": "BUSINESS_OUTPUT_UNSATISFIED",
+          "location": "/operations/20/businessOutputs/ruffFormatEvidence",
+          "validationStage": null
+        },
+        {
+          "code": "BUSINESS_OUTPUT_UNSATISFIED",
+          "location": "/operations/21/businessOutputs/repositoryCheckEvidence",
+          "validationStage": null
+        },
+        {
+          "code": "LLM_BUDGET_EXCEEDED",
+          "location": "$",
+          "validationStage": null
+        }
+      ],
+      "scenarios": [],
+      "usage": {
+        "startedAtUtc": "2026-09-22T00:52:41.476537+00:00",
+        "calls": 8,
+        "inputTokens": 131307,
+        "outputTokens": 64097,
+        "totalTokens": 195404,
+        "estimatedCost": 0,
+        "estimatedCostCurrency": "USD",
+        "exchangeRates": [],
+        "estimatedCostUsd": 0
+      },
+      "bindingCompleted": null,
+      "bindingCurrent": [],
+      "approved": false,
+      "activeMs": 548814.3042999998,
+      "traceIds": [
+        "32040b7b0887623a3747a60e8139ec51"
+      ],
+      "receipts": [
+        {
+          "requestKey": "595bf0e7671a63bb287cdf236b6be439aec73bde7363cb6de09742e31ef8862c:1:b0bb2d44078d878acb772b65a5cabd15a8d5acf216500d4f21ecfce8f71e0801",
+          "reserved": "2026-09-22T00:52:41.4950910+00:00",
+          "completed": "2026-09-22T00:53:51.5849090+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 5940,
+          "schemaBytes": 3358,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 7549,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 3570,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 9,
+              "engine_ttft_ms": 149,
+              "engine_ttlt_ms": 68059,
+              "pre_inference_ms": 129,
+              "service_tbt_ms": 9,
+              "service_ttft_ms": 319,
+              "service_ttlt_ms": 68225,
+              "user_visible_ttft_ms": 191
+            },
+            "prompt_tokens": 1738,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 9287
+          },
+          "responseStage": "semantic"
+        },
+        {
+          "requestKey": "595bf0e7671a63bb287cdf236b6be439aec73bde7363cb6de09742e31ef8862c:2:d4e5f135d8d72959b404a6bac0e280d487c41eb0aacf0b49327f060fb7be993a",
+          "reserved": "2026-09-22T00:53:54.4367300+00:00",
+          "completed": "2026-09-22T00:55:17.3949580+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 64913,
+          "schemaBytes": 4668,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 7397,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 4606,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 11,
+              "engine_ttft_ms": 235,
+              "engine_ttlt_ms": 81605,
+              "pre_inference_ms": 132,
+              "service_tbt_ms": 11,
+              "service_ttft_ms": 419,
+              "service_ttlt_ms": 81782,
+              "user_visible_ttft_ms": 287
+            },
+            "prompt_tokens": 17046,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 24443
+          },
+          "responseStage": "grounding"
+        },
+        {
+          "requestKey": "595bf0e7671a63bb287cdf236b6be439aec73bde7363cb6de09742e31ef8862c:3:0801d52d45a3690edadc30837496015f23ab5fed781a6bfb9b73cb244123f7c9",
+          "reserved": "2026-09-22T00:55:17.4101400+00:00",
+          "completed": "2026-09-22T00:55:39.1938060+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 24882,
+          "schemaBytes": 3796,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 2109,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 1316,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 10,
+              "engine_ttft_ms": 182,
+              "engine_ttlt_ms": 20646,
+              "pre_inference_ms": 139,
+              "service_tbt_ms": 10,
+              "service_ttft_ms": 372,
+              "service_ttlt_ms": 20831,
+              "user_visible_ttft_ms": 232
+            },
+            "prompt_tokens": 5995,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 8104
+          },
+          "responseStage": "selection"
+        },
+        {
+          "requestKey": "595bf0e7671a63bb287cdf236b6be439aec73bde7363cb6de09742e31ef8862c:4:01b489c3bc38fa99c5bb65b5f6363ef6a7692f3434eaa7705555701b9ed3f692",
+          "reserved": "2026-09-22T00:55:39.2273650+00:00",
+          "completed": "2026-09-22T00:57:33.6917570+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 65348,
+          "schemaBytes": 9953,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 12354,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 6061,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 9,
+              "engine_ttft_ms": 295,
+              "engine_ttlt_ms": 112635,
+              "pre_inference_ms": 335,
+              "service_tbt_ms": 9,
+              "service_ttft_ms": 680,
+              "service_ttlt_ms": 113016,
+              "user_visible_ttft_ms": 345
+            },
+            "prompt_tokens": 16286,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 28640
+          },
+          "responseStage": "binding"
+        },
+        {
+          "requestKey": "595bf0e7671a63bb287cdf236b6be439aec73bde7363cb6de09742e31ef8862c:5:b954128425045866384d8430cb9b0aa91f028658db2032be27ab2f4b88e4c5bf",
+          "reserved": "2026-09-22T00:57:33.7422500+00:00",
+          "completed": "2026-09-22T00:58:42.8626560+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 90522,
+          "schemaBytes": 9505,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 8873,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 2994,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 8,
+              "engine_ttft_ms": 299,
+              "engine_ttlt_ms": 67167,
+              "pre_inference_ms": 289,
+              "service_tbt_ms": 8,
+              "service_ttft_ms": 695,
+              "service_ttlt_ms": 67560,
+              "user_visible_ttft_ms": 406
+            },
+            "prompt_tokens": 22387,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 31260
+          },
+          "responseStage": "binding"
+        },
+        {
+          "requestKey": "595bf0e7671a63bb287cdf236b6be439aec73bde7363cb6de09742e31ef8862c:6:c06abafb0996fcb270f0b7a97efea6ce1cb36fee015761c6ef1d7622e774ffeb",
+          "reserved": "2026-09-22T00:58:42.8957740+00:00",
+          "completed": "2026-09-22T00:59:48.3535510+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 90798,
+          "schemaBytes": 9505,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 8880,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 2488,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 7,
+              "engine_ttft_ms": 327,
+              "engine_ttlt_ms": 63535,
+              "pre_inference_ms": 219,
+              "service_tbt_ms": 7,
+              "service_ttft_ms": 686,
+              "service_ttlt_ms": 63889,
+              "user_visible_ttft_ms": 467
+            },
+            "prompt_tokens": 22451,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 31331
+          },
+          "responseStage": "binding"
+        },
+        {
+          "requestKey": "595bf0e7671a63bb287cdf236b6be439aec73bde7363cb6de09742e31ef8862c:7:c71ae3fe857954f3b7e67e93753efa5844dda3812c789e66d7f876998bbd4754",
+          "reserved": "2026-09-22T00:59:48.4225440+00:00",
+          "completed": "2026-09-22T01:00:29.0764370+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 91620,
+          "schemaBytes": 9505,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 6887,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 512,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 5,
+              "engine_ttft_ms": 2027,
+              "engine_ttlt_ms": 38614,
+              "pre_inference_ms": 238,
+              "service_tbt_ms": 5,
+              "service_ttft_ms": 2346,
+              "service_ttlt_ms": 38930,
+              "user_visible_ttft_ms": 2108
+            },
+            "prompt_tokens": 22673,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 16128
+            },
+            "total_tokens": 29560
+          },
+          "responseStage": "binding"
+        },
+        {
+          "requestKey": "595bf0e7671a63bb287cdf236b6be439aec73bde7363cb6de09742e31ef8862c:8:072a9f7bb10b7416ddb10570dce48fa884a3d2e981874d3f6524f5d5804d61a5",
+          "reserved": "2026-09-22T01:00:29.1181170+00:00",
+          "completed": "2026-09-22T01:01:50.3304780+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 91959,
+          "schemaBytes": 9505,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 10048,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 3360,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 8,
+              "engine_ttft_ms": 496,
+              "engine_ttlt_ms": 79625,
+              "pre_inference_ms": 221,
+              "service_tbt_ms": 8,
+              "service_ttft_ms": 808,
+              "service_ttlt_ms": 79929,
+              "user_visible_ttft_ms": 588
+            },
+            "prompt_tokens": 22731,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 16128
+            },
+            "total_tokens": 32779
+          },
+          "responseStage": "binding"
+        }
+      ],
+      "source": "47bdc01138bee3e42027139b4b08a1c7ff5206d8",
+      "attempt": "chat-09",
+      "submittedAt": "2026-09-22T00:52:41.193Z",
+      "responseStageCostsIncludingRetries": {
+        "semantic": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 1738,
+          "outputTokens": 7549
+        },
+        "grounding": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 17046,
+          "outputTokens": 7397
+        },
+        "selection": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 5995,
+          "outputTokens": 2109
+        },
+        "binding": {
+          "reservedCalls": 5,
+          "completedCalls": 5,
+          "inputTokens": 106528,
+          "outputTokens": 47042
+        }
+      }
     }
   ]
 }

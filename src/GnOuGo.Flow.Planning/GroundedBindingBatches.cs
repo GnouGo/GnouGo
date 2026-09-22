@@ -95,7 +95,7 @@ internal static class GroundedBindingBatches
 
     // A planning estimate, not a raised ceiling: reserve response space for reasoning and JSON framing.
     // Partition complete business work rather than treating an almost-full input as a small output request.
-    private static int OutputCapacity(PlanningSession state) => Math.Max(1, state.Request.Generation.MaxOutputTokens * 2 / 3);
+    private static int OutputCapacity(PlanningSession state) => Math.Max(1, state.Request.Generation.MaxOutputTokens / 2);
     private static int Weight(PlanningSession state, SemanticAction action, bool descendants = true)
     {
         var selected = state.Grounding!.Selections!.FirstOrDefault(s => s.ActionId == action.Id)?.CapabilityIds ?? [];
