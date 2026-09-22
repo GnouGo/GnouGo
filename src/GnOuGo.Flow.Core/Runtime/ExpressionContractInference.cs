@@ -60,9 +60,11 @@ public static class ExpressionContractInference
                 }
                 return FlowTypeDescriptor.Object(fields);
             case MemberExpression member:
-                var owner = Type(member.Object); var key = member.Computed ? (member.Property as Literal)?.Value?.ToString() : Name(member.Property);
+                var owner = Type(member.Object).RemoveNull(); var key = member.Computed ? (member.Property as Literal)?.Value?.ToString() : Name(member.Property);
                 if (key == "length" && owner.Kind is FlowTypeKind.Array or FlowTypeKind.String) return FlowTypeDescriptor.Integer;
-                return key is null ? owner.Kind == FlowTypeKind.Array ? owner.Items! : FlowTypeDescriptor.Any : owner.ResolvePath([key]) ?? FlowTypeDescriptor.Any;
+                if (owner.Kind == FlowTypeKind.Array && member.Computed && (key is not null && uint.TryParse(key, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out _) || key is null && Numeric(Type(member.Property))))
+                    return FlowTypeDescriptor.Union([owner.Items!, FlowTypeDescriptor.Null]);
+                return key is null ? FlowTypeDescriptor.Any : owner.ResolvePath([key]) ?? FlowTypeDescriptor.Any;
             case ConditionalExpression conditional: return FlowTypeDescriptor.Union([Type(conditional.Consequent), Type(conditional.Alternate)]);
             case LogicalExpression logical:
                 var left = Type(logical.Left); var right = Type(logical.Right);
@@ -91,8 +93,15 @@ public static class ExpressionContractInference
             case CallExpression { Callee: MemberExpression { Computed: false, Object: Identifier { Name: "JSON" }, Property: Identifier { Name: "stringify" } }, Arguments.Count: 1 } json when !variables.ContainsKey("JSON"):
                 // Serialization of a declared JSON container/scalar has a string result. Parsing never creates a field contract.
                 return Type(json.Arguments[0]).IsOpaque ? FlowTypeDescriptor.Any : FlowTypeDescriptor.String;
+            case CallExpression { Callee: MemberExpression { Computed: false, Property: Identifier { Name: "match" } } receiver, Arguments.Count: 1 } match
+                when match.Arguments[0] is RegExpLiteral && Type(receiver.Object).Kind == FlowTypeKind.String:
+                // A literal regex yields a match array or null. Captures may be absent;
+                // do not assert their scalar types or invent properties of capture values.
+                return FlowTypeDescriptor.Union([FlowTypeDescriptor.Array(FlowTypeDescriptor.Any), FlowTypeDescriptor.Null]);
             case CallExpression { Callee: MemberExpression { Computed: false, Property: Identifier method } receiver }:
-                var target = Type(receiver.Object);
+                // A null receiver throws rather than producing a successful method result.
+                // Optional chaining has its own AST node and remains uninferred here.
+                var target = Type(receiver.Object).RemoveNull();
                 if (target.Kind == FlowTypeKind.String)
                     return method.Name switch
                     {

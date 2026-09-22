@@ -7,6 +7,32 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class PlanningComputationBoundaryTests
 {
     [Fact]
+    public void FilteredArraysKeepKnownFieldsAndOpaqueMembers()
+    {
+        var args = new Dictionary<string, JsonObject> { ["rows"] = JsonNode.Parse("""{"type":"array","items":{"type":"object","properties":{"label":{"type":"string"},"status":{"type":"string"},"raw":{"x-gnougo-opaque":true}},"required":["label","status","raw"],"additionalProperties":false}}""")!.AsObject() };
+        PlanningComputationContracts.Validate("(() => { const selected = rows.filter(row => row.status === 'failed').map(row => row.label); return selected.length; })()", args);
+        Assert.Throws<InvalidOperationException>(() => PlanningComputationContracts.Validate("rows.filter(row => true).map(row => row.raw.invented)", args));
+    }
+
+    [Fact]
+    public void RegexMatchesPermitWholeCaptureValuesWithoutInventingCaptureFields()
+    {
+        var args = new Dictionary<string, JsonObject> { ["text"] = new() { ["type"] = "string" } };
+        PlanningComputationContracts.Validate("(() => { const match = text.match(/^([^:]+):(.*)$/); if (!match) throw new Error('Invalid identifier'); return { first: match[1], second: match[2] }; })()", args);
+        Assert.Throws<InvalidOperationException>(() => PlanningComputationContracts.Validate("(() => { const match = text.match(/(.*)/); return match[1].invented; })()", args));
+        Assert.Throws<InvalidOperationException>(() => PlanningComputationContracts.Validate("text.match(/(.*)/).map(value => value.invented)", args));
+        Assert.Throws<InvalidOperationException>(() => PlanningComputationContracts.Validate("((value) => value.invented)(text)", args));
+    }
+    [Theory]
+    [InlineData("{\"x-gnougo-opaque\":true}")]
+    [InlineData("{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}")]
+    public void ArrayUnionsCannotHideOpaqueOrClosedObjectAlternatives(string alternative)
+    {
+        var args = new Dictionary<string, JsonObject> { ["value"] = new() { ["anyOf"] = new JsonArray(new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" } }, JsonNode.Parse(alternative)) } };
+        Assert.Throws<InvalidOperationException>(() => PlanningComputationContracts.Validate("value[0]", args));
+        Assert.Throws<InvalidOperationException>(() => PlanningComputationContracts.Validate("value.invented", args));
+    }
+    [Fact]
     public void CallbackCollectionKeepsItsItemContractAndExtraArgumentsStayOpaque()
     {
         var args = new Dictionary<string, JsonObject> { ["rows"] = JsonNode.Parse("""{"type":"array","items":{"type":"object","properties":{"label":{"type":"string"}},"required":["label"],"additionalProperties":false}}""")!.AsObject() };

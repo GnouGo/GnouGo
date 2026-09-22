@@ -134,6 +134,20 @@ public sealed class WorkflowSchemaContractTests
     }
 
     [Fact]
+    public void LiteralRegexInferencePreservesMissingMatchesAndUnknownCaptures()
+    {
+        var args = new Dictionary<string, JsonObject> { ["text"] = new() { ["type"] = "string" }, ["pattern"] = new() { ["x-gnougo-opaque"] = true } };
+        var result = ExpressionContractInference.Infer("text.match(/(a)?b/)", args)!;
+        var variants = result["anyOf"]!.AsArray();
+        Assert.Contains(variants, v => v!["type"]!.ToString() == "null");
+        Assert.True(variants.Single(v => v!["type"]!.ToString() == "array")!["items"]!["x-gnougo-opaque"]!.GetValue<bool>());
+        Assert.Null(ExpressionContractInference.Infer("text.match(pattern)", args));
+        Assert.Null(ExpressionContractInference.Infer("pattern.match(/x/)", args));
+        Assert.Equal("string", ExpressionContractInference.Infer("text.split(':')[0].toLowerCase()", args)!["type"]!.ToString());
+        Assert.Contains(ExpressionContractInference.Infer("text.split(':')[0]", args)!["anyOf"]!.AsArray(), v => v!["type"]!.ToString() == "null");
+        Assert.Null(ExpressionContractInference.Infer("text.split(':').invented", args));
+    }
+    [Fact]
     public void CallbackCollectionAndUnaryOperatorsCannotInventNumericResults()
     {
         var args = new Dictionary<string, JsonObject> { ["values"] = new() { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" } } };

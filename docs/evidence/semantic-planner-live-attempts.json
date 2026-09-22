@@ -6326,6 +6326,989 @@
           "outputTokens": 12426
         }
       }
+    },
+    {
+      "session": "c8c0fe527688468aa4c4d036bcf11a6a",
+      "status": "stopped",
+      "phase": "replanning",
+      "revision": 16,
+      "modelCalls": 7,
+      "replans": 2,
+      "pending": null,
+      "pendingPhase": null,
+      "promptHash": "8f9c138913d4fd8e136760df3b7e20fe4cf7623f02fa9fa4c46220bcaae1cf85",
+      "promptBytes": 680,
+      "catalogCount": 129,
+      "catalogHash": "3635f655617248b7ec5ab9d4ec793264d70325dc44ade8a58d82eec44b109634",
+      "pages": 2,
+      "completedPages": 2,
+      "settings": {
+        "reasoning": "medium",
+        "maxInputTokensPerRequest": 12000,
+        "maxOutputTokens": 8192
+      },
+      "limits": {
+        "calls": 8,
+        "replans": 2
+      },
+      "diagnostics": [
+        {
+          "code": "GROUNDED_CONTRACT_INVALID",
+          "location": "/scopes/main/operations/p",
+          "validationStage": "grounded"
+        },
+        {
+          "code": "GROUNDED_CONTRACT_INVALID",
+          "location": "/scopes/main/operations/vp",
+          "validationStage": "grounded"
+        }
+      ],
+      "scenarios": [],
+      "usage": {
+        "startedAtUtc": "2026-09-22T01:27:23.617097+00:00",
+        "calls": 7,
+        "inputTokens": 41625,
+        "outputTokens": 28586,
+        "totalTokens": 70211,
+        "estimatedCost": 0.9275065274151436,
+        "estimatedCostCurrency": "EUR",
+        "exchangeRates": [
+          {
+            "sourceCurrency": "USD",
+            "targetCurrency": "EUR",
+            "rate": 0.8703220191470844,
+            "asOfUtc": "2026-09-21T00:00:00+00:00",
+            "source": "ecb_reference_rates"
+          }
+        ],
+        "estimatedCostUsd": 1.065705
+      },
+      "bindingCompleted": 0,
+      "bindingCurrent": [
+        "a1",
+        "a2",
+        "a3"
+      ],
+      "approved": false,
+      "activeMs": 315308.55360000004,
+      "traceIds": [
+        "2b4de6a07b0b90415acb5b3947007e82",
+        "5393b03da6c86cf89ac4e546b5b57bd6",
+        "64b016e153883e891799327c88fdf4d2",
+        "73acf19fe1bea04505096ce63168c43e",
+        "a66428d4c25d8e37180457c838cda29c",
+        "dffd1ed2dca2cd6ed3aaac8ac37439fd",
+        "e94f4c909fa049b89265ca779b7361a3"
+      ],
+      "receipts": [
+        {
+          "requestKey": "c8c0fe527688468aa4c4d036bcf11a6a:c8c0fe527688468aa4c4d036bcf11a6a:1:8c7ffe815f7bd0ab4f6923ef895bedcdb0a3d264937543efff2d297bcd6a6f4c",
+          "reserved": "2026-09-22T01:27:23.6274500+00:00",
+          "completed": "2026-09-22T01:27:40.6074620+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 4250,
+          "schemaBytes": 3358,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 1797,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 512,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 8,
+              "engine_ttft_ms": 167,
+              "engine_ttlt_ms": 15327,
+              "pre_inference_ms": 133,
+              "service_tbt_ms": 8,
+              "service_ttft_ms": 377,
+              "service_ttlt_ms": 15539,
+              "user_visible_ttft_ms": 244
+            },
+            "prompt_tokens": 1463,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 3260
+          },
+          "responseStage": "semantic"
+        },
+        {
+          "requestKey": "c8c0fe527688468aa4c4d036bcf11a6a:c8c0fe527688468aa4c4d036bcf11a6a:2:bade5660412a3d00852a8693b440d0d3c728ef10d59453badf9a7327beedadc7",
+          "reserved": "2026-09-22T01:28:09.3062650+00:00",
+          "completed": "2026-09-22T01:28:53.0721090+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 33622,
+          "schemaBytes": 1605,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 3843,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 3062,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 11,
+              "engine_ttft_ms": 239,
+              "engine_ttlt_ms": 42409,
+              "pre_inference_ms": 100,
+              "service_tbt_ms": 11,
+              "service_ttft_ms": 373,
+              "service_ttlt_ms": 42535,
+              "user_visible_ttft_ms": 273
+            },
+            "prompt_tokens": 8156,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 11999
+          },
+          "responseStage": "grounding"
+        },
+        {
+          "requestKey": "c8c0fe527688468aa4c4d036bcf11a6a:c8c0fe527688468aa4c4d036bcf11a6a:3:a725e6513929aded382fc24fd93047d53a983a8294ff425e501e740fdf44ef30",
+          "reserved": "2026-09-22T01:28:53.1041700+00:00",
+          "completed": "2026-09-22T01:29:14.9120910+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 27440,
+          "schemaBytes": 3620,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 2000,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 1536,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 10,
+              "engine_ttft_ms": 220,
+              "engine_ttlt_ms": 20296,
+              "pre_inference_ms": 195,
+              "service_tbt_ms": 10,
+              "service_ttft_ms": 487,
+              "service_ttlt_ms": 20559,
+              "user_visible_ttft_ms": 292
+            },
+            "prompt_tokens": 8476,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 10476
+          },
+          "responseStage": "grounding"
+        },
+        {
+          "requestKey": "c8c0fe527688468aa4c4d036bcf11a6a:c8c0fe527688468aa4c4d036bcf11a6a:4:049192aac90a1f587a6e8f88272c7000fa75f51b944c5156a51625d8bcb16a67",
+          "reserved": "2026-09-22T01:29:14.9382970+00:00",
+          "completed": "2026-09-22T01:30:15.7115330+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 17018,
+          "schemaBytes": 2908,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 5228,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 4609,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 11,
+              "engine_ttft_ms": 174,
+              "engine_ttlt_ms": 59504,
+              "pre_inference_ms": 138,
+              "service_tbt_ms": 11,
+              "service_ttft_ms": 409,
+              "service_ttlt_ms": 59723,
+              "user_visible_ttft_ms": 271
+            },
+            "prompt_tokens": 4225,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 9453
+          },
+          "responseStage": "selection"
+        },
+        {
+          "requestKey": "c8c0fe527688468aa4c4d036bcf11a6a:c8c0fe527688468aa4c4d036bcf11a6a:5:4e09291d614b1e2d7d8e9b1d38b49850963c2bf8509670d974961c9fa3a6b58e",
+          "reserved": "2026-09-22T01:30:15.7544500+00:00",
+          "completed": "2026-09-22T01:31:26.3813020+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 20598,
+          "schemaBytes": 10101,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 6477,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 3996,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 11,
+              "engine_ttft_ms": 206,
+              "engine_ttlt_ms": 69098,
+              "pre_inference_ms": 215,
+              "service_tbt_ms": 11,
+              "service_ttft_ms": 537,
+              "service_ttlt_ms": 69424,
+              "user_visible_ttft_ms": 323
+            },
+            "prompt_tokens": 6380,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 12857
+          },
+          "responseStage": "binding"
+        },
+        {
+          "requestKey": "c8c0fe527688468aa4c4d036bcf11a6a:c8c0fe527688468aa4c4d036bcf11a6a:6:fb584dc82ec1ab0d778f08f3d6c4ce0da331a13a96900511dc7ce4812b98e6d2",
+          "reserved": "2026-09-22T01:31:26.4185100+00:00",
+          "completed": "2026-09-22T01:32:20.8638340+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 20997,
+          "schemaBytes": 10101,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 5182,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 3070,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 10,
+              "engine_ttft_ms": 164,
+              "engine_ttlt_ms": 53051,
+              "pre_inference_ms": 195,
+              "service_tbt_ms": 10,
+              "service_ttft_ms": 449,
+              "service_ttlt_ms": 53331,
+              "user_visible_ttft_ms": 254
+            },
+            "prompt_tokens": 6463,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 5888
+            },
+            "total_tokens": 11645
+          },
+          "responseStage": "binding"
+        },
+        {
+          "requestKey": "c8c0fe527688468aa4c4d036bcf11a6a:c8c0fe527688468aa4c4d036bcf11a6a:7:b515c5ed6e6cda22ba8124dd9480e62faa2d68d24c3af067ad6ed2ad14cb5a36",
+          "reserved": "2026-09-22T01:32:20.8986150+00:00",
+          "completed": "2026-09-22T01:33:04.1382790+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 20991,
+          "schemaBytes": 10101,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 4059,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 2560,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 10,
+              "engine_ttft_ms": 227,
+              "engine_ttlt_ms": 41890,
+              "pre_inference_ms": 180,
+              "service_tbt_ms": 10,
+              "service_ttft_ms": 507,
+              "service_ttlt_ms": 42134,
+              "user_visible_ttft_ms": 327
+            },
+            "prompt_tokens": 6462,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 10521
+          },
+          "responseStage": "binding"
+        }
+      ],
+      "source": "0e88388ef27a8342e8f2258be5067fc11484f2f2",
+      "attempt": "designer-11",
+      "submittedAt": "2026-09-22T01:27:23.466Z",
+      "responseStageCostsIncludingRetries": {
+        "semantic": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 1463,
+          "outputTokens": 1797
+        },
+        "grounding": {
+          "reservedCalls": 2,
+          "completedCalls": 2,
+          "inputTokens": 16632,
+          "outputTokens": 5843
+        },
+        "selection": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 4225,
+          "outputTokens": 5228
+        },
+        "binding": {
+          "reservedCalls": 3,
+          "completedCalls": 3,
+          "inputTokens": 19305,
+          "outputTokens": 15718
+        }
+      }
+    },
+    {
+      "session": "4a7f197cd3abc759c8d5dabf9be1a85017fd4e07dfcba88375e18d643c9c68a1",
+      "status": "final_review",
+      "phase": "review",
+      "revision": 13,
+      "modelCalls": 8,
+      "replans": 3,
+      "pending": null,
+      "pendingPhase": null,
+      "promptHash": "6755b57df5804c26b9dca0c1babe62a31b9d2404ae7b5b96ff174cced1611649",
+      "promptBytes": 2761,
+      "catalogCount": 129,
+      "catalogHash": "3635f655617248b7ec5ab9d4ec793264d70325dc44ade8a58d82eec44b109634",
+      "pages": 1,
+      "completedPages": 1,
+      "settings": {
+        "reasoning": "medium",
+        "maxInputTokensPerRequest": 64000,
+        "maxOutputTokens": 32768
+      },
+      "limits": {
+        "calls": 8,
+        "replans": 6
+      },
+      "diagnostics": [],
+      "scenarios": [
+        {
+          "id": "nominal",
+          "outcome": "passed"
+        },
+        {
+          "id": "confirmation:rejected:main:n_4adcbb58192516ee",
+          "outcome": "passed"
+        },
+        {
+          "id": "confirmation:unavailable:main:n_4adcbb58192516ee",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_e9b55f2aead906fe",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_e9b55f2aead906fe",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_ef87230e41a019b5",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_ef87230e41a019b5",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_2352da7280f1decc",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_2352da7280f1decc",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_8d11218cc201a06b",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_8d11218cc201a06b",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_3630866be5f85852",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_3630866be5f85852",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_b155a8aba00b7387",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_b155a8aba00b7387",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_9250b9912ee91d6b",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_9250b9912ee91d6b",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_f5ed885094cc62a6",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_f5ed885094cc62a6",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_59eef0981f54c954",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_59eef0981f54c954",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_131a4946a343cc25",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_131a4946a343cc25",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_506bdd53e27c0ee3",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_506bdd53e27c0ee3",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_7eafca434c196c7e",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_7eafca434c196c7e",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_a5d6c7fea423699c",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_a5d6c7fea423699c",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_6f92f8244eea05c7",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_6f92f8244eea05c7",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_de2d91dc0a258041",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_de2d91dc0a258041",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_d89302bd4af49eea",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_d89302bd4af49eea",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_1b2501a20fe1bcd8",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_1b2501a20fe1bcd8",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_c2d6ae581bd7abe7",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_c2d6ae581bd7abe7",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_f73c7537296cb046",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_f73c7537296cb046",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_a2e311a40a487181",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_a2e311a40a487181",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_7e2c5d3b4eeaae5c",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_7e2c5d3b4eeaae5c",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_0ed29ae2b9f4305d",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_0ed29ae2b9f4305d",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_03967a63c5c55536",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_03967a63c5c55536",
+          "outcome": "passed"
+        },
+        {
+          "id": "guard:true:w_81be22d7f1c8baf9:n_7575baec9148caa3",
+          "outcome": "passed"
+        },
+        {
+          "id": "guard:unavailable:w_81be22d7f1c8baf9:n_7575baec9148caa3:n_e9b55f2aead906fe",
+          "outcome": "passed"
+        },
+        {
+          "id": "guard:true:w_81be22d7f1c8baf9:n_e3afb2d787a44965",
+          "outcome": "passed"
+        },
+        {
+          "id": "guard:unavailable:w_81be22d7f1c8baf9:n_e3afb2d787a44965:n_7575baec9148caa3",
+          "outcome": "passed"
+        },
+        {
+          "id": "guard:true:w_81be22d7f1c8baf9:n_fd9d1e49c648ee11",
+          "outcome": "passed"
+        },
+        {
+          "id": "guard:unavailable:w_81be22d7f1c8baf9:n_fd9d1e49c648ee11:n_e3afb2d787a44965",
+          "outcome": "passed"
+        },
+        {
+          "id": "guard:unavailable:w_81be22d7f1c8baf9:n_fd9d1e49c648ee11:n_e9b55f2aead906fe",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_6f45010bf389a08f:n_f00158179300ffb8",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_6f45010bf389a08f:n_f00158179300ffb8",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_6f45010bf389a08f:n_dbb459f033856a90",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_6f45010bf389a08f:n_dbb459f033856a90",
+          "outcome": "passed"
+        }
+      ],
+      "usage": {
+        "startedAtUtc": "2026-09-22T01:27:04.971632+00:00",
+        "calls": 8,
+        "inputTokens": 125927,
+        "outputTokens": 62607,
+        "totalTokens": 188534,
+        "estimatedCost": 0,
+        "estimatedCostCurrency": "USD",
+        "exchangeRates": [],
+        "estimatedCostUsd": 0
+      },
+      "bindingCompleted": null,
+      "bindingCurrent": [],
+      "approved": false,
+      "activeMs": 471600.4224,
+      "traceIds": [
+        "73b61f1d00e5640ba5550b0b6886c760"
+      ],
+      "receipts": [
+        {
+          "requestKey": "4a7f197cd3abc759c8d5dabf9be1a85017fd4e07dfcba88375e18d643c9c68a1:1:6049f38f766c6e49a1b40f6715faad598a03e34f768b76afc39a66ad0161cf17",
+          "reserved": "2026-09-22T01:27:04.9899300+00:00",
+          "completed": "2026-09-22T01:27:56.7651570+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 6328,
+          "schemaBytes": 3358,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 5302,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 2561,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 9,
+              "engine_ttft_ms": 170,
+              "engine_ttlt_ms": 50398,
+              "pre_inference_ms": 99,
+              "service_tbt_ms": 9,
+              "service_ttft_ms": 309,
+              "service_ttlt_ms": 50533,
+              "user_visible_ttft_ms": 209
+            },
+            "prompt_tokens": 1803,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 7105
+          },
+          "responseStage": "semantic"
+        },
+        {
+          "requestKey": "4a7f197cd3abc759c8d5dabf9be1a85017fd4e07dfcba88375e18d643c9c68a1:2:f97bdc38b3c25853546df4458856af3950d21776615d53d53572ee9a0025f356",
+          "reserved": "2026-09-22T01:27:59.9205780+00:00",
+          "completed": "2026-09-22T01:28:32.5592340+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 62205,
+          "schemaBytes": 4625,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 3291,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 2048,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 9,
+              "engine_ttft_ms": 268,
+              "engine_ttlt_ms": 31528,
+              "pre_inference_ms": 151,
+              "service_tbt_ms": 9,
+              "service_ttft_ms": 454,
+              "service_ttlt_ms": 31708,
+              "user_visible_ttft_ms": 303
+            },
+            "prompt_tokens": 16551,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 19842
+          },
+          "responseStage": "grounding"
+        },
+        {
+          "requestKey": "4a7f197cd3abc759c8d5dabf9be1a85017fd4e07dfcba88375e18d643c9c68a1:3:3c8485ed7394cacb6f9781b62bc62ff5f776eef1231b8966191249187e38adfc",
+          "reserved": "2026-09-22T01:28:32.5826860+00:00",
+          "completed": "2026-09-22T01:29:04.6401060+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 24351,
+          "schemaBytes": 3379,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 2606,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 1937,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 12,
+              "engine_ttft_ms": 193,
+              "engine_ttlt_ms": 30976,
+              "pre_inference_ms": 130,
+              "service_tbt_ms": 12,
+              "service_ttft_ms": 396,
+              "service_ttlt_ms": 31181,
+              "user_visible_ttft_ms": 266
+            },
+            "prompt_tokens": 5692,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 8298
+          },
+          "responseStage": "selection"
+        },
+        {
+          "requestKey": "4a7f197cd3abc759c8d5dabf9be1a85017fd4e07dfcba88375e18d643c9c68a1:4:585f732a8cd40738000d182ea6b33b63d6f0d562666a609d9549aa3c9d8815fe",
+          "reserved": "2026-09-22T01:29:04.6817070+00:00",
+          "completed": "2026-09-22T01:30:42.8035800+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 63458,
+          "schemaBytes": 10592,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 11272,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 4608,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 9,
+              "engine_ttft_ms": 323,
+              "engine_ttlt_ms": 96499,
+              "pre_inference_ms": 190,
+              "service_tbt_ms": 9,
+              "service_ttft_ms": 572,
+              "service_ttlt_ms": 96745,
+              "user_visible_ttft_ms": 383
+            },
+            "prompt_tokens": 15918,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 27190
+          },
+          "responseStage": "binding"
+        },
+        {
+          "requestKey": "4a7f197cd3abc759c8d5dabf9be1a85017fd4e07dfcba88375e18d643c9c68a1:5:f5e311333f7beb4180e3de2f521f9acf344345613f52a7fbd43c22be6b26f5cf",
+          "reserved": "2026-09-22T01:30:42.8841980+00:00",
+          "completed": "2026-09-22T01:31:23.8293650+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 90361,
+          "schemaBytes": 10144,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 7052,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 512,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 5,
+              "engine_ttft_ms": 288,
+              "engine_ttlt_ms": 39008,
+              "pre_inference_ms": 251,
+              "service_tbt_ms": 5,
+              "service_ttft_ms": 645,
+              "service_ttlt_ms": 39354,
+              "user_visible_ttft_ms": 395
+            },
+            "prompt_tokens": 22628,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 29680
+          },
+          "responseStage": "binding"
+        },
+        {
+          "requestKey": "4a7f197cd3abc759c8d5dabf9be1a85017fd4e07dfcba88375e18d643c9c68a1:6:0ed087e786bb52d12ed62bba612605a44ca5c0d11c3bdebf5970c5b3511a3b10",
+          "reserved": "2026-09-22T01:31:23.8782410+00:00",
+          "completed": "2026-09-22T01:32:41.8091560+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 91599,
+          "schemaBytes": 10144,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 10366,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 2862,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 7,
+              "engine_ttft_ms": 1147,
+              "engine_ttlt_ms": 76149,
+              "pre_inference_ms": 216,
+              "service_tbt_ms": 7,
+              "service_ttft_ms": 1486,
+              "service_ttlt_ms": 76483,
+              "user_visible_ttft_ms": 1270
+            },
+            "prompt_tokens": 22864,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 12032
+            },
+            "total_tokens": 33230
+          },
+          "responseStage": "binding"
+        },
+        {
+          "requestKey": "4a7f197cd3abc759c8d5dabf9be1a85017fd4e07dfcba88375e18d643c9c68a1:7:38a1a6afb92692b8186dbc47550f54a223903253a1d8e8ed353bd6b732ce4c6f",
+          "reserved": "2026-09-22T01:32:42.0015550+00:00",
+          "completed": "2026-09-22T01:33:41.1625860+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 93952,
+          "schemaBytes": 10144,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 9413,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 1481,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 6,
+              "engine_ttft_ms": 328,
+              "engine_ttlt_ms": 56901,
+              "pre_inference_ms": 274,
+              "service_tbt_ms": 6,
+              "service_ttft_ms": 788,
+              "service_ttlt_ms": 57286,
+              "user_visible_ttft_ms": 514
+            },
+            "prompt_tokens": 23407,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 32820
+          },
+          "responseStage": "binding"
+        },
+        {
+          "requestKey": "4a7f197cd3abc759c8d5dabf9be1a85017fd4e07dfcba88375e18d643c9c68a1:8:6da1548a555d66183b251a014ea56027b944f2712f2787334114388046a1d78d",
+          "reserved": "2026-09-22T01:33:41.5000870+00:00",
+          "completed": "2026-09-22T01:34:55.2502850+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 68967,
+          "schemaBytes": 1794,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 13305,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 512,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 5,
+              "engine_ttft_ms": 245,
+              "engine_ttlt_ms": 71839,
+              "pre_inference_ms": 224,
+              "service_tbt_ms": 5,
+              "service_ttft_ms": 504,
+              "service_ttlt_ms": 72095,
+              "user_visible_ttft_ms": 280
+            },
+            "prompt_tokens": 17064,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 30369
+          },
+          "responseStage": "fixtures"
+        }
+      ],
+      "source": "0e88388ef27a8342e8f2258be5067fc11484f2f2",
+      "attempt": "chat-11",
+      "submittedAt": "2026-09-22T01:27:04.745Z",
+      "responseStageCostsIncludingRetries": {
+        "semantic": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 1803,
+          "outputTokens": 5302
+        },
+        "grounding": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 16551,
+          "outputTokens": 3291
+        },
+        "selection": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 5692,
+          "outputTokens": 2606
+        },
+        "binding": {
+          "reservedCalls": 4,
+          "completedCalls": 4,
+          "inputTokens": 84817,
+          "outputTokens": 38103
+        },
+        "fixtures": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 17064,
+          "outputTokens": 13305
+        }
+      }
     }
   ]
 }

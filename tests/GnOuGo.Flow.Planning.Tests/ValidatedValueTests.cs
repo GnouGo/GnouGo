@@ -8,6 +8,24 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ValidatedValueTests
 {
     [Theory]
+    [InlineData("ab", true)]
+    [InlineData("b", false)]
+    [InlineData("other", false)]
+    public async Task MissingRegexCapturesFailValidationBeforeDownstreamUse(string text, bool success)
+    {
+        var catalog = await new TestRuntime().DiscoverAsync(PlannerFixture.Session().Request, TestContext.Current.CancellationToken);
+        var plan = new GroundedPlan { Inputs = [new("text", new() { Type = "string" })], Operations = [
+            new CalculateGroundedOperation { Id = "captures", Value = new() { Kind = "compute", Text = "(() => { const match = text.match(/^(a)?b$/); return { capture: match ? match[1] : null }; })()", Members = [new("text", new() { Kind = "input", Source = "text" })] } },
+            new ValidateGroundedOperation { Id = "validated", Value = new() { Kind = "result", Source = "captures" }, ResultType = new() { Type = "object", Fields = [new("capture", new() { Type = "string" })] } },
+            new CalculateGroundedOperation { Id = "downstream", Value = new() { Kind = "result", Source = "validated", Path = ["capture"] } }], Outputs = [new("capture", new() { Kind = "result", Source = "downstream" })] };
+        var yaml = new PlanningGraphCompiler().Compile(PlanningGraphBuilder.Build(GroundedPlanValidator.RequireValid(plan, catalog)), catalog, "capture-validation");
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        var result = await new WorkflowEngine().ExecuteAsync(document.Workflows["main"], new JsonObject { ["text"] = text }, TestContext.Current.CancellationToken);
+        Assert.Equal(success, result.Success);
+        if (success) Assert.Equal("a", result.Outputs!["capture"]!.ToString());
+        else Assert.DoesNotContain(result.StepResults, s => s.StepId == "downstream" && s.Status == GnOuGo.Flow.Core.Models.StepStatus.Succeeded);
+    }
+    [Theory]
     [InlineData("json_value", "{\"count\":3}", true)]
     [InlineData("json_value", "{\"count\":\"3\"}", false)]
     [InlineData("json_value", "{\"other\":3}", false)]

@@ -70,7 +70,7 @@ internal static class PlanningComputationContracts
         {
             var parameters = node switch { ArrowFunctionExpression a => a.Params.ToArray(), FunctionExpression f => f.Params.ToArray(), FunctionDeclaration f => f.Params.ToArray(), _ => [] };
             scope = new(scope, StringComparer.Ordinal);
-            foreach (var parameter in parameters.OfType<Identifier>()) scope.Remove(parameter.Name);
+            foreach (var parameter in parameters.OfType<Identifier>()) scope[parameter.Name] = GroundedTypes.Opaque();
         }
         if (node is VariableDeclarator { Id: Identifier identifier } variable)
         {
@@ -80,21 +80,21 @@ internal static class PlanningComputationContracts
             return;
         }
         if (node is CallExpression { Callee: MemberExpression { Property: Identifier { Name: "map" or "filter" or "every" or "some" } } collection, Arguments.Count: 1 } call &&
-            call.Arguments[0] is ArrowFunctionExpression callback && Schema(collection.Object, scope)?["items"] is JsonObject item)
+            call.Arguments[0] is ArrowFunctionExpression callback && Schema(collection.Object, scope) is { } arrayContract && HasType(arrayContract, "array"))
         {
             Walk(collection, scope, messages);
             var local = new Dictionary<string, JsonObject>(scope, StringComparer.Ordinal);
             for (var i = 0; i < callback.Params.Count; i++)
                 if (callback.Params[i] is Identifier parameter) local[parameter.Name] = i switch
-                { 0 => item, 1 => new() { ["type"] = "integer" }, 2 => Schema(collection.Object, scope)!, _ => GroundedTypes.Opaque() };
+                { 0 => Element(arrayContract), 1 => new() { ["type"] = "integer" }, 2 => arrayContract, _ => GroundedTypes.Opaque() };
             Walk(callback.Body, local, messages); return;
         }
         if (node is MemberExpression { Computed: true } dynamicMember && Name(dynamicMember) is null && Schema(dynamicMember.Object, scope) is { } dynamicOwner &&
-            (GroundedTypes.IsOpaque(dynamicOwner) || dynamicOwner.Count == 0 || HasType(dynamicOwner, "object")))
+            (Unknown(dynamicOwner) || HasType(dynamicOwner, "object")))
             messages.Add(("COMPUTATION_FIELD_UNDECLARED", MemberIdentity(dynamicMember), "A dynamic projection cannot establish fields of an opaque or closed object; validate the whole value before projection."));
         if (node is MemberExpression member && Name(member) is { } name && Schema(member.Object, scope) is { } schema &&
-            (schema.Count == 0 || GroundedTypes.IsOpaque(schema) || schema["type"]?.ToString() == "object" || schema["properties"] is JsonObject) &&
-            (schema["properties"] is not JsonObject fields || !fields.ContainsKey(name)) && schema["additionalProperties"] is not JsonObject &&
+            (Unknown(schema) || HasType(schema, "object") || schema["properties"] is JsonObject) &&
+            !Declares(schema, name) &&
             name is not ("toString" or "hasOwnProperty" or "valueOf" or "toLocaleString"))
             messages.Add(("COMPUTATION_FIELD_UNDECLARED", MemberIdentity(member), "Property '" + name + "' is not declared by this computation parameter's producer contract. Declared fields: " + string.Join(", ", (schema["properties"] as JsonObject ?? []).Select(p => p.Key)) +
                 ". Select an established producer binding or obtain the missing runtime observation; trying alternative field names cannot establish that data."));
@@ -122,13 +122,31 @@ internal static class PlanningComputationContracts
         LogicalExpression { Operator: Acornima.Operator.LogicalOr or Acornima.Operator.NullishCoalescing } expression => Schema(expression.Left, scope),
         MemberExpression member when Schema(member.Object, scope) is { } parent && HasType(parent, "array") &&
             (member.Computed && (member.Property is NumericLiteral || Schema(member.Property, scope) is { } indexContract && (HasType(indexContract, "integer") || HasType(indexContract, "number"))) ||
-             Name(member) is { } index && uint.TryParse(index, out _)) => parent["items"] as JsonObject,
-        MemberExpression member when Name(member) is { } name => Schema(member.Object, scope)?["properties"]?[name] as JsonObject,
+             Name(member) is { } index && uint.TryParse(index, out _)) => Element(parent),
+        MemberExpression member when Name(member) is { } name && Schema(member.Object, scope) is { } parent => Property(parent, name),
         null => null,
         _ => ExpressionContractInference.Infer(node, scope) ?? GroundedTypes.Opaque()
     };
 
-    private static bool HasType(JsonObject schema, string type) => schema["type"]?.ToString() == type || schema["type"] is JsonArray types && types.Any(t => t?.ToString() == type);
+    private static IEnumerable<JsonObject> Variants(JsonObject schema) => new[] { "anyOf", "oneOf" }.SelectMany(key => (schema[key] as JsonArray ?? []).OfType<JsonObject>());
+    private static bool Unknown(JsonObject schema) => schema.Count == 0 || GroundedTypes.IsOpaque(schema) || Variants(schema).Any(Unknown);
+    private static bool Declares(JsonObject schema, string name) => !Unknown(schema) && (schema["properties"] is JsonObject fields && fields.ContainsKey(name) || schema["additionalProperties"] is JsonObject || Variants(schema).Any(v => Declares(v, name)));
+    private static JsonObject Property(JsonObject schema, string name)
+    {
+        if (Unknown(schema)) return GroundedTypes.Opaque();
+        if (schema["properties"]?[name] is JsonObject field) return field;
+        if (schema["additionalProperties"] is JsonObject additional) return additional;
+        var variants = Variants(schema).ToArray();
+        return variants.Length == 0 ? GroundedTypes.Opaque() : new() { ["anyOf"] = new JsonArray(variants.Select(v => (JsonNode)(Declares(v, name) ? Property(v, name).DeepClone() : new JsonObject { ["type"] = "null" })).ToArray()) };
+    }
+    private static bool HasType(JsonObject schema, string type) => schema["type"]?.ToString() == type || schema["type"] is JsonArray types && types.Any(t => t?.ToString() == type) || Variants(schema).Any(v => HasType(v, type));
+    private static JsonObject Element(JsonObject schema)
+    {
+        if (schema["items"] is JsonObject items) return items;
+        var variants = Variants(schema).Where(v => HasType(v, "array")).Select(Element).ToArray();
+        if (variants.Length == 0 || variants.Any(Unknown)) return GroundedTypes.Opaque();
+        return variants.Length == 1 ? variants[0] : new() { ["anyOf"] = new JsonArray(variants.Select(v => (JsonNode)v.DeepClone()).ToArray()) };
+    }
 
     private static string? Name(MemberExpression member) => member.Computed
         ? (member.Property as StringLiteral)?.Value : (member.Property as Identifier)?.Name;
