@@ -64,6 +64,9 @@ class Provider(http.server.BaseHTTPRequestHandler):
         if request["model"] != "vendor/demo-model":
             self.respond({"error": "model ID changed"}, 400)
             return
+        if provider == "internal" and self.path != "/internal/deployments/vendor%2Fdemo-model/chat/completions?api-version=smoke":
+            self.respond({"error": "deployment URL did not match selected model"}, 400)
+            return
         has_results = any(message["role"] == "tool" or isinstance(message.get("content"), list) and any(block.get("type") == "tool_result" for block in message["content"]) for message in request["messages"])
         tools = bool(request.get("tools")) and not has_results
         live = "Watch the stream" in encoded(request)
@@ -164,6 +167,7 @@ def main():
                   "Connection__RequestPolicy__UnspecifiedOutputTokens": "Configured", "Connection__RequestPolicy__DefaultMaxOutputTokens": "4096"}
         if provider == "internal":
             values.update(Authentication="OidcClientSecret", Connection__Issuer=upstream_url + "/oidc", Connection__ClientId="smoke-client", Connection__ClientSecret="synthetic-client-secret", Connection__Scopes="models.read")
+            values.update(Connection__Url=upstream_url + "/internal/deployments/{model_name}", Connection__ApiVersion="smoke")
         elif provider in ("copilot", "anthropic"):
             values.update(Authentication="ApiKey", Connection__ApiKey="synthetic-" + provider + "-key")
         env.update({prefix + key: value for key, value in values.items()})

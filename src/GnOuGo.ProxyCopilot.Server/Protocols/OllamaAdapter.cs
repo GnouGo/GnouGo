@@ -8,8 +8,11 @@ namespace GnOuGo.ProxyCopilot.Server.Protocols;
 public sealed class OllamaAdapter : IProxyAdapter
 {
     public string Type => "ollama";
-    public string Endpoint(ModelRoute route) => route.Options.Connection.Url.TrimEnd('/').EndsWith("/api/chat", StringComparison.Ordinal)
-        ? route.Options.Connection.Url.TrimEnd('/') : OllamaEndpoints.Chat(route.Options.Connection.Url);
+    public string Endpoint(ModelRoute route)
+    {
+        var url = route.UpstreamUrl.TrimEnd('/');
+        return url.EndsWith("/api/chat", StringComparison.Ordinal) ? url : OllamaEndpoints.Chat(url);
+    }
 
     public JsonObject CreateRequest(JsonObject request, ModelRoute route)
     {

@@ -10,6 +10,44 @@ public sealed class OutputTokenLimitTests
     private const string Unsupported = "ProxyCopilot:Providers:test:Models:model:Metadata:Capabilities:UnsupportedRequestParameters:";
 
     [Theory]
+    [InlineData(400000, 272000)]
+    [InlineData(1050000, 922000)]
+    public async Task LargeModelCapacityKeepsRoutineBudgetAndAcceptsExplicitOutputCeiling(int contextWindow, int inputBudget)
+    {
+        var receivedLimits = new List<int>();
+        await using var upstream = await TestHost.Upstream(async context =>
+        {
+            var body = (await JsonNode.ParseAsync(context.Request.Body))!.AsObject();
+            receivedLimits.Add(body["max_completion_tokens"]!.GetValue<int>());
+            await ProtocolRoundTripTests.Write(context, ProtocolRoundTripTests.Fixture("openai", false, false), "application/json");
+        });
+        await using var proxy = await TestHost.Proxy(upstream.Url, extra: new()
+        {
+            ["ProxyCopilot:Providers:test:Models:model:Metadata:ContextWindowTokens"] = contextWindow.ToString(),
+            ["ProxyCopilot:Providers:test:Models:model:Metadata:MaxInputTokens"] = inputBudget.ToString(),
+            ["ProxyCopilot:Providers:test:Models:model:Metadata:MaxOutputTokens"] = "128000",
+            [Policy + "DefaultMaxOutputTokens"] = "8192"
+        });
+        using var setupResponse = await proxy.Client.GetAsync("/api/setup", TestContext.Current.CancellationToken);
+        var setup = await TestHost.Read(setupResponse);
+        var model = setup["configuration"]![0]!["models"]![0]!;
+        Assert.Equal(contextWindow, model["contextWindow"]!.GetValue<int>());
+        Assert.Equal(inputBudget, model["maxInputTokens"]!.GetValue<int>());
+        Assert.Equal(8192, model["maxOutputTokens"]!.GetValue<int>());
+        using var catalogResponse = await proxy.Client.GetAsync("/v1/models", TestContext.Current.CancellationToken);
+        var catalog = await TestHost.Read(catalogResponse);
+        Assert.Equal(128000, catalog["data"]![0]!["max_output_tokens"]!.GetValue<int>());
+        foreach (var requested in new int?[] { null, 128000, 200000 })
+        {
+            var request = ProtocolRoundTripTests.Request(false);
+            if (requested is { } limit) request["max_completion_tokens"] = limit;
+            using var response = await proxy.Client.PostAsync("/v1/chat/completions", TestHost.Json(request.ToJsonString()), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+        Assert.Equal(new[] { 8192, 128000, 128000 }, receivedLimits);
+    }
+
+    [Theory]
     [InlineData("openai", false, null)] [InlineData("openai", true, null)]
     [InlineData("copilot", false, null)] [InlineData("copilot", true, null)]
     [InlineData("openai", false, "max_tokens")] [InlineData("openai", true, "max_tokens")]

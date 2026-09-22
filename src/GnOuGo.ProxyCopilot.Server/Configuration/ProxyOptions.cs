@@ -41,6 +41,7 @@ public sealed class ProxyModelOptions
 public sealed record ModelRoute(string Id, string Provider, ProxyProviderOptions Options, ProxyModelOptions Model)
 {
     public string Type => Options.Connection.ResolvedType;
+    public string UpstreamUrl => UpstreamUrlTemplate.Resolve(Options.Connection.Url, Model.UpstreamId);
     public bool SupportsTools => Model.Metadata.Capabilities.SupportsTools == true;
 }
 
@@ -84,7 +85,7 @@ public sealed class ModelRegistry : IModelRegistry
             Require(provider?.Connection is not null && provider.Models is not null, "provider connection/models");
             var connection = provider!.Connection;
             Require(connection.Type is "openai" or "copilot" or "anthropic" or "ollama", "explicit provider Type");
-            Require(IsEndpoint(connection.Url), "provider Url (HTTPS or loopback HTTP)");
+            Require(UpstreamUrlTemplate.IsValid(connection.Url), "provider Url (HTTPS or loopback HTTP; optional {model_name} in the path)");
             Require(Enum.IsDefined(provider.Authentication), "Authentication");
             var oidc = provider.Authentication is ProxyAuthentication.OidcClientSecret or ProxyAuthentication.OidcPrivateKey;
             Require(oidc || string.IsNullOrEmpty(connection.Issuer) && string.IsNullOrEmpty(connection.ClientId)
@@ -119,6 +120,7 @@ public sealed class ModelRegistry : IModelRegistry
             {
                 Require(IsAlias(alias) && aliases.Add(alias), "model alias");
                 Require(model is not null && !string.IsNullOrWhiteSpace(model.UpstreamId) && model.Metadata?.Capabilities is not null, "model ID/metadata");
+                Require(UpstreamUrlTemplate.AcceptsModel(connection.Url, model!.UpstreamId), "model ID for URL template");
                 var metadata = model!.Metadata;
                 Require(metadata.MaxInputTokens > 0 && metadata.MaxOutputTokens > 0, "model input/output limits");
                 Require(metadata.ContextWindowTokens is null or > 0, "context window");

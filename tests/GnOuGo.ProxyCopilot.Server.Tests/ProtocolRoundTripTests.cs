@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using GnOuGo.ProxyCopilot.Server.Protocols;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace GnOuGo.ProxyCopilot.Server.Tests;
 
@@ -19,11 +20,13 @@ public sealed class ProtocolRoundTripTests
         {
             var body = (await JsonNode.ParseAsync(context.Request.Body))!.AsObject(); received.Enqueue(body);
             Assert.Equal("vendor/upstream-model", body["model"]!.GetValue<string>());
+            var endpoint = type switch { "anthropic" => "/v1/messages", "ollama" => "/api/chat", _ => "/chat/completions" };
+            Assert.Equal("/deployments/vendor%2Fupstream-model" + endpoint, context.Features.Get<IHttpRequestFeature>()!.RawTarget);
             var first = received.Count == 1;
             if (type == "anthropic") Assert.Equal("2023-06-01", context.Request.Headers["anthropic-version"]);
             await Write(context, Fixture(type, streaming, first), streaming ? type == "ollama" ? "application/x-ndjson" : "text/event-stream" : "application/json");
         });
-        await using var proxy = await TestHost.Proxy(upstream.Url, type);
+        await using var proxy = await TestHost.Proxy(upstream.Url + "/deployments/{model_name}", type);
         var request = Request(streaming);
         using var firstResponse = await proxy.Client.PostAsync("/v1/chat/completions", TestHost.Json(request.ToJsonString()), TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);

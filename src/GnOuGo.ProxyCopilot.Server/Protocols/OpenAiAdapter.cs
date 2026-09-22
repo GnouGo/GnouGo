@@ -9,8 +9,8 @@ public sealed class OpenAiAdapter(string type = "openai") : IProxyAdapter
 {
     public string Type => type;
     public string Endpoint(ModelRoute route) => type == "copilot"
-        ? CopilotEndpoints.ChatCompletions(route.Options.Connection.Url)
-        : OpenAiEndpoints.ChatCompletions(route.Options.Connection.Url, route.Options.Connection.ApiVersion);
+        ? CopilotEndpoints.ChatCompletions(route.UpstreamUrl)
+        : OpenAiEndpoints.ChatCompletions(route.UpstreamUrl, route.Options.Connection.ApiVersion);
 
     public JsonObject CreateRequest(JsonObject request, ModelRoute route)
     {

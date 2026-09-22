@@ -37,7 +37,7 @@ All provider endpoints, authentication settings, model identifiers, raw prompts,
 
 ## Acceptance result
 
-Both configured models passed on **2026-09-22**, using the standalone **osx-arm64 Native AOT** server, real OIDC client-secret authentication, and ordinary VS Code Agent tools. Model identifiers and connection settings are intentionally omitted from these public review artifacts.
+Both configured model aliases passed on **2026-09-22**, using the standalone **osx-arm64 Native AOT** server, real OIDC client-secret authentication, and ordinary VS Code Agent tools. Model identifiers and connection settings are intentionally omitted from these public review artifacts. These archived receipts establish tool execution for the selected aliases; they do not prove that a gateway with a fixed deployment URL honored the request body's model selection.
 
 | Real run | Model turns | Turns with parallel calls | Observed result | Observed nonce | Evidence |
 |---|---:|---:|---:|---|---|
@@ -49,3 +49,9 @@ Each run executed `list_dir`, `create_file`, `read_file`, `replace_string_in_fil
 The selected configuration was **Agent → Local → GnOuGo smoke model**, `vendor: "customendpoint"`, `apiType: "chat-completions"`, `toolCalling: true`, `editTools: ["find-replace", "multi-find-replace"]`, context 128000, input ceiling 120000, output reservation 8192, full local URL `http://127.0.0.1:15087/v1/chat/completions`, and **Default permissions**. The proxy's output default/cap was 8192 and its per-body capture limit was 4 MiB for verification. The normal application port remains 5087.
 
 These results are separate from the synthetic provider/UI smoke tests used in CI. Validation also passed: 91 proxy tests, 8 Auth.Core tests, 222 AI.Core tests, 2 frontend tests, warning-free component/solution and frontend builds, a warning-free Native AOT publish, published HTTP/UI checks, and the dashboard browser smoke. Publishing excluded the local development configuration; starting the binary with public defaults exposed no models.
+
+## Deployment URL routing validation
+
+The subsequent routing fix supports `{model_name}` in `Connection.Url`, resolving the selected `UpstreamId` into the deployment path before appending the protocol endpoint. Changing only the JSON `model` field cannot select another deployment when a gateway routes by URL.
+
+Validation passed with 114 proxy tests, including concurrent requests to distinct deployments, URL encoding, API versions, startup rejection of malformed templates, larger model budgets, and streamed parallel tool/result round trips through all four adapters. The solution, frontend, and Native AOT publish completed without warnings, and the published HTTP/UI smoke verified a templated deployment URL with OIDC authentication. Three separate real configured deployments each returned HTTP 200, the requested short text, and a completed SSE stream through the published binary. These last checks verify real deployment connectivity; they do not repeat the desktop Agent task or stress-test the maximum context window.

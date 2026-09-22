@@ -10,7 +10,7 @@ public sealed class AnthropicAdapter : IProxyAdapter
     public string Type => "anthropic";
     public string Endpoint(ModelRoute route)
     {
-        var url = route.Options.Connection.Url.TrimEnd('/');
+        var url = route.UpstreamUrl.TrimEnd('/');
         return url.EndsWith("/messages", StringComparison.Ordinal) ? url : url.EndsWith("/v1", StringComparison.Ordinal) ? url + "/messages" : url + "/v1/messages";
     }
 
