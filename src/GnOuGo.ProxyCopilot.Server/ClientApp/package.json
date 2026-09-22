@@ -1,0 +1,9 @@
+{
+  "name": "gnougo-proxy-copilot-client",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "vite", "build": "tsc --noEmit && vite build", "type-check": "tsc --noEmit", "test": "node --experimental-strip-types --test src/traffic.test.ts" },
+  "dependencies": { "react": "19.2.8", "react-dom": "19.2.8" },
+  "devDependencies": { "@vitejs/plugin-react": "6.0.5", "@types/react": "19.2.18", "@types/react-dom": "19.2.4", "sass": "1.102.0", "typescript": "7.0.2", "vite": "8.2.1" }
+}

@@ -1,0 +1,70 @@
+name: ProxyCopilot standalone validation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'src/GnOuGo.ProxyCopilot.Server/**'
+      - 'src/GnOuGo.Auth.Core/**'
+      - 'src/GnOuGo.AI.Core/**'
+      - 'src/GnOuGo.Observability.Core/**'
+      - 'tests/GnOuGo.ProxyCopilot.Server.Tests/**'
+      - 'tests/GnOuGo.Auth.Core.Tests/**'
+      - 'scripts/smoke-proxy-copilot*'
+      - '.github/workflows/test-proxy-copilot.yml'
+      - 'pnpm-lock.yaml'
+      - 'global.json'
+
+permissions:
+  contents: read
+
+jobs:
+  standalone:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.20.0'
+      - name: Build UI and test components
+        run: |
+          corepack enable
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm --filter gnougo-proxy-copilot-client build
+          corepack pnpm --filter gnougo-proxy-copilot-client test
+          dotnet test tests/GnOuGo.Auth.Core.Tests/GnOuGo.Auth.Core.Tests.csproj -warnaserror
+          dotnet test tests/GnOuGo.AI.Core.Tests/GnOuGo.AI.Core.Tests.csproj -p:SkipModelMetadataGeneration=true -warnaserror
+          dotnet test tests/GnOuGo.ProxyCopilot.Server.Tests/GnOuGo.ProxyCopilot.Server.Tests.csproj -p:SkipModelMetadataGeneration=true -warnaserror
+      - name: Publish Native AOT
+        run: |
+          dotnet publish src/GnOuGo.ProxyCopilot.Server/GnOuGo.ProxyCopilot.Server.csproj \
+            -c Release -r linux-x64 --self-contained true -p:PublishAot=true \
+            -p:SkipModelMetadataGeneration=true -p:SkipClientBuild=true -warnaserror \
+            -o artifacts/publish/proxy-copilot
+      - name: Published binary and browser smoke
+        run: |
+          npm install --prefix "$RUNNER_TEMP/proxy-browser" playwright@1.63.0
+          "$RUNNER_TEMP/proxy-browser/node_modules/.bin/playwright" install --with-deps chromium
+          python3 scripts/smoke-proxy-copilot.py \
+            --binary artifacts/publish/proxy-copilot/GnOuGo.ProxyCopilot.Server \
+            --serve --port 5087 > artifacts/proxy-smoke.log 2>&1 &
+          proxy_smoke_pid=$!
+          trap 'kill "$proxy_smoke_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 200); do
+            if rg -q '^PASS:' artifacts/proxy-smoke.log; then break; fi
+            if ! kill -0 "$proxy_smoke_pid" 2>/dev/null; then cat artifacts/proxy-smoke.log; exit 1; fi
+            sleep 0.2
+          done
+          rg '^PASS:' artifacts/proxy-smoke.log
+          PLAYWRIGHT_MODULE_PATH="$RUNNER_TEMP/proxy-browser/node_modules/playwright/index.mjs" \
+            node scripts/smoke-proxy-copilot-ui.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: proxy-copilot-smoke
+          path: |
+            artifacts/proxy-smoke.log
+            artifacts/proxy-copilot/screenshots/
