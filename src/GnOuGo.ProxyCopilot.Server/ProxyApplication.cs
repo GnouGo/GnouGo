@@ -135,6 +135,18 @@ public static class ProxyApplication
         };
         if (metadata.ContextWindowTokens is { } window) model["contextWindow"] = window;
         if (route.SupportsTools) model["editTools"] = new JsonArray("find-replace", "multi-find-replace");
+        var capabilities = metadata.Capabilities;
+        if (route.Type is "openai" or "copilot" && capabilities.SupportsReasoningEffort == true
+            && capabilities.UnsupportedRequestParameters?.Contains("reasoning_effort", StringComparer.Ordinal) != true)
+        {
+            var levels = capabilities.SupportedReasoningEfforts?
+                .Where(level => !string.IsNullOrWhiteSpace(level)).Distinct(StringComparer.Ordinal).ToArray() ?? [];
+            if (levels.Length > 0)
+            {
+                model["supportsReasoningEffort"] = new JsonArray(levels.Select(level => (JsonNode?)JsonValue.Create(level)).ToArray());
+                model["reasoningEffortFormat"] = "chat-completions";
+            }
+        }
         return model;
     }
 

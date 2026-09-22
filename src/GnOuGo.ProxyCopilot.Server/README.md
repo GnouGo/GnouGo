@@ -86,6 +86,8 @@ Retries default to one attempt. Set `RetryPolicy.MaxAttempts` to enable bounded 
 
 The generated entries include full URLs, such as `http://127.0.0.1:5087/v1/chat/completions`, `toolCalling: true` for configured tool-capable models, and `editTools: ["find-replace", "multi-find-replace"]`. They include the actual context window when configured and reserve at most 8192 output tokens (also bounded by model/provider limits and half the context window). VS Code subtracts this reservation from its usable context; an independent model output ceiling is often too large for an Agent turn. You can tune this editor budget in your local `chatLanguageModels.json`. An organization may restrict custom model access through its policies. See [VS Code language model configuration](https://code.visualstudio.com/docs/agent-customization/language-models).
 
+For OpenAI-compatible and Copilot models, set `Metadata.Capabilities.SupportsReasoningEffort: true` and `SupportedReasoningEfforts` to the exact levels accepted by your upstream. `/api/setup` exports them as the model's `supportsReasoningEffort` array with `reasoningEffortFormat: "chat-completions"`. After updating `chatLanguageModels.json`, reload VS Code and use the arrow beside the model in its picker to select **Thinking Effort**. The selected value is forwarded as `reasoning_effort`. No levels are invented for missing metadata, models that reject `reasoning_effort`, or the native Anthropic/Ollama adapters, which do not implement reasoning translation. All configured models remain listed regardless of reasoning support.
+
 There is no separate Agent endpoint or server-side tool runner. VS Code sends its tool schemas with the conversation; the model returns `tool_calls`; VS Code executes them and sends `role: "tool"` messages with matching `tool_call_id` values on the next turn. The proxy preserves that loop, including parallel calls and their identities. Selecting Agent does not force a model to call tools: inspect the dashboard for incoming `tools`, outgoing `tool_calls`, and subsequent tool results if a model only replies with prose. The built-in editor and terminal tools do not require a GnOuGo MCP server.
 
 V1 supports text conversations, system/developer messages, function tools, parallel tool calls/results, streaming, non-streaming, finish reasons, and reported usage. VS Code executes tools. Ollama tool results are restored to their original call order before forwarding; Anthropic preserves explicit tool-use IDs. Anthropic system/developer messages must precede the conversation.
@@ -116,6 +118,27 @@ Only loopback listen addresses and same-origin browser requests are accepted. Co
 `ProxyCopilot.TenantId` defaults to `local`. Enable optional OpenTelemetry through the shared `OpenTelemetry` section. The proxy emits request status, duration, model/provider, and tenant metadata, without prompt/response bodies or authentication HTTP traces. Nothing is persisted by the application.
 
 ## Test and publish
+
+### GitHub release binaries
+
+GitHub releases include standalone Native AOT archives for **Windows, Linux, and macOS**, each in **x64 and ARM64** variants:
+
+- `GnOuGo.ProxyCopilot.Server-win-{x64|arm64}-aot.zip`
+- `GnOuGo.ProxyCopilot.Server-linux-{x64|arm64}-aot.tar.gz`
+- `GnOuGo.ProxyCopilot.Server-osx-{x64|arm64}-aot.tar.gz`
+
+`.github/workflows/build-proxy-copilot.yml` builds each variant on a matching OS/architecture runner, with warnings treated as errors. It builds the dashboard, excludes development settings, packages the executable and UI with public defaults and examples, then extracts and smoke-tests that exact archive before uploading it. Pull requests affecting the proxy validate this matrix; the release pipeline waits for all six packages and includes them in its existing `checksums.txt`. The build workflow also supports manual dispatch. Building the workflow does not itself publish a release.
+
+Extract the entire archive and run `GnOuGo.ProxyCopilot.Server.exe` on Windows or `./GnOuGo.ProxyCopilot.Server` on Linux/macOS. No .NET SDK or runtime installation is required. The dashboard is at `http://127.0.0.1:5087/ui/`; release packages start with no providers. Supply provider settings through environment variables, or create your own `appsettings.Development.json` from an included example and set `DOTNET_ENVIRONMENT=Development` before launching the executable. Keep credentials in environment overrides. Linux archives target glibc distributions; Alpine/musl and mobile OSes are not included. These are unsigned portable archives.
+
+To reproduce packaging locally after a publish on the matching platform:
+
+```bash
+python3 scripts/package-proxy-copilot.py \
+  --publish artifacts/publish/proxy-copilot-osx-arm64 --rid osx-arm64
+```
+
+### Build and validation commands
 
 ```bash
 dotnet test tests/GnOuGo.ProxyCopilot.Server.Tests/GnOuGo.ProxyCopilot.Server.Tests.csproj
