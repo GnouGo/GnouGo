@@ -8,27 +8,33 @@ public sealed class OidcJwtApiKeyProvider : IApiKeyProvider
 {
     private readonly HttpClient _http;
     private readonly OidcClientCredentialsConfig _cfg;
+    private readonly TimeProvider _clock;
 
     private readonly SemaphoreSlim _gate = new(1, 1);
     private string? _token;
     private DateTimeOffset _expiresAtUtc;
 
     public OidcJwtApiKeyProvider(HttpClient http, OidcClientCredentialsConfig cfg)
+        : this(http, cfg, TimeProvider.System)
+    {
+    }
+
+    public OidcJwtApiKeyProvider(HttpClient http, OidcClientCredentialsConfig cfg, TimeProvider clock)
     {
         _http = http;
         _cfg = cfg;
+        _clock = clock;
     }
 
     public async ValueTask<string> GetApiKeyAsync(CancellationToken ct = default)
     {
-        // Valid token? keep ~30s safety window
-        if (!string.IsNullOrWhiteSpace(_token) && DateTimeOffset.UtcNow < _expiresAtUtc.AddSeconds(-30))
+        if (!string.IsNullOrWhiteSpace(_token) && _clock.GetUtcNow() < _expiresAtUtc)
             return _token!;
 
         await _gate.WaitAsync(ct);
         try
         {
-            if (!string.IsNullOrWhiteSpace(_token) && DateTimeOffset.UtcNow < _expiresAtUtc.AddSeconds(-30))
+            if (!string.IsNullOrWhiteSpace(_token) && _clock.GetUtcNow() < _expiresAtUtc)
                 return _token!;
 
             await RefreshAsync(ct);
@@ -105,12 +111,13 @@ public sealed class OidcJwtApiKeyProvider : IApiKeyProvider
             req.Content = new FormUrlEncodedContent(fullForm);
         }
 
+        var requestedAt = _clock.GetUtcNow();
         using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-        var body = await resp.Content.ReadAsStringAsync(ct);
 
         if (!resp.IsSuccessStatusCode)
-            throw new InvalidOperationException($"OIDC token request failed: {(int)resp.StatusCode} {resp.ReasonPhrase} - {body}");
+            throw new InvalidOperationException($"OIDC token request failed: HTTP {(int)resp.StatusCode}.");
 
+        var body = await resp.Content.ReadAsStringAsync(ct);
         using var json = JsonDocument.Parse(body);
 
         if (!json.RootElement.TryGetProperty("access_token", out var at) || at.ValueKind != JsonValueKind.String)
@@ -121,11 +128,18 @@ public sealed class OidcJwtApiKeyProvider : IApiKeyProvider
             throw new InvalidOperationException("OIDC access_token is empty.");
 
         int expiresIn = 3600;
-        if (json.RootElement.TryGetProperty("expires_in", out var ei) && ei.ValueKind == JsonValueKind.Number)
-            expiresIn = Math.Max(60, ei.GetInt32());
+        if (json.RootElement.TryGetProperty("expires_in", out var ei))
+        {
+            if (ei.ValueKind != JsonValueKind.Number || !ei.TryGetInt32(out expiresIn) || expiresIn <= 0)
+                throw new InvalidOperationException("OIDC token response has an invalid expires_in.");
+        }
 
+        // Never extend an issuer's lifetime. A proportional margin also lets short-lived
+        // tokens be cached, and acquisition time counts against their usable lifetime.
+        var refreshAt = requestedAt.AddSeconds(expiresIn - Math.Min(30d, expiresIn * 0.1d));
+        if (_clock.GetUtcNow() >= refreshAt)
+            throw new InvalidOperationException("OIDC token expired during acquisition.");
         _token = accessToken;
-        _expiresAtUtc = DateTimeOffset.UtcNow.AddSeconds(expiresIn);
+        _expiresAtUtc = refreshAt;
     }
 }
-

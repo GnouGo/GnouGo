@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <PnpmCommand Condition="'$(OS)' == 'Windows_NT'">corepack.cmd pnpm</PnpmCommand>
+    <PnpmCommand Condition="'$(OS)' != 'Windows_NT'">corepack pnpm</PnpmCommand>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../GnOuGo.AI.Core/GnOuGo.AI.Core.csproj" />
+    <ProjectReference Include="../GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj" />
+    <ProjectReference Include="../GnOuGo.Observability.Core/GnOuGo.Observability.Core.csproj" />
+    <Content Update="wwwroot/**/*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="appsettings.Development*.json;appsettings.Local*.json" CopyToPublishDirectory="Never" />
+    <Content Update="ClientApp/**/*;examples/**/*" CopyToPublishDirectory="Never" />
+    <None Update="ClientApp/**/*;examples/**/*" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+  <Target Name="BuildClientApp" BeforeTargets="ComputeFilesToPublish" Condition="'$(SkipClientBuild)' != 'true'">
+    <Exec Command="$(PnpmCommand) --dir &quot;$(MSBuildProjectDirectory)/ClientApp&quot; install --frozen-lockfile" />
+    <Exec Command="$(PnpmCommand) --dir &quot;$(MSBuildProjectDirectory)/ClientApp&quot; build" />
+    <ItemGroup>
+      <Content Remove="wwwroot/**/*" />
+      <Content Include="wwwroot/**/*" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+</Project>

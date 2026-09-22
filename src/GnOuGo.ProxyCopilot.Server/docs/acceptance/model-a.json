@@ -1,0 +1,283 @@
+{
+  "passed": true,
+  "recordedAt": "2026-09-22T18:02:17.882Z",
+  "backend": "real configured provider; no fixture",
+  "executor": "VS Code built-in Agent tools",
+  "result": 42,
+  "nonce": "44319b3f5dc2ee7a",
+  "explanation": "The edited value 7 in agent-smoke.txt was multiplied by 6 to produce 42.",
+  "executedTools": [
+    "list_dir",
+    "create_file",
+    "read_file",
+    "replace_string_in_file",
+    "run_in_terminal",
+    "get_terminal_output"
+  ],
+  "modelTurns": 8,
+  "parallelToolTurns": 2,
+  "versions": {
+    "vscode": "1.138.0",
+    "copilot": "0.66.0",
+    "copilotSourceSha256": "79c5b462f5c0b679051e4fefacbd82e3dbef6ad31cfaf890840f2ec85faf1e6f"
+  },
+  "configuration": [
+    {
+      "name": "GnOuGo Smoke",
+      "vendor": "customendpoint",
+      "apiType": "chat-completions",
+      "models": [
+        {
+          "id": "<provider>/<model-alias>",
+          "name": "GnOuGo smoke model",
+          "url": "http://127.0.0.1:15087/v1/chat/completions",
+          "toolCalling": true,
+          "vision": false,
+          "maxInputTokens": 120000,
+          "maxOutputTokens": 8192,
+          "contextWindow": 128000,
+          "editTools": [
+            "find-replace",
+            "multi-find-replace"
+          ]
+        }
+      ]
+    }
+  ],
+  "source": "Allowlisted review extract from smoke-proxy-copilot-agent.mjs evidence.json; raw traffic remains local.",
+  "deployment": {
+    "nativeAot": true,
+    "rid": "osx-arm64",
+    "proxyBinarySha256": "f43e7f1884ad6f9cd38485415fa6695413805bd24f5416d937676ec5f68c3595",
+    "authentication": "OidcClientSecret; proxy credentials supplied through environment overrides",
+    "providerOutputTokenDefault": 8192,
+    "providerOutputTokenCap": 8192,
+    "captureMaxBodyBytes": 4194304
+  },
+  "trace": [
+    {
+      "turn": 1,
+      "status": "completed",
+      "streaming": true,
+      "roles": [
+        "system",
+        "user",
+        "user"
+      ],
+      "returnedTools": [
+        "list_dir",
+        "create_file"
+      ],
+      "durationMs": 2919.2878,
+      "usage": {
+        "prompt_tokens": 15181,
+        "completion_tokens": 102,
+        "total_tokens": 15283
+      },
+      "offeredToolCount": 51
+    },
+    {
+      "turn": 2,
+      "status": "completed",
+      "streaming": true,
+      "roles": [
+        "system",
+        "user",
+        "user",
+        "assistant",
+        "tool",
+        "tool"
+      ],
+      "returnedTools": [
+        "read_file"
+      ],
+      "durationMs": 2128.2848,
+      "usage": {
+        "prompt_tokens": 15326,
+        "completion_tokens": 49,
+        "total_tokens": 15375
+      },
+      "offeredToolCount": 51
+    },
+    {
+      "turn": 3,
+      "status": "completed",
+      "streaming": true,
+      "roles": [
+        "system",
+        "user",
+        "user",
+        "assistant",
+        "tool",
+        "tool",
+        "assistant",
+        "tool"
+      ],
+      "returnedTools": [
+        "replace_string_in_file"
+      ],
+      "durationMs": 1565.2812,
+      "usage": {
+        "prompt_tokens": 15393,
+        "completion_tokens": 65,
+        "total_tokens": 15458
+      },
+      "offeredToolCount": 51
+    },
+    {
+      "turn": 4,
+      "status": "completed",
+      "streaming": true,
+      "roles": [
+        "system",
+        "user",
+        "user",
+        "assistant",
+        "tool",
+        "tool",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool"
+      ],
+      "returnedTools": [
+        "run_in_terminal"
+      ],
+      "durationMs": 3495.7986,
+      "usage": {
+        "prompt_tokens": 15499,
+        "completion_tokens": 154,
+        "total_tokens": 15653
+      },
+      "offeredToolCount": 51
+    },
+    {
+      "turn": 5,
+      "status": "completed",
+      "streaming": true,
+      "roles": [
+        "system",
+        "user",
+        "user",
+        "assistant",
+        "tool",
+        "tool",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool"
+      ],
+      "returnedTools": [
+        "get_terminal_output"
+      ],
+      "durationMs": 1401.8982,
+      "usage": {
+        "prompt_tokens": 16134,
+        "completion_tokens": 41,
+        "total_tokens": 16175
+      },
+      "offeredToolCount": 51
+    },
+    {
+      "turn": 6,
+      "status": "completed",
+      "streaming": true,
+      "roles": [
+        "system",
+        "user",
+        "user",
+        "assistant",
+        "tool",
+        "tool",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool"
+      ],
+      "returnedTools": [
+        "create_file"
+      ],
+      "durationMs": 1752.7677,
+      "usage": {
+        "prompt_tokens": 16310,
+        "completion_tokens": 89,
+        "total_tokens": 16399
+      },
+      "offeredToolCount": 51
+    },
+    {
+      "turn": 7,
+      "status": "completed",
+      "streaming": true,
+      "roles": [
+        "system",
+        "user",
+        "user",
+        "assistant",
+        "tool",
+        "tool",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool"
+      ],
+      "returnedTools": [
+        "read_file",
+        "read_file"
+      ],
+      "durationMs": 2064.2138,
+      "usage": {
+        "prompt_tokens": 16437,
+        "completion_tokens": 110,
+        "total_tokens": 16547
+      },
+      "offeredToolCount": 51
+    },
+    {
+      "turn": 8,
+      "status": "completed",
+      "streaming": true,
+      "roles": [
+        "system",
+        "user",
+        "user",
+        "assistant",
+        "tool",
+        "tool",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool",
+        "assistant",
+        "tool",
+        "tool"
+      ],
+      "returnedTools": [],
+      "durationMs": 4239.46,
+      "usage": {
+        "prompt_tokens": 16621,
+        "completion_tokens": 300,
+        "total_tokens": 16921
+      },
+      "offeredToolCount": 51
+    }
+  ]
+}

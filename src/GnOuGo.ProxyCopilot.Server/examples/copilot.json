@@ -1,0 +1,52 @@
+{
+  "ProxyCopilot": {
+    "Providers": {
+      "copilot": {
+        "Authentication": "CopilotEnvironment",
+        "Connection": {
+          "Type": "copilot",
+          "Url": "https://models.github.ai/inference",
+          "RequestPolicy": {
+            "BackgroundProtocol": "ChatCompletions",
+            "UnspecifiedOutputTokens": "Configured",
+            "DefaultMaxOutputTokens": 4096
+          },
+          "RetryPolicy": {
+            "MaxAttempts": 1,
+            "MaxUncertainRetries": 0,
+            "AttemptTimeoutMilliseconds": 600000
+          }
+        },
+        "Models": {
+          "code": {
+            "UpstreamId": "your-upstream-model-id",
+            "Metadata": {
+              "DisplayName": "Configured coding model",
+              "OwnedBy": "internal",
+              "ContextWindowTokens": 128000,
+              "MaxInputTokens": 120000,
+              "MaxOutputTokens": 8000,
+              "Pricing": {
+                "Currency": "USD",
+                "InputPer1MTokens": 0,
+                "OutputPer1MTokens": 0
+              },
+              "Capabilities": {
+                "SupportsTools": true,
+                "SupportsTemperature": true,
+                "SupportsStructuredOutput": false,
+                "SupportsJsonMode": false,
+                "SupportsReasoningEffort": false,
+                "SupportsVision": false,
+                "SupportsAudio": false,
+                "SupportsEmbeddings": false,
+                "SupportedReasoningEfforts": [],
+                "UnsupportedRequestParameters": []
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

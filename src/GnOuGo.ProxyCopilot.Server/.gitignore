@@ -1,0 +1,7 @@
+!wwwroot/
+!wwwroot/ui/
+!wwwroot/ui/**
+
+# Workstation-only provider settings and credentials.
+appsettings.Development*.json
+appsettings.Local*.json

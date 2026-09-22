@@ -1,0 +1,120 @@
+name: Build ProxyCopilot Native AOT
+
+on:
+  workflow_call:
+    inputs:
+      package_version:
+        description: Assembly version for the release binaries.
+        required: false
+        type: string
+        default: ''
+  workflow_dispatch:
+    inputs:
+      package_version:
+        description: Assembly version (defaults to 0.0.<run number>).
+        required: false
+        type: string
+        default: ''
+  pull_request:
+    paths:
+      - '.github/workflows/build-proxy-copilot.yml'
+      - '.github/workflows/main.yaml'
+      - '.github/workflows/publish-github-release.yml'
+      - 'src/GnOuGo.ProxyCopilot.Server/**'
+      - 'src/GnOuGo.AI.Core/**'
+      - 'src/GnOuGo.Auth.Core/**'
+      - 'src/GnOuGo.Observability.Core/**'
+      - 'scripts/package-proxy-copilot.py'
+      - 'scripts/check-proxy-copilot-config.py'
+      - 'scripts/smoke-proxy-copilot.py'
+      - 'Directory.Build.*'
+      - 'Directory.Packages.props'
+      - 'global.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  PROXY_PACKAGE_VERSION: ${{ inputs.package_version || format('0.0.{0}', github.run_number) }}
+
+jobs:
+  native_aot:
+    name: ProxyCopilot AOT (${{ matrix.rid }})
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            rid: linux-x64
+          - os: ubuntu-24.04-arm
+            rid: linux-arm64
+          - os: windows-2025
+            rid: win-x64
+          - os: windows-11-arm
+            rid: win-arm64
+          - os: macos-15-intel
+            rid: osx-x64
+          - os: macos-15
+            rid: osx-arm64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install Linux native toolchain
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update -o Acquire::Retries=5
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+      - name: Build frontend
+        run: |
+          pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm --filter gnougo-proxy-copilot-client build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Check public defaults and create a publish-exclusion sentinel
+        run: |
+          python scripts/check-proxy-copilot-config.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Set-Content src/GnOuGo.ProxyCopilot.Server/appsettings.Development.json '{"LocalPublishSentinel":"synthetic-only"}'
+      - name: Publish Native AOT
+        run: |
+          dotnet publish src/GnOuGo.ProxyCopilot.Server/GnOuGo.ProxyCopilot.Server.csproj `
+            -c Release -r '${{ matrix.rid }}' --self-contained true `
+            -p:PublishAot=true -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true `
+            "-p:Version=$env:PROXY_PACKAGE_VERSION" -warnaserror `
+            -o 'artifacts/publish/proxy-copilot/${{ matrix.rid }}'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Package and smoke-test the extracted release archive
+        run: |
+          python scripts/package-proxy-copilot.py `
+            --publish 'artifacts/publish/proxy-copilot/${{ matrix.rid }}' `
+            --rid '${{ matrix.rid }}' --output artifacts/release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: proxy-copilot-${{ matrix.rid }}
+          path: artifacts/release/GnOuGo.ProxyCopilot.Server-${{ matrix.rid }}-aot.*
+          if-no-files-found: error

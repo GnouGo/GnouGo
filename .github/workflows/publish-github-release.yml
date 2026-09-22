@@ -38,6 +38,16 @@ jobs:
           pattern: "!*.dockerbuild"
           path: release-assets
 
+      - name: Require all ProxyCopilot Native AOT archives
+        shell: pwsh
+        run: |
+          foreach ($rid in @('linux-x64', 'linux-arm64', 'win-x64', 'win-arm64', 'osx-x64', 'osx-arm64')) {
+            $extension = if ($rid.StartsWith('win-')) { '.zip' } else { '.tar.gz' }
+            $name = "GnOuGo.ProxyCopilot.Server-$rid-aot$extension"
+            $proxyArchives = @(Get-ChildItem release-assets -Recurse -File -Filter $name)
+            if ($proxyArchives.Count -ne 1) { throw "Expected exactly one release archive: $name" }
+          }
+
       - name: Generate release checksums
         shell: pwsh
         run: |

@@ -82,6 +82,7 @@ The GnOuGo project is composed of several complementary families:
 | **GnOuGo.KeyVault** | Secret management services: encrypted storage, tenant-aware vault features, and management APIs. |
 | **GnOuGo.OtlpCollector** | OpenTelemetry ingestion stack: multi-tenant OTLP collection plus tooling to send and inspect telemetry data. |
 | **GnOuGo.Assets** | Deterministic, themeable GnOuGo mascot SVGs and workflow animation scenes through the independently packaged Bears and Animation libraries. |
+| **GnOuGo.ProxyCopilot** | [Standalone local LLM proxy](src/GnOuGo.ProxyCopilot.Server/README.md) for VS Code Chat/Agent mode, with OIDC, typed provider configuration, native protocol adapters, and a live React traffic dashboard. |
 
 Supporting libraries such as **GnOuGo.AI.Core** and **GnOuGo.Auth.Core** provide shared AI and authentication foundations across these families.
 

@@ -31,7 +31,7 @@ The packaged host model is only a default; persisted host settings and KeyVault 
 
 Two anonymous metadata GETs, for the configured gateway origin's `/` and `/openapi.json`, were attempted and then repeated when confirming persisted defaults. All four ended before an HTTP status was returned: `HttpRequestException`, `HttpRequestError.ResponseEnded`, inner `HttpIOException`. They sent no authentication or inference body. No redirects were followed and TLS validation was not disabled. These results do not establish an authentication failure, a missing endpoint or provider-wide unavailability; documentation could not be retrieved through these probes.
 
-Public searches did not locate an authoritative spending-cap or billing-management contract for this gateway. AXA's [official Secure GPT announcement](https://www.axa.com/en/press/press-releases/axa-offers-securegenerative-ai-to-employees) describes an internal service built on Azure OpenAI, but does not specify monetary enforcement or current administrative APIs. OpenAI-compatible request syntax is not evidence that public OpenAI billing controls apply to this gateway.
+Public searches did not locate an authoritative spending-cap or billing-management contract for this gateway. OpenAI-compatible request syntax is not evidence that public OpenAI billing controls apply to an internal gateway.
 
 No budget-exhaustion inference test was attempted: there is no verified zero-budget client or documented nonbillable rejection test yet. Existing credentials and billing settings were left untouched rather than assuming that an inference request would be free.
 
@@ -47,7 +47,7 @@ The gateway administrator needs to provide an internal management/documentation 
 
 The user was asked for the internal administration/documentation URL only; no credential was requested in chat. No message was sent to administrators or other third parties. A suitable request for the service owner is:
 
-> Please provide an isolated SecureGPT OIDC client or billing scope for GnOuGo validation, with an enforced EUR 20 total allowance shared by planner and Copilot calls, no replenishment, authoritative usage records and a documented nonbillable budget-rejection test. Please confirm how concurrent and retried requests are bounded and how uncertain charges remain accounted for. Credentials must be provisioned through the existing encrypted configuration channel.
+> Please provide an isolated internal gateway OIDC client or billing scope for GnOuGo validation, with an enforced EUR 20 total allowance shared by planner and Copilot calls, no replenishment, authoritative usage records and a documented nonbillable budget-rejection test. Please confirm how concurrent and retried requests are bounded and how uncertain charges remain accounted for. Credentials must be provisioned through the existing encrypted configuration channel.
 
 Once supplied, verify the actual enforcement and route both inference paths to that same scope through existing configuration before resuming the Desktop plan. If the provider offers only alerts, delayed enforcement or unverifiable spending, this route cannot meet the approved requirement. Do not add a new proxy or relax the ceiling within this task.
 
