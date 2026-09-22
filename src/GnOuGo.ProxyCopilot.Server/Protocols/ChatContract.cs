@@ -72,7 +72,12 @@ public static class ChatContract
         if (request["temperature"] is not null && route.Model.Metadata.Capabilities.SupportsTemperature == false)
             throw Unsupported("temperature");
         foreach (var name in route.Model.Metadata.Capabilities.UnsupportedRequestParameters ?? [])
+        {
+            // The OpenAI-compatible adapter translates these two client aliases and
+            // validates the emitted field against upstream capabilities itself.
+            if (route.Type is "openai" or "copilot" && name is "max_tokens" or "max_completion_tokens") continue;
             if (request[name] is not null) throw Unsupported(name);
+        }
         foreach (var name in new[] { "max_tokens", "max_completion_tokens" })
             if (request[name] is not null && Integer(request[name], name) <= 0) throw Unsupported(name);
         if (request["max_tokens"] is not null && request["max_completion_tokens"] is not null) throw Unsupported("conflicting output-token limits");

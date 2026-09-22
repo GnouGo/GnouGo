@@ -16,9 +16,17 @@ public sealed class OpenAiAdapter(string type = "openai") : IProxyAdapter
     {
         var body = (JsonObject)request.DeepClone();
         body["model"] = route.Model.UpstreamId;
+        // Normalize client aliases before forwarding, including explicit null fields.
+        body.Remove("max_tokens");
+        body.Remove("max_completion_tokens");
         if (ChatContract.OutputLimit(request, route) is { } limit)
-            body[request["max_completion_tokens"] is not null || route.Model.Metadata.Capabilities.UnsupportedRequestParameters?.Contains("max_tokens", StringComparer.Ordinal) == true
-                ? "max_completion_tokens" : "max_tokens"] = limit;
+        {
+            var unsupported = route.Model.Metadata.Capabilities.UnsupportedRequestParameters;
+            var field = unsupported?.Contains("max_completion_tokens", StringComparer.Ordinal) == true
+                ? "max_tokens" : "max_completion_tokens";
+            if (unsupported?.Contains(field, StringComparer.Ordinal) == true) throw ChatContract.Unsupported(field);
+            body[field] = limit;
+        }
         return body;
     }
 

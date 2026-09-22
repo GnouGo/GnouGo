@@ -38,6 +38,8 @@ internal sealed class TestHost(WebApplication app) : IAsyncDisposable
         foreach (var value in extra ?? []) values[value.Key] = value.Value;
         var app = ProxyApplication.Build([], builder =>
         {
+            // Tests must never inherit workstation providers or credentials.
+            builder.Configuration.Sources.Clear();
             builder.Configuration.AddInMemoryCollection(values);
             builder.WebHost.UseUrls("http://127.0.0.1:0"); builder.Logging.ClearProviders();
         });
