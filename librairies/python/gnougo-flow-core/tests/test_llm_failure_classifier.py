@@ -97,8 +97,9 @@ def test_classifier_reads_response_status_and_transport_failures() -> None:
     assert transport_failure.retryable is True
 
 
-def test_classifier_maps_timeout_and_preserves_chained_details() -> None:
-    timeout = classify_llm_failure(TimeoutError("timed out"))
+@pytest.mark.parametrize("timeout_type", [TimeoutError, asyncio.TimeoutError])
+def test_classifier_maps_timeout_and_preserves_chained_details(timeout_type) -> None:
+    timeout = classify_llm_failure(timeout_type("timed out"))
     outer = WorkflowRuntimeException(
         ErrorCodes.CAPABILITY_PREFLIGHT_INFERENCE_FAILED,
         "inference failed",

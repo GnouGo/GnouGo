@@ -408,7 +408,7 @@ Output access patterns: `data.steps.<id>.status`, `data.steps.<id>.response`, `d
                 return single_result
         except WorkflowRuntimeException:
             raise
-        except TimeoutError as exc:
+        except (TimeoutError, asyncio.TimeoutError) as exc:
             raise WorkflowRuntimeException(ErrorCodes.MCP_TIMEOUT, f"mcp.call to '{server}/{target}' timed out after {timeout_ms}ms", retryable=True) from exc
         except asyncio.CancelledError as exc:
             current = asyncio.current_task()

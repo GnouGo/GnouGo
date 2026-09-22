@@ -66,18 +66,18 @@ jobs:
       run:
         shell: pwsh
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: '10.0.x'
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7.0.0
         with:
           python-version: '3.13'
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6.1.0
         with:
           version: 10.14.0
           run_install: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: '24'
           cache: pnpm
@@ -113,7 +113,7 @@ jobs:
             --publish 'artifacts/publish/proxy-copilot/${{ matrix.rid }}' `
             --rid '${{ matrix.rid }}' --output artifacts/release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.1
         with:
           name: proxy-copilot-${{ matrix.rid }}
           path: artifacts/release/GnOuGo.ProxyCopilot.Server-${{ matrix.rid }}-aot.*

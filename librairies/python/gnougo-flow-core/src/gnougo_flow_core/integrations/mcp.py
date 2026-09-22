@@ -361,7 +361,7 @@ class ConfiguredMcpClientFactory:
         self.publish_human_input(McpHumanInputSignal(correlation, human_request, McpHumanInputSignalPhase.WAITING))
         try:
             response = await provider.request_input_async(human_request)
-        except (asyncio.CancelledError, TimeoutError):
+        except (asyncio.CancelledError, TimeoutError, asyncio.TimeoutError):
             self.publish_human_input(McpHumanInputSignal(correlation, human_request, McpHumanInputSignalPhase.CANCELLED))
             raise
 
@@ -729,7 +729,6 @@ async def _maybe_await(value: Any) -> Any:
     if inspect.isawaitable(value):
         return await value
     return value
-
 
 
 

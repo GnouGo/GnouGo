@@ -32,6 +32,9 @@ remain .NET 10 and Python 3.10+; prerelease upgrades are not requested.
   Explicit mappings preserve tool schemas, resource MIME types, tool errors and
   camelCase content payloads. A real subprocess SDK test checks this boundary.
   See the [SDK migration guide](https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md).
+- Python 3.10 has distinct built-in and `asyncio` timeout exception classes.
+  MCP and LLM error mapping accepts both, preserving timeout/cancellation semantics
+  on every supported Python version. The oldest-version CI check caught this gap.
 - Mermaid 12 requires Node.js 22.12+ and ES2024 browsers (Safari/WebKit 17.4+).
   Explicit Dagre/classic settings preserve the existing diagram presentation.
   Its indivisible ELK module has a narrowly scoped size budget; unrelated chunks
@@ -43,6 +46,11 @@ remain .NET 10 and Python 3.10+; prerelease upgrades are not requested.
   to 4.18.1 to address [template code injection](https://github.com/advisories/GHSA-r5fr-rjxr-66jc)
   and [prototype pollution](https://github.com/advisories/GHSA-f23m-r3pf-42rh).
   Re-run `pnpm audit` after lockfile changes.
+- GitHub Actions are pinned to current stable releases, including the Node.js 24
+  checkout/setup/cache/artifact and Docker actions. The latest upstream tag action
+  (6.2) still declares Node.js 20; GitHub runs it on Node.js 24. No deprecated-runtime
+  opt-out or warning suppression is added. Release conditions and permissions are
+  unchanged.
 
 ## Reproduce validation
 
