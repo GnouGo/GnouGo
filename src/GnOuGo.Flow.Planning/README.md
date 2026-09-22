@@ -10,6 +10,8 @@ The deterministic validator resolves contracts from authoritative capability sch
 
 Missing producer output contracts are explicitly opaque. Whole values can cross scopes, but examples and scenario data cannot authorize field access. A `validate` operation lowers to Core's `value.validate`: explicit JSON-value or JSON-text input, a literal output schema, parsing and runtime validation before projection. Transformations require separately validated output contracts. Neither operation changes a capability contract.
 
+Literal regex matches on typed strings preserve nullable capture types through aliases and string-method chains. Computation validation checks supported string members across non-null union alternatives; invented fields, opaque methods and unknown pattern results remain rejected. Missing captures fail at runtime before downstream calls, and required whole-value validation remains in place.
+
 Replanning replaces a complete action or affected business scope atomically, preserves semantic requirements and invalidates downstream artifacts. Unchanged proposals stop early; unexpected host failures stop immediately. There are no holes, finite capability/value choices, ranked shortlists, local JSON patch batches or graph-to-intent reflection.
 
 Schema-8 sessions persist semantic plans, catalog coverage, grounded plans and current phase in new encrypted namespaces. Approval binds those artifacts, the catalog, graph, YAML, fixtures and scenario evidence. Approval and execution reconstruct the graph from a revalidated grounded plan. Existing authorization, current-catalog checks, compiler validation, isolated scenarios, protected-action confirmations and tenant ownership remain mandatory. Old sessions cannot execute through the new pipeline.

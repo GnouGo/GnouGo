@@ -22,6 +22,8 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 
 Core owns `PlanningSession`, `SemanticPlan` / `GroundedPlan`, `PlanningGraph`, typed contracts and provider-neutral planning interfaces. It references no other GnOuGo project. Hosts inject the separately publishable Planning implementation and Integrations persistence boundary.
 
+Expression inference treats a typed string's literal-regex `match()` result as an array of nullable strings or null. Capture aliases support string methods; optional captures and missing indexes never establish presence. Dynamic patterns and opaque receivers remain uninferred, and runtime failures or `value.validate` still prevent invalid values reaching consumers.
+
 The flow is request → semantic plan → complete capability grounding → grounded plan → deterministic validation → graph → compilation → scenarios → final approval. Models interpret meaning; the engine owns executable identities, types, dataflow and policy. Runtime confirmation for protected effects is separate from final artifact approval. See [workflow planning](../../docs/workflow-planning-v2.md).
 
 Workflow ports can carry an authoritative `schema` object when shorthand types cannot express a catalog contract. JSON Schema constraints and defaults survive parsing, contract export, scenario sampling and runtime input/output validation. Planning derives these ports; the model does not reproduce their schemas.

@@ -20,6 +20,13 @@ internal static class PlanningComputationContracts
         "includes", "indexOf", "join", "keys", "lastIndexOf", "map", "pop", "push", "reduce", "reduceRight", "reverse", "shift", "slice", "some", "sort", "splice",
         "toReversed", "toSorted", "toSpliced", "unshift", "values", "with", "constructor", "toString", "hasOwnProperty", "valueOf", "toLocaleString"
     };
+    private static readonly HashSet<string> StringMembers = new(StringComparer.Ordinal)
+    {
+        "length", "at", "charAt", "charCodeAt", "codePointAt", "concat", "endsWith", "includes", "indexOf", "lastIndexOf", "localeCompare",
+        "match", "matchAll", "normalize", "padEnd", "padStart", "repeat", "replace", "replaceAll", "search", "slice", "split", "startsWith", "substring", "substr",
+        "toLowerCase", "toUpperCase", "toLocaleLowerCase", "toLocaleUpperCase", "trim", "trimStart", "trimEnd", "trimLeft", "trimRight", "isWellFormed", "toWellFormed",
+        "constructor", "toString", "hasOwnProperty", "valueOf", "toLocaleString"
+    };
     internal static IEnumerable<PlanningDiagnostic> Findings(PlanningGraph graph, PlanningCatalog catalog)
     {
         for (var wi = 0; wi < graph.Workflows.Count; wi++)
@@ -102,7 +109,28 @@ internal static class PlanningComputationContracts
             !ArrayMembers.Contains(field) && !uint.TryParse(field, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out _))
             messages.Add(("COMPUTATION_COLLECTION_FIELD_INVALID", MemberIdentity(arrayMember), "Property '" + field + "' belongs to no declared array result. A collection cannot supply an individual item's fields. " +
                 "Use a declared element binding in the approved loop. If the requested per-item actions require a missing loop, revise the intent plan; do not silently select the first item or discard items."));
+        if (node is MemberExpression stringMember && Name(stringMember) is { } stringField && Schema(stringMember.Object, scope) is { } text && HasType(text, "string") &&
+            !SupportsStringMember(text, stringField))
+            messages.Add(("COMPUTATION_FIELD_UNDECLARED", MemberIdentity(stringMember), "Property '" + stringField + "' is not supported by every non-null alternative of this computation parameter's string contract."));
         foreach (var child in node.ChildNodes) Walk(child, scope, messages);
+    }
+
+    private static bool SupportsStringMember(JsonObject schema, string name)
+    {
+        if (Unknown(schema)) return false;
+        var variants = Variants(schema).ToArray();
+        if (variants.Length > 0) return variants.All(v => SupportsStringMember(v, name));
+        var types = schema["type"] is JsonArray union ? union.Select(t => t?.ToString()) : [schema["type"]?.ToString()];
+        return types.All(type => type switch
+        {
+            // Absence still fails at runtime; checking a member never establishes presence.
+            "null" => true,
+            "string" => StringMembers.Contains(name) || uint.TryParse(name, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out _),
+            "array" => ArrayMembers.Contains(name),
+            "object" => Declares(schema, name),
+            "number" or "integer" or "boolean" => name is "constructor" or "toString" or "hasOwnProperty" or "valueOf" or "toLocaleString",
+            _ => false
+        });
     }
 
     private static string MemberIdentity(Node node) => node switch

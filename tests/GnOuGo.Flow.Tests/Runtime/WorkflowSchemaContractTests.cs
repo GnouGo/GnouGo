@@ -133,19 +133,32 @@ public sealed class WorkflowSchemaContractTests
         Assert.Equal(2, ExpressionContractInference.Infer("text === 'a' ? 'accepted' : 'rejected'", args)!["anyOf"]!.AsArray().Count);
     }
 
-    [Fact]
-    public void LiteralRegexInferencePreservesMissingMatchesAndUnknownCaptures()
+    [Theory]
+    [InlineData("text.match(/(a)?b/)")]
+    [InlineData("text.match(/(a)?b/g)")]
+    public void LiteralRegexInferencePreservesMissingMatchesAndCaptures(string expression)
     {
         var args = new Dictionary<string, JsonObject> { ["text"] = new() { ["type"] = "string" }, ["pattern"] = new() { ["x-gnougo-opaque"] = true } };
-        var result = ExpressionContractInference.Infer("text.match(/(a)?b/)", args)!;
+        var result = ExpressionContractInference.Infer(expression, args)!;
         var variants = result["anyOf"]!.AsArray();
         Assert.Contains(variants, v => v!["type"]!.ToString() == "null");
-        Assert.True(variants.Single(v => v!["type"]!.ToString() == "array")!["items"]!["x-gnougo-opaque"]!.GetValue<bool>());
+        var items = variants.Single(v => v!["type"]!.ToString() == "array")!["items"]!["anyOf"]!.AsArray();
+        Assert.Equal(new[] { "null", "string" }, items.Select(v => v!["type"]!.ToString()).Order());
+        foreach (var index in new[] { 0, 1, 99 })
+            Assert.Equal(new[] { "null", "string" }, ExpressionContractInference.Infer(expression + "[" + index + "]", args)!["anyOf"]!.AsArray().Select(v => v!["type"]!.ToString()).Order());
         Assert.Null(ExpressionContractInference.Infer("text.match(pattern)", args));
         Assert.Null(ExpressionContractInference.Infer("pattern.match(/x/)", args));
         Assert.Equal("string", ExpressionContractInference.Infer("text.split(':')[0].toLowerCase()", args)!["type"]!.ToString());
         Assert.Contains(ExpressionContractInference.Infer("text.split(':')[0]", args)!["anyOf"]!.AsArray(), v => v!["type"]!.ToString() == "null");
         Assert.Null(ExpressionContractInference.Infer("text.split(':').invented", args));
+    }
+    [Fact]
+    public void CaptureAliasesSupportStringChainsWithoutEstablishingPresence()
+    {
+        var args = new Dictionary<string, JsonObject> { ["text"] = new() { ["type"] = "string" } };
+        Assert.Equal("string", ExpressionContractInference.Infer("(() => { const match = text.match(/(a)?b/); const capture = match[1]; return capture.replace(/a/g, 'x').trim().toUpperCase(); })()", args)!["type"]!.ToString());
+        Assert.Null(ExpressionContractInference.Infer("text.match(/(a)?b/)[1].invented", args));
+        Assert.Null(ExpressionContractInference.Infer("text.match(/(a)?b/)?.[1]?.replace(/a/g, 'x')", args));
     }
     [Fact]
     public void CallbackCollectionAndUnaryOperatorsCannotInventNumericResults()

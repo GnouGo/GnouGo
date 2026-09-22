@@ -95,9 +95,9 @@ public static class ExpressionContractInference
                 return Type(json.Arguments[0]).IsOpaque ? FlowTypeDescriptor.Any : FlowTypeDescriptor.String;
             case CallExpression { Callee: MemberExpression { Computed: false, Property: Identifier { Name: "match" } } receiver, Arguments.Count: 1 } match
                 when match.Arguments[0] is RegExpLiteral && Type(receiver.Object).Kind == FlowTypeKind.String:
-                // A literal regex yields a match array or null. Captures may be absent;
-                // do not assert their scalar types or invent properties of capture values.
-                return FlowTypeDescriptor.Union([FlowTypeDescriptor.Array(FlowTypeDescriptor.Any), FlowTypeDescriptor.Null]);
+                // A literal regex yields strings or null for no match. Optional captures
+                // and missing indexes retain the existing null representation for absence.
+                return FlowTypeDescriptor.Union([FlowTypeDescriptor.Array(FlowTypeDescriptor.Union([FlowTypeDescriptor.String, FlowTypeDescriptor.Null])), FlowTypeDescriptor.Null]);
             case CallExpression { Callee: MemberExpression { Computed: false, Property: Identifier method } receiver }:
                 // A null receiver throws rather than producing a successful method result.
                 // Optional chaining has its own AST node and remains uninferred here.
