@@ -9,6 +9,11 @@ internal static class PlanningSchemas
         var root = Object(("summary", String()), ("inputs", Array(Ref("input"))), ("operations", Array(Ref("operation"))),
             ("outputs", Array(Ref("output"))), ("subflows", Array(Ref("subflow"))));
         var definitions = Definitions(capabilityIds);
+        if (capabilityIds is not null)
+        {
+            root["properties"]!["blockedActions"] = Array(Object(("actionId", String()), ("reason", String())));
+            root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("blockedActions"));
+        }
         if (capabilityIds is not null && !capabilityIds.Any()) definitions["operation"]!["anyOf"]!.AsArray().RemoveAt(0);
         if (capabilityIds is not null)
         {

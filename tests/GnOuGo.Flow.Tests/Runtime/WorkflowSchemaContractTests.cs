@@ -25,8 +25,12 @@ public sealed class WorkflowSchemaContractTests
                     type: set
                     if: '${data.steps["acquire"] != null}'
                     input: { released: true }
+                  - id: verify
+                    type: set
+                    if: '${data.steps["release"] != null}'
+                    input: { released: '${data.steps.release.released}' }
                 outputs:
-                  released: '${data.steps.release.released}'
+                  released: '${data.steps.verify.released}'
             """;
         var document = WorkflowParser.Parse(yaml);
         WorkflowPlanSemanticValidator.Validate(document);
@@ -35,6 +39,7 @@ public sealed class WorkflowSchemaContractTests
         var scenarios = await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken);
         Assert.All(scenarios, scenario => Assert.Equal("passed", scenario.Outcome));
         Assert.Contains(scenarios, scenario => scenario.Id == "guard:unavailable:main:release:acquire");
+        Assert.Contains(scenarios, scenario => scenario.Id == "guard:unavailable:main:verify:release");
         foreach (var guard in new[] { "false", "data.steps[\"acquire\"] != null && false", "data.steps[\"missing\"] != null", "data.steps[\"acquire\"] != null || true" })
             Assert.Throws<WorkflowSemanticValidationException>(() => WorkflowPlanSemanticValidator.Validate(WorkflowParser.Parse(yaml.Replace("data.steps[\"acquire\"] != null", guard, StringComparison.Ordinal))));
         var conditional = WorkflowParser.Parse(yaml); conditional.Workflows["main"].Steps[0].If = "${false}";

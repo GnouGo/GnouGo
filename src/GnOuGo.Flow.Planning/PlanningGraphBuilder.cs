@@ -21,9 +21,10 @@ public static class PlanningGraphBuilder
             Normalize(workflow.Steps); Normalize(workflow.Finally);
             foreach (var node in PlanningGraphCompiler.Enumerate(workflow.Finally))
             {
-                var main = PlanningGraphCompiler.Enumerate(workflow.Steps).Select(n => n.Key).ToHashSet(StringComparer.Ordinal);
-                // Dependencies order execution; only consumed values require completed main results.
-                var required = References(node).Where(v => v.Kind == "output").Select(v => v.Source!).Where(main.Contains).Distinct().ToArray();
+                var producers = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Select(n => n.Key).ToHashSet(StringComparer.Ordinal);
+                // Finalization may follow failed main execution or a failed earlier finalizer.
+                // Ordering is separate; every consumed result needs its own availability guard.
+                var required = References(node).Where(v => v.Kind == "output").Select(v => v.Source!).Where(producers.Contains).Distinct().ToArray();
                 if (required.Length > 0)
                 {
                     var guard = AvailabilityGuard(required);
@@ -265,17 +266,27 @@ public static class PlanningGraphBuilder
     }
     internal static bool FinalizerAvailableOnSuccess(PlanningNode node, PlanningWorkflow workflow)
     {
-        var required = References(node).Where(v => v.Kind == "output").Select(v => v.Source!).Distinct().ToArray();
-        if (required.Length == 0 || node.If?.Kind != "expression") return false;
-        foreach (var id in required)
+        return Available(node, new(StringComparer.Ordinal));
+        bool Available(PlanningNode current, HashSet<string> visiting)
         {
-            var producer = workflow.Steps.SingleOrDefault(n => n.Key == id);
-            if (producer is null || producer.If is not null || producer.OnError.Any(h => h.Action == "continue") ||
-                !(producer.Type is "mcp.call" or "llm.call" or "workflow.call" || producer.Type == "set" && producer.Input.Kind == "object")) return false;
+            if (!visiting.Add(current.Key)) return false;
+            try
+            {
+                if (current.If is null) return true;
+                var required = References(current).Where(v => v.Kind == "output").Select(v => v.Source!).Distinct().ToArray();
+                if (required.Length == 0 || current.If.Kind != "expression" ||
+                    !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(current.If, PlanningJsonContext.Default.PlanningValue),
+                        JsonSerializer.SerializeToNode(AvailabilityGuard(required), PlanningJsonContext.Default.PlanningValue))) return false;
+                foreach (var id in required)
+                {
+                    var producer = workflow.Steps.Concat(workflow.Finally).SingleOrDefault(n => n.Key == id);
+                    if (producer is null || producer.OnError.Any(h => h.Action == "continue") ||
+                        !(producer.Type is "mcp.call" or "llm.call" or "workflow.call" or "value.validate" || producer.Type == "set" && producer.Input.Kind == "object") ||
+                        (workflow.Finally.Contains(producer) ? !Available(producer, visiting) : producer.If is not null)) return false;
+                }
+                return true;
+            }
+            finally { visiting.Remove(current.Key); }
         }
-        // Workflow outputs are evaluated only after successful main execution and successful finalization.
-        // Recognize the exact generated guard; arbitrary conditions remain conditional.
-        return JsonNode.DeepEquals(JsonSerializer.SerializeToNode(node.If, PlanningJsonContext.Default.PlanningValue),
-            JsonSerializer.SerializeToNode(AvailabilityGuard(required), PlanningJsonContext.Default.PlanningValue));
     }
 }

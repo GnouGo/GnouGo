@@ -26,12 +26,13 @@ internal static class PlanningJsonTransport
         }
         Visit(result); return result;
     }
-    internal static JsonObject ContractPrompt(JsonObject schema)
+    internal static JsonObject ContractPrompt(JsonObject schema, bool retainDescriptions = false)
     {
         var result = schema.DeepClone().AsObject();
         void Visit(JsonObject current)
         {
-            foreach (var annotation in new[] { "description", "title", "examples", "$comment", "$schema" }) current.Remove(annotation);
+            foreach (var annotation in new[] { "description", "title", "examples", "$comment", "$schema" })
+                if (annotation != "description" || !retainDescriptions) current.Remove(annotation);
             foreach (var map in new[] { "properties", "$defs", "definitions", "patternProperties", "dependentSchemas" })
                 if (current[map] is JsonObject children) foreach (var child in children.Select(p => p.Value).OfType<JsonObject>()) Visit(child);
             foreach (var key in new[] { "items", "additionalProperties", "contains", "not", "if", "then", "else", "propertyNames", "unevaluatedProperties", "unevaluatedItems" })
@@ -93,6 +94,11 @@ internal static class PlanningJsonTransport
     internal static JsonNode ModelGrounded(JsonNode json, JsonNode schema, bool unpack = false)
     {
         var result = json.DeepClone();
+        if (schema["properties"]?["blockedActions"] is not null && result is JsonObject response)
+        {
+            if (unpack) response.Remove("blockedActions");
+            else if (!response.ContainsKey("blockedActions")) response["blockedActions"] = new JsonArray();
+        }
         if (schema["$defs"]?["implementation"] is null) return result;
         void Visit(JsonNode? node)
         {

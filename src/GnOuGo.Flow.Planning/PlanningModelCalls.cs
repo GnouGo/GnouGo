@@ -48,6 +48,15 @@ internal static class PlanningModelCalls
                 f.InstancePointer.Replace("/implementation/", "/", StringComparison.Ordinal), f.Message, ValidationStage: purpose)).ToList());
         }
         state.RejectedProposalHash = null;
+        if (json["blockedActions"] is JsonArray { Count: > 0 } blockers)
+        {
+            var actions = SemanticPlanning.Actions(state.SemanticPlan!).Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
+            if (blockers.Any(b => !actions.Contains(b!["actionId"]!.ToString()) || string.IsNullOrWhiteSpace(b["reason"]!.ToString())) ||
+                blockers.Select(b => b!["actionId"]!.ToString()).Distinct().Count() != blockers.Count ||
+                new[] { "inputs", "operations", "outputs", "subflows" }.Any(field => json[field] is JsonArray { Count: > 0 }))
+                throw new PlanningResponseException([new("BINDING_BLOCKER_INVALID", "/blockedActions", "A blocked binding must name distinct existing semantic actions, explain each missing prerequisite, and contain no executable proposal.")]);
+            throw new PlanningResponseException(blockers.Select(b => new PlanningDiagnostic("SEMANTIC_BINDING_BLOCKED", "/actions/" + b!["actionId"]!.ToString(), b["reason"]!.ToString(), ValidationStage: "grounding")).ToList());
+        }
         return PlanningJsonTransport.ModelGrounded(json, call.Request.StructuredOutputSchema!, unpack: true);
     }
 

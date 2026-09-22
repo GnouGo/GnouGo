@@ -12,6 +12,31 @@ public sealed class CleanupOrderingTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Fact]
+    public async Task FinalizerChainsGuardEarlierCleanupResultsAndExposeSuccessfulOutputs()
+    {
+        var catalog = await new TestRuntime().DiscoverAsync(PlannerFixture.Session().Request, Ct);
+        var plan = new GroundedPlan
+        {
+            Operations = [new CalculateGroundedOperation { Id = "acquire", Value = new() { Kind = "object", Members = [new("resource", new() { Kind = "string", Text = "owned" })] } },
+                new CleanupGroundedOperation { Id = "cleanup", Operations = [
+                    new CalculateGroundedOperation { Id = "release", Value = new() { Kind = "object", Members = [new("resource", new() { Kind = "result", Source = "acquire", Path = ["resource"] }), new("released", new() { Kind = "boolean", Boolean = true })] } },
+                    new CalculateGroundedOperation { Id = "verify", Value = new() { Kind = "result", Source = "release" } }] }],
+            Outputs = [new("released", new() { Kind = "result", Source = "verify", Path = ["released"] })]
+        };
+        var graph = PlannerFixture.Build(plan, catalog);
+        Assert.True(PlanningGraphBuilder.GuardsFinalizerSource(graph.Workflows[0].Finally[1], "release"));
+        Assert.Empty(PlanningExecutableValidation.Validate(graph, catalog));
+        var yaml = new PlanningGraphCompiler().Compile(graph, catalog);
+        var document = WorkflowParser.Parse(yaml);
+        WorkflowPlanSemanticValidator.Validate(document);
+        var scenarios = await WorkflowPlanScenarioValidator.ValidateAsync(document, null, Ct);
+        Assert.All(scenarios, scenario => Assert.True(scenario.Outcome == "passed", scenario.Id + ": " + string.Join("; ", scenario.Diagnostics.Select(d => d.Code + ": " + d.Message))));
+        Assert.Equal(5, scenarios.Count);
+        graph.Workflows[0].Finally[0].If = new() { Kind = "boolean", Boolean = false };
+        Assert.Contains(PlanningDataflow.Validate(graph, catalog), d => d.Required);
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]

@@ -126,7 +126,7 @@ public static class PlanningCorpus
             if (request.StructuredOutputSchema?["properties"]?["operations"] is not null)
             {
                 var grounded = PlanningJsonTransport.Grounded(plan);
-                return new() { Json = PlanningJsonTransport.ModelGrounded(new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject().Select(p => new KeyValuePair<string, JsonNode?>(p.Key, grounded[p.Key]?.DeepClone()))), request.StructuredOutputSchema) };
+                return new() { Json = PlanningJsonTransport.ModelGrounded(new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject().Where(p => p.Key != "blockedActions").Select(p => new KeyValuePair<string, JsonNode?>(p.Key, grounded[p.Key]?.DeepClone()))), request.StructuredOutputSchema) };
             }
             if (request.StructuredOutputSchema?["properties"]?["summary"] is not null) return new() { Json = SemanticPlanning.Json(semantic) };
             var json = SemanticPlanning.Json(semantic);

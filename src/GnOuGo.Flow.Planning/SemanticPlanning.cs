@@ -47,6 +47,8 @@ internal static class SemanticPlanning
         These categories describe business intent; grounding may realize a calculation or transformation through a declared specialized capability.
         Cleanup contains a block of resource-release actions and exposes no result itself. External actions inside that block have ordinary named outputs.
         Describe conditions and calculations in ordinary language. Use choose, each, parallel, call and cleanup for business topology.
+        When decisions depend on external facts, include actions to observe those facts before interpretation. An identifier or location is not the resource's contents.
+        Express required ordering through dependencies. Introduce collections, branches and subflows when the business behavior requires them; do not prescribe incidental implementation detail.
         Use short, globally unique action IDs. Inputs and outputs are named business values; sources identify input.name or actionId.outputName.
         Blocks describe the branches or body; named subflows may be reused. Cleanup runs on exit including failures and cancellation.
         Types describe desired business values, not guarantees from an external producer. Use type=null unless the user explicitly requires a particular shape.

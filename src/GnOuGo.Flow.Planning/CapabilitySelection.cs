@@ -23,13 +23,18 @@ internal static class CapabilitySelection
             Select the smallest sufficient implementation for each business action from its viable matches after complete catalog coverage.
             Choose exact issued capability IDs. Prefer direct declared operations over broad delegated work when they satisfy the action.
             Multiple capabilities are appropriate only when the action requires their combined behavior, never to retain alternative implementations.
+            Select a compatible implementation across the complete workflow. Required artifact inputs need original authoritative producers among the selected actions.
+            Neither a model transformation nor an opaque observation establishes artifact identity. Prefer a viable implementation whose prerequisites can actually be supplied.
             Preserve every required business outcome. Explain the chosen behavior using catalog evidence. Binding checks the authoritative contracts next.
             Native calculations and transformations may select no capabilities. Required external actions must select at least one match.
             """ + "\n" + PlanningJsonTransport.Prompt(new JsonObject { ["request"] = state.Request.Prompt, ["actions"] = new JsonArray(SemanticPlanning.Actions(state.SemanticPlan!).Where(SemanticPlanning.Groundable).Select(a => (JsonNode)SemanticPlanning.ActionContext(a)).ToArray()),
                 ["matches"] = new JsonArray(decisions.Select(d => (JsonNode)new JsonObject { ["actionId"] = d.ActionId,
                     ["matches"] = new JsonArray(d.Matches.Select(m => (JsonNode)new JsonObject { ["id"] = m.CapabilityId, ["evidence"] = m.Reason }).ToArray()) }).ToArray()),
                 ["capabilities"] = new JsonArray(state.Catalog!.Capabilities.Where(c => ids.Contains(c.Id)).Select(c => (JsonNode)new JsonObject {
-                    ["id"] = c.Id, ["description"] = c.Description, ["effect"] = c.EffectKind }).ToArray()) });
+                    ["id"] = c.Id, ["description"] = c.Description, ["effect"] = c.EffectKind,
+                    ["artifacts"] = JsonSerializer.SerializeToNode(c.ArtifactContract, PlanningJsonContext.Default.McpArtifactContract),
+                    ["requiredInputs"] = new JsonArray((c.InputSchema["required"] as JsonArray ?? []).Select(n => (JsonNode)new JsonObject {
+                        ["name"] = n!.ToString(), ["description"] = c.InputSchema["properties"]?[n.ToString()]?["description"]?.DeepClone() }).ToArray()) }).ToArray()) });
         var response = await PlanningModelCalls.CallAsync(state, runtime, purpose, prompt, schema, ct);
         var selections = response["selections"]!.AsArray().Select(s => new GroundingSelection(s!["actionId"]!.GetValue<string>(),
             s["capabilityIds"]!.AsArray().Select(c => c!.GetValue<string>()).ToList(), s["reason"]!.GetValue<string>())).ToList();

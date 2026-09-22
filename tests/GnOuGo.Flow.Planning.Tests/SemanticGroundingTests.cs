@@ -8,6 +8,34 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class SemanticGroundingTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    [Theory]
+    [InlineData("collect", false, "SEMANTIC_BINDING_BLOCKED")]
+    [InlineData("invented", false, "BINDING_BLOCKER_INVALID")]
+    [InlineData("collect", true, "BINDING_BLOCKER_INVALID")]
+    public async Task MissingBindingPrerequisitesAreExplicitAndCannotHideExecutableWork(string action, bool executable, string code)
+    {
+        var state = State();
+        var proposal = executable ? PlanningJsonTransport.Grounded(PlannerFixture.Greeting()) : PlanningJsonTransport.Grounded(new());
+        proposal["blockedActions"] = new JsonArray(new JsonObject { ["actionId"] = action, ["reason"] = "The selected consumer requires original evidence that the producer does not expose." });
+        var schema = PlanningSchemas.Grounded(["cap_0"]);
+        var runtime = new TestRuntime { Respond = _ => new() { Json = PlanningJsonTransport.ModelGrounded(proposal, schema) } };
+        var rejected = await Assert.ThrowsAsync<PlanningResponseException>(() => PlanningModelCalls.CallAsync(state, runtime, "binding", "Bind", schema, Ct));
+        Assert.Equal(code, Assert.Single(rejected.Diagnostics).Code);
+        Assert.Null(state.GroundedPlan); Assert.Null(state.PendingCall); Assert.Equal(1, state.ModelCalls);
+        if (code == "SEMANTIC_BINDING_BLOCKED")
+        {
+            state.Diagnostics = rejected.Diagnostics; state.BindingProgress = new();
+            runtime.Respond = request =>
+            {
+                Assert.Contains("Replan this business action/subgraph atomically", request.Prompt);
+                return new() { Json = new JsonObject { ["actions"] = SemanticPlanning.Json(new() { Actions = [state.SemanticPlan!.Actions[0]] })["actions"]!.DeepClone(), ["questions"] = new JsonArray() } };
+            };
+            var result = await new TypedWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+            Assert.Equal(PlanningStatus.Stopped, result.Status);
+            Assert.Contains(result.Diagnostics, d => d.Code == "REPLAN_NO_PROGRESS");
+            Assert.Equal(1, result.ReplanAttempts);
+        }
+    }
     internal static SemanticPlan Request() => new() { Summary = "Collect evidence and release the resource", Actions = [
         new() { Id = "collect", Purpose = "Read the observation", Outputs = [new("evidence", "Observed data")] },
         new() { Id = "release", Purpose = "Release the acquired resource", Outputs = [new("released", "Resource released")] }] };
@@ -193,16 +221,20 @@ public sealed class SemanticGroundingTests
     [Fact]
     public async Task CompleteMatchesAreSelectedBeforeLargeBindingContractsAreLoaded()
     {
-        var state = State(12); state.Grounding = CapabilityGrounder.Create(state);
+        var state = State(12);
+        state.Catalog!.Capabilities[0].InputSchema = JsonNode.Parse("""{"type":"object","properties":{"evidence":{"type":"string","description":"Original comparison evidence from its declared producer; synthetic text is invalid."}},"required":["evidence"]}""")!.AsObject();
+        state.Grounding = CapabilityGrounder.Create(state);
         foreach (var page in state.Grounding.Pages)
             state.Grounding.Results.Add(new(page.Id, page.ActionIds.Select(a => new GroundingDecision(a, "matched", page.CapabilityIds.Select(id => new GroundingMatch(id, "Declared viable implementation")).ToList(), "Viable implementations")).ToList()));
         var runtime = new TestRuntime { Respond = _ => new() { Json = new JsonObject { ["selections"] = new JsonArray(state.SemanticPlan!.Actions.Select(a => (JsonNode)new JsonObject {
             ["actionId"] = a.Id, ["capabilityIds"] = new JsonArray("cap_0"), ["reason"] = "Direct declared implementation" }).ToArray()) } } };
         await CapabilitySelection.ApplyAsync(state, runtime, Ct);
         Assert.Single(runtime.Calls); Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Contains("Original comparison evidence", runtime.Calls[0].Prompt);
         Assert.Equal(12, CapabilityGrounder.Decisions(state)[0].Matches.Count);
         var prompt = CapabilityGrounder.BindingPrompt(state);
         Assert.Contains("cap_0", prompt); Assert.DoesNotContain("cap_11", prompt);
+        Assert.Contains("Original comparison evidence", prompt);
         Assert.Throws<PlanningResponseException>(() => CapabilitySelection.Validate(state, [new("collect", ["unissued"], "Guess")]));
     }
     [Fact]

@@ -18,6 +18,12 @@ internal static class PlanningValidationPipeline
         var graph = state.Graph!; var catalog = state.Catalog!;
         PlanningConfirmationGuards.Apply(graph, catalog);
         state.Diagnostics = PlanningExecutableValidation.Validate(graph, catalog).ToList();
+        if (state.Diagnostics.Any(d => d.Code == "BINDING_UNAVAILABLE"))
+        {
+            state.Diagnostics = state.Diagnostics.Select(d => d.Code == "BINDING_UNAVAILABLE" ? d with
+                { Code = "PLANNING_HOST_CONTRACT", Message = "Lowering changed validated availability: " + d.Message } : d).ToList();
+            state.Status = PlanningStatus.Stopped; state.Yaml = null; state.ApprovedHash = null; return;
+        }
         if (state.Diagnostics.Any(d => d.Required)) return;
         string yaml;
         try { yaml = new PlanningGraphCompiler().Compile(graph, catalog, state.Request.Name); }

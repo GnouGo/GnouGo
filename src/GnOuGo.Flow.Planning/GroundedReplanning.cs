@@ -24,8 +24,9 @@ internal static class GroundedReplanning
         var properties = schema["properties"]!.AsObject();
         if (block.Block is not null)
             schema["properties"] = new JsonObject { ["operations"] = properties["operations"]!.DeepClone(), ["result"] = PlanningSchemas.Ref("value") };
-        else foreach (var key in properties.Select(p => p.Key).Where(k => !fields.Contains(k)).ToArray()) properties.Remove(key);
-        schema["required"] = new JsonArray(fields.Select(f => (JsonNode?)JsonValue.Create(f)).ToArray());
+        else foreach (var key in properties.Select(p => p.Key).Where(k => !fields.Contains(k) && k != "blockedActions").ToArray()) properties.Remove(key);
+        if (block.Block is not null) schema["properties"]!["blockedActions"] = properties["blockedActions"]!.DeepClone();
+        schema["required"] = new JsonArray(fields.Append("blockedActions").Select(f => (JsonNode?)JsonValue.Create(f)).ToArray());
         PlanningJsonTransport.PruneDefinitions(schema);
         var prompt = CapabilityGrounder.BindingPrompt(state) + "\n" + """
             Replan only the complete affected scope below. Return its replacement operations and exported values together.

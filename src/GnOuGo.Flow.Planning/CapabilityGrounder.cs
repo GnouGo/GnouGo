@@ -195,6 +195,8 @@ internal static class CapabilityGrounder
             Implement the SemanticPlan as GroundedPlan JSON, using the semantic matches and full authoritative contracts below.
             In business context, omitted lists are empty, omitted type is null, and omitted optional/nullable flags are false.
             Use short operation IDs and brief purposes. Preserve every action and required output. Every operation's semanticAction names the business action it implements.
+            Return blockedActions=[] for a complete implementation. If required observations, artifact producers or business decisions are missing, return only blockedActions with the existing affected action IDs and concise reasons; return empty inputs, operations, outputs and subflows.
+            Report the missing prerequisite promptly so the host can replan the semantic subgraph. Do not invent evidence or force an incompatible selected implementation.
             businessOutputs maps each required semantic output name to a path in that operation's result (empty path means the whole result).
             All required business outputs must be mapped; intermediate operations may have empty businessOutputs.
             Use exact capability IDs only. Map named business values to real argument names and declared result paths.
@@ -211,11 +213,13 @@ internal static class CapabilityGrounder
             The host resolves that exact schema and enforces it at runtime. This does not change the original source contract. Do not duplicate large existing schemas as business types.
             transform receives actual source data; it cannot substitute for external observations or claim checks ran.
             choose has a boolean condition and two result blocks. each returns ordered body results. parallel returns named branch results.
+            cleanup is a structural container with no result; its businessOutputs must be empty. Map cleanup outcomes on concrete descendant operations using their semantic action and output names.
             Conditional results require the same condition at consumers, or a choose that supplies both outcomes. Cleanup runs on exit and binds the acquired resource. The host guards resource availability; do not add a redundant when to cleanup or export conditional cleanup results unconditionally.
             Named subflows declare input types; opaque permits whole values, not fields.
             """ + "\n" + PlanningJsonTransport.Prompt(new JsonObject { ["semanticPlan"] = PlanningJsonTransport.BusinessContext(SemanticPlanning.Json(fragment ?? state.SemanticPlan!)), ["establishedBoundary"] = boundary?.DeepClone(), ["instructions"] = state.Request.Policy.Instructions,
                 ["capabilities"] = new JsonArray(state.Catalog!.Capabilities.Where(c => ids.Contains(c.Id)).Select(c => (JsonNode)new JsonObject { ["id"] = c.Id, ["name"] = c.Method,
-                    ["arguments"] = PlanningJsonTransport.ContractPrompt(PlanningCapabilityArguments.EditableArguments(c)), ["result"] = c.OutputSchema.Count == 0 ? null : PlanningJsonTransport.ContractPrompt(c.OutputSchema), ["effect"] = c.EffectKind,
+                    ["description"] = c.Description, ["metadata"] = c.Metadata?.DeepClone(),
+                    ["arguments"] = PlanningJsonTransport.ContractPrompt(PlanningCapabilityArguments.EditableArguments(c), retainDescriptions: true), ["result"] = c.OutputSchema.Count == 0 ? null : PlanningJsonTransport.ContractPrompt(c.OutputSchema), ["effect"] = c.EffectKind,
                     ["artifacts"] = JsonSerializer.SerializeToNode(c.ArtifactContract, PlanningJsonContext.Default.McpArtifactContract) }).ToArray()),
                 ["matches"] = new JsonArray(decisions.Where(d => actionIds.Contains(d.ActionId)).Select(d => (JsonNode)new JsonObject { ["actionId"] = d.ActionId, ["capabilityIds"] = new JsonArray(selected.Single(s => s.ActionId == d.ActionId).CapabilityIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()) }).ToArray()) });
     }

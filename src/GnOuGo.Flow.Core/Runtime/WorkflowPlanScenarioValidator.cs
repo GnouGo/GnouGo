@@ -43,8 +43,11 @@ public static class WorkflowPlanScenarioValidator
                 {
                     definitions.Add(new($"guard:true:{workflowName}:{step.Id}", workflowName, step.Id, "guard_true"));
                     var required = WorkflowResultAvailability.RequiredResults(step.If);
-                    var guaranteed = workflow.Steps.Where(s => s.If is null && !(s.OnError?.Cases.Any(c => c.Action == "continue") ?? false) &&
-                        (s.Type is "mcp.call" or "llm.call" or "workflow.call" || s.Type == "set" && s.Input is JsonObject)).Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
+                    static bool NonNullResult(StepDef s) => !(s.OnError?.Cases.Any(c => c.Action == "continue") ?? false) &&
+                        (s.Type is "mcp.call" or "llm.call" or "workflow.call" or "value.validate" || s.Type == "set" && s.Input is JsonObject);
+                    var guaranteed = workflow.Steps.Where(s => s.If is null && NonNullResult(s)).Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
+                    foreach (var previous in workflow.Finally.TakeWhile(s => s != step))
+                        if (NonNullResult(previous) && (previous.If is null || WorkflowResultAvailability.GuardHolds(previous.If, guaranteed))) guaranteed.Add(previous.Id);
                     if (workflow.Finally.Contains(step) && required.Count > 0 && required.All(guaranteed.Contains))
                     {
                         // Make availability false by failing each actual producer. Overriding the guard alone
@@ -102,6 +105,7 @@ public static class WorkflowPlanScenarioValidator
             {
                 engine.Registry.Register(new FailureExecutor(new SetExecutor(), scenario, cancellation, fault, observations, observed, telemetry));
                 engine.Registry.Register(new FailureExecutor(new WorkflowCallExecutor(), scenario, cancellation, fault, observations, observed, telemetry));
+                engine.Registry.Register(new FailureExecutor(new ValidateValueExecutor(), scenario, cancellation, fault, observations, observed, telemetry));
             }
             var diagnostics = new List<PlanningDiagnostic>();
             string outcome;
@@ -127,17 +131,25 @@ public static class WorkflowPlanScenarioValidator
                 }
                 var reached = scenario.Step is null || fault.Injected || telemetry.Statuses.ContainsKey(scenario.Workflow + ":" + scenario.Step);
                 var denied = scenario.Kind is "rejected" or "unavailable";
-                var expectedFailure = fault.Injected && (run.Success || run.Error?.Code is "SCENARIO_INJECTED_FAILURE" or "CANCELLED");
+                var injectedFinalizerFailure = scenario.UnavailableGuard is not null &&
+                    run.Error?.Code == ErrorCodes.WorkflowFinalizationFailed &&
+                    run.Error.Details?["finalization_errors"] is JsonArray { Count: 1 } finalizationErrors &&
+                    finalizationErrors[0]?["code"]?.ToString() == "SCENARIO_INJECTED_FAILURE";
+                var expectedFailure = fault.Injected && (run.Success || run.Error?.Code is "SCENARIO_INJECTED_FAILURE" or "CANCELLED" || injectedFinalizerFailure);
                 if (denied)
                 {
                     var external = doc.Workflows.SelectMany(w => Enumerate(w.Value.Steps.Concat(w.Value.Finally)).Where(s => s.Type == "mcp.call").Select(s => w.Key + ":" + s.Id));
                     expectedFailure = !run.Success && !external.Any(k => telemetry.Statuses.TryGetValue(k, out var status) && status != StepStatus.Skipped);
                     if (!expectedFailure) diagnostics.Add(new("CONFIRMATION_BYPASSED", "$", "Denied or unavailable confirmation did not prevent external execution."));
                 }
-                if (scenario.UnavailableGuard is not null && (!fault.Injected ||
-                    !telemetry.Statuses.TryGetValue(scenario.Workflow + ":" + scenario.UnavailableGuard, out var availabilityStatus) || availabilityStatus != StepStatus.Skipped))
-                    diagnostics.Add(new("FINALIZATION_AVAILABILITY_INVALID", "workflow:" + scenario.Workflow + "/step:" + scenario.UnavailableGuard,
-                        "The finalizer must remain skipped when a required acquisition fails."));
+                if (scenario.UnavailableGuard is not null)
+                {
+                    var visited = telemetry.Statuses.TryGetValue(scenario.Workflow + ":" + scenario.UnavailableGuard, out var availabilityStatus);
+                    var finalizationStopped = doc.Workflows[scenario.Workflow!].Finally.Any(s => s.Id == scenario.Step);
+                    if (!fault.Injected || visited && availabilityStatus != StepStatus.Skipped || !visited && !finalizationStopped)
+                        diagnostics.Add(new("FINALIZATION_AVAILABILITY_INVALID", "workflow:" + scenario.Workflow + "/step:" + scenario.UnavailableGuard,
+                            "A finalizer must not execute after a required producer failed; main failure must still enter finalization."));
+                }
                 outcome = reached && (run.Success || expectedFailure) ? "passed" : "inconclusive";
                 if (diagnostics.Count != 0) outcome = "inconclusive";
                 if (!reached) diagnostics.Add(new("SCENARIO_UNREACHED", "workflow:" + scenario.Workflow + "/step:" + scenario.Step, "The synthetic input did not reach this required scenario."));
@@ -150,7 +162,7 @@ public static class WorkflowPlanScenarioValidator
                 foreach (var visitedWorkflow in telemetry.Workflows)
                 {
                     if (!doc.Workflows.TryGetValue(visitedWorkflow, out var wf)) continue;
-                    foreach (var finalizer in wf.Finally.Where(s => s.If is null))
+                    foreach (var finalizer in wf.Finally.Where(s => s.If is null && !(injectedFinalizerFailure && visitedWorkflow == scenario.Workflow && s.Id == scenario.Step)))
                         if (!telemetry.Statuses.TryGetValue(visitedWorkflow + ":" + finalizer.Id, out var status) || status != StepStatus.Succeeded)
                         {
                             diagnostics.Add(new("FINALIZATION_NOT_EXECUTED", "workflow:" + visitedWorkflow + "/step:" + finalizer.Id, "An unconditional finalizer did not complete successfully."));
