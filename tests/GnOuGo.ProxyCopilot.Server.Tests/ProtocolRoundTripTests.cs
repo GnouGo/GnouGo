@@ -131,7 +131,7 @@ public sealed class ProtocolRoundTripTests
         {"model":"test/model","messages":[{"role":"system","content":"You are helpful."},{"role":"user","content":"Look up Paris and Lyon."}],"tools":[{"type":"function","function":{"name":"lookup","description":"Look up a city","parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}}]}
         """)!.AsObject().Also(value => { value["stream"] = streaming; if (streaming) value["stream_options"] = new JsonObject { ["include_usage"] = true }; });
 
-    private static JsonArray ExtractCalls(string text, bool streaming)
+    internal static JsonArray ExtractCalls(string text, bool streaming)
     {
         if (!streaming) return JsonNode.Parse(text)!["choices"]![0]!["message"]!["tool_calls"]!.AsArray();
         var calls = new SortedDictionary<int, JsonObject>();

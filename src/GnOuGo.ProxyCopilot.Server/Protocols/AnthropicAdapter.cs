@@ -50,7 +50,10 @@ public sealed class AnthropicAdapter : IProxyAdapter
         }
         if (messages.Count == 0) throw ChatContract.Unsupported("messages must contain a conversation");
         var body = new JsonObject { ["model"] = route.Model.UpstreamId, ["messages"] = messages,
-            ["max_tokens"] = ChatContract.OutputLimit(request, route), ["stream"] = ChatContract.Bool(request["stream"]) };
+            ["max_tokens"] = ChatContract.OutputLimit(request, route), ["stream"] = ChatContract.Bool(request["stream"]),
+            // Newer models enable thinking by default. This text/tool adapter cannot
+            // round-trip signed thinking blocks through Chat Completions tool turns.
+            ["thinking"] = new JsonObject { ["type"] = "disabled" } };
         if (system.Count > 0) body["system"] = string.Join("\n\n", system);
         foreach (var name in new[] { "temperature", "top_p" }) if (request[name] is { } value) body[name] = value.DeepClone();
         if (request["stop"] is { } stop) body["stop_sequences"] = stop is JsonArray ? stop.DeepClone() : new JsonArray(stop.DeepClone());
