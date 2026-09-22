@@ -33,7 +33,7 @@ internal static class GroundedReplanning
             Preserve every semantic action and the scope's required input/output boundary. Add explicit validation adapters where needed.
             Correct the underlying producer or topology, not successive field-name guesses. Other scopes remain unchanged.
             """ + "\n" + new JsonObject { ["scope"] = path, ["fragment"] = fragment,
-                ["diagnostics"] = JsonSerializer.SerializeToNode(diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) }.ToJsonString();
+                ["diagnostics"] = PlanningJsonTransport.Diagnostics(diagnostics) }.ToJsonString();
         var response = await PlanningModelCalls.CallAsync(state, runtime, "replan", prompt, schema, ct);
         if (JsonNode.DeepEquals(fragment, response))
         { state.Diagnostics.Add(new("REPLAN_NO_PROGRESS", path, "The complete replacement is unchanged.")); state.Status = PlanningStatus.Stopped; return; }

@@ -19,7 +19,7 @@ internal static class CapabilityGrounder
         if (ids.Length == 0) { result.Pages.Add(new("page_0", actions, [])); return result; }
         Pack(actions);
         if (result.Pages.Count + state.ModelCalls + 1 > state.Request.MaxModelCalls)
-            throw new WorkflowRuntimeException("GROUNDING_BUDGET_INSUFFICIENT", "Complete catalog coverage and binding require " + (result.Pages.Count + 1) + " calls; the remaining allowance is " + (state.Request.MaxModelCalls - state.ModelCalls) + ".");
+            throw new WorkflowRuntimeException("GROUNDING_BUDGET_INSUFFICIENT", "Complete catalog coverage and binding require " + (result.Pages.Count + 1) + " calls; the remaining allowance is " + (state.Request.MaxModelCalls - state.ModelCalls) + ".", details: new JsonObject { ["location"] = "/grounding" });
         return result;
 
         void Pack(List<string> group)
@@ -32,13 +32,13 @@ internal static class CapabilityGrounder
                 {
                     if (page.CapabilityIds.Count == 0)
                     {
-                        if (group.Count == 1) throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", "The full capability description and decision schema cannot fit for action " + group[0] + " and capability " + id + ".");
+                        if (group.Count == 1) throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", "The full capability description and decision schema cannot fit for this action and capability.", details: new JsonObject { ["location"] = "/grounding/actions/" + group[0] + "/capabilities/" + id });
                         var middle = group.Count / 2; Pack(group.Take(middle).ToList()); Pack(group.Skip(middle).ToList()); return;
                     }
                     pages.Add(page); page = new("pending", group, [id]);
                     if (!Fits(page))
                     {
-                        if (group.Count == 1) throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", "An indivisible grounding request exceeds the configured input allowance.");
+                        if (group.Count == 1) throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", "An indivisible grounding request exceeds the configured input allowance.", details: new JsonObject { ["location"] = "/grounding/actions/" + group[0] + "/capabilities/" + id });
                         var middle = group.Count / 2; Pack(group.Take(middle).ToList()); Pack(group.Skip(middle).ToList()); return;
                     }
                 }
@@ -192,30 +192,23 @@ internal static class CapabilityGrounder
         var actionIds = SemanticPlanning.Actions(fragment ?? state.SemanticPlan!).Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
         var ids = selected.Where(s => actionIds.Contains(s.ActionId)).SelectMany(s => s.CapabilityIds).ToHashSet(StringComparer.Ordinal);
         return """
-            Implement the SemanticPlan as GroundedPlan JSON, using the semantic matches and full authoritative contracts below.
-            In business context, omitted lists are empty, omitted type is null, and omitted optional/nullable flags are false.
-            Use short operation IDs and brief purposes. Preserve every action and required output. Every operation's semanticAction names the business action it implements.
-            Return blockedActions=[] for a complete implementation. If required observations, artifact producers or business decisions are missing, return only blockedActions with the existing affected action IDs and concise reasons; return empty inputs, operations, outputs and subflows.
-            Report the missing prerequisite promptly so the host can replan the semantic subgraph. Do not invent evidence or force an incompatible selected implementation.
-            businessOutputs maps each required semantic output name to a path in that operation's result (empty path means the whole result).
-            All required business outputs must be mapped; intermediate operations may have empty businessOutputs.
-            Use exact capability IDs only. Map named business values to real argument names and declared result paths.
-            Use only declared fields and arguments. Omit optional arguments unless needed; null is a value, not omission.
-            Artifact consumers must bind the original declared producer path of the required kind. Matching strings, literals and model rewrites do not establish resource identity. Pure aliases preserve identity.
-            An absent output contract is OPAQUE. Pass its WHOLE result intact through branches and subflows or to a transform.
-            Before field access on opaque data, add validate with an explicit business resultType and format json_value or json_text.
-            validate checks the whole runtime value; json_text explicitly parses JSON text. Failure stops execution. Never infer JSON text or fields from examples.
-            calculate uses executable JavaScript over explicitly named members; every variable must be bound. Calculations have no asserted resultType: their types are inferred.
-            compute.text is JavaScript, never prose. Example: "flag ? 'accepted' : 'rejected'" with member flag. Objects use kind object and members; strings use template with {{name}} placeholders.
-            Use simple typed expressions. Unknown or nullable computations need an explicit validate boundary before stricter consumers. For business interpretation use transform with a declared resultType.
-            transform and validate MUST choose exactly one resultType or resultContract; set the other to null.
-            Prefer resultContract for an existing consumer contract: {capability: issuedId, direction: input, path: [argumentName]} validates the complete value against that argument schema. direction output similarly selects an authoritative result contract.
-            The host resolves that exact schema and enforces it at runtime. This does not change the original source contract. Do not duplicate large existing schemas as business types.
-            transform receives actual source data; it cannot substitute for external observations or claim checks ran.
-            choose has a boolean condition and two result blocks. each returns ordered body results. parallel returns named branch results.
-            cleanup is a structural container with no result; its businessOutputs must be empty. Map cleanup outcomes on concrete descendant operations using their semantic action and output names.
-            Conditional results require the same condition at consumers, or a choose that supplies both outcomes. Cleanup runs on exit and binds the acquired resource. The host guards resource availability; do not add a redundant when to cleanup or export conditional cleanup results unconditionally.
-            Named subflows declare input types; opaque permits whole values, not fields.
+            Bind the SemanticPlan to GroundedPlan JSON using the issued matches and authoritative contracts.
+            In business context, omitted lists are empty, type is null, and optional/nullable flags are false.
+            Use short IDs and purposes. Preserve every action and outcome; each operation's semanticAction identifies its business action.
+            businessOutputs maps required semantic output names to result paths (empty path = whole result); intermediates may map none.
+            Return blockedActions=[] when complete. For missing observations, artifact producers or decisions, promptly name existing affected actions and reasons in blockedActions; return empty inputs, operations, outputs and subflows. Never invent evidence to force a binding.
+            Use exact issued capability IDs, argument names and declared result paths. Omit unneeded optional arguments; null is not omission.
+            Artifact inputs require the original declared producer path and kind. Matching strings or model rewrites cannot establish identity; pure aliases preserve it.
+            Missing output contracts are OPAQUE. Whole values may cross branches/subflows or enter transforms. Before accessing opaque fields, validate the whole value against an explicit business contract.
+            validate uses json_value or explicit json_text parsing; malformed values fail. Samples never establish source fields or encoding.
+            calculate uses JavaScript over explicitly bound members, with inferred types and no asserted resultType. Prefer JSON primitives, plain objects, string operations, arrays and conditionals; avoid constructors and mutable collection objects.
+            compute.text is executable code, not prose. Example: "flag ? 'accepted' : 'rejected'" with member flag. Use object/members for records and template/{{name}} for strings.
+            Unknown/nullable computations need validate before stricter consumers. Use transform for business interpretation of actual supplied data; it cannot replace external observations or claim checks ran.
+            transform/validate require exactly one resultType or resultContract (the other null). Prefer {capability: issuedId, direction: input, path: [argumentName]} to reference an existing consumer schema; direction output selects a producer schema.
+            The host resolves and enforces that exact contract at runtime, without changing the source contract. Do not duplicate large existing schemas.
+            choose has a boolean condition and two result blocks; each returns ordered body results; parallel returns named branch results.
+            Conditional values need the same consumer condition or a choose supplying both outcomes. Named subflows declare input types; opaque permits whole values only.
+            cleanup has no result and empty businessOutputs. Map its outcomes on concrete descendants using their semantic action/output names. It runs on exit using acquired resources; the host guards availability. Avoid redundant cleanup conditions and unconditional exports of conditional cleanup results.
             """ + "\n" + PlanningJsonTransport.Prompt(new JsonObject { ["semanticPlan"] = PlanningJsonTransport.BusinessContext(SemanticPlanning.Json(fragment ?? state.SemanticPlan!)), ["establishedBoundary"] = boundary?.DeepClone(), ["instructions"] = state.Request.Policy.Instructions,
                 ["capabilities"] = new JsonArray(state.Catalog!.Capabilities.Where(c => ids.Contains(c.Id)).Select(c => (JsonNode)new JsonObject { ["id"] = c.Id, ["name"] = c.Method,
                     ["description"] = c.Description, ["metadata"] = c.Metadata?.DeepClone(),

@@ -154,7 +154,8 @@
             "total_tokens": 13214
           }
         }
-      ]
+      ],
+      "responseStageCostsIncludingRetries": {}
     },
     {
       "attempt": "chat-02",
@@ -526,7 +527,8 @@
             "total_tokens": 31657
           }
         }
-      ]
+      ],
+      "responseStageCostsIncludingRetries": {}
     },
     {
       "attempt": "chat-03",
@@ -588,7 +590,8 @@
           "completionStatus": null,
           "usage": null
         }
-      ]
+      ],
+      "responseStageCostsIncludingRetries": {}
     },
     {
       "attempt": "chat-04",
@@ -938,7 +941,8 @@
             "total_tokens": 30292
           }
         }
-      ]
+      ],
+      "responseStageCostsIncludingRetries": {}
     },
     {
       "attempt": "chat-05",
@@ -1291,7 +1295,8 @@
             "total_tokens": 30413
           }
         }
-      ]
+      ],
+      "responseStageCostsIncludingRetries": {}
     },
     {
       "attempt": "designer-01",
@@ -1493,7 +1498,8 @@
             "total_tokens": 8023
           }
         }
-      ]
+      ],
+      "responseStageCostsIncludingRetries": {}
     },
     {
       "attempt": "designer-02",
@@ -1737,7 +1743,8 @@
             "total_tokens": 9529
           }
         }
-      ]
+      ],
+      "responseStageCostsIncludingRetries": {}
     },
     {
       "attempt": "designer-03",
@@ -1981,7 +1988,8 @@
             "total_tokens": 11387
           }
         }
-      ]
+      ],
+      "responseStageCostsIncludingRetries": {}
     },
     {
       "attempt": "designer-04",
@@ -2273,7 +2281,8 @@
             "total_tokens": 15043
           }
         }
-      ]
+      ],
+      "responseStageCostsIncludingRetries": {}
     },
     {
       "attempt": "designer-05",
@@ -2594,7 +2603,8 @@
             "total_tokens": 9204
           }
         }
-      ]
+      ],
+      "responseStageCostsIncludingRetries": {}
     },
     {
       "session": "6ae07a3accf049c7b9c16b1f6f82d465",
@@ -2688,7 +2698,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 5943
-          }
+          },
+          "responseStage": "semantic"
         },
         {
           "requestKey": "6ae07a3accf049c7b9c16b1f6f82d465:6ae07a3accf049c7b9c16b1f6f82d465:2:5c37cc7a81fcc2c12b67c065cb3e433d8a715756288e92b4f5401a476aeb8783",
@@ -2724,7 +2735,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 14388
-          }
+          },
+          "responseStage": "grounding"
         },
         {
           "requestKey": "6ae07a3accf049c7b9c16b1f6f82d465:6ae07a3accf049c7b9c16b1f6f82d465:3:23e36346a73c08cae1aa08e1288f0b087575206ed6636601bbb717be7f88e301",
@@ -2760,7 +2772,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 13751
-          }
+          },
+          "responseStage": "grounding"
         },
         {
           "requestKey": "6ae07a3accf049c7b9c16b1f6f82d465:6ae07a3accf049c7b9c16b1f6f82d465:4:f9027847be5674398807292544a0b52be295a7d10ac5224dc290663075b897a5",
@@ -2796,7 +2809,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 7018
-          }
+          },
+          "responseStage": "selection"
         },
         {
           "requestKey": "6ae07a3accf049c7b9c16b1f6f82d465:6ae07a3accf049c7b9c16b1f6f82d465:5:9bf0fc92b7f927942781b1ce6f3fe62d2f3710004248a49c15816955b6e11798",
@@ -2832,7 +2846,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 9947
-          }
+          },
+          "responseStage": "binding"
         },
         {
           "requestKey": "6ae07a3accf049c7b9c16b1f6f82d465:6ae07a3accf049c7b9c16b1f6f82d465:6:4d08af10307232ec622a2a39632b8e686bd2497df2874cb441167b30e4df7e90",
@@ -2868,7 +2883,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 13450
-          }
+          },
+          "responseStage": "binding"
         }
       ],
       "source": "468e39b762d7226e243b7209a2a858607499240a",
@@ -2881,7 +2897,33 @@
         "2a82470727033172ae0a5017d95e9d4b",
         "e2aac1dcc9333606096c62dc6f17bee0",
         "f7b675d8c887268baccaa9620755f9d7"
-      ]
+      ],
+      "responseStageCostsIncludingRetries": {
+        "semantic": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 1302,
+          "outputTokens": 4641
+        },
+        "grounding": {
+          "reservedCalls": 2,
+          "completedCalls": 2,
+          "inputTokens": 17254,
+          "outputTokens": 10885
+        },
+        "selection": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 5180,
+          "outputTokens": 1838
+        },
+        "binding": {
+          "reservedCalls": 2,
+          "completedCalls": 2,
+          "inputTokens": 9632,
+          "outputTokens": 13765
+        }
+      }
     },
     {
       "session": "48f5fad287245813baf4e9eb6670a7ee59f55722d0b7e84cbb2df811432d109d",
@@ -2990,7 +3032,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 7225
-          }
+          },
+          "responseStage": "semantic"
         },
         {
           "requestKey": "48f5fad287245813baf4e9eb6670a7ee59f55722d0b7e84cbb2df811432d109d:2:1757120c19b97252bc458f5e4cd7a66c1078e9d478da857e36a46c9643d5c73a",
@@ -3026,7 +3069,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 23117
-          }
+          },
+          "responseStage": "grounding"
         },
         {
           "requestKey": "48f5fad287245813baf4e9eb6670a7ee59f55722d0b7e84cbb2df811432d109d:3:f26ef258c71b600b6a6961f2f1bbfffd5d30c381d50c0f467fcd1820fb8ad2d4",
@@ -3062,7 +3106,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 9075
-          }
+          },
+          "responseStage": "selection"
         },
         {
           "requestKey": "48f5fad287245813baf4e9eb6670a7ee59f55722d0b7e84cbb2df811432d109d:4:90d73ff70ef3059053c26c81680932d682b171298f643e5536757b9a87edf3ca",
@@ -3098,7 +3143,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 22832
-          }
+          },
+          "responseStage": "binding"
         },
         {
           "requestKey": "48f5fad287245813baf4e9eb6670a7ee59f55722d0b7e84cbb2df811432d109d:5:d922b941ca2c3fdeea1a74442fffb345f6f1c56f25cc90078b3fa10cf49caad4",
@@ -3134,7 +3180,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 26817
-          }
+          },
+          "responseStage": "binding"
         },
         {
           "requestKey": "48f5fad287245813baf4e9eb6670a7ee59f55722d0b7e84cbb2df811432d109d:6:807a0ab5187ca6590b1d9f0e7b1c63abeb7b39083f2960e4cc0ec14112bfe214",
@@ -3170,7 +3217,8 @@
               "cached_tokens": 7936
             },
             "total_tokens": 27544
-          }
+          },
+          "responseStage": "binding"
         },
         {
           "requestKey": "48f5fad287245813baf4e9eb6670a7ee59f55722d0b7e84cbb2df811432d109d:7:b365053f50e0fe8bd3743918cd1475d32dafadcdc6b914fec15360c493e09680",
@@ -3206,7 +3254,8 @@
               "cached_tokens": 17664
             },
             "total_tokens": 27338
-          }
+          },
+          "responseStage": "binding"
         },
         {
           "requestKey": "48f5fad287245813baf4e9eb6670a7ee59f55722d0b7e84cbb2df811432d109d:8:23c249ff35e3063f4cfa581c2add525f522fc3ac5abceed46549039593e02be8",
@@ -3242,7 +3291,8 @@
               "cached_tokens": 17664
             },
             "total_tokens": 33084
-          }
+          },
+          "responseStage": "binding"
         }
       ],
       "source": "468e39b762d7226e243b7209a2a858607499240a",
@@ -3250,7 +3300,33 @@
       "submittedAt": "2026-09-21T23:48:27.263Z",
       "traceIds": [
         "63a1e8d4c68dc8ed298858f267770437"
-      ]
+      ],
+      "responseStageCostsIncludingRetries": {
+        "semantic": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 1642,
+          "outputTokens": 5583
+        },
+        "grounding": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 16827,
+          "outputTokens": 6290
+        },
+        "selection": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 7511,
+          "outputTokens": 1564
+        },
+        "binding": {
+          "reservedCalls": 5,
+          "completedCalls": 5,
+          "inputTokens": 83801,
+          "outputTokens": 53814
+        }
+      }
     },
     {
       "session": "4f2bc1f2df3e415895507e5b0ef864a0",
@@ -3342,7 +3418,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 4364
-          }
+          },
+          "responseStage": "semantic"
         },
         {
           "requestKey": "4f2bc1f2df3e415895507e5b0ef864a0:4f2bc1f2df3e415895507e5b0ef864a0:2:285482bab5274735ddf875a8377cb1541bb3f82b23ce898ac238d65997c09029",
@@ -3378,7 +3455,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 12530
-          }
+          },
+          "responseStage": "grounding"
         },
         {
           "requestKey": "4f2bc1f2df3e415895507e5b0ef864a0:4f2bc1f2df3e415895507e5b0ef864a0:3:c27af0413bb5ab9a5c87b403d93dfb93082d8c570ed2c4b077c5fc73a1d6b359",
@@ -3414,7 +3492,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 14548
-          }
+          },
+          "responseStage": "grounding"
         },
         {
           "requestKey": "4f2bc1f2df3e415895507e5b0ef864a0:4f2bc1f2df3e415895507e5b0ef864a0:4:1bd73ae48dabbe207311ca591bd4f962dae21b7f5a25c33aad7b91eee787b7c9",
@@ -3450,7 +3529,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 7095
-          }
+          },
+          "responseStage": "grounding"
         },
         {
           "requestKey": "4f2bc1f2df3e415895507e5b0ef864a0:4f2bc1f2df3e415895507e5b0ef864a0:5:14fecda1097648f1e67df5fbca549fddf7eab0c150860110b836b5e8f5eeeae4",
@@ -3486,7 +3566,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 4924
-          }
+          },
+          "responseStage": "semantic"
         },
         {
           "requestKey": "4f2bc1f2df3e415895507e5b0ef864a0:4f2bc1f2df3e415895507e5b0ef864a0:6:e3d80dc132c7d74ca83eed9c77caa91bf28448683d221f6346b77528951f58d9",
@@ -3522,7 +3603,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 9939
-          }
+          },
+          "responseStage": "grounding"
         },
         {
           "requestKey": "4f2bc1f2df3e415895507e5b0ef864a0:4f2bc1f2df3e415895507e5b0ef864a0:7:311b77bef8c9793fa8fbf9e1a6a6652a1c02770e46c461a10e7bf5237f59548b",
@@ -3558,7 +3640,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 6992
-          }
+          },
+          "responseStage": "grounding"
         }
       ],
       "source": "bc3555358085a7fd0f580cbff4c560b15aa2de89",
@@ -3572,7 +3655,21 @@
         "c639b3d1f3fb3f0f2cbe4d9278ea37ea",
         "aad8d55927ef7db0fe96f41d411765c5",
         "e32c06542b0fb7467efec5e48e28b572"
-      ]
+      ],
+      "responseStageCostsIncludingRetries": {
+        "semantic": {
+          "reservedCalls": 2,
+          "completedCalls": 2,
+          "inputTokens": 5542,
+          "outputTokens": 3746
+        },
+        "grounding": {
+          "reservedCalls": 5,
+          "completedCalls": 5,
+          "inputTokens": 35544,
+          "outputTokens": 15560
+        }
+      }
     },
     {
       "session": "c07756e47b886f08a174fa2dbc380952f597170ae2c54012424ba98afa3775b8",
@@ -3661,7 +3758,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 7129
-          }
+          },
+          "responseStage": "semantic"
         },
         {
           "requestKey": "c07756e47b886f08a174fa2dbc380952f597170ae2c54012424ba98afa3775b8:2:1294f70b2e982cdb0c4f8a88b50011fb14ceb3126eeaedb793903029b982e39e",
@@ -3697,7 +3795,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 19733
-          }
+          },
+          "responseStage": "grounding"
         },
         {
           "requestKey": "c07756e47b886f08a174fa2dbc380952f597170ae2c54012424ba98afa3775b8:3:d8c1284f48821a41f39490f7c2c4c507d8b1d7bf855dc7790b738d4daf8e7c58",
@@ -3733,7 +3832,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 13289
-          }
+          },
+          "responseStage": "selection"
         },
         {
           "requestKey": "c07756e47b886f08a174fa2dbc380952f597170ae2c54012424ba98afa3775b8:4:d8c1284f48821a41f39490f7c2c4c507d8b1d7bf855dc7790b738d4daf8e7c58",
@@ -3769,7 +3869,8 @@
               "cached_tokens": 0
             },
             "total_tokens": 12287
-          }
+          },
+          "responseStage": "selection"
         },
         {
           "requestKey": "c07756e47b886f08a174fa2dbc380952f597170ae2c54012424ba98afa3775b8:5:d8c1284f48821a41f39490f7c2c4c507d8b1d7bf855dc7790b738d4daf8e7c58",
@@ -3805,7 +3906,8 @@
               "cached_tokens": 9472
             },
             "total_tokens": 12450
-          }
+          },
+          "responseStage": "selection"
         },
         {
           "requestKey": "c07756e47b886f08a174fa2dbc380952f597170ae2c54012424ba98afa3775b8:6:d8c1284f48821a41f39490f7c2c4c507d8b1d7bf855dc7790b738d4daf8e7c58",
@@ -3841,7 +3943,8 @@
               "cached_tokens": 9472
             },
             "total_tokens": 12363
-          }
+          },
+          "responseStage": "selection"
         },
         {
           "requestKey": "c07756e47b886f08a174fa2dbc380952f597170ae2c54012424ba98afa3775b8:7:d8c1284f48821a41f39490f7c2c4c507d8b1d7bf855dc7790b738d4daf8e7c58",
@@ -3877,7 +3980,8 @@
               "cached_tokens": 9472
             },
             "total_tokens": 12739
-          }
+          },
+          "responseStage": "selection"
         },
         {
           "requestKey": "c07756e47b886f08a174fa2dbc380952f597170ae2c54012424ba98afa3775b8:8:d8c1284f48821a41f39490f7c2c4c507d8b1d7bf855dc7790b738d4daf8e7c58",
@@ -3913,7 +4017,8 @@
               "cached_tokens": 9472
             },
             "total_tokens": 12613
-          }
+          },
+          "responseStage": "selection"
         }
       ],
       "source": "bc3555358085a7fd0f580cbff4c560b15aa2de89",
@@ -3921,7 +4026,954 @@
       "submittedAt": "2026-09-22T00:16:06.338Z",
       "traceIds": [
         "ec372ee7dd2e77b6520bfd8579df47f5"
-      ]
+      ],
+      "responseStageCostsIncludingRetries": {
+        "semantic": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 1697,
+          "outputTokens": 5432
+        },
+        "grounding": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 16791,
+          "outputTokens": 2942
+        },
+        "selection": {
+          "reservedCalls": 6,
+          "completedCalls": 6,
+          "inputTokens": 57768,
+          "outputTokens": 17973
+        }
+      }
+    },
+    {
+      "session": "37451348cc314a1dbb4fc4e7f718c527",
+      "status": "stopped",
+      "phase": "replanning",
+      "revision": 12,
+      "modelCalls": 5,
+      "replans": 0,
+      "pending": null,
+      "pendingPhase": null,
+      "promptHash": "8f9c138913d4fd8e136760df3b7e20fe4cf7623f02fa9fa4c46220bcaae1cf85",
+      "promptBytes": 680,
+      "catalogCount": 129,
+      "catalogHash": "3635f655617248b7ec5ab9d4ec793264d70325dc44ade8a58d82eec44b109634",
+      "pages": 2,
+      "completedPages": 2,
+      "settings": {
+        "reasoning": "medium",
+        "maxInputTokensPerRequest": 12000,
+        "maxOutputTokens": 8192
+      },
+      "limits": {
+        "calls": 8,
+        "replans": 2
+      },
+      "diagnostics": [
+        {
+          "code": "GROUNDED_CONTRACT_INVALID",
+          "location": "/scopes/main/operations/p1",
+          "validationStage": "grounded"
+        },
+        {
+          "code": "GROUNDED_CONTRACT_INVALID",
+          "location": "/scopes/main/operations/p2",
+          "validationStage": "grounded"
+        },
+        {
+          "code": "MODEL_INPUT_LIMIT",
+          "location": "$",
+          "validationStage": null
+        }
+      ],
+      "scenarios": [],
+      "usage": {
+        "startedAtUtc": "2026-09-22T00:33:14.320056+00:00",
+        "calls": 5,
+        "inputTokens": 30948,
+        "outputTokens": 22262,
+        "totalTokens": 53210,
+        "estimatedCost": 0.7159268929503917,
+        "estimatedCostCurrency": "EUR",
+        "exchangeRates": [
+          {
+            "sourceCurrency": "USD",
+            "targetCurrency": "EUR",
+            "rate": 0.8703220191470844,
+            "asOfUtc": "2026-09-21T00:00:00+00:00",
+            "source": "ecb_reference_rates"
+          }
+        ],
+        "estimatedCostUsd": 0.8226
+      },
+      "bindingCompleted": 0,
+      "bindingCurrent": [
+        "readReq",
+        "clonePr",
+        "inspectPr"
+      ],
+      "approved": false,
+      "activeMs": 241778.0708,
+      "receipts": [
+        {
+          "requestKey": "37451348cc314a1dbb4fc4e7f718c527:37451348cc314a1dbb4fc4e7f718c527:1:5ec20984a752550f47f74b2e529f1816a3eb12a043ec0394d9a6aa92b8639d56",
+          "reserved": "2026-09-22T00:33:14.3305410+00:00",
+          "completed": "2026-09-22T00:34:00.0191920+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 3862,
+          "schemaBytes": 3358,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 4052,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 2559,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 11,
+              "engine_ttft_ms": 223,
+              "engine_ttlt_ms": 43927,
+              "pre_inference_ms": 129,
+              "service_tbt_ms": 11,
+              "service_ttft_ms": 401,
+              "service_ttlt_ms": 44100,
+              "user_visible_ttft_ms": 273
+            },
+            "prompt_tokens": 1398,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 5450
+          },
+          "responseStage": "semantic"
+        },
+        {
+          "requestKey": "37451348cc314a1dbb4fc4e7f718c527:37451348cc314a1dbb4fc4e7f718c527:2:d3b562eaba6be1dac5398ce9cb6c36a956864869057f86cd81a65a98c547a59e",
+          "reserved": "2026-09-22T00:34:28.1613270+00:00",
+          "completed": "2026-09-22T00:35:27.8780740+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 32409,
+          "schemaBytes": 2346,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 5126,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 3584,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 11,
+              "engine_ttft_ms": 196,
+              "engine_ttlt_ms": 58118,
+              "pre_inference_ms": 101,
+              "service_tbt_ms": 11,
+              "service_ttft_ms": 341,
+              "service_ttlt_ms": 58258,
+              "user_visible_ttft_ms": 240
+            },
+            "prompt_tokens": 8450,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 13576
+          },
+          "responseStage": "grounding"
+        },
+        {
+          "requestKey": "37451348cc314a1dbb4fc4e7f718c527:37451348cc314a1dbb4fc4e7f718c527:3:5430226798795ca301301843ab52577227c5949e76b93ba77b3926e4d801350c",
+          "reserved": "2026-09-22T00:35:27.9074330+00:00",
+          "completed": "2026-09-22T00:35:59.9643140+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 29927,
+          "schemaBytes": 2997,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 3053,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 1535,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 10,
+              "engine_ttft_ms": 187,
+              "engine_ttlt_ms": 30855,
+              "pre_inference_ms": 114,
+              "service_tbt_ms": 10,
+              "service_ttft_ms": 359,
+              "service_ttlt_ms": 31020,
+              "user_visible_ttft_ms": 246
+            },
+            "prompt_tokens": 8381,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 11434
+          },
+          "responseStage": "grounding"
+        },
+        {
+          "requestKey": "37451348cc314a1dbb4fc4e7f718c527:37451348cc314a1dbb4fc4e7f718c527:4:80f97d4bd546647b13889f7b154468c6250ee6eddd655d17708fc14e5a67e01c",
+          "reserved": "2026-09-22T00:35:59.9868850+00:00",
+          "completed": "2026-09-22T00:36:44.9390780+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 21380,
+          "schemaBytes": 3643,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 3896,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 3072,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 11,
+              "engine_ttft_ms": 249,
+              "engine_ttlt_ms": 43628,
+              "pre_inference_ms": 130,
+              "service_tbt_ms": 11,
+              "service_ttft_ms": 404,
+              "service_ttlt_ms": 43780,
+              "user_visible_ttft_ms": 274
+            },
+            "prompt_tokens": 5368,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 9264
+          },
+          "responseStage": "selection"
+        },
+        {
+          "requestKey": "37451348cc314a1dbb4fc4e7f718c527:37451348cc314a1dbb4fc4e7f718c527:5:6d4ed295ab88263aeec3a86e383c8bfb14404b7cf7ae32a045a754d33ab658ce",
+          "reserved": "2026-09-22T00:36:44.9867310+00:00",
+          "completed": "2026-09-22T00:37:41.3244000+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 8192,
+          "promptBytes": 25143,
+          "schemaBytes": 9648,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 6135,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 3073,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 9,
+              "engine_ttft_ms": 285,
+              "engine_ttlt_ms": 54812,
+              "pre_inference_ms": 247,
+              "service_tbt_ms": 9,
+              "service_ttft_ms": 605,
+              "service_ttlt_ms": 55126,
+              "user_visible_ttft_ms": 357
+            },
+            "prompt_tokens": 7351,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 13486
+          },
+          "responseStage": "binding"
+        }
+      ],
+      "source": "a6f97007699b8180eaa166fc8510119d9de2c926",
+      "attempt": "designer-08",
+      "submittedAt": "2026-09-22T00:33:14.169Z",
+      "traceIds": [
+        "b4723cf0bd94d04fdf836c073b887a49",
+        "8c68c3d22f8d97919c7b2ec0463fdc59",
+        "b0cb731d5e17bdbd424ddb29aa5c0bd3",
+        "8a748e7d549f8114580fe98394d21341",
+        "6f2e322e9ed0a23cb3dcfc0adf0d6221"
+      ],
+      "responseStageCostsIncludingRetries": {
+        "semantic": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 1398,
+          "outputTokens": 4052
+        },
+        "grounding": {
+          "reservedCalls": 2,
+          "completedCalls": 2,
+          "inputTokens": 16831,
+          "outputTokens": 8179
+        },
+        "selection": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 5368,
+          "outputTokens": 3896
+        },
+        "binding": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 7351,
+          "outputTokens": 6135
+        }
+      }
+    },
+    {
+      "session": "54025c983390ad4d4ca25dcdd113d2b05e8224db1770985814e4c9ebaf802fbe",
+      "status": "stopped",
+      "phase": "replanning",
+      "revision": 14,
+      "modelCalls": 8,
+      "replans": 2,
+      "pending": null,
+      "pendingPhase": null,
+      "promptHash": "6755b57df5804c26b9dca0c1babe62a31b9d2404ae7b5b96ff174cced1611649",
+      "promptBytes": 2761,
+      "catalogCount": 129,
+      "catalogHash": "3635f655617248b7ec5ab9d4ec793264d70325dc44ade8a58d82eec44b109634",
+      "pages": 1,
+      "completedPages": 1,
+      "settings": {
+        "reasoning": "medium",
+        "maxInputTokensPerRequest": 64000,
+        "maxOutputTokens": 32768
+      },
+      "limits": {
+        "calls": 8,
+        "replans": 6
+      },
+      "diagnostics": [
+        {
+          "code": "FINALIZATION_NOT_EXECUTED",
+          "location": "/workflows/1/finally/1",
+          "validationStage": null
+        },
+        {
+          "code": "LLM_BUDGET_EXCEEDED",
+          "location": "$",
+          "validationStage": null
+        }
+      ],
+      "scenarios": [
+        {
+          "id": "nominal",
+          "outcome": "passed"
+        },
+        {
+          "id": "confirmation:rejected:main:n_4adcbb58192516ee",
+          "outcome": "passed"
+        },
+        {
+          "id": "confirmation:unavailable:main:n_4adcbb58192516ee",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_6617ecaab6ca06c7",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_6617ecaab6ca06c7",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_0ad7ec1916fde119",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_0ad7ec1916fde119",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_867972ca2a0b25c5",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_867972ca2a0b25c5",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_6621a63d3f29f6b9",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_6621a63d3f29f6b9",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_cc58491fa05075c5",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_cc58491fa05075c5",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_ccb7957f96e53704",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_ccb7957f96e53704",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_f09729d8752693e1",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_f09729d8752693e1",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_4d2c05dcce202ad9",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_4d2c05dcce202ad9",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_039658771dd72f5b",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_039658771dd72f5b",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_c71195a843a9800d",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_c71195a843a9800d",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_8860646b40f17b10",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_8860646b40f17b10",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_274c9ccdd7cc9ac3",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_274c9ccdd7cc9ac3",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_bdcfc6ac707b82e8",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_bdcfc6ac707b82e8",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_dc9251edd5241fd4",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_dc9251edd5241fd4",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_b11e9a1a5e0b8e53",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_b11e9a1a5e0b8e53",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_839dcfec1c9ef899",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_839dcfec1c9ef899",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_63d6b15848b22a70",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_63d6b15848b22a70",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_a331387e771578fb",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_a331387e771578fb",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_c1e2cf4aaa4b3565",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_c1e2cf4aaa4b3565",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_689771c7fe3352ff",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_689771c7fe3352ff",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_e4e81fe70854bfee",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_e4e81fe70854bfee",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_3be1c6007b673f21",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_3be1c6007b673f21",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_d841fc3d554f5465",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_d841fc3d554f5465",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_666d9c694fba4946",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_666d9c694fba4946",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_81be22d7f1c8baf9:n_925f2764b49772a0",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_81be22d7f1c8baf9:n_925f2764b49772a0",
+          "outcome": "passed"
+        },
+        {
+          "id": "guard:true:w_81be22d7f1c8baf9:n_2a97ed0770313b86",
+          "outcome": "passed"
+        },
+        {
+          "id": "guard:unavailable:w_81be22d7f1c8baf9:n_2a97ed0770313b86:n_0ad7ec1916fde119",
+          "outcome": "passed"
+        },
+        {
+          "id": "guard:true:w_81be22d7f1c8baf9:n_e9266ccd10a1aeb5",
+          "outcome": "passed"
+        },
+        {
+          "id": "guard:unavailable:w_81be22d7f1c8baf9:n_e9266ccd10a1aeb5:n_0ad7ec1916fde119",
+          "outcome": "passed"
+        },
+        {
+          "id": "guard:unavailable:w_81be22d7f1c8baf9:n_e9266ccd10a1aeb5:n_2a97ed0770313b86",
+          "outcome": "failed"
+        },
+        {
+          "id": "guard:unavailable:w_81be22d7f1c8baf9:n_e9266ccd10a1aeb5:n_b136c7591ff4ce43",
+          "outcome": "passed"
+        },
+        {
+          "id": "failure:w_a35d77d5ad7c7998:n_f58f9349cec93ac8",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancellation:w_a35d77d5ad7c7998:n_f58f9349cec93ac8",
+          "outcome": "passed"
+        }
+      ],
+      "usage": {
+        "startedAtUtc": "2026-09-22T00:33:04.16968+00:00",
+        "calls": 8,
+        "inputTokens": 123228,
+        "outputTokens": 73821,
+        "totalTokens": 197049,
+        "estimatedCost": 0,
+        "estimatedCostCurrency": "USD",
+        "exchangeRates": [],
+        "estimatedCostUsd": 0
+      },
+      "bindingCompleted": null,
+      "bindingCurrent": [],
+      "approved": false,
+      "activeMs": 544012.1244,
+      "receipts": [
+        {
+          "requestKey": "54025c983390ad4d4ca25dcdd113d2b05e8224db1770985814e4c9ebaf802fbe:1:b0bb2d44078d878acb772b65a5cabd15a8d5acf216500d4f21ecfce8f71e0801",
+          "reserved": "2026-09-22T00:33:04.1884800+00:00",
+          "completed": "2026-09-22T00:33:38.8721970+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 5940,
+          "schemaBytes": 3358,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 5032,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 512,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 7,
+              "engine_ttft_ms": 172,
+              "engine_ttlt_ms": 32983,
+              "pre_inference_ms": 160,
+              "service_tbt_ms": 7,
+              "service_ttft_ms": 412,
+              "service_ttlt_ms": 33221,
+              "user_visible_ttft_ms": 252
+            },
+            "prompt_tokens": 1738,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 6770
+          },
+          "responseStage": "semantic"
+        },
+        {
+          "requestKey": "54025c983390ad4d4ca25dcdd113d2b05e8224db1770985814e4c9ebaf802fbe:2:4568651650a5a5679f6350e672e3ba3f6077d959141eaacd4fa478d95d6e1578",
+          "reserved": "2026-09-22T00:33:43.5856260+00:00",
+          "completed": "2026-09-22T00:34:53.8230700+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 61658,
+          "schemaBytes": 4662,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 5955,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 3889,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 12,
+              "engine_ttft_ms": 254,
+              "engine_ttlt_ms": 68785,
+              "pre_inference_ms": 207,
+              "service_tbt_ms": 12,
+              "service_ttft_ms": 584,
+              "service_ttlt_ms": 69104,
+              "user_visible_ttft_ms": 377
+            },
+            "prompt_tokens": 16467,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 22422
+          },
+          "responseStage": "grounding"
+        },
+        {
+          "requestKey": "54025c983390ad4d4ca25dcdd113d2b05e8224db1770985814e4c9ebaf802fbe:3:e58a25ee0050ce9cccf90e61dbb383e458ac63794a0b9561a23e08fedd998eed",
+          "reserved": "2026-09-22T00:34:53.8393060+00:00",
+          "completed": "2026-09-22T00:35:12.2052510+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 22104,
+          "schemaBytes": 2920,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 1694,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 1127,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 10,
+              "engine_ttft_ms": 210,
+              "engine_ttlt_ms": 17102,
+              "pre_inference_ms": 101,
+              "service_tbt_ms": 10,
+              "service_ttft_ms": 398,
+              "service_ttlt_ms": 17287,
+              "user_visible_ttft_ms": 297
+            },
+            "prompt_tokens": 5228,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 6922
+          },
+          "responseStage": "selection"
+        },
+        {
+          "requestKey": "54025c983390ad4d4ca25dcdd113d2b05e8224db1770985814e4c9ebaf802fbe:4:24952ba1fd7221185e3cbd31e94370c23c9fce65c7f091d9cbaec4724748cd42",
+          "reserved": "2026-09-22T00:35:12.2403410+00:00",
+          "completed": "2026-09-22T00:36:49.5392040+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 64230,
+          "schemaBytes": 9953,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 11444,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 4074,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 8,
+              "engine_ttft_ms": 260,
+              "engine_ttlt_ms": 95678,
+              "pre_inference_ms": 240,
+              "service_tbt_ms": 8,
+              "service_ttft_ms": 551,
+              "service_ttlt_ms": 95964,
+              "user_visible_ttft_ms": 311
+            },
+            "prompt_tokens": 15977,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 27421
+          },
+          "responseStage": "binding"
+        },
+        {
+          "requestKey": "54025c983390ad4d4ca25dcdd113d2b05e8224db1770985814e4c9ebaf802fbe:5:fc5a3d33390db472420943ad122bfc3cc6b1b439c7bd6f57dfc9085a7eb8b066",
+          "reserved": "2026-09-22T00:36:49.6190460+00:00",
+          "completed": "2026-09-22T00:37:45.2455300+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 98548,
+          "schemaBytes": 9505,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 8647,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 1289,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 6,
+              "engine_ttft_ms": 341,
+              "engine_ttlt_ms": 53666,
+              "pre_inference_ms": 236,
+              "service_tbt_ms": 6,
+              "service_ttft_ms": 659,
+              "service_ttlt_ms": 53980,
+              "user_visible_ttft_ms": 423
+            },
+            "prompt_tokens": 23963,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 32610
+          },
+          "responseStage": "binding"
+        },
+        {
+          "requestKey": "54025c983390ad4d4ca25dcdd113d2b05e8224db1770985814e4c9ebaf802fbe:6:08e07a41f0891aec2a4a709192039f62c018dd7f97a3f7c26c606867c2dc6528",
+          "reserved": "2026-09-22T00:37:45.6331030+00:00",
+          "completed": "2026-09-22T00:39:10.3100880+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 75250,
+          "schemaBytes": 1794,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 14942,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 512,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 6,
+              "engine_ttft_ms": 295,
+              "engine_ttlt_ms": 82854,
+              "pre_inference_ms": 137,
+              "service_tbt_ms": 6,
+              "service_ttft_ms": 580,
+              "service_ttlt_ms": 83134,
+              "user_visible_ttft_ms": 443
+            },
+            "prompt_tokens": 18035,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 32977
+          },
+          "responseStage": "fixtures"
+        },
+        {
+          "requestKey": "54025c983390ad4d4ca25dcdd113d2b05e8224db1770985814e4c9ebaf802fbe:7:6f4a9c1e71e81e345d245c512e5e9d696bed9432c71adbc8753602a8f5d2a773",
+          "reserved": "2026-09-22T00:39:11.5317880+00:00",
+          "completed": "2026-09-22T00:40:42.7908980+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 95536,
+          "schemaBytes": 9505,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 11577,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 3886,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 8,
+              "engine_ttft_ms": 312,
+              "engine_ttlt_ms": 89049,
+              "pre_inference_ms": 232,
+              "service_tbt_ms": 8,
+              "service_ttft_ms": 610,
+              "service_ttlt_ms": 89343,
+              "user_visible_ttft_ms": 379
+            },
+            "prompt_tokens": 23351,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 34928
+          },
+          "responseStage": "binding"
+        },
+        {
+          "requestKey": "54025c983390ad4d4ca25dcdd113d2b05e8224db1770985814e4c9ebaf802fbe:8:8cdd0e660a78fdcbffa3f4ab4220ff7a38cd5663f479b7795e5a6e38baa72615",
+          "reserved": "2026-09-22T00:40:42.9786190+00:00",
+          "completed": "2026-09-22T00:42:07.3339700+00:00",
+          "provider": "OpenAi",
+          "model": "gpt-5.5-2026-04-24",
+          "outputLimit": 32768,
+          "promptBytes": 77119,
+          "schemaBytes": 1794,
+          "completionStatus": null,
+          "usage": {
+            "completion_tokens": 14530,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 993,
+              "rejected_prediction_tokens": 0
+            },
+            "latency_checkpoint": {
+              "engine_tbt_ms": 6,
+              "engine_ttft_ms": 316,
+              "engine_ttlt_ms": 82225,
+              "pre_inference_ms": 181,
+              "service_tbt_ms": 6,
+              "service_ttft_ms": 532,
+              "service_ttlt_ms": 82436,
+              "user_visible_ttft_ms": 351
+            },
+            "prompt_tokens": 18469,
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            },
+            "total_tokens": 32999
+          },
+          "responseStage": "fixtures"
+        }
+      ],
+      "source": "a6f97007699b8180eaa166fc8510119d9de2c926",
+      "attempt": "chat-08",
+      "submittedAt": "2026-09-22T00:33:03.909Z",
+      "traceIds": [
+        "8f5eaff77851ee5a335ce655c04c9d51"
+      ],
+      "responseStageCostsIncludingRetries": {
+        "semantic": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 1738,
+          "outputTokens": 5032
+        },
+        "grounding": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 16467,
+          "outputTokens": 5955
+        },
+        "selection": {
+          "reservedCalls": 1,
+          "completedCalls": 1,
+          "inputTokens": 5228,
+          "outputTokens": 1694
+        },
+        "binding": {
+          "reservedCalls": 3,
+          "completedCalls": 3,
+          "inputTokens": 63291,
+          "outputTokens": 31668
+        },
+        "fixtures": {
+          "reservedCalls": 2,
+          "completedCalls": 2,
+          "inputTokens": 36504,
+          "outputTokens": 29472
+        }
+      }
     }
   ]
 }

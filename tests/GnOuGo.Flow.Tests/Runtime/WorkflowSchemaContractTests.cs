@@ -25,6 +25,9 @@ public sealed class WorkflowSchemaContractTests
                     type: set
                     if: '${data.steps["acquire"] != null}'
                     input: { released: true }
+                  - id: inspect_cleanup
+                    type: set
+                    input: { checked: true }
                   - id: verify
                     type: set
                     if: '${data.steps["release"] != null}'

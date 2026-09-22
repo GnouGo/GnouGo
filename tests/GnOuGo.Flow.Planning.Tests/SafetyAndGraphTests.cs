@@ -101,7 +101,7 @@ public sealed class SafetyAndGraphTests
         var runtime = new TestRuntime(); var state = PlannerFixture.Session(); state.Request.Generation.MaxInputTokensPerRequest = 1024;
         state.Request.Prompt = new string('x', 100000);
         state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.Empty(runtime.Calls); Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_INPUT_LIMIT");
+        Assert.Empty(runtime.Calls); Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_INPUT_LIMIT" && d.Location == "/phases/semantic");
         using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new TypedWorkflowPlanner().AdvanceAsync(PlannerFixture.Session(), new(), runtime, cancellation.Token));
     }

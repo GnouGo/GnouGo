@@ -162,12 +162,27 @@ public static class WorkflowPlanScenarioValidator
                 foreach (var visitedWorkflow in telemetry.Workflows)
                 {
                     if (!doc.Workflows.TryGetValue(visitedWorkflow, out var wf)) continue;
-                    foreach (var finalizer in wf.Finally.Where(s => s.If is null && !(injectedFinalizerFailure && visitedWorkflow == scenario.Workflow && s.Id == scenario.Step)))
+                    var interruptedAt = injectedFinalizerFailure && visitedWorkflow == scenario.Workflow ? wf.Finally.FindIndex(s => s.Id == scenario.Step) : -1;
+                    foreach (var finalizer in wf.Finally.Where(s => s.If is null))
+                    {
+                        // Ordinary finalization is sequential and stops at an unhandled failure.
+                        // Only this explicitly injected failure can exempt its remaining suffix.
+                        if (interruptedAt >= 0 && wf.Finally.IndexOf(finalizer) >= interruptedAt)
+                        {
+                            if (finalizer.Id != scenario.Step && telemetry.Statuses.TryGetValue(visitedWorkflow + ":" + finalizer.Id, out var afterFailure) && afterFailure != StepStatus.Skipped)
+                            {
+                                diagnostics.Add(new("FINALIZATION_CONTINUED_AFTER_FAILURE", "workflow:" + visitedWorkflow + "/step:" + finalizer.Id,
+                                    "A later finalizer executed after an unhandled injected finalization failure."));
+                                outcome = "failed";
+                            }
+                            continue;
+                        }
                         if (!telemetry.Statuses.TryGetValue(visitedWorkflow + ":" + finalizer.Id, out var status) || status != StepStatus.Succeeded)
                         {
                             diagnostics.Add(new("FINALIZATION_NOT_EXECUTED", "workflow:" + visitedWorkflow + "/step:" + finalizer.Id, "An unconditional finalizer did not complete successfully."));
                             outcome = "failed";
                         }
+                    }
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }

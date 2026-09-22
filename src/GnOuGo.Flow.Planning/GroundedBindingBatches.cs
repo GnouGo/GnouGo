@@ -39,17 +39,17 @@ internal static class GroundedBindingBatches
                 if (weight >= target) break;
             }
             if (progress.CurrentActions.Count == 0)
-                throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", "An indivisible semantic subgraph and its established boundary exceed the input allowance at /actions/" + remaining[0].Id + ".");
+                throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", "An indivisible semantic subgraph and its established boundary exceed the input allowance.", details: new JsonObject { ["location"] = "/actions/" + remaining[0].Id });
             // At least one more complete request is necessary when this batch is not final.
             var minimum = progress.CurrentActions.Count == remaining.Length ? 1 : 2;
             if (state.ModelCalls + minimum > state.Request.MaxModelCalls)
-                throw new WorkflowRuntimeException("BINDING_BUDGET_INSUFFICIENT", "The remaining complete binding subgraphs require at least " + minimum + " calls at /actions/" + progress.CurrentActions[0] + ".");
+                throw new WorkflowRuntimeException("BINDING_BUDGET_INSUFFICIENT", "The remaining complete binding subgraphs require at least " + minimum + " calls.", details: new JsonObject { ["location"] = "/actions/" + progress.CurrentActions[0] });
         }
         var current = Request(state, progress.CurrentActions, boundary);
         var prompt = current.Prompt;
         if (replan)
         {
-            var context = new JsonObject { ["diagnostics"] = JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic) };
+            var context = new JsonObject { ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics) };
             var instruction = "\nReplace this entire binding subgraph atomically; established boundaries remain unchanged.\n";
             prompt += instruction + PlanningJsonTransport.Prompt(context);
             if (progress.Candidate is not null)

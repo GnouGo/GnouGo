@@ -32,7 +32,7 @@ internal static class CapabilitySelection
             """ + "\n" + PlanningJsonTransport.Prompt(new JsonObject { ["request"] = state.Request.Prompt, ["actions"] = new JsonArray(SemanticPlanning.Actions(state.SemanticPlan!).Where(a => ambiguous.Any(d => d.ActionId == a.Id)).Select(a => (JsonNode)SemanticPlanning.ActionContext(a)).ToArray()),
                 ["establishedSelections"] = new JsonArray(established.Select(s => (JsonNode)new JsonObject { ["actionId"] = s.ActionId,
                     ["capabilities"] = new JsonArray(s.CapabilityIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()) }).ToArray()),
-                ["diagnostics"] = JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic),
+                ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics),
                 ["capabilities"] = new JsonArray(state.Catalog!.Capabilities.Where(c => ids.Contains(c.Id)).Select(c => (JsonNode)new JsonObject {
                     ["id"] = c.Id, ["description"] = c.Description, ["effect"] = c.EffectKind,
                     ["artifacts"] = JsonSerializer.SerializeToNode(c.ArtifactContract, PlanningJsonContext.Default.McpArtifactContract) }).ToArray()) });
@@ -43,7 +43,9 @@ internal static class CapabilitySelection
         try { Validate(state, selections); }
         catch (PlanningResponseException)
         {
-            state.RejectedProposalHash = PlanningGraphCompiler.Fingerprint(response.ToJsonString());
+            state.RejectedProposalHash = PlanningGraphCompiler.Fingerprint(new JsonArray(selections.OrderBy(s => s.ActionId, StringComparer.Ordinal)
+                .Select(s => (JsonNode)new JsonArray(JsonValue.Create(s.ActionId), new JsonArray(s.CapabilityIds.Order(StringComparer.Ordinal)
+                    .Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()))).ToArray()).ToJsonString());
             if (state.RejectedProposalHash == rejected) throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated the same invalid capability selection.");
             throw;
         }

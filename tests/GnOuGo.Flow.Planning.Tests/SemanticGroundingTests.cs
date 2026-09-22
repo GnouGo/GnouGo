@@ -9,6 +9,19 @@ public sealed class SemanticGroundingTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     [Fact]
+    public void ReplanningFeedbackSharesMessagesWithoutDroppingLocationsOrSeverity()
+    {
+        var diagnostics = new List<PlanningDiagnostic> { new("INVALID", "/operations/first", "Preserve the complete diagnostic.", ValidationStage: "grounded", Rule: "opaque"),
+            new("INVALID", "/operations/second", "Preserve the complete diagnostic.", ValidationStage: "grounded", Rule: "opaque"),
+            new("INVALID", "/operations/optional", "Preserve the complete diagnostic.", Required: false, ValidationStage: "grounded", Rule: "opaque") };
+        var prompt = PlanningJsonTransport.Diagnostics(diagnostics);
+        Assert.Equal(2, prompt.Count);
+        Assert.Equal(new[] { "/operations/first", "/operations/second" }, prompt[0]!["locations"]!.AsArray().Select(n => n!.ToString()));
+        Assert.Equal(diagnostics[0].Message, prompt[0]!["message"]!.ToString()); Assert.Equal("opaque", prompt[0]!["rule"]!.ToString());
+        Assert.True(prompt[0]!["required"]!.GetValue<bool>()); Assert.False(prompt[1]!["required"]!.GetValue<bool>());
+        Assert.True(PlanningJsonTransport.Prompt(prompt).Length < JsonSerializer.Serialize(diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic).Length);
+    }
+    [Fact]
     public async Task UnambiguousActionsRemainAccountedForWithoutModelReselection()
     {
         var state = State(); state.Grounding = CapabilityGrounder.Create(state);
@@ -43,10 +56,11 @@ public sealed class SemanticGroundingTests
     public async Task InvalidSelectionGetsLocatedFeedbackAndUnchangedRetryStops()
     {
         var state = State(); state.Grounding = CapabilityGrounder.Create(state);
+        var explanation = 0;
         foreach (var page in state.Grounding.Pages)
             state.Grounding.Results.Add(new(page.Id, page.ActionIds.Select(a => new GroundingDecision(a, "matched", page.CapabilityIds.Select(id => new GroundingMatch(id, "Declared behavior")).ToList(), "Covered")).ToList()));
         var runtime = new TestRuntime { Respond = _ => new() { Json = new JsonObject { ["selections"] = new JsonObject(state.SemanticPlan!.Actions.Select(a =>
-            new KeyValuePair<string, JsonNode?>(a.Id, new JsonObject { ["capabilities"] = new JsonObject { ["cap_0"] = false, ["cap_1"] = false }, ["reason"] = "No selection" }))) } } };
+            new KeyValuePair<string, JsonNode?>(a.Id, new JsonObject { ["capabilities"] = new JsonObject { ["cap_0"] = false, ["cap_1"] = false }, ["reason"] = "Changed explanation " + ++explanation }))) } } };
         var invalid = await Assert.ThrowsAsync<PlanningResponseException>(() => CapabilitySelection.ApplyAsync(state, runtime, Ct));
         Assert.Contains(invalid.Diagnostics, d => d.Location == "/actions/collect" && d.Message.Contains("requires at least one", StringComparison.Ordinal));
         state.Diagnostics = invalid.Diagnostics;

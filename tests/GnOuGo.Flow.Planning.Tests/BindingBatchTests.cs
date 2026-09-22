@@ -54,6 +54,7 @@ public sealed class BindingBatchTests
         var (state, runtime) = await Setup(); state.ModelCalls = 7;
         var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => GroundedBindingBatches.ApplyAsync(state, runtime, Ct));
         Assert.Equal("BINDING_BUDGET_INSUFFICIENT", error.Code); Assert.Empty(runtime.Calls); Assert.Null(state.PendingCall);
+        Assert.StartsWith("/actions/", error.Details!["location"]!.ToString());
     }
     [Fact]
     public async Task ReloadedPrefixCannotInventAContract()

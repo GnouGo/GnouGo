@@ -42,7 +42,7 @@ internal static class SemanticReplanning
                 Never substitute a model assertion for a required external observation or silently omit requested work.
                 """ + "\n" + new JsonObject { ["request"] = state.Request.Prompt, ["semanticPlan"] = SemanticPlanning.Json(state.SemanticPlan),
                     ["targetIds"] = new JsonArray(target.Select(a => (JsonNode?)JsonValue.Create(a.Id)).ToArray()),
-                    ["diagnostics"] = JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic),
+                    ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics),
                     ["groundedPlan"] = state.GroundedPlan is null ? null : PlanningJsonTransport.Grounded(state.GroundedPlan) }.ToJsonString();
             var response = await PlanningModelCalls.CallAsync(state, runtime, "replan", prompt, schema, ct);
             var shell = new JsonObject { ["summary"] = "", ["inputs"] = new JsonArray(), ["actions"] = response["actions"]!.DeepClone(),

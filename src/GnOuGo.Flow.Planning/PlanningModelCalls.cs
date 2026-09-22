@@ -25,7 +25,8 @@ internal static class PlanningModelCalls
             var inputTokens = PlanningJsonTransport.EstimateInputTokens(prompt, schema);
             var inputLimit = state.Request.Generation.MaxInputTokensPerRequest;
             if (inputTokens > inputLimit)
-                throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", $"The complete request needs approximately {inputTokens} input tokens; the configured limit is {inputLimit}. Increase the configured limit or narrow the request/catalog.");
+                throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", $"The complete {purpose} request needs approximately {inputTokens} input tokens; the configured limit is {inputLimit}. The action/subgraph cannot proceed within its current request budget.",
+                    details: new JsonObject { ["location"] = "/phases/" + purpose });
             var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
             request.ClientRequestId = state.Request.SessionId + ":" + (++state.ModelCalls) + ":" + hash;
             if (purpose == "replan") state.ReplanAttempts++;
@@ -36,7 +37,7 @@ internal static class PlanningModelCalls
         if (call.Purpose != purpose) throw new PlanningConflictException("Complete the pending request before changing planning phases.");
         var response = await runtime.CallAsync(call.Request, purpose, ct);
         state.PendingCall = null;
-        if (response.CompletionStatus == "output_limit") throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT", "The model response was truncated; no output limit escalation is performed.");
+        if (response.CompletionStatus == "output_limit") throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT", "The model response was truncated; no output limit escalation is performed.", details: new JsonObject { ["location"] = "/phases/" + purpose });
         var json = response.Json?.DeepClone() ?? JsonNode.Parse(response.Text) ?? throw new JsonException("The model returned an empty response.");
         var findings = PlanningContractValidation.ValidateInstanceFindings(json, call.Request.StructuredOutputSchema!);
         if (findings.Count != 0)

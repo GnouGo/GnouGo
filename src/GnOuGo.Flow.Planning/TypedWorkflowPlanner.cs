@@ -133,7 +133,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             else if (state.Grounding?.Selections is not null)
             {
                 var schema = PlanningSchemas.Grounded(state.Grounding.Selections.SelectMany(s => s.CapabilityIds));
-                var prompt = CapabilityGrounder.BindingPrompt(state) + "\nReplace the invalid complete binding response. Diagnostics: " + JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic);
+                var prompt = CapabilityGrounder.BindingPrompt(state) + "\nReplace the invalid complete binding response. Diagnostics: " + PlanningJsonTransport.Prompt(PlanningJsonTransport.Diagnostics(state.Diagnostics));
                 var replacement = await PlanningModelCalls.CallAsync(state, runtime, "replan", prompt, schema, ct);
                 state.GroundedPlan = JsonSerializer.Deserialize(replacement, PlanningJsonContext.Default.GroundedPlan)!; state.Diagnostics.Clear();
             }
