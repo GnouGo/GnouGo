@@ -1,0 +1,80 @@
+{
+  "source": "d9f459f42cde5ed92882b16c473a2d932b357bb3",
+  "testSuites": {
+    "planning": {
+      "passed": 170,
+      "skipped": 0,
+      "logSha256": "59297a18792d9a4c5806c5c72aeefd5c91444a13a9e319c075b71a6328e7a361"
+    },
+    "flow": {
+      "passed": 857,
+      "skipped": 0,
+      "logSha256": "884ed1843ac345c701a5ca546cf1ad22d942ab0edcc1a3a3c67c423e42ac52ab"
+    },
+    "integrations": {
+      "passed": 76,
+      "skipped": 0,
+      "logSha256": "0c03a5b789024b857433dc39938a866f8ae638b5ac4585f8efe35827f8373e48"
+    },
+    "server": {
+      "passed": 374,
+      "skipped": 0,
+      "logSha256": "1a1d63b6108afd9ce751ffbd9bb2ae5e4957a826b46a7690d125e896b7899cb6"
+    },
+    "ai": {
+      "passed": 222,
+      "skipped": 0,
+      "logSha256": "0a0136d29a0cf39a16e224fbeab78e32b6e8f333648c7558538ccebe67f36a8a"
+    }
+  },
+  "builds": {
+    "solution": {
+      "passed": true,
+      "logSha256": "053f39c428b893030de9209d1e8dc2ce6a3b2e76f4f78658043e139d27d17ea4"
+    },
+    "frontend": {
+      "passed": true,
+      "logSha256": "b3a4fed6f8db50fcb585903f9b297d11eabb69d7206cfaa1a5dcab085a4e8cba"
+    },
+    "pack": {
+      "passed": true,
+      "logSha256": "3facb404f7c35b00e66469c40a14b5c1176f584ae46ec876786b4a554353df8c"
+    },
+    "aot-publish": {
+      "passed": true,
+      "logSha256": "847d3fdae2f2af80fc22f81d58a3e412aa693d8da9e4a017e9d12b24f15a38c9"
+    },
+    "aot-smoke": {
+      "passed": true,
+      "logSha256": "0793d537fca9285d27e5323ffc44661167d69751c37250af0f63daea09bda89a"
+    },
+    "server-publish": {
+      "passed": true,
+      "logSha256": "9acc29d4c4b2272f46fa6832588d1205a6ecb566a142c7547a821ae52dee5797"
+    },
+    "persistence-smoke": {
+      "passed": true,
+      "logSha256": "81a788f57198cdb3a1978a672822d4ecd3ebf75f9ec9ea1d6d273f05197cc333"
+    }
+  },
+  "externalWorkflowExecution": false,
+  "approval": false,
+  "totalPassed": 1699,
+  "nativeAotCorpus": [
+    "local: passed, calls=3, replans=0, scenarios=1",
+    "read_transform: passed, calls=3, replans=0, scenarios=3",
+    "nullable_defaults: passed, calls=3, replans=0, scenarios=3",
+    "conditional: passed, calls=3, replans=0, scenarios=5",
+    "collections: passed, calls=3, replans=0, scenarios=1",
+    "protected_cleanup: passed, calls=3, replans=0, scenarios=5",
+    "review_french: passed, calls=4, replans=0, scenarios=21",
+    "review_distractors: passed, calls=4, replans=0, scenarios=21",
+    "Planner Native AOT smoke passed."
+  ],
+  "note": "Only documentation and sanitized evidence change after this implementation freeze.",
+  "publishedServerVersion": {
+    "version": "0.0.0-dev+d9f459f42cde5ed92882b16c473a2d932b357bb3",
+    "shortVersion": "0.0.0-dev"
+  },
+  "originalBase": "b0d56c791ad0b330f4eb8646f6941a84dddf79b0"
+}

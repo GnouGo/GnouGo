@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
+using System.Text.Json;
 
 namespace GnOuGo.Flow.Core.Models;
 
@@ -13,6 +14,8 @@ internal static class InputDefaultValueConverter
     {
         if (value == null)
             return null;
+
+        if (value is JsonElement element) return JsonNode.Parse(element.GetRawText());
 
         if (value is JsonNode node)
             return CoerceNode(node.DeepClone(), definition);

@@ -10,6 +10,31 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class WorkflowTraceFileExporterTests
 {
     [Fact]
+    public async Task RecoveredChildFailure_DoesNotTurnSuccessfulRootIntoFailure()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            using var exporter = CreateExporter(root, true, TimeProvider.System);
+            using var source = new ActivitySource($"GnOuGo.Tests.{Guid.NewGuid():N}");
+            var traceId = ActivityTraceId.CreateRandom().ToHexString();
+            exporter.BeginCapture(traceId);
+            using (var activity = StartTraceActivity(source, traceId, "workflow.root"))
+            {
+                using (var repair = source.StartActivity("repair.attempt")) repair!.SetStatus(ActivityStatusCode.Error);
+                activity!.SetStatus(ActivityStatusCode.Ok);
+            }
+            await exporter.ExportAsync(traceId, "recovered", TestContext.Current.CancellationToken);
+            using var json = JsonDocument.Parse(await File.ReadAllTextAsync(Assert.Single(Directory.GetFiles(root, "*.json")), TestContext.Current.CancellationToken));
+            var summary = json.RootElement.GetProperty("summary");
+            Assert.Equal("ok", summary.GetProperty("status").GetString());
+            Assert.Equal(1, summary.GetProperty("errorSpanCount").GetInt32());
+            Assert.True(summary.GetProperty("hasRecoveredErrors").GetBoolean());
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
     public async Task ExportAsync_WritesCompleteTraceAsLlmReadableJson()
     {
         var root = CreateTempDirectory();

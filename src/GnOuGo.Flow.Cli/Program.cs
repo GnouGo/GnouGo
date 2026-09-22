@@ -97,11 +97,17 @@ var mockOption = new Option<bool>("--mock")
 };
 mockOption.Aliases.Add("-m");
 
+var runIdOption = new Option<string?>("--run-id")
+{
+    Description = "Stable run identity used to resume encrypted planning sessions"
+};
+
 var runCommand = new Command("run", "Run a workflow YAML file");
 runCommand.Add(runFileArg);
 runCommand.Add(inputOption);
 runCommand.Add(inputJsonOption);
 runCommand.Add(mockOption);
+runCommand.Add(runIdOption);
 runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellationToken) =>
 {
     var file = parseResult.GetValue(runFileArg);
@@ -266,8 +272,13 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
             }
         });
 
+        var runId = parseResult.GetValue(runIdOption) ?? Guid.NewGuid().ToString("N");
+        Console.WriteLine($"Run ID: {runId}");
         var engine = new WorkflowEngine
         {
+            Limits = new ExecutionLimits { RunId = runId, TenantId = string.IsNullOrWhiteSpace(otelTenantId) ? "default" : otelTenantId.Trim() },
+            WorkflowPlanner = new GnOuGo.Flow.Planning.TypedWorkflowPlanner(),
+            PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
             LLMClient = llmClient,
             ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
             McpClientFactory = mcpFactory,

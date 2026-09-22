@@ -2,9 +2,24 @@
 
 Publishable .NET 10 library containing the GitHub Copilot SDK integration used by GnOuGo. It is independent of MCP transport and can be tested with fake SDK clients.
 
+Hosts can inject the SDK's `CopilotRequestHandler` into `GitHubCopilotSdkClientFactory`.
+`CopilotInferenceProxyHandler` routes inference through an explicit loopback HTTP
+policy host, preserving the original destination and request. It provides no direct
+fallback or WebSocket bypass. The policy host must enforce budgets and validate
+the configured upstream; credentials remain in request memory.
+
 ## Stable surface
 
-The library pins `GitHub.Copilot.SDK` `1.0.8` and maintains an explicit GA allowlist. Experimental, preview, insiders, fleet, fork, remote/cloud sandbox, canvas, extensions, manual compaction, history truncation, agent-management, citations, and unknown RPC APIs are rejected.
+`CopilotSendResult.Completed` reports completion of the assistant turn. It does not certify
+successful execution of the requested work. `Content` is assistant response text; callers
+must establish business outcomes from verified execution observations. These distinctions
+are included in the exported MCP result schemas.
+`ToolExecutions` retains SDK tool-call identities, exact arguments and terminal process
+exit codes separately from assistant text and tool invocation success. Incomplete,
+missing or conflicting observations cannot certify successful work. This additive
+result field defaults to an empty list when reading older serialized results.
+
+The library pins `GitHub.Copilot.SDK` `1.0.11` and maintains an explicit GA allowlist. Experimental, preview, insiders, fleet, fork, remote/cloud sandbox, canvas, extensions, manual compaction, history truncation, agent-management, citations, and unknown RPC APIs are rejected.
 
 It provides:
 
@@ -14,7 +29,7 @@ It provides:
 - `interactive`, `auto_approve_allowlist`, `deny`, and policy-gated `approve_all` permission modes. Interactive callbacks always offer allow-once and refuse. When the SDK supplies a safe matching scope they also offer allow-similar-for-task. A disabled-by-default host gate controls broad current-task, workflow-run, and future-agent-run choices without changing the session to `approve_all`; a second independent gate controls explicit reusable sandbox-bypass choices;
 - KeyVault-provider abstractions that keep credentials out of workflow arguments and results;
 - bounded pull-request review batches, caller instructions applied to every batch, bounded untrusted existing-comment context, strict structured finding parsing, diff-line/path validation, fingerprints, existing-comment deduplication, and coverage metadata;
-- a fail-closed publication gate for `dry_run`, `interactive`, and `auto_comment` policies. It never represents GitHub `APPROVE` or merge operations;
+- deterministic `ReviewEvaluation` for declared requested checks. It derives `APPROVE` for complete passing reviews (including zero findings), `REQUEST_CHANGES` for blockers or established failed checks, and `COMMENT` for incomplete verification. Command outcomes come from matching original invocation arguments, working directories and observed exit codes. Missing or reused observations cannot pass several checks. Evaluation does not authorize publication; Agent.Server owns confirmation and the GitHub write;
 - source-generated JSON metadata for trimming and Native AOT consumers.
 
 Raw model reasoning is discarded. Streaming exposes only operational progress events.
@@ -28,3 +43,5 @@ dotnet build src/GnOuGo.GithubCopilot.Core/GnOuGo.GithubCopilot.Core.csproj
 dotnet test tests/GnOuGo.GithubCopilot.Core.Tests/GnOuGo.GithubCopilot.Core.Tests.csproj
 dotnet pack src/GnOuGo.GithubCopilot.Core/GnOuGo.GithubCopilot.Core.csproj -c Release
 ```
+
+`CopilotReviewStartRequest.RuntimeContextJson` optionally carries a JSON object of upstream execution results (maximum 32,000 characters). The review manager validates it before creating a session and preserves it as encoded untrusted context in every batch. Caller instructions and existing inline comments remain separate inputs; runtime context grants no permission to act.

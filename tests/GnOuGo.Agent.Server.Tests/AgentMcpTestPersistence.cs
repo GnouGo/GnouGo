@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using GnOuGo.Agent.Mcp;
 using GnOuGo.Agent.Mcp.Models;
 using GnOuGo.Agent.Mcp.Services;

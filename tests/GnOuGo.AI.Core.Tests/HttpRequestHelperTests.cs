@@ -7,7 +7,7 @@ namespace GnOuGo.AI.Core.Tests;
 public sealed class HttpRequestHelperTests
 {
     [Fact]
-    public async Task SendWithServerErrorRetryAsync_RetriesThreeTimesWithExponentialBackoff()
+    public async Task SendWithServerErrorRetryAsync_RetriesTransientSequenceWithFreshRequests()
     {
         var attempts = 0;
         var requestBodies = new List<string>();
@@ -21,8 +21,8 @@ public sealed class HttpRequestHelperTests
             return attempts switch
             {
                 1 => new HttpResponseMessage(HttpStatusCode.InternalServerError),
-                2 => new HttpResponseMessage(HttpStatusCode.BadGateway),
-                3 => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
+                2 => new HttpResponseMessage(HttpStatusCode.InternalServerError),
+                3 => new HttpResponseMessage(HttpStatusCode.TooManyRequests),
                 _ => new HttpResponseMessage(HttpStatusCode.OK)
             };
         }));
@@ -52,8 +52,9 @@ public sealed class HttpRequestHelperTests
         Assert.Equal(["{}", "{}", "{}", "{}"], requestBodies);
         Assert.Equal(["Bearer secret", "Bearer secret", "Bearer secret", "Bearer secret"], authorizationHeaders);
         Assert.Equal(
-            [TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(1_000)],
+            [TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(4)],
             delays);
+        Assert.Equal(4, HttpRequestHelper.GetRetryMetadata(response)!.AttemptCount);
     }
 
     [Fact]
@@ -81,13 +82,12 @@ public sealed class HttpRequestHelperTests
         Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Error
             && entry.Message.Contains("StatusCode=503", StringComparison.Ordinal)
             && entry.Message.Contains("AttemptCount=4", StringComparison.Ordinal)
-            && entry.Message.Contains("RetryCount=3", StringComparison.Ordinal)
+            && entry.Message.Contains("RetryExhausted=True", StringComparison.Ordinal)
             && entry.Message.Contains("ElapsedMs=", StringComparison.Ordinal));
     }
 
     [Theory]
     [InlineData(HttpStatusCode.BadRequest)]
-    [InlineData(HttpStatusCode.TooManyRequests)]
     public async Task SendWithServerErrorRetryAsync_DoesNotRetryNonServerErrors(HttpStatusCode statusCode)
     {
         var attempts = 0;
@@ -108,6 +108,170 @@ public sealed class HttpRequestHelperTests
 
         Assert.Equal(statusCode, response.StatusCode);
         Assert.Equal(1, attempts);
+    }
+
+    [Fact]
+    public async Task SendWithTransientRetryAsync_HonorsRetryAfterDelta()
+    {
+        var attempts = 0;
+        var delays = new List<TimeSpan>();
+        using var http = new HttpClient(new StubHttpMessageHandler(_ =>
+        {
+            attempts++;
+            var response = new HttpResponseMessage(
+                attempts == 1 ? HttpStatusCode.TooManyRequests : HttpStatusCode.OK);
+            if (attempts == 1)
+                response.Headers.TryAddWithoutValidation("Retry-After", "5");
+            return Task.FromResult(response);
+        }));
+
+        using var response = await HttpRequestHelper.SendWithTransientRetryAsync(
+            http,
+            () => HttpRequestHelper.CreateGet("https://provider.example/models"),
+            HttpCompletionOption.ResponseHeadersRead,
+            NullLogger.Instance,
+            "test provider call",
+            new LLMProviderRetryPolicyOptions(),
+            (delay, _) =>
+            {
+                delays.Add(delay);
+                return Task.CompletedTask;
+            },
+            static _ => throw new InvalidOperationException("Jitter must not replace Retry-After."),
+            static () => new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, attempts);
+        Assert.Equal([TimeSpan.FromSeconds(5)], delays);
+        Assert.Equal(2, HttpRequestHelper.GetRetryMetadata(response)!.AttemptCount);
+    }
+
+    [Fact]
+    public async Task SendWithTransientRetryAsync_HonorsRetryAfterDate()
+    {
+        var now = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var attempts = 0;
+        var delays = new List<TimeSpan>();
+        using var http = new HttpClient(new StubHttpMessageHandler(_ =>
+        {
+            attempts++;
+            var response = new HttpResponseMessage(
+                attempts == 1 ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK);
+            if (attempts == 1)
+                response.Headers.TryAddWithoutValidation("Retry-After", now.AddSeconds(3).ToString("R"));
+            return Task.FromResult(response);
+        }));
+
+        using var response = await HttpRequestHelper.SendWithTransientRetryAsync(
+            http,
+            () => HttpRequestHelper.CreateGet("https://provider.example/models"),
+            HttpCompletionOption.ResponseHeadersRead,
+            NullLogger.Instance,
+            "test provider call",
+            new LLMProviderRetryPolicyOptions(),
+            (delay, _) =>
+            {
+                delays.Add(delay);
+                return Task.CompletedTask;
+            },
+            static _ => throw new InvalidOperationException("Jitter must not replace Retry-After."),
+            () => now,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal([TimeSpan.FromSeconds(3)], delays);
+    }
+
+    [Fact]
+    public async Task SendWithTransientRetryAsync_InvalidRetryAfterUsesJitterBackoff()
+    {
+        var attempts = 0;
+        var delays = new List<TimeSpan>();
+        using var http = new HttpClient(new StubHttpMessageHandler(_ =>
+        {
+            attempts++;
+            var response = new HttpResponseMessage(
+                attempts == 1 ? HttpStatusCode.BadGateway : HttpStatusCode.OK);
+            if (attempts == 1)
+                response.Headers.TryAddWithoutValidation("Retry-After", "not-a-date");
+            return Task.FromResult(response);
+        }));
+
+        using var response = await HttpRequestHelper.SendWithTransientRetryAsync(
+            http,
+            () => HttpRequestHelper.CreateGet("https://provider.example/models"),
+            HttpCompletionOption.ResponseHeadersRead,
+            NullLogger.Instance,
+            "test provider call",
+            new LLMProviderRetryPolicyOptions(),
+            (delay, _) =>
+            {
+                delays.Add(delay);
+                return Task.CompletedTask;
+            },
+            static _ => TimeSpan.FromMilliseconds(375),
+            static () => DateTimeOffset.UtcNow,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal([TimeSpan.FromMilliseconds(375)], delays);
+    }
+
+    [Fact]
+    public async Task SendWithTransientRetryAsync_QuotaShaped429IsTerminal()
+    {
+        var attempts = 0;
+        using var http = new HttpClient(new StubHttpMessageHandler(_ =>
+        {
+            attempts++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.TooManyRequests)
+            {
+                Content = new StringContent("{\"error\":{\"code\":\"insufficient_quota\"}}")
+            });
+        }));
+
+        using var response = await HttpRequestHelper.SendWithServerErrorRetryAsync(
+            http,
+            () => HttpRequestHelper.CreateGet("https://provider.example/models"),
+            HttpCompletionOption.ResponseHeadersRead,
+            NullLogger.Instance,
+            "test provider call",
+            static (_, _) => throw new InvalidOperationException("A retry was not expected."),
+            TestContext.Current.CancellationToken);
+
+        var metadata = HttpRequestHelper.GetRetryMetadata(response)!;
+        Assert.Equal(1, attempts);
+        Assert.Equal(LLMProviderFailureKind.QuotaOrBilling, metadata.FailureKind);
+        Assert.Equal("insufficient_quota", metadata.SafeProviderCode);
+        Assert.False(metadata.RetryExhausted);
+    }
+
+    [Fact]
+    public async Task SendWithTransientRetryAsync_OversizedRetryAfterStopsWithinCumulativeBudget()
+    {
+        var attempts = 0;
+        using var http = new HttpClient(new StubHttpMessageHandler(_ =>
+        {
+            attempts++;
+            var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+            response.Headers.TryAddWithoutValidation("Retry-After", "120");
+            return Task.FromResult(response);
+        }));
+
+        using var response = await HttpRequestHelper.SendWithTransientRetryAsync(
+            http,
+            () => HttpRequestHelper.CreateGet("https://provider.example/models"),
+            HttpCompletionOption.ResponseHeadersRead,
+            NullLogger.Instance,
+            "test provider call",
+            new LLMProviderRetryPolicyOptions(),
+            static (_, _) => throw new InvalidOperationException("An oversized Retry-After must not be awaited."),
+            static upperBound => upperBound,
+            static () => DateTimeOffset.UtcNow,
+            TestContext.Current.CancellationToken);
+
+        var metadata = HttpRequestHelper.GetRetryMetadata(response)!;
+        Assert.Equal(1, attempts);
+        Assert.True(metadata.RetryExhausted);
+        Assert.Equal(120_000, metadata.RetryAfterMilliseconds);
     }
 
     [Fact]

@@ -77,7 +77,11 @@ public sealed record CopilotReviewStartRequest(
     int MaxBatchCharacters = 60_000,
     CopilotPermissionMode PermissionMode = CopilotPermissionMode.Deny,
     string? ReviewInstructions = null,
-    IReadOnlyList<ExistingReviewComment>? ExistingComments = null);
+    IReadOnlyList<ExistingReviewComment>? ExistingComments = null)
+{
+    /// <summary>Optional JSON object containing original upstream execution results, retained as untrusted review context.</summary>
+    public string? RuntimeContextJson { get; init; }
+}
 
 public sealed record CopilotReviewSession(
     string ReviewHandle,
@@ -104,18 +108,21 @@ public sealed record CopilotReviewResult(
     IReadOnlyList<ReviewFinding> Findings,
     ReviewCoverage Coverage,
     IReadOnlyList<string> RejectedFindings,
-    string Summary);
-
-[JsonConverter(typeof(JsonStringEnumConverter<ReviewPublicationPolicy>))]
-public enum ReviewPublicationPolicy
+    string Summary)
 {
-    [JsonStringEnumMemberName("dry_run")]
-    DryRun,
-    [JsonStringEnumMemberName("interactive")]
-    Interactive,
-    [JsonStringEnumMemberName("auto_comment")]
-    AutoComment
+    public bool Complete { get; init; }
+    // Includes validated findings suppressed because an existing comment already reports them.
+    public int BlockingFindingCount { get; init; }
 }
+
+public sealed record ReviewCheckRequirement(string Name, bool RequiresExecution, bool AllowNotApplicable = false,
+    string? ExpectedArgumentsJson = null);
+
+public sealed record ReviewEvaluationRequest(CopilotReviewResult Review, string WorkingDirectory,
+    IReadOnlyList<ReviewCheckRequirement> RequiredChecks, IReadOnlyList<ReviewCheckResult> Checks);
+
+public sealed record ReviewEvaluationResult(ReviewSubmitEvent SubmitEvent, IReadOnlyList<ReviewCheckResult> Checks,
+    IReadOnlyList<string> Limitations, string Body);
 
 [JsonConverter(typeof(JsonStringEnumConverter<ReviewSubmitEvent>))]
 public enum ReviewSubmitEvent
@@ -123,18 +130,18 @@ public enum ReviewSubmitEvent
     [JsonStringEnumMemberName("comment")]
     Comment,
     [JsonStringEnumMemberName("request_changes")]
-    RequestChanges
+    RequestChanges,
+    [JsonStringEnumMemberName("approve")]
+    Approve
 }
 
-public sealed record ReviewPublicationGateRequest(
-    string ExpectedHeadSha,
-    string CurrentHeadSha,
-    ReviewPublicationPolicy Policy,
-    int ValidatedFindingCount,
-    bool HumanApproved = false,
-    ReviewSubmitEvent ProposedEvent = ReviewSubmitEvent.Comment);
+[JsonConverter(typeof(JsonStringEnumConverter<ReviewCheckStatus>))]
+public enum ReviewCheckStatus { Passed, Failed, Blocked, NotApplicable }
 
-public sealed record ReviewPublicationGateResult(
-    bool MayWrite,
-    ReviewSubmitEvent? SubmitEvent,
-    string Reason);
+/// <summary>A requested verification and its evidence. Command checks retain the original SDK observation.</summary>
+public sealed record ReviewCheckResult(
+    string Name,
+    ReviewCheckStatus Status,
+    string Evidence,
+    bool RequiresExecution,
+    CopilotToolExecutionObservation? Execution = null);

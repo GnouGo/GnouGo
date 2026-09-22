@@ -40,6 +40,7 @@ public sealed record GitCompareRefsResult(
     string? MergeBaseSha,
     string ComparedFromSha,
     IReadOnlyList<GitCompareFile> Files,
+    [property: Description("Exact JSON array of the per-file comparison records returned on this page, preserving paths, patches, revision object identifiers, and truncation metadata.")] string FilesJson,
     int TotalFiles,
     int Offset,
     int PageSize,

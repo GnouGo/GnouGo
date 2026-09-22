@@ -1,0 +1,86 @@
+{
+  "source": "5bceafd59e3f68f24af763c252958b3720087f65",
+  "tests": {
+    "server": 389,
+    "planning": 170,
+    "flow": 857,
+    "integrations": 76,
+    "totalPassed": 1492
+  },
+  "regressionsAdded": 15,
+  "regressionsReproducedBeforeFix": 3,
+  "solutionWarnings": 0,
+  "trimmedPublishWarnings": 0,
+  "persistenceSmokePassed": true,
+  "browser": {
+    "sourceVersion": "0.0.0-dev+5bceafd59e3f68f24af763c252958b3720087f65",
+    "checkedAt": "2026-09-22T08:22:17.164Z",
+    "historyCount": 18,
+    "legacySession": "dbd0d8b1e9b03b32a86e8c9186fecf2d34fb1070a56c9c7d16166b12fd3a0f74",
+    "healthySession": "d281ea431bf7cc2663b59214ea4d2af006e4d163f9b44ed57e1f0b678440c04d",
+    "unavailableEntry": true,
+    "unavailableDetails": true,
+    "tracesAccessible": true,
+    "reloadAndPoll": true,
+    "healthyFinalReviewReadable": true,
+    "approvalControlsAbsent": true,
+    "browserErrors": [],
+    "modelDispatches": 0,
+    "workflowApprovals": 0,
+    "externalWorkflowExecution": false
+  },
+  "encryptedContentUnchanged": true,
+  "recordCollections": {
+    "agent-planning-sessions-v7": {
+      "count": 9,
+      "sha256": "e6cf89e76b39cb18f7682c950c7a36c5d8b86c2d074bf8102162038af83d7d3a"
+    },
+    "agent-planning-sessions-v8": {
+      "count": 15,
+      "sha256": "87e20f63641195d98e0a77613c1baadee919fa7d27a89698edc3ad4f6af91a4e"
+    },
+    "agent-planning-model-requests-v8": {
+      "count": 82,
+      "sha256": "54d678d7f9ec660db4dae13b61eef620587f55aa720740d4aba1b3fe53b84168"
+    },
+    "agent-planning-model-receipts-v8": {
+      "count": 81,
+      "sha256": "a32c781110496cc0dec1d66ee89258b2bc3e83e2fb156d1e3426352007602e36"
+    },
+    "agent-planning-budgets-v8": {
+      "count": 15,
+      "sha256": "ee2c950ab423dc8da1824f7bb2111ac44f97430998b2d20aba605f0559fcad68"
+    },
+    "flow-planning-sessions-v7": {
+      "count": 12,
+      "sha256": "c44b4624ea69b4de226363eecf1d02e15b315b09e9aa292e136329edc3db7977"
+    },
+    "flow-planning-sessions-v8": {
+      "count": 15,
+      "sha256": "b37d0617c5cf2415d828fc104c6c5fd95ea40180aaa82ce3333bf6e01bfbf0e8"
+    },
+    "flow-planning-model-requests-v8": {
+      "count": 102,
+      "sha256": "51f3c2261de519e92bf8c57e1a5876422eae2f89c0cf0dfbb18604ce6fb83dab"
+    },
+    "flow-planning-model-receipts-v8": {
+      "count": 101,
+      "sha256": "331ee848967651a158cd2bb5b6626c4bf1f22f0ebf2fe7886b704b7ded627e6f"
+    },
+    "flow-planning-budgets-v8": {
+      "count": 15,
+      "sha256": "9cf153b22771884b5dbceadc575c589269b293117c82a863c2f84aefc697d6cb"
+    }
+  },
+  "logSha256": {
+    "regressionBefore": "f8bdc6d3cede1ffcd06f390afa93da567c8a9f5647e88ad31ffb19e7d213102b",
+    "server": "67a4c69cdf4d0d711560484da5f764c7b81a1e40a41b0d449b98615410afe801",
+    "planning": "fd6cf2ed76ed740292a93d99c244f8b54a97235c6ed98d2d256e80b53d54eda8",
+    "flow": "20a489cef2b3bdb9b3823334be27e0a3a4a45ff1329783b831dd379593dfdc9f",
+    "integrations": "2be00e546c30a91ad43fb2fcd4d4447ad87cd3b8402b240e7147e7db73c61cbb",
+    "solution": "7bfe70554434b0f269076c2b1071d95d0c884d4d4bfd4e13698d027094bea453",
+    "trimmedPublish": "330b81df8206b59d29dd8f91fa25f06530284d7c55cee71dbac0bf0ce4aa2088",
+    "persistenceSmoke": "81a788f57198cdb3a1978a672822d4ecd3ebf75f9ec9ea1d6d273f05197cc333"
+  },
+  "note": "Read-only history verification, not a new live planning campaign or scenario replay. Historical planning acceptance results remain unchanged."
+}

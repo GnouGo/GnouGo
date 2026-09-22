@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using OtlpTenantCollector.Models;
@@ -106,4 +106,3 @@ public sealed class OtlpJsonTests
         Assert.Equal("1.0.0", dto.Scope.GetProperty("version").GetString());
     }
 }
-

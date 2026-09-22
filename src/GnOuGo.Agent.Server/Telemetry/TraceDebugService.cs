@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using GnOuGo.Agent.Server.Configuration;
+using GnOuGo.Agent.Server.SmartFlow;
 using OtlpTenantCollector.Services;
 
 namespace GnOuGo.Agent.Server.Telemetry;
@@ -61,6 +62,77 @@ public sealed class TraceDebugService
         return otelSettings.Enabled
             ? new TraceDebugAvailability(true, "Live trace debugging is ready (local capture + embedded collector storage).")
             : new TraceDebugAvailability(true, "OpenTelemetry export is disabled, but local trace debugging remains available.");
+    }
+
+    // A session can resume on several traces. Keep their identities separate from chat's
+    // correlation-based merged view, and never use a caller-supplied trace without ownership checks.
+    public async Task<TraceDebugSnapshot> GetPlanningSnapshotAsync(
+        string sessionId, bool workflow, string? selectedTraceId, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
+        ct.ThrowIfCancellationRequested();
+        var attribute = workflow ? "gnougo-flow.plan.session_id" : "gnougo.planning.session_id";
+        var tenant = WorkflowExecutionTenant.Resolve(_openTelemetrySettings.CurrentValue.TenantId, Environment.GetEnvironmentVariable("GNouGo__TenantId"));
+        var telemetryTenant = Guid.TryParse(tenant, out var parsedTenant) ? parsedTenant : (Guid?)null;
+        var groups = _localTraceStore.GetPlanningTraces(sessionId, attribute, tenant).ToDictionary(t => t.TraceId, StringComparer.OrdinalIgnoreCase);
+        var logs = new List<TraceLogDto>();
+        var storageAvailable = true;
+        var truncated = false;
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var store = scope.ServiceProvider.GetRequiredService<EfTelemetryStore>();
+            // The collector's substring filter only finds candidates. Exact ownership is checked below.
+            var candidates = await store.GetRecentTracesAsync(telemetryTenant, 500,
+                attributeContains: sessionId, ct: ct).ConfigureAwait(false);
+            truncated = candidates.Count == 500;
+            foreach (var candidate in candidates)
+            {
+                ct.ThrowIfCancellationRequested();
+                var rows = await store.GetTraceSpansAsync(telemetryTenant, Convert.FromHexString(candidate.TraceId), ct).ConfigureAwait(false);
+                var spans = rows.Select(OtlpJson.SpanRecordToDto).Select(MapSpan)
+                    .GroupBy(s => s.SpanId, StringComparer.Ordinal).Select(g => g.OrderByDescending(s => s.EndUtc).First()).ToList();
+                bool Owns(TraceSpanDto span) => span.Attributes.TryGetValue(attribute, out var value)
+                    && string.Equals(value?.ToString(), sessionId, StringComparison.Ordinal)
+                    && (!span.Attributes.TryGetValue("tenant.id", out var owner) ? telemetryTenant is not null || tenant == "default"
+                        : string.Equals(owner?.ToString(), tenant, StringComparison.Ordinal));
+                if (!spans.Any(Owns) || spans.Any(s => s.Attributes.TryGetValue("tenant.id", out var owner) && owner?.ToString() != tenant)) continue;
+                if (groups.TryGetValue(candidate.TraceId, out var local))
+                    spans = local.Spans.Concat(spans).GroupBy(s => s.SpanId, StringComparer.Ordinal).Select(g => g.First()).ToList();
+                groups[candidate.TraceId] = new(candidate.TraceId, spans.Min(s => s.StartUtc), spans.Max(s => s.EndUtc), spans);
+            }
+            var selected = Select();
+            if (selected is not null)
+                logs = (await store.GetLogsForTraceAsync(telemetryTenant, Convert.FromHexString(selected.TraceId), ct).ConfigureAwait(false))
+                    .Select(MapLog).Where(l => !l.Attributes.TryGetValue("tenant.id", out var owner) || owner?.ToString() == tenant)
+                    .OrderBy(l => l.ReceivedUtc).ToList();
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            storageAvailable = false;
+            _logger.LogDebug(ex, "Could not read persisted planning telemetry.");
+        }
+        var trace = Select();
+        var message = !storageAvailable ? "Stored telemetry is unavailable. Only locally captured traces are shown."
+            : trace is null ? (selectedTraceId is null ? "No retained traces for this planning session. Traces may not have arrived or may have expired."
+                : "The selected trace is no longer available for this planning session.") : "Planning trace loaded.";
+        if (truncated) message += " The collector lookup reached its 500-trace limit; older traces may be omitted.";
+        var summaries = groups.Values.OrderByDescending(t => t.StartUtc).ThenBy(t => t.TraceId, StringComparer.Ordinal)
+            .Select(t => new TraceSummaryDto(t.TraceId, t.StartUtc, t.EndUtc, t.Spans.Count,
+                t.Spans.FirstOrDefault(s => s.ParentSpanId is null)?.Name ?? t.Spans.FirstOrDefault()?.Name, null, null)).ToArray();
+        return new(new(storageAvailable || trace is not null, message), null, trace?.TraceId, trace, logs, false, message, summaries);
+
+        TraceGroupDto? Select() => selectedTraceId is not null ? groups.GetValueOrDefault(selectedTraceId)
+            : groups.Values.OrderByDescending(t => t.StartUtc).ThenBy(t => t.TraceId, StringComparer.Ordinal).FirstOrDefault();
+    }
+
+    public async IAsyncEnumerable<TraceDebugSnapshot> StreamPlanningSnapshotsAsync(
+        string sessionId, bool workflow, string? selectedTraceId, [EnumeratorCancellation] CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+        do { yield return await GetPlanningSnapshotAsync(sessionId, workflow, selectedTraceId, ct).ConfigureAwait(false); }
+        while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false));
     }
 
     public async Task<TraceDebugSnapshot> GetSnapshotAsync(

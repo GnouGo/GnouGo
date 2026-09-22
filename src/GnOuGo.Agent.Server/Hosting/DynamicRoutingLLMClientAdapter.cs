@@ -1,8 +1,9 @@
+using GnOuGo.Agent.Server.Telemetry;
 using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Runtime;
-using Microsoft.Extensions.Caching.Memory;
+using GnOuGo.Flow.Integrations;
 using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.Agent.Server.Hosting;
@@ -17,74 +18,50 @@ internal sealed class DynamicRoutingLLMClientAdapter : ILLMClient
     private readonly HttpClient _http;
     private readonly LLMRuntimeOptionsStore _store;
     private readonly ILoggerFactory _loggerFactory;
-    private readonly IMemoryCache _backgroundModeCache;
     private readonly ILocalLLMRuntime? _localRuntime;
+    private readonly LlmTraceCapture? _capture;
 
     public DynamicRoutingLLMClientAdapter(
         HttpClient http,
         LLMRuntimeOptionsStore store,
         ILoggerFactory loggerFactory,
-        IMemoryCache backgroundModeCache,
-        ILocalLLMRuntime? localRuntime = null)
+        ILocalLLMRuntime? localRuntime = null,
+        LlmTraceCapture? capture = null)
     {
         _http = http;
         _store = store;
         _loggerFactory = loggerFactory;
-        _backgroundModeCache = backgroundModeCache;
         _localRuntime = localRuntime;
+        _capture = capture;
     }
 
-    public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+    public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+    {
+        var options = _store.Current;
+        return _capture is null ? DispatchAsync(request, options, ct)
+            : _capture.CallAsync(request, options, (value, token) => DispatchAsync(value, options, token), ct);
+    }
+
+    private async Task<LLMResponse> DispatchAsync(LLMRequest request, LLMOptions options, CancellationToken ct)
     {
         // Always read the LATEST options — picks up any /llm wizard changes.
-        var options = _store.Current;
-        var providers = RoutingLLMClient.CreateDefaultProviders(_http, _loggerFactory, _backgroundModeCache).AsEnumerable();
+        var providers = RoutingLLMClient.CreateDefaultProviders(_http, _loggerFactory).AsEnumerable();
         if (_localRuntime is not null)
             providers = providers.Append(new LocalLLMProvider(_localRuntime));
         var routingClient = new RoutingLLMClient(options, providers);
 
-        var aiRequest = new LLMClientRequest
-        {
-            Provider = request.Provider,
-            Model = request.Model,
-            Prompt = request.Prompt,
-            Temperature = request.Temperature,
-            StructuredOutputSchema = request.StructuredOutputSchema,
-            StructuredOutputStrict = request.StructuredOutputStrict,
-            Reasoning = request.Reasoning,
-            UseBackgroundMode = request.UseBackgroundMode,
-        };
+        var aiRequest = RoutingLLMClientAdapter.MapRequest(request);
 
-        if (request.Tools is { Count: > 0 })
+        LLMClientResponse aiResponse;
+        try
         {
-            aiRequest.Tools = request.Tools.Select(t => new LLMToolDef
-            {
-                Name = t.Name,
-                Description = t.Description,
-                InputSchema = t.InputSchema?.DeepClone()
-            }).ToList();
+            aiResponse = await routingClient.CallAsync(aiRequest, ct);
+        }
+        catch (LLMProviderException ex)
+        {
+            throw LLMProviderFailureMapper.Map(ex);
         }
 
-        var aiResponse = await routingClient.CallAsync(aiRequest, ct);
-
-        var response = new LLMResponse
-        {
-            Text = aiResponse.Text,
-            Json = aiResponse.Json,
-            Usage = aiResponse.Usage,
-            Raw = aiResponse.Raw,
-        };
-
-        if (aiResponse.ToolCalls is { Count: > 0 })
-        {
-            response.ToolCalls = aiResponse.ToolCalls.Select(tc => new LLMToolCall
-            {
-                Id = tc.Id,
-                Name = tc.Name,
-                Arguments = tc.Arguments
-            }).ToList();
-        }
-
-        return response;
+        return RoutingLLMClientAdapter.MapResponse(aiResponse);
     }
 }

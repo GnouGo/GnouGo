@@ -5,6 +5,44 @@ namespace GnOuGo.GithubCopilot.Core.Tests;
 
 public sealed class CopilotSessionManagerTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReviewCompletenessComesFromCompletedBatches(bool analyze)
+    {
+        var factory = new FakeClientFactory { Response = "[]" };
+        await using var sessions = new CopilotSessionManager(factory);
+        var reviews = new CopilotReviewManager(sessions);
+        var request = new CopilotReviewStartRequest(Context("tenant-a"), Configuration(), new('a', 40), new('b', 40),
+            [new("file.cs", "modified", "@@ -1 +1 @@\n-old\n+new\n")]);
+        var started = await reviews.StartAsync(request, TestContext.Current.CancellationToken);
+        if (analyze) await reviews.AnalyzeBatchAsync(request.Context, started.ReviewHandle, 0, TestContext.Current.CancellationToken);
+        var result = await reviews.FinishAsync(request.Context, started.ReviewHandle, TestContext.Current.CancellationToken);
+        Assert.Equal(analyze, result.Complete); Assert.Empty(result.Findings); Assert.Equal(1, factory.DeleteCount);
+    }
+
+    [Fact]
+    public async Task DuplicateBlockingFindingsRemainBlockingAfterCommentSuppression()
+    {
+        var factory = new FakeClientFactory { Response = """[{"severity":"High","category":"correctness","confidence":0.9,"path":"file.cs","side":"Right","startLine":1,"endLine":1,"evidence":"new","explanation":"Existing blocker"}]""" };
+        await using var sessions = new CopilotSessionManager(factory);
+        var request = new CopilotReviewStartRequest(Context("tenant-a"), Configuration(), new('a', 40), new('b', 40),
+            [new("file.cs", "modified", "@@ -1 +1 @@\n-old\n+new\n")], ExistingComments: [new("file.cs", ReviewDiffSide.Right, 1, 1, "Existing blocker")]);
+        var result = await new CopilotReviewManager(sessions).ReviewAsync(request, TestContext.Current.CancellationToken);
+        Assert.Empty(result.Findings); Assert.True(result.Complete); Assert.Equal(1, result.BlockingFindingCount); Assert.Equal(1, factory.DeleteCount);
+    }
+
+    [Fact]
+    public async Task InvalidFindingsCannotProduceACompletePassingReview()
+    {
+        var factory = new FakeClientFactory { Response = """[{"severity":"High","category":"correctness","confidence":0.9,"path":"missing.cs","side":"Right","startLine":1,"endLine":1,"evidence":"new","explanation":"Unvalidated"}]""" };
+        await using var sessions = new CopilotSessionManager(factory);
+        var request = new CopilotReviewStartRequest(Context("tenant-a"), Configuration(), new('a', 40), new('b', 40),
+            [new("file.cs", "modified", "@@ -1 +1 @@\n-old\n+new\n")]);
+        var result = await new CopilotReviewManager(sessions).ReviewAsync(request, TestContext.Current.CancellationToken);
+        Assert.False(result.Complete); Assert.Empty(result.Findings); Assert.Equal(1, factory.DeleteCount);
+    }
+
     [Fact]
     public async Task ManagedSession_SerializesConcurrentSends()
     {
@@ -281,6 +319,7 @@ public sealed class CopilotSessionManagerTests
         public Exception? CreateException { get; set; }
         public Exception? SendException { get; set; }
         public Exception? DeleteException { get; set; }
+        public string? Response { get; set; }
         public string? ForegroundSessionId { get; set; }
         public CopilotSdkSessionConfiguration? LastConfiguration { get; private set; }
 
@@ -300,7 +339,7 @@ public sealed class CopilotSessionManagerTests
                 if (owner.CreateException is not null)
                     throw owner.CreateException;
                 owner.LastConfiguration = configuration;
-                var session = new FakeSession(Guid.NewGuid().ToString("N"), owner.SendDelay, owner.SendException);
+                var session = new FakeSession(Guid.NewGuid().ToString("N"), owner.SendDelay, owner.SendException, owner.Response);
                 owner._sessions[session.SessionId] = session;
                 owner.LastSession = session;
                 return Task.FromResult<ICopilotSdkSession>(session);
@@ -310,7 +349,7 @@ public sealed class CopilotSessionManagerTests
             {
                 Interlocked.Increment(ref owner.ResumeCount);
                 owner.LastConfiguration = configuration;
-                var session = new FakeSession(sessionId, owner.SendDelay, owner.SendException);
+                var session = new FakeSession(sessionId, owner.SendDelay, owner.SendException, owner.Response);
                 owner._sessions[sessionId] = session;
                 owner.LastSession = session;
                 return Task.FromResult<ICopilotSdkSession>(session);
@@ -335,7 +374,7 @@ public sealed class CopilotSessionManagerTests
         }
     }
 
-    private sealed class FakeSession(string sessionId, TimeSpan delay, Exception? sendException) : ICopilotSdkSession
+    private sealed class FakeSession(string sessionId, TimeSpan delay, Exception? sendException, string? response) : ICopilotSdkSession
     {
         private int _concurrent;
         public string SessionId { get; } = sessionId;
@@ -350,7 +389,7 @@ public sealed class CopilotSessionManagerTests
                 await Task.Delay(delay, cancellationToken);
                 if (sendException is not null)
                     throw sendException;
-                return new CopilotSendResult(handle, SessionId, $"reply:{request.Prompt}", "test-model", []);
+                return new CopilotSendResult(handle, SessionId, response ?? $"reply:{request.Prompt}", "test-model", []);
             }
             finally
             {

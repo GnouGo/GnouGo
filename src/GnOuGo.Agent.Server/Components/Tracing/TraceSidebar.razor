@@ -1,0 +1,338 @@
+@using GnOuGo.Agent.Server.Telemetry
+@implements IAsyncDisposable
+@inject TraceDebugService TraceDebug
+@if (IsOpen)
+{
+    <button class="gnougo-trace-panel__backdrop" type="button" aria-label="Close trace panel" @onclick="HandleCloseAsync"></button>
+}
+<aside class="gnougo-trace-panel @(IsOpen ? "gnougo-trace-panel--open" : string.Empty)" aria-hidden="@(!IsOpen)">
+    <header class="gnougo-trace-panel__header">
+        <div>
+            <div class="gnougo-trace-panel__eyebrow">OpenTelemetry / GenAI</div>
+            <h2 class="gnougo-trace-panel__title">@(PlanningSessionId is null ? "Message traces" : "Planning traces")</h2>
+            <div class="gnougo-trace-panel__meta">
+                @if (PlanningSessionId is not null)
+                {
+                    <span>Session: <code>@PlanningSessionId</code></span>
+                    <span>Origin: @(WorkflowSession ? "Chat" : "Designer")</span>
+                }
+                else { <span>Correlation: <code>@(CorrelationId ?? "n/a")</code></span> }
+                <span>Trace: <code>@(_snapshot.TraceId ?? TraceId ?? "pending")</code></span>
+            </div>
+        </div>
+        <div class="gnougo-trace-panel__header-actions">
+            <button class="gnougo-trace-panel__toggle"
+                    type="button"
+                    @onclick="ToggleRenderMode"
+                    title="Toggle between formatted rendering and raw text">
+                @(_renderFormatted ? "Formatted" : "Raw")
+            </button>
+            <span class="gnougo-trace-panel__badge @GetStatusBadgeClass()">@GetStatusLabel()</span>
+            <button class="gnougo-trace-panel__close" type="button" @onclick="HandleCloseAsync" aria-label="Close trace panel">x</button>
+        </div>
+    </header>
+    @if (PlanningSessionId is not null && _snapshot.AvailableTraces is { Count: > 1 } traces)
+    {
+        <label class="planning-trace-selector" for="planning-trace-select">Recorded execution
+            <select id="planning-trace-select" value="@(_selectedTraceId ?? _snapshot.TraceId)" @onchange="SelectTraceAsync">
+                @foreach (var trace in traces)
+                {
+                    <option value="@trace.TraceId">@trace.StartUtc.ToString("yyyy-MM-dd HH:mm:ss 'UTC'") — @trace.RootSpanName — @trace.TraceId</option>
+                }
+            </select>
+        </label>
+    }
+    <nav class="gnougo-trace-panel__tabs" aria-label="Trace debug sections">
+        <button class="gnougo-trace-panel__tab @GetTabClass(TracePanelTab.Pipeline)" type="button" role="tab"
+                aria-selected="@(_activeTab == TracePanelTab.Pipeline)" @onclick="() => SelectTab(TracePanelTab.Pipeline)">Pipeline / LLM calls</button>
+        <button class="gnougo-trace-panel__tab @GetTabClass(TracePanelTab.Traces)"
+                type="button"
+                role="tab"
+                aria-selected="@(_activeTab == TracePanelTab.Traces)"
+                @onclick="() => SelectTab(TracePanelTab.Traces)">
+            <span>Traces</span>
+            <span class="gnougo-trace-panel__tab-count">@(_snapshot.Trace?.Spans.Count ?? 0)</span>
+        </button>
+        <button class="gnougo-trace-panel__tab @GetTabClass(TracePanelTab.Logs)"
+                type="button"
+                role="tab"
+                aria-selected="@(_activeTab == TracePanelTab.Logs)"
+                @onclick="() => SelectTab(TracePanelTab.Logs)">
+            <span>Logs</span>
+            <span class="gnougo-trace-panel__tab-count">@_snapshot.Logs.Count</span>
+        </button>
+    </nav>
+    <div class="gnougo-trace-panel__body">
+        @if (!IsOpen || !HasTarget)
+        {
+            <div class="gnougo-trace-panel__state">
+                <div class="gnougo-trace-panel__state-title">Select a trace</div>
+                <div class="gnougo-trace-panel__state-text">Open a message or planning session to inspect its telemetry.</div>
+            </div>
+        }
+        else if (_isLoading && _snapshot.Trace is null)
+        {
+            <div class="gnougo-trace-panel__state" role="status">Loading telemetry...</div>
+        }
+        else if (!_snapshot.Availability.Enabled)
+        {
+            <div class="gnougo-trace-panel__state gnougo-trace-panel__state--warning">
+                <div class="gnougo-trace-panel__state-title">Trace debugging unavailable</div>
+                <div class="gnougo-trace-panel__state-text">@_snapshot.Availability.Message</div>
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(_loadError))
+        {
+            <div class="gnougo-trace-panel__state gnougo-trace-panel__state--error">
+                <div class="gnougo-trace-panel__state-title">Unable to load live telemetry</div>
+                <div class="gnougo-trace-panel__state-text">@_loadError</div>
+            </div>
+        }
+        else if (_activeTab == TracePanelTab.Pipeline)
+        {
+            <TracePipeline @key="GetPanelContentKey()" Trace="_snapshot.Trace" SessionId="@PipelineSessionId" WorkflowSession="@PipelineWorkflowSession" />
+        }
+        else if (_activeTab == TracePanelTab.Logs)
+        {
+            <ChatTraceLogs @key="GetPanelContentKey()"
+                           Logs="_snapshot.Logs"
+                           IsLoading="_isLoading"
+                           RenderFormatted="_renderFormatted" />
+        }
+        else if (_snapshot.Trace is null)
+        {
+            <div class="gnougo-trace-panel__state">
+                <div class="gnougo-trace-panel__state-title">@(_snapshot.Pending ? "Waiting for spans..." : "Trace not found")</div>
+                <div class="gnougo-trace-panel__state-text">@_snapshot.Message</div>
+                @if (_isLoading)
+                {
+                    <div class="gnougo-trace-panel__spinner-row">
+                        <span class="gnougo-trace-panel__spinner"></span>
+                        <span>Listening to the OTLP collector stream...</span>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <ChatTraceTraces @key="GetPanelContentKey()"
+                             Trace="_snapshot.Trace"
+                             CorrelationId="@CorrelationId"
+                             SnapshotMessage="@_snapshot.Message"
+                             SelectedSpanId="@_selectedSpanId"
+                             SelectedSpanIdChanged="@OnSelectedSpanChanged"
+                             RenderFormatted="_renderFormatted" />
+        }
+    </div>
+</aside>
+@code {
+    [Parameter] public string? ContextKey { get; set; }
+    [Parameter] public string? CorrelationId { get; set; }
+    [Parameter] public string? TraceId { get; set; }
+    [Parameter] public string? PlanningSessionId { get; set; }
+    [Parameter] public bool WorkflowSession { get; set; }
+    private bool PipelineWorkflowSession => PlanningSessionId is not null ? WorkflowSession
+        : _snapshot.Trace?.Spans.Any(s => s.Attributes.ContainsKey("gnougo-flow.plan.session_id")) == true;
+    private string? PipelineSessionId => PlanningSessionId ?? _snapshot.Trace?.Spans
+        .Select(s => TracePipeline.Value(s, PipelineWorkflowSession ? "gnougo-flow.plan.session_id" : "gnougo.planning.session_id"))
+        .Where(s => s is not null).Distinct(StringComparer.Ordinal).Take(2).ToArray() switch { [var session] => session, _ => null };
+    private bool HasTarget => ContextKey is not null || CorrelationId is not null || TraceId is not null || PlanningSessionId is not null;
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    private TraceDebugSnapshot _snapshot = new(
+        new TraceDebugAvailability(false, "Trace debug not initialized yet."),
+        CorrelationId: null,
+        TraceId: null,
+        Trace: null,
+        Logs: [],
+        Pending: false,
+        Message: "Select a message to inspect.");
+    private CancellationTokenSource? _refreshCts;
+    private string? _parameterKey;
+    private bool _isLoading;
+    private string? _loadError;
+    private string? _selectedSpanId;
+    private string? _selectedTraceId;
+    private bool _renderFormatted = true;
+    private TracePanelTab _activeTab = TracePanelTab.Traces;
+    private bool _isDisposed;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!IsOpen || !HasTarget)
+        {
+            StopRefreshLoop();
+            _parameterKey = null;
+            return;
+        }
+        var nextKey = string.Join('|', ContextKey, CorrelationId, TraceId, PlanningSessionId, WorkflowSession, IsOpen);
+        if (string.Equals(nextKey, _parameterKey, StringComparison.Ordinal))
+            return;
+        _parameterKey = nextKey;
+        _selectedTraceId = null;
+        _snapshot = EmptySnapshot();
+        _selectedSpanId = null;
+        _loadError = null;
+        _activeTab = TracePanelTab.Traces;
+        StopRefreshLoop();
+        var refreshCts = new CancellationTokenSource();
+        _refreshCts = refreshCts;
+        _isLoading = true;
+        _ = RunRefreshLoopAsync(refreshCts);
+        await Task.CompletedTask;
+    }
+    public ValueTask DisposeAsync()
+    {
+        _isDisposed = true;
+        StopRefreshLoop();
+        return ValueTask.CompletedTask;
+    }
+
+    private async Task RunRefreshLoopAsync(CancellationTokenSource refreshCts)
+    {
+        var ct = refreshCts.Token;
+        try
+        {
+            var correlationId = CorrelationId;
+            var traceId = TraceId;
+            var snapshots = PlanningSessionId is { } session
+                ? TraceDebug.StreamPlanningSnapshotsAsync(session, WorkflowSession, _selectedTraceId, ct)
+                : TraceDebug.StreamSnapshotsAsync(correlationId, traceId, ct);
+            await foreach (var snapshot in snapshots)
+            {
+                if (!IsRefreshActive(refreshCts))
+                    break;
+
+                await InvokeAsync(() =>
+                {
+                    if (!IsRefreshActive(refreshCts))
+                        return;
+
+                    ApplySnapshot(snapshot);
+                    _isLoading = false;
+                    _loadError = null;
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            if (!IsRefreshActive(refreshCts))
+                return;
+
+            await InvokeAsync(() =>
+            {
+                if (!IsRefreshActive(refreshCts))
+                    return;
+
+                _loadError = ex.Message;
+                _isLoading = false;
+                StateHasChanged();
+            });
+        }
+        finally
+        {
+            if (ReferenceEquals(_refreshCts, refreshCts))
+                _refreshCts = null;
+            refreshCts.Dispose();
+        }
+    }
+
+    private static TraceDebugSnapshot EmptySnapshot() => new(new(true, "Loading telemetry."), null, null, null, [], false, "Loading telemetry.");
+
+    private Task SelectTraceAsync(ChangeEventArgs args)
+    {
+        _selectedTraceId = args.Value?.ToString();
+        _selectedSpanId = null;
+        _snapshot = EmptySnapshot();
+        _loadError = null;
+        StopRefreshLoop();
+        _refreshCts = new CancellationTokenSource();
+        _isLoading = true;
+        _ = RunRefreshLoopAsync(_refreshCts);
+        return Task.CompletedTask;
+    }
+
+    private void ApplySnapshot(TraceDebugSnapshot snapshot)
+    {
+        _snapshot = snapshot;
+        if (_snapshot.Trace is not null && !string.IsNullOrWhiteSpace(_selectedSpanId))
+        {
+            var matchingSpan = _snapshot.Trace.Spans.FirstOrDefault(
+                span => string.Equals(span.SpanId, _selectedSpanId, StringComparison.OrdinalIgnoreCase));
+
+            // Keep selection stable across refreshes even if span id casing changes.
+            _selectedSpanId = matchingSpan?.SpanId;
+        }
+    }
+    private void StopRefreshLoop()
+    {
+        var refreshCts = _refreshCts;
+        if (refreshCts is null)
+            return;
+        _refreshCts = null;
+        try { refreshCts.Cancel(); }
+        catch (ObjectDisposedException) { }
+    }
+    private async Task HandleCloseAsync()
+    {
+        StopRefreshLoop();
+        _isLoading = false;
+        await OnClose.InvokeAsync();
+    }
+    private void ToggleRenderMode() => _renderFormatted = !_renderFormatted;
+    private void SelectTab(TracePanelTab tab) => _activeTab = tab;
+
+    private async Task OnSelectedSpanChanged(string? spanId)
+    {
+        _selectedSpanId = spanId;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private string GetTabClass(TracePanelTab tab)
+        => _activeTab == tab ? "gnougo-trace-panel__tab--active" : string.Empty;
+
+    private string GetStatusBadgeClass()
+    {
+        if (!_snapshot.Availability.Enabled)
+            return "gnougo-trace-panel__badge--disabled";
+        if (!string.IsNullOrWhiteSpace(_loadError))
+            return "gnougo-trace-panel__badge--error";
+        if (_snapshot.Trace is not null)
+            return "gnougo-trace-panel__badge--live";
+        return "gnougo-trace-panel__badge--pending";
+    }
+    private string GetStatusLabel()
+    {
+        if (!_snapshot.Availability.Enabled)
+            return "Disabled";
+        if (!string.IsNullOrWhiteSpace(_loadError))
+            return "Error";
+        if (_snapshot.Trace is not null)
+            return _isLoading ? "Live" : "Loaded";
+        return _snapshot.Pending ? "Pending" : "Idle";
+    }
+
+    private bool IsRefreshActive(CancellationTokenSource refreshCts)
+        => !_isDisposed
+            && !refreshCts.IsCancellationRequested
+            && IsOpen
+            && ReferenceEquals(_refreshCts, refreshCts);
+
+    private string GetPanelContentKey()
+        => string.Join('|',
+            _parameterKey ?? "no-message",
+            _activeTab,
+            _snapshot.TraceId ?? "no-trace",
+            _selectedSpanId ?? "no-span");
+
+    private enum TracePanelTab
+    {
+        Pipeline,
+        Traces,
+        Logs
+    }
+}

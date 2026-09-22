@@ -23,6 +23,7 @@ public sealed class LLMRuntimeOptionsStore
     {
         _logger = logger;
         _current = DeepClone(initialOptions.Value);
+        LLMOptionsValidation.ValidateAndThrow(_current);
     }
 
     /// <summary>Gets the current (live) LLM options.</summary>
@@ -51,6 +52,7 @@ public sealed class LLMRuntimeOptionsStore
                     replacement.McpServers[serverName] = CloneMcpServerOptions(transientServer);
             }
 
+            LLMOptionsValidation.ValidateAndThrow(replacement);
             _current = replacement;
         }
 
@@ -74,7 +76,8 @@ public sealed class LLMRuntimeOptionsStore
         string? oidcScopes = null,
         string? oidcClientSecret = null,
         string? oidcPrivateKeyPem = null,
-        string? apiVersion = null)
+        string? apiVersion = null,
+        LLMBackgroundProtocolMode? backgroundProtocol = null)
     {
         lock (_lock)
         {
@@ -96,6 +99,11 @@ public sealed class LLMRuntimeOptionsStore
             if (existing is null)
                 existing = new ModelProviderOptions();
 
+            if (backgroundProtocol is { } protocol)
+            {
+                if (!Enum.IsDefined(protocol)) throw new ArgumentOutOfRangeException(nameof(backgroundProtocol));
+                existing.RequestPolicy.BackgroundProtocol = protocol;
+            }
             existing.Url = url;
             var normalizedAuthType = authType?.Trim().ToLowerInvariant();
             if (!string.IsNullOrWhiteSpace(normalizedAuthType))
@@ -180,6 +188,7 @@ public sealed class LLMRuntimeOptionsStore
                 opts.DefaultModel = model;
             }
 
+            LLMOptionsValidation.ValidateAndThrow(opts);
             _current = opts;
         }
         _logger.LogInformation("LLM provider '{Provider}' updated at runtime.", providerKey);
@@ -343,6 +352,8 @@ public sealed class LLMRuntimeOptionsStore
                 PrivateKeyPem = kv.Value.PrivateKeyPem,
                 Scopes = kv.Value.Scopes,
                 ApiVersion = kv.Value.ApiVersion,
+                RequestPolicy = CloneRequestPolicy(kv.Value.RequestPolicy),
+                RetryPolicy = kv.Value.RetryPolicy.Clone(),
             };
         }
         foreach (var kv in src.McpServers)
@@ -351,6 +362,17 @@ public sealed class LLMRuntimeOptionsStore
             clone.ModelOverrides[kv.Key] = ModelMetadataCatalog.Clone(kv.Value);
         return clone;
     }
+
+    private static LLMProviderRequestPolicyOptions CloneRequestPolicy(LLMProviderRequestPolicyOptions source)
+        => new()
+        {
+            BackgroundProtocol = source.BackgroundProtocol,
+            UnspecifiedOutputTokens = source.UnspecifiedOutputTokens,
+            DefaultMaxOutputTokens = source.DefaultMaxOutputTokens,
+            MaxOutputTokensCap = source.MaxOutputTokensCap
+        };
+
+
 
     private static string NormalizeProviderType(string providerKey)
         => providerKey.Trim().ToLowerInvariant() switch

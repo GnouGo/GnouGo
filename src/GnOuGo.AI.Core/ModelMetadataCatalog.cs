@@ -14,11 +14,12 @@ public sealed class LLMModelMetadataResolver
     private readonly IReadOnlyDictionary<string, LLMModelMetadata> _fileModels;
     private readonly IReadOnlyDictionary<string, string> _fileAliases;
     private readonly IReadOnlyDictionary<string, LLMModelMetadata> _inlineOverrides;
+    private readonly bool _fileLoadFailed;
 
     public LLMModelMetadataResolver(LLMOptions? options = null)
     {
         options ??= new LLMOptions();
-        (_fileModels, _fileAliases) = ModelMetadataCatalog.LoadFiles(options.ModelMetadataFiles);
+        (_fileModels, _fileAliases) = ModelMetadataCatalog.LoadFiles(options.ModelMetadataFiles, out _fileLoadFailed);
         _inlineOverrides = options.ModelOverrides ?? new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
     }
 
@@ -28,6 +29,27 @@ public sealed class LLMModelMetadataResolver
     /// </summary>
     public LLMModelMetadata Resolve(string? providerType, string model)
         => ResolveWithDetails(providerType, model).Metadata;
+
+    /// <summary>
+    /// Resolves only explicitly declared capabilities from exact entries and aliases.
+    /// Does not discover models, use fuzzy matches, or fill unknown fields with heuristics.
+    /// Configured metadata files that cannot be read prevent capability proof.
+    /// </summary>
+    public ModelCapabilityMetadata? ResolveDeclaredCapabilities(string? providerType, string model)
+    {
+        if (_fileLoadFailed)
+            throw new InvalidOperationException("Configured model metadata could not be read completely.");
+        providerType = ModelMetadataCatalog.NormalizeProviderType(providerType);
+        if (ModelMetadataCatalog.TrySplitProviderQualifiedKey(model, out var declaredProvider, out _))
+        {
+            declaredProvider = ModelMetadataCatalog.NormalizeProviderType(declaredProvider);
+            if (providerType is not null && !string.Equals(providerType, declaredProvider, StringComparison.OrdinalIgnoreCase))
+                return null;
+            providerType ??= declaredProvider;
+        }
+        var exact = ResolveExact(providerType, model, declaredOnly: true);
+        return exact.IsRecognized ? exact.Metadata.Capabilities : null;
+    }
 
     /// <summary>
     /// Resolves merged metadata and reports whether the requested model matched an exact entry,
@@ -82,26 +104,32 @@ public sealed class LLMModelMetadataResolver
             fuzzy?.Similarity);
     }
 
-    private ExactResolution ResolveExact(string? providerType, string model)
+    private ExactResolution ResolveExact(string? providerType, string model, bool declaredOnly = false)
     {
         var cleanModel = ModelMetadataCatalog.StripVendorPrefix(model);
         var canonicalModel = ResolveAlias(providerType, model) ?? ResolveAlias(providerType, cleanModel);
         var directKeys = CandidateKeys(providerType, model, cleanModel, canonicalModel: null);
-        var hasDirectEntry = directKeys.Any(HasDirectEntry);
+        bool Eligible(string key, LLMModelMetadata metadata) => !declaredOnly || MatchesDeclaredProvider(key, metadata, providerType);
+        bool HasEntry(string key) =>
+            ModelMetadataCatalog.TryGetBuiltinModel(key, out var declared) && Eligible(key, declared) ||
+            _fileModels.TryGetValue(key, out declared) && !_fileAliases.ContainsKey(key) && Eligible(key, declared) ||
+            _inlineOverrides.TryGetValue(key, out declared) && Eligible(key, declared);
+        var hasDirectEntry = directKeys.Any(HasEntry);
         var candidateKeys = CandidateKeys(providerType, model, cleanModel, canonicalModel);
         var builtin = candidateKeys
-            .Select(key => ModelMetadataCatalog.TryGetBuiltinCore(key, out var candidate) ? candidate : null)
+            .Select(key => ModelMetadataCatalog.TryGetBuiltinCore(key, out var candidate) && Eligible(key, candidate) ? candidate : null)
             .FirstOrDefault(candidate => candidate != null);
-        var hasMergedEntry = candidateKeys.Any(key => _fileModels.ContainsKey(key) || _inlineOverrides.ContainsKey(key));
-        var isRecognized = hasDirectEntry || canonicalModel != null || builtin != null || hasMergedEntry;
+        var hasMergedEntry = candidateKeys.Any(key =>
+            _fileModels.TryGetValue(key, out var value) && Eligible(key, value) ||
+            _inlineOverrides.TryGetValue(key, out value) && Eligible(key, value));
+        var isRecognized = hasDirectEntry || !declaredOnly && canonicalModel != null || builtin != null || hasMergedEntry;
         var metadata = builtin
             ?? new LLMModelMetadata { Id = canonicalModel ?? cleanModel, DisplayName = canonicalModel ?? cleanModel };
 
-        foreach (var key in candidateKeys.Reverse())
-        {
-            MergeIfFound(metadata, _fileModels, key);
-            MergeIfFound(metadata, _inlineOverrides, key);
-        }
+        foreach (var source in new[] { _fileModels, _inlineOverrides })
+            foreach (var key in candidateKeys.Reverse())
+                if (source.TryGetValue(key, out var value) && Eligible(key, value))
+                    ModelMetadataCatalog.MergeInto(metadata, value, key);
 
         if (string.IsNullOrWhiteSpace(metadata.Id))
             metadata.Id = cleanModel;
@@ -111,7 +139,7 @@ public sealed class LLMModelMetadataResolver
         if (string.IsNullOrWhiteSpace(metadata.ProviderType) && !string.IsNullOrWhiteSpace(providerType))
             metadata.ProviderType = providerType;
 
-        ModelMetadataCatalog.ApplyHeuristicDefaults(metadata, providerType, cleanModel);
+        if (!declaredOnly) ModelMetadataCatalog.ApplyHeuristicDefaults(metadata, providerType, cleanModel);
         var matchKind = !hasDirectEntry && canonicalModel != null
             ? LLMModelMetadataMatchKind.Alias
             : LLMModelMetadataMatchKind.Exact;
@@ -122,10 +150,13 @@ public sealed class LLMModelMetadataResolver
             isRecognized ? ModelMetadataCatalog.StripVendorPrefix(canonicalModel ?? metadata.Id) : null);
     }
 
-    private bool HasDirectEntry(string key)
-        => ModelMetadataCatalog.TryGetBuiltinModel(key, out _)
-           || (_fileModels.ContainsKey(key) && !_fileAliases.ContainsKey(key))
-           || _inlineOverrides.ContainsKey(key);
+    private static bool MatchesDeclaredProvider(string key, LLMModelMetadata metadata, string? providerType)
+    {
+        if (ModelMetadataCatalog.TrySplitProviderQualifiedKey(key, out var keyProvider, out _) &&
+            !string.Equals(ModelMetadataCatalog.NormalizeProviderType(keyProvider), providerType, StringComparison.OrdinalIgnoreCase)) return false;
+        return string.IsNullOrWhiteSpace(metadata.ProviderType) ||
+            string.Equals(ModelMetadataCatalog.NormalizeProviderType(metadata.ProviderType), providerType, StringComparison.OrdinalIgnoreCase);
+    }
 
     private FuzzyCandidate? FindClosestProviderModel(string? providerType, string model)
     {
@@ -391,12 +422,6 @@ public sealed class LLMModelMetadataResolver
         return all.Values.OrderBy(m => m.DisplayName ?? m.Id, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
-    private static void MergeIfFound(LLMModelMetadata target, IReadOnlyDictionary<string, LLMModelMetadata> source, string key)
-    {
-        if (source.TryGetValue(key, out var value))
-            ModelMetadataCatalog.MergeInto(target, value, key);
-    }
-
     private static void AddIfMatches(Dictionary<string, LLMModelMetadata> target, LLMModelMetadata metadata, string? providerType, string? fallbackId = null)
     {
         providerType = ModelMetadataCatalog.NormalizeProviderType(providerType);
@@ -656,8 +681,9 @@ public static partial class ModelMetadataCatalog
             yield return "anthropic";
     }
 
-    internal static (IReadOnlyDictionary<string, LLMModelMetadata> Models, IReadOnlyDictionary<string, string> Aliases) LoadFiles(IEnumerable<string>? paths)
+    internal static (IReadOnlyDictionary<string, LLMModelMetadata> Models, IReadOnlyDictionary<string, string> Aliases) LoadFiles(IEnumerable<string>? paths, out bool failed)
     {
+        failed = false;
         var models = new Dictionary<string, LLMModelMetadata>(StringComparer.OrdinalIgnoreCase);
         var aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -668,13 +694,24 @@ public static partial class ModelMetadataCatalog
         {
             var resolvedPath = ResolveFilePath(path);
             if (resolvedPath == null)
+            {
+                failed = true;
                 continue;
+            }
 
             try
             {
                 var root = JsonNode.Parse(File.ReadAllText(resolvedPath)) as JsonObject;
                 if (root == null)
+                {
+                    failed = true;
                     continue;
+                }
+                if (root["aliases"] is not (null or JsonObject) || root["models"] is not (null or JsonObject))
+                {
+                    failed = true;
+                    continue;
+                }
 
                 if (root["aliases"] is JsonObject aliasesObj)
                 {
@@ -691,7 +728,10 @@ public static partial class ModelMetadataCatalog
                     foreach (var kv in modelsObj)
                     {
                         if (kv.Value is not JsonObject modelObj)
+                        {
+                            failed = true;
                             continue;
+                        }
                         var metadata = ParseMetadata(kv.Key, modelObj);
                         foreach (var alias in metadata.Aliases)
                             aliases[alias.Key] = alias.Value;
@@ -701,9 +741,10 @@ public static partial class ModelMetadataCatalog
             }
             catch (Exception ex)
             {
+                failed = true;
                 Logger.LogDebug(ex, "Ignoring invalid external model metadata file '{MetadataPath}'.", resolvedPath);
                 // External metadata files are optional user extensions. Ignore invalid files here;
-                // callers can validate their files separately without making inference unavailable.
+                // Explicit capability proof still rejects incomplete metadata reads.
             }
         }
 
@@ -895,6 +936,8 @@ public static partial class ModelMetadataCatalog
 
     private static LLMModelMetadata ParseMetadata(string id, JsonObject obj)
     {
+        if (obj["capabilities"] is not (null or JsonObject))
+            throw new System.Text.Json.JsonException("Model capabilities must be an object.");
         var idFromKey = TrySplitProviderQualifiedKey(id, out var providerFromKey, out var splitModel) ? splitModel : id;
         var metadata = new LLMModelMetadata { Id = GetString(obj, "id") ?? idFromKey };
         metadata.ProviderType = NormalizeProviderType(GetString(obj, "providerType")) ?? (string.IsNullOrWhiteSpace(providerFromKey) ? null : providerFromKey);
@@ -979,6 +1022,8 @@ public static partial class ModelMetadataCatalog
 
     private static List<string>? GetStringArray(JsonObject obj, string name)
     {
+        if (obj[name] is not (null or JsonArray))
+            throw new System.Text.Json.JsonException("Model metadata list must be an array.");
         if (obj[name] is not JsonArray arr)
             return null;
         var values = new List<string>();

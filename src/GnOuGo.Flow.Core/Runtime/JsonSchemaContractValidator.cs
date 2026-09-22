@@ -30,13 +30,13 @@ internal static class JsonSchemaContractValidator
     private static readonly string[] UnsupportedStrictKeywords =
     {
         "allOf", "oneOf", "uniqueItems", "minProperties", "maxProperties",
-        "dependentRequired", "if", "then", "else"
+        "dependentRequired", "if", "then", "else", "prefixItems"
     };
 
     private static readonly string[] UnsupportedRuntimeKeywords =
     {
         "not", "dependentSchemas",
-        "patternProperties", "contains", "minContains", "maxContains", "prefixItems",
+        "patternProperties", "contains", "minContains", "maxContains",
         "propertyNames", "unevaluatedProperties", "unevaluatedItems"
     };
 
@@ -244,6 +244,7 @@ internal static class JsonSchemaContractValidator
         int depth)
     {
         statistics.MaximumDepth = Math.Max(statistics.MaximumDepth, depth);
+        if (!isRoot && !strictProfile && IsBoolean(schema)) return;
         if (schema is not JsonObject obj)
         {
             errors.Add($"{path}: schema must be an object");
@@ -312,6 +313,12 @@ internal static class JsonSchemaContractValidator
             ValidateSchemaNode(items, root, $"{path}.items", false, strictProfile, errors, statistics, depth + 1);
         else if (strictProfile && DeclaresType(obj, "array"))
             errors.Add($"{path}.items: strict array schemas require an item schema");
+        if (obj.TryGetPropertyValue("prefixItems", out var prefix))
+        {
+            if (prefix is not JsonArray { Count: > 0 } tuple) errors.Add($"{path}.prefixItems: expected non-empty schema array");
+            else for (var index = 0; index < tuple.Count; index++)
+                ValidateSchemaNode(tuple[index], root, $"{path}.prefixItems[{index}]", false, strictProfile, errors, statistics, depth + 1);
+        }
 
         foreach (var keyword in new[] { "anyOf", "oneOf", "allOf" })
         {

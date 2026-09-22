@@ -94,26 +94,26 @@ internal static class TraceDebugUiHelpers
     }
     public static SummaryModel BuildSummary(TraceGroupDto trace)
     {
-        var llmMetrics = trace.Spans
-            .Where(IsGenAiSpan)
+        var llmMetrics = TracePipeline.Calls(trace)
             .Select(span => new LlmCallModel(
                 OperationName: GetFirstAttribute(span.Attributes, "gen_ai.operation.name", "llm.operation.name") ?? span.Name,
                 Model: GetFirstAttribute(span.Attributes, "gen_ai.request.model", "gen_ai.response.model", "llm.request.model") ?? "unknown",
                 Provider: ResolveProvider(span.Attributes),
-                PromptTokens: GetLongAttribute(span.Attributes, "gen_ai.usage.prompt_tokens", "gen_ai.usage.input_tokens", "llm.usage.prompt_tokens"),
-                CompletionTokens: GetLongAttribute(span.Attributes, "gen_ai.usage.completion_tokens", "gen_ai.usage.output_tokens", "llm.usage.completion_tokens"),
-                TotalTokens: GetLongAttribute(span.Attributes, "gen_ai.usage.total_tokens", "llm.usage.total_tokens"),
+                PromptTokens: TracePipeline.Number(span, "gen_ai.usage.prompt_tokens", "gen_ai.usage.input_tokens", "llm.usage.prompt_tokens"),
+                CompletionTokens: TracePipeline.Number(span, "gen_ai.usage.completion_tokens", "gen_ai.usage.output_tokens", "llm.usage.completion_tokens"),
+                TotalTokens: TracePipeline.Number(span, "gen_ai.usage.total_tokens", "llm.usage.total_tokens"),
                 DurationMs: GetSpanDurationMs(span),
-                Cost: ResolveCost(span.Attributes)))
-            .Select(metric => metric.TotalTokens > 0
+                Cost: span.Attributes.ContainsKey("gnougo.llm.estimated_cost") ? GetDecimalAttribute(span.Attributes, "gnougo.llm.estimated_cost") : null,
+                Currency: GetFirstAttribute(span.Attributes, "gnougo.llm.cost_currency")))
+            .Select(metric => metric.TotalTokens.HasValue
                 ? metric
                 : metric with { TotalTokens = metric.PromptTokens + metric.CompletionTokens })
             .ToList();
         return new SummaryModel(
-            TotalTokens: llmMetrics.Sum(metric => metric.TotalTokens),
-            PromptTokens: llmMetrics.Sum(metric => metric.PromptTokens),
-            CompletionTokens: llmMetrics.Sum(metric => metric.CompletionTokens),
-            EstimatedCost: llmMetrics.Sum(metric => metric.Cost),
+            TotalTokens: llmMetrics.Sum(metric => metric.TotalTokens ?? 0),
+            PromptTokens: llmMetrics.Sum(metric => metric.PromptTokens ?? 0),
+            CompletionTokens: llmMetrics.Sum(metric => metric.CompletionTokens ?? 0),
+            EstimatedCost: llmMetrics.Sum(metric => metric.Cost ?? 0),
             TraceDurationMs: Math.Max(0d, (trace.EndUtc - trace.StartUtc).TotalMilliseconds),
             LlmCalls: llmMetrics.Count,
             LlmMetrics: llmMetrics,
@@ -276,7 +276,7 @@ internal static class TraceDebugUiHelpers
         }
         return false;
     }
-    private static string? GetFirstAttribute(Dictionary<string, object?> attributes, params string[] keys)
+    internal static string? GetFirstAttribute(Dictionary<string, object?> attributes, params string[] keys)
     {
         foreach (var key in keys)
         {
@@ -330,22 +330,4 @@ internal static class TraceDebugUiHelpers
         return 0m;
     }
 
-    private static decimal ResolveCost(Dictionary<string, object?> attributes)
-    {
-        var explicitCost = GetDecimalAttribute(attributes, "gen_ai.usage.cost");
-        if (explicitCost > 0m)
-            return explicitCost;
-
-        var model = GetFirstAttribute(attributes, "gen_ai.request.model", "gen_ai.response.model", "llm.request.model");
-        if (string.IsNullOrWhiteSpace(model))
-            return explicitCost;
-
-        var inputTokens = GetLongAttribute(attributes, "gen_ai.usage.prompt_tokens", "gen_ai.usage.input_tokens", "llm.usage.prompt_tokens");
-        var outputTokens = GetLongAttribute(attributes, "gen_ai.usage.completion_tokens", "gen_ai.usage.output_tokens", "llm.usage.completion_tokens");
-        if (inputTokens <= 0 && outputTokens <= 0)
-            return explicitCost;
-
-        var providerType = GetFirstAttribute(attributes, "gen_ai.system");
-        return ModelMetadataCatalog.EstimateCost(model, inputTokens, outputTokens, providerType: providerType) ?? explicitCost;
-    }
 }

@@ -818,11 +818,17 @@ public sealed class WorkflowTelemetryAdapterTests
         Assert.Contains("_pendingHumanInput.Mode.Equals(HumanInputContract.ModeConfirm", chatPage, StringComparison.Ordinal);
         Assert.Contains("HumanInputContract.TryReadConfirmation(", chatPage, StringComparison.Ordinal);
         Assert.Contains("responseValue = JsonValue.Create(confirmed);", chatPage, StringComparison.Ordinal);
+        Assert.Contains("option_definitions", chatPage, StringComparison.Ordinal);
+        Assert.Contains("AllowCustomAnswer", chatPage, StringComparison.Ordinal);
+        Assert.Contains("gnougo-hitl-option__badge", chatPage, StringComparison.Ordinal);
+        Assert.Contains("HumanInputContract.ActionAbandon", chatPage, StringComparison.Ordinal);
         var styles = File.ReadAllText(Path.Combine(agentRoot, "ClientApp", "src", "styles", "app.scss"));
         Assert.Contains(".gnougo-workflow-hitl {", styles, StringComparison.Ordinal);
         Assert.Contains("justify-content: center;", styles, StringComparison.Ordinal);
         Assert.Contains("width: min(860px, 100%);", styles, StringComparison.Ordinal);
         Assert.Contains("border-radius: 18px;", styles, StringComparison.Ordinal);
+        Assert.Contains(".gnougo-hitl-option--recommended {", styles, StringComparison.Ordinal);
+        Assert.Contains(".gnougo-hitl-abandon {", styles, StringComparison.Ordinal);
         Assert.True(
             chatPage.IndexOf("await FlushAnimationInteropAsync();", StringComparison.Ordinal)
             < chatPage.IndexOf("GnOuGo.Agent.markdown.enhance", StringComparison.Ordinal));

@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.KeyVault.Core;
@@ -99,6 +100,9 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
 
             var authType = ReadConfigString(config, "authType", "auth_type") ?? "none";
             var model = ReadConfigString(config, "model") ?? string.Empty;
+            var existingProvider = effective.ResolveProvider(provider);
+            if (config["retryPolicy"] is JsonObject policy && policy.Select(p => p.Key).Distinct(StringComparer.OrdinalIgnoreCase).Count() != policy.Count)
+                throw new InvalidOperationException("The provider retry policy contains ambiguous property names.");
 
             effective.Models[provider] = new ModelProviderOptions
             {
@@ -112,8 +116,18 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
                 Scopes = ReadConfigString(config, "oidcScopes", "oidc_scopes"),
                 ClientSecret = ReadConfigString(config, "oidcClientSecret", "oidc_client_secret"),
                 PrivateKeyPem = ReadConfigString(config, "oidcPrivateKeyPem", "oidc_private_key_pem"),
-                ApiVersion = ReadConfigString(config, "apiVersion", "api_version")
+                ApiVersion = ReadConfigString(config, "apiVersion", "api_version"),
+                RequestPolicy = existingProvider is null
+                    ? new LLMProviderRequestPolicyOptions()
+                    : CloneRequestPolicy(existingProvider.RequestPolicy),
+                RetryPolicy = config.TryGetPropertyValue("retryPolicy", out var retryPolicy)
+                    ? JsonSerializer.Deserialize(retryPolicy, LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions)
+                        ?? throw new InvalidOperationException("The provider retry policy must be an object.")
+                    : existingProvider?.RetryPolicy.Clone() ?? new LLMProviderRetryPolicyOptions()
             };
+
+            if (LlmGenerationProtocol.Read(config) is { } protocol)
+                effective.Models[provider].RequestPolicy.BackgroundProtocol = protocol;
 
             if (string.Equals(effective.DefaultProvider, provider, StringComparison.OrdinalIgnoreCase)
                 && !string.IsNullOrWhiteSpace(model))
@@ -170,6 +184,7 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
             effective.DefaultProvider = fallback;
         }
 
+        LLMOptionsValidation.ValidateAndThrow(effective);
         return effective;
     }
 
@@ -378,7 +393,9 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
                 ClientSecret = kv.Value.ClientSecret,
                 PrivateKeyPem = kv.Value.PrivateKeyPem,
                 Scopes = kv.Value.Scopes,
-                ApiVersion = kv.Value.ApiVersion
+                ApiVersion = kv.Value.ApiVersion,
+                RequestPolicy = CloneRequestPolicy(kv.Value.RequestPolicy),
+                RetryPolicy = kv.Value.RetryPolicy.Clone()
             };
         }
 
@@ -409,4 +426,15 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
 
         return clone;
     }
+
+    private static LLMProviderRequestPolicyOptions CloneRequestPolicy(LLMProviderRequestPolicyOptions source)
+        => new()
+        {
+            BackgroundProtocol = source.BackgroundProtocol,
+            UnspecifiedOutputTokens = source.UnspecifiedOutputTokens,
+            DefaultMaxOutputTokens = source.DefaultMaxOutputTokens,
+            MaxOutputTokensCap = source.MaxOutputTokensCap
+        };
+
+
 }

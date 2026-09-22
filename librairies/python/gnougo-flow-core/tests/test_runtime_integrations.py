@@ -1,5 +1,4 @@
 import pytest
-import yaml
 
 from gnougo_flow_core.compilation import WorkflowCompiler
 from gnougo_flow_core.models import LLMResponse, LLMToolCall, McpCallResult, McpToolInfo
@@ -7,39 +6,10 @@ from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import WorkflowEngine
 
 
-def _ensure_generated_skill(yaml_text: str) -> str:
-    try:
-        parsed = yaml.safe_load(yaml_text)
-    except Exception:
-        return yaml_text
-
-    if not isinstance(parsed, dict) or isinstance(parsed.get("skill"), dict):
-        return yaml_text
-
-    parsed["skill"] = {
-        "description": "Generated workflow.",
-        "tags": ["generated"],
-        "inputs": {},
-        "outputs": {},
-    }
-    return yaml.safe_dump(parsed, sort_keys=False, allow_unicode=False)
 
 
 class FakeLLMClient:
     async def call_async(self, request):
-        if "Generate a valid GnOuGo.Flow YAML document" in request.prompt:
-            return LLMResponse(
-                text=_ensure_generated_skill("""
-                version: 1
-                workflows:
-                  main:
-                    steps:
-                      - id: built
-                        type: set
-                        input:
-                          ok: true
-                """)
-            )
         if request.tools:
             return LLMResponse(
                 text="I will call one tool",
@@ -94,7 +64,7 @@ class ErrorMcpFactory:
 
 
 @pytest.mark.asyncio
-async def test_runtime_llm_mcp_and_plan_execute() -> None:
+async def test_runtime_llm_mcp_and_artifact_execute() -> None:
     yaml_text = """
     version: 1
     workflows:
@@ -118,12 +88,9 @@ async def test_runtime_llm_mcp_and_plan_execute() -> None:
               request:
                 q: "value"
           - id: plan
-            type: workflow.plan
+            type: set
             input:
-              mode: basic
-              generator:
-                model: fake
-                instruction: "make a simple workflow"
+              yaml: "${data.inputs.artifact}"
           - id: execute
             type: workflow.execute
             input:
@@ -139,7 +106,7 @@ async def test_runtime_llm_mcp_and_plan_execute() -> None:
     engine.llm_client = FakeLLMClient()
     engine.mcp_client_factory = FakeMcpFactory()
 
-    result = await engine.execute_async(compiled.workflows["main"], {})
+    result = await engine.execute_async(compiled.workflows["main"], {"artifact": 'version: 1\nworkflows:\n  main:\n    steps:\n      - id: built\n        type: set\n        input: {ok: true}\n'})
 
     assert result.success is True
     assert result.outputs["llm_json"] is True
@@ -242,12 +209,9 @@ async def test_runtime_execute_supports_to_json_alias_in_generated_workflow_outp
       main:
         steps:
           - id: plan
-            type: workflow.plan
+            type: set
             input:
-              mode: basic
-              generator:
-                model: fake
-                instruction: "make a simple workflow"
+              yaml: "${data.inputs.artifact}"
           - id: execute
             type: workflow.execute
             input:
@@ -271,17 +235,8 @@ async def test_runtime_execute_supports_to_json_alias_in_generated_workflow_outp
     """
 
     engine = WorkflowEngine()
-    engine.llm_client = CaptureFixedPlanLlm(generated_yaml)
     compiled = WorkflowCompiler().compile(WorkflowParser.parse(yaml_text))
-    result = await engine.execute_async(compiled.workflows["main"], {})
+    result = await engine.execute_async(compiled.workflows["main"], {"artifact": generated_yaml})
 
     assert result.success is True
     assert '"ok": true' in result.outputs["planned_json"]
-
-
-class CaptureFixedPlanLlm:
-    def __init__(self, yaml_text: str) -> None:
-        self._yaml_text = _ensure_generated_skill(yaml_text)
-
-    async def call_async(self, request):
-        return LLMResponse(text=self._yaml_text)

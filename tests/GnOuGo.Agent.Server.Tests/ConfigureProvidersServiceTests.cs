@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -538,8 +538,8 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Equal("answer", answer.Type);
         Assert.NotNull(answer.Text);
         Assert.Contains("# 🤖 Configured LLM Providers", answer.Text);
-        Assert.Contains("| Provider | Default | Model | Key | Version | Stored |", answer.Text);
-        Assert.Contains("| openai | ✅ yes | gpt-4o-mini | `LLM--Models--openai` | 1 |", answer.Text);
+        Assert.Contains("| Provider | Default | Model | Generation protocol | Key | Version | Stored |", answer.Text);
+        Assert.Contains("| openai | ✅ yes | gpt-4o-mini | Background — Responses API | `LLM--Models--openai` | 1 |", answer.Text);
         Assert.Contains("| copilot |", answer.Text);
         Assert.Contains("`LLM--Models--copilot`", answer.Text);
         Assert.DoesNotContain("LLM--McpServers--github", answer.Text, StringComparison.Ordinal);
@@ -1454,8 +1454,8 @@ public sealed class ConfigureProvidersServiceTests
             {
                 ["copilot"] = new() { Url = "https://models.github.ai/inference", Type = "copilot" },
                 ["openai"] = new() { Url = "https://api.openai.com/v1", Type = "openai", ApiKey = "runtime-secret" }
-                },
-                ModelOverrides = TestModelOverrides("gpt-5-search-api")
+            },
+            ModelOverrides = TestModelOverrides("gpt-5-search-api")
         });
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -1500,9 +1500,11 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "⭐ Provider 'openai' was set as the default LLM with model 'gpt-5-search-api'.");
     }
 
-    [Fact]
-    public async Task ExecuteAsync_LlmAdd_ValidationOmitsTemperatureForSavedProvider()
-    {   
+    [Theory]
+    [InlineData("Background — Responses API", "Responses")]
+    [InlineData("Chat Completions — foreground", "ChatCompletions")]
+    public async Task ExecuteAsync_LlmAdd_ValidationUsesSanitizedParametersAndSmallOutputAllowance(string selection, string stored)
+    {
         var llm = new RecordingLlmClient();
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
         var modelCatalog = new FakeModelCatalog()
@@ -1516,10 +1518,15 @@ public sealed class ConfigureProvidersServiceTests
         {
             await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
             {
+                if (request.StepId == "llm_add.connection")
+                {
+                    var field = Assert.Single(request.Fields!, f => f.Name == "generation_protocol");
+                    Assert.Equal("Background — Responses API", field.Default);
+                }
                 JsonNode response = request.StepId switch
                 {
                     "llm_add.provider" => new JsonObject { ["response"] = "openai" },
-                    "llm_add.connection" => new JsonObject { ["url"] = "https://api.openai.com/v1" },
+                    "llm_add.connection" => new JsonObject { ["url"] = "https://api.openai.com/v1", ["generation_protocol"] = selection },
                     "llm_add.auth_mode" => new JsonObject { ["response"] = "api_key" },
                     "llm.auth.api_key" => new JsonObject { ["api_key"] = "test-secret" },
                     "llm_model.select.openai" => new JsonObject { ["model"] = "gpt-5-search-api" },
@@ -1556,6 +1563,11 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Equal("openai", llm.LastRequest!.Provider);
         Assert.Equal("gpt-5-search-api", llm.LastRequest.Model);
         Assert.Null(llm.LastRequest.Temperature);
+        Assert.Equal(64, llm.LastRequest.MaxTokens);
+        Assert.True(llm.LastRequest.UseBackgroundMode);
+        var saved = await keyVaultStore.GetSecretValueAsync("LLM--Models--openai", token);
+        Assert.Equal(stored, JsonNode.Parse(saved!)!["backgroundProtocol"]!.GetValue<string>());
+        Assert.Contains(events, e => e.Text?.Contains(selection, StringComparison.Ordinal) == true);
         Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "✅ Credentials validated. Provider 'openai' is ready.");
     }
 
@@ -2043,7 +2055,7 @@ public sealed class ConfigureProvidersServiceTests
     {
         var llm = new RecordingLlmClient();
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore()
-            .AddSecret("LLM--Models--openai", "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-4o-mini\",\"authType\":\"api_key\",\"apiKey\":\"old-secret\"}");
+            .AddSecret("LLM--Models--openai", "{\"provider\":\"openai\",\"url\":\"https://api.openai.com/v1\",\"model\":\"gpt-4o-mini\",\"authType\":\"api_key\",\"apiKey\":\"old-secret\",\"apiVersion\":\"2025-04-01-preview\",\"backgroundProtocol\":\"ChatCompletions\",\"retryPolicy\":{\"maxAttempts\":3}}");
         var modelCatalog = new FakeModelCatalog()
             .Add("openai", new LLMModelDescriptor("gpt-5-search-api", "gpt-5-search-api", "openai", "openai"));
         var humanInput = new AgentHumanInputProvider();
@@ -2055,6 +2067,8 @@ public sealed class ConfigureProvidersServiceTests
         {
             await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
             {
+                if (request.StepId == "llm_edit.connection")
+                    Assert.Equal("Chat Completions — foreground", Assert.Single(request.Fields!, f => f.Name == "generation_protocol").Default);
                 JsonNode response = request.StepId switch
                 {
                     "llm_edit.connection" => new JsonObject { ["url"] = "https://api.openai.com/v1" },
@@ -2104,8 +2118,15 @@ public sealed class ConfigureProvidersServiceTests
 
         await responder;
 
+        Assert.Equal(LLMBackgroundProtocolMode.ChatCompletions, runtimeStore.Current.Models["openai"].RequestPolicy.BackgroundProtocol);
+        Assert.Equal("2025-04-01-preview", runtimeStore.Current.Models["openai"].ApiVersion);
+        var saved = JsonNode.Parse((await keyVaultStore.GetSecretValueAsync("LLM--Models--openai", token))!)!;
+        Assert.Equal(3, saved["retryPolicy"]!["maxAttempts"]!.GetValue<int>());
+        Assert.Equal("ChatCompletions", saved["backgroundProtocol"]!.GetValue<string>());
         Assert.True(runtimeStore.Current.ModelOverrides.TryGetValue("openai/gpt-5-search-api", out var reviewedMetadata));
         Assert.False(reviewedMetadata.Capabilities.SupportsStructuredOutput);
+        var runtimeCapabilities = new GnOuGo.Agent.Server.Hosting.FlowLlmCapabilityResolver(runtimeStore);
+        Assert.False(await runtimeCapabilities.SupportsStructuredOutputAsync("openai", "gpt-5-search-api", token));
 
         var spans = DrainPersistedSpans(telemetryHarness.Queue);
         Assert.Contains(spans, span => span.Name == "configure.providers.llm.edit.interactive");

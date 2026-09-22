@@ -1,0 +1,7 @@
+.trace-pipeline { padding: 1rem; overflow-wrap: anywhere; }
+.trace-pipeline__phase, .trace-pipeline__history { margin-block: 1rem; }
+.llm-call { border: 1px solid var(--border-color, #8885); border-radius: .5rem; padding: .8rem; margin-block: .7rem; }
+.llm-call h5 { margin: 0 0 .5rem; font-size: .95rem; }
+.llm-call p { margin-block: .4rem; font-size: .85rem; }
+.trace-pipeline details { margin-block: .6rem; }
+.trace-pipeline summary { cursor: pointer; }

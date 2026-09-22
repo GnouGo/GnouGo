@@ -55,7 +55,7 @@ public static class ChatRequestBuilder
 
     /// <summary>
     /// Builds an OpenAI-compatible chat completion request with full control over parameters.
-    /// Supports tools, structured output, and temperature as double.
+    /// Supports tools, structured output, reasoning, output-token limits, and temperature as double.
     /// </summary>
     public static byte[] OpenAiFull(
         string model,
@@ -64,7 +64,8 @@ public static class ChatRequestBuilder
         IReadOnlyList<LLMToolDef>? tools = null,
         JsonNode? structuredOutputSchema = null,
         bool? structuredOutputStrict = null,
-        string? reasoning = null)
+        string? reasoning = null,
+        int? maxOutputTokens = null)
     {
         using var ms = new MemoryStream();
         using (var w = new Utf8JsonWriter(ms))
@@ -74,6 +75,9 @@ public static class ChatRequestBuilder
 
             if (temperature.HasValue)
                 w.WriteNumber("temperature", temperature.Value);
+
+            if (maxOutputTokens is > 0)
+                w.WriteNumber("max_completion_tokens", maxOutputTokens.Value);
 
             // Reasoning effort (OpenAI o-series / gpt-5, GitHub Models, Anthropic via Copilot)
             var reasoningEffort = NormalizeOpenAiReasoning(reasoning);
@@ -303,7 +307,7 @@ public static class ChatRequestBuilder
 
     /// <summary>
     /// Normalizes a generic reasoning level to the OpenAI <c>reasoning_effort</c> enum
-    /// ("minimal" | "low" | "medium" | "high"). Returns <c>null</c> when the field
+    /// ("none" | "minimal" | "low" | "medium" | "high" | "xhigh"). Returns <c>null</c> when the field
     /// must be omitted (auto / unknown / null).
     /// </summary>
     internal static string? NormalizeOpenAiReasoning(string? value)
@@ -312,10 +316,12 @@ public static class ChatRequestBuilder
         return value.Trim().ToLowerInvariant() switch
         {
             "auto" => null,
+            "none" => "none",
             "minimal" or "min" => "minimal",
             "low" => "low",
             "medium" or "med" => "medium",
             "high" or "max" or "maximum" => "high",
+            "xhigh" => "xhigh",
             _ => null
         };
     }

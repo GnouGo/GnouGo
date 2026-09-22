@@ -1,0 +1,4 @@
+.llm-breakdown { width: 100%; border-collapse: collapse; font-size: .85rem; margin-top: 1rem; }
+.llm-breakdown th, .llm-breakdown td { text-align: left; padding: .3rem; border-bottom: 1px solid #8884; }
+.llm-breakdown caption { text-align: left; margin-bottom: .5rem; }
+.llm-call__expand { padding: .4rem .6rem; cursor: pointer; }

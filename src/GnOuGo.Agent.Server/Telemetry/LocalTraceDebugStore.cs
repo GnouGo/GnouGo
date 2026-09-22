@@ -62,6 +62,15 @@ public sealed class LocalTraceDebugStore
     public string? ResolveTraceId(string correlationId)
         => _correlationIndex.TryGetValue(correlationId, out var traceId) ? traceId : null;
 
+    internal IReadOnlyList<TraceGroupDto> GetPlanningTraces(string sessionId, string attribute, string tenant)
+        => _traces.Values.Where(trace =>
+        {
+            lock (trace.SyncRoot)
+                return trace.Spans.Values.All(span => span.TenantId == tenant)
+                    && trace.Spans.Values.Any(span => span.Attributes.TryGetValue(attribute, out var value)
+                        && string.Equals(value?.ToString(), sessionId, StringComparison.Ordinal));
+        }).Select(trace => GetTrace(trace.TraceId)).OfType<TraceGroupDto>().ToArray();
+
     public IReadOnlyList<string> ResolveTraceIds(string correlationId)
     {
         if (string.IsNullOrWhiteSpace(correlationId))
@@ -128,6 +137,8 @@ public sealed class LocalTraceDebugStore
 
     private void UpdateSpan(TraceState trace, SpanState span, Activity activity)
     {
+        span.TenantId = activity.GetTagItem("tenant.id")?.ToString()
+            ?? WorkflowExecutionTenant.Resolve(_openTelemetrySettings.CurrentValue.TenantId, Environment.GetEnvironmentVariable("GNouGo__TenantId"));
         span.ParentSpanId = activity.ParentSpanId != default ? activity.ParentSpanId.ToHexString() : null;
         span.Name = activity.DisplayName;
         span.Kind = MapKind(activity.Kind);
@@ -294,6 +305,7 @@ public sealed class LocalTraceDebugStore
         }
 
         public string SpanId { get; }
+        public string TenantId { get; set; } = "";
         public string? ParentSpanId { get; set; }
         public string Name { get; set; } = string.Empty;
         public int Kind { get; set; }
@@ -308,4 +320,3 @@ public sealed class LocalTraceDebugStore
         public Dictionary<string, object?> Scope { get; set; } = new(StringComparer.Ordinal);
     }
 }
-

@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -370,6 +370,102 @@ public sealed class TraceDebugServiceTests
         Assert.Equal(traceIdHex, snapshots.Current.TraceId);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PlanningLookupIsExactTenantScopedAndPreservesTraceIdentitiesAfterRestart(bool workflow)
+    {
+        await using var host = await CollectorTestHost.CreateAsync();
+        var tenant = Guid.NewGuid();
+        var settings = new OpenTelemetrySettings { TenantId = tenant.ToString(), ServiceName = "GnOuGo.Agent.Server" };
+        var key = workflow ? "gnougo-flow.plan.session_id" : "gnougo.planning.session_id";
+        SpanRecordEntity Span(string trace, string session, Guid owner, string? attribute = null)
+        {
+            var span = CreateSpan(trace, "2222222222222222", null, "planning.advance", "chat-correlation", settings.ServiceName,
+                1_710_000_000_000_000_000, 1_710_000_000_500_000_000,
+                new() { [attribute ?? key] = session, ["tenant.id"] = owner.ToString() });
+            span.TenantId = owner;
+            return span;
+        }
+        var first = "11111111111111111111111111111111";
+        var second = "22222222222222222222222222222222";
+        var wrong = "33333333333333333333333333333333";
+        await host.AddSpansAsync(Span(first, "session", tenant), Span(first, "session", tenant), Span(second, "session", tenant),
+            Span(wrong, "session-extra", tenant), Span("44444444444444444444444444444444", "session", Guid.NewGuid()),
+            Span("55555555555555555555555555555555", "session", tenant, workflow ? "gnougo.planning.session_id" : "gnougo-flow.plan.session_id"));
+        var log = CreateLog(first, "2222222222222222", 17, "Error", "Recorded failure", settings.ServiceName, 1);
+        log.TenantId = tenant;
+        await host.AddLogsAsync(log);
+        var service = CreateService(host.Services, settings);
+        var snapshot = await service.GetPlanningSnapshotAsync("session", workflow, first, TestContext.Current.CancellationToken);
+        Assert.Equal(2, snapshot.AvailableTraces!.Count);
+        Assert.Equal(first, snapshot.TraceId);
+        Assert.Single(snapshot.Trace!.Spans);
+        Assert.Equal("Recorded failure", Assert.Single(snapshot.Logs).Body);
+        var reopened = CreateService(host.Services, settings); // no local trace state
+        var resumed = await reopened.GetPlanningSnapshotAsync("session", workflow, second, TestContext.Current.CancellationToken);
+        Assert.Equal(second, resumed.TraceId);
+        Assert.Empty(resumed.Logs);
+        Assert.Single(resumed.Trace!.Spans);
+        var rejected = await reopened.GetPlanningSnapshotAsync("session", workflow, wrong, TestContext.Current.CancellationToken);
+        Assert.Null(rejected.Trace);
+        Assert.Empty(rejected.Logs);
+        var missing = await reopened.GetPlanningSnapshotAsync("missing", workflow, null, TestContext.Current.CancellationToken);
+        Assert.Null(missing.Trace);
+        Assert.False(missing.Pending);
+        Assert.Contains("No retained traces", missing.Message);
+    }
+
+    [Fact]
+    public async Task PlanningLocalLookupWorksWithoutExportAndExcludesForeignAndUnrelatedSpans()
+    {
+        await using var host = await CollectorTestHost.CreateAsync();
+        var settings = new OpenTelemetrySettings { Enabled = false, TenantId = "local-owner", ServiceName = "GnOuGo.Agent.Server" };
+        var local = new LocalTraceDebugStore(new StaticOptionsMonitor<OpenTelemetrySettings>(settings));
+        string Capture(string tenant, string session)
+        {
+            using var span = new Activity("planning.advance").SetIdFormat(ActivityIdFormat.W3C)
+                .SetParentId(ActivityTraceId.CreateRandom(), ActivitySpanId.CreateRandom(), ActivityTraceFlags.Recorded).Start();
+            span.SetTag("tenant.id", tenant);
+            span.SetTag("gnougo.planning.session_id", session);
+            local.Track(span);
+            return span.TraceId.ToHexString();
+        }
+        var own = Capture("local-owner", "one");
+        Capture("foreign", "one");
+        Capture("local-owner", "one-extra");
+        var service = CreateService(host.Services, settings, local);
+        var snapshot = await service.GetPlanningSnapshotAsync("one", false, null, TestContext.Current.CancellationToken);
+        Assert.Equal(own, snapshot.TraceId);
+        Assert.Single(snapshot.AvailableTraces!);
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.GetPlanningSnapshotAsync("one", false, null, cancelled.Token));
+        await using var stream = service.StreamPlanningSnapshotsAsync("one", false, null, cancelled.Token).GetAsyncEnumerator(cancelled.Token);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await stream.MoveNextAsync());
+    }
+
+    [Fact]
+    public void DesignerActivityIsCapturedAtStartAndPersistedWhenExportIsDisabled()
+    {
+        var settings = new StaticOptionsMonitor<OpenTelemetrySettings>(new() { Enabled = false, TenantId = "capture-owner" });
+        var local = new LocalTraceDebugStore(settings);
+        var queue = new TelemetryIngestQueue(new(":memory:", 100, 1, 100, 60, false));
+        using var telemetry = new AgentOTelTelemetry(new CollectorTracePersistence(queue, settings, NullLogger<CollectorTracePersistence>.Instance), local);
+        using var source = new ActivitySource("GnOuGo.Agent.Planning");
+        var session = Guid.NewGuid().ToString("N");
+        using var activity = source.StartActivity("planning.advance", ActivityKind.Internal,
+            new ActivityContext(ActivityTraceId.CreateRandom(), ActivitySpanId.CreateRandom(), ActivityTraceFlags.Recorded),
+            tags: new ActivityTagsCollection { ["tenant.id"] = "capture-owner", ["gnougo.planning.session_id"] = session });
+        Assert.NotNull(activity);
+        Assert.Single(local.GetPlanningTraces(session, "gnougo.planning.session_id", "capture-owner"));
+        activity.Stop();
+        var persisted = new List<SpanRow>();
+        while (queue.Channel.Reader.TryRead(out var row)) if (row is SpanRow span) persisted.Add(span);
+        Assert.Contains(persisted, row => row.TraceId.SequenceEqual(Convert.FromHexString(activity.TraceId.ToHexString()))
+            && row.AttributesJson!.Contains(session, StringComparison.Ordinal));
+    }
+
     private static TraceDebugService CreateService(
         IServiceProvider services,
         OpenTelemetrySettings openTelemetrySettings,
@@ -547,7 +643,7 @@ public sealed class TraceDebugServiceTests
             var provider = services.BuildServiceProvider();
             using var scope = provider.CreateScope();
             var store = scope.ServiceProvider.GetRequiredService<EfTelemetryStore>();
-            await store.InitializeAsync(devMode: false);
+            await store.InitializeAsync();
 
             return new CollectorTestHost(provider, dbPath);
         }
