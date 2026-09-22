@@ -32,7 +32,7 @@ try {
 
   const rejected = await fetch(base + '/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'anthropic/code', messages: [{ role: 'user', content: 'Unsupported option example' }], reasoning_effort: 'high' }) })
   assert.equal(rejected.status, 400)
-  const streamed = fetch(base + '/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'axa/code', stream: true, stream_options: { include_usage: true }, messages: [{ role: 'user', content: 'Watch the stream and explain how a response moves through the proxy.' }] }) }).then(async response => {
+  const streamed = fetch(base + '/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'internal/code', stream: true, stream_options: { include_usage: true }, messages: [{ role: 'user', content: 'Watch the stream and explain how a response moves through the proxy.' }] }) }).then(async response => {
     assert.equal(response.status, 200)
     const body = await response.text()
     assert.match(body, /\[DONE\]/)

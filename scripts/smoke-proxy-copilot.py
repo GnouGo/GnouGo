@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Exercise a published ProxyCopilot binary using only synthetic local HTTP providers.
 
-No AXA account, external LLM, database, or Python dependency is required.
+No external provider account, LLM service, database, or Python dependency is required.
 Use --serve to leave the synthetic environment running for browser validation.
 """
 import argparse
@@ -57,7 +57,7 @@ class Provider(http.server.BaseHTTPRequestHandler):
         request = json.loads(payload)
         provider = self.path.split("/")[1]
         expected_header = "x-api-key" if provider == "anthropic" else "Authorization"
-        expected = "synthetic-anthropic-key" if provider == "anthropic" else "Bearer synthetic-oidc-token" if provider == "axa" else "Bearer synthetic-copilot-key" if provider == "copilot" else None
+        expected = "synthetic-anthropic-key" if provider == "anthropic" else "Bearer synthetic-oidc-token" if provider == "internal" else "Bearer synthetic-copilot-key" if provider == "copilot" else None
         if expected and self.headers.get(expected_header) != expected:
             self.respond({"error": "invalid authentication"}, 401)
             return
@@ -155,14 +155,14 @@ def main():
     upstream_url = f"http://127.0.0.1:{upstream.server_port}"
     env = {key: value for key, value in os.environ.items() if not key.upper().startswith("PROXYCOPILOT__")}
     env.update(URLS=base, OpenTelemetry__Enabled="false")
-    for provider, kind in [("axa", "openai"), ("copilot", "copilot"), ("anthropic", "anthropic"), ("ollama", "ollama")]:
+    for provider, kind in [("internal", "openai"), ("copilot", "copilot"), ("anthropic", "anthropic"), ("ollama", "ollama")]:
         prefix = f"ProxyCopilot__Providers__{provider}__"
-        values = {"Connection__Type": kind, "Connection__Url": upstream_url + "/" + provider + ("/v1" if provider in ("axa", "anthropic") else ""),
+        values = {"Connection__Type": kind, "Connection__Url": upstream_url + "/" + provider + ("/v1" if provider in ("internal", "anthropic") else ""),
                   "Models__code__UpstreamId": "vendor/demo-model", "Models__code__Metadata__DisplayName": provider.title() + " · Coding model",
                   "Models__code__Metadata__MaxInputTokens": "120000", "Models__code__Metadata__MaxOutputTokens": "8000",
                   "Models__code__Metadata__Capabilities__SupportsTools": "true",
                   "Connection__RequestPolicy__UnspecifiedOutputTokens": "Configured", "Connection__RequestPolicy__DefaultMaxOutputTokens": "4096"}
-        if provider == "axa":
+        if provider == "internal":
             values.update(Authentication="OidcClientSecret", Connection__Issuer=upstream_url + "/oidc", Connection__ClientId="smoke-client", Connection__ClientSecret="synthetic-client-secret", Connection__Scopes="models.read")
         elif provider in ("copilot", "anthropic"):
             values.update(Authentication="ApiKey", Connection__ApiKey="synthetic-" + provider + "-key")
@@ -189,7 +189,7 @@ def main():
         assert len(json.loads(call(base, "/v1/models"))["data"]) == 4
         setup = call(base, "/api/setup")
         assert "customendpoint" in setup and "synthetic" not in setup
-        for provider in ["axa", "copilot", "anthropic", "ollama"]:
+        for provider in ["internal", "copilot", "anthropic", "ollama"]:
             messages = [{"role": "system", "content": "You are a coding assistant. Explain the code precisely."}, {"role": "user", "content": "Read the relay and explain how cancellation flows through a streaming request."}]
             request = {"model": provider + "/code", "stream": True, "stream_options": {"include_usage": True}, "messages": messages,
                        "tools": [{"type": "function", "function": {"name": "read_file", "description": "Read a file in the workspace", "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}}}]}

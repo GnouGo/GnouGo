@@ -1,7 +1,7 @@
 {
   "ProxyCopilot": {
     "Providers": {
-      "axa": {
+      "internal": {
         "Authentication": "OidcPrivateKey",
         "Connection": {
           "Type": "openai",

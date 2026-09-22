@@ -1,6 +1,6 @@
 # GnOuGo.ProxyCopilot.Server
 
-A standalone .NET 10 loopback proxy for VS Code Chat and Agent mode. Configure AXA or other LLM endpoints in typed `appsettings.json`, supply credentials through environment overrides, and inspect live traffic in the React dashboard.
+A standalone .NET 10 loopback proxy for VS Code Chat and Agent mode. Configure internal or external LLM endpoints in typed `appsettings.json`, supply credentials through environment overrides, and inspect live traffic in the React dashboard.
 
 ![Live traffic with synthetic providers](docs/screenshots/live-traffic.png)
 
@@ -27,14 +27,14 @@ Merge the desired `ProxyCopilot.Providers` entries from these examples into the 
 
 | Example | Authentication | Upstream API |
 |---|---|---|
-| [AXA client secret](examples/axa-client-secret.json) | OIDC discovery + `client_credentials` + `client_secret_basic` | Chat Completions |
-| [AXA private key](examples/axa-private-key.json) | OIDC discovery + RS256 `private_key_jwt` | Chat Completions |
+| [OIDC client secret](examples/oidc-client-secret.json) | OIDC discovery + `client_credentials` + `client_secret_basic` | Chat Completions |
+| [OIDC private key](examples/oidc-private-key.json) | OIDC discovery + RS256 `private_key_jwt` | Chat Completions |
 | [OpenAI-compatible](examples/openai.json) | Bearer API key | Chat Completions |
 | [Copilot](examples/copilot.json) | `GITHUB_TOKEN`, then `COPILOT_API_KEY` | Configured Copilot/GitHub Models Chat Completions endpoint |
 | [Anthropic](examples/anthropic.json) | `x-api-key` | Native Messages |
 | [Ollama](examples/ollama.json) | None | Native `/api/chat` |
 
-Replace the example URL, upstream model ID, issuer, client ID, scopes, and metadata with your actual values. Example prices are zero placeholders, not provider pricing. Multiple named providers of the same type are supported. Names and model aliases use letters, digits, `.`, `_`, or `-`; the exposed ID is the exact, case-sensitive `<provider>/<alias>`, such as `axa/code`. The actual upstream model ID is forwarded unchanged, including vendor prefixes.
+Replace the example URL, upstream model ID, issuer, client ID, scopes, and metadata with your actual values. Example prices are zero placeholders, not provider pricing. Multiple named providers of the same type are supported. Names and model aliases use letters, digits, `.`, `_`, or `-`; the exposed ID is the exact, case-sensitive `<provider>/<alias>`, such as `internal/code`. The actual upstream model ID is forwarded unchanged, including vendor prefixes.
 
 Connection options reuse AI.Core's `ModelProviderOptions`; metadata reuses `LLMModelMetadata`. Set `Connection.Type` explicitly to `openai`, `copilot`, `anthropic`, or `ollama`. Model input/output limits are required. Set `Capabilities.SupportsTools` to `true` only for models supporting tool calls. Advertised capabilities are restricted to this proxy's text/tool support even when richer metadata is configured.
 
@@ -43,8 +43,8 @@ Connection options reuse AI.Core's `ModelProviderOptions`; metadata reuses `LLMM
 Supply secrets to the process, for example through your shell's secure credential tooling:
 
 ```text
-ProxyCopilot__Providers__axa__Connection__ClientSecret
-ProxyCopilot__Providers__axa__Connection__PrivateKeyPem
+ProxyCopilot__Providers__internal__Connection__ClientSecret
+ProxyCopilot__Providers__internal__Connection__PrivateKeyPem
 ProxyCopilot__Providers__openai__Connection__ApiKey
 ProxyCopilot__Providers__anthropic__Connection__ApiKey
 ```
@@ -119,11 +119,11 @@ PLAYWRIGHT_MODULE_PATH=/tmp/gnougo-proxy-browser/node_modules/playwright/index.m
 
 The smoke environment uses synthetic credentials and local fake providers. Browser checks cover live output before completion, raw native payloads, filters, setup, pause/resume, reconnect, clearing, and mobile layout. Screenshots go to `artifacts/proxy-copilot/screenshots`. `.github/workflows/test-proxy-copilot.yml` runs the isolated tests and published-binary/browser checks on Linux.
 
-## AXA acceptance
+## Provider acceptance
 
-- Replace the example endpoint, issuer, client ID, scopes, model ID, and metadata with AXA's actual values; supply either secret or PEM through the environment.
+- Replace the example endpoint, issuer, client ID, scopes, model ID, and metadata with your provider's actual values; supply either secret or PEM through the environment.
 - Confirm your issuer accepts the documented OIDC baseline and the machine trusts the internal CA.
 - Select the configured alias in VS Code; verify incremental text, a complete tool-call/result cycle, cancellation, and token refresh across expiry.
 - Confirm that the dashboard shows inputs/outputs while credentials remain redacted.
 
-Automated tests prove behavior against protocol fixtures. Actual AXA connectivity and VS Code policy availability require validation in the user's environment.
+Automated tests prove behavior against protocol fixtures. Actual provider connectivity and VS Code policy availability require validation in the user's environment.
