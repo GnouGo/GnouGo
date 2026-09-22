@@ -116,12 +116,26 @@ public static class ProxyApplication
 
     public static JsonObject Setup(IModelRegistry registry, HostString host)
     {
-        var models = new JsonArray(registry.Models.Select(route => (JsonNode)new JsonObject {
-            ["id"] = route.Id, ["name"] = route.Model.Metadata.DisplayName ?? route.Id,
-            ["url"] = $"http://{host}/v1/chat/completions", ["toolCalling"] = route.SupportsTools, ["vision"] = false,
-            ["maxInputTokens"] = route.Model.Metadata.MaxInputTokens, ["maxOutputTokens"] = route.Model.Metadata.MaxOutputTokens
-        }).ToArray());
+        var models = new JsonArray(registry.Models.Select(route => (JsonNode)EditorModel(route, host)).ToArray());
         return new JsonObject { ["configuration"] = new JsonArray(new JsonObject { ["name"] = "GnOuGo Proxy", ["vendor"] = "customendpoint", ["apiType"] = "chat-completions", ["models"] = models }) };
+    }
+
+    private static JsonObject EditorModel(ModelRoute route, HostString host)
+    {
+        var metadata = route.Model.Metadata;
+        // VS Code reserves maxOutputTokens from its context budget. A model's
+        // independent maximum output ceiling is not a suitable editor default.
+        var output = Math.Min(8192, Math.Min(metadata.MaxOutputTokens!.Value,
+            route.Options.Connection.RequestPolicy.MaxOutputTokensCap ?? int.MaxValue));
+        if (metadata.ContextWindowTokens is { } context) output = Math.Min(output, Math.Max(1, context / 2));
+        var model = new JsonObject {
+            ["id"] = route.Id, ["name"] = metadata.DisplayName ?? route.Id,
+            ["url"] = $"http://{host}/v1/chat/completions", ["toolCalling"] = route.SupportsTools, ["vision"] = false,
+            ["maxInputTokens"] = metadata.MaxInputTokens, ["maxOutputTokens"] = output
+        };
+        if (metadata.ContextWindowTokens is { } window) model["contextWindow"] = window;
+        if (route.SupportsTools) model["editTools"] = new JsonArray("find-replace", "multi-find-replace");
+        return model;
     }
 
     private static async Task Events(HttpContext context, ITrafficStore store)

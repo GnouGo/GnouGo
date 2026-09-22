@@ -69,8 +69,8 @@ public sealed class ProxyRelay : IDisposable
             byte[] upstreamBody;
             try
             {
-                ChatContract.Validate(request, route);
-                upstreamBody = Encoding.UTF8.GetBytes(adapter.CreateRequest(request, route).ToJsonString(ProxyJsonContext.Default.Options));
+                var prepared = ChatContract.PrepareRequest(request, route);
+                upstreamBody = Encoding.UTF8.GetBytes(adapter.CreateRequest(prepared, route).ToJsonString(ProxyJsonContext.Default.Options));
             }
             catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or JsonException or FormatException)
             { throw new ProxyException(400, "invalid_request", "The chat request contains invalid fields."); }
@@ -114,14 +114,18 @@ public sealed class ProxyRelay : IDisposable
                 await using var stream = await response.Content.ReadAsStreamAsync(ct);
                 using var captured = new CaptureReadStream(stream, _traffic, callId);
                 readingUpstream = true;
+                var toolStream = new ToolCallStream();
                 await foreach (var chunk in adapter.ReadResponse(captured, streaming, includeUsage, route, ct))
                 {
                     _traffic.Progress(callId, chunk);
                     // Usage remains available to the dashboard even when the client did
                     // not request the optional trailing usage-only streaming chunk.
                     if (streaming && !includeUsage && chunk["choices"] is JsonArray { Count: 0 } && chunk["usage"] is not null) continue;
-                    var json = chunk.ToJsonString(ProxyJsonContext.Default.Options);
-                    await Emit(context, callId, streaming ? "data: " + json + "\n\n" : json, ct);
+                    foreach (var output in streaming ? toolStream.Process(chunk) : [chunk])
+                    {
+                        var json = output.ToJsonString(ProxyJsonContext.Default.Options);
+                        await Emit(context, callId, streaming ? "data: " + json + "\n\n" : json, ct);
+                    }
                 }
                 if (streaming) await Emit(context, callId, "data: [DONE]\n\n", ct);
                 status = "completed";

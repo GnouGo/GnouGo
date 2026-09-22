@@ -36,6 +36,31 @@ public sealed class ConfigurationAndTrafficTests
     }
 
     [Fact]
+    public void EditorSetupReservesAPracticalOutputBudgetAndEnablesFileEditing()
+    {
+        var options = Options();
+        var metadata = options.Providers["test"].Models["model"].Metadata;
+        metadata.ContextWindowTokens = 128000;
+        metadata.MaxInputTokens = 120000;
+        metadata.MaxOutputTokens = 120000;
+        var setup = ProxyApplication.Setup(new ModelRegistry(options), new("127.0.0.1:5087"));
+        var model = setup["configuration"]![0]!["models"]![0]!;
+        Assert.Equal("customendpoint", setup["configuration"]![0]!["vendor"]!.GetValue<string>());
+        Assert.Equal("chat-completions", setup["configuration"]![0]!["apiType"]!.GetValue<string>());
+        Assert.Equal("http://127.0.0.1:5087/v1/chat/completions", model["url"]!.GetValue<string>());
+        Assert.True(model["toolCalling"]!.GetValue<bool>());
+        Assert.Equal(128000, model["contextWindow"]!.GetValue<int>());
+        Assert.Equal(8192, model["maxOutputTokens"]!.GetValue<int>());
+        Assert.Contains("find-replace", model["editTools"]!.AsArray().Select(v => v!.GetValue<string>()));
+        options.Providers["test"].Connection.RequestPolicy.MaxOutputTokensCap = 2000;
+        setup = ProxyApplication.Setup(new ModelRegistry(options), new("localhost:5087"));
+        Assert.Equal(2000, setup["configuration"]![0]!["models"]![0]!["maxOutputTokens"]!.GetValue<int>());
+        metadata.Capabilities.SupportsTools = false;
+        setup = ProxyApplication.Setup(new ModelRegistry(options), new("localhost:5087"));
+        Assert.Null(setup["configuration"]![0]!["models"]![0]!["editTools"]);
+    }
+
+    [Fact]
     public void CapturesAreTruncatedAndBudgetsEvictWithoutHoldingLiveCalls()
     {
         var options = Options(); options.Capture = new() { MaxCalls = 2, MaxBodyBytes = 16, MaxTotalBytes = 1024 };

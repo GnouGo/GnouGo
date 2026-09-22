@@ -16,6 +16,7 @@
     <ProjectReference Include="../GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj" />
     <ProjectReference Include="../GnOuGo.Observability.Core/GnOuGo.Observability.Core.csproj" />
     <Content Update="wwwroot/**/*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="appsettings.Development*.json;appsettings.Local*.json" CopyToPublishDirectory="Never" />
     <Content Update="ClientApp/**/*;examples/**/*" CopyToPublishDirectory="Never" />
     <None Update="ClientApp/**/*;examples/**/*" CopyToPublishDirectory="Never" />
   </ItemGroup>

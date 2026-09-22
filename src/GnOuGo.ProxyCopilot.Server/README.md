@@ -1,6 +1,6 @@
 # GnOuGo.ProxyCopilot.Server
 
-A standalone .NET 10 loopback proxy for VS Code Chat and Agent mode. Configure internal or external LLM endpoints in typed `appsettings.json`, supply credentials through environment overrides, and inspect live traffic in the React dashboard.
+A standalone .NET 10 loopback proxy for VS Code Chat and Agent mode. Configure LLM endpoints in a typed, ignored `appsettings.Development.json`, supply credentials through environment overrides, and inspect live traffic in the React dashboard.
 
 ![Live traffic with synthetic providers](docs/screenshots/live-traffic.png)
 
@@ -19,11 +19,13 @@ dotnet run --project src/GnOuGo.ProxyCopilot.Server
 
 Open **http://127.0.0.1:5087/ui/**. The default configuration has no providers and shows setup instructions. Vite builds into `wwwroot/ui`; the server copies these assets to its build output and publish directory.
 
+The launch profile selects `Development`, which loads the workstation settings file when using `dotnet run`. To run with only the public defaults, use `dotnet run --project src/GnOuGo.ProxyCopilot.Server --no-launch-profile -- --environment Production`. Direct DLL/executable launches default to Production unless `DOTNET_ENVIRONMENT` or `ASPNETCORE_ENVIRONMENT` selects another environment.
+
 For frontend development, run the server and `corepack pnpm --filter gnougo-proxy-copilot-client dev`. The Vite development proxy forwards `/api` to the loopback server with the matching origin; the production server itself does not allow cross-origin access.
 
 ## Configure providers
 
-Merge the desired `ProxyCopilot.Providers` entries from these examples into the server's `appsettings.json`:
+Copy an example to `src/GnOuGo.ProxyCopilot.Server/appsettings.Development.json`, then merge additional `ProxyCopilot.Providers` entries there. Keep the tracked `appsettings.json` unchanged: it contains only loopback, logging, capture, and empty-provider defaults.
 
 | Example | Authentication | Upstream API |
 |---|---|---|
@@ -35,6 +37,8 @@ Merge the desired `ProxyCopilot.Providers` entries from these examples into the 
 | [Ollama](examples/ollama.json) | None | Native `/api/chat` |
 
 Replace the example URL, upstream model ID, issuer, client ID, scopes, and metadata with your actual values. Example prices are zero placeholders, not provider pricing. Multiple named providers of the same type are supported. Names and model aliases use letters, digits, `.`, `_`, or `-`; the exposed ID is the exact, case-sensitive `<provider>/<alias>`, such as `internal/code`. The actual upstream model ID is forwarded unchanged, including vendor prefixes.
+
+`appsettings.Development*.json` and `appsettings.Local*.json` are ignored and excluded from publish output. Only the standard environment-named file is automatically loaded; the Local pattern also protects optional workstation files from Git. Endpoints, client IDs, scopes, model IDs, and other internal settings belong in these private files or environment variables. CI rejects tracked private configuration and checks that publishing excludes a synthetic development file. Run `python3 scripts/check-proxy-copilot-config.py` before committing. Never force-add local settings; review staged files before pushing.
 
 Connection options reuse AI.Core's `ModelProviderOptions`; metadata reuses `LLMModelMetadata`. Set `Connection.Type` explicitly to `openai`, `copilot`, `anthropic`, or `ollama`. Model input/output limits are required. Set `Capabilities.SupportsTools` to `true` only for models supporting tool calls. Advertised capabilities are restricted to this proxy's text/tool support even when richer metadata is configured.
 
@@ -49,11 +53,13 @@ ProxyCopilot__Providers__openai__Connection__ApiKey
 ProxyCopilot__Providers__anthropic__Connection__ApiKey
 ```
 
-Choose exactly one OIDC credential. `PrivateKeyPem` contains the PEM text, not a filename or a literal `\n`-escaped string. Do not commit credentials or persist them in plaintext configuration files. The server never writes configuration. OIDC tokens are cached per provider, refreshed under a lock before actual expiry, and never sent to VS Code or included in traffic headers.
+Choose exactly one OIDC credential. `PrivateKeyPem` contains the PEM text, not a filename or a literal `\n`-escaped string. Prefer environment-supplied credentials; never commit local configuration. The server never writes configuration. OIDC tokens are cached per provider, refreshed under a lock before actual expiry, and never sent to VS Code or included in traffic headers.
 
 The OIDC baseline uses `<Issuer>/.well-known/openid-configuration`, the discovered token endpoint as JWT audience, RSA/RS256 assertions without a `kid`, and client-secret HTTP Basic authentication. Custom audiences, `kid`, explicit token endpoints, `client_secret_post`, and custom gateway authentication headers are not implemented.
 
 `Connection.ApiVersion` appends `api-version` for OpenAI-compatible endpoints. Inference uses Chat Completions; set `RequestPolicy.BackgroundProtocol` to `ChatCompletions`. Output limits are clamped to configured model/provider ceilings. Anthropic requires `UnspecifiedOutputTokens: Configured` and a positive `DefaultMaxOutputTokens`. Native adapters map temperature, top-p, stop sequences, and output limits. Unsupported options fail before dispatch.
+
+For every provider type, `Metadata.Capabilities.SupportsTemperature: false` or `"temperature"` in `UnsupportedRequestParameters` causes the proxy to omit that optional sampling hint before forwarding. This lets clients that automatically send temperature use the model's own default. When support is `true` or unknown, temperature is forwarded. Malformed values still fail validation, and other unsupported fields still return errors. The traffic inspector retains the original client payload and shows the upstream payload with temperature omitted.
 
 OpenAI-compatible and Copilot providers send output limits as `max_completion_tokens`, including when the client supplies `max_tokens` or the proxy supplies a configured default. Only one field is forwarded; conflicting client limits are rejected. This follows the [OpenAI Chat Completions contract](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create), where `max_tokens` is deprecated and the completion limit includes reasoning tokens. For a legacy endpoint that accepts only `max_tokens`, add `"max_completion_tokens"` to that model's `Metadata.Capabilities.UnsupportedRequestParameters`. The proxy then translates either client field to `max_tokens`. If both fields are declared unsupported, a request requiring an output limit fails before dispatch. No model-name detection or retry after HTTP 400 is involved.
 
@@ -64,11 +70,15 @@ Retries default to one attempt. Set `RetryPolicy.MaxAttempts` to enable bounded 
 1. Run **Chat: Manage Language Models**, then **Add Models → Custom Endpoint**.
 2. Choose **Chat Completions**. The local proxy requires no client API key; leave it empty or enter a placeholder if your editor prompts for one. Incoming credentials are never forwarded.
 3. Copy the credential-free configuration from the dashboard's **VS Code setup** tab into `chatLanguageModels.json`.
-4. Select the configured model in Chat. For Agent mode, the model must support tools.
+4. In the Chat view, select **Agent**, **Local**, and your configured model (rather than Auto). Use a trusted workspace and enable the required built-in tools in **Configure Tools**. Keep the usual approval prompts for edits and terminal commands.
 
-The generated entries include full URLs, such as `http://127.0.0.1:5087/v1/chat/completions`, and explicit model limits. An organization may disable custom model access through its Copilot policies. See [VS Code custom endpoint documentation](https://code.visualstudio.com/docs/copilot/customization/language-models#_add-a-custom-endpoint-model).
+The generated entries include full URLs, such as `http://127.0.0.1:5087/v1/chat/completions`, `toolCalling: true` for configured tool-capable models, and `editTools: ["find-replace", "multi-find-replace"]`. They include the actual context window when configured and reserve at most 8192 output tokens (also bounded by model/provider limits and half the context window). VS Code subtracts this reservation from its usable context; an independent model output ceiling is often too large for an Agent turn. You can tune this editor budget in your local `chatLanguageModels.json`. An organization may restrict custom model access through its policies. See [VS Code language model configuration](https://code.visualstudio.com/docs/agent-customization/language-models).
+
+There is no separate Agent endpoint or server-side tool runner. VS Code sends its tool schemas with the conversation; the model returns `tool_calls`; VS Code executes them and sends `role: "tool"` messages with matching `tool_call_id` values on the next turn. The proxy preserves that loop, including parallel calls and their identities. Selecting Agent does not force a model to call tools: inspect the dashboard for incoming `tools`, outgoing `tool_calls`, and subsequent tool results if a model only replies with prose. The built-in editor and terminal tools do not require a GnOuGo MCP server.
 
 V1 supports text conversations, system/developer messages, function tools, parallel tool calls/results, streaming, non-streaming, finish reasons, and reported usage. VS Code executes tools. Ollama tool results are restored to their original call order before forwarding; Anthropic preserves explicit tool-use IDs. Anthropic system/developer messages must precede the conversation.
+
+The installed Copilot Chat 0.66 streaming consumer associates ID-less fragments with its most recent tool call, ignoring the OpenAI `index`. The proxy therefore makes each call's argument fragments contiguous: text and the active call stream immediately, while overlapping calls wait for that call's complete JSON object. IDs and names are emitted once, preserving compatibility with clients that concatenate those fields. Logical parallel calls remain in the same assistant turn. Incomplete/malformed calls fail the stream; assembly is bounded to 128 calls and 1,048,576 tool-data characters per turn. Original upstream chunks remain visible separately in traffic capture. See [protocol inspection and real Agent validation](docs/vscode-agent-protocol.md).
 
 Inline code suggestions, images, embeddings, native structured-output/reasoning translation, Responses/background execution, hosted tool execution, and embedded local runtimes are outside v1. OpenAI-compatible requests retain additional fields unless explicitly rejected by configured metadata; native adapters reject fields they cannot translate. A malformed or interrupted upstream stream is marked failed and closed, without inventing a successful completion.
 
@@ -119,7 +129,27 @@ PLAYWRIGHT_MODULE_PATH=/tmp/gnougo-proxy-browser/node_modules/playwright/index.m
   node scripts/smoke-proxy-copilot-ui.mjs
 ```
 
-The smoke environment uses synthetic credentials and local fake providers. Browser checks cover live output before completion, raw native payloads, filters, setup, pause/resume, reconnect, clearing, and mobile layout. Screenshots go to `artifacts/proxy-copilot/screenshots`. `.github/workflows/test-proxy-copilot.yml` runs the isolated tests and published-binary/browser checks on Linux.
+That smoke environment uses synthetic credentials and local fake providers. Browser checks cover live output before completion, raw native payloads, filters, setup, pause/resume, reconnect, clearing, and mobile layout. Screenshots go to `artifacts/proxy-copilot/screenshots`. `.github/workflows/test-proxy-copilot.yml` runs the isolated tests and published-binary/browser checks on Linux.
+
+### Real desktop VS Code Agent smoke
+
+Start the proxy with a real provider from the ignored development configuration. Use a larger capture budget for the Agent's tool definitions and full history:
+
+```bash
+ProxyCopilot__Capture__MaxBodyBytes=4194304 \
+  dotnet run --project src/GnOuGo.ProxyCopilot.Server
+```
+
+Then run the separate real smoke test (desktop VS Code and Python 3 must be installed):
+
+```bash
+PLAYWRIGHT_MODULE_PATH=/tmp/gnougo-proxy-browser/node_modules/playwright/index.mjs \
+  node scripts/smoke-proxy-copilot-agent.mjs
+```
+
+On macOS the script defaults to `/Applications/Visual Studio Code.app/Contents/MacOS/Code`. Set `VSCODE_EXECUTABLE` for another installation, `VSCODE_SMOKE_EXTENSIONS_DIR` if Copilot is installed separately, `PROXY_SMOKE_URL` for another local port, and optionally `PROXY_AGENT_MODEL_ID` to select an explicit local alias. By default it selects the first configured tool-capable model. It uses the real `/api/setup` configuration, an isolated profile, and an empty temporary workspace. Approve the test's scoped file/terminal actions in that VS Code window. It does not change your normal VS Code profile or implement any tools.
+
+The test drives the actual Chat UI and requires workspace inspection, file creation/read/edit, shell execution, an explicit `get_terminal_output` result, parallel tools, and complete ID-preserving round trips. A fresh nonce is generated by Python inside VS Code's terminal. Success requires the model-created JSON and final answer to match that observed nonce and the computed value 42. It saves a sanitized evidence report and actual editor screenshot in a private temporary directory; inspect screenshots before sharing. Failures produce a nonzero exit code. `PROXY_AGENT_TIMEOUT_MS` adjusts the ten-minute approval timeout. This real test is intentionally separate from CI fixtures and needs an available configured model.
 
 ## Provider acceptance
 

@@ -11,6 +11,7 @@ on:
       - 'tests/GnOuGo.ProxyCopilot.Server.Tests/**'
       - 'tests/GnOuGo.Auth.Core.Tests/**'
       - 'scripts/smoke-proxy-copilot*'
+      - 'scripts/check-proxy-copilot-config.py'
       - '.github/workflows/test-proxy-copilot.yml'
       - 'pnpm-lock.yaml'
       - 'global.json'
@@ -31,6 +32,7 @@ jobs:
           node-version: '22.20.0'
       - name: Build UI and test components
         run: |
+          python3 scripts/check-proxy-copilot-config.py
           corepack enable
           corepack pnpm install --frozen-lockfile
           corepack pnpm --filter gnougo-proxy-copilot-client build
@@ -40,10 +42,13 @@ jobs:
           dotnet test tests/GnOuGo.ProxyCopilot.Server.Tests/GnOuGo.ProxyCopilot.Server.Tests.csproj -p:SkipModelMetadataGeneration=true -warnaserror
       - name: Publish Native AOT
         run: |
+          # Prove local settings cannot accidentally enter published artifacts.
+          echo '{"LocalPublishSentinel":"synthetic-only"}' > src/GnOuGo.ProxyCopilot.Server/appsettings.Development.json
           dotnet publish src/GnOuGo.ProxyCopilot.Server/GnOuGo.ProxyCopilot.Server.csproj \
             -c Release -r linux-x64 --self-contained true -p:PublishAot=true \
             -p:SkipModelMetadataGeneration=true -p:SkipClientBuild=true -warnaserror \
             -o artifacts/publish/proxy-copilot
+          python3 scripts/check-proxy-copilot-config.py --publish artifacts/publish/proxy-copilot
       - name: Published binary and browser smoke
         run: |
           npm install --prefix "$RUNNER_TEMP/proxy-browser" playwright@1.63.0

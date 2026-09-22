@@ -15,6 +15,22 @@ public static class ChatContract
     public static int Integer(JsonNode? node, string field)
         => node is JsonValue value && value.TryGetValue<int>(out var result) ? result : throw Unsupported(field);
 
+    public static JsonObject PrepareRequest(JsonObject request, ModelRoute route)
+    {
+        Validate(request, route);
+        var capabilities = route.Model.Metadata.Capabilities;
+        if (request.ContainsKey("temperature") && (capabilities.SupportsTemperature == false
+            || capabilities.UnsupportedRequestParameters?.Contains("temperature", StringComparer.Ordinal) == true))
+        {
+            // Temperature is an optional sampling hint. Keep the original capture
+            // intact while allowing the upstream model to use its own default.
+            var prepared = (JsonObject)request.DeepClone();
+            prepared.Remove("temperature");
+            return prepared;
+        }
+        return request;
+    }
+
     public static void Validate(JsonObject request, ModelRoute route)
     {
         _ = Bool(request["stream"]);
@@ -69,10 +85,10 @@ public static class ChatContract
                     || !names.Add(Text(function["name"], "tool name")) || function["parameters"] is not JsonObject) throw Unsupported("tools");
             }
         }
-        if (request["temperature"] is not null && route.Model.Metadata.Capabilities.SupportsTemperature == false)
-            throw Unsupported("temperature");
         foreach (var name in route.Model.Metadata.Capabilities.UnsupportedRequestParameters ?? [])
         {
+            // PrepareRequest omits unsupported temperature after validating its value.
+            if (name == "temperature") continue;
             // The OpenAI-compatible adapter translates these two client aliases and
             // validates the emitted field against upstream capabilities itself.
             if (route.Type is "openai" or "copilot" && name is "max_tokens" or "max_completion_tokens") continue;

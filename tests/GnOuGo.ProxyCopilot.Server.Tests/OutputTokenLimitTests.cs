@@ -88,7 +88,7 @@ public sealed class OutputTokenLimitTests
     [InlineData("openai", "{\"max_tokens\":\"100\"}", "max_tokens")]
     [InlineData("openai", "{\"max_tokens\":1.5}", "max_tokens")]
     [InlineData("openai", "{\"max_tokens\":100,\"max_completion_tokens\":200}", "max_tokens")]
-    [InlineData("openai", "{\"temperature\":1}", "temperature")]
+    [InlineData("openai", "{\"response_format\":{\"type\":\"json_object\"}}", "response_format")]
     [InlineData("openai", "{}", "max_tokens,max_completion_tokens")]
     [InlineData("anthropic", "{\"max_tokens\":100}", "max_tokens")]
     public async Task InvalidOrUntranslatableParametersStillFailBeforeDispatch(string type, string fields, string unsupported)
