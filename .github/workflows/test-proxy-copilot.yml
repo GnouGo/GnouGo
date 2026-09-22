@@ -59,11 +59,11 @@ jobs:
           proxy_smoke_pid=$!
           trap 'kill "$proxy_smoke_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 200); do
-            if rg -q '^PASS:' artifacts/proxy-smoke.log; then break; fi
+            if grep -q '^PASS:' artifacts/proxy-smoke.log; then break; fi
             if ! kill -0 "$proxy_smoke_pid" 2>/dev/null; then cat artifacts/proxy-smoke.log; exit 1; fi
             sleep 0.2
           done
-          rg '^PASS:' artifacts/proxy-smoke.log
+          grep '^PASS:' artifacts/proxy-smoke.log
           PLAYWRIGHT_MODULE_PATH="$RUNNER_TEMP/proxy-browser/node_modules/playwright/index.mjs" \
             node scripts/smoke-proxy-copilot-ui.mjs
       - uses: actions/upload-artifact@v4
