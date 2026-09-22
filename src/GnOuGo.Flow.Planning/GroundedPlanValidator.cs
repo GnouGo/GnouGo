@@ -281,6 +281,13 @@ internal sealed class GroundedTypes
             foreach (var operation in scope.Direct.Values)
             {
                 var location = root + "/operations/" + operation.Id;
+                if (operation is InvokeGroundedOperation { Fallback: { } fallback } invocation)
+                    Check(location + "/fallback", () =>
+                    {
+                        var contract = Capability(invocation).OutputSchema;
+                        if (!PlanningContractCompatibility.Fits(Value(scope, fallback), contract.Count == 0 ? Opaque() : contract))
+                            throw new InvalidOperationException("The fallback must satisfy the authoritative result contract; it cannot change the producer's declared fields or nullability.");
+                    });
                 Check(location, () =>
                 {
                     var result = Result(scope, operation.Id);

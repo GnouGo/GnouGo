@@ -7,7 +7,10 @@ internal static class PlanningDiagnosticLocations
     {
         if (state.GroundedPlan is null || state.Graph is null) return state.Diagnostics.ToList();
         var operations = GroundedTraversal.Located(state.GroundedPlan).ToArray();
-        var mapped = state.Diagnostics.Select(d => Map(d)).Distinct().ToList();
+        // A failed workflow call propagates its callee's failure. Keep both in the
+        // scenario evidence, but replan the located cause rather than treating a
+        // generated confirmation wrapper as a defective host operation.
+        var mapped = state.Diagnostics.Where(d => !PropagatedScenarioFailure(d)).Select(d => Map(d)).Distinct().ToList();
         // Keep every decision in session diagnostics; replanning context folds only known producer consequences into their root.
         foreach (var root in mapped.Where(d => d.Code is "SCHEMA_INVALID" or "STRUCTURED_OUTPUT_INVALID").ToArray())
         {
@@ -20,6 +23,23 @@ internal static class PlanningDiagnosticLocations
             mapped[index] = root with { Message = root.Message + " Dependent intent locations: " + string.Join(", ", dependent.Select(d => d.Location).Distinct()) };
         }
         return mapped;
+        bool PropagatedScenarioFailure(PlanningDiagnostic finding)
+        {
+            if (finding.Code != "SCENARIO_EXECUTION_FAILED") return false;
+            var call = state.Graph.Workflows.SelectMany((w, wi) => PlanningGraphValidation.Located(w.Steps, "/workflows/" + wi + "/steps")
+                .Concat(PlanningGraphValidation.Located(w.Finally, "/workflows/" + wi + "/finally")))
+                .FirstOrDefault(n => n.Path == finding.Location && n.Node.Type == "workflow.call").Node;
+            if (call is null || PlanningGraphValidation.Member(call.Input, "ref") is not { Kind: "workflow", Source: { } target }) return false;
+            var index = state.Graph.Workflows.FindIndex(w => w.Key == target);
+            if (index < 0) return false;
+            var targetPath = "/workflows/" + index + "/";
+            return state.Scenarios.Where(s => s.Outcome != "passed").Any(s =>
+            {
+                var failures = s.Diagnostics.Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, state.Graph))
+                    .Where(d => d.Required && d.Code == "SCENARIO_EXECUTION_FAILED").ToArray();
+                return failures.Any(d => d.Location == finding.Location) && failures.Any(d => d.Location.StartsWith(targetPath, StringComparison.Ordinal));
+            });
+        }
         PlanningDiagnostic Map(PlanningDiagnostic finding, HashSet<string>? captures = null)
         {
             if (finding.ValidationStage is "intent" or "fixtures" || !finding.Location.StartsWith("/workflows/", StringComparison.Ordinal)) return finding;
