@@ -1,5 +1,7 @@
 # GnOuGo.Agent.Shared
 
+Planning validation DTOs add optional `ValidationStage`, `Rule` and `Computation` context. Computation details include the failing expression, inference limitation, receiver/argument contracts, local expression origin and root producer location. Existing four-argument diagnostic construction remains compatible; this metadata grants no approval or execution authority.
+
 Provider-neutral chat and planning API DTOs for Agent.Server and its consumers.
 This .NET 10 library has no project dependencies and can be packaged separately.
 

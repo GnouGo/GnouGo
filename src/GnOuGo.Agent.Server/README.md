@@ -676,6 +676,8 @@ when trace links have expired. See [configuration, retention and limitations](..
 
 ## Planner decisions
 
+Planner findings expose expandable computation details: the failing expression, where its value came from, known type contracts and the root producer blocking dependent operations. The API carries the same optional context. These details remain in encrypted, tenant-scoped planning payloads; old sessions without them remain readable. See [computation inference verification](../../docs/planner-computation-inference-2026-09-23.md).
+
 The workflow designer and chat offer Interactive (default) and Auto planning modes. Interactive cards show the preferred business option, alternatives, context and optional custom text. Submit resumes the saved phase; Cancel planning ends the session. Switching a pending decision to Auto records the preferred answer and continues. Decision history includes automatic reasons. FinalReview and runtime permissions remain separate.
 
 `POST /api/planning` accepts `mode`. Planning commands support `answer_decision` (`expectedRevision`, `decisionAnswer: {decisionId, optionId}` or `{decisionId, text}`) and `configure_mode` (`mode`). Chat clients use `GET /api/chat/conversations/{conversationId}/planning` and `POST /api/chat/conversations/{conversationId}/planning/{id}/commands`. Chat creation accepts `planningMode`.

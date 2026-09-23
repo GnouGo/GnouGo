@@ -33,6 +33,8 @@ Scenario failures retain their full evidence. Replanning omits a propagated work
 
 ## Planner decisions
 
+Technical computation failures follow bounded repair, independently of business decisions. Core publishes the statically supported computation profile consumed by binding and replanning prompts. Direct scalar `String` and URI encode/decode calls retain their successful string type; unknown contracts still require explicit validation before projection. Optional diagnostic context records expression provenance, known contracts and root producer locations so consumers blocked by one computation do not appear to require separate business choices. Existing schema-8 diagnostic serialization is unchanged when context is absent.
+
 One provider-neutral decision contract adds Auto and Interactive modes without changing this pipeline. New sessions default to Interactive. Validated business alternatives can pause semantic planning, grounding selection after full coverage, binding, or scoped replanning. A durable continuation retains the operation, action/subgraph scope, candidate results and semantic/catalog fingerprint. Option answers apply saved results; custom answers are scoped model input and must pass the same deterministic validators.
 
 Auto checkpoints the preferred selection and reason before continuing. Interactive checkpoints `waiting_for_decision` and requires an explicit revision-checked answer. A mode change to Auto resolves a pending decision; cancellation retains the journal. Technical repairs, deterministic choices, host defects, permissions and executor plumbing do not request decisions. Runtime `human.input` and FinalReview approval remain independent.

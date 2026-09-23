@@ -1,5 +1,7 @@
 # GnOuGo.Flow — YAML Workflow DSL Engine
 
+`ExpressionContractInference` models successful results without executing sample data. `ComputationInferenceProfile` documents supported scalar conversions and conservatively excludes shadowed or reassigned intrinsic names. `String` and URI encode/decode calls over one declared JSON scalar infer strings, while opaque/container inputs and unsupported forms remain uninferred. Runtime exceptions and explicit validation boundaries remain authoritative; scalar conversion is not business validation. Provider-neutral `PlanningDiagnostic.Computation` optionally carries expression, contract and producer context for consumers.
+
 `GeneratedFunctionDocumentation.Validate` exposes the generated-workflow JSDoc
 requirements for earlier construction checks. It validates manually authored generated-function contracts and reports missing
 typed parameters and return documentation. Business intent does not contain helper functions.
