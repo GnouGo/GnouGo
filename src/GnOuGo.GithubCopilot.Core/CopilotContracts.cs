@@ -59,7 +59,13 @@ public sealed record CopilotRuntimeConfiguration(
     /// to the higher-risk behavior deliberately.
     /// </summary>
     public bool EnableSandboxBypassGrants { get; init; }
+    public bool UseSessionFileSystem { get; init; }
+    public string? LogLevel { get; init; }
+    public CopilotTelemetryConfiguration? Telemetry { get; init; }
 }
+
+public sealed record CopilotTelemetryConfiguration(string ExporterType, string? OtlpEndpoint, string? FilePath, string SourceName, bool CaptureContent);
+public sealed record CopilotUsage(long? OutputTokens, string? RequestId, string? InteractionId);
 
 public sealed record CopilotProviderResolution(string ProviderName, string Model, ProviderConfig Provider);
 
@@ -159,7 +165,11 @@ public sealed record CopilotSendRequest(
     string DeliveryMode = "enqueue",
     string? AgentMode = null,
     IReadOnlyList<CopilotAttachment>? Attachments = null,
-    int? TimeoutSeconds = null);
+    int? TimeoutSeconds = null)
+{
+    public IReadOnlyDictionary<string, string>? RequestHeaders { get; init; }
+    [JsonIgnore] public Action<CopilotStreamEvent>? Progress { get; init; }
+}
 
 public sealed record CopilotSendResult(
     string Handle,
@@ -172,6 +182,8 @@ public sealed record CopilotSendResult(
     [property: Description("Whether the assistant turn completed. This does not certify that the requested work succeeded; use verified execution observations to establish its outcome.")]
     bool Completed = true)
 {
+    public CopilotUsage? Usage { get; init; }
+    public IReadOnlyList<string> ModifiedFiles { get; init; } = [];
     private readonly IReadOnlyList<CopilotToolExecutionObservation> _toolExecutions = [];
     [Description("Execution observations captured directly from SDK tool events during this invocation, separate from assistant claims. Consume these existing results to verify commanded work; no separate observation tool is needed. Empty observations, missing completion, missing exit codes, or conflicting completions cannot establish successful work.")]
     public IReadOnlyList<CopilotToolExecutionObservation> ToolExecutions { get => _toolExecutions; init => _toolExecutions = value ?? []; }

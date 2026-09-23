@@ -6,24 +6,27 @@ using GnOuGo.Mcp.Core;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
+using ModelContextProtocol.Protocol;
 
 namespace GnOuGo.GithubCopilot.Mcp;
 
 [McpServerToolType]
-public sealed class CodeTools
+internal sealed class CodeTools
 {
     private const string RequiredProjectRootDescription = "Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory. Null, omitted, empty, absolute, file URI, home-relative, parent-traversal, and invented values are invalid.";
     private const string RequiredProjectRootToolSuffix = " projectRoot consumes a required workspace.directory artifact and must identify an existing workspace-relative project root.";
 
     private readonly CodeProjectService _projectService;
-    private readonly ICodeAssistantClient _assistantClient;
+    private readonly CopilotCodeService _assistantClient;
     private readonly ILogger<CodeTools> _logger;
+    private readonly McpCopilotHumanInputProvider _humanInput;
 
-    public CodeTools(CodeProjectService projectService, ICodeAssistantClient assistantClient, ILogger<CodeTools> logger)
+    public CodeTools(CodeProjectService projectService, CopilotCodeService assistantClient, ILogger<CodeTools> logger, McpCopilotHumanInputProvider humanInput)
     {
         _projectService = projectService;
         _assistantClient = assistantClient;
         _logger = logger;
+        _humanInput = humanInput;
     }
 
     [McpServerTool(Name = "code_get_policy", UseStructuredContent = true, OutputSchemaType = typeof(CodePolicyInfo)), Description("Returns policy for the legacy code_* tools: allowed roots/extensions, write mode, limits, and Copilot/GitHub Models auth source status. Use it only when a code_* operation needs the default workspace. Do not use its provider or model fields to configure copilot_* tools; those tools resolve the host default provider internally when their optional overrides are omitted.")]
@@ -57,13 +60,16 @@ public sealed class CodeTools
         [Description("Coding task to perform.")] string task,
         [Description("Optional JSON array of file paths relative to the existing projectRoot, for example [\"src/App.cs\"].")] string? contextFilesJson = null,
         [Description("Optional configured LLM provider name. When provided, Code:Copilot:Providers:<name> configures a custom Copilot provider for this call.")] string? provider = null,
+        string? tenantId = null,
+        RequestContext<CallToolRequestParams>? requestContext = null,
         CancellationToken cancellationToken = default)
         => await ExecuteAsync("code_suggest_change", async () =>
         {
+            using var humanScope = requestContext is null ? null : _humanInput.Push(requestContext.Server, cancellationToken);
             var contextFiles = ParseContextFiles(contextFilesJson);
             var files = _projectService.ReadContextFiles(projectRoot, contextFiles);
             var resolvedRoot = _projectService.GetSummary(projectRoot).RootPath;
-            return await _assistantClient.SuggestChangeAsync(task, resolvedRoot, files, provider, cancellationToken);
+            return await _assistantClient.SuggestChangeAsync(task, resolvedRoot, files, provider, tenantId, cancellationToken);
         });
 
     [McpServerTool(Name = "code_agent_edit", UseStructuredContent = true, OutputSchemaType = typeof(CodeAgentEditResult)), Description("Runs GitHub Copilot SDK in agent mode with controlled file editing inside an existing project root. Requires Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
@@ -73,13 +79,16 @@ public sealed class CodeTools
         [Description("Coding task to implement by editing files.")] string task,
         [Description("Optional JSON array of file paths relative to the existing projectRoot, for example [\"src/App.cs\"].")] string? contextFilesJson = null,
         [Description("Optional configured LLM provider name. When provided, Code:Copilot:Providers:<name> configures a custom Copilot provider for this call.")] string? provider = null,
+        string? tenantId = null,
+        RequestContext<CallToolRequestParams>? requestContext = null,
         CancellationToken cancellationToken = default)
         => await ExecuteAsync("code_agent_edit", async () =>
         {
+            using var humanScope = requestContext is null ? null : _humanInput.Push(requestContext.Server, cancellationToken);
             var contextFiles = ParseContextFiles(contextFilesJson);
             var files = _projectService.ReadContextFiles(projectRoot, contextFiles);
             var resolvedRoot = _projectService.GetSummary(projectRoot).RootPath;
-            return await _assistantClient.AgentEditAsync(task, resolvedRoot, files, provider, cancellationToken);
+            return await _assistantClient.AgentEditAsync(task, resolvedRoot, files, provider, tenantId, cancellationToken);
         });
 
     [McpServerTool(Name = "code_write_file", UseStructuredContent = true, OutputSchemaType = typeof(CodeWriteResult)), Description("Writes one allowlisted text/code file inside an existing project root. Disabled unless Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]

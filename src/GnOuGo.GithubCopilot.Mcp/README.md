@@ -112,7 +112,22 @@ Policy, input, provider, cancellation, and unexpected tool failures are returned
 
 ## Agent edit mode
 
-`code_agent_edit` runs the GitHub Copilot SDK with `Mode=agent` and a local `SessionFsProvider` implementation.
+`code_agent_edit` is a compatibility wrapper over Core's ephemeral managed interactive
+session. `code_suggest_change` also uses Core, with tool execution disabled. MCP never
+creates SDK clients or sessions. The shared configuration builder preserves provider,
+telemetry, trace, and timeout settings for both legacy and managed tools.
+
+All agentic sessions use the host's controlled project filesystem through Core. It
+rejects traversal, symbolic links, protected directories, disallowed file types and
+oversized content, and applies `Code:AllowWrites` to every mutation. Recursive moves
+and deletions validate all descendants first. Internal SDK state is isolated in memory.
+Commands retain existing CLI sandbox and Core HITL settings; filesystem routing alone
+does not contain shell commands.
+
+Legacy Copilot calls accept optional `tenantId`, or use `_meta.gnougo.tenantId` like the
+managed tools. Agentic execution defaults to interactive permission requests and fails
+closed when human input is unavailable. Broad approval is disabled in shipped defaults.
+`code_agent_edit` additionally exposes Core's `toolExecutions` observations.
 This lets Copilot edit files directly through the MCP process while still enforcing the same project policy as manual file writes:
 
 - `Code:AllowWrites` must be `true`.

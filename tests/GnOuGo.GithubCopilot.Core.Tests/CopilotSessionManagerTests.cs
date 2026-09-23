@@ -22,6 +22,45 @@ public sealed class CopilotSessionManagerTests
     }
 
     [Fact]
+    public async Task FileSystem_IsOwnedBySessionAndRetainedAcrossReconnect()
+    {
+        var sdk = new FakeClientFactory();
+        var fs = new TestSessionFileSystemFactory();
+        await using var manager = new CopilotSessionManager(sdk, fileSystems: fs);
+        var request = CreateRequest("tenant-a");
+        request = request with { Configuration = request.Configuration with { UseSessionFileSystem = true } };
+        var created = await manager.CreateAsync(request, TestContext.Current.CancellationToken);
+        var first = sdk.LastConfiguration!;
+        first.SessionState!.Write(CopilotTransientSessionState.Root + "/events.json", "saved", false);
+        await manager.DisconnectAsync(request.Context, created.Handle, TestContext.Current.CancellationToken);
+        Assert.False(fs.Instances[0].Disposed);
+        await manager.ResumeAsync(new(request.Context, created.Handle), TestContext.Current.CancellationToken);
+        Assert.Same(first.FileSystem, sdk.LastConfiguration!.FileSystem);
+        Assert.Same(first.SessionState, sdk.LastConfiguration.SessionState);
+        Assert.Equal("saved", sdk.LastConfiguration.SessionState!.Read(CopilotTransientSessionState.Root + "/events.json"));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => manager.ResumeAsync(new(Context("tenant-b"), created.Handle), TestContext.Current.CancellationToken));
+        var other = await manager.CreateAsync(request, TestContext.Current.CancellationToken);
+        Assert.NotSame(first.FileSystem, sdk.LastConfiguration.FileSystem);
+        Assert.False(sdk.LastConfiguration.SessionState!.Exists(CopilotTransientSessionState.Root + "/events.json"));
+        await manager.DeleteAsync(request.Context, created.Handle, TestContext.Current.CancellationToken);
+        Assert.True(fs.Instances[0].Disposed);
+        Assert.False(first.SessionState.Exists(CopilotTransientSessionState.Root + "/events.json"));
+        Assert.False(fs.Instances[1].Disposed);
+    }
+
+    [Fact]
+    public async Task FileSystem_CreateFailureReleasesHostResources()
+    {
+        var fs = new TestSessionFileSystemFactory();
+        await using var manager = new CopilotSessionManager(new FakeClientFactory { CreateException = new IOException("failure") }, fileSystems: fs);
+        var request = CreateRequest("tenant-a");
+        request = request with { Configuration = request.Configuration with { UseSessionFileSystem = true } };
+        await Assert.ThrowsAsync<IOException>(() => manager.CreateAsync(request, TestContext.Current.CancellationToken));
+        Assert.True(Assert.Single(fs.Instances).Disposed);
+        Assert.Empty(manager.List("tenant-a"));
+    }
+
+    [Fact]
     public async Task DuplicateBlockingFindingsRemainBlockingAfterCommentSuppression()
     {
         var factory = new FakeClientFactory { Response = """[{"severity":"High","category":"correctness","confidence":0.9,"path":"file.cs","side":"Right","startLine":1,"endLine":1,"evidence":"new","explanation":"Existing blocker"}]""" };

@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -45,10 +45,10 @@ public sealed class CodeToolsTests : IDisposable
 	public async Task SuggestChangeAsync_ReadsContextAndDelegatesToAssistant()
 	{
 		var settings = CreateSettings();
-		var assistant = new CapturingAssistantClient();
-		var tools = new CodeTools(CreateService(settings), assistant, NullLogger<CodeTools>.Instance);
+		var assistant = new CopilotTestHost(settings, _root);
+		var tools = new CodeTools(CreateService(settings), assistant.Service, NullLogger<CodeTools>.Instance, assistant.Human);
 
-		var result = await tools.SuggestChangeAsync(".", "Add a greeting method.", "[\"src/Program.cs\"]", cancellationToken: TestContext.Current.CancellationToken);
+		var result = await tools.SuggestChangeAsync(".", "Add a greeting method.", "[\"src/Program.cs\"]", tenantId: "test", cancellationToken: TestContext.Current.CancellationToken);
 
 		var suggestion = Assert.IsType<CodeSuggestionResult>(result);
 		Assert.Equal("Add a greeting method.", suggestion.Task);
@@ -56,19 +56,19 @@ public sealed class CodeToolsTests : IDisposable
 		Assert.Contains(suggestion.ProgressEvents, e => e.Kind == "completed" && e.Message == "fake suggestion completed");
 		Assert.Equal(_root, assistant.ProjectRoot);
 		Assert.Null(assistant.ProviderName);
-		var file = Assert.Single(assistant.ContextFiles);
-		Assert.Equal("src\\Program.cs", file.Path.Replace('/', '\\'));
-		Assert.Contains("Hello", file.Content, StringComparison.Ordinal);
+		Assert.Single(suggestion.Files);
+		Assert.Contains("src/Program.cs", assistant.LastRequest!.Prompt.Replace('\\', '/'));
+		Assert.Contains("Hello", assistant.LastRequest.Prompt);
 	}
 
 	[Fact]
 	public async Task SuggestChangeAsync_ForwardsOptionalProviderToAssistant()
 	{
 		var settings = CreateSettings();
-		var assistant = new CapturingAssistantClient();
-		var tools = new CodeTools(CreateService(settings), assistant, NullLogger<CodeTools>.Instance);
+		var assistant = new CopilotTestHost(settings, _root);
+		var tools = new CodeTools(CreateService(settings), assistant.Service, NullLogger<CodeTools>.Instance, assistant.Human);
 
-		var result = await tools.SuggestChangeAsync(".", "Use a custom provider.", provider: "CustomCopilot", cancellationToken: TestContext.Current.CancellationToken);
+		var result = await tools.SuggestChangeAsync(".", "Use a custom provider.", provider: "CustomCopilot", tenantId: "test", cancellationToken: TestContext.Current.CancellationToken);
 
 		var suggestion = Assert.IsType<CodeSuggestionResult>(result);
 		Assert.Equal("fake suggestion", suggestion.Suggestion);
@@ -79,10 +79,10 @@ public sealed class CodeToolsTests : IDisposable
 	public async Task SuggestChangeAsync_WhenInputJsonFails_ReturnsStructuredFailure()
 	{
 		var settings = CreateSettings();
-		var assistant = new CapturingAssistantClient();
-		var tools = new CodeTools(CreateService(settings), assistant, NullLogger<CodeTools>.Instance);
+		var assistant = new CopilotTestHost(settings, _root);
+		var tools = new CodeTools(CreateService(settings), assistant.Service, NullLogger<CodeTools>.Instance, assistant.Human);
 
-		var result = await tools.SuggestChangeAsync(".", "Plan this change.", "{", cancellationToken: TestContext.Current.CancellationToken);
+		var result = await tools.SuggestChangeAsync(".", "Plan this change.", "{", tenantId: "test", cancellationToken: TestContext.Current.CancellationToken);
 
 		Assert.False(result.Success);
 		Assert.False(result.Ok);
@@ -96,10 +96,10 @@ public sealed class CodeToolsTests : IDisposable
 	{
 		var settings = CreateSettings();
 		settings.AllowWrites = true;
-		var assistant = new CapturingAssistantClient();
-		var tools = new CodeTools(CreateService(settings), assistant, NullLogger<CodeTools>.Instance);
+		var assistant = new CopilotTestHost(settings, _root);
+		var tools = new CodeTools(CreateService(settings), assistant.Service, NullLogger<CodeTools>.Instance, assistant.Human);
 
-		var result = await tools.AgentEditAsync(".", "Implement the change.", "[\"src/Program.cs\"]", provider: "CustomCopilot", cancellationToken: TestContext.Current.CancellationToken);
+		var result = await tools.AgentEditAsync(".", "Implement the change.", "[\"src/Program.cs\"]", provider: "CustomCopilot", tenantId: "test", cancellationToken: TestContext.Current.CancellationToken);
 
 		var edit = Assert.IsType<CodeAgentEditResult>(result);
 		Assert.Equal("Implement the change.", edit.Task);
@@ -109,20 +109,20 @@ public sealed class CodeToolsTests : IDisposable
 		Assert.Equal(_root, assistant.ProjectRoot);
 		Assert.Equal("CustomCopilot", assistant.ProviderName);
 		Assert.True(assistant.AgentEditCalled);
-		var file = Assert.Single(assistant.ContextFiles);
-		Assert.Equal("src\\Program.cs", file.Path.Replace('/', '\\'));
+		Assert.Single(edit.ContextFiles);
+		Assert.Contains("Hello", assistant.LastRequest!.Prompt);
+		Assert.Equal(1, assistant.DeleteCount);
 	}
 
 	[Fact]
-	public void BuildClientOptions_ConfiguresSessionFsWhenEnabled()
+	public void BuildRuntimeConfiguration_ConfiguresSessionFsWhenEnabled()
 	{
 		var settings = CreateSettings();
 
-		var options = GitHubCopilotCodeClient.BuildClientOptions(settings, _root, "ghp_test-token", enableSessionFs: true);
+		var options = CopilotMcpConfiguration.BuildRuntimeConfiguration(settings, _root, "ghp_test-token");
 
-		Assert.NotNull(options.SessionFs);
-		Assert.Equal(_root, options.SessionFs!.InitialWorkingDirectory);
-		Assert.Equal(".gnougo/copilot-session-state", options.SessionFs.SessionStatePath);
+		Assert.True(options.UseSessionFileSystem);
+		Assert.Equal(_root, options.WorkingDirectory);
 	}
 
 	[Fact]
@@ -137,34 +137,33 @@ public sealed class CodeToolsTests : IDisposable
 		settings.AllowedWorkingRoots = [];
 		var policy = new CodePolicy(settings, _root, desktop);
 		var projectService = new CodeProjectService(policy, Options.Create(settings));
-		var assistant = new CapturingAssistantClient();
-		var tools = new CodeTools(projectService, assistant, NullLogger<CodeTools>.Instance);
+		var assistant = new CopilotTestHost(settings, _root, policy);
+		var tools = new CodeTools(projectService, assistant.Service, NullLogger<CodeTools>.Instance, assistant.Human);
 
-		var result = await tools.SuggestChangeAsync("workspace/oidc-client", "Plan this change.", "[\"src/Program.cs\"]", cancellationToken: TestContext.Current.CancellationToken);
+		var result = await tools.SuggestChangeAsync("workspace/oidc-client", "Plan this change.", "[\"src/Program.cs\"]", tenantId: "test", cancellationToken: TestContext.Current.CancellationToken);
 
 		var suggestion = Assert.IsType<CodeSuggestionResult>(result);
 		Assert.Equal("fake suggestion", suggestion.Suggestion);
 		Assert.Equal(expectedProjectRoot, assistant.ProjectRoot);
-		var file = Assert.Single(assistant.ContextFiles);
-		Assert.Equal("src\\Program.cs", file.Path.Replace('/', '\\'));
-		Assert.Contains("Desktop workspace", file.Content, StringComparison.Ordinal);
+		Assert.Single(suggestion.Files);
+		Assert.Contains("Desktop workspace", assistant.LastRequest!.Prompt);
 	}
 
 	[Fact]
-	public void BuildClientOptions_UsesExplicitGitHubTokenAndProjectRoot()
+	public void BuildRuntimeConfiguration_UsesExplicitGitHubTokenAndProjectRoot()
 	{
 		var settings = CreateSettings();
 		settings.Copilot.UseLoggedInUser = false;
 		settings.Copilot.LogLevel = "debug";
 		settings.Copilot.Mode = "agent";
 
-		var options = GitHubCopilotCodeClient.BuildClientOptions(settings, _root, "ghp_test-token");
+		var options = CopilotMcpConfiguration.BuildRuntimeConfiguration(settings, _root, "ghp_test-token");
 
 		Assert.Equal(_root, options.WorkingDirectory);
 		Assert.Equal("ghp_test-token", options.GitHubToken);
 		Assert.Equal<bool?>(false, options.UseLoggedInUser);
 		Assert.Equal("debug", options.LogLevel?.ToString());
-		Assert.Equal("agent", GitHubCopilotCodeClient.NormalizeMessageMode(settings.Copilot.Mode));
+		Assert.Equal("agent", CopilotMcpConfiguration.NormalizeMessageMode(settings.Copilot.Mode));
 		Assert.NotNull(options.Telemetry);
 		Assert.Equal("http://127.0.0.1:4317", options.Telemetry.OtlpEndpoint);
 	}
@@ -180,25 +179,25 @@ public sealed class CodeToolsTests : IDisposable
 	[InlineData("plan", "ask")]
 	public void NormalizeMessageMode_MapsConfiguredValueToCopilotCliMode(string? configured, string expected)
 	{
-		Assert.Equal(expected, GitHubCopilotCodeClient.NormalizeMessageMode(configured));
+		Assert.Equal(expected, CopilotMcpConfiguration.NormalizeMessageMode(configured));
 	}
 
 	[Fact]
 	public void NormalizeMessageMode_RejectsUnsupportedValue()
 	{
-		var ex = Assert.Throws<InvalidOperationException>(() => GitHubCopilotCodeClient.NormalizeMessageMode("review"));
+		var ex = Assert.Throws<InvalidOperationException>(() => CopilotMcpConfiguration.NormalizeMessageMode("review"));
 
 		Assert.Contains("Unsupported Copilot mode", ex.Message, StringComparison.OrdinalIgnoreCase);
 		Assert.Contains("ask, edit, agent", ex.Message, StringComparison.OrdinalIgnoreCase);
 	}
 
 	[Fact]
-	public void BuildClientOptions_AllowsMissingTokenWhenUseLoggedInUserIsEnabled()
+	public void BuildRuntimeConfiguration_AllowsMissingTokenWhenUseLoggedInUserIsEnabled()
 	{
 		var settings = CreateSettings();
 		settings.Copilot.UseLoggedInUser = true;
 
-		var options = GitHubCopilotCodeClient.BuildClientOptions(settings, _root, token: null);
+		var options = CopilotMcpConfiguration.BuildRuntimeConfiguration(settings, _root, token: null);
 
 		Assert.Equal(_root, options.WorkingDirectory);
 		Assert.Equal<bool?>(true, options.UseLoggedInUser);
@@ -206,36 +205,13 @@ public sealed class CodeToolsTests : IDisposable
 	}
 
 	[Fact]
-	public void BuildClientOptions_RequiresTokenWhenUseLoggedInUserIsDisabled()
+	public void BuildRuntimeConfiguration_PreservesByokConfigurationWithoutGitHubToken()
 	{
 		var settings = CreateSettings();
 		settings.Copilot.UseLoggedInUser = false;
-
-		var ex = Assert.Throws<ArgumentException>(() =>
-			GitHubCopilotCodeClient.BuildClientOptions(settings, _root, token: null));
-
-		Assert.Contains("GitHub token is required", ex.Message, StringComparison.OrdinalIgnoreCase);
-	}
-
-	[Theory]
-	[InlineData(null, "warning")]
-	[InlineData("", "warning")]
-	[InlineData("warn", "warning")]
-	[InlineData("WARNING", "warning")]
-	[InlineData("trace", "all")]
-	[InlineData("debug", "debug")]
-	[InlineData("default", null)]
-	public void NormalizeLogLevel_MapsConfiguredValueToCopilotCliValue(string? configured, string? expected)
-	{
-		Assert.Equal(expected, GitHubCopilotCodeClient.NormalizeLogLevel(configured)?.ToString());
-	}
-
-	[Fact]
-	public void NormalizeLogLevel_RejectsUnsupportedValue()
-	{
-		var ex = Assert.Throws<InvalidOperationException>(() => GitHubCopilotCodeClient.NormalizeLogLevel("verbose"));
-
-		Assert.Contains("Unsupported Copilot log level", ex.Message, StringComparison.OrdinalIgnoreCase);
+		var options = CopilotMcpConfiguration.BuildRuntimeConfiguration(settings, _root, null);
+		Assert.False(options.UseLoggedInUser);
+		Assert.Null(options.GitHubToken);
 	}
 
 	[Fact]
@@ -259,7 +235,7 @@ public sealed class CodeToolsTests : IDisposable
 
 		using var _ = accessor.Push(context);
 
-		var headers = GitHubCopilotCodeClient.BuildRequestHeaders(settings, accessor);
+		var headers = CopilotMcpConfiguration.BuildRequestHeaders(settings, accessor);
 
 		Assert.NotNull(headers);
 		Assert.Equal(context.TraceParent, headers["traceparent"]);
@@ -357,7 +333,7 @@ public sealed class CodeToolsTests : IDisposable
 			Environment.SetEnvironmentVariable("GNouGo__TraceId", "11112222333344445555666677778888");
 			Environment.SetEnvironmentVariable("GNouGo__SpanId", "9999aaaabbbbcccc");
 
-			var env = GitHubCopilotCodeClient.BuildClientEnvironment(settings);
+			var env = CopilotMcpConfiguration.BuildClientEnvironment(settings);
 
 			Assert.NotNull(env);
 			Assert.Equal("00-11112222333344445555666677778888-9999aaaabbbbcccc-01", env["TRACEPARENT"]);
@@ -378,56 +354,6 @@ public sealed class CodeToolsTests : IDisposable
 			Environment.SetEnvironmentVariable("GNouGo__TraceId", previousTraceId);
 			Environment.SetEnvironmentVariable("GNouGo__SpanId", previousSpanId);
 		}
-	}
-
-	[Fact]
-	public void CopilotSdkProgressMapper_MapsToolProgressToStableGnOuGoProgressEvent()
-	{
-		var mapped = CopilotSdkProgressEventMapper.TryMap(
-			"tool.execution_progress",
-			new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
-			{
-				["ProgressMessage"] = "Reading project files.",
-				["McpServerName"] = "filesystem",
-				["McpToolName"] = "read_file"
-			},
-			"2026-05-20T10:15:30Z",
-			out var progressEvent);
-
-		Assert.True(mapped);
-		Assert.Equal("sdk_tool_execution_progress", progressEvent.Kind);
-		Assert.Equal("thinking", progressEvent.Level);
-		Assert.Equal("Reading project files.", progressEvent.Message);
-		Assert.Equal(DateTimeOffset.Parse("2026-05-20T10:15:30Z").ToUniversalTime(), progressEvent.Timestamp);
-		Assert.Null(progressEvent.File);
-	}
-
-	[Fact]
-	public void CopilotSdkProgressMapper_DoesNotExposeReasoningOrStreamingDeltas()
-	{
-		var reasoningDeltaMapped = CopilotSdkProgressEventMapper.TryMap(
-			"assistant.reasoning_delta",
-			new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
-			{
-				["DeltaContent"] = "private incremental reasoning"
-			},
-			"2026-05-20T10:15:30Z",
-			out _);
-
-		var reasoningMapped = CopilotSdkProgressEventMapper.TryMap(
-			"assistant.reasoning",
-			new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
-			{
-				["Content"] = "private complete reasoning"
-			},
-			"2026-05-20T10:15:30Z",
-			out var progressEvent);
-
-		Assert.False(reasoningDeltaMapped);
-		Assert.True(reasoningMapped);
-		Assert.Equal("sdk_assistant_reasoning", progressEvent.Kind);
-		Assert.Equal("Copilot produced a reasoning milestone.", progressEvent.Message);
-		Assert.DoesNotContain("private", progressEvent.Message, StringComparison.OrdinalIgnoreCase);
 	}
 
 	private CodeProjectService CreateService(CodeServerSettings settings)
@@ -472,52 +398,4 @@ public sealed class CodeToolsTests : IDisposable
 		catch (UnauthorizedAccessException) { }
 	}
 
-	private sealed class CapturingAssistantClient : ICodeAssistantClient
-	{
-		public string? ProjectRoot { get; private set; }
-		public string? ProviderName { get; private set; }
-		public bool AgentEditCalled { get; private set; }
-		public IReadOnlyList<CodeFileContent> ContextFiles { get; private set; } = [];
-
-		public Task<CodeSuggestionResult> SuggestChangeAsync(
-			string task,
-			string projectRoot,
-			IReadOnlyList<CodeFileContent> contextFiles,
-			string? providerName,
-			CancellationToken cancellationToken)
-		{
-			ProjectRoot = projectRoot;
-			ProviderName = providerName;
-			ContextFiles = contextFiles;
-			return Task.FromResult(new CodeSuggestionResult(
-				task,
-				contextFiles.Select(static file => file.Path).ToArray(),
-				"fake suggestion",
-				"fake-model",
-				null,
-				[new CodeProgressEvent("completed", "info", "fake suggestion completed", DateTimeOffset.UtcNow)]));
-		}
-
-		public Task<CodeAgentEditResult> AgentEditAsync(
-			string task,
-			string projectRoot,
-			IReadOnlyList<CodeFileContent> contextFiles,
-			string? providerName,
-			CancellationToken cancellationToken)
-		{
-			AgentEditCalled = true;
-			ProjectRoot = projectRoot;
-			ProviderName = providerName;
-			ContextFiles = contextFiles;
-			return Task.FromResult(new CodeAgentEditResult(
-				task,
-				contextFiles.Select(static file => file.Path).ToArray(),
-				["src/Program.cs"],
-				"fake edit summary",
-				"fake-model",
-				null,
-				[new CodeProgressEvent("file_modified", "info", "Modified src/Program.cs.", DateTimeOffset.UtcNow, "src/Program.cs")],
-				"fake edit summary\n\nModified files:\n- src/Program.cs"));
-		}
-	}
 }

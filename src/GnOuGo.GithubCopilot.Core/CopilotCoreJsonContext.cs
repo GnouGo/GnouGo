@@ -32,6 +32,8 @@ namespace GnOuGo.GithubCopilot.Core;
 [JsonSerializable(typeof(CopilotWorkspaceFileResult))]
 [JsonSerializable(typeof(IReadOnlyList<string>))]
 [JsonSerializable(typeof(string))]
+[JsonSerializable(typeof(object))]
+[JsonSerializable(typeof(JsonElement))]
 [JsonSerializable(typeof(CopilotPermissionGrant))]
 [JsonSerializable(typeof(IReadOnlyList<CopilotPermissionGrant>))]
 [JsonSerializable(typeof(CopilotPermissionGrantListResult))]

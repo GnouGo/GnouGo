@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Text.Json.Serialization;
 
 namespace GnOuGo.GithubCopilot.Mcp;
@@ -117,6 +117,7 @@ public sealed record CodeAgentEditResult(
     [property: JsonPropertyName("error_code")] string? ErrorCode = null,
     [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
 {
+    public IReadOnlyList<GnOuGo.GithubCopilot.Core.CopilotToolExecutionObservation> ToolExecutions { get; init; } = [];
     public bool Ok => Success;
 }
 

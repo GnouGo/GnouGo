@@ -73,7 +73,9 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         services.AddSingleton(Options.Create(settings));
         services.AddSingleton(new CodePolicy(settings, _root));
         services.AddSingleton<CodeProjectService>();
-        services.AddSingleton<ICodeAssistantClient, NoopAssistantClient>();
+        var copilot = new CopilotTestHost(settings, _root);
+        services.AddSingleton(copilot.Service);
+        services.AddSingleton(copilot.Human);
         services.AddTransient<CodeTools>();
         services
             .AddMcpServer(options =>
@@ -515,22 +517,4 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         catch (UnauthorizedAccessException) { }
     }
 
-    private sealed class NoopAssistantClient : ICodeAssistantClient
-    {
-        public Task<CodeSuggestionResult> SuggestChangeAsync(
-            string task,
-            string projectRoot,
-            IReadOnlyList<CodeFileContent> contextFiles,
-            string? providerName,
-            CancellationToken cancellationToken)
-            => Task.FromResult(new CodeSuggestionResult(task, [], "", null, null, []));
-
-        public Task<CodeAgentEditResult> AgentEditAsync(
-            string task,
-            string projectRoot,
-            IReadOnlyList<CodeFileContent> contextFiles,
-            string? providerName,
-            CancellationToken cancellationToken)
-            => Task.FromResult(new CodeAgentEditResult(task, [], [], "", null, null, []));
-    }
 }

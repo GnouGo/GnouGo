@@ -11,6 +11,7 @@ public sealed class CopilotSessionManager : IAsyncDisposable
     private readonly ICopilotPermissionGrantStore? _permissionGrantStore;
     private readonly ICopilotPermissionEventSink? _permissionEventSink;
     private readonly TimeProvider _timeProvider;
+    private readonly ICopilotSessionFileSystemFactory? _fileSystems;
     private readonly ConcurrentDictionary<string, ManagedEntry> _entries = new(StringComparer.Ordinal);
     private int _disposed;
 
@@ -20,7 +21,8 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         ICopilotHumanInputProvider? humanInputProvider = null,
         ICopilotPermissionGrantStore? permissionGrantStore = null,
         ICopilotPermissionEventSink? permissionEventSink = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        ICopilotSessionFileSystemFactory? fileSystems = null)
     {
         _clientFactory = clientFactory;
         _providerResolver = providerResolver;
@@ -28,6 +30,7 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         _permissionGrantStore = permissionGrantStore;
         _permissionEventSink = permissionEventSink;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _fileSystems = fileSystems;
     }
 
     public async Task<CopilotSessionDescriptor> CreateAsync(CopilotSessionCreateRequest request, CancellationToken cancellationToken)
@@ -37,23 +40,29 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         await SweepExpiredAsync(cancellationToken);
 
         var provider = await ResolveProviderAsync(request.Configuration, cancellationToken);
-        var client = _clientFactory.Create(request.Configuration);
+        var fileSystem = request.Configuration.UseSessionFileSystem
+            ? (_fileSystems ?? throw new InvalidOperationException("The host did not supply a session filesystem factory.")).Create(request)
+            : null;
+        var state = fileSystem is null ? null : new CopilotTransientSessionState();
+        ICopilotSdkClient? client = null;
         try
         {
+            client = _clientFactory.Create(request.Configuration);
             await client.StartAsync(cancellationToken);
             var session = await client.CreateSessionAsync(
-                new CopilotSdkSessionConfiguration(request, provider, _humanInputProvider, _permissionGrantStore, _permissionEventSink),
+                new CopilotSdkSessionConfiguration(request, provider, _humanInputProvider, _permissionGrantStore, _permissionEventSink, fileSystem) { SessionState = state },
                 cancellationToken);
             var now = _timeProvider.GetUtcNow();
             var handle = CreateHandle();
-            var entry = new ManagedEntry(handle, request, provider, client, session, now);
+            var entry = new ManagedEntry(handle, request, provider, client, session, now, fileSystem, state);
             if (!_entries.TryAdd(handle, entry))
                 throw new InvalidOperationException("Could not allocate a unique Copilot session handle.");
             return entry.Describe(now);
         }
         catch
         {
-            await client.DisposeAsync();
+            try { if (client is not null) await client.DisposeAsync(); }
+            finally { if (fileSystem is not null) await fileSystem.DisposeAsync(); state?.Clear(); }
             throw;
         }
     }
@@ -74,7 +83,7 @@ public sealed class CopilotSessionManager : IAsyncDisposable
                     await client.StartAsync(cancellationToken);
                     var session = await client.ResumeSessionAsync(
                         entry.CopilotSessionId,
-                        new CopilotSdkSessionConfiguration(entry.Request, entry.Provider, _humanInputProvider, _permissionGrantStore, _permissionEventSink),
+                        new CopilotSdkSessionConfiguration(entry.Request, entry.Provider, _humanInputProvider, _permissionGrantStore, _permissionEventSink, entry.FileSystem) { SessionState = entry.SessionState },
                         cancellationToken);
                     entry.Client = client;
                     entry.Session = session;
@@ -143,7 +152,8 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         {
             var session = entry.Session ?? throw new InvalidOperationException("The Copilot session is disconnected. Resume it before sending a message.");
             entry.Touch(_timeProvider.GetUtcNow());
-            return await session.SendAsync(entry.Handle, request, cancellationToken);
+            var result = await session.SendAsync(entry.Handle, request, cancellationToken);
+            return result with { ModifiedFiles = entry.FileSystem?.ModifiedFiles.ToArray() ?? result.ModifiedFiles };
         }
         finally
         {
@@ -155,13 +165,15 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         CopilotSessionCreateRequest createRequest,
         string prompt,
         IReadOnlyList<CopilotAttachment>? attachments,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<CopilotStreamEvent>? progress = null,
+        IReadOnlyDictionary<string, string>? requestHeaders = null)
     {
         var request = createRequest with { SessionKind = CopilotSessionKind.OneShot };
         var descriptor = await CreateAsync(request, cancellationToken);
         try
         {
-            return await SendAsync(new CopilotSendRequest(request.Context, descriptor.Handle, prompt, Attachments: attachments), cancellationToken);
+            return await SendAsync(new CopilotSendRequest(request.Context, descriptor.Handle, prompt, Attachments: attachments) { Progress = progress, RequestHeaders = requestHeaders }, cancellationToken);
         }
         finally
         {
@@ -178,7 +190,8 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         string prompt,
         IReadOnlyList<CopilotAttachment>? attachments,
         CancellationToken cancellationToken,
-        Action<CopilotStreamEvent>? progress = null)
+        Action<CopilotStreamEvent>? progress = null,
+        IReadOnlyDictionary<string, string>? requestHeaders = null)
     {
         var request = createRequest with
         {
@@ -209,7 +222,7 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         {
             ReportLifecycle(progress, "request_send", "thinking", "Sending the request to Copilot.");
             result = await SendAsync(
-                new CopilotSendRequest(request.Context, descriptor.Handle, prompt, Attachments: attachments),
+                new CopilotSendRequest(request.Context, descriptor.Handle, prompt, AgentMode: "interactive", Attachments: attachments) { Progress = progress, RequestHeaders = requestHeaders },
                 cancellationToken);
             ReportLifecycle(progress, "request_completed", "info", "Copilot completed the request.");
         }
@@ -547,7 +560,8 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         }
         finally
         {
-            entry.Gate.Release();
+            try { if (entry.FileSystem is not null) await entry.FileSystem.DisposeAsync(); entry.SessionState?.Clear(); }
+            finally { entry.Gate.Release(); }
         }
     }
 
@@ -565,8 +579,8 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         }
         finally
         {
-            entry.Gate.Release();
-            entry.Gate.Dispose();
+            try { if (entry.FileSystem is not null) await entry.FileSystem.DisposeAsync(); entry.SessionState?.Clear(); }
+            finally { entry.Gate.Release(); entry.Gate.Dispose(); }
         }
     }
 
@@ -574,8 +588,10 @@ public sealed class CopilotSessionManager : IAsyncDisposable
 
     private sealed class ManagedEntry
     {
-        public ManagedEntry(string handle, CopilotSessionCreateRequest request, CopilotProviderResolution? provider, ICopilotSdkClient client, ICopilotSdkSession session, DateTimeOffset now)
+        public ManagedEntry(string handle, CopilotSessionCreateRequest request, CopilotProviderResolution? provider, ICopilotSdkClient client, ICopilotSdkSession session, DateTimeOffset now, ICopilotSessionFileSystem? fileSystem, CopilotTransientSessionState? sessionState)
         {
+            FileSystem = fileSystem;
+            SessionState = sessionState;
             Handle = handle;
             Request = request;
             Provider = provider;
@@ -589,6 +605,8 @@ public sealed class CopilotSessionManager : IAsyncDisposable
             ExpiresAt = now.AddSeconds(Math.Max(1, request.Configuration.ManagedSessionTtlSeconds));
         }
 
+        public ICopilotSessionFileSystem? FileSystem { get; }
+        public CopilotTransientSessionState? SessionState { get; }
         public string Handle { get; }
         public string CopilotSessionId { get; }
         public string TenantId { get; }

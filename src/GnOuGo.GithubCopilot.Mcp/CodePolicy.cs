@@ -43,7 +43,7 @@ public sealed class CodePolicy
             AllowWrites: _settings.AllowWrites,
             CopilotProvider: _settings.Copilot.Provider,
             CopilotModel: _settings.Copilot.Model,
-            CopilotMode: GitHubCopilotCodeClient.NormalizeMessageMode(_settings.Copilot.Mode),
+            CopilotMode: CopilotMcpConfiguration.NormalizeMessageMode(_settings.Copilot.Mode),
             CopilotForwardTraceContext: _settings.Copilot.ForwardTraceContext,
             CopilotTelemetryEnabled: _settings.Copilot.Telemetry.Enabled,
             HasConfiguredToken: !string.IsNullOrWhiteSpace(ResolveConfiguredToken()),
@@ -70,6 +70,7 @@ public sealed class CodePolicy
             throw new InvalidOperationException($"Project root '{candidate}' does not exist.");
         EnsureWithinAllowedRoots(candidate);
         EnsureOutsideReservedWorkspace(candidate);
+        EnsureNoSymbolicLinks(candidate);
         return candidate;
     }
 
@@ -202,10 +203,11 @@ public sealed class CodePolicy
             throw new InvalidOperationException("relativePath resolves outside the project root.");
         EnsureWithinAllowedRoots(path);
         EnsureOutsideReservedWorkspace(path);
+        EnsureNoSymbolicLinks(path);
         return path;
     }
 
-    private void EnsureAllowedFile(string path)
+    internal void EnsureAllowedFile(string path)
     {
         var extension = Path.GetExtension(path);
         var allowed = NormalizeExtensions(_settings.AllowedExtensions);
@@ -226,6 +228,23 @@ public sealed class CodePolicy
         var roots = includeDefault ? ResolveAllowedWorkingRoots() : ResolveAllowedWorkingRootsWithoutDefault();
         if (!roots.Any(root => IsPathWithinRoot(path, root)))
             throw new InvalidOperationException($"Path '{path}' is outside the allowed roots: {string.Join(", ", roots)}.");
+    }
+
+    internal void EnsureNoSymbolicLinks(string path)
+    {
+        var root = ResolveAllowedWorkingRoots().Where(r => IsPathWithinRoot(path, r)).OrderByDescending(r => r.Length).FirstOrDefault()
+            ?? throw new UnauthorizedAccessException("Path is outside the allowed working roots.");
+        var current = Path.GetFullPath(path);
+        while (IsPathWithinRoot(current, root))
+        {
+            if ((File.Exists(current) || Directory.Exists(current)) && (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                throw new UnauthorizedAccessException("Symbolic links are not permitted in controlled project paths.");
+            if (new FileInfo(current).LinkTarget is not null || new DirectoryInfo(current).LinkTarget is not null)
+                throw new UnauthorizedAccessException("Symbolic links are not permitted in controlled project paths.");
+            var parent = Path.GetDirectoryName(current);
+            if (parent is null || parent == current) break;
+            current = parent;
+        }
     }
 
     internal void EnsureOutsideReservedWorkspace(string path)

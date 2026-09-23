@@ -36,6 +36,21 @@ Raw model reasoning is discarded. Streaming exposes only operational progress ev
 Interactive one-shot execution reports stable lifecycle milestones for session creation, request processing, cancellation/failure, and session deletion. A deletion failure never replaces an earlier request failure; it is attached as cleanup diagnostics while the primary exception is preserved.
 Narrow task permissions are held by the native SDK session and disappear when the managed session is deleted or expires. Broad current-task grants remain local to that ephemeral task. Workflow-run and future-agent-run grants are accessed through `ICopilotPermissionGrantStore`; stores that support explicit bypass grants additionally implement `ICopilotSandboxBypassPermissionGrantStore`, so Core does not depend on a persistence implementation. Ordinary broad grants exclude sandbox bypass. When both host gates are enabled, a user can explicitly grant sandbox bypass for the current task, workflow run, or future runs of the same agent; the persistent scope requires a second confirmation. Every requested, granted, automatically reused, or refused operation is emitted through `ICopilotPermissionEventSink` with safely redacted details and execution correlation.
 
+## Controlled filesystems
+
+Hosts inject `ICopilotSessionFileSystemFactory` into `CopilotSessionManager` and enable
+`UseSessionFileSystem` in the runtime configuration. Core owns the SDK registration,
+per-session lifetime, permission checks, and create/resume callbacks. The host owns
+project root, file type, size, and write policy. Permission grants cannot override that
+policy. SDK session-state files use a separate in-memory filesystem, retained during
+disconnect/resume and cleared on deletion or expiry; they are never written into the
+project. Handles remain process-local, as before.
+
+File routing is not an OS sandbox for arbitrary commands. Commands retain the native
+CLI sandbox settings and Core permission/HITL boundary. Operational progress can be
+observed through `CopilotSendRequest.Progress`; reasoning content is excluded. Usage
+metadata and modified-file snapshots are additive result fields.
+
 ## Build and test
 
 ```bash

@@ -22,6 +22,7 @@ internal sealed class CopilotTools
     private const string CompleteReviewMetadataJson = """{"artifacts":{"version":1,"consumes":[{"kind":"workspace.directory","pointer":"/projectRoot","required":true},{"kind":"revision.comparison.files","pointer":"/filesJson","required":true}]},"composition":{"version":1,"kind":"complete_operation","encapsulates":[{"kind":"tool","method":"copilot_review_start"},{"kind":"tool","method":"copilot_review_analyze_batch"},{"kind":"tool","method":"copilot_review_finish"}]}}""";
 
     private readonly CopilotSessionManager _sessions;
+    private readonly CopilotMcpConfiguration _configuration;
     private readonly CopilotReviewManager _reviews;
     private readonly CodePolicy _policy;
     private readonly CodeServerSettings _settings;
@@ -38,9 +39,11 @@ internal sealed class CopilotTools
         CodeMcpTraceContextAccessor traceContext,
         McpCopilotHumanInputProvider humanInput,
         CodeProgressReporter progress,
-        ICopilotPermissionGrantStore permissionGrants)
+        ICopilotPermissionGrantStore permissionGrants,
+        CopilotMcpConfiguration configuration)
     {
         _sessions = sessions;
+        _configuration = configuration;
         _reviews = reviews;
         _policy = policy;
         _settings = settings.Value;
@@ -371,50 +374,18 @@ internal sealed class CopilotTools
         string? disabledSkillsJson = null,
         bool enableConfigDiscovery = false)
     {
-        var workingDirectory = string.IsNullOrWhiteSpace(projectRoot) ? _policy.DefaultWorkingDirectory : _policy.ResolveProjectRoot(projectRoot);
-        var providerName = string.IsNullOrWhiteSpace(provider)
-            ? (string.Equals(_settings.Copilot.Provider, "Copilot", StringComparison.OrdinalIgnoreCase) ? null : _settings.Copilot.Provider)
-            : provider.Trim();
-        return new CopilotRuntimeConfiguration(
-            workingDirectory,
-            string.IsNullOrWhiteSpace(model) ? _settings.Copilot.Model : model.Trim(),
-            _settings.Copilot.ReasoningEffort,
-            providerName,
-            _policy.ResolveConfiguredToken(),
-            _settings.Copilot.UseLoggedInUser,
-            _settings.Copilot.RequestTimeoutSeconds,
-            _settings.Copilot.ManagedSessionTtlSeconds,
-            _settings.Copilot.EnableApproveAll,
-            ParseStringList(permissionAllowlistJson),
-            ParseStringList(availableToolsJson),
-            ParseStringList(excludedToolsJson),
-            ParseStringList(skillDirectoriesJson),
-            ParseStringList(disabledSkillsJson),
-            McpServers: null,
-            EnableConfigDiscovery: enableConfigDiscovery)
+        return _configuration.Build(projectRoot, provider, model) with
         {
-            EnableSandboxBypassGrants = _settings.Copilot.EnableSandboxBypassGrants
+            PermissionAllowlist = ParseStringList(permissionAllowlistJson),
+            AvailableTools = ParseStringList(availableToolsJson),
+            ExcludedTools = ParseStringList(excludedToolsJson),
+            SkillDirectories = ParseStringList(skillDirectoriesJson),
+            DisabledSkills = ParseStringList(disabledSkillsJson),
+            EnableConfigDiscovery = enableConfigDiscovery
         };
     }
 
-    private CopilotRequestContext BuildContext(string? tenantId)
-    {
-        var trace = _traceContext.Current ?? CodeMcpTraceContext.Capture(_traceContext);
-        var resolvedTenant = string.IsNullOrWhiteSpace(tenantId) ? trace?.TenantId : tenantId.Trim();
-        if (string.IsNullOrWhiteSpace(resolvedTenant))
-            throw new McpException("TenantId is required in _meta.gnougo.tenantId or the tenantId argument.");
-        return new CopilotRequestContext(
-            resolvedTenant,
-            trace?.CorrelationId,
-            trace?.RunId,
-            trace?.StepId,
-            trace?.Repository,
-            trace?.PullRequestNumber,
-            trace?.HeadSha,
-            trace?.ExecutionId,
-            trace?.AgentId,
-            trace?.AgentName);
-    }
+    private CopilotRequestContext BuildContext(string? tenantId) => _configuration.Context(tenantId);
 
     private async Task<T> WithServerAsync<T>(RequestContext<CallToolRequestParams> requestContext, Func<Task<T>> action)
     {
@@ -433,8 +404,7 @@ internal sealed class CopilotTools
 
     private async Task<CopilotSendResult> SendWithProgressAsync(CopilotSendRequest request, CancellationToken cancellationToken)
     {
-        var result = await _sessions.SendAsync(request, cancellationToken);
-        ReportProgress(result);
+        var result = await _sessions.SendAsync(request with { RequestHeaders = _configuration.RequestHeaders(), Progress = ReportInteractiveOneShotProgress }, cancellationToken);
         return result;
     }
 
@@ -444,8 +414,7 @@ internal sealed class CopilotTools
         IReadOnlyList<CopilotAttachment>? attachments,
         CancellationToken cancellationToken)
     {
-        var result = await _sessions.OneShotAsync(request, prompt, attachments, cancellationToken);
-        ReportProgress(result);
+        var result = await _sessions.OneShotAsync(request, prompt, attachments, cancellationToken, ReportInteractiveOneShotProgress, _configuration.RequestHeaders());
         return result;
     }
 
@@ -460,8 +429,7 @@ internal sealed class CopilotTools
             prompt,
             attachments,
             cancellationToken,
-            ReportInteractiveOneShotProgress);
-        ReportProgress(result);
+            ReportInteractiveOneShotProgress, _configuration.RequestHeaders());
         return result;
     }
 
@@ -474,20 +442,6 @@ internal sealed class CopilotTools
             fallbackServer: "GnOuGo.GithubCopilot.Mcp",
             fallbackMethod: "copilot_interactive_one_shot",
             fallbackMcpKind: "tool");
-    }
-
-    private void ReportProgress(CopilotSendResult result)
-    {
-        foreach (var progressEvent in result.Events)
-        {
-            _progress.Report(
-                progressEvent.Kind,
-                progressEvent.Level,
-                progressEvent.Message,
-                fallbackServer: "GnOuGo.GithubCopilot.Mcp",
-                fallbackMethod: "copilot_session_send",
-                fallbackMcpKind: "tool");
-        }
     }
 
     private void ReportGrantRevoked(string message)

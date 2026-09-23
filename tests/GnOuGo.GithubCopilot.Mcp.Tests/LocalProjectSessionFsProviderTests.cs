@@ -79,6 +79,82 @@ public sealed class LocalProjectSessionFsProviderTests : IDisposable
         Assert.Contains("reserved", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("../escape.cs")]
+    [InlineData(".GnOuGo/internal.cs")]
+    [InlineData(".git/config.cs")]
+    [InlineData("src/*.cs")]
+    [InlineData("src/file.exe")]
+    public async Task AllMutations_RejectRestrictedPaths(string path)
+    {
+        await using var provider = CreateProvider(true);
+        await Assert.ThrowsAnyAsync<Exception>(() => provider.WriteFileAsync(path, "x", null, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAnyAsync<Exception>(() => provider.AppendFileAsync(path, "x", null, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAnyAsync<Exception>(() => provider.RemoveAsync(path, true, true, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAnyAsync<Exception>(() => provider.RenameAsync("src/Existing.cs", path, TestContext.Current.CancellationToken));
+        Assert.True(File.Exists(Path.Combine(_root, "src", "Existing.cs")));
+    }
+
+    [Fact]
+    public async Task RecursiveChanges_ValidateEveryDescendantBeforeMutating()
+    {
+        var folder = Directory.CreateDirectory(Path.Combine(_root, "mixed")).FullName;
+        File.WriteAllText(Path.Combine(folder, "allowed.cs"), "keep");
+        File.WriteAllText(Path.Combine(folder, "private.bin"), "keep");
+        await using var provider = CreateProvider(true);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => provider.RemoveAsync("mixed", true, false, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => provider.RenameAsync("mixed", "moved", TestContext.Current.CancellationToken));
+        Assert.True(File.Exists(Path.Combine(folder, "allowed.cs")));
+        Assert.False(Directory.Exists(Path.Combine(_root, "moved")));
+        Assert.Empty(provider.ModifiedFiles);
+    }
+
+    [Fact]
+    public async Task SymlinksAndRootMutation_AreRejected()
+    {
+        var outside = Directory.CreateDirectory(Path.Combine(_root, "outside")).FullName;
+        File.WriteAllText(Path.Combine(outside, "Keep.cs"), "keep");
+        Directory.CreateSymbolicLink(Path.Combine(_root, "link"), outside);
+        await using var provider = CreateProvider(true);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => provider.ReadFileAsync("link/Keep.cs", TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => provider.WriteFileAsync("link/New.cs", "new", null, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => provider.RemoveAsync("link", true, false, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => provider.RemoveAsync(".", true, false, TestContext.Current.CancellationToken));
+        Assert.Equal("keep", File.ReadAllText(Path.Combine(outside, "Keep.cs")));
+        Assert.DoesNotContain(await provider.ReadDirectoryAsync(".", TestContext.Current.CancellationToken), e => e.Name == "link");
+    }
+
+    [Fact]
+    public async Task DirectoryOperationsAndAppend_TrackActualChanges()
+    {
+        await using var provider = CreateProvider(true);
+        var ct = TestContext.Current.CancellationToken;
+        await provider.MakeDirectoryAsync("new/nested", true, null, ct);
+        await provider.WriteFileAsync("new/nested/File.cs", "one", null, ct);
+        await provider.AppendFileAsync("new/nested/File.cs", "two", null, ct);
+        Assert.Equal("onetwo", await provider.ReadFileAsync("new/nested/File.cs", ct));
+        Assert.Equal(6, (await provider.StatAsync("new/nested/File.cs", ct)).Size);
+        await provider.RenameAsync("new", "moved", ct);
+        Assert.True(await provider.ExistsAsync("moved/nested/File.cs", ct));
+        await provider.RemoveAsync("moved", true, false, ct);
+        Assert.Contains(Path.Combine("new", "nested", "File.cs"), provider.ModifiedFiles);
+        Assert.Contains(Path.Combine("moved", "nested", "File.cs"), provider.ModifiedFiles);
+    }
+
+    [Fact]
+    public async Task DisabledWritesAndOversizedAppend_LeaveFilesUnchanged()
+    {
+        await using var readOnly = CreateProvider(false);
+        var ct = TestContext.Current.CancellationToken;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => readOnly.MakeDirectoryAsync("new", true, null, ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => readOnly.RemoveAsync("src/Existing.cs", false, false, ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => readOnly.RenameAsync("src", "moved", ct));
+        await using var writer = CreateProvider(true);
+        var before = File.ReadAllText(Path.Combine(_root, "src", "Existing.cs"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => writer.AppendFileAsync("src/Existing.cs", new string('x', 24_000), null, ct));
+        Assert.Equal(before, File.ReadAllText(Path.Combine(_root, "src", "Existing.cs")));
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_root, recursive: true); }
