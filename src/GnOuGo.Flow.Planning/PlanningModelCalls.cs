@@ -42,7 +42,7 @@ internal static class PlanningModelCalls
         var findings = PlanningContractValidation.ValidateInstanceFindings(json, call.Request.StructuredOutputSchema!);
         if (findings.Count != 0)
         {
-            var rejectedHash = PlanningGraphCompiler.Fingerprint(json.ToJsonString());
+            var rejectedHash = PlanningGraphCompiler.Fingerprint((call.Request.StructuredOutputSchema!["properties"]?["decision"] is not null && json["decision"] is null ? json["result"] ?? json : json).ToJsonString());
             if (state.RejectedProposalHash == rejectedHash) throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated an unchanged invalid proposal.");
             state.RejectedProposalHash = rejectedHash;
             throw new PlanningResponseException(findings.Select(f => new PlanningDiagnostic("PLANNING_RESPONSE_INVALID",
@@ -58,7 +58,7 @@ internal static class PlanningModelCalls
                 throw new PlanningResponseException([new("BINDING_BLOCKER_INVALID", "/blockedActions", "A blocked binding must name distinct existing semantic actions, explain each missing prerequisite, and contain no executable proposal.")]);
             throw new PlanningResponseException(blockers.Select(b => new PlanningDiagnostic("SEMANTIC_BINDING_BLOCKED", "/actions/" + b!["actionId"]!.ToString(), b["reason"]!.ToString(), ValidationStage: "grounding")).ToList());
         }
-        return PlanningJsonTransport.ModelGrounded(json, call.Request.StructuredOutputSchema!, unpack: true);
+        return call.Request.StructuredOutputSchema!["properties"]?["decision"] is not null ? json : PlanningJsonTransport.ModelGrounded(json, call.Request.StructuredOutputSchema!, unpack: true);
     }
 
 }

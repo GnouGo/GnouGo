@@ -19,6 +19,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             throw new ArgumentException("Tenant, session, and prompt are required.");
         if (session.Request.MaxReplanAttempts is < 0 or > 10 || session.Request.MaxModelCalls is < 1 or > 1000) throw new ArgumentException("Invalid planning limits.");
         PlanningGenerationPolicy.Validate(session.Request.Generation);
+        PlanningMode.Validate(session.Request.Mode);
         if (command.Kind == "advance" && (PlanningStatus.IsWaiting(session.Status) || PlanningStatus.IsTerminal(session.Status))) return session;
         if (session.Status is PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled) throw new PlanningConflictException("The session is closed.");
         var state = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
@@ -38,6 +39,15 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                 case "advance":
                     await AdvanceAsync(state, runtime, deadline.Token);
                     break;
+                case "answer_decision":
+                    PlanningDecisions.Answer(state, command.DecisionAnswer ?? throw new ArgumentException("A decision answer is required."), "user");
+                    break;
+                case "configure_mode":
+                    PlanningMode.Validate(command.Mode ?? "");
+                    state.Request.Mode = command.Mode!;
+                    if (state.PendingDecision is { } pendingDecision && command.Mode == PlanningMode.Auto)
+                        PlanningDecisions.Answer(state, new(pendingDecision.Id, pendingDecision.Options.Single(o => o.Preferred).Id), "auto");
+                    break;
                 case "cancel": state.Status = PlanningStatus.Cancelled; state.ApprovedHash = null; break;
                 case "approve":
                     if (state.Status != PlanningStatus.FinalReview || command.ArtifactHash is null || command.ArtifactHash != PlanningArtifactApproval.Hash(state))
@@ -54,6 +64,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     ArgumentException.ThrowIfNullOrWhiteSpace(command.Text);
                     state.Request.Baseline = state.SemanticPlan;
                     state.Request.Prompt = command.Kind == "edit_semantic" ? command.Text.Trim() : state.Request.Prompt + "\nRequested revision: " + command.Text.Trim();
+                    state.PendingDecision = null; state.DecisionContinuation = null;
                     state.RejectedProposalHash = null; state.SemanticPlan = null; state.Grounding = null; state.BindingProgress = null; state.GroundedPlan = null; state.Graph = null; state.Catalog = null; state.Fixtures = null; state.ReplanAttempts = 0;
                     state.Diagnostics.Clear(); state.Scenarios.Clear(); state.Yaml = null; state.ApprovedHash = null; state.Status = PlanningStatus.Generating; state.Phase = PlanningPhase.Semantic;
                     break;
@@ -77,6 +88,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                 default: throw new ArgumentException("Unsupported planning command.");
             }
         }
+        catch (PlanningDecisionPauseException) { }
         catch (PlanningConflictException) { throw; }
         catch (ArgumentException) when (command.Kind != "advance") { throw; }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -152,7 +164,8 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         if (state.SemanticPlan is null)
         {
             state.Phase = PlanningPhase.Semantic;
-            var json = await PlanningModelCalls.CallAsync(state, runtime, "semantic", SemanticPlanning.Prompt(state), SemanticPlanning.Schema(), ct);
+            var json = await PlanningDecisions.CallAsync(state, runtime, "semantic", "semantic", "/", [], SemanticPlanning.Prompt(state), SemanticPlanning.Schema(),
+                candidate => { var findings = SemanticPlanning.Validate(JsonSerializer.Deserialize(candidate, PlanningJsonContext.Default.SemanticPlan)!); if (findings.Count > 0) throw new PlanningResponseException(findings); }, ct);
             state.SemanticPlan = JsonSerializer.Deserialize(json, PlanningJsonContext.Default.SemanticPlan)!;
             state.Diagnostics = SemanticPlanning.Validate(state.SemanticPlan);
             if (state.SemanticPlan.Questions.Count > 0 && state.Diagnostics.Count == 0)

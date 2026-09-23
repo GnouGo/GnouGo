@@ -95,6 +95,13 @@ public static class PlanningCorpus
 
     public static LLMResponse FixtureResponse(LLMRequest request, string purpose, GroundedPlan plan)
     {
+        if (request.StructuredOutputSchema?["properties"]?["decision"] is not null)
+        {
+            var inner = DecisionResultRequest(request);
+            var response = FixtureResponse(inner, purpose, plan);
+            response.Json = new JsonObject { ["result"] = response.Json, ["decision"] = null };
+            return response;
+        }
         var semantic = Semantic(plan);
         if (purpose == "semantic") return new() { Json = SemanticPlanning.Json(semantic) };
         if (purpose == "grounding")
@@ -133,6 +140,15 @@ public static class PlanningCorpus
             return new() { Json = new JsonObject { ["actions"] = json["actions"]!.DeepClone(), ["questions"] = json["questions"]!.DeepClone() } };
         }
         return new() { Json = PlanningJsonTransport.ModelGrounded(PlanningJsonTransport.Grounded(plan), request.StructuredOutputSchema!) };
+    }
+    public static LLMRequest DecisionResultRequest(LLMRequest request)
+    {
+        var inner = JsonSerializer.Deserialize(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
+        var schema = request.StructuredOutputSchema!["$defs"]!["decisionResult"]!.DeepClone().AsObject();
+        var definitions = request.StructuredOutputSchema["$defs"]!.DeepClone().AsObject(); definitions.Remove("decisionResult");
+        if (definitions.Count > 0) schema["$defs"] = definitions;
+        inner.StructuredOutputSchema = schema;
+        return inner;
     }
     public sealed class Human(bool answer = true) : IHumanInputProvider
     { public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct) => Task.FromResult<JsonNode?>(new JsonObject { ["response"] = answer }); }

@@ -7,6 +7,7 @@ namespace GnOuGo.Flow.Core.Planning;
 
 public sealed class PlanningRequest
 {
+    public string Mode { get; set; } = PlanningMode.Interactive;
     public string TenantId { get; set; } = "";
     public string SessionId { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "generated";
@@ -43,12 +44,15 @@ public static class PlanningStatus
     public const string Created = "created", Generating = "generating", Clarification = "clarification",
         FinalReview = "final_review", Approved = "approved", Saving = "saving", Saved = "saved",
         Stopped = "stopped", Failed = "failed", Cancelled = "cancelled";
-    public static bool IsWaiting(string status) => status is Clarification or FinalReview;
+    public const string WaitingForDecision = "waiting_for_decision";
+    public static bool IsWaiting(string status) => status is Clarification or FinalReview or WaitingForDecision;
     public static bool IsTerminal(string status) => status is Approved or Saved or Stopped or Failed or Cancelled;
 }
 
 public sealed class PlanningCommand
 {
+    public string? Mode { get; set; }
+    public PlanningDecisionAnswer? DecisionAnswer { get; set; }
     public string Kind { get; set; } = "advance";
     public long ExpectedRevision { get; set; }
     public string? ArtifactHash { get; set; }
@@ -92,6 +96,9 @@ public sealed class PlanningSession
     public List<PlanningScenarioResult> Scenarios { get; set; } = [];
     public PlanningFixtures? Fixtures { get; set; }
     public List<PlanningAnswer> Answers { get; set; } = [];
+    public PlanningDecision? PendingDecision { get; set; }
+    public PlanningDecisionContinuation? DecisionContinuation { get; set; }
+    public List<PlanningDecisionRecord> Decisions { get; set; } = [];
     public int ClarificationRounds { get; set; }
     public int ReplanAttempts { get; set; }
     public int ModelCalls { get; set; }
@@ -174,6 +181,8 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(List<PlanningSession>))]
 [JsonSerializable(typeof(PlanningRequest))]
 [JsonSerializable(typeof(PlanningCommand))]
+[JsonSerializable(typeof(PlanningDecision))]
+[JsonSerializable(typeof(PlanningDecisionAnswer))]
 [JsonSerializable(typeof(PlanningGenerationOptions))]
 [JsonSerializable(typeof(PlanningCatalog))]
 [JsonSerializable(typeof(PlanningCapability))]

@@ -36,6 +36,7 @@ internal sealed class TestRuntime : IPlanningRuntime
     internal readonly Queue<GroundedPlan> Plans = new();
     internal List<PlanningQuestion> Questions = [];
     internal Func<LLMRequest, LLMResponse>? Respond;
+    internal bool RawDecisionResponse;
     internal IReadOnlyList<PlanningDiagnostic>? Validation { get; set; }
     internal Exception? ValidationFailure;
     internal IReadOnlyList<PlanningDiagnostic>? CatalogChanges { get; set; }
@@ -50,14 +51,22 @@ internal sealed class TestRuntime : IPlanningRuntime
     public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
     {
         Calls.Add(request);
-        if (Respond is not null) return Task.FromResult(Respond(request));
+        var envelope = request.StructuredOutputSchema?["properties"]?["decision"] is not null;
+        var inner = envelope ? GnOuGo.Planning.Examples.PlanningCorpus.DecisionResultRequest(request) : request;
+        if (Respond is not null)
+        {
+            var provided = Respond(RawDecisionResponse ? request : inner);
+            if (envelope && !RawDecisionResponse && provided.Json is not null) provided.Json = new JsonObject { ["result"] = provided.Json, ["decision"] = null };
+            return Task.FromResult(provided);
+        }
         var plan = purpose == "replan" && Plans.Count > 1 ? Plans.Dequeue() : Plans.Peek();
-        var response = GnOuGo.Planning.Examples.PlanningCorpus.FixtureResponse(request, purpose, plan);
+        var response = GnOuGo.Planning.Examples.PlanningCorpus.FixtureResponse(inner, purpose, plan);
         if (purpose == "semantic" && Questions.Count > 0)
         {
             var semantic = GnOuGo.Planning.Examples.PlanningCorpus.Semantic(plan); semantic.Questions = Questions;
             response.Json = SemanticPlanning.Json(semantic);
         }
+        if (envelope) response.Json = new JsonObject { ["result"] = response.Json, ["decision"] = null };
         return Task.FromResult(response);
     }
 
