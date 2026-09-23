@@ -55,6 +55,8 @@ public sealed class ScalarConversionInferenceTests
     [InlineData("flag ? (globalThis.String = value) : String(value)")]
     [InlineData("Number(value)")]
     [InlineData("parseInt(value)")]
+    [InlineData("(() => { const result = String(value); class String {} return result; })()")]
+    [InlineData("flag ? Object.defineProperty(globalThis, 'String', {value: () => ({})}) : String(value)")]
     public void UnsupportedCallsOrUnprovenIntrinsicIdentityRemainOpaque(string expression)
     {
         var result = ExpressionContractInference.Infer(expression, new Dictionary<string, JsonObject> { ["value"] = new() { ["type"] = "string" }, ["flag"] = new() { ["type"] = "boolean" } });

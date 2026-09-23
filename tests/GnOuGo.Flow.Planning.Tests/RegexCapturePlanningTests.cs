@@ -59,6 +59,10 @@ public sealed class RegexCapturePlanningTests
     [InlineData("decodeURIComponent(text).invented")]
     [InlineData("(() => { const value = /a/; return String(value).match(/a/); })()")]
     [InlineData("(() => { const value = 1n; return String(value).match(/a/); })()")]
+    [InlineData("(() => { const result = String(text).match(/a/); class String {} return result; })()")]
+    [InlineData("(() => { with ({String: () => ({})}) { return String(text).match(/a/); } })()")]
+    [InlineData("(() => { Object.defineProperty(this, 'String', {value: () => ({})}); return String(text).match(/a/); })()")]
+    [InlineData("(() => { Object[text](this, 'String', {value: () => ({})}); return String(text).match(/a/); })()")]
     public void UnsupportedMembersAndUnknownPatternsRemainRejected(string expression)
         => Assert.Throws<InvalidOperationException>(() => PlanningComputationContracts.Validate(expression, new Dictionary<string, JsonObject>
         {

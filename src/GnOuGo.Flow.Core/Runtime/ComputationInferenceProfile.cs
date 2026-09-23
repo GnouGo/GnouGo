@@ -22,6 +22,7 @@ public static class ComputationInferenceProfile
     public static IReadOnlySet<string> UntrustedGlobals(Node expression)
     {
         var names = new HashSet<string>(StringComparer.Ordinal);
+        void InvalidateAll() { names.UnionWith(ScalarConversions); names.Add("JSON"); }
         void Binding(Node pattern)
         {
             if (pattern is Identifier identifier && (IsScalarConversion(identifier.Name) || identifier.Name == "JSON")) names.Add(identifier.Name);
@@ -43,8 +44,15 @@ public static class ComputationInferenceProfile
                 case ArrowFunctionExpression function:
                     foreach (var parameter in function.Params) Binding(parameter);
                     break;
+                case ClassDeclaration { Id: { } classId }: Binding(classId); break;
+                case WithStatement: InvalidateAll(); break;
+                case CallExpression { Callee: MemberExpression { Object: Identifier { Name: "Object" or "Reflect" } } member }:
+                    var method = member.Computed ? (member.Property as StringLiteral)?.Value : (member.Property as Identifier)?.Name;
+                    if (method is null or "assign" or "defineProperty" or "defineProperties" or "set" or "setPrototypeOf" or "deleteProperty") InvalidateAll();
+                    break;
                 case AssignmentExpression assignment: Write(assignment.Left); break;
                 case UpdateExpression update: Write(update.Argument); break;
+                case UnaryExpression { Operator: Acornima.Operator.Delete } deletion: Write(deletion.Argument); break;
                 case CatchClause { Param: { } parameter }: Binding(parameter); break;
             }
             foreach (var child in node.ChildNodes) Visit(child);
@@ -52,11 +60,7 @@ public static class ComputationInferenceProfile
         void Write(Node target)
         {
             Binding(target);
-            if (target is MemberExpression)
-            {
-                names.UnionWith(ScalarConversions);
-                names.Add("JSON");
-            }
+            if (target is MemberExpression) InvalidateAll();
             foreach (var child in target.ChildNodes) Write(child);
         }
         Visit(expression);
