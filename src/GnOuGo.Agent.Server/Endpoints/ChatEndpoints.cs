@@ -2,12 +2,13 @@ using System.Text.Json;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Shared;
 using GnOuGo.Agent.Mcp;
+using GnOuGo.Agent.Server.Planning;
 
 namespace GnOuGo.Agent.Server.Endpoints;
 
 public static class ChatEndpoints
 {
-    public static IResult ListConversations(InMemoryChatHistoryStore historyStore)
+    public static async Task<IResult> ListConversations(InMemoryChatHistoryStore historyStore, ChatPlanningService planning, CancellationToken ct)
     {
         var conversations = historyStore.ListConversations()
             .Select(static conversation => new ChatConversationSummaryDto(
@@ -17,17 +18,21 @@ public static class ChatEndpoints
                 conversation.MessageCount))
             .ToList();
 
-        return Results.Ok(conversations);
+        foreach (var saved in await planning.ConversationsAsync(ct))
+            if (!conversations.Any(c => c.ConversationId == saved.Id))
+                conversations.Add(new(saved.Id, saved.Title, saved.UpdatedAtUnixMs, saved.Messages.Count));
+        return Results.Ok(conversations.OrderByDescending(c => c.UpdatedAtUnixMs).ToList());
     }
 
-    public static IResult GetConversation(string conversationId, InMemoryChatHistoryStore historyStore)
+    public static async Task<IResult> GetConversation(string conversationId, InMemoryChatHistoryStore historyStore, ChatPlanningService planning, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(conversationId))
             return Results.BadRequest("conversationId is required.");
 
         var result = historyStore.GetMessages(conversationId, topK: int.MaxValue);
         if (result.Messages.Count == 0)
-            return Results.NotFound();
+            return (await planning.ConversationsAsync(ct)).FirstOrDefault(c => c.Id == conversationId) is { } saved
+                ? Results.Ok(saved) : Results.NotFound();
 
         var messages = result.Messages
             .Select(static message => new ChatMessageDto(

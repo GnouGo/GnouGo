@@ -67,6 +67,8 @@ public sealed class ChatPlanningDecisionTests
             id = state.Request.SessionId; revision = state.Revision;
         }
         var reopened = Service(fixture, designer, model);
+        var conversation = Assert.Single(await reopened.ConversationsAsync(Ct));
+        Assert.Equal("chat", conversation.Id); Assert.Equal("Return a greeting", Assert.Single(conversation.Messages).Content);
         var pending = Assert.Single(await reopened.ListAsync("chat", Ct)).PendingDecision; Assert.NotNull(pending);
         var cancelled = await reopened.SubmitAsync("chat", id, new() { Kind = answer ? "answer_decision" : "cancel", ExpectedRevision = revision,
             DecisionAnswer = answer ? new(pending.Id, "brief") : null }, Ct);

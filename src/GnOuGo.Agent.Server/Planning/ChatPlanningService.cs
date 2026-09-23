@@ -33,6 +33,25 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
 
     public Bridge Attach(string conversationId, Action<PlanningSessionDto> changed) => new(this, conversationId, changed);
 
+    public async Task<IReadOnlyList<ChatSessionDto>> ConversationsAsync(CancellationToken ct)
+    {
+        // A workflow waiting for a planner decision has no completed chat turn yet.
+        // Discover its conversation from the encrypted origin journal, including on a fresh browser.
+        var conversations = new Dictionary<string, ChatSessionDto>(StringComparer.Ordinal);
+        foreach (var record in await _records.ListAsync(Origins, Tenant, Author, ct))
+        {
+            var origin = JsonSerializer.Deserialize(record.Value, ChatPlanningJsonContext.Default.ChatPlanningOrigin)!;
+            if (origin.Request.TenantId != Tenant || origin.Request.SessionId != record.Key) continue;
+            var time = record.UpdatedAt.ToUnixTimeMilliseconds();
+            if (conversations.TryGetValue(origin.ConversationId, out var current) && current.UpdatedAtUnixMs >= time) continue;
+            var title = origin.Request.Prompt.Trim();
+            if (title.Length > 80) title = title[..80] + "…";
+            conversations[origin.ConversationId] = new(origin.ConversationId, title, time,
+                [new("user", origin.Request.Prompt, MessageId: "planning-" + record.Key)], ConversationId: origin.ConversationId);
+        }
+        return conversations.Values.OrderByDescending(c => c.UpdatedAtUnixMs).ToArray();
+    }
+
     public async Task RegisterDesignerAsync(string conversationId, PlanningSession session, CancellationToken ct)
     {
         if (session.Request.TenantId != Tenant) throw new PlanningConflictException("Planning tenant mismatch.");
