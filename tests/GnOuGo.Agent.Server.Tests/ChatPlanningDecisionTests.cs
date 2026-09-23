@@ -123,7 +123,9 @@ public sealed class ChatPlanningDecisionTests
         var command = new PlanningCommand { Kind = "answer", ExpectedRevision = revision, Answers = new() { ["accept_scope_revision"] = accept } };
         await Assert.ThrowsAsync<KeyNotFoundException>(() => reopened.SubmitAsync("other", id, command, Ct));
         // Exercise the HTTP mapping as well as owner recovery: dropping Answers here must fail this test.
-        var builder = WebApplication.CreateSlimBuilder(); builder.WebHost.UseUrls("http://127.0.0.1:0"); builder.Logging.ClearProviders();
+        var builder = WebApplication.CreateSlimBuilder();
+        // Do not inherit the host's development/CI Kestrel endpoints or configuration overlays.
+        builder.Configuration.Sources.Clear(); builder.WebHost.ConfigureKestrel(o => o.Listen(System.Net.IPAddress.Loopback, 0)); builder.Logging.ClearProviders();
         builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.TypeInfoResolverChain.Insert(0, ChatJsonContext.Default));
         builder.Services.AddSingleton(reopened); builder.Services.AddSingleton(designer);
         await using var app = builder.Build(); app.MapPlanningEndpoints(); await app.StartAsync(Ct);
