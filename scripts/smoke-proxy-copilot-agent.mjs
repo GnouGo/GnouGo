@@ -214,6 +214,7 @@ async function verify(records) {
       if (call.function.name === 'create_file' && args.filePath?.endsWith('/agent-result.json')) resultCreationTurn = index
     }
     trace.push({ turn: index + 1, status: record.call.status, streaming: record.request.stream,
+      reasoningEffort: record.request.reasoning_effort ?? null,
       roles: record.request.messages.map(message => message.role),
       offeredTools: (record.request.tools || []).map(tool => tool.function.name),
       returnedTools: record.response.calls.map(call => call.function.name),

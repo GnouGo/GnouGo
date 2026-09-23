@@ -55,3 +55,18 @@ These results are separate from the synthetic provider/UI smoke tests used in CI
 The subsequent routing fix supports `{model_name}` in `Connection.Url`, resolving the selected `UpstreamId` into the deployment path before appending the protocol endpoint. Changing only the JSON `model` field cannot select another deployment when a gateway routes by URL.
 
 Validation passed with 114 proxy tests, including concurrent requests to distinct deployments, URL encoding, API versions, startup rejection of malformed templates, larger model budgets, and streamed parallel tool/result round trips through all four adapters. The solution, frontend, and Native AOT publish completed without warnings, and the published HTTP/UI smoke verified a templated deployment URL with OIDC authentication. Three separate real configured deployments each returned HTTP 200, the requested short text, and a completed SSE stream through the published binary. These last checks verify real deployment connectivity; they do not repeat the desktop Agent task or stress-test the maximum context window.
+
+## Reasoning and tool compatibility regression
+
+On **2026-09-23**, the installed editor sent a real Agent request with function tools and `reasoning_effort: "medium"`. The configured gateway rejected this combination on Chat Completions with HTTP 400, despite accepting reasoning in text-only chat. Explicit `high` with tools also failed for both affected deployments. Its error required `none` or use of the Responses API. The gateway separately rejected an advertised `max` level even without tools. This was a capability configuration mismatch; a successful plain-chat request does not establish compatibility with Agent requests.
+
+The affected private provider and VS Code entries now advertise only `["none"]` for this Chat Completions integration. Another configured deployment accepted tools with `high` and retains its supported levels. No provider/model name is embedded in routing or validation. The proxy rejects selections outside an explicitly configured list before dispatch, and the dashboard displays the already-redacted provider explanation. Supporting higher reasoning together with tools on these deployments requires a future Responses adapter; the proxy does not silently downgrade requests.
+
+Both affected deployments then passed the full real editor task again, using their distinct templated deployment URLs, OIDC, the development server on port 5087, and **Agent → Local → Thinking Effort: None → Default permissions**. The receipts record `none` on every model turn. Each test created/read/edited a file, executed a Python command in the actual VS Code terminal, retrieved its random nonce through `get_terminal_output`, wrote a result from that observed output, and verified files with parallel calls.
+
+| Real run | Model turns | Result | Observed nonce | Evidence |
+|---|---:|---:|---|---|
+| Configured model A | 9 | 42 | `697d26ac10a137eb` | [Report](acceptance/reasoning-model-a.json) |
+| Configured model B | 9 | 42 | `82f67c83cb037654` | [Report](acceptance/reasoning-model-b.json) |
+
+Validation also passed: 135 proxy tests, three frontend tests, the frontend build, a live dashboard browser check showing the actual gateway rejection, and a warning-free osx-arm64 Native AOT publish with the four-provider published-binary HTTP/UI/tool-loop smoke test. Those published-binary checks use synthetic providers; the editor tests above use the real configured gateway. Workstation settings and connection identifiers are excluded from these public receipts.

@@ -18,6 +18,18 @@ export function pretty(text: string): string {
   catch { return text }
 }
 
+// Traffic bodies are already redacted by the server. Render this string as text,
+// never HTML, and leave non-JSON/truncated error pages in the raw inspector.
+export function upstreamError(detail: Detail): string | null {
+  if (detail.summary.status !== 'failed') return null
+  const body = object(detail.bodies.upstreamResponse?.text ?? '')
+  const error = body?.error
+  if (typeof error === 'string') return error.trim() ? error : null
+  if (!error || typeof error !== 'object' || Array.isArray(error)) return null
+  const message = (error as Record<string, unknown>).message
+  return typeof message === 'string' && message.trim() ? message : null
+}
+
 export function output(text: string): Output {
   const result: Output = { content: '', tools: [] }
   const tools = new Map<number, Tool>()

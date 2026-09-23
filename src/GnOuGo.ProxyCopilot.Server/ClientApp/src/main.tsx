@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { duration, object, output, pretty } from './traffic'
+import { duration, object, output, pretty, upstreamError } from './traffic'
 import type { Detail, Summary } from './traffic'
 import './styles.scss'
 
@@ -75,6 +75,7 @@ function App() {
   const running = calls.filter(call => call.status === 'running').length
   const failed = calls.filter(call => call.status === 'failed').length
   const tokens = calls.reduce((sum, call) => sum + (call.usage?.total_tokens ?? 0), 0)
+  const providerError = detail ? upstreamError(detail) : null
   const clear = async () => {
     try { const response = await fetch('/api/traffic', { method: 'DELETE' }); if (!response.ok) throw new Error('Unable to clear history'); await refresh() }
     catch (reason) { setError(String(reason)) }
@@ -100,6 +101,7 @@ function App() {
         <div className="inspector"><nav className="tabs" aria-label="Inspector view">{(['conversation', 'raw', 'setup'] as const).map(value => <button key={value} className={tab === value ? 'selected' : ''} onClick={() => setTab(value)}>{value === 'raw' ? 'Raw payloads' : value === 'setup' ? 'VS Code setup' : 'Conversation'}</button>)}</nav>
           {tab === 'setup' ? <div className="setup"><div className="eyebrow">GET CONNECTED</div><h2>Bring your models into Copilot.</h2><ol><li>For local development, configure providers and models in the ignored <code>appsettings.Development.json</code> and run the Development profile. Supply credentials through environment overrides, then restart. Keep <code>appsettings.json</code> free of local settings.</li><li>In VS Code, run <strong>Chat: Manage Language Models</strong>, choose <strong>Add Models → Custom Endpoint</strong>, and select <strong>Chat Completions</strong>.</li><li>Use the configuration below in <code>chatLanguageModels.json</code>, then select <strong>Agent</strong>, <strong>Local</strong>, and your model in Chat. This loopback proxy does not require a client API key; leave it empty, or use a placeholder if the editor requires one.</li></ol><div className="code-heading"><strong>chatLanguageModels.json</strong><button className="text-button" onClick={async () => { try { await navigator.clipboard.writeText(setup); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch { setError('Copy failed. Select and copy the configuration below.') } }}>{copied ? 'Copied' : 'Copy configuration'}</button></div><pre>{setup || 'Loading configuration…'}</pre><p className="note">Agent mode requires tool calling and enabled built-in tools. VS Code executes file and terminal actions; approve its prompts in the editor. An empty models list means no providers have been configured yet.</p></div>
           : detail && detail.summary.id === selected ? <><div className="detail-heading"><div className="eyebrow">{detail.summary.provider} / {detail.summary.protocol}</div><h2>{detail.summary.model}</h2><div className="detail-meta"><span className={`badge badge--${detail.summary.status}`}>{detail.summary.status}</span><span>{duration(detail.summary.durationMs)}</span><span>First token {duration(detail.summary.firstTokenMs)}</span><span>{detail.summary.usage?.total_tokens ?? '—'} tokens</span></div><code className="request-id">{detail.summary.id}</code>{detail.summary.error && <div className="error">{detail.summary.error}</div>}{detail.summary.truncated && <p className="note">Capture limit reached. Displayed content is truncated; forwarding continues in full.</p>}</div>
+            {providerError && <div className="error" role="alert"><strong>Provider detail: </strong>{providerError}</div>}
             <div className="detail-content">{tab === 'raw' ? Object.entries(detail.bodies).map(([name, body]) => <section className="raw" key={name}><div className="code-heading"><strong>{{ clientRequest: 'Client → Proxy', upstreamRequest: 'Proxy → Provider', upstreamResponse: 'Provider → Proxy', clientResponse: 'Proxy → Client' }[name] ?? name}</strong>{body.truncated && <span>Truncated</span>}</div><pre>{pretty(body.text)}</pre></section>) : <Conversation detail={detail} />}</div></>
           : <div className="empty"><div className="empty__symbol">↔</div><div className="eyebrow">A CLEAR VIEW OF EVERY CALL</div><h2>Waiting for a conversation.</h2><p>Select a request to inspect its messages, tool calls, and live response.</p><button className="button" onClick={() => setTab('setup')}>Set up your connection ↗</button></div>}
         </div>
