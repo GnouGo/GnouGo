@@ -10,6 +10,9 @@ internal static class PlanningDecisions
     internal static bool Eligible(PlanningSession state) => state.Diagnostics.Where(d => d.Required)
         .All(d => d.Code is "NONE_OF_THE_ABOVE" or "SEMANTIC_BINDING_BLOCKED");
 
+    internal static int EstimateInputTokens(PlanningSession state, string prompt, JsonObject schema)
+        => PlanningJsonTransport.EstimateInputTokens(prompt + (Eligible(state) ? "\n" + Instructions : ""), Eligible(state) ? Schema(schema) : schema);
+
     internal static JsonObject Schema(JsonObject result)
     {
         var body = result.DeepClone().AsObject();
@@ -58,9 +61,8 @@ internal static class PlanningDecisions
         if (response["decision"] is null)
         {
             if (response["result"] is null) throw Invalid("Return a phase result or a business decision.");
-            var result = ReadResult(response["result"]!, schema);
             state.DecisionContinuation = null;
-            return result;
+            return PlanningModelCalls.ReadResult(state, response["result"]!, schema);
         }
         if (!eligible || response["result"] is not null) throw Invalid("A business decision cannot replace a technical repair or accompany a result.");
         var proposal = response["decision"]!;

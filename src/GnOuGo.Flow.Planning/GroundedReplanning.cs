@@ -34,7 +34,20 @@ internal static class GroundedReplanning
             Correct the underlying producer or topology, not successive field-name guesses. Other scopes remain unchanged.
             """ + "\n" + new JsonObject { ["scope"] = path, ["fragment"] = fragment,
                 ["diagnostics"] = PlanningJsonTransport.Diagnostics(diagnostics) }.ToJsonString();
-        var response = await PlanningModelCalls.CallAsync(state, runtime, "replan", prompt, schema, ct);
+        var actionIds = GroundedTraversal.Located(state.GroundedPlan!).Where(p => owners.Contains(GroundedTraversal.GraphOwner(state.GroundedPlan!, p.Path), StringComparer.Ordinal)).Select(p => p.Operation.SemanticAction).Distinct().ToArray();
+        var response = await PlanningDecisions.CallAsync(state, runtime, "replan", "grounded_replan", path.Length == 0 ? "/" : path, actionIds, prompt, schema, option =>
+        {
+            var alternative = json.DeepClone().AsObject();
+            var destination = path.Length == 0 ? alternative : PlanningFieldPaths.Read(alternative, path)!.AsObject();
+            foreach (var field in fields) destination[field] = option[field]?.DeepClone();
+            var candidate = JsonSerializer.Deserialize(alternative, PlanningJsonContext.Default.GroundedPlan)!;
+            if (owners.Length > 1)
+                foreach (var unaffected in state.GroundedPlan!.Subflows.Where(f => !owners.Contains(f.Name, StringComparer.Ordinal)))
+                    if (!JsonNode.DeepEquals(JsonSerializer.SerializeToNode(unaffected, PlanningJsonContext.Default.GroundedSubflow),
+                        candidate.Subflows.FirstOrDefault(f => f.Name == unaffected.Name) is { } retained ? JsonSerializer.SerializeToNode(retained, PlanningJsonContext.Default.GroundedSubflow) : null))
+                        throw new PlanningResponseException([new("REPLAN_BOUNDARY_INVALID", "/subflows/" + unaffected.Name, "Unrelated subflows must remain unchanged.")]);
+            PlanningDecisionValidation.Binding(state, candidate);
+        }, ct);
         if (JsonNode.DeepEquals(fragment, response))
         { state.Diagnostics.Add(new("REPLAN_NO_PROGRESS", path, "The complete replacement is unchanged.")); state.Status = PlanningStatus.Stopped; return; }
         foreach (var field in fields) source[field] = response[field]?.DeepClone();

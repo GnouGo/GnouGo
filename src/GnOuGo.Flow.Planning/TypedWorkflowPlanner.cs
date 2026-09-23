@@ -137,7 +137,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         }
         if (state.PendingCall?.Purpose == "replan" || state.PendingCall is null && state.Diagnostics.Any(d => d.Required))
         {
-            if (state.PendingCall is null && state.ReplanAttempts >= state.Request.MaxReplanAttempts) { Stop(state); return; }
+            if (state.PendingCall is null && state.DecisionContinuation is null && state.ReplanAttempts >= state.Request.MaxReplanAttempts) { Stop(state); return; }
             state.Phase = PlanningPhase.Replanning;
             if (state.Diagnostics.Any(d => d.Code == "SEMANTIC_BINDING_BLOCKED")) await SemanticReplanning.ApplyAsync(state, runtime, ct);
             else if (state.BindingProgress is not null) await GroundedBindingBatches.ApplyAsync(state, runtime, ct, replan: true);
@@ -210,7 +210,8 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
             else
             {
             var ids = state.Grounding.Selections.SelectMany(s => s.CapabilityIds).Distinct();
-            var json = await PlanningModelCalls.CallAsync(state, runtime, "binding", CapabilityGrounder.BindingPrompt(state), PlanningSchemas.Grounded(ids), ct);
+            var json = await PlanningDecisions.CallAsync(state, runtime, "binding", "binding", "/", SemanticPlanning.Actions(state.SemanticPlan).Select(a => a.Id).ToArray(),
+                CapabilityGrounder.BindingPrompt(state), PlanningSchemas.Grounded(ids), candidate => PlanningDecisionValidation.Binding(state, JsonSerializer.Deserialize(candidate, PlanningJsonContext.Default.GroundedPlan)!), ct);
             state.GroundedPlan = JsonSerializer.Deserialize(json, PlanningJsonContext.Default.GroundedPlan)!;
             }
         }

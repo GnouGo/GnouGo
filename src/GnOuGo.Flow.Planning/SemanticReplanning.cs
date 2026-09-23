@@ -44,7 +44,25 @@ internal static class SemanticReplanning
                     ["targetIds"] = new JsonArray(target.Select(a => (JsonNode?)JsonValue.Create(a.Id)).ToArray()),
                     ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics),
                     ["groundedPlan"] = state.GroundedPlan is null ? null : PlanningJsonTransport.Grounded(state.GroundedPlan) }.ToJsonString();
-            var response = await PlanningModelCalls.CallAsync(state, runtime, "replan", prompt, schema, ct);
+            var response = await PlanningDecisions.CallAsync(state, runtime, "replan", "semantic_replan", "/actions/" + string.Join(",", target.Select(a => a.Id)), target.Select(a => a.Id).ToArray(),
+                prompt, schema, option =>
+                {
+                    var optionPlan = JsonSerializer.Deserialize(JsonSerializer.Serialize(state.SemanticPlan, PlanningJsonContext.Default.SemanticPlan), PlanningJsonContext.Default.SemanticPlan)!;
+                    var optionContainer = Find(optionPlan, ids);
+                    var optionIndex = ids.Count == 1 ? optionContainer.FindIndex(a => ids.Contains(a.Id)) : -1;
+                    var shell = new JsonObject { ["summary"] = "", ["inputs"] = new JsonArray(), ["actions"] = option["actions"]!.DeepClone(),
+                        ["outputs"] = new JsonArray(), ["subflows"] = new JsonArray(), ["questions"] = option["questions"]!.DeepClone() };
+                    var replacement = JsonSerializer.Deserialize(shell, PlanningJsonContext.Default.SemanticPlan)!;
+                    foreach (var action in target)
+                        if (!SemanticPlanning.Actions(replacement).Any(a => a.Id == action.Id && action.Outputs.All(o => a.Outputs.Any(p =>
+                            JsonNode.DeepEquals(JsonSerializer.SerializeToNode(o, PlanningJsonContext.Default.SemanticPort), JsonSerializer.SerializeToNode(p, PlanningJsonContext.Default.SemanticPort))))))
+                            throw new PlanningResponseException([new("REPLAN_BOUNDARY_INVALID", "/actions/" + action.Id, "Decision options must preserve required business output boundaries.")]);
+                    if (replacement.Questions.Count != 0) throw new PlanningResponseException([new("PLANNING_DECISION_INVALID", "/questions", "An option must resolve its business choice.")]);
+                    if (optionIndex >= 0) { optionContainer.RemoveAt(optionIndex); optionContainer.InsertRange(optionIndex, replacement.Actions); }
+                    else { optionContainer.Clear(); optionContainer.AddRange(replacement.Actions); }
+                    var findings = SemanticPlanning.Validate(optionPlan);
+                    if (findings.Count > 0) throw new PlanningResponseException(findings);
+                }, ct);
             var shell = new JsonObject { ["summary"] = "", ["inputs"] = new JsonArray(), ["actions"] = response["actions"]!.DeepClone(),
                 ["outputs"] = new JsonArray(), ["subflows"] = new JsonArray(), ["questions"] = response["questions"]!.DeepClone() };
             var replacement = JsonSerializer.Deserialize(shell, PlanningJsonContext.Default.SemanticPlan)!;

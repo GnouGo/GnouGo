@@ -37,7 +37,10 @@ internal static class CapabilitySelection
                     ["id"] = c.Id, ["description"] = c.Description, ["effect"] = c.EffectKind,
                     ["artifacts"] = JsonSerializer.SerializeToNode(c.ArtifactContract, PlanningJsonContext.Default.McpArtifactContract) }).ToArray()) });
         var rejected = state.RejectedProposalHash;
-        var response = await PlanningModelCalls.CallAsync(state, runtime, purpose, prompt, schema, ct);
+        List<GroundingSelection> Read(JsonNode result) => result["selections"]!.AsObject().Select(s => new GroundingSelection(s.Key,
+            s.Value!["capabilities"]!.AsObject().Where(c => c.Value!.GetValue<bool>()).Select(c => c.Key).ToList(), s.Value["reason"]!.GetValue<string>())).Concat(established).ToList();
+        var response = await PlanningDecisions.CallAsync(state, runtime, purpose, "selection", "/grounding/selections", ambiguous.Select(d => d.ActionId).ToArray(),
+            prompt, schema, candidate => Validate(state, Read(candidate)), ct);
         var selections = response["selections"]!.AsObject().Select(s => new GroundingSelection(s.Key,
             s.Value!["capabilities"]!.AsObject().Where(c => c.Value!.GetValue<bool>()).Select(c => c.Key).ToList(), s.Value["reason"]!.GetValue<string>())).Concat(established).ToList();
         try { Validate(state, selections); }

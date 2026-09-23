@@ -22,7 +22,7 @@ internal static class GroundedBindingBatches
         {
             var all = Request(state, remaining.Select(a => a.Id).ToList(), boundary);
             var total = remaining.Sum(a => Weight(state, a));
-            var batches = Math.Max(PlanningJsonTransport.EstimateInputTokens(all.Prompt, all.Schema) <= state.Request.Generation.MaxInputTokensPerRequest ? 1 : 2,
+            var batches = Math.Max(PlanningDecisions.EstimateInputTokens(state, all.Prompt, all.Schema) <= state.Request.Generation.MaxInputTokensPerRequest ? 1 : 2,
                 (int)Math.Ceiling((double)total / OutputCapacity(state)));
             if (state.ModelCalls + batches > state.Request.MaxModelCalls)
                 throw new WorkflowRuntimeException("BINDING_BUDGET_INSUFFICIENT", "The complete binding work requires at least " + batches + " bounded batches.", details: new JsonObject { ["location"] = "/actions/" + remaining[0].Id });
@@ -33,7 +33,7 @@ internal static class GroundedBindingBatches
                 if (progress.CurrentActions.Count > 0 && weight + nextWeight > target && target - weight < weight + nextWeight - target) break;
                 var next = progress.CurrentActions.Append(action.Id).ToList();
                 var request = Request(state, next, boundary);
-                if (PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.Schema) > state.Request.Generation.MaxInputTokensPerRequest) break;
+                if (PlanningDecisions.EstimateInputTokens(state, request.Prompt, request.Schema) > state.Request.Generation.MaxInputTokensPerRequest) break;
                 progress.CurrentActions = next;
                 weight += nextWeight;
                 if (weight >= target) break;
@@ -59,7 +59,22 @@ internal static class GroundedBindingBatches
                 if (PlanningJsonTransport.EstimateInputTokens(withCandidate, current.Schema) <= state.Request.Generation.MaxInputTokensPerRequest) prompt = withCandidate;
             }
         }
-        var json = await PlanningModelCalls.CallAsync(state, runtime, replan ? "replan" : "binding", prompt, current.Schema, ct);
+        var json = await PlanningDecisions.CallAsync(state, runtime, replan ? "replan" : "binding", "binding_batch", "/actions/" + string.Join(",", progress.CurrentActions), progress.CurrentActions,
+            prompt, current.Schema, response =>
+            {
+                var option = JsonSerializer.Deserialize(response, PlanningJsonContext.Default.GroundedPlan)!;
+                var firstBatch = progress.CompletedActions.Count == 0;
+                var finalBatch = progress.CurrentActions.Count == remaining.Length;
+                if (!firstBatch && (option.Inputs.Count != 0 || option.Subflows.Count != 0) || !finalBatch && option.Outputs.Count != 0)
+                    throw new PlanningResponseException([new("BINDING_BOUNDARY_INVALID", "/actions/" + progress.CurrentActions[0], "Decision options must preserve the binding batch boundary.")]);
+                var allowed = SemanticPlanning.Actions(new() { Actions = state.SemanticPlan!.Actions.Where(a => progress.CurrentActions.Contains(a.Id)).ToList(), Subflows = firstBatch ? state.SemanticPlan.Subflows : [] }).Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
+                if (GroundedTraversal.Located(option).Any(p => !allowed.Contains(p.Operation.SemanticAction)))
+                    throw new PlanningResponseException([new("BINDING_BOUNDARY_INVALID", "/operations", "Decision options may implement only the current actions.")]);
+                var combinedOption = new GroundedPlan { Summary = state.SemanticPlan.Summary, Inputs = firstBatch ? option.Inputs : progress.Accepted.Inputs,
+                    Operations = [.. progress.Accepted.Operations, .. option.Operations], Subflows = firstBatch ? option.Subflows : progress.Accepted.Subflows, Outputs = option.Outputs };
+                allowed.UnionWith(SemanticPlanning.Actions(new() { Actions = state.SemanticPlan.Actions.Where(a => progress.CompletedActions.Contains(a.Id)).ToList() }).Select(a => a.Id));
+                PlanningDecisionValidation.Binding(state, combinedOption, allowed);
+            }, ct);
         var candidate = JsonSerializer.Deserialize(json, PlanningJsonContext.Default.GroundedPlan)!;
         if (replan && progress.Candidate is not null && JsonNode.DeepEquals(PlanningJsonTransport.Grounded(progress.Candidate), PlanningJsonTransport.Grounded(candidate)))
         { state.Diagnostics.Add(new("REPLAN_NO_PROGRESS", "/actions/" + progress.CurrentActions[0], "The replacement subgraph is unchanged.")); state.Status = PlanningStatus.Stopped; return; }

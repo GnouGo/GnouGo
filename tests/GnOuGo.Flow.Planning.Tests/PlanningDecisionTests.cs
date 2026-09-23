@@ -110,4 +110,79 @@ public sealed class PlanningDecisionTests
         state = await Advance(PlannerFixture.Session(), runtime);
         Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Null(state.PendingDecision);
     }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GroundingDecisionRetainsCoverageAndAppliesSelectedCapabilities(bool auto)
+    {
+        var state = SemanticGroundingTests.State(); state.Request.Mode = auto ? PlanningMode.Auto : PlanningMode.Interactive;
+        state.Grounding = CapabilityGrounder.Create(state);
+        foreach (var page in state.Grounding.Pages)
+            state.Grounding.Results.Add(new(page.Id, page.ActionIds.Select(a => new GroundingDecision(a, "matched", page.CapabilityIds.Select(id => new GroundingMatch(id, "Declared behavior")).ToList(), "Covered")).ToList()));
+        var before = JsonSerializer.Serialize(state.Grounding.Results, PlanningJsonContext.Default.ListGroundingPageResult);
+        var proposal = Proposal();
+        for (var i = 0; i < 2; i++)
+            proposal["decision"]!["options"]![i]!["result"] = new JsonObject { ["selections"] = new JsonObject(state.SemanticPlan!.Actions.Select(a => new KeyValuePair<string, JsonNode?>(a.Id,
+                new JsonObject { ["capabilities"] = new JsonObject { ["cap_0"] = i == 0, ["cap_1"] = i == 1 }, ["reason"] = "Valid business strategy" }))) };
+        var runtime = new TestRuntime { RawDecisionResponse = true, Respond = _ => new() { Json = proposal } };
+        state = await Advance(state, runtime);
+        Assert.Equal(PlanningPhase.Grounding, state.Decisions.FirstOrDefault()?.Decision.Phase ?? state.PendingDecision!.Phase);
+        if (!auto) state = await Advance(Restore(state), runtime, new() { Kind = "answer_decision", DecisionAnswer = new(state.PendingDecision!.Id, "casual") });
+        state = await Advance(Restore(state), runtime);
+        Assert.Equal(before, JsonSerializer.Serialize(state.Grounding!.Results, PlanningJsonContext.Default.ListGroundingPageResult));
+        Assert.All(state.Grounding.Selections!, selection => Assert.Equal(new[] { auto ? "cap_0" : "cap_1" }, selection.CapabilityIds));
+        Assert.Single(runtime.Calls);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BindingDecisionsRetainAcceptedWorkAcrossRestart(bool batch)
+    {
+        var runtime = new TestRuntime(); var state = PlannerFixture.Session();
+        state.Catalog = await runtime.DiscoverAsync(state.Request, Ct);
+        var first = PlannerFixture.Greeting("Hello"); first.Operations[0].SemanticAction = "greet";
+        var second = PlannerFixture.Greeting("Welcome"); second.Operations[0].SemanticAction = "greet";
+        state.SemanticPlan = GnOuGo.Planning.Examples.PlanningCorpus.Semantic(first);
+        _ = GnOuGo.Planning.Examples.PlanningCorpus.Semantic(second);
+        state.Grounding = CapabilityGrounder.Create(state);
+        foreach (var page in state.Grounding.Pages) state.Grounding.Results.Add(new(page.Id, page.ActionIds.Select(id => new GroundingDecision(id, "none_of_the_above", [], "Native calculation")).ToList()));
+        state.Grounding.Selections = [new(state.SemanticPlan.Actions[0].Id, [], "Native calculation")];
+        if (batch) state.BindingProgress = new();
+        var schema = PlanningSchemas.Grounded([]); var proposal = Proposal();
+        proposal["decision"]!["options"]![0]!["result"] = PlanningJsonTransport.ModelGrounded(PlanningJsonTransport.Grounded(first), schema);
+        proposal["decision"]!["options"]![1]!["result"] = PlanningJsonTransport.ModelGrounded(PlanningJsonTransport.Grounded(second), schema);
+        runtime.RawDecisionResponse = true; runtime.Respond = _ => new() { Json = proposal };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics); Assert.Equal(PlanningStatus.WaitingForDecision, state.Status); Assert.Equal(PlanningPhase.Binding, state.PendingDecision!.Phase);
+        state = await Advance(Restore(state), runtime, new() { Kind = "answer_decision", DecisionAnswer = new(state.PendingDecision.Id, "casual") });
+        state = await Advance(Restore(state), runtime);
+        Assert.Equal("Welcome", ((CalculateGroundedOperation)state.GroundedPlan!.Operations[0]).Value.Text);
+        Assert.Single(runtime.Calls); Assert.Equal(PlanningStatus.FinalReview, state.Status);
+    }
+
+    [Fact]
+    public async Task BusinessReplanDecisionResumesOnlyAffectedAction()
+    {
+        var state = SemanticGroundingTests.State(); state.Grounding = CapabilityGrounder.Create(state);
+        foreach (var page in state.Grounding.Pages) state.Grounding.Results.Add(new(page.Id, page.ActionIds.Select(a => new GroundingDecision(a, "matched", [new("cap_0", "Declared")], "Covered")).ToList()));
+        state.Diagnostics = [new("SEMANTIC_BINDING_BLOCKED", "/actions/collect", "Choose a supported business observation")];
+        var original = JsonSerializer.Serialize(state.SemanticPlan!.Actions[1], PlanningJsonContext.Default.SemanticAction);
+        var proposal = Proposal();
+        for (var i = 0; i < 2; i++)
+        {
+            var action = JsonSerializer.SerializeToNode(state.SemanticPlan.Actions[0], PlanningJsonContext.Default.SemanticAction)!;
+            action["purpose"] = i == 0 ? "Read a detailed observation" : "Read a concise observation";
+            proposal["decision"]!["options"]![i]!["result"] = new JsonObject { ["actions"] = new JsonArray(action), ["questions"] = new JsonArray() };
+        }
+        var runtime = new TestRuntime { RawDecisionResponse = true, Respond = _ => new() { Json = proposal } };
+        state = await Advance(state, runtime);
+        Assert.Equal(PlanningPhase.Replanning, state.PendingDecision!.Phase); Assert.Equal(new[] { "collect" }, state.PendingDecision.ActionIds);
+        state = await Advance(Restore(state), runtime, new() { Kind = "answer_decision", DecisionAnswer = new(state.PendingDecision.Id, "formal") });
+        state = await Advance(Restore(state), runtime);
+        Assert.Equal("Read a detailed observation", state.SemanticPlan!.Actions[0].Purpose);
+        Assert.Equal(original, JsonSerializer.Serialize(state.SemanticPlan.Actions[1], PlanningJsonContext.Default.SemanticAction));
+        Assert.Single(runtime.Calls); Assert.Equal(1, state.ReplanAttempts);
+    }
+
 }
