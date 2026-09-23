@@ -1,0 +1,432 @@
+{
+  "date": "2026-09-23",
+  "implementationCommit": "d874835",
+  "issue": 110,
+  "pullRequest": 108,
+  "pipelinePreserved": true,
+  "newTransportOrMcpTools": false,
+  "providerSpecificPlannerRules": false,
+  "tests": {
+    "Flow.Planning": 269,
+    "Flow": 890,
+    "Flow.Integrations": 79,
+    "Agent.Server": 404
+  },
+  "checks": {
+    "solutionWarnings": 0,
+    "frontendWarnings": 0,
+    "plannerPackage": true,
+    "nativeAotPlannerSmoke": true,
+    "trimmedServerPersistenceSmoke": true
+  },
+  "liveModel": {
+    "provider": "OpenAi",
+    "model": "gpt-5.5-2026-04-24"
+  },
+  "limits": {
+    "defaultModelCalls": 8,
+    "defaultReplans": 2,
+    "designerVerificationHostModelCalls": 24,
+    "chatVerificationModelCalls": 8,
+    "perRequestInputTokens": 12000,
+    "limitsNeverResetOrIncreasedWithinSession": true
+  },
+  "supportedMetadataWorkflows": [
+    {
+      "id": "f4ccad49be1d492785cf036aada66717",
+      "revision": 14,
+      "status": "final_review",
+      "mode": "auto",
+      "calls": 6,
+      "maxCalls": 24,
+      "replans": 0,
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "groundedValid": true,
+      "artifactVerified": true,
+      "approved": false,
+      "scenarios": [
+        "passed",
+        "passed",
+        "passed",
+        "passed",
+        "passed"
+      ],
+      "codes": [],
+      "pendingRepair": false,
+      "questions": 0,
+      "clarificationAnswers": 0,
+      "decisions": 0,
+      "surface": "designer",
+      "case": "metadata",
+      "restoredAfterRestart": true
+    },
+    {
+      "id": "43a2415451d3444aad4096f9b49f0ba5",
+      "revision": 13,
+      "status": "final_review",
+      "mode": "interactive",
+      "calls": 5,
+      "maxCalls": 24,
+      "replans": 0,
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "groundedValid": true,
+      "artifactVerified": true,
+      "approved": false,
+      "scenarios": [
+        "passed",
+        "passed",
+        "passed",
+        "passed",
+        "passed"
+      ],
+      "codes": [],
+      "pendingRepair": false,
+      "questions": 0,
+      "clarificationAnswers": 0,
+      "decisions": 0,
+      "surface": "designer",
+      "case": "metadata",
+      "restoredAfterRestart": true
+    },
+    {
+      "id": "6d5682073c97020192bd5a0d186310036321c5ea7e0d8c4d04d51956ee769ac5",
+      "revision": 7,
+      "status": "final_review",
+      "mode": "auto",
+      "calls": 4,
+      "maxCalls": 8,
+      "replans": 0,
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "groundedValid": true,
+      "artifactVerified": true,
+      "approved": false,
+      "scenarios": [
+        "passed",
+        "passed",
+        "passed",
+        "passed",
+        "passed"
+      ],
+      "codes": [],
+      "pendingRepair": false,
+      "questions": 0,
+      "clarificationAnswers": 0,
+      "decisions": 0,
+      "surface": "chat",
+      "case": "metadata",
+      "restoredAfterRestart": true
+    },
+    {
+      "id": "2741db8ecd6c0c5dc2177412aefa095a9bbc38778615b6fe9136fe22fecd6df1",
+      "revision": 7,
+      "status": "final_review",
+      "mode": "interactive",
+      "calls": 4,
+      "maxCalls": 8,
+      "replans": 0,
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "groundedValid": true,
+      "artifactVerified": true,
+      "approved": false,
+      "scenarios": [
+        "passed",
+        "passed",
+        "passed",
+        "passed",
+        "passed",
+        "passed",
+        "passed"
+      ],
+      "codes": [],
+      "pendingRepair": false,
+      "questions": 0,
+      "clarificationAnswers": 0,
+      "decisions": 0,
+      "surface": "chat",
+      "case": "metadata",
+      "restoredAfterRestart": true
+    }
+  ],
+  "capabilityGapAndOriginalRequestBeforeRestart": [
+    {
+      "id": "a466673a890a4f02b948ed9a0fd1737b",
+      "revision": 11,
+      "status": "stopped",
+      "mode": "auto",
+      "calls": 4,
+      "maxCalls": 24,
+      "replans": 1,
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "groundedValid": null,
+      "artifactVerified": false,
+      "approved": false,
+      "scenarios": [],
+      "codes": [
+        "NONE_OF_THE_ABOVE"
+      ],
+      "pendingRepair": true,
+      "questions": 1,
+      "clarificationAnswers": 0,
+      "decisions": 0,
+      "surface": "designer",
+      "case": "original-auto"
+    },
+    {
+      "id": "1caebfceb84ab548cf5419c915a9a18794e3e71050dbb3b828fcaa1da2d7403d",
+      "revision": 5,
+      "status": "stopped",
+      "mode": "auto",
+      "calls": 3,
+      "maxCalls": 8,
+      "replans": 1,
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "groundedValid": null,
+      "artifactVerified": false,
+      "approved": false,
+      "scenarios": [],
+      "codes": [
+        "NONE_OF_THE_ABOVE"
+      ],
+      "pendingRepair": true,
+      "questions": 1,
+      "clarificationAnswers": 0,
+      "decisions": 0,
+      "surface": "chat",
+      "case": "gap-auto"
+    },
+    {
+      "id": "64445edae0eb9ffed115f9807af612240c2019f1b98902bfb5fdf9db1dc345af",
+      "revision": 5,
+      "status": "clarification",
+      "mode": "interactive",
+      "calls": 3,
+      "maxCalls": 8,
+      "replans": 1,
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "groundedValid": null,
+      "artifactVerified": false,
+      "approved": false,
+      "scenarios": [],
+      "codes": [
+        "NONE_OF_THE_ABOVE"
+      ],
+      "pendingRepair": true,
+      "questions": 1,
+      "clarificationAnswers": 0,
+      "decisions": 0,
+      "surface": "chat",
+      "case": "gap-interactive"
+    },
+    {
+      "id": "bd4d602ae0944596a70f2815982aba7f",
+      "revision": 29,
+      "status": "stopped",
+      "mode": "interactive",
+      "calls": 13,
+      "maxCalls": 24,
+      "replans": 2,
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "groundedValid": null,
+      "artifactVerified": false,
+      "approved": false,
+      "scenarios": [],
+      "codes": [
+        "MODEL_INPUT_LIMIT"
+      ],
+      "pendingRepair": false,
+      "questions": 0,
+      "clarificationAnswers": 0,
+      "decisions": 0,
+      "surface": "designer",
+      "case": "original-interactive"
+    }
+  ],
+  "afterRecoveryActions": [
+    {
+      "id": "a466673a890a4f02b948ed9a0fd1737b",
+      "revision": 13,
+      "status": "cancelled",
+      "mode": "interactive",
+      "calls": 4,
+      "maxCalls": 24,
+      "replans": 1,
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "groundedValid": null,
+      "artifactVerified": false,
+      "approved": false,
+      "scenarios": [],
+      "codes": [
+        "NONE_OF_THE_ABOVE"
+      ],
+      "pendingRepair": true,
+      "questions": 1,
+      "clarificationAnswers": 0,
+      "decisions": 0,
+      "surface": "designer",
+      "case": "original-auto"
+    },
+    {
+      "id": "1caebfceb84ab548cf5419c915a9a18794e3e71050dbb3b828fcaa1da2d7403d",
+      "revision": 5,
+      "status": "stopped",
+      "mode": "auto",
+      "calls": 3,
+      "maxCalls": 8,
+      "replans": 1,
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "groundedValid": null,
+      "artifactVerified": false,
+      "approved": false,
+      "scenarios": [],
+      "codes": [
+        "NONE_OF_THE_ABOVE"
+      ],
+      "pendingRepair": true,
+      "questions": 1,
+      "clarificationAnswers": 0,
+      "decisions": 0,
+      "surface": "chat",
+      "case": "gap-auto"
+    },
+    {
+      "id": "64445edae0eb9ffed115f9807af612240c2019f1b98902bfb5fdf9db1dc345af",
+      "revision": 6,
+      "status": "stopped",
+      "mode": "interactive",
+      "calls": 3,
+      "maxCalls": 8,
+      "replans": 1,
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "groundedValid": null,
+      "artifactVerified": false,
+      "approved": false,
+      "scenarios": [],
+      "codes": [
+        "NONE_OF_THE_ABOVE"
+      ],
+      "pendingRepair": true,
+      "questions": 1,
+      "clarificationAnswers": 1,
+      "decisions": 0,
+      "surface": "chat",
+      "case": "gap-interactive"
+    },
+    {
+      "id": "bd4d602ae0944596a70f2815982aba7f",
+      "revision": 29,
+      "status": "stopped",
+      "mode": "interactive",
+      "calls": 13,
+      "maxCalls": 24,
+      "replans": 2,
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "groundedValid": null,
+      "artifactVerified": false,
+      "approved": false,
+      "scenarios": [],
+      "codes": [
+        "MODEL_INPUT_LIMIT"
+      ],
+      "pendingRepair": false,
+      "questions": 0,
+      "clarificationAnswers": 0,
+      "decisions": 0,
+      "surface": "designer",
+      "case": "original-interactive"
+    }
+  ],
+  "uiRecovery": [
+    {
+      "surface": "chat",
+      "id": "64445edae0eb9ffed115f9807af612240c2019f1b98902bfb5fdf9db1dc345af",
+      "originatingConversationRestored": true,
+      "scopeCardRestored": true,
+      "answer": "decline",
+      "status": "stopped",
+      "callsUnchanged": true,
+      "historyRestored": true,
+      "approved": false
+    },
+    {
+      "surface": "designer",
+      "id": "a466673a890a4f02b948ed9a0fd1737b",
+      "autoExplanationVisible": true,
+      "modeChange": "auto_to_interactive",
+      "explicitConsentStillRequired": true,
+      "answer": "cancel",
+      "status": "cancelled",
+      "callsUnchanged": true,
+      "proposalRetained": true,
+      "approved": false
+    }
+  ],
+  "originalStoppedSessionUnchanged": {
+    "id": "3d9bd1a1302646a6a0c279cee9fd63fd",
+    "revision": 13,
+    "status": "stopped",
+    "mode": "interactive",
+    "calls": 6,
+    "maxCalls": 8,
+    "replans": 1,
+    "provider": "OpenAi",
+    "model": "gpt-5.5-2026-04-24",
+    "groundedValid": null,
+    "artifactVerified": false,
+    "approved": false,
+    "scenarios": [],
+    "codes": [
+      "SEMANTIC_BINDING_BLOCKED",
+      "SEMANTIC_BINDING_BLOCKED",
+      "GROUNDING_BUDGET_INSUFFICIENT"
+    ],
+    "pendingRepair": false,
+    "questions": 0,
+    "clarificationAnswers": 0,
+    "decisions": 0
+  },
+  "fullInteractiveTechnicalRepair": {
+    "session": "bd4d602ae0944596a70f2815982aba7f",
+    "checkpointCalls": 7,
+    "scope": [
+      "a5",
+      "a6"
+    ],
+    "clarificationQuestions": 0,
+    "insertedObservationAction": "a4b",
+    "acceptedPrefixBeforePublication": [
+      "a1",
+      "a2",
+      "a3",
+      "a4",
+      "a4b",
+      "a5"
+    ],
+    "finalStatus": "stopped",
+    "finalCalls": 13,
+    "finalReplans": 2,
+    "finalCodes": [
+      "MODEL_INPUT_LIMIT"
+    ]
+  },
+  "limitations": [
+    "Inline publication remains unsupported; no original requirement was silently reduced.",
+    "The larger Interactive copy inserted a prerequisite and preserved accepted work but stopped at its existing per-request input limit; it did not reach FinalReview.",
+    "Remaining-work estimates are lower bounds, not completion guarantees."
+  ],
+  "generatedLiveWorkflowsApproved": false,
+  "generatedLiveWorkflowsExecuted": false,
+  "publicationTests": "simulated only",
+  "privatePayloadStorage": "encrypted KeyVault journals only"
+}

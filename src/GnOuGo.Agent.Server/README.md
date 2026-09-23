@@ -687,3 +687,11 @@ Chat origin links and planning state are encrypted through KeyVault. Reopening a
 Unfinished planning conversations also appear in a fresh browser's chat list, even before a workflow has produced a completed chat turn. See [local Designer/Chat acceptance evidence](../../docs/planner-decisions-2026-09-23.md).
 
 Run `dotnet test tests/GnOuGo.Agent.Server.Tests -m:1 -warnaserror -p:SkipClientBuild=true` for lifecycle, encrypted persistence and shared-card coverage.
+
+### Prerequisite repair and capability gaps
+
+Designer and originating Chat display structured prerequisite findings, root/dependent links and unapplied repair summaries. Supported business scope revisions use a shared explicit Accept / Keep original and stop / Cancel planning card. Previously answered revisions appear in the history. `answer` submits `answers: {"accept_scope_revision": true|false}` with the current `expectedRevision`; this changes only the proposed planning scope and cannot approve or execute a workflow. Workflow-owned sessions remain inspection-only in Designer.
+
+The protected review publisher declares its own limitation: findings are placed in one review body; inline diff comments are unsupported. The generic planner does not recognize publisher names or rewrite an inline requirement into a review body. Interactive requires explicit scope consent; Auto stops if a mandatory outcome cannot be supported. Existing protected publication confirmations, fresh-head verification and uncertain-write replay rules remain enforced.
+
+Default cumulative budgets remain eight model calls and two replans. Before a repair is installed, the host accounts for reusable coverage, known selection work, binding batches and known outstanding scenario requests. The estimate is a lower bound, not a guarantee of completion. A budget stop retains the coherent accepted state and its encrypted unapplied proposal. [Verification and limitations](../../docs/planner-prerequisite-repair-2026-09-23.md).

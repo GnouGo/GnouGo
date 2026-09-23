@@ -40,3 +40,13 @@ One provider-neutral decision contract adds Auto and Interactive modes without c
 Auto checkpoints the preferred selection and reason before continuing. Interactive checkpoints `waiting_for_decision` and requires an explicit revision-checked answer. A mode change to Auto resolves a pending decision; cancellation retains the journal. Technical repairs, deterministic choices, host defects, permissions and executor plumbing do not request decisions. Runtime `human.input` and FinalReview approval remain independent.
 
 Server uses one shared card for Designer and Chat, with encrypted origin links and workflow-owner leases. A restarted chat resumes only its saved planner, through FinalReview; workflow-owned sessions are inspection-only in Designer. [Contract details and local acceptance evidence](planner-decisions-2026-09-23.md) describe the API and recovery boundaries.
+
+## Scoped prerequisite repairs and business scope changes
+
+Binding can report optional structured prerequisites with declared consumer/contract references and root/dependent action links. Missing observations and artifact producers are technical repairs. Replanning receives the accepted scope, complete coverage findings and selected contracts, inserts required producers, and leaves unrelated semantic actions byte-for-byte unchanged. Newly introduced or changed actions still cover the entire authorized catalog. Opaque responses remain opaque until runtime validation succeeds.
+
+A repair checkpoint stores a proposed replacement separately from the active semantic plan, grounding and binding prefix. Fingerprint, boundary, reusable-work and lower-bound budget checks precede atomic installation. Restart reuses the checkpoint and model receipts without duplicate proposals or reset budgets. Infeasible proposals stay visible as unapplied repairs. Existing schema-8 payloads and reserved model schemas remain readable.
+
+Ordinary decisions choose among valid implementations of agreed requirements. An unsupported required outcome instead needs a business revision: Interactive shows the exact scoped change and requires explicit acceptance, rejection or cancellation; Auto stops. No preferred option can silently reduce a mandatory outcome. The separate planner provider carries these answers in the originating Chat, including after restart, while `/planning` remains read-only for workflow-owned sessions.
+
+See [implementation verification](planner-prerequisite-repair-2026-09-23.md) for the reported incident, tests, live results and budget limitations.

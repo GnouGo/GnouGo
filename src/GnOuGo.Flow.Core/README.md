@@ -1338,6 +1338,8 @@ Runs the injected semantic/grounded planner to business clarification or final a
 
 Business alternatives use a durable `PlanningDecision` with one preferred option. `planning_mode` defaults to `interactive`; `auto` records the preferred answer and continues. Hosts inject `IPlanningDecisionProvider` to collect planner commands; without it the session remains `waiting_for_decision`. This provider is separate from `IHumanInputProvider`, which retains existing review and runtime behavior.
 
+Optional schema-8 prerequisite diagnostics and repair checkpoints preserve exact scopes, root/dependent causes, candidate fingerprints and explicit business revision answers. Technical prerequisites never request human decisions. An unavailable mandatory outcome stops Auto; Interactive uses a scoped business clarification through the separate planner provider. Runtime `human.input`, FinalReview and workflow approval remain unchanged.
+
 Results include status, session ID and revision. Approved results also include artifact hash and YAML obtained from trusted storage. Without a human provider, planning pauses for the host to collect review or clarification. [Architecture and persistence](../../docs/workflow-planning-v2.md).
 
 ### `workflow.execute` — Execute an approved workflow
