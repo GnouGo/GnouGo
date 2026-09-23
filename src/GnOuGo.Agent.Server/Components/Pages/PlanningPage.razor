@@ -79,7 +79,23 @@
         <PlannerDecisionHistory Decisions="PlanningEndpoints.ToDto(_state).Decisions" />
         @if (_state.Diagnostics.Count > 0)
         {
-            <h3>Findings</h3><ul>@foreach (var diagnostic in _state.Diagnostics) { <li><strong>@diagnostic.Code</strong>: @diagnostic.Message <small>@diagnostic.Location</small></li> }</ul>
+            <h3>Findings</h3><ul>@foreach (var diagnostic in _state.Diagnostics)
+            {
+                <li><strong>@diagnostic.Code</strong>: @diagnostic.Message <small>@diagnostic.Location</small>
+                    @if (diagnostic.Computation is { } computation)
+                    {
+                        <details class="planning-computation-finding">
+                            <summary>Computation details</summary>
+                            <p>Expression: <code>@computation.Expression</code></p>
+                            @if (computation.OriginExpression is { } origin) { <p>Value comes from: <code>@origin</code></p> }
+                            @if (computation.ProducerLocation is { } producer) { <p>@(producer == diagnostic.Location ? "Failing producer:" : "Blocked by producer:") <code>@producer</code></p> }
+                            <p>@(computation.Limitation switch { "inference_unsupported" => "The result type could not be inferred.", "producer_contract_missing" => "The producer contract is unavailable.", _ => "The member is not declared by the known contract." })</p>
+                            <p>Known receiver contract:</p><pre>@computation.ReceiverContract.ToJsonString()</pre>
+                            <p>Known argument contracts:</p><pre>@computation.ParameterContracts.ToJsonString()</pre>
+                        </details>
+                    }
+                </li>
+            }</ul>
         }
         @if (_state.Scenarios.Count > 0)
         {

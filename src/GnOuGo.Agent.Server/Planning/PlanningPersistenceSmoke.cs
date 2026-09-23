@@ -24,11 +24,16 @@ internal static class PlanningPersistenceSmoke
         state.Revision = 1; state.Status = PlanningStatus.Stopped; state.ModelCalls = 2; state.ReplanAttempts = 1;
         state.GroundedPlan = new() { Summary = "Private grounded plan" };
         state.Graph = new() { Workflows = [new() { Key = "main" }] };
-        state.Diagnostics = [new("GROUNDING_INCOMPLETE", "/workflows/0", "An input is missing.")];
+        state.Diagnostics = [new("GROUNDED_CONTRACT_INVALID", "/scopes/main/operations/consumer", "Private computation finding")
+        {
+            Computation = new("alias.name", "inference_unsupported", new() { ["x-gnougo-opaque"] = true },
+                new() { ["text"] = new System.Text.Json.Nodes.JsonObject { ["type"] = "string" } }, "JSON.parse(text)", "/scopes/main/operations/parse")
+        }];
         if (!await store.TrySaveAsync(state, 0, CancellationToken.None)) throw new InvalidOperationException("Update failed.");
         var reopened = new EfPlanningSessionStore(factory, KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory));
         var restored = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
         if (restored?.SchemaVersion != 8 || restored.Revision != 1 || restored.ModelCalls != 2 || restored.ReplanAttempts != 1 || restored.GroundedPlan?.Summary != "Private grounded plan" || restored.Graph is null || restored.Diagnostics.Count != 1 ||
+            restored.Diagnostics[0].Computation?.OriginExpression != "JSON.parse(text)" || restored.Diagnostics[0].Computation?.ProducerLocation != "/scopes/main/operations/parse" ||
             await reopened.LoadAsync("another-tenant", state.Request.SessionId, CancellationToken.None) is not null || (await reopened.ListAsync("smoke", CancellationToken.None)).Count == 0)
             throw new InvalidOperationException("Published persistence or tenant isolation failed.");
         state.Revision = 2;
@@ -51,7 +56,7 @@ internal static class PlanningPersistenceSmoke
         await Reviews.ReviewPersistenceSmoke.RunAsync(records);
         foreach (var file in Directory.EnumerateFiles(directory, "*.db"))
             if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)) is { } bytes &&
-                (bytes.Contains("Private published smoke content", StringComparison.Ordinal) || bytes.Contains("Private published review smoke", StringComparison.Ordinal)))
+                (bytes.Contains("Private published smoke content", StringComparison.Ordinal) || bytes.Contains("Private published review smoke", StringComparison.Ordinal) || bytes.Contains("JSON.parse(text)", StringComparison.Ordinal)))
                 throw new InvalidOperationException("Sensitive session content was persisted unencrypted.");
         Console.WriteLine("Schema-8 planning persistence smoke passed.");
     }

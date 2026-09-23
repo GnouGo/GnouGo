@@ -42,6 +42,17 @@ foreach (var mode in new[] { PlanningMode.Auto, PlanningMode.Interactive })
     if (state.SemanticPlan is null || state.DecisionContinuation is not null || runtime.Calls != 1) throw new InvalidOperationException("Decision continuation repeated or lost work.");
     Console.WriteLine("planner decision " + mode + ": passed");
 }
+var scalar = ExpressionContractInference.Infer("String(decodeURIComponent(text)).replace(/ /g, '-')", new Dictionary<string, JsonObject> { ["text"] = new() { ["type"] = "string" } });
+if (scalar?["type"]?.ToString() != "string") throw new InvalidOperationException("Scalar conversion inference failed.");
+var diagnostic = new PlanningDiagnostic("GROUNDED_CONTRACT_INVALID", "/scopes/main/operations/consumer", "Blocked computation")
+{
+    Computation = new("alias.name", "inference_unsupported", new() { ["x-gnougo-opaque"] = true },
+        new() { ["text"] = new JsonObject { ["type"] = "string" } }, "JSON.parse(text)", "/scopes/main/operations/parse")
+};
+var restoredDiagnostic = JsonSerializer.Deserialize(JsonSerializer.Serialize(diagnostic, PlanningJsonContext.Default.PlanningDiagnostic), PlanningJsonContext.Default.PlanningDiagnostic);
+if (restoredDiagnostic?.Computation is not { OriginExpression: "JSON.parse(text)", ProducerLocation: "/scopes/main/operations/parse" })
+    throw new InvalidOperationException("Computation diagnostic serialization failed.");
+Console.WriteLine("Scalar inference and computation diagnostic smoke passed.");
 Console.WriteLine("Planner Native AOT smoke passed.");
 
 sealed class DecisionRuntime : IPlanningRuntime

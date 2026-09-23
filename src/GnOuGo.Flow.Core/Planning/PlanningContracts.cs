@@ -146,7 +146,14 @@ public sealed class PlanningCapability
 public sealed record PlanningLiteralBinding(string Path, JsonNode? Value);
 public sealed record PlanningBinding(string Id, string WorkflowKey, PlanningValue Value, JsonObject Schema, string Availability);
 public sealed record PlanningAnswer(string Question, JsonObject Answers);
-public sealed record PlanningDiagnostic(string Code, string Location, string Message, bool Required = true, string? ValidationStage = null, string? Rule = null);
+public sealed record PlanningDiagnostic(string Code, string Location, string Message, bool Required = true, string? ValidationStage = null, string? Rule = null)
+{
+    // Omit absent additions so existing artifact hashes and schema-8 histories remain stable.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningComputationContext? Computation { get; init; }
+}
+public sealed record PlanningComputationContext(string Expression, string Limitation, JsonObject ReceiverContract,
+    JsonObject ParameterContracts, string? OriginExpression = null, string? ProducerLocation = null);
 public sealed record PlanningScenarioResult(string Id, string Outcome, string Description, List<PlanningDiagnostic> Diagnostics);
 public sealed record PlanningArtifactBinding(string Workflow, string Step, string CapabilityId);
 public sealed record PlanningArtifactValidationRequest(string Yaml, PlanningRequest Request, PlanningCatalog Catalog, IReadOnlyList<PlanningArtifactBinding> Bindings);

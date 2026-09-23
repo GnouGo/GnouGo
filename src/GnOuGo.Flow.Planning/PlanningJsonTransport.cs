@@ -11,13 +11,15 @@ internal static class PlanningJsonTransport
     // Prompt JSON is model input, never HTML. Literal Unicode avoids expanding business text into escape sequences.
     internal static string Prompt(JsonNode value) => value.ToJsonString(new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
     internal static JsonArray Diagnostics(IEnumerable<PlanningDiagnostic> diagnostics) => new(diagnostics
-        .GroupBy(d => (d.Code, d.Message, d.Required, d.ValidationStage, d.Rule)).Select(group =>
+        .GroupBy(d => (d.Code, d.Message, d.Required, d.ValidationStage, d.Rule,
+            Computation: d.Computation is null ? null : JsonSerializer.Serialize(d.Computation, PlanningJsonContext.Default.PlanningComputationContext))).Select(group =>
         {
             var item = new JsonObject { ["code"] = group.Key.Code, ["message"] = group.Key.Message,
                 ["locations"] = new JsonArray(group.Select(d => d.Location).Distinct(StringComparer.Ordinal).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
                 ["required"] = group.Key.Required };
             if (group.Key.ValidationStage is not null) item["validationStage"] = group.Key.ValidationStage;
             if (group.Key.Rule is not null) item["rule"] = group.Key.Rule;
+            if (group.Key.Computation is not null) item["computation"] = JsonNode.Parse(group.Key.Computation);
             return (JsonNode)item;
         }).ToArray());
     internal static JsonObject BusinessContext(JsonObject plan)

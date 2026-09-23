@@ -57,7 +57,11 @@ internal static class PlanningEndpoints
         state.SemanticPlan is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(state.SemanticPlan, PlanningJsonContext.Default.SemanticPlan)!.AsObject(),
         state.GroundedPlan is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(state.GroundedPlan, PlanningJsonContext.Default.GroundedPlan)!.AsObject(),
         state.Yaml, PlanningArtifactApproval.Hash(state), state.ApprovedHash,
-        state.Diagnostics.Select(d => new PlanningValidationDto(d.Code, d.Location, d.Message, d.Required)).ToArray(),
+        state.Diagnostics.Select(d => new PlanningValidationDto(d.Code, d.Location, d.Message, d.Required)
+        {
+            ValidationStage = d.ValidationStage, Rule = d.Rule,
+            Computation = d.Computation is { } c ? new(c.Expression, c.Limitation, c.ReceiverContract.DeepClone().AsObject(), c.ParameterContracts.DeepClone().AsObject(), c.OriginExpression, c.ProducerLocation) : null
+        }).ToArray(),
         state.Scenarios.Select(s => new PlanningScenarioDto(s.Id, s.Outcome, s.Description)).ToArray(),
         state.Status == PlanningStatus.Clarification ? state.SemanticPlan!.Questions.Select(q => new PlanningQuestionDto(q.Id, q.Question, PlanningGraphCompiler.ToJsonSchema(PlanningGraphBuilder.Schema(q.AnswerType), state.Catalog!))).ToArray() : [],
         state.ModelCalls, state.ReplanAttempts, state.Usage?.InputTokens ?? 0, state.Usage?.OutputTokens ?? 0,
