@@ -52,6 +52,19 @@ public sealed class PrerequisiteDiagnosticsTests
     }
 
     [Fact]
+    public void ABindingBatchIncludesTheIssuedContainersNestedActions()
+    {
+        var state = State(); var children = state.SemanticPlan!.Actions;
+        state.SemanticPlan.Actions = [new() { Id = "container", Kind = "parallel", Purpose = "Perform related work", Blocks = [new("body", children, [])] },
+            new() { Id = "unrelated", Purpose = "Separate work" }];
+        state.BindingProgress = new() { CurrentActions = ["container"] };
+        var findings = PlanningPrerequisites.Read(state, Blockers());
+        Assert.Equal(2, findings.Count); Assert.Contains(findings, d => d.Location == "/actions/collect");
+        var blockers = Blockers(); blockers.Add(new JsonObject { ["actionId"] = "unrelated", ["reason"] = "Not issued" });
+        Assert.Throws<PlanningResponseException>(() => PlanningPrerequisites.Read(state, blockers));
+    }
+
+    [Fact]
     public void LegacyTechnicalBlockersRemainReadableAndCannotAskQuestions()
     {
         var state = State(); state.Diagnostics = PlanningPrerequisites.Read(state, JsonNode.Parse("""[{"actionId":"collect","reason":"Missing prerequisite"}]""")!.AsArray());

@@ -143,7 +143,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         {
             if (state.PendingCall is null && state.DecisionContinuation is null && state.ReplanAttempts >= state.Request.MaxReplanAttempts) { Stop(state); return; }
             state.Phase = PlanningPhase.Replanning;
-            if (state.Diagnostics.Any(d => d.Code == "SEMANTIC_BINDING_BLOCKED")) await SemanticReplanning.ApplyAsync(state, runtime, ct);
+            if (state.Diagnostics.Any(d => d.Code is "SEMANTIC_BINDING_BLOCKED" or "NONE_OF_THE_ABOVE")) await SemanticReplanning.ApplyAsync(state, runtime, ct);
             else if (state.BindingProgress is not null) await GroundedBindingBatches.ApplyAsync(state, runtime, ct, replan: true);
             else if (state.GroundedPlan is not null) await GroundedReplanning.ApplyAsync(state, runtime, ct);
             else if (state.Grounding?.Selections is not null)

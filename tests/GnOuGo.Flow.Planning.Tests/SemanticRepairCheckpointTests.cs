@@ -145,6 +145,23 @@ public sealed class SemanticRepairCheckpointTests
     }
 
     [Fact]
+    public async Task ModeChangesNeverConsentAndCancellationRetainsTheProposal()
+    {
+        var state = State(); state.Diagnostics = [new("NONE_OF_THE_ABOVE", "/actions/collect", "Unsupported outcome")];
+        var original = SemanticPlanning.Hash(state.SemanticPlan!);
+        var runtime = new TestRuntime { Respond = _ => new() { Json = BusinessRevision(state) } }; var planner = new TypedWorkflowPlanner();
+        state = await planner.AdvanceAsync(state, new(), runtime, Ct);
+        state = await planner.AdvanceAsync(state, new() { Kind = "configure_mode", Mode = PlanningMode.Auto, ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Empty(state.Answers);
+        state = await planner.AdvanceAsync(Restore(state), new() { Kind = "configure_mode", Mode = PlanningMode.Interactive, ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(PlanningStatus.Clarification, state.Status); Assert.Single(state.GetQuestions());
+        await Assert.ThrowsAsync<ArgumentException>(() => planner.AdvanceAsync(state, new() { Kind = "answer", ExpectedRevision = state.Revision, Answers = new() { ["accept_scope_revision"] = "yes" } }, runtime, Ct));
+        state = await planner.AdvanceAsync(state, new() { Kind = "cancel", ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(PlanningStatus.Cancelled, state.Status); Assert.NotNull(state.PendingRepair); Assert.Empty(state.Answers);
+        Assert.Equal(original, SemanticPlanning.Hash(state.SemanticPlan!)); Assert.Single(runtime.Calls); Assert.Null(state.ApprovedHash);
+    }
+
+    [Fact]
     public async Task TechnicalPrerequisiteCannotTurnIntoBusinessScopeConsent()
     {
         var state = State(); var response = Replacement(state);

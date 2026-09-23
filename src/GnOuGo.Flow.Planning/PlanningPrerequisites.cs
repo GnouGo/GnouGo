@@ -9,7 +9,10 @@ internal static class PlanningPrerequisites
     internal static List<PlanningDiagnostic> Read(PlanningSession state, JsonArray blockers)
     {
         var actions = SemanticPlanning.Actions(state.SemanticPlan!).ToDictionary(a => a.Id, StringComparer.Ordinal);
-        var scope = state.BindingProgress?.CurrentActions is { Count: > 0 } batch ? batch.ToHashSet(StringComparer.Ordinal) : actions.Keys.ToHashSet(StringComparer.Ordinal);
+        var scope = state.BindingProgress?.CurrentActions is { Count: > 0 } batch
+            ? SemanticPlanning.Actions(new() { Actions = state.SemanticPlan!.Actions.Where(a => batch.Contains(a.Id)).ToList(),
+                Subflows = state.BindingProgress.CompletedActions.Count == 0 ? state.SemanticPlan.Subflows : [] }).Select(a => a.Id).ToHashSet(StringComparer.Ordinal)
+            : actions.Keys.ToHashSet(StringComparer.Ordinal);
         var result = new List<PlanningDiagnostic>();
         foreach (var blocker in blockers)
         {
