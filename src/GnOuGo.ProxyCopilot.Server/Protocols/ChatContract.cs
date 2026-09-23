@@ -97,6 +97,16 @@ public static class ChatContract
         foreach (var name in new[] { "max_tokens", "max_completion_tokens" })
             if (request[name] is not null && Integer(request[name], name) <= 0) throw Unsupported(name);
         if (request["max_tokens"] is not null && request["max_completion_tokens"] is not null) throw Unsupported("conflicting output-token limits");
+        if (request["reasoning_effort"] is { } reasoning)
+        {
+            var effort = Text(reasoning, "reasoning_effort");
+            var capabilities = route.Model.Metadata.Capabilities;
+            var levels = capabilities.SupportedReasoningEfforts?.Where(level => !string.IsNullOrWhiteSpace(level)).ToArray() ?? [];
+            if (string.IsNullOrWhiteSpace(effort) || capabilities.SupportsReasoningEffort == false
+                || levels.Length > 0 && !levels.Contains(effort, StringComparer.Ordinal))
+                throw new ProxyException(400, "unsupported_parameter",
+                    "The requested reasoning_effort is not enabled for this model. Refresh the client model configuration from /api/setup and select a configured level.");
+        }
     }
 
     public static void ValidateNative(JsonObject request, bool anthropic)
