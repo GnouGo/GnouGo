@@ -1,0 +1,326 @@
+{
+  "capturedAtUtc": "2026-09-23T12:24:42.304371+00:00",
+  "implementationRevisions": [
+    "fdf1b6b",
+    "a7c7ef2",
+    "f819d10"
+  ],
+  "verificationRevision": "35d5277",
+  "model": "gpt-5.5-2026-04-24",
+  "provider": "OpenAi",
+  "interaction": "Headless Chromium drove the actual local Blazor UI. APIs were read only to inspect persisted results.",
+  "generatedWorkflowsApproved": 0,
+  "generatedWorkflowsExecuted": 0,
+  "cases": [
+    {
+      "surface": "designer",
+      "case": "legacy-clarification-fallback",
+      "sessionId": "33f90fc8c03d4d7da374e1f37051a9f5",
+      "mode": "interactive",
+      "status": "clarification",
+      "phase": "grounding",
+      "revision": 4,
+      "calls": 2,
+      "replanAttempts": 1,
+      "inputTokens": 2997,
+      "outputTokens": 1577,
+      "estimatedCost": 0.05434441245747187,
+      "currency": "EUR",
+      "approved": false,
+      "diagnosticCodes": [],
+      "scenarios": [],
+      "decisions": []
+    },
+    {
+      "surface": "designer",
+      "case": "option-after-restart",
+      "sessionId": "bd67d8eace1d4921aa33961419b672ec",
+      "mode": "interactive",
+      "status": "final_review",
+      "phase": "review",
+      "revision": 12,
+      "calls": 4,
+      "replanAttempts": 0,
+      "inputTokens": 20159,
+      "outputTokens": 2200,
+      "estimatedCost": 0.14550728430602808,
+      "currency": "EUR",
+      "approved": false,
+      "diagnosticCodes": [],
+      "scenarios": [
+        {
+          "id": "nominal",
+          "outcome": "passed"
+        }
+      ],
+      "decisions": [
+        {
+          "id": "5a50105b9fe44df7b23bd76c4e74abaa",
+          "phase": "semantic",
+          "scope": "/",
+          "optionCount": 2,
+          "preferredCount": 1,
+          "source": "user",
+          "customAnswer": false,
+          "selectedPreferred": false,
+          "reasonRecorded": true
+        }
+      ]
+    },
+    {
+      "surface": "designer",
+      "case": "auto",
+      "sessionId": "e9952d01db8946c096fef2ebfe93246f",
+      "mode": "auto",
+      "status": "final_review",
+      "phase": "review",
+      "revision": 11,
+      "calls": 4,
+      "replanAttempts": 0,
+      "inputTokens": 20171,
+      "outputTokens": 2987,
+      "estimatedCost": 0.16615632905871064,
+      "currency": "EUR",
+      "approved": false,
+      "diagnosticCodes": [],
+      "scenarios": [
+        {
+          "id": "nominal",
+          "outcome": "passed"
+        }
+      ],
+      "decisions": [
+        {
+          "id": "0e7144a687b84df68c7cef385bebdebe",
+          "phase": "semantic",
+          "scope": "/",
+          "optionCount": 2,
+          "preferredCount": 1,
+          "source": "auto",
+          "customAnswer": false,
+          "selectedPreferred": true,
+          "reasonRecorded": true
+        }
+      ]
+    },
+    {
+      "surface": "designer",
+      "case": "custom-provider-failure",
+      "sessionId": "744840d465f84346a66cf09982462459",
+      "mode": "interactive",
+      "status": "stopped",
+      "phase": "binding",
+      "revision": 13,
+      "calls": 5,
+      "replanAttempts": 0,
+      "inputTokens": 18229,
+      "outputTokens": 2118,
+      "estimatedCost": 0.13494285963534852,
+      "currency": "EUR",
+      "approved": false,
+      "diagnosticCodes": [
+        "MODEL_DISPATCH_UNVERIFIABLE"
+      ],
+      "scenarios": [],
+      "decisions": [
+        {
+          "id": "fdc06c570e434ba580cc3c54c59d11ac",
+          "phase": "semantic",
+          "scope": "/",
+          "optionCount": 2,
+          "preferredCount": 1,
+          "source": "user",
+          "customAnswer": true,
+          "selectedPreferred": false,
+          "reasonRecorded": true
+        }
+      ]
+    },
+    {
+      "surface": "designer",
+      "case": "cancel",
+      "sessionId": "26510e9fac1f4043a86565511e9cc693",
+      "mode": "interactive",
+      "status": "cancelled",
+      "phase": "semantic",
+      "revision": 3,
+      "calls": 1,
+      "replanAttempts": 0,
+      "inputTokens": 1654,
+      "outputTokens": 918,
+      "estimatedCost": 0.031239640582744484,
+      "currency": "EUR",
+      "approved": false,
+      "diagnosticCodes": [],
+      "scenarios": [],
+      "decisions": []
+    },
+    {
+      "surface": "designer",
+      "case": "custom",
+      "sessionId": "89184972f8e44f0e995c0fbc31df0305",
+      "mode": "interactive",
+      "status": "final_review",
+      "phase": "review",
+      "revision": 13,
+      "calls": 5,
+      "replanAttempts": 0,
+      "inputTokens": 21939,
+      "outputTokens": 2466,
+      "estimatedCost": 0.160232923318503,
+      "currency": "EUR",
+      "approved": false,
+      "diagnosticCodes": [],
+      "scenarios": [
+        {
+          "id": "nominal",
+          "outcome": "passed"
+        }
+      ],
+      "decisions": [
+        {
+          "id": "42f3c42c1f404ff1afd12ed7c61901aa",
+          "phase": "semantic",
+          "scope": "/",
+          "optionCount": 2,
+          "preferredCount": 1,
+          "source": "user",
+          "customAnswer": true,
+          "selectedPreferred": false,
+          "reasonRecorded": true
+        }
+      ]
+    },
+    {
+      "surface": "chat",
+      "case": "option-after-owner-restart",
+      "sessionId": "ced97e93321371c293ba1cae877623cf18c00d6d897d85857f631107a23fada5",
+      "conversationId": "ea0c761a47c6461a8be660092d15f6a4",
+      "mode": "interactive",
+      "status": "final_review",
+      "phase": "review",
+      "revision": 7,
+      "calls": 3,
+      "replanAttempts": 0,
+      "inputTokens": 19745,
+      "outputTokens": 1750,
+      "estimatedCost": 0,
+      "currency": "USD",
+      "approved": false,
+      "diagnosticCodes": [],
+      "scenarios": [
+        {
+          "id": "nominal",
+          "outcome": "passed"
+        }
+      ],
+      "decisions": [
+        {
+          "id": "f0cf302cad014008819ab70fac97aa61",
+          "phase": "semantic",
+          "scope": "/",
+          "optionCount": 2,
+          "preferredCount": 1,
+          "source": "user",
+          "customAnswer": false,
+          "selectedPreferred": false,
+          "reasonRecorded": true
+        }
+      ]
+    },
+    {
+      "surface": "chat",
+      "case": "auto",
+      "sessionId": "de4f13cc7fbe6b5657dc18af9210efe8bc3e7596e2ac188f8e7ad6a85515c770",
+      "conversationId": "d1787587541941bfbc2f278480c9ecdf",
+      "mode": "auto",
+      "status": "final_review",
+      "phase": "review",
+      "revision": 6,
+      "calls": 3,
+      "replanAttempts": 0,
+      "inputTokens": 19734,
+      "outputTokens": 1940,
+      "estimatedCost": 0,
+      "currency": "USD",
+      "approved": false,
+      "diagnosticCodes": [],
+      "scenarios": [
+        {
+          "id": "nominal",
+          "outcome": "passed"
+        }
+      ],
+      "decisions": [
+        {
+          "id": "d4bfa48ecd2e4116b76dad671ade743e",
+          "phase": "semantic",
+          "scope": "/",
+          "optionCount": 2,
+          "preferredCount": 1,
+          "source": "auto",
+          "customAnswer": false,
+          "selectedPreferred": true,
+          "reasonRecorded": true
+        }
+      ]
+    },
+    {
+      "surface": "chat",
+      "case": "custom",
+      "sessionId": "ec8cbba0e5a28a70e2bd2de3be0725665ff89cfa3e1d2d8ce450160ef43c1db4",
+      "conversationId": "16f21fd07e0b484e8664f639bf8bd100",
+      "mode": "interactive",
+      "status": "final_review",
+      "phase": "review",
+      "revision": 7,
+      "calls": 4,
+      "replanAttempts": 0,
+      "inputTokens": 21513,
+      "outputTokens": 2232,
+      "estimatedCost": 0,
+      "currency": "USD",
+      "approved": false,
+      "diagnosticCodes": [],
+      "scenarios": [
+        {
+          "id": "nominal",
+          "outcome": "passed"
+        }
+      ],
+      "decisions": [
+        {
+          "id": "39de6ea90a8c454fbb27a3e0b89c53e4",
+          "phase": "semantic",
+          "scope": "/",
+          "optionCount": 2,
+          "preferredCount": 1,
+          "source": "user",
+          "customAnswer": true,
+          "selectedPreferred": false,
+          "reasonRecorded": true
+        }
+      ]
+    },
+    {
+      "surface": "chat",
+      "case": "cancel",
+      "sessionId": "4defdacdbee33a8a89e719866ad39b2f0bbb9ff95bcc49964ee453caca3793d4",
+      "conversationId": "6e1c6bfaa68943bba25ea03d9b92ebb0",
+      "mode": "interactive",
+      "status": "cancelled",
+      "phase": "semantic",
+      "revision": 2,
+      "calls": 1,
+      "replanAttempts": 0,
+      "inputTokens": 1654,
+      "outputTokens": 936,
+      "estimatedCost": 0,
+      "currency": "USD",
+      "approved": false,
+      "diagnosticCodes": [],
+      "scenarios": [],
+      "decisions": []
+    }
+  ]
+}

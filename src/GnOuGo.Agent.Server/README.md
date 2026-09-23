@@ -682,4 +682,6 @@ The workflow designer and chat offer Interactive (default) and Auto planning mod
 
 Chat origin links and planning state are encrypted through KeyVault. Reopening a chat restores pending decisions; after a server restart, answering resumes only the saved planner through FinalReview. Prior surrounding workflow steps are never replayed, and the chat decision endpoint cannot approve or execute workflows. Workflow-owned sessions remain inspection-only in the designer.
 
+Unfinished planning conversations also appear in a fresh browser's chat list, even before a workflow has produced a completed chat turn. See [local Designer/Chat acceptance evidence](../../docs/planner-decisions-2026-09-23.md).
+
 Run `dotnet test tests/GnOuGo.Agent.Server.Tests -m:1 -warnaserror -p:SkipClientBuild=true` for lifecycle, encrypted persistence and shared-card coverage.
