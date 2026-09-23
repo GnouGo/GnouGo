@@ -1,9 +1,11 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Net.Http.Json;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Server.Planning;
 using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.Agent.Shared;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
@@ -11,6 +13,10 @@ using GnOuGo.Flow.Planning;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -116,7 +122,16 @@ public sealed class ChatPlanningDecisionTests
         Assert.Single(waiting.Questions); Assert.NotNull(waiting.PendingRepair); Assert.Empty(await reopened.ListAsync("other", Ct));
         var command = new PlanningCommand { Kind = "answer", ExpectedRevision = revision, Answers = new() { ["accept_scope_revision"] = accept } };
         await Assert.ThrowsAsync<KeyNotFoundException>(() => reopened.SubmitAsync("other", id, command, Ct));
-        var result = await reopened.SubmitAsync("scope-chat", id, command, Ct);
+        // Exercise the HTTP mapping as well as owner recovery: dropping Answers here must fail this test.
+        var builder = WebApplication.CreateSlimBuilder(); builder.WebHost.UseUrls("http://127.0.0.1:0"); builder.Logging.ClearProviders();
+        builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.TypeInfoResolverChain.Insert(0, ChatJsonContext.Default));
+        builder.Services.AddSingleton(reopened); builder.Services.AddSingleton(designer);
+        await using var app = builder.Build(); app.MapPlanningEndpoints(); await app.StartAsync(Ct);
+        using var http = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
+        var response = await http.PostAsJsonAsync("/api/chat/conversations/scope-chat/planning/" + id + "/commands",
+            new PlanningCommandDto("answer", revision, Answers: command.Answers), ChatJsonContext.Default.PlanningCommandDto, Ct);
+        response.EnsureSuccessStatusCode();
+        var result = (await response.Content.ReadFromJsonAsync(ChatJsonContext.Default.PlanningSessionDto, Ct))!;
         Assert.Equal(accept ? PlanningStatus.FinalReview : PlanningStatus.Stopped, result.Status);
         Assert.Single(result.Clarifications); Assert.Null(result.ApprovedHash); Assert.Equal(accept ? 2 : 1, model.Calls);
         await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.SubmitAsync("scope-chat", id, command, Ct));

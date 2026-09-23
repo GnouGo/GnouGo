@@ -13,7 +13,7 @@ internal static class PlanningEndpoints
             Results.Json((await service.ListAsync(conversationId, ct)).ToList(), ChatJsonContext.Default.ListPlanningSessionDto));
         app.MapPost("/api/chat/conversations/{conversationId}/planning/{id}/commands", async (string conversationId, string id, PlanningCommandDto request, ChatPlanningService service, CancellationToken ct) =>
         {
-            try { return Results.Json(await service.SubmitAsync(conversationId, id, new() { Kind = request.Kind, ExpectedRevision = request.ExpectedRevision, Mode = request.Mode,
+            try { return Results.Json(await service.SubmitAsync(conversationId, id, new() { Kind = request.Kind, ExpectedRevision = request.ExpectedRevision, Mode = request.Mode, Answers = request.Answers,
                 DecisionAnswer = request.DecisionAnswer is { } answer ? new(answer.DecisionId, answer.OptionId, answer.Text) : null }, ct), ChatJsonContext.Default.PlanningSessionDto); }
             catch (PlanningConflictException ex) { return Results.Conflict(ex.Message); }
             catch (KeyNotFoundException) { return Results.NotFound(); }
