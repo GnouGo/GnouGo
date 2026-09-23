@@ -11,7 +11,8 @@ internal static class PlanningComputationContracts
     internal static void Validate(string expression, IReadOnlyDictionary<string, JsonObject> parameters)
     {
         var messages = new HashSet<(string Code, string Rule, string Message)>();
-        Walk(new Acornima.Parser().ParseExpression(expression), new(parameters, StringComparer.Ordinal), messages);
+        var node = new Acornima.Parser().ParseExpression(expression);
+        Walk(node, InitialScope(node, parameters), messages);
         if (messages.Count > 0) throw new InvalidOperationException(string.Join("; ", messages.Select(m => m.Message)));
     }
     private static readonly HashSet<string> ArrayMembers = new(StringComparer.Ordinal)
@@ -60,7 +61,11 @@ internal static class PlanningComputationContracts
                 try { parameters[member.Name] = resolve(member.Value); }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { }
             var messages = new HashSet<(string Code, string Rule, string Message)>();
-            try { Walk(new Acornima.Parser().ParseExpression(PlanningComputations.Expression(value.Text)), parameters, messages); }
+            try
+            {
+                var node = new Acornima.Parser().ParseExpression(PlanningComputations.Expression(value.Text));
+                Walk(node, InitialScope(node, parameters), messages);
+            }
             catch (Exception ex) when (ex is Acornima.ParseErrorException or InvalidOperationException) { /* Syntax/binding validators report these independently. */ }
             foreach (var message in messages) yield return new(message.Code, location + "/text", message.Message, ValidationStage: "dataflow", Rule: message.Rule);
         }
@@ -68,6 +73,13 @@ internal static class PlanningComputationContracts
             foreach (var diagnostic in Values(value.Members[i].Value, location + "/members/" + i + "/value", resolve)) yield return diagnostic;
         for (var i = 0; i < value.Items.Count; i++)
             foreach (var diagnostic in Values(value.Items[i], location + "/items/" + i, resolve)) yield return diagnostic;
+    }
+
+    private static Dictionary<string, JsonObject> InitialScope(Node node, IReadOnlyDictionary<string, JsonObject> parameters)
+    {
+        var scope = new Dictionary<string, JsonObject>(parameters, StringComparer.Ordinal);
+        foreach (var name in ComputationInferenceProfile.UntrustedGlobals(node)) scope[name] = GroundedTypes.Opaque();
+        return scope;
     }
 
     private static void Walk(Node node, Dictionary<string, JsonObject> scope, HashSet<(string Code, string Rule, string Message)> messages)
