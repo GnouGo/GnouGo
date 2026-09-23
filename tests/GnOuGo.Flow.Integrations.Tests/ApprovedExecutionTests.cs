@@ -63,7 +63,7 @@ public sealed class ApprovedExecutionTests
             if (BusinessDecision && semantic)
             {
                 var result = response.Json!["result"]!;
-                JsonObject Option(string id, bool preferred) { var candidate = result.DeepClone(); candidate["summary"] = id; return new() { ["id"] = id, ["label"] = id, ["reason"] = "Business preference", ["preferred"] = preferred, ["result"] = candidate }; }
+                JsonObject Option(string id, bool preferred) { var candidate = result.DeepClone(); candidate["summary"] = id; candidate["actions"]![0]!["purpose"] = "Return 42 with " + id + " presentation"; return new() { ["id"] = id, ["label"] = id, ["reason"] = "Business preference", ["preferred"] = preferred, ["result"] = candidate }; }
                 response.Json = new JsonObject { ["result"] = null, ["decision"] = new JsonObject { ["question"] = "Which presentation?", ["context"] = "Presentation preference", ["evidence"] = "Return 42", ["allowCustomAnswer"] = true,
                     ["options"] = new JsonArray(Option("brief", true), Option("detailed", false)) } };
             }

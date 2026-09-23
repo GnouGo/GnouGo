@@ -99,6 +99,19 @@ public sealed class PlanningDecisionTests
         }
     }
 
+    [Theory]
+    [InlineData("\"Return a greeting\"")]
+    [InlineData("\u201cReturn a greeting\u201d")]
+    public async Task QuotedEvidenceStillRequiresAnExactBusinessExcerpt(string evidence)
+    {
+        var state = await Advance(PlannerFixture.Session(), new() { RawDecisionResponse = true, Respond = _ => new() { Json = Proposal(evidence) } });
+        Assert.Equal(PlanningStatus.WaitingForDecision, state.Status);
+        Assert.Empty(state.Diagnostics);
+        state = await Advance(PlannerFixture.Session(), new() { RawDecisionResponse = true, Respond = _ => new() { Json = Proposal("\u201cUnissued business requirement\u201d") } });
+        Assert.Null(state.PendingDecision);
+        Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_DECISION_INVALID");
+    }
+
     [Fact]
     public async Task SingleOptionIsDeterministicAndHostFailureNeverAsks()
     {
@@ -183,6 +196,16 @@ public sealed class PlanningDecisionTests
         Assert.Equal("Read a detailed observation", state.SemanticPlan!.Actions[0].Purpose);
         Assert.Equal(original, JsonSerializer.Serialize(state.SemanticPlan.Actions[1], PlanningJsonContext.Default.SemanticAction));
         Assert.Single(runtime.Calls); Assert.Equal(1, state.ReplanAttempts);
+    }
+
+    [Fact]
+    public async Task EquivalentResultsWithDifferentExplanationsDoNotAsk()
+    {
+        var proposal = Proposal();
+        proposal["decision"]!["options"]![1]!["result"] = proposal["decision"]!["options"]![0]!["result"]!.DeepClone();
+        proposal["decision"]!["options"]![1]!["result"]!["summary"] = "Different explanation of the same business plan";
+        var state = await Advance(PlannerFixture.Session(), new() { RawDecisionResponse = true, Respond = _ => new() { Json = proposal } });
+        Assert.NotNull(state.SemanticPlan); Assert.Null(state.PendingDecision); Assert.Empty(state.Decisions);
     }
 
 }

@@ -9,7 +9,7 @@ internal static class GroundedBindingBatches
 {
     internal static bool Required(PlanningSession state) => state.BindingProgress is not null ||
         SemanticPlanning.Actions(state.SemanticPlan!).Sum(a => Weight(state, a, descendants: false)) > OutputCapacity(state) ||
-        PlanningJsonTransport.EstimateInputTokens(CapabilityGrounder.BindingPrompt(state), PlanningSchemas.Grounded(state.Grounding!.Selections!.SelectMany(s => s.CapabilityIds))) > state.Request.Generation.MaxInputTokensPerRequest;
+        PlanningDecisions.EstimateInputTokens(state, CapabilityGrounder.BindingPrompt(state), PlanningSchemas.Grounded(state.Grounding!.Selections!.SelectMany(s => s.CapabilityIds))) > state.Request.Generation.MaxInputTokensPerRequest;
 
     internal static async Task ApplyAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct, bool replan = false)
     {

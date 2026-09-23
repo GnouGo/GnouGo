@@ -66,7 +66,10 @@ internal static class PlanningDecisions
         }
         if (!eligible || response["result"] is not null) throw Invalid("A business decision cannot replace a technical repair or accompany a result.");
         var proposal = response["decision"]!;
-        var evidence = proposal["evidence"]!.GetValue<string>();
+        var evidence = proposal["evidence"]!.GetValue<string>().Trim();
+        // Quotation delimiters are presentation, not evidence. The enclosed text must still match exactly.
+        if (evidence.Length >= 2 && (evidence[0], evidence[^1]) is ('"', '"') or ('\u201c', '\u201d') or ('\u2018', '\u2019'))
+            evidence = evidence[1..^1];
         // Evidence is an exact excerpt from the issued business request or scoped business action.
         var businessEvidence = actionIds.Select(id => state.SemanticPlan is null ? null : SemanticPlanning.Actions(state.SemanticPlan).FirstOrDefault(a => a.Id == id)?.Purpose)
             .Prepend(state.Request.Prompt).Where(s => s is not null).Cast<string>();
@@ -78,13 +81,20 @@ internal static class PlanningDecisions
             options.Count(o => o!["preferred"]!.GetValue<bool>()) != 1 ||
             string.IsNullOrWhiteSpace(proposal["question"]!.GetValue<string>()) || string.IsNullOrWhiteSpace(proposal["context"]!.GetValue<string>()))
             throw Invalid("A decision needs distinct options, one preferred option, a question and business context.");
-        var candidates = new JsonObject(); var fingerprints = new HashSet<string>(StringComparer.Ordinal);
+        var candidates = new JsonObject(); var fingerprints = new Dictionary<string, JsonNode>(StringComparer.Ordinal);
         foreach (var option in options)
         {
             var packed = option!["result"]!;
             var result = ReadResult(packed, schema); validate(result);
-            if (!fingerprints.Add(PlanningGraphCompiler.Fingerprint(result.ToJsonString()))) throw Invalid("Decision options must represent different valid results.");
-            candidates.Add(option["id"]!.GetValue<string>(), packed.DeepClone());
+            var identity = result.DeepClone().AsObject(); identity.Remove("summary");
+            if (identity["selections"] is JsonObject selections) foreach (var selection in selections.Select(p => p.Value).OfType<JsonObject>()) selection.Remove("reason");
+            var fingerprint = PlanningGraphCompiler.Fingerprint(identity.ToJsonString());
+            if (!fingerprints.ContainsKey(fingerprint) || option["preferred"]!.GetValue<bool>()) fingerprints[fingerprint] = option;
+        }
+        options = new JsonArray(fingerprints.Values.Select(o => o.DeepClone()).ToArray());
+        foreach (var option in options)
+        {
+            candidates.Add(option!["id"]!.GetValue<string>(), option["result"]!.DeepClone());
         }
         if (options.Count == 1) { state.DecisionContinuation = null; return ReadResult(options[0]!["result"]!, schema); }
         var decision = new PlanningDecision
@@ -149,7 +159,7 @@ internal static class PlanningDecisions
         Return the result in the result field, with decision=null, when business intent is sufficient.
         Only for a meaningful unresolved BUSINESS tradeoff, return result=null and one decision with 2-5 valid alternatives.
         Each option.result is a complete valid result of this phase, with the same unaffected scope and required outcomes.
-        Cite an exact short excerpt of the business request or issued action purpose in evidence. Explain the tradeoff and each option in business language.
+        Cite an exact short excerpt of the business request or issued action purpose in evidence, without enclosing quotation marks. Explain the tradeoff and each option in business language.
         Mark exactly one option preferred and explain why. Allow custom answers when they can refine this business choice.
         Do not ask about tools with equivalent business behavior, schemas, technical repairs, executor plumbing, permissions or approval.
         Do not invent missing facts. Runtime inputs remain runtime inputs. If only one valid strategy exists return it directly.

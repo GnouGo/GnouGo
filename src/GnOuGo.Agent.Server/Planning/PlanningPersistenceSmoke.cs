@@ -17,6 +17,9 @@ internal static class PlanningPersistenceSmoke
         var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory);
         var store = new EfPlanningSessionStore(factory, records);
         var state = new PlanningSession { Request = new() { TenantId = "smoke", SessionId = Guid.NewGuid().ToString("N"), Prompt = "Private published smoke content" } };
+        state.PendingDecision = new() { Id = "decision", Question = "Private decision question", Context = "Private decision context", Phase = PlanningPhase.Binding, Scope = "/actions/value",
+            Options = [new("preferred", "Preferred", "Private decision reason", true), new("alternative", "Alternative", "Another valid option", false)], AllowCustomAnswer = true };
+        state.DecisionContinuation = new() { Operation = "binding", InputHash = "fingerprint", Candidates = new() { ["preferred"] = new System.Text.Json.Nodes.JsonObject { ["private"] = "Private decision payload" } } };
         if (!await store.TrySaveAsync(state, null, CancellationToken.None)) throw new InvalidOperationException("Insert failed.");
         state.Revision = 1; state.Status = PlanningStatus.Stopped; state.ModelCalls = 2; state.ReplanAttempts = 1;
         state.GroundedPlan = new() { Summary = "Private grounded plan" };
