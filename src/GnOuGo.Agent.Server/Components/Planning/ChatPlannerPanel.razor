@@ -17,6 +17,11 @@
             @if (session.Status == PlanningStatus.FinalReview)
             { <p>The workflow is ready for FinalReview. Planning decisions do not approve execution.</p> }
             <PlannerDecisionHistory Decisions="session.Decisions" />
+            @if (session.Status == PlanningStatus.Clarification && session.PendingRepair is not null)
+            {
+                <PlannerScopeRevisionCard Question="@(session.Questions.Single().Question)" Busy="_busy" Answer="accepted => ReviseScope(session, accepted)" Cancel="() => Cancel(session)" />
+            }
+            <PlannerRepairDetails Session="session" />
             <a href="@($"/planning/{Uri.EscapeDataString(session.Id)}" + (session.WorkflowSession ? "?source=workflow" : ""))">Planning details</a>
         </div>
     </article>
@@ -50,6 +55,7 @@
     }
     private Task Answer(PlanningSessionDto session, PlanningDecisionAnswerDto answer) => Submit(session, new() { Kind = "answer_decision", DecisionAnswer = new(answer.DecisionId, answer.OptionId, answer.Text) });
     private Task Cancel(PlanningSessionDto session) => Submit(session, new() { Kind = "cancel" });
+    private Task ReviseScope(PlanningSessionDto session, bool accepted) => Submit(session, new() { Kind = "answer", Answers = new() { ["accept_scope_revision"] = accepted } });
     private async Task Submit(PlanningSessionDto session, PlanningCommand command)
     {
         if (Service is not { } service || ConversationId is null) return;

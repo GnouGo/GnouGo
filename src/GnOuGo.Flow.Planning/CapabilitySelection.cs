@@ -10,15 +10,22 @@ internal static class CapabilitySelection
     internal static async Task ApplyAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct, string purpose = "selection")
     {
         var decisions = CapabilityGrounder.Decisions(state);
-        var ambiguous = decisions.Where(d => d.Matches.Count > 1).ToList();
-        var established = decisions.Where(d => d.Matches.Count <= 1).Select(d => new GroundingSelection(d.ActionId,
+        var retained = state.Grounding!.RetainedSelections ?? [];
+        // Reused selections still need the current complete coverage evidence.
+        if (retained.Any(s => !decisions.Any(d => d.ActionId == s.ActionId && s.CapabilityIds.All(id => d.Matches.Any(m => m.CapabilityId == id)))))
+            throw new PlanningConflictException("A retained selection no longer belongs to the covered action.");
+        var ambiguous = decisions.Where(d => d.Matches.Count > 1 && !retained.Any(s => s.ActionId == d.ActionId)).ToList();
+        var established = decisions.Where(d => d.Matches.Count <= 1 && !retained.Any(s => s.ActionId == d.ActionId)).Select(d => new GroundingSelection(d.ActionId,
             d.Matches.Select(m => m.CapabilityId).ToList(), d.Matches.Count == 0 ? "Native implementation after complete catalog coverage." : "Only viable match after complete catalog coverage.")).ToList();
+        established.AddRange(retained);
         if (ambiguous.Count == 0)
         {
+            Validate(state, established);
             state.Grounding!.Selections = established;
             return;
         }
         var schema = Schema(ambiguous);
+        PlanningRemainingBudget.Require(state, state.Grounding, selectionCalls: 1);
         var ids = decisions.SelectMany(d => d.Matches).Select(m => m.CapabilityId).ToHashSet(StringComparer.Ordinal);
         var prompt = """
             Select the smallest sufficient implementation for each business action from its viable matches after complete catalog coverage.
@@ -28,11 +35,12 @@ internal static class CapabilitySelection
             Select a compatible implementation across the complete workflow. Required artifact inputs need original authoritative producers among the selected actions.
             Neither a model transformation nor an opaque observation establishes artifact identity. Prefer a viable implementation whose prerequisites can actually be supplied.
             Preserve every required business outcome. Explain the chosen behavior using catalog evidence. Binding checks the authoritative contracts next.
+            Check every requested outcome against the declared capabilities, including explicit limitations. Similar descriptions cannot establish an unsupported outcome. Accepted business-scope revisions supersede only the specifically revised requirements.
             Native calculations and transformations may select no capabilities. Required external actions must select at least one match.
             """ + "\n" + PlanningJsonTransport.Prompt(new JsonObject { ["request"] = state.Request.Prompt, ["actions"] = new JsonArray(SemanticPlanning.Actions(state.SemanticPlan!).Where(a => ambiguous.Any(d => d.ActionId == a.Id)).Select(a => (JsonNode)SemanticPlanning.ActionContext(a)).ToArray()),
                 ["establishedSelections"] = new JsonArray(established.Select(s => (JsonNode)new JsonObject { ["actionId"] = s.ActionId,
                     ["capabilities"] = new JsonArray(s.CapabilityIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()) }).ToArray()),
-                ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics),
+                ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics), ["businessAnswers"] = SemanticPlanning.Answers(state),
                 ["capabilities"] = new JsonArray(state.Catalog!.Capabilities.Where(c => ids.Contains(c.Id)).Select(c => (JsonNode)new JsonObject {
                     ["id"] = c.Id, ["description"] = c.Description, ["effect"] = c.EffectKind,
                     ["artifacts"] = JsonSerializer.SerializeToNode(c.ArtifactContract, PlanningJsonContext.Default.McpArtifactContract) }).ToArray()) });

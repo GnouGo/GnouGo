@@ -18,6 +18,28 @@ public sealed class PlanningTraceUiTests : BunitContext
     private static CancellationToken Ct => Xunit.TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task PrerequisiteCauseAndUnappliedRepairSurvivePersistenceAndDesignerRendering()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
+        var state = Session("repair", "repair failure", PlanningStatus.Stopped);
+        state.Diagnostics = [new("SEMANTIC_BINDING_BLOCKED", "/actions/consumer", "Waiting for original evidence")
+        { Prerequisite = new("blocked_dependency", "PRIVATE_PREREQUISITE_CONTEXT", ConsumerCapability: "issued", ContractPath: "/source", RootActionId: "producer") }];
+        state.PendingRepair = new() { InputHash = "input", CandidateHash = "candidate", ActionIds = ["producer", "consumer"], Candidate = new() { Summary = "Proposed replacement" } };
+        state.Answers = [new("Accept revised business outcome?", new() { ["accept_scope_revision"] = true })];
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var restored = (await fixture.Store.LoadAsync("planning-tests", "repair", Ct))!;
+        var dto = PlanningEndpoints.ToDto(restored);
+        Assert.Equal("producer", Assert.Single(dto.Diagnostics).Prerequisite!.RootActionId);
+        Assert.Equal(new[] { "producer", "consumer" }, dto.PendingRepair!.ActionIds); Assert.Single(dto.Clarifications);
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/repair");
+        var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "repair"));
+        cut.WaitForAssertion(() => { Assert.Contains("Proposed repair", cut.Markup); Assert.Contains("Blocked by action:", cut.Markup); Assert.Contains("Answered business clarification", cut.Markup); });
+        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+            Assert.DoesNotContain("PRIVATE_PREREQUISITE_CONTEXT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
+        await DisposeComponentsAsync();
+    }
+
+    [Fact]
     public async Task ComputationCauseSurvivesEncryptedPersistenceDtoAndDesignerRendering()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();

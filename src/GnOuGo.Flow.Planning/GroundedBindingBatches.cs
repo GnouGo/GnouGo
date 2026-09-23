@@ -7,6 +7,17 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Bind complete semantic subgraphs within the existing per-request and cumulative budgets.</summary>
 internal static class GroundedBindingBatches
 {
+    internal static int EstimateCalls(PlanningSession state)
+    {
+        var probe = new PlanningSession { Request = state.Request, Catalog = state.Catalog, SemanticPlan = state.SemanticPlan,
+            Grounding = state.Grounding, Diagnostics = state.Diagnostics, BindingProgress = state.BindingProgress ?? new() };
+        var remaining = Ordered(probe.SemanticPlan!).Where(a => !probe.BindingProgress.CompletedActions.Contains(a.Id)).ToArray();
+        if (remaining.Length == 0) return 0;
+        var accepted = probe.BindingProgress.CompletedActions.Count == 0 ? null : GroundedPlanValidator.RequireValid(probe.BindingProgress.Accepted, probe.Catalog!);
+        var all = Request(probe, remaining.Select(a => a.Id).ToList(), Boundary(probe.BindingProgress.Accepted, accepted, probe.Catalog!));
+        return Math.Max(PlanningDecisions.EstimateInputTokens(probe, all.Prompt, all.Schema) <= probe.Request.Generation.MaxInputTokensPerRequest ? 1 : 2,
+            (int)Math.Ceiling((double)remaining.Sum(a => Weight(probe, a)) / OutputCapacity(probe)));
+    }
     internal static bool Required(PlanningSession state) => state.BindingProgress is not null ||
         SemanticPlanning.Actions(state.SemanticPlan!).Sum(a => Weight(state, a, descendants: false)) > OutputCapacity(state) ||
         PlanningDecisions.EstimateInputTokens(state, CapabilityGrounder.BindingPrompt(state), PlanningSchemas.Grounded(state.Grounding!.Selections!.SelectMany(s => s.CapabilityIds))) > state.Request.Generation.MaxInputTokensPerRequest;

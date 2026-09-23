@@ -8,7 +8,11 @@ public sealed record PlanningValidationDto(string Code, string Location, string 
     public string? ValidationStage { get; init; }
     public string? Rule { get; init; }
     public PlanningComputationContextDto? Computation { get; init; }
+    public PlanningPrerequisiteContextDto? Prerequisite { get; init; }
 }
+public sealed record PlanningPrerequisiteContextDto(string Kind, string Description, string? Output, string? ConsumerCapability, string? ContractPath, string? RootActionId);
+public sealed record PlanningRepairDto(IReadOnlyList<string> ActionIds, string Summary, bool AwaitingConsent);
+public sealed record PlanningClarificationHistoryDto(string Question, JsonObject Answers);
 public sealed record PlanningComputationContextDto(string Expression, string Limitation, JsonObject ReceiverContract,
     JsonObject ParameterContracts, string? OriginExpression = null, string? ProducerLocation = null);
 public sealed record PlanningScenarioDto(string Id, string Outcome, string Description);
@@ -17,7 +21,11 @@ public sealed record PlanningSessionDto(string Id, string Name, long Revision, s
     JsonObject? SemanticPlan, JsonObject? GroundedPlan, string? Yaml, string? ArtifactHash, string? ApprovedHash,
     IReadOnlyList<PlanningValidationDto> Diagnostics, IReadOnlyList<PlanningScenarioDto> Scenarios,
     IReadOnlyList<PlanningQuestionDto> Questions, int Calls, int ReplanAttempts, long InputTokens, long OutputTokens,
-    decimal EstimatedCost, string Currency, double ActiveMilliseconds, double HumanWaitMilliseconds, string Phase, string Mode = "interactive", PlanningDecisionDto? PendingDecision = null, IReadOnlyList<PlanningDecisionRecordDto>? Decisions = null, bool WorkflowSession = false);
+    decimal EstimatedCost, string Currency, double ActiveMilliseconds, double HumanWaitMilliseconds, string Phase, string Mode = "interactive", PlanningDecisionDto? PendingDecision = null, IReadOnlyList<PlanningDecisionRecordDto>? Decisions = null, bool WorkflowSession = false)
+{
+    public PlanningRepairDto? PendingRepair { get; init; }
+    public IReadOnlyList<PlanningClarificationHistoryDto> Clarifications { get; init; } = [];
+}
 
 public sealed record PlanningDecisionOptionDto(string Id, string Label, string Reason, bool Preferred);
 public sealed record PlanningDecisionDto(string Id, string Question, string Context, string Phase, string Scope, IReadOnlyList<string> ActionIds, IReadOnlyList<PlanningDecisionOptionDto> Options, bool AllowCustomAnswer);

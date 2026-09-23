@@ -62,9 +62,13 @@
             <MarkdownContent Content="@("```mermaid\n" + PlanningReviewFormatter.Diagram(graph) + "\n```")" />
 
         }
-        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification && _state.SemanticPlan is { } intent)
+        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification && _state.PendingRepair is not null)
         {
-            @foreach (var question in intent.Questions)
+            <PlannerScopeRevisionCard Question="@(_state.GetQuestions().Single().Question)" Busy="_busy" Answer="AnswerScopeAsync" Cancel='() => SubmitAsync("cancel")' />
+        }
+        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification && _state.PendingRepair is null && _state.SemanticPlan is not null)
+        {
+            @foreach (var question in _state.GetQuestions())
             {
                 <label for="@question.Id">@question.Question</label>
                 <input id="@question.Id" class="form-control" value="@_answers.GetValueOrDefault(question.Id)" @oninput="e => _answers[question.Id] = e.Value?.ToString() ?? string.Empty" />
@@ -77,11 +81,18 @@
             <PlannerDecisionCard Decision="PlanningEndpoints.ToDto(decision)" Busy="_busy" Answer="AnswerDecisionAsync" Cancel='() => SubmitAsync("cancel")' />
         }
         <PlannerDecisionHistory Decisions="PlanningEndpoints.ToDto(_state).Decisions" />
+        <PlannerRepairDetails Session="PlanningEndpoints.ToDto(_state)" ShowFindings="false" />
         @if (_state.Diagnostics.Count > 0)
         {
             <h3>Findings</h3><ul>@foreach (var diagnostic in _state.Diagnostics)
             {
                 <li><strong>@diagnostic.Code</strong>: @diagnostic.Message <small>@diagnostic.Location</small>
+                    @if (diagnostic.Prerequisite is { } prerequisite)
+                    {
+                        <p>@prerequisite.Description</p>
+                        @if (prerequisite.RootActionId is { } root) { <p>Blocked by action: <code>@root</code></p> }
+                        @if (prerequisite.ContractPath is { } path) { <p>Required consumer input: <code>@path</code></p> }
+                    }
                     @if (diagnostic.Computation is { } computation)
                     {
                         <details class="planning-computation-finding">
@@ -217,12 +228,13 @@
         finally { _busy = false; }
     }
     private Task AnswerDecisionAsync(PlanningDecisionAnswerDto answer) => SubmitAsync("answer_decision", decisionAnswer: new(answer.DecisionId, answer.OptionId, answer.Text));
+    private Task AnswerScopeAsync(bool accepted) => SubmitAsync("answer", answers: new() { ["accept_scope_revision"] = accepted });
     private async Task ApproveAndSaveAsync() { await SubmitAsync("approve"); if (_state?.Status == PlanningStatus.Approved) await SubmitAsync("save"); }
     private Task ConfigureAsync() => SubmitAsync("configure_generation", generation: new() { Reasoning = _reasoning, MaxInputTokensPerRequest = _inputLimit, MaxOutputTokens = _outputLimit });
     private Task AnswerAsync()
     {
         var answers = new JsonObject();
-        foreach (var question in _state!.SemanticPlan!.Questions)
+        foreach (var question in _state!.GetQuestions())
         {
             var text = _answers.GetValueOrDefault(question.Id) ?? "";
             if (PlanningGraphBuilder.Schema(question.AnswerType).Type == "string") answers[question.Id] = text;

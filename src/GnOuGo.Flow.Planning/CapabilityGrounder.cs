@@ -11,6 +11,12 @@ internal static class CapabilityGrounder
     internal static string CatalogHash(PlanningCatalog catalog) => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(catalog, PlanningJsonContext.Default.PlanningCatalog));
     internal static CapabilityGrounding Create(PlanningSession state, ISet<string>? actionIds = null)
     {
+        var result = EstimateCoverage(state, actionIds);
+        PlanningRemainingBudget.Require(state, result);
+        return result;
+    }
+    internal static CapabilityGrounding EstimateCoverage(PlanningSession state, ISet<string>? actionIds = null)
+    {
         var actions = SemanticPlanning.Actions(state.SemanticPlan!).Where(SemanticPlanning.Groundable).Select(a => a.Id).Where(id => actionIds is null || actionIds.Contains(id)).ToList();
         var catalog = state.Catalog!;
         var result = new CapabilityGrounding { CatalogHash = CatalogHash(catalog), SemanticHash = SemanticPlanning.Hash(state.SemanticPlan!) };
@@ -18,8 +24,6 @@ internal static class CapabilityGrounder
         if (actions.Count == 0) return result;
         if (ids.Length == 0) { result.Pages.Add(new("page_0", actions, [])); return result; }
         Pack(actions);
-        if (result.Pages.Count + state.ModelCalls + 1 > state.Request.MaxModelCalls)
-            throw new WorkflowRuntimeException("GROUNDING_BUDGET_INSUFFICIENT", "Complete catalog coverage and binding require " + (result.Pages.Count + 1) + " calls; the remaining allowance is " + (state.Request.MaxModelCalls - state.ModelCalls) + ".", details: new JsonObject { ["location"] = "/grounding" });
         return result;
 
         void Pack(List<string> group)
@@ -56,7 +60,7 @@ internal static class CapabilityGrounder
                 JsonSerializer.SerializeToNode(original, PlanningJsonContext.Default.SemanticAction)))
             .Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
         var changed = SemanticPlanning.Actions(state.SemanticPlan!).Where(SemanticPlanning.Groundable).Select(a => a.Id).Where(id => !unchanged.Contains(id)).ToHashSet(StringComparer.Ordinal);
-        var result = Create(state, changed);
+        var result = EstimateCoverage(state, changed);
         foreach (var page in previous.Pages)
         {
             var retained = page.ActionIds.Where(unchanged.Contains).ToList();
@@ -65,11 +69,13 @@ internal static class CapabilityGrounder
             result.Pages.Add(new(id, retained, [.. page.CapabilityIds]));
             result.Results.Add(new(id, previous.Results.Single(r => r.PageId == page.Id).Decisions.Where(d => unchanged.Contains(d.ActionId)).ToList()));
         }
+        result.RetainedSelections = previous.Selections?.Where(s => unchanged.Contains(s.ActionId)).ToList();
+        if (changed.Count == 0 && result.RetainedSelections?.Count == unchanged.Count) result.Selections = result.RetainedSelections;
         return result;
     }
     internal static string Prompt(PlanningSession state, GroundingPage page) => """
         Match each business action against every capability on this catalog page using its declared behavior.
-        Classify semantic suitability only. Do not derive arguments, design adapters, prove topology or plan call sequences; binding handles these later with full schemas.
+            Classify semantic suitability against every named business output, including declared limitations. Similar behavior does not establish an unsupported outcome. Accepted business revisions supersede only their identified outcomes. Do not derive arguments, design adapters, prove topology or plan call sequences; binding handles these later with full schemas.
         A match is a viable candidate, not executable authorization. Keep reasons to one short clause quoting the relevant declared behavior.
         Return all semantically viable matches with a short explanation grounded in the description/metadata.
         Matching argument shapes alone cannot establish suitability. A reader cannot perform a required write, execution or cleanup.
@@ -80,6 +86,7 @@ internal static class CapabilityGrounder
         """ + "\n" + PlanningJsonTransport.Prompt(new JsonObject
         {
             ["request"] = state.Request.Prompt,
+            ["businessAnswers"] = SemanticPlanning.Answers(state),
             ["actions"] = new JsonArray(SemanticPlanning.Actions(state.SemanticPlan!).Where(a => page.ActionIds.Contains(a.Id)).Select(a => (JsonNode)SemanticPlanning.ActionContext(a)).ToArray()),
             ["capabilities"] = new JsonArray(page.CapabilityIds.Select(id => (JsonNode)CatalogRow(state.Catalog!.Capabilities.Single(c => c.Id == id))).ToArray())
         });
@@ -186,6 +193,7 @@ internal static class CapabilityGrounder
         var ids = selected.Where(s => actionIds.Contains(s.ActionId)).SelectMany(s => s.CapabilityIds).ToHashSet(StringComparer.Ordinal);
         return """
             Bind the SemanticPlan to GroundedPlan JSON using the issued matches and authoritative contracts.
+            Explicit accepted business-scope revisions supersede only the outcomes identified in those revisions. Cover every remaining requested output; similar descriptions never establish unsupported behavior.
             In business context, omitted lists are empty, type is null, and optional/nullable flags are false.
             Use short IDs and purposes. Preserve every action and outcome; each operation's semanticAction identifies its business action.
             businessOutputs maps required semantic output names to result paths (empty path = whole result); intermediates may map none.
@@ -204,7 +212,7 @@ internal static class CapabilityGrounder
             choose has a boolean condition and two result blocks; each returns ordered body results; parallel returns named branch results.
             Conditional values need the same consumer condition or a choose supplying both outcomes. Named subflows declare input types; opaque permits whole values only.
             cleanup has no result and empty businessOutputs. Map its outcomes on concrete descendants using their semantic action/output names. It runs on exit using acquired resources; the host guards availability. Avoid redundant cleanup conditions and unconditional exports of conditional cleanup results.
-            """ + "\n" + ComputationInferenceProfile.Guidance + "\n" + PlanningJsonTransport.Prompt(new JsonObject { ["semanticPlan"] = PlanningJsonTransport.BusinessContext(SemanticPlanning.Json(fragment ?? state.SemanticPlan!)), ["establishedBoundary"] = boundary?.DeepClone(), ["instructions"] = state.Request.Policy.Instructions,
+            """ + "\n" + ComputationInferenceProfile.Guidance + "\n" + PlanningJsonTransport.Prompt(new JsonObject { ["semanticPlan"] = PlanningJsonTransport.BusinessContext(SemanticPlanning.Json(fragment ?? state.SemanticPlan!)), ["businessAnswers"] = SemanticPlanning.Answers(state), ["establishedBoundary"] = boundary?.DeepClone(), ["instructions"] = state.Request.Policy.Instructions,
                 ["capabilities"] = new JsonArray(state.Catalog!.Capabilities.Where(c => ids.Contains(c.Id)).Select(c => (JsonNode)new JsonObject { ["id"] = c.Id, ["name"] = c.Method,
                     ["description"] = c.Description, ["metadata"] = c.Metadata?.DeepClone(),
                     ["arguments"] = PlanningJsonTransport.ContractPrompt(PlanningCapabilityArguments.EditableArguments(c), retainDescriptions: true), ["result"] = c.OutputSchema.Count == 0 ? null : PlanningJsonTransport.ContractPrompt(c.OutputSchema), ["effect"] = c.EffectKind,

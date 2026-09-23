@@ -93,7 +93,7 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
     public async Task<PlanningSessionDto> SubmitAsync(string conversationId, string id, PlanningCommand command, CancellationToken ct)
     {
         // Planner-only transport cannot approve or execute a workflow.
-        if (command.Kind is not ("answer_decision" or "configure_mode" or "cancel")) throw new ArgumentException("Unsupported chat planning command.");
+        if (command.Kind is not ("answer_decision" or "answer" or "configure_mode" or "cancel")) throw new ArgumentException("Unsupported chat planning command.");
         var origin = await OriginAsync(conversationId, id, ct);
         if (!origin.Workflow) return PlanningEndpoints.ToDto(await designer.SubmitAsync(id, command, ct));
         var gate = _gates.GetOrAdd(id, _ => new(1, 1));

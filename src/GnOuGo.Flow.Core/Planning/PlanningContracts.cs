@@ -64,6 +64,7 @@ public sealed class PlanningCommand
 /// <summary>The sole durable state. Hosts encrypt its content and use optimistic revisions.</summary>
 public sealed class PlanningSession
 {
+    public IReadOnlyList<PlanningQuestion> GetQuestions() => PendingRepair?.Questions ?? SemanticPlan?.Questions ?? [];
     public string? ComputeArtifactHash() => Yaml is null ? null : Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(new JsonObject
     {
         ["yaml"] = Yaml,
@@ -164,6 +165,7 @@ public sealed record PlanningPrerequisiteContext(string Kind, string Description
 public sealed class PlanningRepairCheckpoint
 {
     public string InputHash { get; set; } = "";
+    public string CandidateHash { get; set; } = "";
     public List<string> ActionIds { get; set; } = [];
     public SemanticPlan Candidate { get; set; } = new();
     public List<PlanningQuestion> Questions { get; set; } = [];

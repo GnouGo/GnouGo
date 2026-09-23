@@ -6,6 +6,8 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class SemanticPlanning
 {
+    internal static JsonArray Answers(PlanningSession state) => new(state.Answers.Select(a => (JsonNode)new JsonObject
+        { ["question"] = a.Question, ["answers"] = a.Answers.DeepClone() }).ToArray());
     internal static IEnumerable<SemanticAction> Actions(SemanticPlan plan)
         => Walk(plan.Actions).Concat(plan.Subflows.SelectMany(s => Walk(s.Actions)));
     private static IEnumerable<SemanticAction> Walk(IEnumerable<SemanticAction> actions)

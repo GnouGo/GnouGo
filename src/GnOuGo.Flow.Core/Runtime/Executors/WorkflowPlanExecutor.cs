@@ -50,7 +50,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         while (!PlanningStatus.IsTerminal(state.Status))
         {
             var command = new PlanningCommand { ExpectedRevision = state.Revision };
-            if (state.Status == PlanningStatus.WaitingForDecision)
+            if (state.Status == PlanningStatus.WaitingForDecision || state.Status == PlanningStatus.Clarification && state.PendingRepair is not null)
             {
                 if (ctx.Engine.PlanningDecisionProvider is not { } decisions) break;
                 command = await decisions.RequestAsync(state, ct);
@@ -61,7 +61,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 if (state.Status == PlanningStatus.Clarification)
                 {
                     var answers = new JsonObject();
-                    foreach (var question in state.SemanticPlan!.Questions)
+                    foreach (var question in state.GetQuestions())
                     {
                         var answer = await human.RequestInputAsync(new HumanInputRequest
                         {

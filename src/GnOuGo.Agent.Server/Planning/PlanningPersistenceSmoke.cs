@@ -23,9 +23,11 @@ internal static class PlanningPersistenceSmoke
         if (!await store.TrySaveAsync(state, null, CancellationToken.None)) throw new InvalidOperationException("Insert failed.");
         state.Revision = 1; state.Status = PlanningStatus.Stopped; state.ModelCalls = 2; state.ReplanAttempts = 1;
         state.GroundedPlan = new() { Summary = "Private grounded plan" };
+        state.PendingRepair = new() { InputHash = "accepted", CandidateHash = "proposed", ActionIds = ["consumer"], Candidate = new() { Summary = "Private repair proposal" } };
         state.Graph = new() { Workflows = [new() { Key = "main" }] };
         state.Diagnostics = [new("GROUNDED_CONTRACT_INVALID", "/scopes/main/operations/consumer", "Private computation finding")
         {
+            Prerequisite = new("blocked_dependency", "Private prerequisite", RootActionId: "producer"),
             Computation = new("alias.name", "inference_unsupported", new() { ["x-gnougo-opaque"] = true },
                 new() { ["text"] = new System.Text.Json.Nodes.JsonObject { ["type"] = "string" } }, "JSON.parse(text)", "/scopes/main/operations/parse")
         }];
@@ -34,6 +36,7 @@ internal static class PlanningPersistenceSmoke
         var restored = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
         if (restored?.SchemaVersion != 8 || restored.Revision != 1 || restored.ModelCalls != 2 || restored.ReplanAttempts != 1 || restored.GroundedPlan?.Summary != "Private grounded plan" || restored.Graph is null || restored.Diagnostics.Count != 1 ||
             restored.Diagnostics[0].Computation?.OriginExpression != "JSON.parse(text)" || restored.Diagnostics[0].Computation?.ProducerLocation != "/scopes/main/operations/parse" ||
+            restored.Diagnostics[0].Prerequisite?.RootActionId != "producer" || restored.PendingRepair?.Candidate.Summary != "Private repair proposal" ||
             await reopened.LoadAsync("another-tenant", state.Request.SessionId, CancellationToken.None) is not null || (await reopened.ListAsync("smoke", CancellationToken.None)).Count == 0)
             throw new InvalidOperationException("Published persistence or tenant isolation failed.");
         state.Revision = 2;

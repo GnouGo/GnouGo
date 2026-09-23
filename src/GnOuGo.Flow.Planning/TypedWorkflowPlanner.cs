@@ -45,6 +45,8 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                 case "configure_mode":
                     PlanningMode.Validate(command.Mode ?? "");
                     state.Request.Mode = command.Mode!;
+                    if (state.PendingRepair is { Questions.Count: > 0, Answers: null } && state.Status is PlanningStatus.Clarification or PlanningStatus.Stopped)
+                        state.Status = command.Mode == PlanningMode.Auto ? PlanningStatus.Stopped : PlanningStatus.Clarification;
                     if (state.PendingDecision is { } pendingDecision && command.Mode == PlanningMode.Auto)
                         PlanningDecisions.Answer(state, new(pendingDecision.Id, pendingDecision.Options.Single(o => o.Preferred).Id), "auto");
                     break;
@@ -64,12 +66,13 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     ArgumentException.ThrowIfNullOrWhiteSpace(command.Text);
                     state.Request.Baseline = state.SemanticPlan;
                     state.Request.Prompt = command.Kind == "edit_semantic" ? command.Text.Trim() : state.Request.Prompt + "\nRequested revision: " + command.Text.Trim();
-                    state.PendingDecision = null; state.DecisionContinuation = null;
+                    state.PendingDecision = null; state.DecisionContinuation = null; state.PendingRepair = null;
                     state.RejectedProposalHash = null; state.SemanticPlan = null; state.Grounding = null; state.BindingProgress = null; state.GroundedPlan = null; state.Graph = null; state.Catalog = null; state.Fixtures = null; state.ReplanAttempts = 0;
                     state.Diagnostics.Clear(); state.Scenarios.Clear(); state.Yaml = null; state.ApprovedHash = null; state.Status = PlanningStatus.Generating; state.Phase = PlanningPhase.Semantic;
                     break;
                 case "answer":
                     if (state.Status != PlanningStatus.Clarification || state.SemanticPlan is null || command.Answers is null) throw new PlanningConflictException("No clarification is awaiting an answer.");
+                    if (state.PendingRepair is not null) { SemanticReplanning.Answer(state, command.Answers); break; }
                     if (command.Answers.Any(a => !state.SemanticPlan.Questions.Any(q => q.Id == a.Key))) throw new ArgumentException("Unknown clarification answer.");
                     foreach (var question in state.SemanticPlan.Questions)
                     {
@@ -130,6 +133,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
     private static async Task AdvanceAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
         state.Status = PlanningStatus.Generating;
+        if (state.PendingRepair is not null) { await SemanticReplanning.ApplyAsync(state, runtime, ct); return; }
         if (state.PendingCall?.Purpose == "fixtures" || state.PendingCall is null && state.Graph is not null && state.Fixtures is null &&
             state.Diagnostics.Count > 0 && state.Diagnostics.All(d => d.Code == "SCENARIO_FIXTURE_REQUIRED"))
         {

@@ -60,13 +60,18 @@ internal static class PlanningEndpoints
         state.Diagnostics.Select(d => new PlanningValidationDto(d.Code, d.Location, d.Message, d.Required)
         {
             ValidationStage = d.ValidationStage, Rule = d.Rule,
+            Prerequisite = d.Prerequisite is { } p ? new(p.Kind, p.Description, p.Output, p.ConsumerCapability, p.ContractPath, p.RootActionId) : null,
             Computation = d.Computation is { } c ? new(c.Expression, c.Limitation, c.ReceiverContract.DeepClone().AsObject(), c.ParameterContracts.DeepClone().AsObject(), c.OriginExpression, c.ProducerLocation) : null
         }).ToArray(),
         state.Scenarios.Select(s => new PlanningScenarioDto(s.Id, s.Outcome, s.Description)).ToArray(),
-        state.Status == PlanningStatus.Clarification ? state.SemanticPlan!.Questions.Select(q => new PlanningQuestionDto(q.Id, q.Question, PlanningGraphCompiler.ToJsonSchema(PlanningGraphBuilder.Schema(q.AnswerType), state.Catalog!))).ToArray() : [],
+        state.Status == PlanningStatus.Clarification ? state.GetQuestions().Select(q => new PlanningQuestionDto(q.Id, q.Question, PlanningGraphCompiler.ToJsonSchema(PlanningGraphBuilder.Schema(q.AnswerType), state.Catalog!))).ToArray() : [],
         state.ModelCalls, state.ReplanAttempts, state.Usage?.InputTokens ?? 0, state.Usage?.OutputTokens ?? 0,
         state.Usage?.EstimatedCost ?? 0, state.Usage?.EstimatedCostCurrency ?? "", state.ActiveMilliseconds, state.HumanWaitMilliseconds, state.Phase, state.Request.Mode, state.PendingDecision is { } pending ? ToDto(pending) : null,
-        state.Decisions.Select(d => new PlanningDecisionRecordDto(ToDto(d.Decision), new(d.Answer.DecisionId, d.Answer.OptionId, d.Answer.Text), d.Source, d.Reason, d.AnsweredAtUtc)).ToArray());
+        state.Decisions.Select(d => new PlanningDecisionRecordDto(ToDto(d.Decision), new(d.Answer.DecisionId, d.Answer.OptionId, d.Answer.Text), d.Source, d.Reason, d.AnsweredAtUtc)).ToArray())
+    {
+        PendingRepair = state.PendingRepair is { } repair ? new(repair.ActionIds.ToArray(), repair.Candidate.Summary, repair.Questions.Count > 0 && repair.Answers is null) : null,
+        Clarifications = state.Answers.Select(a => new PlanningClarificationHistoryDto(a.Question, a.Answers.DeepClone().AsObject())).ToArray()
+    };
 
     internal static PlanningDecisionDto ToDto(PlanningDecision decision) => new(decision.Id, decision.Question, decision.Context, decision.Phase, decision.Scope, decision.ActionIds,
         decision.Options.Select(o => new PlanningDecisionOptionDto(o.Id, o.Label, o.Reason, o.Preferred)).ToArray(), decision.AllowCustomAnswer);
