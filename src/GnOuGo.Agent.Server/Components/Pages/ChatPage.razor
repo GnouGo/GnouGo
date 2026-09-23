@@ -405,6 +405,7 @@
                 }
             }
 
+            <ChatPlannerPanel ConversationId="@(_active?.ConversationId ?? _active?.Id)" />
             @if (_pendingHumanInput is not null)
             {
                 <article class="gnougo-chat__message gnougo-chat__message--assistant gnougo-workflow-hitl">
@@ -617,6 +618,7 @@
         </section>
 
         <footer class="gnougo-chat__composer">
+            <label>Planning mode <select @bind="_planningMode" disabled="@_isStreaming"><option value="interactive">Interactive</option><option value="auto">Auto</option></select></label>
             <EditForm id="@ComposerDropZoneId" class="gnougo-composer" Model="_model" OnValidSubmit="SendAsync">
                 <DataAnnotationsValidator />
                 <input id="@ComposerFileInputId" class="gnougo-composer__file-input" type="file" multiple />
@@ -831,6 +833,7 @@
 
 @code
 {
+    private string _planningMode = "interactive";
     private sealed class ComposeModel
     {
         public string Prompt { get; set; } = "";
@@ -1824,6 +1827,8 @@
         if (string.IsNullOrWhiteSpace(prompt))
             return;
 
+        workflowInputs ??= new();
+        workflowInputs["planning_mode"] = _planningMode;
         var filesIds = UploadedFileIds;
         var isSlashCommand = prompt.TrimStart().StartsWith("/", StringComparison.Ordinal);
 

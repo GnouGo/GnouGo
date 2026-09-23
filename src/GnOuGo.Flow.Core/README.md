@@ -1320,6 +1320,7 @@ Runs the injected semantic/grounded planner to business clarification or final a
   type: workflow.plan
   input:
     raw_prompt: "${data.inputs.intent}"
+    planning_mode: interactive # or auto; independent of runtime human.input
     generator:
       model: "${data.inputs.model}"
       reasoning: medium
@@ -1332,6 +1333,8 @@ Runs the injected semantic/grounded planner to business clarification or final a
       max_elapsed_ms: 18000000
       unverifiable: fail
 ```
+
+Business alternatives use a durable `PlanningDecision` with one preferred option. `planning_mode` defaults to `interactive`; `auto` records the preferred answer and continues. Hosts inject `IPlanningDecisionProvider` to collect planner commands; without it the session remains `waiting_for_decision`. This provider is separate from `IHumanInputProvider`, which retains existing review and runtime behavior.
 
 Results include status, session ID and revision. Approved results also include artifact hash and YAML obtained from trusted storage. Without a human provider, planning pauses for the host to collect review or clarification. [Architecture and persistence](../../docs/workflow-planning-v2.md).
 

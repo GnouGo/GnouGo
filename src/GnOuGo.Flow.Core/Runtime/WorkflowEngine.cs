@@ -30,6 +30,8 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public IHumanInputProvider? HumanInputProvider { get; set; }
     public IWorkflowCheckpointer? Checkpointer { get; set; }
     /// <summary>Optional separately injected version-2 planner; Flow.Core does not reference its implementation.</summary>
+    public Planning.IPlanningDecisionProvider? PlanningDecisionProvider { get; set; }
+    public string DefaultPlanningMode { get; set; } = Planning.PlanningMode.Interactive;
     public Planning.IWorkflowPlanner? WorkflowPlanner { get; set; }
     public Planning.PlanningPolicy? PlanningPolicy { get; set; }
     public Planning.IPlanningRuntimeFactory? PlanningRuntimeFactory { get; set; }

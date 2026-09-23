@@ -46,7 +46,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
         {
             var definition = JsonSerializer.Serialize(initial.Request, PlanningJsonContext.Default.PlanningRequest);
             var savedDefinition = await records.GetAsync(Definitions, tenant, key, Author, ct);
-            if (savedDefinition is not null && savedDefinition.Value != definition)
+            if (savedDefinition is not null && JsonSerializer.Serialize(JsonSerializer.Deserialize(savedDefinition.Value, PlanningJsonContext.Default.PlanningRequest), PlanningJsonContext.Default.PlanningRequest) != definition)
                 throw new PlanningConflictException("The planning request changed for this run ID. Resume the original request or start a new run.");
             var saved = await records.GetAsync(Sessions, tenant, key, Author, ct);
             var state = saved is null ? initial : JsonSerializer.Deserialize(saved.Value, PlanningJsonContext.Default.PlanningSession)

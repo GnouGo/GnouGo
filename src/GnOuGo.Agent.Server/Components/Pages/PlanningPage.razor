@@ -31,6 +31,7 @@
     {
         <p>Describe the workflow you need. Review its steps and validation results before approving it.</p>
         <form @onsubmit="StartAsync" @onsubmit:preventDefault>
+            <label for="plan-mode">Planning mode</label><select id="plan-mode" @bind="_mode"><option value="interactive">Interactive</option><option value="auto">Auto</option></select>
             <label for="plan-name">Agent name</label><input id="plan-name" class="form-control" @bind="_name" required />
             <label for="plan-prompt">What should this agent do?</label><textarea id="plan-prompt" class="form-control" rows="7" @bind="_prompt" required></textarea>
             <label><input type="checkbox" @bind="_reviseExisting" /> Revise an existing agent with this name</label>
@@ -71,6 +72,11 @@
             }
             <button class="btn btn-primary" disabled="@_busy" @onclick="AnswerAsync">Submit answers</button>
         }
+        @if (!IsWorkflowSession && _state.Status == PlanningStatus.WaitingForDecision && _state.PendingDecision is { } decision)
+        {
+            <PlannerDecisionCard Decision="PlanningEndpoints.ToDto(decision)" Busy="_busy" Answer="AnswerDecisionAsync" Cancel='() => SubmitAsync("cancel")' />
+        }
+        <PlannerDecisionHistory Decisions="PlanningEndpoints.ToDto(_state).Decisions" />
         @if (_state.Diagnostics.Count > 0)
         {
             <h3>Findings</h3><ul>@foreach (var diagnostic in _state.Diagnostics) { <li><strong>@diagnostic.Code</strong>: @diagnostic.Message <small>@diagnostic.Location</small></li> }</ul>
@@ -97,6 +103,8 @@
             <button class="btn btn-outline-secondary" disabled="@_busy" @onclick='() => SubmitAsync("cancel")'>Cancel planning</button>
             @if (PlanningStatus.IsWaiting(_state.Status) || _state.Status == PlanningStatus.Stopped)
             {
+                <label>Planning mode<select @bind="_mode"><option value="interactive">Interactive</option><option value="auto">Auto</option></select></label>
+                <button disabled="@_busy" @onclick='() => SubmitAsync("configure_mode", mode: _mode)'>Apply planning mode</button>
                 <details><summary>Generation settings</summary>
                     <label>Reasoning<select class="form-select" @bind="_reasoning"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
                     <label>Input token limit<input type="number" @bind="_inputLimit" /></label>
@@ -120,6 +128,7 @@
     private readonly CancellationTokenSource _lifetime = new();
     private Task? _polling;
     private string _name = "", _prompt = "", _revision = "", _reasoning = "medium";
+    private string _mode = PlanningMode.Interactive;
     private int _inputLimit = 12_000, _outputLimit = 8_192;
     private string? _error;
     private bool _busy, _reviseExisting, _loading, _tracesOpen, _traceWorkflow;
@@ -134,7 +143,7 @@
         if (Source is not (null or "workflow")) { _error = "Unknown planning session source."; return; }
         if (SessionId is null && !string.IsNullOrWhiteSpace(AgentName)) { _name = AgentName; _reviseExisting = true; }
         try { await RefreshAsync(); } catch (Exception ex) { _error = ex.Message; }
-        if (_state is not null) { _reasoning = _state.Request.Generation.Reasoning; _inputLimit = _state.Request.Generation.MaxInputTokensPerRequest; _outputLimit = _state.Request.Generation.MaxOutputTokens; }
+        if (_state is not null) { _mode = _state.Request.Mode; _reasoning = _state.Request.Generation.Reasoning; _inputLimit = _state.Request.Generation.MaxInputTokensPerRequest; _outputLimit = _state.Request.Generation.MaxOutputTokens; }
         _polling ??= PollAsync();
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -179,18 +188,19 @@
     private async Task StartAsync()
     {
         _busy = true; _error = null;
-        try { var state = await Planning.StartAsync(_name, _prompt, _reviseExisting, _lifetime.Token); Navigation.NavigateTo("/planning/" + state.Request.SessionId); }
+        try { var state = await Planning.StartAsync(_name, _prompt, _reviseExisting, _lifetime.Token, mode: _mode); Navigation.NavigateTo("/planning/" + state.Request.SessionId); }
         catch (Exception ex) { _error = ex.Message; }
         finally { _busy = false; }
     }
-    private async Task SubmitAsync(string kind, string? text = null, JsonObject? answers = null, PlanningGenerationOptions? generation = null)
+    private async Task SubmitAsync(string kind, string? text = null, JsonObject? answers = null, PlanningGenerationOptions? generation = null, string? mode = null, PlanningDecisionAnswer? decisionAnswer = null)
     {
         if (_state is null || IsWorkflowSession) return;
         _busy = true; _error = null;
-        try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Answers = answers, Generation = generation }, _lifetime.Token); }
+        try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Answers = answers, Generation = generation, Mode = mode, DecisionAnswer = decisionAnswer }, _lifetime.Token); }
         catch (Exception ex) { _error = ex.Message; await RefreshAsync(); }
         finally { _busy = false; }
     }
+    private Task AnswerDecisionAsync(PlanningDecisionAnswerDto answer) => SubmitAsync("answer_decision", decisionAnswer: new(answer.DecisionId, answer.OptionId, answer.Text));
     private async Task ApproveAndSaveAsync() { await SubmitAsync("approve"); if (_state?.Status == PlanningStatus.Approved) await SubmitAsync("save"); }
     private Task ConfigureAsync() => SubmitAsync("configure_generation", generation: new() { Reasoning = _reasoning, MaxInputTokensPerRequest = _inputLimit, MaxOutputTokens = _outputLimit });
     private Task AnswerAsync()
@@ -207,7 +217,7 @@
     private static string Phase(string status) => status switch
     {
         PlanningStatus.Created => "Discovering capabilities", PlanningStatus.Generating => "Building and validating workflow",
-        PlanningStatus.Clarification => "Your answers are needed", PlanningStatus.FinalReview => "Ready for your review",
+        PlanningStatus.WaitingForDecision => "Your planning decision is needed", PlanningStatus.Clarification => "Your answers are needed", PlanningStatus.FinalReview => "Ready for your review",
         PlanningStatus.Approved => "Approved", PlanningStatus.Saving => "Saving", PlanningStatus.Saved => "Saved",
         PlanningStatus.Stopped or PlanningStatus.Failed => "Planning stopped", PlanningStatus.Cancelled => "Cancelled", _ => status
     };

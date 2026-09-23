@@ -64,7 +64,7 @@ public static class ChatEndpoints
 
             var conversationId = request.ConversationId;
             var text = "";
-            await foreach (var evt in smartFlow.ExecuteAsync(lastUserMsg, correlationId: null, request.AgentName, request.FilesIds, workflowInputs: null, conversationId, ct).ConfigureAwait(false))
+            await foreach (var evt in smartFlow.ExecuteAsync(lastUserMsg, correlationId: null, request.AgentName, request.FilesIds, workflowInputs: new System.Text.Json.Nodes.JsonObject { ["planning_mode"] = request.PlanningMode }, conversationId, ct).ConfigureAwait(false))
             {
                 if (evt.Type is "conversation" && !string.IsNullOrWhiteSpace(evt.ConversationId))
                     conversationId = evt.ConversationId;
@@ -106,7 +106,7 @@ public static class ChatEndpoints
         {
             var lastUserMsg = ResolvePrompt(request);
 
-            await foreach (var evt in smartFlow.ExecuteAsync(lastUserMsg, correlationId: null, request.AgentName, request.FilesIds, workflowInputs: null, request.ConversationId, ct).ConfigureAwait(false))
+            await foreach (var evt in smartFlow.ExecuteAsync(lastUserMsg, correlationId: null, request.AgentName, request.FilesIds, workflowInputs: new System.Text.Json.Nodes.JsonObject { ["planning_mode"] = request.PlanningMode }, request.ConversationId, ct).ConfigureAwait(false))
             {
                 var data = evt.Animation is null
                     ? evt.Text ?? ""

@@ -83,7 +83,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
                     if (state.PendingCall is not null || command.Generation is null) throw new PlanningConflictException("Generation settings cannot replace a pending request.");
                     PlanningGenerationPolicy.Validate(command.Generation); state.Request.Generation = command.Generation;
                     state.Diagnostics.RemoveAll(d => d.Code == "MODEL_INPUT_LIMIT");
-                    if (state.Status == PlanningStatus.Stopped) state.Status = PlanningStatus.Generating; state.Phase = PlanningPhase.Semantic;
+                    if (state.Status == PlanningStatus.Stopped) state.Status = PlanningStatus.Generating;
                     break;
                 default: throw new ArgumentException("Unsupported planning command.");
             }

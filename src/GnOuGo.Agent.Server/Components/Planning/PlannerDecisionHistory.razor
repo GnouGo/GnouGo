@@ -1,0 +1,20 @@
+@if (Decisions is { Count: > 0 })
+{
+    <details class="planner-history">
+        <summary>Planner decisions (@Decisions.Count)</summary>
+        <ol>
+            @foreach (var record in Decisions)
+            {
+                <li @key="record.Decision.Id">
+                    <strong>@record.Decision.Question</strong>
+                    <p>@(record.Answer.Text ?? record.Decision.Options.FirstOrDefault(o => o.Id == record.Answer.OptionId)?.Label)</p>
+                    <p>@record.Reason</p>
+                    <small>@(record.Source == "auto" ? "Automatic" : "User answer") · @record.Decision.Phase · @record.Decision.Scope · @record.AnsweredAtUtc.ToString("u")</small>
+                </li>
+            }
+        </ol>
+    </details>
+}
+@code {
+    [Parameter] public IReadOnlyList<PlanningDecisionRecordDto>? Decisions { get; set; }
+}

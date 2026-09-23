@@ -673,3 +673,13 @@ context, with byte sizes, labelled token estimates, reported usage and HTTP
 attempts. Content loads on demand from encrypted tenant-scoped storage; missing
 usage is unknown. Historical planner requests remain available as journal history
 when trace links have expired. See [configuration, retention and limitations](../../docs/llm-protocol-and-traces.md).
+
+## Planner decisions
+
+The workflow designer and chat offer Interactive (default) and Auto planning modes. Interactive cards show the preferred business option, alternatives, context and optional custom text. Submit resumes the saved phase; Cancel planning ends the session. Switching a pending decision to Auto records the preferred answer and continues. Decision history includes automatic reasons. FinalReview and runtime permissions remain separate.
+
+`POST /api/planning` accepts `mode`. Planning commands support `answer_decision` (`expectedRevision`, `decisionAnswer: {decisionId, optionId}` or `{decisionId, text}`) and `configure_mode` (`mode`). Chat clients use `GET /api/chat/conversations/{conversationId}/planning` and `POST /api/chat/conversations/{conversationId}/planning/{id}/commands`. Chat creation accepts `planningMode`.
+
+Chat origin links and planning state are encrypted through KeyVault. Reopening a chat restores pending decisions; after a server restart, answering resumes only the saved planner through FinalReview. Prior surrounding workflow steps are never replayed, and the chat decision endpoint cannot approve or execute workflows. Workflow-owned sessions remain inspection-only in the designer.
+
+Run `dotnet test tests/GnOuGo.Agent.Server.Tests -m:1 -warnaserror -p:SkipClientBuild=true` for lifecycle, encrypted persistence and shared-card coverage.

@@ -23,6 +23,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         {
             Request = new()
             {
+                Mode = input["planning_mode"]?.GetValue<string>() ?? ctx.Engine.DefaultPlanningMode,
                 TenantId = ctx.Limits.TenantId ?? "default", Name = input["name"]?.GetValue<string>() ?? "generated",
                 Prompt = input["raw_prompt"]?.GetValue<string>() ?? "", Options = options,
                 MaxReplanAttempts = input["max_replan_attempts"]?.GetValue<int>() ?? 2,
@@ -43,12 +44,18 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 }
             }
         };
+        PlanningMode.Validate(initial.Request.Mode);
         await using var owned = await factory.OpenAsync(ctx, initial, ct);
         var state = owned.Session;
         while (!PlanningStatus.IsTerminal(state.Status))
         {
             var command = new PlanningCommand { ExpectedRevision = state.Revision };
-            if (PlanningStatus.IsWaiting(state.Status))
+            if (state.Status == PlanningStatus.WaitingForDecision)
+            {
+                if (ctx.Engine.PlanningDecisionProvider is not { } decisions) break;
+                command = await decisions.RequestAsync(state, ct);
+            }
+            else if (PlanningStatus.IsWaiting(state.Status))
             {
                 if (ctx.Engine.HumanInputProvider is not { } human) break;
                 if (state.Status == PlanningStatus.Clarification)
@@ -90,6 +97,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 }
             }
             state = await planner.AdvanceAsync(state, command, owned.Runtime, ct);
+            if (ctx.Engine.PlanningDecisionProvider is { } observer) await observer.CheckpointedAsync(state, ct);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.status", state.Status);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.calls", state.ModelCalls);
         }

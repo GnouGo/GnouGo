@@ -12,7 +12,8 @@ public sealed record ChatStreamRequestDto(
     string? AgentName = null,
     IReadOnlyList<string>? FilesIds = null,
     string? ConversationId = null,
-    string? Prompt = null);
+    string? Prompt = null,
+    string PlanningMode = "interactive");
 
 public sealed record ChatCompletionResponseDto(string Text, string? ConversationId = null);
 

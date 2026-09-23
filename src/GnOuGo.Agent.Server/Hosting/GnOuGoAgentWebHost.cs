@@ -491,6 +491,7 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IPlanningSessionStore, GnOuGo.Agent.Server.Planning.EfPlanningSessionStore>();
         builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IWorkflowPlanner, GnOuGo.Flow.Planning.TypedWorkflowPlanner>();
         builder.Services.AddSingleton<GnOuGo.Agent.Server.Planning.PlanningSessionService>();
+        builder.Services.AddSingleton<GnOuGo.Agent.Server.Planning.ChatPlanningService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<GnOuGo.Agent.Server.Planning.PlanningSessionService>());
         builder.Services.AddSingleton<SmartFlowService>();
         builder.Services.AddSingleton<TraceDebugService>();
