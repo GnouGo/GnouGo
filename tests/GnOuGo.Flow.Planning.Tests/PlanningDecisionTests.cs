@@ -208,4 +208,45 @@ public sealed class PlanningDecisionTests
         Assert.NotNull(state.SemanticPlan); Assert.Null(state.PendingDecision); Assert.Empty(state.Decisions);
     }
 
+    [Fact]
+    public async Task InvalidCandidateCannotBecomeADecisionOrAutomaticSelection()
+    {
+        var proposal = Proposal();
+        proposal["decision"]!["options"]![1]!["result"]!["actions"]![0]!["purpose"] = "";
+        var state = PlannerFixture.Session(); state.Request.Mode = PlanningMode.Auto;
+        state = await Advance(state, new() { RawDecisionResponse = true, Respond = _ => new() { Json = proposal } });
+        Assert.Null(state.PendingDecision); Assert.Empty(state.Decisions); Assert.Null(state.SemanticPlan);
+        Assert.Contains(state.Diagnostics, d => d.Code == "SEMANTIC_PURPOSE_MISSING");
+    }
+
+    [Fact]
+    public async Task TechnicalRepairUsesItsOriginalSchemaAndCannotOfferADecision()
+    {
+        var state = PlannerFixture.Session();
+        state.Diagnostics = [new("PLANNING_RESPONSE_INVALID", "/actions", "Invalid schema")];
+        state = await Advance(state, new() { RawDecisionResponse = true, Respond = request =>
+        {
+            Assert.Null(request.StructuredOutputSchema!["properties"]!["decision"]);
+            return new() { Json = Proposal() };
+        } });
+        Assert.Null(state.PendingDecision); Assert.Empty(state.Decisions);
+        Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID");
+    }
+
+    [Fact]
+    public async Task ReservedLegacySemanticRequestReplaysOriginalSchema()
+    {
+        var state = PlannerFixture.Session(); state.ModelCalls = 1;
+        state.PendingCall = new() { Id = "reserved", Purpose = "semantic", Request = new() { ClientRequestId = "reserved", Prompt = "Original legacy prompt", StructuredOutputSchema = SemanticPlanning.Schema() } };
+        var runtime = new TestRuntime { RawDecisionResponse = true, Respond = request =>
+        {
+            Assert.Equal("Original legacy prompt", request.Prompt); Assert.Equal("reserved", request.ClientRequestId);
+            Assert.Null(request.StructuredOutputSchema!["properties"]!["decision"]);
+            return new() { Json = Proposal()["decision"]!["options"]![0]!["result"]!.DeepClone() };
+        } };
+        state = await Advance(Restore(state), runtime);
+        Assert.NotNull(state.SemanticPlan); Assert.Equal(1, state.ModelCalls); Assert.Single(runtime.Calls);
+        Assert.Equal(PlanningMode.Interactive, state.Request.Mode);
+    }
+
 }

@@ -72,7 +72,7 @@ internal static class PlanningDecisions
             evidence = evidence[1..^1];
         // Evidence is an exact excerpt from the issued business request or scoped business action.
         var businessEvidence = actionIds.Select(id => state.SemanticPlan is null ? null : SemanticPlanning.Actions(state.SemanticPlan).FirstOrDefault(a => a.Id == id)?.Purpose)
-            .Prepend(state.Request.Prompt).Where(s => s is not null).Cast<string>();
+            .Prepend(state.Request.Prompt).Append(continuation?.Answer?.Text).Where(s => s is not null).Cast<string>();
         if (string.IsNullOrWhiteSpace(evidence) || !businessEvidence.Any(s => s.Contains(evidence, StringComparison.Ordinal)))
             throw Invalid("The tradeoff must cite the issued business requirement.");
         var options = proposal["options"]!.AsArray();
@@ -152,6 +152,7 @@ internal static class PlanningDecisions
     {
         if (PlanningContractValidation.ValidateInstance(result, schema).Count != 0) throw Invalid("A decision option violates its phase result schema.");
         if (result["blockedActions"] is JsonArray { Count: > 0 }) throw Invalid("A blocked proposal is not a valid decision option.");
+        if (result["questions"] is JsonArray { Count: > 0 }) throw Invalid("A decision option must resolve its business choice.");
         return PlanningJsonTransport.ModelGrounded(result, schema, unpack: true);
     }
     private static PlanningResponseException Invalid(string message) => new([new("PLANNING_DECISION_INVALID", "/decision", message)]);
