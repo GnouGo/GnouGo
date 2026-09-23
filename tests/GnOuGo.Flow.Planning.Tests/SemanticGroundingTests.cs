@@ -183,6 +183,7 @@ public sealed class SemanticGroundingTests
         foreach (var page in state.Grounding.Pages)
             state.Grounding.Results.Add(new(page.Id, page.ActionIds.Select(a => new GroundingDecision(a, "none_of_the_above", [], "No declared capability performs the required action.")).ToList()));
         Assert.All(CapabilityGrounder.Decisions(state), d => { Assert.Equal("none_of_the_above", d.Outcome); Assert.Empty(d.Matches); });
+        Assert.All(CapabilityGrounder.Decisions(state), d => Assert.Contains("No declared capability performs the required action.", d.Reason));
     }
     [Fact]
     public void ReaderOnlyCleanupCandidatesRemainACompleteCatalogMiss()

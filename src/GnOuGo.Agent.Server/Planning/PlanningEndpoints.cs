@@ -69,7 +69,7 @@ internal static class PlanningEndpoints
         state.Usage?.EstimatedCost ?? 0, state.Usage?.EstimatedCostCurrency ?? "", state.ActiveMilliseconds, state.HumanWaitMilliseconds, state.Phase, state.Request.Mode, state.PendingDecision is { } pending ? ToDto(pending) : null,
         state.Decisions.Select(d => new PlanningDecisionRecordDto(ToDto(d.Decision), new(d.Answer.DecisionId, d.Answer.OptionId, d.Answer.Text), d.Source, d.Reason, d.AnsweredAtUtc)).ToArray())
     {
-        PendingRepair = state.PendingRepair is { } repair ? new(repair.ActionIds.ToArray(), repair.Candidate.Summary, repair.Questions.Count > 0 && repair.Answers is null) : null,
+        PendingRepair = state.PendingRepair is { } repair ? new(repair.ActionIds.ToArray(), repair.Questions.Count > 0 ? string.Join("\n", repair.Questions.Select(q => q.Question)) : repair.Candidate.Summary, repair.Questions.Count > 0 && repair.Answers is null) : null,
         Clarifications = state.Answers.Select(a => new PlanningClarificationHistoryDto(a.Question, a.Answers.DeepClone().AsObject())).ToArray()
     };
 

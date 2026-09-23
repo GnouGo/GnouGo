@@ -3,6 +3,7 @@
     <aside class="planner-repair" aria-label="Unapplied planning repair">
         <strong>Proposed repair — not applied</strong>
         <p>The accepted plan is retained. A replacement is saved for: @string.Join(", ", repair.ActionIds).</p>
+        <details><summary>Proposed scope and reason</summary><p style="white-space: pre-wrap">@repair.Summary</p></details>
         @if (repair.AwaitingConsent) { <p>The requested business outcome needs an explicit revision.</p> }
     </aside>
 }

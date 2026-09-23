@@ -133,7 +133,10 @@ internal static class CapabilityGrounder
             var matches = grounding.Results.SelectMany(r => r.Decisions).Where(d => d.ActionId == a.Id).SelectMany(d => d.Matches).DistinctBy(m => m.CapabilityId).ToList();
             if (a.Kind == "cleanup" && a.Blocks.Count == 0)
                 matches.RemoveAll(m => state.Catalog.Capabilities.Single(c => c.Id == m.CapabilityId).EffectKind is "read" or "none");
-            return new GroundingDecision(a.Id, matches.Count == 0 ? "none_of_the_above" : "matched", matches, matches.Count == 0 ? "No semantically matching capability in the complete authorized catalog." : "Matches retained from every catalog page.");
+            var explanation = matches.Count == 0 ? "No semantically matching capability in the complete authorized catalog. " +
+                string.Join(" ", grounding.Results.SelectMany(r => r.Decisions).Where(d => d.ActionId == a.Id && d.Outcome == "none_of_the_above").Select(d => d.Reason).Distinct(StringComparer.Ordinal))
+                : "Matches retained from every catalog page.";
+            return new GroundingDecision(a.Id, matches.Count == 0 ? "none_of_the_above" : "matched", matches, explanation.TrimEnd());
         }).ToList();
     }
     internal static List<PlanningDiagnostic> ValidateBindings(PlanningSession state, ISet<string>? includedActions = null)
