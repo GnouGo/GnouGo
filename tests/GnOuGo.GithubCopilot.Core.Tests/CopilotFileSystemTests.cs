@@ -71,6 +71,7 @@ public sealed class CopilotFileSystemTests
     [Fact]
     public void TransientState_RejectsTraversalAndSupportsRuntimeFileOperations()
     {
+        Assert.True(Path.IsPathFullyQualified(CopilotTransientSessionState.Root));
         var state = new CopilotTransientSessionState();
         var path = CopilotTransientSessionState.Root + "/events/session.jsonl";
         state.Write(path, "first", false);

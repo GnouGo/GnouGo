@@ -24,7 +24,8 @@
     "runtime": "osx-arm64",
     "result": "passed",
     "warnings": 0,
-    "executableSha256": "5f5f4b2db9f8b06553a0a13147e9df8203673922cd9d65c7baf648cccaedad4a"
+    "executableSha256": "d4dbd3d1a4f4427d64b7f649788bd46e2f205c1e43f7154cfc3ac0dd5eaad34d",
+    "sessionStateNamespace": "Fully qualified virtual root using host path conventions; no host directory is created."
   },
   "liveModel": {
     "configuration": "Existing encrypted KeyVault provider",
@@ -34,12 +35,13 @@
     "jit": {
       "passed": 2,
       "skipped": 0,
-      "durationSeconds": 42.5104
+      "durationSeconds": 42.5104,
+      "verificationCommit": "508334f"
     },
     "publishedNativeAot": {
       "passed": 2,
       "skipped": 0,
-      "durationSeconds": 42.629
+      "durationSeconds": 44.3055
     },
     "entryPoints": [
       "code_agent_edit",

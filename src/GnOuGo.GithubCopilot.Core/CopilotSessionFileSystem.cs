@@ -35,7 +35,9 @@ public sealed record CopilotDirectoryEntry(string Name, bool IsDirectory);
 /// <summary>Session-private state is memory-only and never passes through the project policy.</summary>
 internal sealed class CopilotTransientSessionState
 {
-    internal const string Root = "/__gnougo_session__";
+    // This is a virtual SDK namespace, never a directory on the host. Match the
+    // configured SDK path conventions, including the volume required on Windows.
+    internal static readonly string Root = (Path.GetPathRoot(Path.GetTempPath()) ?? "/").Replace('\\', '/') + "__gnougo_session__";
     private readonly object _gate = new();
     private readonly Dictionary<string, string> _files = new(StringComparer.Ordinal);
     private readonly HashSet<string> _directories = new(StringComparer.Ordinal) { Root };
