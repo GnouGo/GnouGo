@@ -23,8 +23,9 @@ internal sealed class CopilotCodeService(
             configuration.Build(projectRoot, providerName) with { AvailableTools = [], UseSessionFileSystem = true },
             CopilotSessionKind.OneShot, CopilotPermissionMode.Deny);
         var events = new List<CodeProgressEvent>();
+        var progress = reporter.Capture();
         var result = await sessions.OneShotAsync(request, BuildPrompt(task, projectRoot, contextFiles), null, ct,
-            value => Report(value, "code_suggest_change", events), configuration.RequestHeaders());
+            value => Report(value, "code_suggest_change", events, progress), configuration.RequestHeaders());
         return new(task, contextFiles.Select(f => f.Path).ToArray(), result.Content, result.Model,
             Usage(result.Usage), events.ToArray());
     }
@@ -37,8 +38,9 @@ internal sealed class CopilotCodeService(
         using var activity = CopilotMcpConfiguration.StartCopilotActivity(options.Value, trace, "AgentEdit");
         var request = new CopilotSessionCreateRequest(configuration.Context(tenantId), configuration.Build(projectRoot, providerName));
         var events = new List<CodeProgressEvent>();
+        var progress = reporter.Capture();
         var result = await sessions.InteractiveOneShotAsync(request, BuildAgentEditPrompt(task, projectRoot, contextFiles), null, ct,
-            value => Report(value, "code_agent_edit", events), configuration.RequestHeaders());
+            value => Report(value, "code_agent_edit", events, progress), configuration.RequestHeaders());
         foreach (var file in result.ModifiedFiles)
             events.Add(reporter.Report("file_modified", "info", $"Modified {file}.", file, fallbackMethod: "code_agent_edit"));
         var context = CodeMcpTraceContext.Capture(trace);
@@ -52,7 +54,7 @@ internal sealed class CopilotCodeService(
         if (string.IsNullOrWhiteSpace(task)) throw new ArgumentException("task must not be empty.", nameof(task));
         policy.EnsurePromptWithinLimit(task, nameof(task));
     }
-    private void Report(CopilotStreamEvent value, string method, List<CodeProgressEvent> events)
+    private static void Report(CopilotStreamEvent value, string method, List<CodeProgressEvent> events, CodeProgressReporter reporter)
     {
         var item = reporter.Report(value.Kind, value.Level, value.Message, fallbackServer: "GnOuGo.GithubCopilot.Mcp", fallbackMethod: method, fallbackMcpKind: "tool");
         lock (events) events.Add(item);

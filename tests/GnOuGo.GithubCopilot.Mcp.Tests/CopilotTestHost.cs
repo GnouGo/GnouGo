@@ -12,6 +12,7 @@ internal sealed class CopilotTestHost : ICopilotSdkClientFactory
     public string? ProviderName => Configuration?.Request.Configuration.ProviderName;
     public bool AgentEditCalled => Configuration?.Request.PermissionMode == CopilotPermissionMode.Interactive;
     public int DeleteCount { get; private set; }
+    public int DisposedSessions { get; private set; }
     public CopilotCodeService Service { get; }
     public McpCopilotHumanInputProvider Human { get; }
     public CopilotTestHost(CodeServerSettings settings, string root, CodePolicy? policy = null)
@@ -63,6 +64,6 @@ internal sealed class CopilotTestHost : ICopilotSdkClientFactory
         public Task<IReadOnlyList<string>> ListWorkspaceFilesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<string>>([]);
         public Task<CopilotWorkspaceFileResult> ReadWorkspaceFileAsync(string path, CancellationToken ct) => Task.FromResult(new CopilotWorkspaceFileResult(path, null, false));
         public Task CreateWorkspaceFileAsync(string path, string content, CancellationToken ct) => Task.CompletedTask;
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public ValueTask DisposeAsync() { owner.DisposedSessions++; return ValueTask.CompletedTask; }
     }
 }

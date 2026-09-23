@@ -13,6 +13,22 @@ namespace GnOuGo.GithubCopilot.Mcp.Tests;
 
 public sealed class CodeToolsStructuredOutputTests : IDisposable
 {
+    [Fact]
+    public void LegacyAgentContract_HidesInjectedContextAndExposesObservations()
+    {
+        var method = typeof(CodeTools).GetMethod(nameof(CodeTools.AgentEditAsync))!;
+        var settings = CreateSettings();
+        var host = new CopilotTestHost(settings, _root);
+        var target = new CodeTools(new CodeProjectService(new CodePolicy(settings, _root), Options.Create(settings)), host.Service,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<CodeTools>.Instance, host.Human);
+        var tool = McpServerTool.Create(method, target, new McpServerToolCreateOptions { SerializerOptions = CodeMcpJson.SerializerOptions });
+        var schema = JsonNode.Parse(tool.ProtocolTool.InputSchema.GetRawText())!;
+        Assert.Null(schema["properties"]?["requestContext"]);
+        Assert.NotNull(schema["properties"]?["tenantId"]);
+        var output = JsonNode.Parse(tool.ProtocolTool.OutputSchema!.Value.GetRawText())!;
+        Assert.NotNull(output["properties"]?["toolExecutions"]);
+    }
+
     [Theory]
     [InlineData("copilot_one_shot")]
     [InlineData("copilot_interactive_one_shot")]

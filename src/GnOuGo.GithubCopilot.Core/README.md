@@ -17,7 +17,9 @@ are included in the exported MCP result schemas.
 `ToolExecutions` retains SDK tool-call identities, exact arguments and terminal process
 exit codes separately from assistant text and tool invocation success. Incomplete,
 missing or conflicting observations cannot certify successful work. This additive
-result field defaults to an empty list when reading older serialized results.
+result field defaults to an empty list when reading older serialized results. Both the
+legacy `terminal` and current `shell_exit` SDK receipts are supported; output-preview
+truncation and output-file metadata remain explicit.
 
 The library pins `GitHub.Copilot.SDK` `1.0.14`, bundles Copilot CLI `1.0.88`, and maintains an explicit GA allowlist. The CLI version supplies the native runtime wrapper and its adjacent runtime library required by this SDK. Experimental, preview, insiders, fleet, fork, remote/cloud sandbox, canvas, extensions, manual compaction, history truncation, agent-management, citations, and unknown RPC APIs are rejected.
 
@@ -44,7 +46,21 @@ per-session lifetime, permission checks, and create/resume callbacks. The host o
 project root, file type, size, and write policy. Permission grants cannot override that
 policy. SDK session-state files use a separate in-memory filesystem, retained during
 disconnect/resume and cleared on deletion or expiry; they are never written into the
-project. Handles remain process-local, as before.
+project. Handles remain process-local, as before. Final cleanup disconnects the SDK and
+clears the owned transient store; SDK disk deletion is used only for native storage.
+
+Controlled sessions expose Core's `project_read`, `project_write`, `project_append`,
+`project_list`, `project_stat`, `project_mkdir`, `project_remove`, and `project_rename`
+functions. Native file tools and child-agent tools are excluded so file I/O cannot bypass
+the injected policy. Tool allowlists are still applied; hosts using an explicit allowlist
+must name the required `project_*` functions. Deny-mode suggestions receive no file tools.
+The pre-tool hook and permission callback enforce host policy before remembered approval,
+and each filesystem operation validates again before accessing the project.
+
+`ICopilotHumanInputProvider.Capture()` lets a transport snapshot the current invocation.
+Core binds that snapshot to each active session operation so SDK background callbacks
+reach the current send request after reconnect, without inheriting another session's
+transport context. The default implementation remains compatible with context-free hosts.
 
 File routing is not an OS sandbox for arbitrary commands. Commands retain the native
 CLI sandbox settings and Core permission/HITL boundary. Operational progress can be

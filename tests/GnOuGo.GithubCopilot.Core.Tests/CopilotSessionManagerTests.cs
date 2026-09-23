@@ -44,6 +44,7 @@ public sealed class CopilotSessionManagerTests
         Assert.False(sdk.LastConfiguration.SessionState!.Exists(CopilotTransientSessionState.Root + "/events.json"));
         await manager.DeleteAsync(request.Context, created.Handle, TestContext.Current.CancellationToken);
         Assert.True(fs.Instances[0].Disposed);
+        Assert.Equal(0, sdk.DeleteCount); // Native disk deletion cannot address host-owned state.
         Assert.False(first.SessionState.Exists(CopilotTransientSessionState.Root + "/events.json"));
         Assert.False(fs.Instances[1].Disposed);
     }
@@ -58,6 +59,29 @@ public sealed class CopilotSessionManagerTests
         await Assert.ThrowsAsync<IOException>(() => manager.CreateAsync(request, TestContext.Current.CancellationToken));
         Assert.True(Assert.Single(fs.Instances).Disposed);
         Assert.Empty(manager.List("tenant-a"));
+    }
+
+    [Fact]
+    public async Task FileSystem_TimeoutAndExpiryReleaseTransientStateAndClient()
+    {
+        var sdk = new FakeClientFactory { SendDelay = TimeSpan.FromMinutes(1) };
+        var fs = new TestSessionFileSystemFactory();
+        var clock = new ManualTimeProvider(DateTimeOffset.Parse("2026-09-24T00:00:00Z"));
+        await using var manager = new CopilotSessionManager(sdk, timeProvider: clock, fileSystems: fs);
+        var request = CreateRequest("tenant-a") with { Configuration = Configuration() with { UseSessionFileSystem = true, ManagedSessionTtlSeconds = 1 } };
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => manager.InteractiveOneShotAsync(request, "edit", null, cancellation.Token));
+        Assert.True(fs.Instances[0].Disposed);
+        Assert.Equal(1, sdk.ClientDisposeCount);
+        await manager.CreateAsync(request, TestContext.Current.CancellationToken);
+        var state = sdk.LastConfiguration!.SessionState!;
+        state.Write(CopilotTransientSessionState.Root + "/event", "private", false);
+        clock.Advance(TimeSpan.FromSeconds(2));
+        Assert.Equal(1, await manager.SweepExpiredAsync(TestContext.Current.CancellationToken));
+        Assert.True(fs.Instances[1].Disposed);
+        Assert.False(state.Exists(CopilotTransientSessionState.Root + "/event"));
+        Assert.Equal(2, sdk.ClientDisposeCount);
+        Assert.Equal(0, sdk.DeleteCount);
     }
 
     [Fact]
@@ -235,6 +259,7 @@ public sealed class CopilotSessionManagerTests
         Assert.Equal("send failed", exception.Message);
         Assert.Equal("delete failed", exception.Data["CopilotSessionCleanupError"]);
         Assert.Equal(1, factory.DeleteCount);
+        Assert.Equal(1, factory.ClientDisposeCount);
         Assert.Empty(manager.List("tenant-a"));
     }
 
@@ -353,6 +378,7 @@ public sealed class CopilotSessionManagerTests
         private readonly ConcurrentDictionary<string, FakeSession> _sessions = new(StringComparer.Ordinal);
         public FakeSession? LastSession { get; private set; }
         public int DeleteCount;
+        public int ClientDisposeCount;
         public int ResumeCount;
         public TimeSpan SendDelay { get; set; } = TimeSpan.FromMilliseconds(30);
         public Exception? CreateException { get; set; }
@@ -409,7 +435,7 @@ public sealed class CopilotSessionManagerTests
                 owner.ForegroundSessionId = sessionId;
                 return Task.CompletedTask;
             }
-            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+            public ValueTask DisposeAsync() { Interlocked.Increment(ref owner.ClientDisposeCount); return ValueTask.CompletedTask; }
         }
     }
 

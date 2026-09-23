@@ -43,7 +43,22 @@ internal sealed class LocalProjectSessionFsProvider : ICopilotSessionFileSystem
         EnsureWritesAllowed();
         if (Directory.Exists(full)) ValidateTree(full);
         else _ = _policy.ResolveWritableFileFromResolvedRoot(_projectRoot, Path.GetRelativePath(_projectRoot, full));
+        if (File.Exists(full)) ValidateRead(full);
         if (content is not null) CheckContent(content);
+    }
+    public void ValidateDirectoryWrite(string path)
+    {
+        EnsureWritesAllowed();
+        _ = Resolve(path, false);
+    }
+    public void ValidateRename(string source, string destination)
+    {
+        ValidateWrite(source);
+        var src = Resolve(source, false);
+        if (!Directory.Exists(src)) { ValidateWrite(destination); return; }
+        ValidateDirectoryWrite(destination);
+        var dest = Resolve(destination, false);
+        foreach (var file in ValidateTree(src)) ValidateWrite(Path.Combine(dest, Path.GetRelativePath(src, file)));
     }
     internal Task<string> ReadFileForTestAsync(string path, CancellationToken cancellationToken = default) => ReadFileAsync(path, cancellationToken);
     internal Task WriteFileForTestAsync(string path, string content, CancellationToken cancellationToken = default) => WriteFileAsync(path, content, null, cancellationToken);
@@ -168,7 +183,7 @@ internal sealed class LocalProjectSessionFsProvider : ICopilotSessionFileSystem
         {
             Resolve(entry, false);
             if (Directory.Exists(entry)) files.AddRange(ValidateTree(entry));
-            else { _ = _policy.ResolveWritableFileFromResolvedRoot(_projectRoot, Path.GetRelativePath(_projectRoot, entry)); files.Add(entry); }
+            else { ValidateWrite(entry); files.Add(entry); }
         }
         return files;
     }

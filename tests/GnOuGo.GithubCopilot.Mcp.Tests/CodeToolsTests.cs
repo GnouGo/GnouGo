@@ -111,7 +111,9 @@ public sealed class CodeToolsTests : IDisposable
 		Assert.True(assistant.AgentEditCalled);
 		Assert.Single(edit.ContextFiles);
 		Assert.Contains("Hello", assistant.LastRequest!.Prompt);
-		Assert.Equal(1, assistant.DeleteCount);
+		Assert.Equal(0, assistant.DeleteCount);
+        Assert.Equal(1, assistant.DisposedSessions);
+        Assert.Throws<ObjectDisposedException>(() => assistant.Configuration!.FileSystem!.ValidateRead("src/Program.cs"));
 	}
 
 	[Fact]
@@ -355,6 +357,25 @@ public sealed class CodeToolsTests : IDisposable
 			Environment.SetEnvironmentVariable("GNouGo__SpanId", previousSpanId);
 		}
 	}
+
+    [Fact]
+    public async Task LegacyCalls_RequireTenantAndKeepSuggestionToolsDisabled()
+    {
+        var settings = CreateSettings();
+        var host = new CopilotTestHost(settings, _root);
+        var tools = new CodeTools(CreateService(settings), host.Service, NullLogger<CodeTools>.Instance, host.Human);
+        var missing = await tools.SuggestChangeAsync(".", "Suggest", cancellationToken: TestContext.Current.CancellationToken);
+        Assert.False(missing.Success);
+        Assert.Null(host.Configuration);
+        var result = await tools.SuggestChangeAsync(".", "Suggest", tenantId: "tenant", cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(result.Success);
+        Assert.Equal(GnOuGo.GithubCopilot.Core.CopilotPermissionMode.Deny, host.Configuration!.Request.PermissionMode);
+        Assert.Empty(host.Configuration.Request.Configuration.AvailableTools!);
+        Assert.NotNull(host.Configuration.FileSystem);
+        Assert.Equal(0, host.DeleteCount);
+        Assert.Equal(1, host.DisposedSessions);
+        Assert.Throws<ObjectDisposedException>(() => host.Configuration!.FileSystem!.ValidateRead("src/Program.cs"));
+    }
 
 	private CodeProjectService CreateService(CodeServerSettings settings)
 	{

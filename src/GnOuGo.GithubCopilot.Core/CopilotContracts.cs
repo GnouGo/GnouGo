@@ -80,6 +80,9 @@ public interface ICopilotProviderResolver
 
 public interface ICopilotHumanInputProvider
 {
+    /// <summary>Capture the caller's transport context before SDK background callbacks execute.</summary>
+    ICopilotHumanInputProvider Capture() => this;
+
     Task<CopilotHumanInputResponse> RequestAsync(CopilotHumanInputRequest request, CancellationToken cancellationToken);
 }
 
@@ -206,7 +209,13 @@ public sealed record CopilotTerminalObservation(
     string? WorkingDirectory,
     [property: Description("Process exit code supplied by the SDK terminal result, not inferred from text. Null means process completion is not established. Match the invocation's arguments to the required work and check every required command separately.")]
     long? ExitCode,
-    string? Text);
+    [property: Description("SDK command output or output preview; may be partial. It is never used to infer an exit code.")]
+    string? Text)
+{
+    public bool? OutputTruncated { get; init; }
+    public string? OutputFilePath { get; init; }
+    public string? ShellId { get; init; }
+}
 
 public sealed record CopilotStreamEvent(string Kind, string Level, string Message, DateTimeOffset Timestamp);
 

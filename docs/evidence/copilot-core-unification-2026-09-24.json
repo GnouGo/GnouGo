@@ -1,0 +1,67 @@
+{
+  "date": "2026-09-24",
+  "scope": "Unify Copilot execution through Core",
+  "sdkVersion": "1.0.14",
+  "cliVersion": "1.0.88",
+  "deterministicTests": {
+    "Core": 108,
+    "Mcp": 114,
+    "Flow.Integrations": 79,
+    "Agent.Server": 404,
+    "SmokeApprovalPolicy": 7,
+    "failed": 0
+  },
+  "solutionAndFrontendBuild": {
+    "result": "passed",
+    "warnings": 0,
+    "errors": 0
+  },
+  "corePackage": {
+    "result": "passed",
+    "warnings": 0
+  },
+  "nativeAot": {
+    "runtime": "osx-arm64",
+    "result": "passed",
+    "warnings": 0,
+    "executableSha256": "5f5f4b2db9f8b06553a0a13147e9df8203673922cd9d65c7baf648cccaedad4a"
+  },
+  "liveModel": {
+    "configuration": "Existing encrypted KeyVault provider",
+    "credentialsLogged": false,
+    "unconditionalApproval": false,
+    "permissions": "Allow once only for fixture reads, calculator.py writes and exact unittest command; reject unexpected operations and sandbox bypass.",
+    "jit": {
+      "passed": 2,
+      "skipped": 0,
+      "durationSeconds": 42.5104
+    },
+    "publishedNativeAot": {
+      "passed": 2,
+      "skipped": 0,
+      "durationSeconds": 42.629
+    },
+    "entryPoints": [
+      "code_agent_edit",
+      "copilot_session_create + copilot_session_send"
+    ],
+    "verified": [
+      "Actual calculator.py edit",
+      "Distinct SDK command calls with observed exit codes 1 then 0",
+      "Unittest failure and success output",
+      "Fixture working directory",
+      "Live operational progress",
+      "Core to MCP elicitation round trip",
+      "Managed disconnect/resume",
+      "Refused write leaves refused.py unchanged",
+      "Ephemeral and managed cleanup"
+    ],
+    "remotePublication": false,
+    "realProjectEdits": false
+  },
+  "limitations": [
+    "Session handles and transient SDK state are process-local; disconnect/resume is supported until deletion or expiry, not process restart.",
+    "Filesystem routing is not shell containment; native command permissions and CLI sandbox policy remain in force.",
+    "Explicit SDK tool allowlists must include the required project_* tools."
+  ]
+}

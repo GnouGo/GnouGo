@@ -125,6 +125,23 @@ public sealed class LocalProjectSessionFsProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task SizePolicy_AppliesToMetadataAndRecursiveMutations()
+    {
+        var path = Path.Combine(_root, "src", "Oversized.cs");
+        await File.WriteAllTextAsync(path, new string('x', 1024 * 1024 + 1), TestContext.Current.CancellationToken);
+        await using var provider = CreateProvider(true);
+        var ct = TestContext.Current.CancellationToken;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ReadFileAsync("src/Oversized.cs", ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => provider.StatAsync("src/Oversized.cs", ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ExistsAsync("src/Oversized.cs", ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => provider.RemoveAsync("src", true, false, ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => provider.RenameAsync("src", "moved", ct));
+        Assert.DoesNotContain(await provider.ReadDirectoryAsync("src", ct), e => e.Name == "Oversized.cs");
+        Assert.True(File.Exists(path));
+        Assert.Empty(provider.ModifiedFiles);
+    }
+
+    [Fact]
     public async Task DirectoryOperationsAndAppend_TrackActualChanges()
     {
         await using var provider = CreateProvider(true);

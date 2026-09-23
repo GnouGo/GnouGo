@@ -5,6 +5,37 @@ namespace GnOuGo.GithubCopilot.Core.Tests;
 
 public sealed class CopilotExecutionObservationsTests
 {
+    [Fact]
+    public void ShellExitObservations_PreserveFailureThenEditThenSuccessAndPreviewMetadata()
+    {
+        var observations = new CopilotExecutionObservations();
+        foreach (var (id, code) in new[] { ("first", 1), ("rerun", 0) })
+        {
+            observations.Observe(new ToolExecutionStartEvent { Data = new() { ToolCallId = id, ToolName = "command",
+                Arguments = JsonSerializer.SerializeToElement(new { command = "python3 -m unittest -v" }) } });
+            observations.Observe(new ToolExecutionCompleteEvent { Data = new() { ToolCallId = id, Success = true,
+                Result = new() { Content = "Assistant-facing summary", Contents = [new ToolExecutionCompleteContentShellExit
+                { Cwd = "/fixture", ExitCode = code, OutputPreview = code == 0 ? "OK" : "FAIL", OutputTruncated = true, OutputFilePath = "/output", ShellId = id }] } } });
+            if (code == 1)
+            {
+                observations.Observe(new ToolExecutionStartEvent { Data = new() { ToolCallId = "edit", ToolName = "project_write" } });
+                observations.Observe(new ToolExecutionCompleteEvent { Data = new() { ToolCallId = "edit", Success = true } });
+            }
+        }
+        var result = new CopilotSendResult("h", "s", "success", null, []) { ToolExecutions = observations.Snapshot() };
+        var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(result, CopilotCoreJsonContext.Default.CopilotSendResult), CopilotCoreJsonContext.Default.CopilotSendResult)!;
+        Assert.Equal(["first", "edit", "rerun"], restored.ToolExecutions.Select(o => o.ToolCallId));
+        Assert.Empty(restored.ToolExecutions[1].Terminals);
+        var first = Assert.Single(restored.ToolExecutions[0].Terminals);
+        Assert.Equal(1, first.ExitCode);
+        Assert.Equal("/fixture", first.WorkingDirectory);
+        Assert.Equal("FAIL", first.Text);
+        Assert.True(first.OutputTruncated);
+        Assert.Equal("/output", first.OutputFilePath);
+        Assert.Equal("first", first.ShellId);
+        Assert.Equal(0, Assert.Single(restored.ToolExecutions[2].Terminals).ExitCode);
+    }
+
     [Theory]
     [InlineData("renamed-tool", 0)]
     [InlineData("outil-renomme", 7)]

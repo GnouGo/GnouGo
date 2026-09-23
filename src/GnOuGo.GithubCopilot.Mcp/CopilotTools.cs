@@ -404,7 +404,7 @@ internal sealed class CopilotTools
 
     private async Task<CopilotSendResult> SendWithProgressAsync(CopilotSendRequest request, CancellationToken cancellationToken)
     {
-        var result = await _sessions.SendAsync(request with { RequestHeaders = _configuration.RequestHeaders(), Progress = ReportInteractiveOneShotProgress }, cancellationToken);
+        var result = await _sessions.SendAsync(request with { RequestHeaders = _configuration.RequestHeaders(), Progress = CaptureProgress("copilot_session_send") }, cancellationToken);
         return result;
     }
 
@@ -414,7 +414,7 @@ internal sealed class CopilotTools
         IReadOnlyList<CopilotAttachment>? attachments,
         CancellationToken cancellationToken)
     {
-        var result = await _sessions.OneShotAsync(request, prompt, attachments, cancellationToken, ReportInteractiveOneShotProgress, _configuration.RequestHeaders());
+        var result = await _sessions.OneShotAsync(request, prompt, attachments, cancellationToken, CaptureProgress("copilot_one_shot"), _configuration.RequestHeaders());
         return result;
     }
 
@@ -429,18 +429,19 @@ internal sealed class CopilotTools
             prompt,
             attachments,
             cancellationToken,
-            ReportInteractiveOneShotProgress, _configuration.RequestHeaders());
+            CaptureProgress("copilot_interactive_one_shot"), _configuration.RequestHeaders());
         return result;
     }
 
-    private void ReportInteractiveOneShotProgress(CopilotStreamEvent progressEvent)
+    private Action<CopilotStreamEvent> CaptureProgress(string method)
     {
-        _progress.Report(
+        var reporter = _progress.Capture();
+        return progressEvent => reporter.Report(
             progressEvent.Kind,
             progressEvent.Level,
             progressEvent.Message,
             fallbackServer: "GnOuGo.GithubCopilot.Mcp",
-            fallbackMethod: "copilot_interactive_one_shot",
+            fallbackMethod: method,
             fallbackMcpKind: "tool");
     }
 

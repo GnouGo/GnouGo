@@ -24,8 +24,13 @@ internal sealed class CopilotExecutionObservations
                 var data = complete.Data;
                 if (string.IsNullOrWhiteSpace(data.ToolCallId)) return;
                 var previous = _calls.GetValueOrDefault(data.ToolCallId) ?? Empty(data.ToolCallId, data.ParentToolCallId);
-                var terminals = (data.Result?.Contents ?? []).OfType<ToolExecutionCompleteContentTerminal>()
-                    .Select(t => new CopilotTerminalObservation(t.Cwd, t.ExitCode, t.Text)).ToArray();
+                var terminals = (data.Result?.Contents ?? []).Select(content => content switch
+                    {
+                        ToolExecutionCompleteContentTerminal terminal => new CopilotTerminalObservation(terminal.Cwd, terminal.ExitCode, terminal.Text),
+                        ToolExecutionCompleteContentShellExit shell => new CopilotTerminalObservation(shell.Cwd, shell.ExitCode, shell.OutputPreview)
+                        { OutputTruncated = shell.OutputTruncated, OutputFilePath = shell.OutputFilePath, ShellId = shell.ShellId },
+                        _ => null
+                    }).OfType<CopilotTerminalObservation>().ToArray();
                 if (previous.CompletionObserved)
                 {
                     if (previous.ToolSucceeded != data.Success || previous.ErrorCode != data.Error?.Code || !previous.Terminals.SequenceEqual(terminals))
