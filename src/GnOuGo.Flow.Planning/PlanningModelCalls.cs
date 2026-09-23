@@ -61,7 +61,7 @@ internal static class PlanningModelCalls
                 blockers.Select(b => b!["actionId"]!.ToString()).Distinct().Count() != blockers.Count ||
                 new[] { "inputs", "operations", "outputs", "subflows" }.Any(field => json[field] is JsonArray { Count: > 0 }))
                 throw new PlanningResponseException([new("BINDING_BLOCKER_INVALID", "/blockedActions", "A blocked binding must name distinct existing semantic actions, explain each missing prerequisite, and contain no executable proposal.")]);
-            throw new PlanningResponseException(blockers.Select(b => new PlanningDiagnostic("SEMANTIC_BINDING_BLOCKED", "/actions/" + b!["actionId"]!.ToString(), b["reason"]!.ToString(), ValidationStage: "grounding")).ToList());
+            throw new PlanningResponseException(PlanningPrerequisites.Read(state, blockers));
         }
         return PlanningJsonTransport.ModelGrounded(json, schema, unpack: true);
     }

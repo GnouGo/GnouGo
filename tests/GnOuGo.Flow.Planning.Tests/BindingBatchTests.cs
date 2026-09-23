@@ -17,7 +17,10 @@ public sealed class BindingBatchTests
         state.Grounding = CapabilityGrounder.Create(state);
         foreach (var page in state.Grounding.Pages) state.Grounding.Results.Add(new(page.Id, page.ActionIds.Select(a => new GroundingDecision(a, "none_of_the_above", [], "Pure calculation.")).ToList()));
         state.Grounding.Selections = state.SemanticPlan.Actions.Select(a => new GroundingSelection(a.Id, [], "Pure calculation.")).ToList();
-        state.Request.Generation.MaxInputTokensPerRequest = 7500;
+        // Keep this a batching test as the shared response contract evolves: one full action
+        // fits while the complete three-action request exceeds the allowance.
+        state.Request.Generation.MaxInputTokensPerRequest = PlanningDecisions.EstimateInputTokens(state,
+            CapabilityGrounder.BindingPrompt(state), PlanningSchemas.Grounded([])) - 2500;
         runtime.Respond = request =>
         {
             var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..]));
@@ -44,7 +47,7 @@ public sealed class BindingBatchTests
         Assert.NotNull(state.GroundedPlan); Assert.Null(state.BindingProgress);
         Assert.Equal(new[] { "a0", "a1", "a2" }, state.GroundedPlan.Operations.Select(o => o.SemanticAction));
         Assert.InRange(runtime.Calls.Count, 2, 3);
-        Assert.All(runtime.Calls, r => Assert.True(PlanningJsonTransport.EstimateInputTokens(r.Prompt, r.StructuredOutputSchema!.AsObject()) <= 7500));
+        Assert.All(runtime.Calls, r => Assert.True(PlanningJsonTransport.EstimateInputTokens(r.Prompt, r.StructuredOutputSchema!.AsObject()) <= state.Request.Generation.MaxInputTokensPerRequest));
         Assert.Empty(CapabilityGrounder.ValidateBindings(state));
         Assert.NotNull(GroundedPlanValidator.Validate(state.GroundedPlan, state.Catalog!).Plan);
     }

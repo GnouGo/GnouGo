@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningDecisions
 {
     internal static bool Eligible(PlanningSession state) => state.Diagnostics.Where(d => d.Required)
-        .All(d => d.Code is "NONE_OF_THE_ABOVE" or "SEMANTIC_BINDING_BLOCKED");
+        .All(d => d.Code is "NONE_OF_THE_ABOVE" or "SEMANTIC_BINDING_BLOCKED" && !PlanningPrerequisites.Technical(d));
 
     internal static int EstimateInputTokens(PlanningSession state, string prompt, JsonObject schema)
         => PlanningJsonTransport.EstimateInputTokens(prompt + (Eligible(state) ? "\n" + Instructions : ""), Eligible(state) ? Schema(schema) : schema);

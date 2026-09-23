@@ -179,7 +179,7 @@ public sealed class PlanningDecisionTests
     {
         var state = SemanticGroundingTests.State(); state.Grounding = CapabilityGrounder.Create(state);
         foreach (var page in state.Grounding.Pages) state.Grounding.Results.Add(new(page.Id, page.ActionIds.Select(a => new GroundingDecision(a, "matched", [new("cap_0", "Declared")], "Covered")).ToList()));
-        state.Diagnostics = [new("SEMANTIC_BINDING_BLOCKED", "/actions/collect", "Choose a supported business observation")];
+        state.Diagnostics = [new("NONE_OF_THE_ABOVE", "/actions/collect", "Choose a supported business observation")];
         var original = JsonSerializer.Serialize(state.SemanticPlan!.Actions[1], PlanningJsonContext.Default.SemanticAction);
         var proposal = Proposal();
         for (var i = 0; i < 2; i++)

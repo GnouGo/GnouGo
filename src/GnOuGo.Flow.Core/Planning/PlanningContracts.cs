@@ -98,6 +98,8 @@ public sealed class PlanningSession
     public List<PlanningAnswer> Answers { get; set; } = [];
     public PlanningDecision? PendingDecision { get; set; }
     public PlanningDecisionContinuation? DecisionContinuation { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningRepairCheckpoint? PendingRepair { get; set; }
     public List<PlanningDecisionRecord> Decisions { get; set; } = [];
     public int ClarificationRounds { get; set; }
     public int ReplanAttempts { get; set; }
@@ -151,6 +153,21 @@ public sealed record PlanningDiagnostic(string Code, string Location, string Mes
     // Omit absent additions so existing artifact hashes and schema-8 histories remain stable.
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PlanningComputationContext? Computation { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningPrerequisiteContext? Prerequisite { get; init; }
+}
+/// <summary>Located evidence for a missing prerequisite; never grants execution or approval authority.</summary>
+public sealed record PlanningPrerequisiteContext(string Kind, string Description, string? Output = null,
+    string? ConsumerCapability = null, string? ContractPath = null, string? RootActionId = null);
+
+/// <summary>A proposed semantic repair, saved separately from the accepted planning state.</summary>
+public sealed class PlanningRepairCheckpoint
+{
+    public string InputHash { get; set; } = "";
+    public List<string> ActionIds { get; set; } = [];
+    public SemanticPlan Candidate { get; set; } = new();
+    public List<PlanningQuestion> Questions { get; set; } = [];
+    public JsonObject? Answers { get; set; }
 }
 public sealed record PlanningComputationContext(string Expression, string Limitation, JsonObject ReceiverContract,
     JsonObject ParameterContracts, string? OriginExpression = null, string? ProducerLocation = null);
@@ -185,6 +202,8 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, AllowOutOfOrderMetadataProperties = true)]
 [JsonSerializable(typeof(PlanningSession))]
+[JsonSerializable(typeof(PlanningPrerequisiteContext))]
+[JsonSerializable(typeof(PlanningRepairCheckpoint))]
 [JsonSerializable(typeof(List<PlanningSession>))]
 [JsonSerializable(typeof(PlanningRequest))]
 [JsonSerializable(typeof(PlanningCommand))]
