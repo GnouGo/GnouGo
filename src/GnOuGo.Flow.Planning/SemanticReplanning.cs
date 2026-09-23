@@ -38,7 +38,7 @@ internal static class SemanticReplanning
                         throw new PlanningConflictException("The reserved semantic repair scope is incompatible.");
                 }
                 ids = target.ToHashSet(StringComparer.Ordinal);
-        var schema = SemanticPlanning.Schema();
+                var schema = SemanticPlanning.Schema();
                 schema["properties"] = new JsonObject { ["actions"] = PlanningSchemas.Array(PlanningSchemas.Ref("semanticAction")), ["questions"] = PlanningSchemas.Array(PlanningSchemas.Ref("question")) };
                 schema["required"] = new JsonArray("actions", "questions"); PlanningJsonTransport.PruneDefinitions(schema);
                 var prompt = """
@@ -57,6 +57,10 @@ internal static class SemanticReplanning
                         ["targetIds"] = new JsonArray(target.Select(a => (JsonNode?)JsonValue.Create(a)).ToArray()),
                         ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics),
                         ["businessAnswers"] = SemanticPlanning.Answers(state),
+                        ["coverageFindings"] = new JsonArray((state.Grounding?.Results ?? []).SelectMany(p => p.Decisions)
+                            .Where(d => ids.Contains(d.ActionId)).Select(d => (JsonNode)new JsonObject
+                            { ["action"] = d.ActionId, ["outcome"] = d.Outcome, ["reason"] = d.Reason,
+                                ["matches"] = new JsonArray(d.Matches.Select(m => (JsonNode)new JsonObject { ["capability"] = m.CapabilityId, ["reason"] = m.Reason }).ToArray()) }).ToArray()),
                         ["selectedContracts"] = Contracts(state, ids),
                         ["acceptedBoundary"] = state.BindingProgress is { } progress ? PlanningJsonTransport.Grounded(progress.Accepted) :
                             state.GroundedPlan is { } grounded ? PlanningJsonTransport.Grounded(grounded) : null

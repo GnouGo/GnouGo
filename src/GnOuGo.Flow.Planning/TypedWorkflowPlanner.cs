@@ -99,7 +99,7 @@ public sealed class TypedWorkflowPlanner(TimeProvider? timeProvider = null) : IW
         catch (PlanningResponseException ex)
         {
             // A rejected replan never erases the errors in the unchanged executable proposal.
-            state.Diagnostics = (state.GroundedPlan is null ? [] : state.Diagnostics).Concat(ex.Diagnostics).Distinct().ToList();
+            state.Diagnostics = (state.GroundedPlan is null && state.Phase != PlanningPhase.Replanning ? [] : state.Diagnostics).Concat(ex.Diagnostics).Distinct().ToList();
             state.Status = PlanningStatus.Generating; Invalidate(state);
         }
         catch (WorkflowRuntimeException ex)

@@ -94,6 +94,33 @@ public sealed class ChatPlanningDecisionTests
         resumed = await planner.AdvanceAsync(resumed, new() { ExpectedRevision = resumed.Revision }, runtime, Ct);
         Assert.Equal("brief", resumed.SemanticPlan!.Summary); Assert.Equal(1, model.Calls); Assert.Single(resumed.Decisions);
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ScopedBusinessClarificationRecoversInOriginatingChat(bool accept)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); var model = new Model { ScopeRevision = true };
+        using var designer = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
+        var first = Service(fixture, designer, model); string id; long revision;
+        var initial = Initial(); initial.SemanticPlan = new() { Actions = [new() { Id = "greet", Kind = "calculate", Purpose = "Return a greeting" }] };
+        initial.Diagnostics = [new("NONE_OF_THE_ABOVE", "/actions/greet", "Requested presentation is unavailable")];
+        await using (var owned = await first.Attach("scope-chat", _ => { }).OpenAsync(Context(model), initial, Ct))
+        {
+            var state = await new TypedWorkflowPlanner().AdvanceAsync(owned.Session, new(), owned.Runtime, Ct);
+            Assert.True(state.Status == PlanningStatus.Clarification, state.Status + ": " + JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)); Assert.NotNull(state.PendingRepair);
+            id = state.Request.SessionId; revision = state.Revision;
+        }
+        var reopened = Service(fixture, designer, model);
+        var waiting = Assert.Single(await reopened.ListAsync("scope-chat", Ct));
+        Assert.Single(waiting.Questions); Assert.NotNull(waiting.PendingRepair); Assert.Empty(await reopened.ListAsync("other", Ct));
+        var command = new PlanningCommand { Kind = "answer", ExpectedRevision = revision, Answers = new() { ["accept_scope_revision"] = accept } };
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => reopened.SubmitAsync("other", id, command, Ct));
+        var result = await reopened.SubmitAsync("scope-chat", id, command, Ct);
+        Assert.Equal(accept ? PlanningStatus.FinalReview : PlanningStatus.Stopped, result.Status);
+        Assert.Single(result.Clarifications); Assert.Null(result.ApprovedHash); Assert.Equal(accept ? 2 : 1, model.Calls);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.SubmitAsync("scope-chat", id, command, Ct));
+    }
     private sealed class Lifetime : IHostApplicationLifetime
     {
         public CancellationToken ApplicationStarted => CancellationToken.None;
@@ -104,11 +131,20 @@ public sealed class ChatPlanningDecisionTests
     private sealed class Model : ILLMClient, ILLMCapabilityResolver
     {
         public int Calls;
+        internal bool ScopeRevision;
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Calls++;
+            if (ScopeRevision && request.Prompt.StartsWith("Replan this business", StringComparison.Ordinal))
+            {
+                var proposal = JsonSerializer.SerializeToNode(new SemanticPlan { Actions = [new() { Id = "greet", Kind = "calculate", Purpose = "Return a supported greeting" }],
+                    Questions = [new("scope", "Accept the supported presentation?", new() { Type = "boolean" })] }, PlanningJsonContext.Default.SemanticPlan)!;
+                proposal["questions"]![0]!["answerType"]!.AsObject().Remove("items");
+                proposal["questions"]![0]!["answerType"]!.AsObject().Remove("fields");
+                return Task.FromResult(new LLMResponse { Json = new JsonObject { ["result"] = new JsonObject { ["actions"] = proposal["actions"]!.DeepClone(), ["questions"] = proposal["questions"]!.DeepClone() }, ["decision"] = null }, Usage = new JsonObject { ["total_tokens"] = 50 } });
+            }
             if (request.StructuredOutputSchema?["$defs"]?["decisionResult"]?["properties"]?["operations"] is not null)
                 return Task.FromResult(new LLMResponse { Json = JsonNode.Parse("""
                     {"result":{"summary":"Greeting","inputs":[],"operations":[{"id":"greet","semanticAction":"greet","businessOutputs":[],"purpose":"Return a greeting","after":[],"when":null,"implementation":{"kind":"calculate","value":{"kind":"string","text":"Hello"}}}],"outputs":[{"name":"message","value":{"kind":"result","source":"greet","path":[]}}],"subflows":[],"blockedActions":[]},"decision":null}

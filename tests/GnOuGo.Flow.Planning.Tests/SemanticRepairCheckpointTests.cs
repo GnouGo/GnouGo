@@ -153,6 +153,32 @@ public sealed class SemanticRepairCheckpointTests
         Assert.Equal("TECHNICAL_CLARIFICATION_INVALID", Assert.Single(error.Diagnostics).Code); Assert.Null(state.PendingRepair);
     }
 
+    [Fact]
+    public async Task RejectedRepairRetainsIndependentBlockingCausesAndAcceptedState()
+    {
+        var state = State(); var original = SemanticReplanning.InputHash(state); var causes = state.Diagnostics.ToArray();
+        var response = Replacement(state); response["actions"]![0]!["outputs"] = new JsonArray();
+        var result = await new TypedWorkflowPlanner().AdvanceAsync(state, new(), new TestRuntime { Respond = _ => new() { Json = response } }, Ct);
+        Assert.Equal(original, SemanticReplanning.InputHash(result)); Assert.Null(result.PendingRepair);
+        Assert.All(causes, cause => Assert.Contains(cause, result.Diagnostics));
+        Assert.Contains(result.Diagnostics, d => d.Code == "REPLAN_BOUNDARY_INVALID");
+    }
+
+    [Fact]
+    public async Task CapabilityGapRepairReceivesTheCompleteCoverageExplanations()
+    {
+        var state = State(); state.Diagnostics = [new("NONE_OF_THE_ABOVE", "/actions/collect", "No supported outcome")];
+        var page = state.Grounding!.Results[0];
+        state.Grounding.Results[0] = page with { Decisions = page.Decisions.Select(d => d.ActionId == "collect"
+            ? d with { Outcome = "none_of_the_above", Matches = [], Reason = "Only summarized observations are supported; per-item observations are unavailable." } : d).ToList() };
+        await SemanticReplanning.ApplyAsync(state, new TestRuntime { Respond = request =>
+        {
+            Assert.Contains("per-item observations are unavailable", request.Prompt);
+            return new() { Json = BusinessRevision(state) };
+        } }, Ct);
+        Assert.Equal(PlanningStatus.Clarification, state.Status); Assert.NotNull(state.PendingRepair);
+    }
+
     private static JsonObject BusinessRevision(PlanningSession state)
     {
         var action = JsonSerializer.Deserialize(JsonSerializer.Serialize(state.SemanticPlan!.Actions.Single(a => a.Id == "collect"), PlanningJsonContext.Default.SemanticAction), PlanningJsonContext.Default.SemanticAction)!;

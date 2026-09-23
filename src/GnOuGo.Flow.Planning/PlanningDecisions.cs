@@ -164,7 +164,10 @@ internal static class PlanningDecisions
         Mark exactly one option preferred and explain why. Allow custom answers when they can refine this business choice.
         Do not ask about tools with equivalent business behavior, schemas, technical repairs, executor plumbing, permissions or approval.
         Do not invent missing facts. Runtime inputs remain runtime inputs. If only one valid strategy exists return it directly.
-        For new semantic results keep questions empty; use this generic decision only when valid alternatives exist.
+        For initial semantic generation keep questions empty; use this generic decision only when valid alternatives exist.
+        An unavailable required outcome is not a choice between valid implementations. During scoped semantic replanning,
+        return decision=null and a result with a concrete supported revision and questions explaining the changed requirements.
+        The host requires explicit consent for that revision; Auto must never select reduced requirements as a preferred option.
         """;
 }
 internal sealed class PlanningDecisionPauseException : Exception;
