@@ -38,6 +38,22 @@ public sealed class TaskPlanRevisionTests
         Assert.Null(state.Yaml); Assert.Equal(1, runtime.Discoveries); Assert.Equal(2, state.ModelCalls);
     }
     [Fact]
+    public void InvalidatingAContainerPreservesItsUnaffectedNestedTasks()
+    {
+        var plan = new TaskPlan { Root = new() { Tasks = [new() { Id = "container", Kind = "sequence", Objective = "Run tasks", Body = PlanningCorpus.Greeting().Root }] } };
+        plan.Root.Tasks[0].Body!.Tasks.Add(new() { Id = "bad", Kind = "value", Objective = "Repair this task", Outputs = [new("value", PlanningCorpus.Number(1))] });
+        var scope = TaskPlanRevisions.Scope(plan, [new("INVALID", "/tasks/bad/outputs/value", "Bad value")]);
+        Assert.Contains("container", scope); Assert.Contains("bad", scope); Assert.DoesNotContain("greet", scope);
+        var revised = JsonSerializer.Deserialize(JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
+        revised.Root.Tasks[0].Body!.Tasks[1].Outputs[0].Value.Number = 2;
+        Assert.Empty(TaskPlanRevisions.Validate(plan, revised, scope));
+        revised.Root.Tasks[0].Body!.Tasks[0].Outputs[0].Value.Text = "Changed unaffected nested task";
+        Assert.Contains(TaskPlanRevisions.Validate(plan, revised, scope), d => d.Code == "REVISION_SCOPE_CHANGED");
+        revised.Root.Tasks[0].Body!.Tasks[0].Outputs[0].Value.Text = plan.Root.Tasks[0].Body!.Tasks[0].Outputs[0].Value.Text;
+        revised.Root.Tasks[0].Kind = "value";
+        Assert.Contains(TaskPlanRevisions.Validate(plan, revised, scope), d => d.Code == "REVISION_SCOPE_CHANGED");
+    }
+    [Fact]
     public void IdentityPrefixesDoNotExpandRepairScope()
     {
         var plan = new TaskPlan { Root = new() { Tasks = [new() { Id = "work" }, new() { Id = "work_long" }] } };

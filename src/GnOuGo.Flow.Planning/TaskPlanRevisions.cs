@@ -59,7 +59,13 @@ internal static class TaskPlanRevisions
             if (node is JsonArray array) { for (var i = 0; i < array.Count; i++) Mask(array[i], path + "/" + i); return; }
             if (node is not JsonObject obj) return;
             if (obj["id"] is { } id && obj["kind"] is not null && scope.Contains(id.ToString()))
-            { var name = id.ToString(); obj.Clear(); obj["id"] = name; return; }
+            {
+                // A dependent container is invalidated with its child, but does not confer
+                // permission to replace unaffected descendants or their control-flow scope.
+                var container = obj["body"] is not null || obj["otherwise"] is not null || obj["branches"] is JsonArray { Count: > 0 };
+                foreach (var key in obj.Select(p => p.Key).ToArray())
+                    if (key != "id" && !(container && key is "kind" or "body" or "otherwise" or "branches")) obj.Remove(key);
+            }
             if (path.StartsWith("/inputs/", StringComparison.Ordinal) && obj["name"] is { } input && scope.Contains("/inputs/" + input))
             { var name = input.ToString(); obj.Clear(); obj["name"] = name; return; }
             if (path.StartsWith("/choices/", StringComparison.Ordinal) && obj["id"] is { } choice && scope.Contains("/choices/" + choice))
