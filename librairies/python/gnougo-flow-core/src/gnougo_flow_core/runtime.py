@@ -860,7 +860,6 @@ class WorkflowEngine:
         if inherited_finalization_ct is None:
             final_limits = limits.model_copy(deep=True)
             final_limits.max_total_steps_executed = self._total_steps_executed + max(1, limits.max_finalization_steps)
-            final_limits.run_id = None
             final_ct = asyncio.Event()
 
         self.logger.info(
