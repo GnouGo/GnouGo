@@ -76,6 +76,15 @@ public sealed class PlanningLifecycleTests
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal("formal", Assert.Single(state.GetChoices()).Selected); Assert.Single(runtime.Calls);
     }
     [Fact]
+    public async Task SwitchingAPendingChoiceToAutoSelectsLocallyWithoutApproval()
+    {
+        var runtime = new TestRuntime(); runtime.Proposal.Plan = GnOuGo.Planning.Examples.PlanningCorpus.Decision();
+        var state = await PlannerFixture.RunAsync(runtime); Assert.Equal(PlanningStatus.Clarification, state.Status);
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { Kind = "configure_mode", Mode = PlanningMode.Auto, ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal("formal", Assert.Single(state.GetChoices()).Selected);
+        Assert.Equal(1, state.ModelCalls); Assert.Null(state.ApprovedHash);
+    }
+    [Fact]
     public async Task SchemaEightAndCancelledCallsCannotSpend()
     {
         var runtime = new TestRuntime(); var state = PlannerFixture.Session(); state.SchemaVersion = 8;

@@ -127,6 +127,34 @@ public sealed class ProgressiveDiscoveryTests
         public Task<AgentTaskResult> RunAsync(AgentTaskContext c, CancellationToken ct) => throw new NotSupportedException();
         public Task<AgentTaskResult> ReconcileAsync(AgentTaskContext c, CancellationToken ct) => throw new NotSupportedException();
     }
+    [Fact]
+    public async Task TaskRepairReusesResolvedOperationReceiptsAndKeepsIndependentTasks()
+    {
+        var source = new RepairCatalog(); var runtime = new TestRuntime { Capabilities = source };
+        runtime.Proposal.Plan!.Root.Tasks.Add(new() { Id = "work", Objective = "Read the requested value", Operation = "selected",
+            Inputs = [new("value", GnOuGo.Planning.Examples.PlanningCorpus.Number(1))] });
+        var planner = new HybridWorkflowPlanner();
+        var state = await planner.AdvanceAsync(PlannerFixture.Session(), new(), runtime, Ct);
+        Assert.Contains(state.Diagnostics, d => d.Code == "TASK_INPUT_TYPE"); Assert.Equal(["work"], state.RevisionScope);
+        var receipt = System.Text.Json.JsonSerializer.Serialize(state.Discovery.Resolved[0], PlanningJsonContext.Default.PlanningCapability);
+        runtime.Proposal.Plan.Root.Tasks[1].Inputs[0].Value.Kind = "string"; runtime.Proposal.Plan.Root.Tasks[1].Inputs[0].Value.Text = "business value";
+        state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal(1, source.Resolutions); Assert.Single(state.Discovery.Pages);
+        Assert.Equal(receipt, System.Text.Json.JsonSerializer.Serialize(state.Discovery.Resolved[0], PlanningJsonContext.Default.PlanningCapability));
+    }
+    private sealed class RepairCatalog : ICapabilityCatalog
+    {
+        public int Resolutions;
+        private static PlanningCapability Capability() => new() { Id = "selected", Version = "v1", StepType = "mcp.call", Server = "source", Method = "read", Kind = "tool", EffectKind = "read",
+            InputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}""")!.AsObject(),
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}""")!.AsObject() };
+        public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<CapabilitySource>>([new("source", "Declared source")]);
+        public Task<CapabilityPage> ListAsync(string id, string? cursor, CancellationToken ct) => Task.FromResult(new CapabilityPage(id, cursor,
+            [new("selected", id, "read", "Read a declared value", "mcp.call", "read", "v1", Operation: TaskOperations.Describe(Capability()))], null));
+        public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) { Resolutions++; return Task.FromResult(Capability()); }
+    }
+
     private sealed class TrackingFactory : IMcpClientFactory
     {
         internal List<string> Contacts { get; } = [];

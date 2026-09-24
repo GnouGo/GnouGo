@@ -63,7 +63,10 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
                     }
                     Invalidate(state); await CompileAsync(state, runtime, deadline.Token); break;
                 case "configure_mode":
-                    PlanningMode.Validate(command.Mode ?? ""); state.Request.Mode = command.Mode!; break;
+                    PlanningMode.Validate(command.Mode ?? ""); state.Request.Mode = command.Mode!;
+                    if (state.Status == PlanningStatus.Clarification && state.Request.Mode == PlanningMode.Auto)
+                        await CompileAsync(state, runtime, deadline.Token);
+                    break;
                 case "configure_generation":
                     if (state.PendingCall is not null || command.Generation is null) throw new PlanningConflictException("Generation settings cannot replace a pending call.");
                     PlanningGenerationPolicy.Validate(command.Generation); state.Request.Generation = command.Generation;

@@ -33,6 +33,20 @@ public sealed class TaskPlanCompilerTests
         Assert.True(sample.Verify(result), result.Error?.Message);
         Assert.Empty(sample.Violations);
     }
+    [Fact]
+    public async Task IterationRejectsAnOversizedCollectionBeforeAnyBodyRuns()
+    {
+        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask);
+        var catalog = await runtime.DiscoverAsync(new(), PlannerFixture.Ct);
+        var plan = PlanningCorpus.Tasks("collections", catalog); plan.Root.Tasks[0].MaxItems = 1;
+        var compilation = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(compilation.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compilation.Graph!, catalog);
+        Assert.Contains("maxItems", yaml);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        var result = await new WorkflowEngine().ExecuteAsync(document.Workflows["main"], new System.Text.Json.Nodes.JsonObject { ["values"] = new System.Text.Json.Nodes.JsonArray(1, 2) }, PlannerFixture.Ct);
+        Assert.False(result.Success); Assert.NotNull(result.Error); Assert.Null(result.Outputs);
+    }
+
     internal static async Task<PlanningCatalog> Catalog(WorkflowPlanningRuntime runtime)
     {
         var catalog = await runtime.DiscoverAsync(new(), PlannerFixture.Ct);
