@@ -50,7 +50,7 @@ Host adapters can reuse `RoutingLLMClientAdapter.MapRequest` and `MapResponse` t
 
 ## Durable planning runtime
 
-Inject `TypedWorkflowPlanner` and `Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace()` into the engine. Planning remains separately publishable and depends only on Core.
+Inject `HybridWorkflowPlanner` and `Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace()` into the engine. Planning remains separately publishable and depends only on Core.
 
 The factory stores schema-9 sessions, reservations, receipts and cumulative budgets through public encrypted KeyVault record APIs in `flow-planning-*-v9` collections. Exclusive tenant/session leases live under `.GnOuGo/data/flow-planning-v9/leases`. Old formats are rejected. Resume the same run ID and request; completed calls replay without a new charge and uncertain dispatches stop without redispatch.
 

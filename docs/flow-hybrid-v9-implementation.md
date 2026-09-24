@@ -75,7 +75,8 @@ are retained. The parent's `fixture` phase label permits live baseline collectio
 after its failed pilot; every result still records `mode: live`. It does not waive
 the candidate acceptance gate.
 
-Candidate pilot results and ongoing comparison evidence are retained in encrypted
+[Parent and failed pilot measurements](evidence/flow-v9-112/README.md) are reviewable
+without private prompts. Underlying comparison evidence remains in encrypted
 campaign records. Failed and inconclusive runs are not replaced. One exhausted
 inconclusive request was explicitly closed with a separate audit record, retaining
 its full reservation and blocking redispatch of that identity. The original
@@ -83,7 +84,7 @@ request, HTTP journal, failure and absence of a receipt remain intact.
 
 Latest completed checks:
 
-- Full solution: 2,769 tests passed; four opt-in live tests skipped; no build warnings.
+- Full solution: 2,787 tests passed; five opt-in live tests skipped; no build warnings.
 - Agent and Flow frontends built without warnings.
 - Native CLI and Flow server: encrypted journal receipts, native EF query/index
   rebuilding, tenant isolation, revision conflicts, streamed human answers and
