@@ -71,14 +71,14 @@ public static class PlanningBenchmarkMeasurements
         // proves that reservation never became a physical attempt.
         .Sum(p => Math.Max(0, p.Value?["transport_attempts"]?.GetValue<int>() ?? 1) - 1);
 
-    public static JsonObject Compare(IReadOnlyList<JsonObject> parent, IReadOnlyList<JsonObject> candidate, string retainedCase)
+    public static JsonObject Compare(IReadOnlyList<JsonObject> parent, IReadOnlyList<JsonObject> candidate, string retainedCase, IReadOnlyList<JsonObject>? reference = null)
     {
         if (!CandidateCases.Contains(retainedCase, StringComparer.Ordinal)) throw new ArgumentException("Choose a frozen retained case.");
         JsonObject[] Rows(IReadOnlyList<JsonObject> runs) => runs.Select(r => r["result"]).OfType<JsonObject>().ToArray();
-        var before = Rows(parent); var after = Rows(candidate);
+        var before = Rows(parent); var after = Rows(candidate); var previous = Rows(reference ?? []);
         bool Complete(JsonObject[] rows) => Summary(rows, "measured")["coverage_complete"]!.GetValue<bool>() && rows.All(r => r["mode"]?.ToString() == "live");
-        var complete = Complete(before) && Complete(after);
-        var all = parent.Concat(candidate).ToArray(); var rows = before.Concat(after).ToArray();
+        var complete = Complete(before) && Complete(after) && (reference is null || Complete(previous));
+        var all = parent.Concat(candidate).Concat(reference ?? []).ToArray(); var rows = before.Concat(after).Concat(previous).ToArray();
         var sameModel = rows.Length > 0 && new[] { "provider", "model", "campaign" }.All(key =>
             rows.All(r => !string.IsNullOrWhiteSpace(r[key]?.ToString())) && rows.Select(r => r[key]!.ToString()).Distinct(StringComparer.Ordinal).Count() == 1);
         JsonObject Limits(JsonObject run)
@@ -92,8 +92,10 @@ public static class PlanningBenchmarkMeasurements
         int Correct(IEnumerable<JsonObject> values) => values.Count(r => r["execution_correct"]?.GetValue<bool>() == true);
         var perCase = new JsonArray(CandidateCases.Select(name => (JsonNode)new JsonObject
         { ["case"] = name, ["parent_correct"] = Correct(before.Where(r => r["case"]!.ToString() == name)),
-            ["candidate_correct"] = Correct(after.Where(r => r["case"]!.ToString() == name)) }).ToArray());
+            ["candidate_correct"] = Correct(after.Where(r => r["case"]!.ToString() == name)),
+            ["reference_correct"] = reference is null ? null : Correct(previous.Where(r => r["case"]!.ToString() == name)) }).ToArray());
         var noRegression = perCase.All(r => r!["candidate_correct"]!.GetValue<int>() >= r["parent_correct"]!.GetValue<int>());
+        var noReferenceRegression = reference is null || perCase.All(r => r!["candidate_correct"]!.GetValue<int>() >= r["reference_correct"]!.GetValue<int>());
         var retained = perCase.Single(r => r!["case"]!.ToString() == retainedCase)!;
         var improved = retained["parent_correct"]!.GetValue<int>() < 3 && retained["candidate_correct"]!.GetValue<int>() > retained["parent_correct"]!.GetValue<int>();
         var parentMedian = Summary(before, "measured")["median_calls"]?.GetValue<double>();
@@ -102,10 +104,12 @@ public static class PlanningBenchmarkMeasurements
         var safe = after.All(r => r["safety_violations"]!.AsArray().Count == 0 && (r["final_review"]?.GetValue<bool>() != true || r["execution_correct"]?.GetValue<bool>() == true));
         var bounded = rows.All(r => r["usage_bounded"]?.GetValue<bool>() == true);
         var comparable = complete && sameModel && sameLimits && bounded;
-        var passed = comparable && noRegression && improved && reduced && safe;
+        var passed = comparable && noRegression && noReferenceRegression && improved && reduced && safe;
         return new() { ["status"] = !comparable ? "inconclusive" : passed ? "passed" : "failed", ["passed"] = passed,
             ["complete_three_repetitions"] = complete, ["same_model_and_campaign"] = sameModel, ["same_limits"] = sameLimits, ["usage_bounded"] = bounded,
             ["parent_correct"] = Correct(before), ["candidate_correct"] = Correct(after), ["no_case_regression"] = noRegression,
+            ["reference_correct"] = reference is null ? null : Correct(previous), ["no_reference_case_regression"] = reference is null ? null : noReferenceRegression,
+            ["reference_median_calls"] = reference is null ? null : Summary(previous, "measured")["median_calls"]?.DeepClone(),
             ["retained_case"] = retainedCase, ["retained_case_improved"] = improved,
             ["parent_median_calls"] = parentMedian, ["candidate_median_calls"] = candidateMedian, ["median_calls_reduced"] = reduced,
             ["approved_execution_correct_and_safe"] = safe, ["cases"] = perCase };

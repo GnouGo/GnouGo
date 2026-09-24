@@ -123,6 +123,39 @@ regression, improvement on the retained complex failure, lower median calls and
 no unsafe or incorrect approved execution. All failed runs remain in the cohort.
 This report supplements the existing pilot and measured gates.
 
+## Stabilization acceptance against two baselines
+
+The authorized schema-9 stabilization uses one candidate cohort of eight cases and
+three repetitions, after deterministic validation and CI. Collect it with the
+existing `--phase fixture --repetitions 3` mode and verify that every row records
+`mode: live`. Its relative acceptance uses the following read-only comparison;
+the historical absolute pilot/measured thresholds are not additional gates for
+this stabilization. The collection summary's exit code is not this comparison's
+acceptance result.
+
+```bash
+dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --campaign flow-v9-112 \
+  --compare-parent 46c2c77fea19c952d3258d744d886fe52ef52d33 --parent-phase fixture \
+  --compare-reference 87acc5f0e41702e193795b45b4ddfab1055d2143 --reference-phase fixture \
+  --candidate <frozen-candidate-commit> --candidate-phase fixture \
+  --retained-case review_french --audit-admission-denials
+```
+
+Both baseline cohorts must be complete, comparable and usage-bounded. Every case
+must retain at least as many correct repetitions as each baseline. Median calls
+must improve on the parent; the reference median is reported without an additional
+gate. The retained French case must improve on the parent, and no approved
+candidate execution may be incorrect or unsafe. All failed outcomes stay in the
+denominator. The existing admission audit is read-only and never changes outcomes.
+
+Use the same pinned model/limits and cumulative EUR 50 campaign, with no additional
+paid pilots. Never rerun failed repetitions under replacement identities. If the
+collection stops, retain its original evidence and continue only unattempted cohort
+identities when journal safety and existing budget admission permit. Incomplete
+coverage or unbounded usage is inconclusive. Stop implementation and paid evaluation
+after this cohort, including when it fails.
+
 ```bash
 dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
   --campaign flow-v9-112 --compare-parent 46c2c77fea19c952d3258d744d886fe52ef52d33 \

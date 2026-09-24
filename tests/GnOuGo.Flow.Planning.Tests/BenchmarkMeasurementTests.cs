@@ -89,6 +89,9 @@ public sealed class BenchmarkMeasurementTests
     [InlineData("regression")]
     [InlineData("calls")]
     [InlineData("retained")]
+    [InlineData("reference_regression")]
+    [InlineData("reference_missing")]
+    [InlineData("reference_usage")]
     public void ParentComparisonRequiresComparableCompleteEvidenceAndEveryAcceptanceCondition(string? defect)
     {
         JsonObject Run(string source, string name, int repetition)
@@ -102,8 +105,14 @@ public sealed class BenchmarkMeasurementTests
         }
         var parent = PlanningBenchmarkMeasurements.CandidateCases.SelectMany(n => Enumerable.Range(1, 3).Select(i => Run("parent", n, i))).ToList();
         var candidate = PlanningBenchmarkMeasurements.CandidateCases.SelectMany(n => Enumerable.Range(1, 3).Select(i => Run("candidate", n, i))).ToList();
+        var reference = PlanningBenchmarkMeasurements.CandidateCases.SelectMany(n => Enumerable.Range(1, 3).Select(i => Run("reference", n, i))).ToList();
         switch (defect)
         {
+            case "reference_regression":
+                var failed = candidate.First(r => r["result"]!["case"]!.ToString() == "review_french");
+                failed["result"]!["execution_correct"] = false; failed["result"]!["final_review"] = false; break;
+            case "reference_missing": reference.RemoveAt(0); break;
+            case "reference_usage": reference[0]["result"]!["usage_bounded"] = false; break;
             case "limits": candidate[0]["session"]!["request"]!["maxModelCalls"] = 9; break;
             case "model": candidate[0]["result"]!["model"] = "other-model"; break;
             case "missing": candidate.RemoveAt(0); break;
@@ -112,9 +121,10 @@ public sealed class BenchmarkMeasurementTests
             case "retained": foreach (var run in candidate.Where(r => r["result"]!["case"]!.ToString() == "review_french"))
                 { run["result"]!["execution_correct"] = false; run["result"]!["final_review"] = false; } break;
         }
-        var report = PlanningBenchmarkMeasurements.Compare(parent, candidate, "review_french");
+        var report = PlanningBenchmarkMeasurements.Compare(parent, candidate, "review_french", reference);
         Assert.Equal(defect is null, report["passed"]!.GetValue<bool>());
-        if (defect is "missing" or "limits" or "model") Assert.Equal("inconclusive", report["status"]!.ToString());
+        if (defect == "reference_regression") { Assert.True(report["no_case_regression"]!.GetValue<bool>()); Assert.False(report["no_reference_case_regression"]!.GetValue<bool>()); }
+        if (defect is "missing" or "limits" or "model" or "reference_missing" or "reference_usage") Assert.Equal("inconclusive", report["status"]!.ToString());
     }
 
     private static JsonObject Row(string name, int repetition) => new() { ["source_commit"] = "frozen", ["case"] = name, ["repetition"] = repetition,
