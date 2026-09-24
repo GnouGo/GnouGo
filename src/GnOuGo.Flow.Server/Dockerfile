@@ -42,6 +42,7 @@ WORKDIR /src
 
 # Copy global.json for SDK version pinning
 COPY global.json ./
+COPY build/ build/
 
 # Copy scripts used by local metadata generation; Docker publish skips this target.
 COPY scripts/ scripts/
