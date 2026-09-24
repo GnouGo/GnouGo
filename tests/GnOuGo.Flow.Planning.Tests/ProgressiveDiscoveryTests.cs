@@ -75,6 +75,24 @@ public sealed class ProgressiveDiscoveryTests
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Contains(state.Discovery.Limitations, l => l.Contains("unavailable", StringComparison.Ordinal)); Assert.Equal(1, runtime.Discoveries);
     }
     [Fact]
+    public async Task EarlierPageSummariesRemainAvailableWithoutAReopenModelCall()
+    {
+        var factory = new TrackingFactory(); var runtime = new TestRuntime(new() { McpClientFactory = factory });
+        var source = (await runtime.Capabilities.ListSourcesAsync(Ct)).Single(s => s.Description == "Available source");
+        runtime.Proposal.Graph = null; runtime.Proposal.SourceId = source.Id;
+        var planner = new HybridWorkflowPlanner();
+        var state = await planner.AdvanceAsync(PlannerFixture.Session(), new(), runtime, Ct);
+        runtime.Proposal.Cursor = Assert.Single(state.Discovery.Pages).NextCursor;
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        runtime.Proposal.SourceId = null; runtime.Proposal.Cursor = null; runtime.Proposal.Graph = PlannerFixture.Greeting();
+        state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.Equal(2, state.Discovery.Pages.Count);
+        Assert.All(state.Discovery.Pages.SelectMany(p => p.Capabilities), c => Assert.Contains(c.Description, runtime.Calls[^1].Prompt));
+        Assert.Single(factory.Contacts);
+    }
+
+    [Fact]
     public async Task SelectedContractChangesAreDetectedWithoutConnectingOtherSources()
     {
         var factory = new TrackingFactory(); var engine = new WorkflowEngine { McpClientFactory = factory };

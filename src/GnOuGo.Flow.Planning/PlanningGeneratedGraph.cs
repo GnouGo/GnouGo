@@ -25,6 +25,8 @@ internal static class PlanningGeneratedGraph
                     yield return new("RESERVED_IDENTITY", location, "Stage identities and roles cannot impersonate host controls.");
                 if (node.Type is "mcp.call" or "agent.run" && !catalog.Capabilities.Any(c => c.Id == node.CapabilityId && c.StepType == node.Type))
                     yield return new("CAPABILITY_UNKNOWN", location, "Resolve an authorized contract before using this stage.");
+                if (node.OutputSchema is not null && node.Type is not ("set" or "value.validate" or "value.project" or "array.project"))
+                    yield return new("GENERATED_SCHEMA_OVERRIDE_DENIED", location + "/outputSchema", "Set outputSchema to null. This stage derives its output contract from its operation or child stages; a model declaration cannot override it.");
                 if (node.Type == "agent.run")
                     foreach (var name in new[] { "objective", "capabilities", "budget", "verification", "output_schema" })
                         if (PlanningGraphValidation.Member(node.Input, name) is not { } field || !PlanningGraphValidation.IsLiteral(field))

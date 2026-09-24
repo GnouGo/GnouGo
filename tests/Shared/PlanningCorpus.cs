@@ -87,6 +87,7 @@ public static class PlanningCorpus
         if (schema["$ref"] is { } reference) return Matches(value, root["$defs"]![reference.ToString().Split('/')[^1]]!.AsObject(), root);
         if (schema["type"]?.ToString() == "null") return value is null;
         if (value is null) return false;
+        if (schema["properties"]?["schemaPointer"] is not null) return value["capabilityId"] is not null;
         if (schema["properties"]?["kind"]?["enum"] is JsonArray kinds) return kinds.Any(k => k?.ToString() == value["kind"]?.ToString());
         return true;
     }

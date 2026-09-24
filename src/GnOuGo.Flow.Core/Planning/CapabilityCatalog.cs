@@ -21,7 +21,6 @@ public sealed class CapabilityDiscoveryState
 {
     public List<CapabilitySource> Sources { get; set; } = [];
     public List<CapabilityPage> Pages { get; set; } = [];
-    public int ActivePageIndex { get; set; } = -1;
     public List<string> Limitations { get; set; } = [];
 }
 

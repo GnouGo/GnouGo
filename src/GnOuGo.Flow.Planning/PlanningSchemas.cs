@@ -19,10 +19,12 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("input", "output", "loop_item", "loop_index", "workflow")), ("source", String()), ("path", Ref("strings"))),
                 Object(("kind", Enum("expression")), ("text", String()))) },
             ["member"] = Object(("name", String()), ("value", Ref("value"))),
-            ["schema"] = Object(("type", Enum("string", "number", "integer", "boolean", "array", "object", "any")),
+            ["schema"] = new JsonObject { ["anyOf"] = new JsonArray(
+                Object(("capabilityId", state.Catalog!.Capabilities.Count == 0 ? String() : Enum(state.Catalog.Capabilities.Select(c => c.Id).ToArray())),
+                    ("schemaPointer", Describe(String(), "Exact schema position: /input or /output followed by JSON Schema segments, e.g. /output/properties/value. Never /outputSchema. No inline constraints on a reference."))),
+                Object(("type", Enum("string", "number", "integer", "boolean", "array", "object", "any")),
                 ("nullable", Type("boolean")), ("description", Nullable(String())), ("enum", Ref("strings")),
-                ("items", Nullable(Ref("schema"))), ("properties", Array(Ref("port"))),
-                ("capabilityId", Nullable(String())), ("schemaPointer", Nullable(String()))),
+                ("items", Nullable(Ref("schema"))), ("properties", Array(Ref("port"))))) },
             ["port"] = Object(("name", String()), ("schema", Ref("schema")), ("required", Type("boolean")), ("default", Nullable(Ref("value")))),
             ["output"] = Object(("name", String()), ("schema", Ref("schema")), ("value", Ref("value"))),
             ["requirements"] = Object(("summary", String()),
@@ -44,6 +46,7 @@ internal static class PlanningSchemas
         return root;
     }
     internal static JsonObject String() => Type("string");
+    private static JsonObject Describe(JsonObject schema, string description) { schema["description"] = description; return schema; }
     internal static JsonObject Type(string type) => new() { ["type"] = type };
     internal static JsonObject Enum(params string[] values) => new() { ["type"] = "string", ["enum"] = new JsonArray(values.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()) };
     internal static JsonObject Ref(string name) => new() { ["$ref"] = "#/$defs/" + name };
