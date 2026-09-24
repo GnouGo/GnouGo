@@ -129,6 +129,32 @@ public static class PlanningGraphValidation
                             }
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Dedicated reference diagnostics follow. */ }
+                if (node.Type is "value.project" or "array.project")
+                {
+                    try
+                    {
+                        var array = node.Type == "array.project";
+                        var source = Member(node.Input, array ? "items" : "value") ?? throw new InvalidOperationException("Projection needs a source value.");
+                        var contract = ValueSchema(source, new(StringComparer.Ordinal)) ?? throw new InvalidOperationException("Establish the whole source contract with value.validate before projecting fields.");
+                        if (array) contract = contract["items"] as JsonObject ?? throw new InvalidOperationException("Array projection needs an established item contract.");
+                        var paths = array ? new[] { Member(node.Input, "path") } : Member(node.Input, "paths")?.Items.ToArray() ?? [];
+                        foreach (var projection in paths)
+                        {
+                            if (projection is not { Kind: "array" } || projection.Items.Any(p => p.Kind != "string"))
+                                throw new InvalidOperationException("Projection paths must be declared literal property names.");
+                            var parts = projection.Items.Select(p => p.Text ?? "").ToList();
+                            var selected = AtPath(contract, parts, projection: true, partial: !array);
+                            var output = node.OutputSchema is null ? null : PlanningGraphCompiler.ToJsonSchema(node.OutputSchema, catalog);
+                            var expected = (array ? output?["properties"]?["values"]?["items"] : output?["properties"]?["value"]) as JsonObject;
+                            if (expected is not null && !TypesFit(selected, expected))
+                                throw new InvalidOperationException("The projected field does not satisfy the declared output contract.");
+                        }
+                    }
+                    catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException)
+                    {
+                        errors.Add(new("PROJECTION_CONTRACT_INVALID", location + "/input", ex.Message + " Control results retain child executor envelopes; MCP business fields are under response and called workflow outputs are under outputs."));
+                    }
+                }
                 CheckValue(node.Input, location + "/input");
                 if (node.Type == "mcp.call" && catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId) is { } capability &&
                     capability.InputSchema["properties"] is JsonObject argumentSchemas && Member(node.Input, "request") is { Kind: "object" } arguments)
@@ -461,7 +487,7 @@ public static class PlanningGraphValidation
     internal static bool TypesFit(JsonObject actual, JsonObject expected, bool allowUnresolved = false) =>
         PlanningContractCompatibility.Fits(actual, expected, allowUnresolved);
 
-    internal static JsonObject AtPath(JsonObject root, List<string> path)
+    internal static JsonObject AtPath(JsonObject root, List<string> path, bool projection = false, bool partial = false)
     {
         return Read(root, 0, 0);
         JsonObject Read(JsonObject current, int position, int depth)
@@ -478,18 +504,27 @@ public static class PlanningGraphValidation
             if ((current["anyOf"] ?? current["oneOf"]) is JsonArray alternatives)
             {
                 if (alternatives.Count == 0) throw new InvalidOperationException("The producer schema has no possible result.");
-                return new() { ["anyOf"] = new JsonArray(alternatives.Select(a => (JsonNode?)Read(a!.AsObject(), position, depth + 1).DeepClone()).ToArray()) };
+                var selected = new JsonArray();
+                foreach (var alternative in alternatives)
+                {
+                    try { selected.Add(Read(alternative!.AsObject(), position, depth + 1).DeepClone()); }
+                    catch (PathUnavailableException) when (partial) { }
+                }
+                if (selected.Count == 0) throw new PathUnavailableException("No producer alternative declares projection path " + string.Join(".", path) + ".");
+                return new() { ["anyOf"] = selected };
             }
             var segment = path[position];
-            if (current["properties"]?[segment] is not null && !(current["required"] as JsonArray ?? []).Any(n => n?.GetValue<string>() == segment))
+            if (!partial && current["properties"]?[segment] is not null && !(current["required"] as JsonArray ?? []).Any(n => n?.GetValue<string>() == segment))
                 throw new InvalidOperationException("The selected field is optional in its producer contract. Guard its presence or use a validated transformation before requiring it.");
             var child = current["properties"]?[segment] as JsonObject ??
-                (int.TryParse(segment, out var index) && index >= 0 ? current["items"] as JsonObject : null) ??
+                (!projection && int.TryParse(segment, out var index) && index >= 0 ? current["items"] as JsonObject : null) ??
                 current["additionalProperties"] as JsonObject ??
-                throw new InvalidOperationException("The selected result field is not declared by the producer. Use a declared field or a validated structured/local transformation.");
+                throw new PathUnavailableException("The selected result field is not declared by the producer. Use a declared field or a validated structured/local transformation.");
             return Read(child, position + 1, depth + 1);
         }
     }
+
+    private sealed class PathUnavailableException(string message) : InvalidOperationException(message);
 
     internal static PlanningValue? Member(PlanningValue value, string name) => value.Members.FirstOrDefault(m => m.Name == name)?.Value;
 

@@ -13,8 +13,8 @@ public sealed class BenchmarkExecutionTests
     {
         var environment = new PlanningBenchmarkCases.Environment(name); var engine = new WorkflowEngine { McpClientFactory = environment.Factory() };
         var runtime = new PlanningCorpus.Runtime(name, engine); var planner = new HybridWorkflowPlanner();
-        // Match the frozen live campaign's existing request ceilings. Ordinary host
-        // defaults remain unchanged; separate lifecycle tests enforce those limits.
+        // Use the frozen campaign's existing limits for the complete stress corpus.
+        // Production defaults and lifecycle budget enforcement remain unchanged.
         var state = new PlanningSession { Request = new() { TenantId = "benchmark", Prompt = PlanningBenchmarkCases.Prompt(name),
             Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } };
         for (var i = 0; i < 30 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); i++)

@@ -22,87 +22,27 @@ internal static class PlanningJsonTransport
             if (group.Key.Prerequisite is not null) item["prerequisite"] = JsonNode.Parse(group.Key.Prerequisite);
             return (JsonNode)item;
         }).ToArray());
-    internal static JsonObject BusinessContext(JsonObject plan)
+    internal static JsonObject? GraphContext(PlanningGraph? graph)
     {
-        var result = plan.DeepClone().AsObject();
-        void Visit(JsonNode? node)
+        if (graph is null) return null;
+        var json = JsonSerializer.SerializeToNode(graph, PlanningJsonContext.Default.PlanningGraph)!.AsObject();
+        Visit(json);
+        return json;
+
+        static void Visit(JsonNode? node)
         {
             if (node is JsonArray array) { foreach (var item in array) Visit(item); return; }
             if (node is not JsonObject obj) return;
+            var schemaReference = obj["capabilityId"] is not null && obj["schemaPointer"] is not null;
             foreach (var key in obj.Select(p => p.Key).ToArray())
             {
                 Visit(obj[key]);
-                if (obj[key] is null || obj[key] is JsonArray { Count: 0 } || obj[key] is JsonObject { Count: 0 } ||
-                    key is "optional" or "nullable" && obj[key] is JsonValue value && value.TryGetValue<bool>(out var flag) && !flag) obj.Remove(key);
+                if (schemaReference && key is not ("capabilityId" or "schemaPointer") ||
+                    obj[key] is null || obj[key] is JsonArray { Count: 0 } || obj[key] is JsonObject { Count: 0 }) obj.Remove(key);
             }
         }
-        Visit(result); return result;
     }
-    internal static JsonObject ContractPrompt(JsonObject schema, bool retainDescriptions = false)
-    {
-        var result = schema.DeepClone().AsObject();
-        void Visit(JsonObject current)
-        {
-            foreach (var annotation in new[] { "description", "title", "examples", "$comment", "$schema" })
-                if (annotation != "description" || !retainDescriptions) current.Remove(annotation);
-            foreach (var map in new[] { "properties", "$defs", "definitions", "patternProperties", "dependentSchemas" })
-                if (current[map] is JsonObject children) foreach (var child in children.Select(p => p.Value).OfType<JsonObject>()) Visit(child);
-            foreach (var key in new[] { "items", "additionalProperties", "contains", "not", "if", "then", "else", "propertyNames", "unevaluatedProperties", "unevaluatedItems" })
-                if (current[key] is JsonObject child) Visit(child);
-            foreach (var key in new[] { "allOf", "anyOf", "oneOf", "prefixItems" })
-                if (current[key] is JsonArray children) foreach (var child in children.OfType<JsonObject>()) Visit(child);
-        }
-        Visit(result);
-        // Keep every assertion while factoring repeated schema subtrees into ordinary local references.
-        // Existing reference scopes are left intact; literal defaults/consts are never traversed as schemas.
-        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
-        var hasReferences = false;
-        void Count(JsonObject node)
-        {
-            if (node.ContainsKey("$ref") || node.ContainsKey("$id") || node.ContainsKey("$defs") || node.ContainsKey("definitions")) hasReferences = true;
-            var key = Prompt(node); if (key.Length >= 192) counts[key] = counts.GetValueOrDefault(key) + 1;
-            foreach (var child in Children(node)) Count(child);
-        }
-        Count(result);
-        if (hasReferences) return result;
-        var definitions = new JsonObject(); var names = new Dictionary<string, string>(StringComparer.Ordinal);
-        JsonObject Factor(JsonObject node, bool root = false)
-        {
-            var key = Prompt(node);
-            if (!root && counts.GetValueOrDefault(key) > 1)
-            {
-                if (!names.TryGetValue(key, out var name))
-                {
-                    name = "contract_" + names.Count; names.Add(key, name);
-                    definitions[name] = Factor(node.DeepClone().AsObject(), root: true);
-                }
-                return new() { ["$ref"] = "#/$defs/" + name };
-            }
-            foreach (var child in Children(node).ToArray())
-            {
-                var replacement = Factor(child);
-                if (!ReferenceEquals(child, replacement))
-                {
-                    if (child.Parent is JsonObject parent) parent[parent.Single(p => ReferenceEquals(p.Value, child)).Key] = replacement;
-                    else if (child.Parent is JsonArray array) array[array.IndexOf(child)] = replacement;
-                }
-            }
-            return node;
-        }
-        result = Factor(result, root: true);
-        if (definitions.Count > 0) result["$defs"] = definitions;
-        return result;
 
-        static IEnumerable<JsonObject> Children(JsonObject node)
-        {
-            foreach (var map in new[] { "properties", "patternProperties", "dependentSchemas" })
-                if (node[map] is JsonObject children) foreach (var child in children.Select(p => p.Value).OfType<JsonObject>()) yield return child;
-            foreach (var key in new[] { "items", "additionalProperties", "contains", "not", "if", "then", "else", "propertyNames", "unevaluatedProperties", "unevaluatedItems" })
-                if (node[key] is JsonObject child) yield return child;
-            foreach (var key in new[] { "allOf", "anyOf", "oneOf", "prefixItems" })
-                if (node[key] is JsonArray children) foreach (var child in children.OfType<JsonObject>()) yield return child;
-        }
-    }
     internal static PlanningValue Literal(JsonNode? json) => json switch
     {
         null => new(),
@@ -115,19 +55,4 @@ internal static class PlanningJsonTransport
     };
 
     public static int EstimateInputTokens(string prompt, JsonObject schema) => checked((Encoding.UTF8.GetByteCount(prompt) + Encoding.UTF8.GetByteCount(schema.ToJsonString()) + 2) / 3 + 256);
-
-    internal static void PruneDefinitions(JsonObject schema)
-    {
-        var definitions = schema["$defs"]!.AsObject(); var used = new HashSet<string>(StringComparer.Ordinal);
-        void Visit(JsonNode? value)
-        {
-            if (value is JsonArray array) { foreach (var child in array) Visit(child); return; }
-            if (value is not JsonObject obj) return;
-            if (obj["$ref"] is JsonValue reference && reference.TryGetValue<string>(out var name) && name.StartsWith("#/$defs/", StringComparison.Ordinal))
-            { var key = name[8..]; if (used.Add(key)) Visit(definitions[key]); }
-            foreach (var (key, child) in obj) if (key != "$defs") Visit(child);
-        }
-        Visit(schema);
-        foreach (var key in definitions.Select(p => p.Key).Where(k => !used.Contains(k)).ToArray()) definitions.Remove(key);
-    }
 }

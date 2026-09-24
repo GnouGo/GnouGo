@@ -42,14 +42,14 @@ Summary gates use all 21 measured runs on one revision: at least 19 reach FinalR
 
 The historical [independent candidate report](../../docs/planning-candidate-reliability-2026-09-19.md) records a failed initial pilot, targeted nested-input inference correction and subsequent provider stop. That campaign did not establish measured reliability. The later accepted cohort is documented separately; campaigns, revisions and costs must not be pooled into a success rate.
 
-## Offline replay of recorded interpretation
+## Offline replay of the first recorded action
 
 ```bash
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
   --campaign <existing-campaign-id> --replay-run <source-sha>:pilot:<case>:1
 ```
 
-Replay reads the original graph reservation and receipt through encrypted KeyVault records, validates against the original response schema and rebuilds with the current planner. It uses an in-memory session limited to that one receipt, runs the existing independent execution variants when compilation succeeds, and reports `mode: replay` with `live_model_calls: 0`. It never initializes a provider, writes campaign records, retries a missing receipt or counts toward live cohort statistics. Diagnostics that need another model decision remain unresolved. Exit 1 means the recorded proposal did not pass construction or independent execution. Inspection and replay work without provider configuration and may inspect a dirty working tree; record the tested revision when publishing results.
+Replay reads the first planning-action reservation and receipt through encrypted KeyVault records, validates against the original response schema and rebuilds with the current planner. It uses an in-memory session limited to that one receipt, runs the existing independent execution variants when compilation succeeds, and reports `mode: replay` with `live_model_calls: 0`. It never initializes a provider, writes campaign records, retries a missing receipt or counts toward live cohort statistics. A first action that only selects capabilities cannot reconstruct a later graph. Diagnostics that need another model decision remain unresolved. Exit 1 means the recorded proposal did not pass construction or independent execution. Inspection and replay work without provider configuration and may inspect a dirty working tree; record the tested revision when publishing results.
 
 ## Inspecting an uncertain request
 
