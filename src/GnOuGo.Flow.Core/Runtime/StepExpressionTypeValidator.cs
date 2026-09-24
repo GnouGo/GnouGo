@@ -579,7 +579,7 @@ internal static class StepExpressionTypeValidator
         {
             Identifier identifier => identifier.Name,
             MemberExpression { Computed: false, Property: Identifier property } member when Reference(member.Object) is { } parent => parent + "." + property.Name,
-            MemberExpression { Computed: true, Property: StringLiteral property } member when Reference(member.Object) is { } parent => parent + "." + property.Value,
+            MemberExpression { Computed: true, Property: StringLiteral property } member when !property.Value.Contains('.') && Reference(member.Object) is { } parent => parent + "." + property.Value,
             _ => null
         };
     }

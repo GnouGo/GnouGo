@@ -53,7 +53,8 @@ record API; the rebuildable index never becomes an alternative payload store.
 - Separate semantic/grounded repairs, candidate decisions and continuation DTOs.
 - Mandatory model-generated scenario fixtures and production dry-run planning.
   Independent authored-YAML simulation scenarios remain in tests.
-- Planning-only computation inference/repair diagnostics and legacy UI fields.
+- Planning-only computation inference, its documentation wrapper, repair diagnostics
+  and legacy UI fields.
 - Top-level checkpoint API, routes, payloads and the duplicate resume path.
 - Schema-8 execution support and the legacy planner switch.
 
@@ -86,7 +87,8 @@ request, HTTP journal, failure and absence of a receipt remain intact.
 Latest completed checks:
 
 - Full solution: 2,767 tests passed; five opt-in live tests skipped; no build warnings.
-- Agent and Flow frontends built without warnings.
+- Agent and Flow frontends built without warnings; the corrected Flow.Server Docker
+  image builds and serves its health and UI endpoints.
 - Native CLI and Flow server: encrypted journal receipts, native EF query/index
   rebuilding, tenant isolation, revision conflicts, streamed human answers and
   completed-run recovery across restart passed.

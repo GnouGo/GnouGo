@@ -60,6 +60,19 @@ finally:
     }
 
     [Fact]
+    public void LiteralPropertyDotsCannotBeReinterpretedAsNestedEnumPaths()
+    {
+        var inputs = new Dictionary<string, FlowTypeDescriptor>
+        {
+            ["mode.detail"] = FlowTypeDescriptor.String,
+            ["mode"] = FlowTypeDescriptor.Object(new Dictionary<string, FlowPropertyDescriptor>
+            { ["detail"] = new(FlowTypeDescriptor.Enum("known"), true) })
+        };
+        Assert.Null(StepExpressionTypeValidator.ValidateExpression("${data.inputs['mode.detail'] == 'future'}", "if",
+            FlowTypeDescriptor.Boolean, inputs, new Dictionary<string, FlowTypeDescriptor>()));
+    }
+
+    [Fact]
     public void OpenStringAndOpaqueAlternativesDoNotEstablishClosedEnums()
     {
         foreach (var alternative in new[] { FlowTypeDescriptor.String, FlowTypeDescriptor.Any })
