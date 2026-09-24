@@ -102,6 +102,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
         var record = await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, ct);
         if (record?["usage"] is JsonObject known) return known.DeepClone().AsObject();
         if (record?["transport"]?["Attempts"] is not JsonArray attempts) return null;
+        if (attempts.Count == 0) return BenchmarkHttpJournal.UndispatchedUsage();
         var pending = attempts.Count(a => a!["Status"] is null || a["Status"]!.GetValue<int>() is >= 200 and < 300);
         return new() { ["transport_attempts"] = attempts.Count, ["uncertain_attempts"] = pending,
             ["reserved_input_tokens"] = pending * record["input_ceiling"]!.GetValue<long>(),

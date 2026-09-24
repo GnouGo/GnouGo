@@ -7,6 +7,12 @@ using GnOuGo.Flow.Core.Planning;
 internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string requestId, long inputCeiling, long outputCeiling, decimal costCeiling) : ILLMHttpRetryJournal
 {
     internal const string Collection = "planning-evaluation-http-attempts";
+    internal static JsonObject UndispatchedUsage() => new()
+    {
+        ["input_tokens"] = 0L, ["output_tokens"] = 0L, ["benchmark_cost_eur"] = 0m,
+        ["transport_attempts"] = 0, ["uncertain_attempts"] = 0, ["reserved_input_tokens"] = 0L,
+        ["reserved_output_tokens"] = 0L, ["reserved_cost_eur"] = 0m, ["benchmark_usage_bounded"] = true
+    };
     internal async Task PrepareAsync(CancellationToken ct)
     {
         if (await LoadAsync(ct) is null) await SaveAsync(new(), ct);

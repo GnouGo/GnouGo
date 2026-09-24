@@ -149,3 +149,20 @@ source identity and records `harness_commit` separately. The command rejects any
 other file difference, including production, frozen cases, oracles, measurements,
 model transport and spending-accounting changes. Read-only comparison still loads
 all three repetitions, including earlier failures and inconclusive runs.
+
+### Auditing an admission denial
+
+The original runner counted a logical reservation denied by the HTTP admission
+limit as an extra call with unknown usage. New measurements record zero usage and
+zero attempts when the durable journal proves no HTTP dispatch occurred. Actual
+timeouts and other uncertain dispatches keep their conservative reservation.
+
+For historical comparison, `--audit-admission-denials` is an explicit read-only
+option. It requires a permanently closed session at its eight-attempt ceiling,
+unchanged run/request hashes, an empty HTTP attempt journal, the recorded admission
+failure, no completion receipt, and agreement between receipt counts and the
+session ledger. It applies symmetrically to both cohorts. Ineligible evidence stays
+unchanged. The report includes the raw comparison, original and audited result,
+proof hashes and measurement commit. Only the detached usage and physical call
+count change; the failed outcome remains failed. No request, receipt, original run,
+closure or spending reservation is written, erased, refunded or redispatched.

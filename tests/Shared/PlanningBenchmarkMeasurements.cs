@@ -67,7 +67,9 @@ public static class PlanningBenchmarkMeasurements
             ["reserved_cost_eur"] = live ? reservedCost : null };
     }
     public static int ExtraTransportCalls(JsonObject run) => run["usage_receipts"]!.AsObject()
-        .Sum(p => Math.Max(0, (p.Value?["transport_attempts"]?.GetValue<int>() ?? 1) - 1));
+        // ModelCalls includes logical reservations. An empty durable HTTP journal
+        // proves that reservation never became a physical attempt.
+        .Sum(p => Math.Max(0, p.Value?["transport_attempts"]?.GetValue<int>() ?? 1) - 1);
 
     public static JsonObject Compare(IReadOnlyList<JsonObject> parent, IReadOnlyList<JsonObject> candidate, string retainedCase)
     {

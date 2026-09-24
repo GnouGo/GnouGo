@@ -278,6 +278,61 @@ public sealed class BenchmarkCampaignTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainInconclusiveAsync("run", Ct));
         Assert.Null(await campaign.LoadAsync("planning-evaluation-closures", "session:1:hash", Ct));
     }
+    [Theory]
+    [InlineData(null)]
+    [InlineData("missing_closure")]
+    [InlineData("changed_run")]
+    [InlineData("changed_request")]
+    [InlineData("attempted")]
+    [InlineData("receipt")]
+    [InlineData("failure")]
+    [InlineData("wrapped")]
+    public async Task AdmissionAuditRequiresImmutableClosedZeroDispatchEvidenceAndNeverWrites(string? defect)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "audit");
+        var first = new BenchmarkHttpJournal(campaign, "session:1:hash", 100, 20, 1m);
+        var state = new LLMHttpRetryState { Fingerprint = "first" };
+        for (var i = 0; i < 8; i++)
+        {
+            state.Attempts.Add(new() { Id = i.ToString() }); await first.SaveAsync(state, Ct);
+            state.Attempts[^1].Status = i == 7 ? 200 : 503; await first.SaveAsync(state, Ct);
+        }
+        var known = await first.CompleteAsync(new() { ["input_tokens"] = 10L, ["output_tokens"] = 2L, ["benchmark_cost_eur"] = .1m }, Ct);
+        const string id = "session:2:hash", key = "source:fixture:case:1";
+        var denied = new BenchmarkHttpJournal(campaign, id, 100, 20, 1m); await denied.PrepareAsync(Ct);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(new() { ClientRequestId = id }, _ => Task.CompletedTask,
+            async ct => { await denied.SaveAsync(new() { Attempts = [new() { Id = "denied" }] }, ct); throw new Exception("Must not dispatch"); }, Ct));
+        var run = new JsonObject { ["session"] = new JsonObject { ["modelCalls"] = 2, ["pendingCall"] = new JsonObject { ["id"] = id } },
+            ["result"] = new JsonObject { ["execution_correct"] = false, ["termination_reason"] = "session_http_budget", ["calls"] = 9 },
+            ["usage_receipts"] = new JsonObject { ["session:1:hash"] = known, [id] = new JsonObject { ["transport_attempts"] = 0 } } };
+        await campaign.SaveAsync("planning-evaluation-runs", key, run, Ct);
+        if (defect == "wrapped")
+            await campaign.SaveAsync("planning-evaluation-failures", id, new()
+            { ["stage"] = "dispatch", ["exception_type"] = "LLMClientException", ["kind"] = "Unknown", ["retryable"] = false }, Ct);
+        if (defect != "missing_closure") await campaign.RetainInconclusiveAsync(key, Ct);
+        switch (defect)
+        {
+            case "changed_run": run["result"]!["calls"] = 10; break;
+            case "changed_request": await campaign.SaveAsync("planning-evaluation-requests", id, new() { ["prompt"] = "changed" }, Ct); break;
+            case "attempted":
+                var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+                journal["transport"]!["Attempts"]!.AsArray().Add((JsonNode)new JsonObject { ["Id"] = "unknown", ["Status"] = null });
+                await campaign.SaveAsync(BenchmarkHttpJournal.Collection, id, journal, Ct); break;
+            case "receipt": await campaign.SaveAsync("planning-evaluation-receipts", id, new(), Ct); break;
+            case "failure": await campaign.SaveAsync("planning-evaluation-failures", id, new() { ["exception_type"] = "IOException" }, Ct); break;
+        }
+        var writes = records.Writes; var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        var audit = await campaign.AuditAdmissionDenialAsync(key, run, Ct);
+        Assert.Equal(defect is null or "wrapped", audit is not null); Assert.Equal(writes, records.Writes);
+        Assert.True(JsonNode.DeepEquals(accounting, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
+        if (audit is not null)
+        {
+            Assert.Equal(0, audit["admitted_request_attempts"]!.GetValue<int>());
+            Assert.Equal(8, audit["session_attempts"]!.GetValue<int>());
+            Assert.Equal(9, audit["original_result"]!["calls"]!.GetValue<int>());
+            Assert.False(audit["original_result"]!["execution_correct"]!.GetValue<bool>());
+        }
+    }
     private sealed class Records : IKeyVaultRecordStore
     {
         internal int Writes;

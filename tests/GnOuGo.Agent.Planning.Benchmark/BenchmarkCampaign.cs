@@ -52,6 +52,43 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         await SaveAsync("planning-evaluation-closures", requestId, closure, ct);
         return closure;
     }
+    // Read-only audit of a permanently closed admission denial. Zero attempts is
+    // proof of no dispatch because the HTTP layer persists intent before sending.
+    // A timeout, missing journal, changed record or any admitted attempt is ineligible.
+    internal async Task<JsonObject?> AuditAdmissionDenialAsync(string runKey, JsonObject run, CancellationToken ct = default)
+    {
+        if (run["result"]?["termination_reason"]?.ToString() != "session_http_budget" ||
+            run["result"]?["execution_correct"]?.GetValue<bool>() != false ||
+            run["session"]?["pendingCall"]?["id"]?.ToString() is not { } requestId) return null;
+        var closure = await LoadAsync("planning-evaluation-closures", requestId, ct);
+        var request = await LoadAsync("planning-evaluation-requests", requestId, ct);
+        var journal = await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
+        var failure = await LoadAsync("planning-evaluation-failures", requestId, ct);
+        if (closure?["reason"]?.ToString() != "session_http_attempts_exhausted" ||
+            closure["run_key"]?.ToString() != runKey || request is null ||
+            closure["run_hash"]?.ToString() != PlanningGraphCompiler.Fingerprint(run.ToJsonString()) ||
+            closure["request_hash"]?.ToString() != PlanningGraphCompiler.Fingerprint(request.ToJsonString()) ||
+            journal?["transport"]?["Attempts"] is not JsonArray { Count: 0 } || journal["usage"] is not null ||
+            failure?["stage"]?.ToString() != "dispatch" ||
+            run["usage_receipts"]?[requestId]?["transport_attempts"]?.GetValue<int>() != 0 ||
+            await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null) return null;
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct);
+        if (accounting["session_calls"]?.GetValue<long>() != 8 || closure["accounting_at_closure"]?["session_calls"]?.GetValue<long>() != 8) return null;
+        var usage = run["usage_receipts"]!.AsObject();
+        if (usage.Count != run["session"]?["modelCalls"]?.GetValue<int>() ||
+            usage.Any(p => p.Value?["transport_attempts"]?.GetValue<int>() is not >= 0) ||
+            usage.Sum(p => p.Value!["transport_attempts"]!.GetValue<int>()) != 8) return null;
+        return new()
+        {
+            ["run_key"] = runKey, ["request_id"] = requestId, ["reason"] = "closed_request_never_admitted_to_http",
+            ["original_run_hash"] = closure["run_hash"]!.DeepClone(), ["request_hash"] = closure["request_hash"]!.DeepClone(),
+            ["http_journal_hash"] = PlanningGraphCompiler.Fingerprint(journal.ToJsonString()),
+            ["failure_hash"] = PlanningGraphCompiler.Fingerprint(failure.ToJsonString()),
+            ["closure_hash"] = PlanningGraphCompiler.Fingerprint(closure.ToJsonString()),
+            ["admitted_request_attempts"] = 0, ["session_attempts"] = 8,
+            ["original_result"] = run["result"]!.DeepClone()
+        };
+    }
     internal async Task<JsonObject> InspectAsync(CancellationToken ct = default)
     {
         var evidence = new List<KeyVaultRecordValue>();

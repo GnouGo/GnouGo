@@ -60,7 +60,30 @@ if (compareParent is not null)
             if (await evidenceStore!.LoadAsync("planning-evaluation-runs", $"{compareParent}:{parentPhase}:{name}:{repetition}") is { } old) before.Add(old);
             if (await evidenceStore!.LoadAsync("planning-evaluation-runs", $"{candidateSource}:{candidatePhase}:{name}:{repetition}") is { } next) after.Add(next);
         }
-    var comparison = PlanningBenchmarkMeasurements.Compare(before, after, Option("--retained-case") ?? "review_french");
+    var retainedCase = Option("--retained-case") ?? "review_french";
+    var original = PlanningBenchmarkMeasurements.Compare(before, after, retainedCase);
+    var audits = new JsonArray();
+    if (args.Contains("--audit-admission-denials", StringComparer.Ordinal))
+        foreach (var auditedRun in before.Concat(after))
+        {
+            var row = auditedRun["result"]!;
+            var key = $"{row["source_commit"]}:{row["phase"]}:{row["case"]}:{row["repetition"]}";
+            if (await evidenceStore!.AuditAdmissionDenialAsync(key, auditedRun) is not { } audit) continue;
+            // Only detached measurements change; failed outcomes, diagnostics,
+            // original records, closures, receipts and the spending ledger do not.
+            PlanningBenchmarkMeasurements.RecordUsage(auditedRun, audit["request_id"]!.ToString(), BenchmarkHttpJournal.UndispatchedUsage());
+            auditedRun["usage_complete"] = true;
+            foreach (var (field, value) in PlanningBenchmarkMeasurements.Usage(auditedRun, true)) row[field] = value?.DeepClone();
+            row["calls"] = auditedRun["session"]!["modelCalls"]!.GetValue<int>() + PlanningBenchmarkMeasurements.ExtraTransportCalls(auditedRun);
+            audit["audited_result"] = row.DeepClone(); audits.Add((JsonNode)audit);
+        }
+    var comparison = PlanningBenchmarkMeasurements.Compare(before, after, retainedCase);
+    if (args.Contains("--audit-admission-denials", StringComparer.Ordinal))
+    {
+        comparison["original_comparison"] = original;
+        comparison["admission_audits"] = audits;
+        comparison["measurement_commit"] = harnessSource;
+    }
     comparison["parent_phase"] = parentPhase; comparison["candidate_phase"] = candidatePhase;
     comparison["parent_commit"] = compareParent; comparison["candidate_commit"] = candidateSource; comparison["campaign"] = campaignId;
     Console.WriteLine(comparison.ToJsonString()); Environment.ExitCode = comparison["passed"]!.GetValue<bool>() ? 0 : 2; return;
@@ -228,9 +251,14 @@ sealed class MeasuredRuntime(IPlanningRuntime inner, ILLMClient? live, JsonObjec
         }
         catch
         {
+            JsonObject? partial = null;
             if (live is KeyVaultBenchmarkModel configured)
-                PlanningBenchmarkMeasurements.RecordUsage(run, request.ClientRequestId!, await configured.PartialUsageAsync(request.ClientRequestId!, CancellationToken.None));
-            run["usage_complete"] = false; throw;
+            {
+                partial = await configured.PartialUsageAsync(request.ClientRequestId!, CancellationToken.None);
+                PlanningBenchmarkMeasurements.RecordUsage(run, request.ClientRequestId!, partial);
+            }
+            run["usage_complete"] = partial?["input_tokens"] is not null && partial["output_tokens"] is not null && partial["benchmark_cost_eur"] is not null;
+            throw;
         }
     }
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => inner.ValidateAsync(request, ct);

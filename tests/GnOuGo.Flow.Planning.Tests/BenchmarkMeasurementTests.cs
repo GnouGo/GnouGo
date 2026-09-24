@@ -6,6 +6,19 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BenchmarkMeasurementTests
 {
     [Fact]
+    public void DeniedReservationHasZeroUsageAndDoesNotCountAsAnHttpAttempt()
+    {
+        var run = new JsonObject { ["usage_receipts"] = new JsonObject(), ["usage_complete"] = true };
+        PlanningBenchmarkMeasurements.RecordUsage(run, "dispatched", new()
+        { ["input_tokens"] = 10, ["output_tokens"] = 2, ["benchmark_cost_eur"] = .1m, ["transport_attempts"] = 8 });
+        PlanningBenchmarkMeasurements.RecordUsage(run, "denied", new()
+        { ["input_tokens"] = 0, ["output_tokens"] = 0, ["benchmark_cost_eur"] = 0m, ["transport_attempts"] = 0 });
+        Assert.Equal(8, 2 + PlanningBenchmarkMeasurements.ExtraTransportCalls(run));
+        var usage = PlanningBenchmarkMeasurements.Usage(run, true);
+        Assert.True(usage["usage_complete"]!.GetValue<bool>()); Assert.True(usage["usage_bounded"]!.GetValue<bool>());
+        Assert.Equal(.1m, usage["known_cost_eur"]!.GetValue<decimal>());
+    }
+    [Fact]
     public void RecoveredUsageIsBoundedButUnknownAndReplayDoesNotDoubleCount()
     {
         var run = new JsonObject { ["usage_receipts"] = new JsonObject(), ["usage_complete"] = true };
