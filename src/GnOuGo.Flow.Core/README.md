@@ -1311,7 +1311,7 @@ Accepts `input.value` and `input.format` (`json_value` by default, or explicit `
 
 ### `workflow.plan` — Typed workflow planning
 
-Runs the injected hybrid planner through progressive capability discovery, one executable graph, deterministic validation and exact artifact approval. Missing business information produces typed clarification questions. Graph repair preserves unaffected stages and cumulative planning budgets.
+Runs the injected hybrid planner through progressive capability discovery, semantic TaskPlan generation, deterministic graph compilation and validation, and exact artifact approval. Task-scoped repair preserves unaffected stages and cumulative planning budgets.
 
 ```yaml
 - id: plan
@@ -1332,7 +1332,7 @@ Runs the injected hybrid planner through progressive capability discovery, one e
       unverifiable: fail
 ```
 
-Interactive planning uses typed clarification questions through `IPlanningInteraction`; Auto stops when required information is missing. Runtime `human.input` and final approval remain separate. Schema-9 records reject earlier saved approvals with instructions to regenerate and approve; old encrypted records are untouched.
+Interactive planning presents typed `PlanningChoice` alternatives with a recommendation through `IPlanningInteraction`; Auto selects validated recommendations without another model call. Choices cannot expand execution permissions or budgets. Runtime `human.input` and final approval remain separate. Planning format 10 rejects earlier saved approvals with instructions to regenerate and approve; old encrypted records are untouched and execution journals remain schema 9.
 
 Results include status, session ID and revision. Approved results also include artifact hash and YAML obtained from trusted storage. Without a human provider, planning pauses for the host to collect review or clarification. [Architecture and persistence](../../docs/workflow-planning-v9.md).
 

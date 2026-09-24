@@ -35,5 +35,6 @@
   <ItemGroup>
     <Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" />
     <Compile Include="../Shared/PlanningBenchmarkCases.cs" Link="PlanningBenchmarkCases.cs" />
+    <Compile Include="../Shared/PlanningBenchmarkMeasurements.cs" Link="PlanningBenchmarkMeasurements.cs" />
   </ItemGroup>
 </Project>

@@ -57,6 +57,6 @@ internal static class PlanningPersistenceSmoke
             if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)) is { } bytes &&
                 (bytes.Contains("Private published smoke content", StringComparison.Ordinal) || bytes.Contains("Private requirements", StringComparison.Ordinal)))
                 throw new InvalidOperationException("Sensitive session content was persisted unencrypted.");
-        Console.WriteLine("Schema-9 planning persistence smoke passed.");
+        Console.WriteLine("Format-10 planning persistence smoke passed; execution journal schema 9 is unchanged.");
     }
 }

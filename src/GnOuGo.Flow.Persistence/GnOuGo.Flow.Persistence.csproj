@@ -6,7 +6,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <PackageId>GnOuGo.Flow.Persistence</PackageId>
-    <PackageReleaseNotes>Breaking schema-9 planning and execution: unified executable graph, bounded agent tasks, encrypted tenant journals; regenerate and approve previous planning sessions.</PackageReleaseNotes>
+    <PackageReleaseNotes>Encrypted tenant execution journals remain schema 9. Planning consumers use format 10 TaskPlan sessions; regenerate and approve previous planning sessions without migrating old encrypted records.</PackageReleaseNotes>
     <Authors>GnOuGo</Authors>
     <Description>Tenant-owned encrypted workflow execution journals with rebuildable EF Core and SQLite indexes.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
