@@ -54,6 +54,8 @@ jobs:
             'src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj',
             'src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj',
             'src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj',
+            'src/GnOuGo.Flow.Copilot/GnOuGo.Flow.Copilot.csproj',
+            'src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj',
             'src/GnOuGo.Flow.Mermaid/GnOuGo.Flow.Mermaid.csproj'
           )
 
