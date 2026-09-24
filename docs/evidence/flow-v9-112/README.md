@@ -13,6 +13,10 @@ receipts, HTTP accounting and session histories.
 - Pilot `5733aa3`: six correct of eight, median two calls; both complex cases
   exposed a missing proof for switch selector guards.
 
+- Pilot `459b5a2`: seven correct of eight, median two calls. Both complex cases
+  passed; the conditional case exposed an unchecked projection path, subsequently
+  fixed with a deterministic producer-contract check.
+
 These pilots fail acceptance. Later fixes do not rewrite them. The explicit
 inconclusive closure preserves the original request and its full reserved cost;
 it neither fabricates a completion receipt nor permits that identity to redispatch.
