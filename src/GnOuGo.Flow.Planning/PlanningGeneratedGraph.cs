@@ -30,9 +30,10 @@ internal static class PlanningGeneratedGraph
                     node.Input.Members.Any(m => !IsDirectMcpInput(m.Name))))
                     yield return new("GENERATED_MCP_MODE_DENIED", location + "/input", "A generated MCP stage invokes its exact selected contract. Supply request and optional deterministic timeout/error/null-handling flags; target selection, templates and model-assisted modes belong outside this stage.");
                 if (node.Type == "agent.run")
-                    foreach (var name in new[] { "objective", "capabilities", "budget", "verification", "output_schema" })
-                        if (PlanningGraphValidation.Member(node.Input, name) is not { } field || !PlanningGraphValidation.IsLiteral(field))
-                            yield return new("AGENT_SCOPE_DYNAMIC", location + "/input/" + name, "Agent objectives, permissions, budgets and verification contracts must be explicit literals covered by approval.");
+                    foreach (var name in new[] { "objective", "workspace", "capabilities", "budget", "verification", "output_schema" })
+                        if (PlanningGraphValidation.Member(node.Input, name) is not { } field || !PlanningGraphValidation.IsLiteral(field) ||
+                            name == "workspace" && (field.Kind != "string" || string.IsNullOrWhiteSpace(field.Text) || field.Text.Contains("${", StringComparison.Ordinal)))
+                            yield return new("AGENT_SCOPE_DYNAMIC", location + "/input/" + name, "Agent objectives, workspace, permissions, budgets and verification contracts must be explicit literals covered by approval. Workspace must be a nonempty literal path.");
                 foreach (var value in PlanningGraphTopology.Values(node))
                     foreach (var diagnostic in Value(value, location)) yield return diagnostic;
             }

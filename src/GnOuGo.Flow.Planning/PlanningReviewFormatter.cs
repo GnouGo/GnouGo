@@ -32,6 +32,7 @@ public static class PlanningReviewFormatter
                         var calls = PlanningGraphValidation.Member(PlanningGraphValidation.Member(node.Input, "budget") ?? new(), "max_model_calls")?.Number;
                         var evidence = PlanningGraphValidation.Member(node.Input, "verification")?.Items.Count ?? 0;
                         label += $" · max {calls} calls · {evidence} evidence requirements";
+                        label += " · workspace: " + PlanningGraphValidation.Member(node.Input, "workspace")?.Text;
                     }
                     result.AppendLine(id + (node.Type == "agent.run" ? "{{\"" : "[\"") + Label(label) + (node.Type == "agent.run" ? "\"}}" : "\"]"));
                     foreach (var source in previous) result.AppendLine(source + " --> " + id);

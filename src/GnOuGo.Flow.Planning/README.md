@@ -10,6 +10,8 @@ A separately publishable package depending only on Flow.Core.
 
 The generated language permits literals, typed references, simple conditions and registered typed operations. Built-in numeric and projection operations validate their contracts at runtime. Generated functions and arbitrary computation are rejected. Authored YAML retains its expression language.
 
+Generated `agent.run` stages require a nonempty literal `workspace`, reviewed with the objective, permissions, budgets and verification requirements. Runtime input/output references and interpolation cannot choose this scope. Changing the workspace changes the approval hash; the injected runner still applies its existing path and filesystem policy. Authored YAML retains dynamic workspace inputs.
+
 A failed validation opens one bounded graph revision scope, including affected consumers and subworkflow callers. Other stages and interfaces remain frozen. Invalid scope changes cannot become the next repair baseline. Discovery, revisions and retries share cumulative call, token, cost and elapsed-time ceilings; the defaults remain eight model calls and two graph repairs.
 
 Interactive mode asks typed business clarification questions. Auto mode stops when necessary information is missing. Approval identifies an exact artifact hash covering requirements, graph, selected contracts and budget ceilings. External effects also require the existing host confirmation boundary.
