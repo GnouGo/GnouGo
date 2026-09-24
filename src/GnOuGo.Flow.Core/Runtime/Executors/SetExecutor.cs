@@ -26,6 +26,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// </summary>
 public sealed class SetExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.ReplaySafe;
     public string StepType => "set";
 
     public IReadOnlyList<StepExceptionDoc>? DocumentedExceptions => new StepExceptionDoc[]

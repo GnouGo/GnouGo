@@ -7,6 +7,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// <summary>Establishes a runtime contract for an opaque whole value; never supplies missing evidence.</summary>
 public sealed class ValidateValueExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.ReplaySafe;
     public string StepType => "value.validate";
     public Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
     {

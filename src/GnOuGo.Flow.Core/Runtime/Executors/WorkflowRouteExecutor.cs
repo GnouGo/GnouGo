@@ -14,6 +14,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// </summary>
 public sealed class WorkflowRouteExecutor : IStepExecutor
 {
+    public bool RunsNestedWorkflows => true;
     public string StepType => "workflow.route";
 
     public IReadOnlyList<StepExceptionDoc>? DocumentedExceptions => new StepExceptionDoc[]
@@ -975,7 +976,7 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             PlanningPolicy = ctx.Engine.PlanningPolicy,
             PlanningRuntimeFactory = ctx.Engine.PlanningRuntimeFactory,
             LLMCapabilities = ctx.Engine.LLMCapabilities,
-            Checkpointer = null,
+            Journal = ctx.Engine.Journal,
             WorkflowCallResolver = ctx.Engine.WorkflowCallResolver,
             WorkflowCandidateProvider = ctx.Engine.WorkflowCandidateProvider,
             Telemetry = ctx.Engine.Telemetry,
@@ -987,6 +988,8 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             McpCacheSlidingExpiration = ctx.Engine.McpCacheSlidingExpiration
         };
 
+        foreach (var runner in ctx.Engine.AgentTaskRunners) childEngine.AgentTaskRunners.Add(runner);
+        childEngine.AgentTaskVerifier = ctx.Engine.AgentTaskVerifier;
         var candidateArgs = args.DeepClone() as JsonObject ?? new JsonObject();
         candidateArgs = await ApplyAutoExtractArgsAsync(ctx, routeInput, argsInput, candidate, resolution.Workflow, candidateArgs, ct);
         var resolvedArgs = WorkflowInputDefaults.Apply(resolution.Workflow.Source, candidateArgs);
@@ -1026,7 +1029,8 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             ctx.CallDepth + 1,
             prepared.CallStack,
             ctx.TelemetrySpan,
-            ct);
+            ct,
+            ctx.EffectiveExecutionScope.Child("route", prepared.Candidate.Id).Child("workflow", prepared.WorkflowName).Path);
 
         return new RouteExecutionResult(
             Candidate: prepared.Candidate,
@@ -1465,7 +1469,7 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             ExecutionId = parent.ExecutionId ?? parent.RunId,
             AgentId = parent.AgentId,
             AgentName = parent.AgentName,
-            RunId = $"{parentRunId}:route:{SanitizeRunIdPart(candidate.Id)}:{Guid.NewGuid():N}"
+            RunId = parentRunId
         };
     }
 

@@ -24,6 +24,7 @@ namespace GnOuGo.Agent.Server.SmartFlow;
 /// </summary>
 public sealed class ConfigureAgentsService
 {
+    private readonly IWorkflowRunStore? _runStore;
     private readonly ILLMClient _llm;
     private readonly IMcpClientFactory _mcpFactory;
     private readonly IMemoryCache _mcpCache;
@@ -60,8 +61,10 @@ public sealed class ConfigureAgentsService
         IOptions<OpenTelemetrySettings>? openTelemetrySettings = null,
         ILLMUsageBudgetScopeFactory? llmUsageBudgetScopeFactory = null,
         IExchangeRateProvider? exchangeRateProvider = null,
-        IOptions<WorkflowPlanningBudgetSettings>? workflowPlanningBudget = null)
+        IOptions<WorkflowPlanningBudgetSettings>? workflowPlanningBudget = null,
+        IWorkflowRunStore? runStore = null)
     {
+        _runStore = runStore;
         _llm = llm;
         _mcpFactory = mcpFactory;
         _mcpCache = mcpCache;
@@ -213,6 +216,7 @@ public sealed class ConfigureAgentsService
         await using var runtime = await _runtimeFactory.CreateAsync(ct);
         var engine = new WorkflowEngine
         {
+            RunStore = _runStore,
             LLMClient = runtime.LlmClient,
             ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(runtime.Options),
             ExchangeRateProvider = _exchangeRateProvider,

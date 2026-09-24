@@ -1,5 +1,8 @@
 # GnOuGo.Flow — YAML Workflow DSL Engine
 
+Execution storage uses `IWorkflowRunStore` (schema 9). Hosts inject the separately publishable `GnOuGo.Flow.Persistence`; Core remains independent of persistence libraries. A run records invocation paths, inputs, control decisions, receipts, usage, pending human answers and finalization. `ResumeAsync(tenantId, runId, expectedRevision, workflow, ct)` follows the same execution path as a new run. An external operation with an unknown outcome requires reconciliation and prevents cleanup. Custom executors default to external effects; declare `StepRecovery.ReplaySafe` only when restarting the executor cannot repeat an external effect.
+
+
 `ExpressionContractInference` models successful results without executing sample data. `ComputationInferenceProfile` documents supported scalar conversions and conservatively excludes shadowed or reassigned intrinsic names. `String` and URI encode/decode calls over one declared JSON scalar infer strings, while opaque/container inputs and unsupported forms remain uninferred. Runtime exceptions and explicit validation boundaries remain authoritative; scalar conversion is not business validation. Provider-neutral `PlanningDiagnostic.Computation` optionally carries expression, contract and producer context for consumers.
 
 `GeneratedFunctionDocumentation.Validate` exposes the generated-workflow JSDoc

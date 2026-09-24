@@ -7,6 +7,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// <summary>Projects the first present path from a union value and validates the selected result.</summary>
 public sealed class ValueProjectExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.ReplaySafe;
     public string StepType => "value.project";
     public StepContract Contract => new(
         JsonNode.Parse("""{"type":"object","description":"Select the first present property path from value. Explicit null counts as present. Requires output_schema for the result object containing value.","required":["value","paths"],"additionalProperties":false,"properties":{"value":{},"paths":{"type":"array","minItems":1,"items":{"type":"array","items":{"type":"string"}}}}}""")!.AsObject(),

@@ -9,6 +9,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// </summary>
 public sealed class LoopParallelExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.Composite;
     public string StepType => "loop.parallel";
 
     public IReadOnlyList<StepExceptionDoc>? DocumentedExceptions => new StepExceptionDoc[]
@@ -86,7 +87,7 @@ public sealed class LoopParallelExecutor : IStepExecutor
                         ctx.Limits,
                         ctx.CallDepth,
                         ctx.CallStack,
-                        ctx.EffectiveExecutionScope,
+                        ctx.EffectiveExecutionScope.Child("iteration", index.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                         ct,
                         ctx.TelemetrySpan);
                     return (index, iterData);

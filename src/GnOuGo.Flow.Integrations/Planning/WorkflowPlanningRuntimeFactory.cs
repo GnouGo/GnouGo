@@ -28,7 +28,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             throw new PlanningConflictException("The planning tenant must match the execution owner.");
         context.Limits.RunId ??= Guid.NewGuid().ToString("N");
         initial.Request.SessionId = PlanningGraphCompiler.Fingerprint(string.Join("\n", context.Limits.RunId,
-            context.Step.Source.Id, context.CallDepth, string.Join("\n", context.CallStack.Order(StringComparer.Ordinal))));
+            context.StageInvocationId ?? context.InvocationId));
         var tenant = initial.Request.TenantId;
         var key = initial.Request.SessionId;
         Directory.CreateDirectory(leaseDirectory);

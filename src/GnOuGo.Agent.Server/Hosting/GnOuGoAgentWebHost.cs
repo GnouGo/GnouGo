@@ -312,6 +312,7 @@ public static class GnOuGoAgentWebHost
         builder.Services.ConfigureHttpJsonOptions(static o =>
         {
             o.SerializerOptions.TypeInfoResolverChain.Insert(0, ChatJsonContext.Default);
+            o.SerializerOptions.TypeInfoResolverChain.Insert(0, WorkflowRunJsonContext.Default);
         });
         builder.Services.Configure<ModelCatalogCacheSettings>(
             builder.Configuration.GetSection(ModelCatalogCacheSettings.SectionName));
@@ -485,6 +486,12 @@ public static class GnOuGoAgentWebHost
         builder.Services.AddDbContextFactory<GnOuGo.Agent.Server.Planning.PlanningDbContext>(options => options.UseSqlite($"Data Source={planningDbPath}"));
         builder.Services.AddSingleton<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>(_ =>
             GnOuGo.KeyVault.Core.Services.KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultDbPath, applicationBasePath));
+        builder.Services.AddSingleton<IWorkflowRunStore>(sp => new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(
+            sp.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>(),
+            GnOuGoWorkspace.ResolveDatabasePath(null, applicationBasePath, ".GnOuGo/data/flow-execution-v9.db"),
+            GnOuGoWorkspace.ResolveDatabasePath(null, applicationBasePath, ".GnOuGo/data/flow-execution-v9/owners"),
+            sp.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Flow.Persistence")));
+        builder.Services.AddSingleton<GnOuGo.Agent.Server.SmartFlow.WorkflowRunService>();
         builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IPlanningSessionStore, GnOuGo.Agent.Server.Planning.EfPlanningSessionStore>();
         builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IWorkflowPlanner, GnOuGo.Flow.Planning.HybridWorkflowPlanner>();
         builder.Services.AddSingleton<GnOuGo.Agent.Server.Planning.PlanningSessionService>();
@@ -616,6 +623,7 @@ public static class GnOuGoAgentWebHost
         app.MapGnOuGoFilesServer(includeHealthEndpoint: false);
         app.MapGet("/api/version", (AppVersionInfo versionInfo) => versionInfo.ToDto());
         app.MapPlanningEndpoints();
+        app.MapWorkflowRunEndpoints();
         app.MapGet("/api/llm/providers", LlmProviderEndpoints.ListProviders);
         app.MapGet("/api/llm/providers/{provider}/models", LlmProviderEndpoints.ListModelsAsync);
 

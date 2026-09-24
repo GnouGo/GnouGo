@@ -161,6 +161,7 @@ internal static class HumanInputDslReference
 /// </summary>
 public sealed class HumanInputExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.HumanInput;
     public string StepType => "human.input";
 
     public IReadOnlyList<StepExceptionDoc>? DocumentedExceptions => new StepExceptionDoc[]
@@ -232,7 +233,7 @@ public sealed class HumanInputExecutor : IStepExecutor
         var request = new HumanInputRequest
         {
             RunId = runId,
-            StepId = ctx.Step.Id,
+            StepId = ctx.InvocationId,
             Prompt = prompt,
             Mode = mode,
             Context = context?.DeepClone(),
@@ -256,7 +257,7 @@ public sealed class HumanInputExecutor : IStepExecutor
 
         try
         {
-            var response = await provider.RequestInputAsync(request, cts.Token);
+            var response = ctx.ReadRecordedControl("human_response") ?? await provider.RequestInputAsync(request, cts.Token);
 
             if (HumanInputContract.IsAbandoned(response))
             {

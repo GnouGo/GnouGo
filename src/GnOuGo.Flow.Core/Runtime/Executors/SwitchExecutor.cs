@@ -11,6 +11,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// </summary>
 public sealed class SwitchExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.Composite;
     public string StepType => "switch";
 
     public IReadOnlyList<StepExceptionDoc>? DocumentedExceptions => new StepExceptionDoc[]
@@ -62,46 +63,26 @@ public sealed class SwitchExecutor : IStepExecutor
             throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
                 $"Switch cases ({cases.Count}) exceeds limit ({ctx.Limits.MaxSwitchCases})");
 
-        // Form A: expr matching
-        JsonNode? exprValue = null;
-        if (ctx.Step.Source.Expr != null)
+        var selected = await ctx.RecordControlAsync("branch", () =>
         {
-            exprValue = ctx.Interpolator.Interpolate(ctx.Step.Source.Expr, ctx.Data);
-        }
-
-        foreach (var c in cases)
+            var expression = ctx.Step.Source.Expr is null ? null : ctx.Interpolator.Interpolate(ctx.Step.Source.Expr, ctx.Data);
+            for (var index = 0; index < cases.Count; index++)
+            {
+                var item = cases[index];
+                var match = expression is not null && item.Source.Value is not null
+                    ? item.Source.Value == (expression is JsonValue scalar && scalar.TryGetValue(out string? text) ? text : expression.ToJsonString())
+                    : item.Source.When is not null && ExpressionEvaluator.GetBool(ctx.Interpolator.Interpolate(item.Source.When, ctx.Data));
+                if (match) return JsonValue.Create(index);
+            }
+            return JsonValue.Create(-1);
+        }, ct);
+        var branch = selected!.GetValue<int>();
+        if (branch >= 0)
         {
-            bool matched = false;
-
-            if (exprValue != null && c.Source.Value != null)
-            {
-                // Form A: value match
-                var caseVal = c.Source.Value;
-                var exprStr = exprValue is JsonValue jv && jv.TryGetValue(out string? s) ? s : exprValue?.ToJsonString();
-                matched = caseVal == exprStr;
-            }
-            else if (c.Source.When != null)
-            {
-                // Form B: boolean condition
-                var condResult = ctx.Interpolator.Interpolate(c.Source.When, ctx.Data);
-                matched = ExpressionEvaluator.GetBool(condResult);
-            }
-
-            if (matched)
-            {
-                var result = new RunResult { Success = true };
-                await ctx.Engine.ExecuteStepsAsync(
-                    c.Steps,
-                    ctx.Data,
-                    result,
-                    ctx.Limits,
-                    ctx.CallDepth,
-                    ctx.CallStack,
-                    ctx.EffectiveExecutionScope,
-                    ct,
-                    ctx.TelemetrySpan);
-                return ctx.Data["steps"]?.DeepClone();
-            }
+            var result = new RunResult { Success = true };
+            await ctx.Engine.ExecuteStepsAsync(cases[branch].Steps, ctx.Data, result, ctx.Limits, ctx.CallDepth, ctx.CallStack,
+                ctx.EffectiveExecutionScope.Child("case", branch.ToString(System.Globalization.CultureInfo.InvariantCulture)), ct, ctx.TelemetrySpan);
+            return ctx.Data["steps"]?.DeepClone();
         }
 
         // Default branch
@@ -115,7 +96,7 @@ public sealed class SwitchExecutor : IStepExecutor
                 ctx.Limits,
                 ctx.CallDepth,
                 ctx.CallStack,
-                ctx.EffectiveExecutionScope,
+                ctx.EffectiveExecutionScope.Child("case", "default"),
                 ct,
                 ctx.TelemetrySpan);
             return ctx.Data["steps"]?.DeepClone();

@@ -8,6 +8,9 @@
     <PnpmCommand Condition="'$(OS)' != 'Windows_NT'">corepack pnpm</PnpmCommand>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="OpenTelemetry" Version="1.19.1" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />

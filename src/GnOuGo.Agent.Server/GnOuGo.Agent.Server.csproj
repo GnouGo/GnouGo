@@ -32,6 +32,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\GnOuGo.Agent.Shared\GnOuGo.Agent.Shared.csproj" />
     <ProjectReference Include="..\GnOuGo.Agent.Mcp\GnOuGo.Agent.Mcp.csproj" />
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />

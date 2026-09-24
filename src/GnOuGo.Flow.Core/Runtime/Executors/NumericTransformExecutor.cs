@@ -7,6 +7,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// <summary>Registered, typed numeric transformations; no generated scripts or inferred contracts.</summary>
 public sealed class NumericTransformExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.ReplaySafe;
     public string StepType { get; }
     public NumericTransformExecutor(string stepType)
     {

@@ -49,7 +49,7 @@ public sealed class AgentRunExecutor : IStepExecutor
                 string.IsNullOrWhiteSpace(v.Subject) || JsonSchemaContractValidator.ValidateSchema(v.FactsSchema, strictProfile: false).Count > 0) ||
             task.Verification.Select(v => v.Id).Distinct(StringComparer.Ordinal).Count() != task.Verification.Count)
             throw Failure(ErrorCodes.InputValidation, "Agent output and verification contracts must be valid and unambiguous.");
-        var context = new AgentTaskContext(ctx.Limits.TenantId, ctx.Limits.RunId, ctx.Step.Id, task);
+        var context = new AgentTaskContext(ctx.Limits.TenantId, ctx.Limits.RunId, ctx.InvocationId, task);
         var errors = await runner.ValidateAsync(context, ct);
         if (errors.Count != 0)
             throw Failure("AGENT_SCOPE_UNSUPPORTED", "The runner cannot enforce the approved task scope: " + string.Join("; ", errors));
@@ -59,6 +59,14 @@ public sealed class AgentRunExecutor : IStepExecutor
         try { result = await runner.RunAsync(context, deadline.Token); }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         { throw Failure("AGENT_OUTCOME_UNCERTAIN", "The agent deadline expired; reconcile the invocation before continuing."); }
+        if (result.Status != "needs_reconciliation")
+            await ctx.RecordExternalCompletionAsync(JsonSerializer.SerializeToNode(result, AgentTaskJsonContext.Default.AgentTaskResult), CancellationToken.None);
+        return await ValidateResultAsync(context, result, ctx.Engine.AgentTaskVerifier, ct);
+    }
+
+    internal static async Task<JsonNode?> ValidateResultAsync(AgentTaskContext context, AgentTaskResult result, IAgentTaskVerifier verifier, CancellationToken ct)
+    {
+        var task = context.Task;
         if (result.Status != "completed")
             throw Failure(result.Status == "needs_reconciliation" ? "AGENT_OUTCOME_UNCERTAIN" : "AGENT_TASK_FAILED",
                 "The agent did not complete the approved task.");
@@ -71,7 +79,7 @@ public sealed class AgentRunExecutor : IStepExecutor
         if (result.Evidence.Any(e => string.IsNullOrWhiteSpace(e.Id)) ||
             result.Evidence.Select(e => e.Id).Distinct(StringComparer.Ordinal).Count() != result.Evidence.Count)
             throw Failure("AGENT_EVIDENCE_INVALID", "Execution evidence requires unique observation identities.");
-        var findings = await ctx.Engine.AgentTaskVerifier.VerifyAsync(context, result, ct);
+        var findings = await verifier.VerifyAsync(context, result, ct);
         if (findings.Count != task.Verification.Count || findings.Any(f => !f.Passed) ||
             !findings.Select(f => f.RequirementId).Order(StringComparer.Ordinal)
                 .SequenceEqual(task.Verification.Select(v => v.Id).Order(StringComparer.Ordinal)))

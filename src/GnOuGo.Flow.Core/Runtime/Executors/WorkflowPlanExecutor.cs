@@ -8,6 +8,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// <summary>Runs the injected planner to a human pause or exact artifact approval.</summary>
 public sealed class WorkflowPlanExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.Composite;
     public string StepType => "workflow.plan";
     public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
     {

@@ -17,6 +17,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// </summary>
 public sealed class EmitExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.ReplaySafe;
     public string StepType => "emit";
 
     private static readonly HashSet<string> ValidLevels = new(StringComparer.OrdinalIgnoreCase)

@@ -16,6 +16,14 @@ Runtime expression and WFScript support uses the existing Jint sandbox. Publishe
 binaries retain the repository's documented, dependency-specific AOT exceptions.
 
 Planning sessions persist through the encrypted KeyVault record API. The CLI prints a run ID;
-pass `--run-id <id>` with the same workflow inputs to reopen its planning session after restart.
-This resumes planning state; other workflow steps execute according to the workflow itself.
+use that identity with the revision-checked resume command after restart.
+Runs now use the schema-9 encrypted execution journal. Inspect the current revision before resuming the same workflow and run identity:
+
+```bash
+gnougo-flow runs --tenant default --id RUN_ID
+gnougo-flow run workflow.yaml --run-id RUN_ID --resume-revision REVISION
+gnougo-flow runs --tenant default --id RUN_ID --command cancel --revision REVISION
+```
+
+Completed receipts are reused. Unknown external outcomes require reconciliation through the run API before execution or cleanup can continue. The CLI reports recovery status and the remaining step ceiling. Reusing a run ID without `--resume-revision` is rejected.
 Completed model receipts are reused and an unverifiable dispatch stops without another call.

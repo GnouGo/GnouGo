@@ -2587,7 +2587,7 @@
         }
     }
 
-    private void SubmitHumanInputChoice(string choice)
+    private async Task SubmitHumanInputChoice(string choice)
     {
         if (_pendingHumanInput is null) return;
 
@@ -2606,7 +2606,7 @@
             ["response"] = responseValue,
             [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
         };
-        HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
+        await HumanInputProvider.TrySubmitResponseAsync(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
 
         var summaryQuestion = _pendingHumanInput.Prompt;
         if (_pendingHumanInput.Fields is { Count: 1 }
@@ -2634,7 +2634,7 @@
         return baseClass;
     }
 
-    private void SubmitHumanInputText()
+    private async Task SubmitHumanInputText()
     {
         if (_pendingHumanInput is null) return;
 
@@ -2646,7 +2646,7 @@
             ["response"] = answer,
             [HumanInputContract.ActionProperty] = HumanInputContract.ActionSubmit
         };
-        HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
+        await HumanInputProvider.TrySubmitResponseAsync(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
 
         RecordHumanInput(_pendingHumanInput.Prompt, answer);
 
@@ -2654,7 +2654,7 @@
         StateHasChanged();
     }
 
-    private void SubmitHumanInputFields()
+    private async Task SubmitHumanInputFields()
     {
         if (_pendingHumanInput is null) return;
 
@@ -2671,7 +2671,7 @@
             }
         }
 
-        HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
+        await HumanInputProvider.TrySubmitResponseAsync(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
 
         // Log each field for the grouped summary (mask sensitive values)
         if (_pendingHumanInput.Fields is not null)
@@ -2692,7 +2692,7 @@
         StateHasChanged();
     }
 
-    private void AbandonHumanInput()
+    private async Task AbandonHumanInput()
     {
         if (_pendingHumanInput is null || !_pendingHumanInput.AllowAbandon)
             return;
@@ -2701,7 +2701,7 @@
         {
             [HumanInputContract.ActionProperty] = HumanInputContract.ActionAbandon
         };
-        HumanInputProvider.TrySubmitResponse(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
+        await HumanInputProvider.TrySubmitResponseAsync(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
         RecordHumanInput(_pendingHumanInput.Prompt, AbandonHumanInputLabel);
         ResetHumanInputState();
         StateHasChanged();

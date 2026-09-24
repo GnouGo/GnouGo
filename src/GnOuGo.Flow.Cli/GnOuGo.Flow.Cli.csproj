@@ -18,6 +18,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.12" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.12" />

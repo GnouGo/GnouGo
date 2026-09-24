@@ -604,7 +604,7 @@ workflows:
             var field = Assert.Single(request.Fields!);
             Assert.Equal("repository_path", field.Name);
             Assert.Equal("string", field.Type);
-            Assert.True(humanInput.TrySubmitResponse(
+            Assert.True(await humanInput.TrySubmitResponseAsync(
                 request.RunId,
                 request.StepId,
                 new JsonObject { ["repository_path"] = "/workspace/gnougo" }));
@@ -1163,7 +1163,7 @@ workflows:
             await foreach (var request in humanInput.PendingRequests.ReadAllAsync(ct))
                 if (request.StepId == "agent_workflow_revision")
                 {
-                    Assert.True(humanInput.TrySubmitResponse(request.RunId, request.StepId, new JsonObject { ["response"] = "improve" }));
+                    Assert.True(await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, new JsonObject { ["response"] = "improve" }));
                     return;
                 }
         }, ct);

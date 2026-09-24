@@ -7,6 +7,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// <summary>Selects a declared property path from every item, preserving order and duplicates.</summary>
 public sealed class ArrayProjectExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.ReplaySafe;
     public string StepType => "array.project";
     public StepContract Contract => new(
         JsonNode.Parse("""{"type":"object","description":"Select path from every array item, preserving order and duplicates. Requires output_schema for the result object containing values.","required":["items","path"],"additionalProperties":false,"properties":{"items":{"type":"array"},"path":{"type":"array","items":{"type":"string"}}}}""")!.AsObject(),

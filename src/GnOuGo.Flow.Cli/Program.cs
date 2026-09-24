@@ -16,6 +16,7 @@ using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Integrations;
+using GnOuGo.Flow.Persistence;
 
 // Root command
 var rootCommand = new RootCommand("GnOuGo.Flow — YAML Workflow DSL Engine");
@@ -99,15 +100,17 @@ mockOption.Aliases.Add("-m");
 
 var runIdOption = new Option<string?>("--run-id")
 {
-    Description = "Stable run identity used to resume encrypted planning sessions"
+    Description = "Tenant-owned durable execution identity; inspect it before resuming"
 };
 
+var resumeRevisionOption = new Option<long?>("--resume-revision") { Description = "Resume the existing --run-id only if its inspected revision still matches" };
 var runCommand = new Command("run", "Run a workflow YAML file");
 runCommand.Add(runFileArg);
 runCommand.Add(inputOption);
 runCommand.Add(inputJsonOption);
 runCommand.Add(mockOption);
 runCommand.Add(runIdOption);
+runCommand.Add(resumeRevisionOption);
 runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellationToken) =>
 {
     var file = parseResult.GetValue(runFileArg);
@@ -276,6 +279,7 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
         Console.WriteLine($"Run ID: {runId}");
         var engine = new WorkflowEngine
         {
+            RunStore = EncryptedWorkflowRunStore.CreateWorkspace(),
             Limits = new ExecutionLimits { RunId = runId, TenantId = string.IsNullOrWhiteSpace(otelTenantId) ? "default" : otelTenantId.Trim() },
             WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
             PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
@@ -297,7 +301,13 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(TimeSpan.FromMinutes(5));
-        var result = await engine.ExecuteAsync(workflow, inputObj, cts.Token);
+        var result = parseResult.GetValue(resumeRevisionOption) is { } revision
+            ? await engine.ResumeAsync(engine.Limits.TenantId!, runId, revision, workflow, cts.Token)
+            : await engine.ExecuteAsync(workflow, inputObj, cts.Token);
+        var journal = await engine.RunStore!.ReadAsync(engine.Limits.TenantId!, runId, cancellationToken);
+        Console.WriteLine($"Execution: {journal!.Status}; revision: {journal.Revision}; steps: {journal.StepsStarted}/{journal.Limits.MaxTotalStepsExecuted}");
+        foreach (var invocation in journal.Invocations.Values.Where(i => i.Status == "needs_reconciliation"))
+            Console.WriteLine($"Reconciliation required: {invocation.Id}");
 
         Console.WriteLine();
         if (result.Success)
@@ -414,6 +424,32 @@ inspectCommand.SetAction(async (ParseResult parseResult, CancellationToken cance
 });
 
 rootCommand.Add(validateCommand);
+var runsCommand = new Command("runs", "Inspect durable executions and issue revision-checked commands");
+var tenantOption = new Option<string>("--tenant") { DefaultValueFactory = _ => "default", Description = "Execution tenant" };
+var inspectIdOption = new Option<string?>("--id") { Description = "Execution identity; omit to list tenant runs" };
+var commandOption = new Option<string>("--command") { DefaultValueFactory = _ => "inspect", Description = "inspect or cancel (resume uses run --resume-revision)" };
+var revisionOption = new Option<long?>("--revision") { Description = "Required inspected revision for commands" };
+runsCommand.Add(tenantOption); runsCommand.Add(inspectIdOption); runsCommand.Add(commandOption); runsCommand.Add(revisionOption);
+runsCommand.SetAction(async (ParseResult parsed, CancellationToken ct) =>
+{
+    try
+    {
+        var store = EncryptedWorkflowRunStore.CreateWorkspace();
+        var tenant = parsed.GetValue(tenantOption)!;
+        var id = parsed.GetValue(inspectIdOption);
+        var command = parsed.GetValue(commandOption);
+        if (command == "cancel")
+        {
+            if (id is null || parsed.GetValue(revisionOption) is not { } revision) throw new ArgumentException("Cancellation requires --id and --revision.");
+            Console.WriteLine(JsonSerializer.Serialize(await store.CancelAsync(tenant, id, revision, ct), WorkflowRunJsonContext.Default.WorkflowRun));
+        }
+        else if (command != "inspect") throw new ArgumentException("Unknown execution command.");
+        else if (id is null) Console.WriteLine(JsonSerializer.Serialize((await store.ListAsync(tenant, ct)).ToList(), WorkflowRunJsonContext.Default.ListWorkflowRun));
+        else Console.WriteLine(JsonSerializer.Serialize(await store.ReadAsync(tenant, id, ct), WorkflowRunJsonContext.Default.WorkflowRun));
+    }
+    catch (Exception ex) { Console.Error.WriteLine(ex.Message); Environment.ExitCode = 1; }
+});
+rootCommand.Add(runsCommand);
 rootCommand.Add(runCommand);
 rootCommand.Add(inspectCommand);
 

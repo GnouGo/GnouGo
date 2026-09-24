@@ -13,7 +13,7 @@ public static class PlanningSessionStorage
             using var document = JsonDocument.Parse(payload);
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object || root.EnumerateObject().Select(p => p.Name).Distinct(StringComparer.Ordinal).Count() != root.EnumerateObject().Count() ||
-                !root.TryGetProperty("schemaVersion", out var version) || !version.TryGetInt32(out var number) || number != 9)
+                !root.TryGetProperty("schemaVersion", out var version) || version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var number) || number != 9)
                 throw new PlanningConflictException(IncompatibleMessage);
             var state = JsonSerializer.Deserialize(payload, PlanningJsonContext.Default.PlanningSession);
             if (state?.Request.TenantId != tenantId || state.Request.SessionId != sessionId)

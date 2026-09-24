@@ -50,6 +50,7 @@ COPY scripts/ scripts/
 COPY src/GnOuGo.Flow.Server/GnOuGo.Flow.Server.csproj src/GnOuGo.Flow.Server/
 COPY src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj     src/GnOuGo.Flow.Core/
 COPY src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj src/GnOuGo.Flow.Integrations/
+COPY src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj src/GnOuGo.Flow.Persistence/
 COPY src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj src/GnOuGo.Flow.Planning/
 COPY src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj src/GnOuGo.KeyVault.Core/
 COPY src/GnOuGo.Workspace/GnOuGo.Workspace.csproj src/GnOuGo.Workspace/

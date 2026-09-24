@@ -382,6 +382,7 @@ public sealed class McpCallExecutor : IStepExecutor
                     ["status"] = hasError ? "error" : "ok",
                     ["results"] = resultsArr
                 };
+                await ctx.RecordExternalCompletionAsync(batchResult, CancellationToken.None);
                 if (errorPolicy.RaiseOnError && hasError)
                     ThrowMcpBatchError(kind, serverName, batchMethods!, batchResult);
                 return await ApplyDirectStructuredOutputAsync(
@@ -399,6 +400,7 @@ public sealed class McpCallExecutor : IStepExecutor
                 // ── Single mode (backward compatible) ──
                 var singleCorrelation = correlation with { MethodName = singleMethod };
                 var singleResult = await CallSingleAsync(session, kind, singleMethod!, requestArgs, singleCorrelation, errorPolicy.DetectResultErrors, runtimeToolCatalog, GetBoolProperty(input, "preserve_optional_nulls") ?? false, ctx, realtimeProgressFingerprints, linkedCts.Token);
+                await ctx.RecordExternalCompletionAsync(singleResult, CancellationToken.None);
                 var statusStr = (singleResult as JsonObject)?["status"]?.GetValue<string>();
                 ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", statusStr == "error" ? "error" : "stop");
                 if (errorPolicy.RaiseOnError && statusStr == "error")

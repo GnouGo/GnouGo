@@ -237,7 +237,7 @@ public sealed class PlanningSessionService(
             current.UpdatedAtUtc = completion.UpdatedAt;
         }
 
-        if (command.Kind is "cancel" or "edit_semantic" or "revise" or "configure_generation" or "answer" or "answer_decision" or "configure_mode")
+        if (command.Kind is "cancel" or "revise" or "configure_generation" or "answer" or "configure_mode")
         {
             var recordedUsage = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, current.Request.SessionId, EfPlanningSessionStore.Author, ct);
             if (recordedUsage is not null) current.Usage = JsonSerializer.Deserialize(recordedUsage.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);

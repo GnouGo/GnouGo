@@ -10,6 +10,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// </summary>
 public sealed class WorkflowExecuteExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.Composite;
     public string StepType => "workflow.execute";
 
     public IReadOnlyList<StepExceptionDoc>? DocumentedExceptions => new StepExceptionDoc[]
@@ -62,131 +63,7 @@ public sealed class WorkflowExecuteExecutor : IStepExecutor
                 $"Max call depth ({ctx.Limits.MaxCallDepth}) exceeded");
         }
 
-        var subData = new JsonObject
-        {
-            ["inputs"] = args.DeepClone(),
-            ["steps"] = new JsonObject(),
-            ["env"] = ctx.Data["env"]?.DeepClone() ?? new JsonObject()
-        };
-
-        var result = new RunResult { Success = true };
-
-        // Start a dedicated "workflow" span so the sub-workflow's step spans appear under
-        // a proper workflow scope — mirroring the standalone WorkflowEngine.ExecuteAsync
-        // path. Without this, the generated sub-workflow's steps become direct children
-        // of the "workflow.execute" step span and the OTel tree collapses visually.
-        var subWorkflowInfo = new WorkflowTelemetryInfo
-        {
-            WorkflowName = workflow.Name,
-            DocumentName = compiledDoc.Source?.Name,
-            Inputs = args.DeepClone(),
-            SourceText = yaml,
-            SourceFormat = "yaml"
-        };
-        var subWorkflowSpan = ctx.TelemetrySpan is null
-            ? ctx.Engine.Telemetry.WorkflowStart(subWorkflowInfo)
-            : ctx.Engine.Telemetry.WorkflowStart(ctx.TelemetrySpan, subWorkflowInfo);
-        WorkflowTelemetryInputAttributes.Apply(subWorkflowSpan, subData["inputs"]);
-        var subWorkflowSw = System.Diagnostics.Stopwatch.StartNew();
-        Exception? subWorkflowError = null;
-        var inheritedFinalization = ctx.EffectiveExecutionScope.IsFinalization;
-        var executionScope = ctx.Engine.CreateExecutionScopeForWorkflow(workflow, inheritedFinalization);
-        try
-        {
-            await ctx.Engine.ExecuteStepsAsync(
-                workflow.Steps,
-                subData,
-                result,
-                ctx.Limits,
-                ctx.CallDepth + 1,
-                ctx.CallStack,
-                executionScope,
-                ct,
-                subWorkflowSpan);
-        }
-        catch (Exception ex)
-        {
-            subWorkflowError = ex;
-            result.Success = false;
-            result.Error = ex switch
-            {
-                WorkflowRuntimeException workflowRuntimeException => workflowRuntimeException.ToWorkflowError(),
-                OperationCanceledException => new WorkflowError
-                {
-                    Code = "CANCELLED",
-                    Type = "CANCELLED",
-                    Message = "Workflow execution cancelled",
-                    Retryable = true
-                },
-                _ => new WorkflowError
-                {
-                    Code = "INTERNAL_ERROR",
-                    Type = ex.GetType().Name,
-                    Message = ex.Message,
-                    Retryable = false
-                }
-            };
-        }
-        finally
-        {
-            await ctx.Engine.ExecuteWorkflowFinalizationAsync(
-                workflow,
-                subData,
-                result,
-                ctx.Limits,
-                ctx.CallDepth + 1,
-                ctx.CallStack,
-                executionScope,
-                subWorkflowSpan,
-                inheritedFinalization ? ct : null);
-            subWorkflowSw.Stop();
-            ctx.Engine.Telemetry.WorkflowEnd(subWorkflowSpan, new WorkflowResultInfo
-            {
-                Success = result.Success && subWorkflowError is null,
-                StepsExecuted = result.StepResults.Count,
-                Duration = subWorkflowSw.Elapsed,
-                ErrorCode = result.Error?.Code
-                            ?? (subWorkflowError is WorkflowRuntimeException wre ? wre.Code : (subWorkflowError is not null ? "INTERNAL_ERROR" : null)),
-                ErrorMessage = result.Error?.Message ?? subWorkflowError?.Message
-            });
-            subWorkflowSpan.Dispose();
-        }
-
-        if (!result.Success)
-        {
-            var error = result.Error ?? new WorkflowError
-            {
-                Code = "INTERNAL_ERROR",
-                Message = subWorkflowError?.Message ?? "Generated workflow failed.",
-                Retryable = false
-            };
-            throw new WorkflowRuntimeException(error.Code, error.Message, error.Retryable, subWorkflowError, error.Details);
-        }
-
-        // Evaluate typed outputs if declared
-        JsonNode? outputs;
-        if (workflow.Outputs != null)
-        {
-            outputs = ctx.Engine.EvaluateWorkflowOutputs(
-                workflow.Outputs,
-                subData,
-                executionScope,
-                workflow.Name);
-        }
-        else
-        {
-            outputs = subData["steps"]?.DeepClone();
-        }
-
-        return new JsonObject
-        {
-            ["outputs"] = outputs,
-            ["workflow"] = workflow.Name,
-            ["run"] = new JsonObject
-            {
-                ["steps_executed"] = result.StepResults.Count,
-                ["success"] = result.Success
-            }
-        };
+        return await WorkflowCallExecutor.ExecuteResolvedWorkflow(ctx,
+            new WorkflowCallResolution { Workflow = workflow, WorkflowName = entrypoint }, args, ct);
     }
 }
