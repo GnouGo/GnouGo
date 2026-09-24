@@ -1,4 +1,3 @@
-from .checkpointing import InMemoryWorkflowCheckpointer
 from .compilation import (
     ValidationError,
     WorkflowCompilationException,
@@ -31,6 +30,7 @@ from .mcp_cache import McpCacheHelper
 from .model_metadata import LLMModelMetadataResolver, estimate_cost, sanitize_llm_request, try_get_pricing
 from .models import *  # noqa: F403
 from .parsing import WorkflowParser
+from .run_client import WorkflowRunClient
 from .runtime import WorkflowEngine
 from .templating import MustacheEngine, MustacheParseException, MustacheRenderException
 from .workflow_call_resolver import (
@@ -50,7 +50,6 @@ __all__ = [
     "InMemoryMcpClientFactory",
     "McpHumanInputSignal",
     "McpHumanInputSignalPhase",
-    "InMemoryWorkflowCheckpointer",
     "IWorkflowCallResolver",
     "input_def_to_schema",
     "inputs_to_json_schema",
@@ -77,5 +76,6 @@ __all__ = [
     "WorkflowParseException",
     "WorkflowParser",
     "WorkflowRuntimeException",
+    "WorkflowRunClient",
     "WorkflowValidator",
 ]

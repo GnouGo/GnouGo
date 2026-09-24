@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Black-box checks against published Flow CLI/server binaries; never uses repository databases."""
 import argparse
+import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import json
 import os
@@ -18,6 +19,7 @@ parser.add_argument('--cli', type=Path, required=True)
 parser.add_argument('--server', type=Path)
 parser.add_argument('--copilot', type=Path)
 parser.add_argument('--data-directory', type=Path)
+parser.add_argument('--python-client', action='store_true', help='Also exercise the installed schema-9 Python run client')
 args = parser.parse_args()
 root = args.data_directory or Path(tempfile.mkdtemp(prefix='gnougo-flow-v9-published-'))
 root.mkdir(parents=True, exist_ok=True)
@@ -73,6 +75,10 @@ if args.server:
     with socket.socket() as probe:
         probe.bind(('127.0.0.1', 0)); port = probe.getsockname()[1]
     address = f'http://127.0.0.1:{port}'
+    run_client = None
+    if args.python_client:
+        from gnougo_flow_core import WorkflowRunClient
+        run_client = WorkflowRunClient(address, 'smoke')
     def request(path, data=None, expected=200):
         req = urllib.request.Request(address + path, data=None if data is None else json.dumps(data).encode(), headers={'Content-Type': 'application/json'})
         try:
@@ -128,7 +134,10 @@ workflows:
             answer = {'expectedRevision': pending['revision'] - 1, 'invocationId': invocation, 'response': {'response': 'approved'}}
             request('/api/tenants/smoke/runs/human/human-input', answer, expected=409)
             answer['expectedRevision'] = pending['revision']
-            request('/api/tenants/smoke/runs/human/human-input', answer)
+            if run_client:
+                asyncio.run(run_client.answer_async('human', answer['expectedRevision'], invocation, answer['response']))
+            else:
+                request('/api/tenants/smoke/runs/human/human-input', answer)
             events = pending_stream.result(timeout=20)
             final = next(e for e in events if e['type'] == 'workflow.result')
             assert final['data']['response']['success'], final
@@ -139,11 +148,18 @@ workflows:
     server, output = start()
     try:
         assert saved == request('/api/tenants/smoke/runs/server')
-        request('/api/tenants/smoke/runs/server/resume', {'expectedRevision': saved['revision']})
+        if run_client:
+            assert asyncio.run(run_client.read_async('server')) == saved
+            assert saved in asyncio.run(run_client.list_async())
+            assert asyncio.run(run_client.command_async('server', 'resume', saved['revision'])) == saved
+        else:
+            request('/api/tenants/smoke/runs/server/resume', {'expectedRevision': saved['revision']})
         assert saved == request('/api/tenants/smoke/runs/server')
     finally:
         server.terminate(); server.wait(timeout=30); output.close()
     print('PASS published server: encrypted restart recovery, streamed durable human answers, tenant isolation and revision checks')
+    if run_client:
+        print('PASS Python schema-9 client: native host journal inspection, durable human answers and receipt reuse after restart')
 
 if args.copilot:
     mcp_env = dict(env, Code__DefaultWorkingDirectory=str(root), Code__AllowedWorkingRoots__0=str(root))

@@ -114,6 +114,14 @@ without a trustworthy result. It cannot manufacture a successful receipt.
 `{"expectedRevision": N, "invocationId": "...", "response": ...}`.
 Stale revisions return conflict. Cross-tenant run access is rejected.
 
+Python consumers use `gnougo_flow_core.WorkflowRunClient` or `gnougo-flow-cli runs
+--server URL --tenant TENANT` for these same commands. The Python demo's top-level
+in-memory checkpoint model, store and local resume path are removed. Its local YAML
+runtime remains available for authored workflows; schema-9 durability and bounded
+agent execution belong to the shared .NET host. The HTTP client validates schema
+and ownership and does not retry commands or follow redirects. After a transport
+failure, inspect the stored revision and recovery status before issuing a command.
+
 ```sh
 gnougo-flow runs --tenant default --id RUN_ID
 gnougo-flow run workflow.yaml --run-id RUN_ID --resume-revision REVISION

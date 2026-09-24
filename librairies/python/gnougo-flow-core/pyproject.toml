@@ -1,7 +1,7 @@
 [project]
 name = "gnougo-flow-core"
 version = "0.1.0"
-description = "Python 3.10+ implementation of GnOuGo.Flow.Core"
+description = "Authored YAML runtime and schema-9 GnOuGo Flow host client"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
