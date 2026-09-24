@@ -14,10 +14,10 @@ using GnOuGo.Workspace;
 
 string? Option(string name) { var index = Array.IndexOf(args, name); return index < 0 ? null : args.ElementAtOrDefault(index + 1) ?? throw new ArgumentException("Missing " + name); }
 var replayKey = Option("--replay-run"); var inspectKey = Option("--inspect-run");
-var retainKey = Option("--retain-inconclusive-run");
+var retainKey = Option("--retain-inconclusive-run"); var compareParent = Option("--compare-parent");
 var inspectCampaign = args.Contains("--inspect-campaign", StringComparer.Ordinal);
-if ((replayKey is null ? 0 : 1) + (inspectKey is null ? 0 : 1) + (inspectCampaign ? 1 : 0) + (retainKey is null ? 0 : 1) > 1) throw new ArgumentException("Choose one replay or inspection command.");
-var readOnly = replayKey is not null || inspectKey is not null || inspectCampaign || retainKey is not null;
+if ((replayKey is null ? 0 : 1) + (inspectKey is null ? 0 : 1) + (inspectCampaign ? 1 : 0) + (retainKey is null ? 0 : 1) + (compareParent is null ? 0 : 1) > 1) throw new ArgumentException("Choose one replay or inspection command.");
+var readOnly = replayKey is not null || inspectKey is not null || inspectCampaign || retainKey is not null || compareParent is not null;
 var command = Option("--live-command"); var providerName = Option("--keyvault-provider"); var live = !readOnly && (command is not null || providerName is not null);
 var campaignId = Option("--campaign") ?? (live || readOnly ? throw new ArgumentException("--campaign is required for live runs and recorded evidence.") : "offline");
 var phase = replayKey is not null ? "replay" : Option("--phase") ?? (live ? "pilot" : "fixture");
@@ -35,6 +35,20 @@ if (leasePath is not null) Directory.CreateDirectory(Path.GetDirectoryName(lease
 await using var lease = leasePath is null ? null : new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 if (retainKey is not null) { Console.WriteLine((await evidenceStore!.RetainInconclusiveAsync(retainKey, CancellationToken.None)).ToJsonString()); return; }
 if (inspectCampaign) { Console.WriteLine((await evidenceStore!.InspectAsync()).ToJsonString()); return; }
+if (compareParent is not null)
+{
+    var parentPhase = Option("--parent-phase") ?? "measured"; var candidateSource = Option("--candidate") ?? source;
+    var before = new List<JsonObject>(); var after = new List<JsonObject>();
+    foreach (var name in PlanningBenchmarkMeasurements.CandidateCases)
+        for (var repetition = 1; repetition <= 3; repetition++)
+        {
+            if (await evidenceStore!.LoadAsync("planning-evaluation-runs", $"{compareParent}:{parentPhase}:{name}:{repetition}") is { } old) before.Add(old);
+            if (await evidenceStore!.LoadAsync("planning-evaluation-runs", $"{candidateSource}:measured:{name}:{repetition}") is { } next) after.Add(next);
+        }
+    var comparison = PlanningBenchmarkMeasurements.Compare(before, after, Option("--retained-case") ?? "review_french");
+    comparison["parent_commit"] = compareParent; comparison["candidate_commit"] = candidateSource; comparison["campaign"] = campaignId;
+    Console.WriteLine(comparison.ToJsonString()); Environment.ExitCode = comparison["passed"]!.GetValue<bool>() ? 0 : 2; return;
+}
 if (inspectKey is { } inspect)
 {
     var evidence = await evidenceStore!.LoadAsync("planning-evaluation-runs", inspect);

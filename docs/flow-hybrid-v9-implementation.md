@@ -91,10 +91,10 @@ Latest completed checks:
 - Native Copilot MCP: schema-9 protocol, unsupported-scope refusal before inference
   and failed terminal receipt round-trip passed. Published Agent server: encrypted
   planning persistence, HTTP health, static UI and Blazor negotiation passed.
-- Live bounded file editing passed after correcting the managed SDK mode: observed
+- Live bounded file editing passed in both Debug and Native AOT after correcting the managed SDK mode: observed
   file changes, permission refusal, receipt reuse and rejected objective expansion.
   The command-based edit/test cycle still requires the administrator-managed sandbox.
-- Planner: 60 tests; Copilot adapter: five tests. All five affected Flow packages
+- Planner: 70 tests; Copilot adapter: five tests. All five affected Flow packages
   packed without warnings; package contents and independent dependency boundaries were checked.
 
 The PR stays draft: the live planner acceptance gate, real bounded Copilot edit/test

@@ -69,6 +69,46 @@ public static class PlanningBenchmarkMeasurements
     public static int ExtraTransportCalls(JsonObject run) => run["usage_receipts"]!.AsObject()
         .Sum(p => Math.Max(0, (p.Value?["transport_attempts"]?.GetValue<int>() ?? 1) - 1));
 
+    public static JsonObject Compare(IReadOnlyList<JsonObject> parent, IReadOnlyList<JsonObject> candidate, string retainedCase)
+    {
+        if (!CandidateCases.Contains(retainedCase, StringComparer.Ordinal)) throw new ArgumentException("Choose a frozen retained case.");
+        JsonObject[] Rows(IReadOnlyList<JsonObject> runs) => runs.Select(r => r["result"]).OfType<JsonObject>().ToArray();
+        var before = Rows(parent); var after = Rows(candidate);
+        bool Complete(JsonObject[] rows) => Summary(rows, "measured")["coverage_complete"]!.GetValue<bool>() && rows.All(r => r["mode"]?.ToString() == "live");
+        var complete = Complete(before) && Complete(after);
+        var all = parent.Concat(candidate).ToArray(); var rows = before.Concat(after).ToArray();
+        var sameModel = rows.Length > 0 && new[] { "provider", "model", "campaign" }.All(key =>
+            rows.All(r => !string.IsNullOrWhiteSpace(r[key]?.ToString())) && rows.Select(r => r[key]!.ToString()).Distinct(StringComparer.Ordinal).Count() == 1);
+        JsonObject Limits(JsonObject run)
+        {
+            var request = run["session"]?["request"]; var generation = request?["generation"];
+            return new() { ["calls"] = request?["maxModelCalls"]?.DeepClone(), ["repairs"] = request?["maxReplanAttempts"]?.DeepClone(),
+                ["reasoning"] = generation?["reasoning"]?.DeepClone(), ["input"] = generation?["maxInputTokensPerRequest"]?.DeepClone(), ["output"] = generation?["maxOutputTokens"]?.DeepClone() };
+        }
+        var limits = all.Select(Limits).ToArray();
+        var sameLimits = limits.Length > 0 && limits.All(l => l.All(p => p.Value is not null) && JsonNode.DeepEquals(l, limits[0]));
+        int Correct(IEnumerable<JsonObject> values) => values.Count(r => r["execution_correct"]?.GetValue<bool>() == true);
+        var perCase = new JsonArray(CandidateCases.Select(name => (JsonNode)new JsonObject
+        { ["case"] = name, ["parent_correct"] = Correct(before.Where(r => r["case"]!.ToString() == name)),
+            ["candidate_correct"] = Correct(after.Where(r => r["case"]!.ToString() == name)) }).ToArray());
+        var noRegression = perCase.All(r => r!["candidate_correct"]!.GetValue<int>() >= r["parent_correct"]!.GetValue<int>());
+        var retained = perCase.Single(r => r!["case"]!.ToString() == retainedCase)!;
+        var improved = retained["parent_correct"]!.GetValue<int>() < 3 && retained["candidate_correct"]!.GetValue<int>() > retained["parent_correct"]!.GetValue<int>();
+        var parentMedian = Summary(before, "measured")["median_calls"]?.GetValue<double>();
+        var candidateMedian = Summary(after, "measured")["median_calls"]?.GetValue<double>();
+        var reduced = candidateMedian is not null && parentMedian is not null && candidateMedian < parentMedian;
+        var safe = after.All(r => r["safety_violations"]!.AsArray().Count == 0 && (r["final_review"]?.GetValue<bool>() != true || r["execution_correct"]?.GetValue<bool>() == true));
+        var bounded = rows.All(r => r["usage_bounded"]?.GetValue<bool>() == true);
+        var comparable = complete && sameModel && sameLimits && bounded;
+        var passed = comparable && noRegression && improved && reduced && safe;
+        return new() { ["status"] = !comparable ? "inconclusive" : passed ? "passed" : "failed", ["passed"] = passed,
+            ["complete_three_repetitions"] = complete, ["same_model_and_campaign"] = sameModel, ["same_limits"] = sameLimits, ["usage_bounded"] = bounded,
+            ["parent_correct"] = Correct(before), ["candidate_correct"] = Correct(after), ["no_case_regression"] = noRegression,
+            ["retained_case"] = retainedCase, ["retained_case_improved"] = improved,
+            ["parent_median_calls"] = parentMedian, ["candidate_median_calls"] = candidateMedian, ["median_calls_reduced"] = reduced,
+            ["approved_execution_correct_and_safe"] = safe, ["cases"] = perCase };
+    }
+
     public static JsonObject Summary(IReadOnlyList<JsonObject> rows, string phase)
     {
         var calls = rows.Select(r => r["calls"]!.GetValue<int>()).Order().ToArray(); var count = calls.Length;

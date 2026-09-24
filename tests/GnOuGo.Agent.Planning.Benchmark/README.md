@@ -113,3 +113,21 @@ uncertain transport attempt retains its conservative allowance; restart added no
 ## Exhausted, inconclusive runs
 
 `--retain-inconclusive-run <commit:phase:case:repetition> --campaign <id>` closes an already failed evaluation only after its eight HTTP attempts are exhausted. It writes a separate encrypted audit record under the campaign lock. The original run, failure, request and HTTP evidence remain unchanged; no completion receipt is invented. Unknown attempts retain their full cost reservation in the same EUR 50 campaign ceiling. That request identity can never dispatch again, while different evaluation identities may use the remaining campaign allowance. `--inspect-campaign` reports both uncertainty and closures. This does not turn an inconclusive run into a successful measurement.
+
+## Parent comparison
+
+The read-only comparison loads all three repetitions for both revisions from the
+existing encrypted campaign. It reports incomplete cohorts, changed models/limits
+or unbounded usage as inconclusive. Passing requires no per-case correctness
+regression, improvement on the retained complex failure, lower median calls and
+no unsafe or incorrect approved execution. All failed runs remain in the cohort.
+This report supplements the existing pilot and measured gates.
+
+```bash
+dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --campaign flow-v9-112 --compare-parent 46c2c77fea19c952d3258d744d886fe52ef52d33 \
+  --parent-phase fixture --candidate <tested-candidate-sha> --retained-case review_french
+```
+
+The parent campaign used the `fixture` phase label to collect its failed baseline;
+those receipts still must record live inference with the same model and limits.

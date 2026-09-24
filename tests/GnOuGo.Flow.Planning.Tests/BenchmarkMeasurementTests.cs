@@ -68,6 +68,42 @@ public sealed class BenchmarkMeasurementTests
         Assert.Equal("provider_transport_failure", PlanningBenchmarkMeasurements.Category("MODEL_OUTPUT_LIMIT"));
         Assert.Equal("deterministic_builder_defect", PlanningBenchmarkMeasurements.Category("PLANNING_HOST_CONTRACT"));
     }
+    [Theory]
+    [InlineData(null)]
+    [InlineData("limits")]
+    [InlineData("model")]
+    [InlineData("missing")]
+    [InlineData("regression")]
+    [InlineData("calls")]
+    [InlineData("retained")]
+    public void ParentComparisonRequiresComparableCompleteEvidenceAndEveryAcceptanceCondition(string? defect)
+    {
+        JsonObject Run(string source, string name, int repetition)
+        {
+            var row = Row(name, repetition); row["source_commit"] = source;
+            row["mode"] = "live"; row["model"] = "pinned-model"; row["provider"] = "provider"; row["campaign"] = "same"; row["usage_bounded"] = true;
+            row["calls"] = source == "parent" ? 4 : 2;
+            if (source == "parent" && name == "review_french") { row["execution_correct"] = false; row["final_review"] = false; }
+            return new() { ["result"] = row, ["session"] = new JsonObject { ["request"] = new JsonObject
+            { ["maxModelCalls"] = 8, ["maxReplanAttempts"] = 2, ["generation"] = new JsonObject { ["reasoning"] = "medium", ["maxInputTokensPerRequest"] = 96000, ["maxOutputTokens"] = 32768 } } } };
+        }
+        var parent = PlanningBenchmarkMeasurements.CandidateCases.SelectMany(n => Enumerable.Range(1, 3).Select(i => Run("parent", n, i))).ToList();
+        var candidate = PlanningBenchmarkMeasurements.CandidateCases.SelectMany(n => Enumerable.Range(1, 3).Select(i => Run("candidate", n, i))).ToList();
+        switch (defect)
+        {
+            case "limits": candidate[0]["session"]!["request"]!["maxModelCalls"] = 9; break;
+            case "model": candidate[0]["result"]!["model"] = "other-model"; break;
+            case "missing": candidate.RemoveAt(0); break;
+            case "regression": candidate[0]["result"]!["execution_correct"] = false; break;
+            case "calls": foreach (var run in candidate) run["result"]!["calls"] = 4; break;
+            case "retained": foreach (var run in candidate.Where(r => r["result"]!["case"]!.ToString() == "review_french"))
+                { run["result"]!["execution_correct"] = false; run["result"]!["final_review"] = false; } break;
+        }
+        var report = PlanningBenchmarkMeasurements.Compare(parent, candidate, "review_french");
+        Assert.Equal(defect is null, report["passed"]!.GetValue<bool>());
+        if (defect is "missing" or "limits" or "model") Assert.Equal("inconclusive", report["status"]!.ToString());
+    }
+
     private static JsonObject Row(string name, int repetition) => new() { ["source_commit"] = "frozen", ["case"] = name, ["repetition"] = repetition,
         ["calls"] = 1, ["final_review"] = true, ["first_pass_valid"] = true, ["execution_correct"] = true, ["safety_violations"] = new JsonArray() };
 }
