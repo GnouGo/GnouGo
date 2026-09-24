@@ -16,6 +16,7 @@ public sealed class BoundedCopilotTasksTests
         await using var fixture = new Fixture();
         fixture.Host.OnSend = async (configuration, handle, request, ct) =>
         {
+            Assert.Equal("interactive", request.AgentMode);
             await configuration.FileSystem!.WriteFileAsync("result.txt", "edited content", null, ct);
             return new(handle, "session", "{\"done\":true}", "fixture", []);
         };

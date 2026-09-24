@@ -121,7 +121,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
             await SaveAsync(context, record, deadline.Token);
             dispatched = true;
             var reporter = progress.Capture();
-            var sent = await sessions.SendAsync(new(providerContext, handle, Prompt(context.Task), AgentMode: "agent")
+            var sent = await sessions.SendAsync(new(providerContext, handle, Prompt(context.Task), AgentMode: "interactive")
             {
                 RequestHeaders = configuration.RequestHeaders(),
                 Progress = e => reporter.Report(e.Kind, e.Level, e.Message, fallbackServer: Author, fallbackMethod: "copilot_task_run", fallbackMcpKind: "tool")
