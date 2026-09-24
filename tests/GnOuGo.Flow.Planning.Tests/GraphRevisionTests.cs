@@ -37,6 +37,17 @@ public sealed class GraphRevisionTests
     }
 
     [Fact]
+    public async Task MissingCleanupGuardDoesNotUnfreezeItsValidProducer()
+    {
+        var graph = PlannerFixture.Greeting();
+        graph.Workflows[0].Finally.Add(new() { Key = "cleanup", Input = PlanningCorpus.Obj(("value", PlanningCorpus.Ref("output", "greet", "message"))) });
+        var catalog = await new TestRuntime().DiscoverAsync(PlannerFixture.Session().Request, PlannerFixture.Ct);
+        var findings = PlanningExecutableValidation.Validate(graph, catalog);
+        Assert.Contains(findings, d => d.Rule == "finalizer:greet");
+        Assert.Equal(["main/cleanup"], PlanningGraphRevisions.Scope(graph, findings));
+    }
+
+    [Fact]
     public void ApprovalWrapperDoesNotRedirectFindingsToAnUnrelatedWorkflow()
     {
         var graph = PlannerFixture.Greeting();

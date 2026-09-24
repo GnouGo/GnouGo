@@ -81,6 +81,20 @@ public sealed class GraphContractTests
     }
 
     [Theory]
+    [InlineData(null, true)]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    public async Task FinalizerSwitchPresenceProofFollowsRuntimeCasePrecedence(string? caseValue, bool available)
+    {
+        var graph = PlannerFixture.Greeting();
+        var guard = new PlanningValue { Kind = "expression", Text = "data.steps.greet != null" };
+        graph.Workflows[0].Finally.Add(new() { Key = "cleanup", Type = "switch", Expr = guard, Cases =
+            [new(caseValue, guard, [new() { Key = "consume", Input = PlanningCorpus.Obj(("value", PlanningCorpus.Ref("output", "greet", "message"))) }])] });
+        var catalog = await new TestRuntime().DiscoverAsync(PlannerFixture.Session().Request, PlannerFixture.Ct);
+        Assert.Equal(available, !PlanningDataflow.Validate(graph, catalog).Any(d => d.Code == "BINDING_UNAVAILABLE"));
+    }
+
+    [Theory]
     [InlineData("local")]
     [InlineData("collections")]
     public async Task RegisteredTransformsCompileWithoutScriptInference(string name)

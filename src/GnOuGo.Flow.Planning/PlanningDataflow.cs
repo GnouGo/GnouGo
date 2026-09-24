@@ -117,9 +117,18 @@ internal static class PlanningDataflow
             {
                 var path = locations[node.Key]; var target = locations[key];
                 if (node.If is not null && (node.Key == key || target.StartsWith(path + "/", StringComparison.Ordinal))) yield return node.If;
-                if (node.Type != "switch" || node.Expr is not null) continue;
+                if (node.Type != "switch") continue;
                 for (var i = 0; i < node.Cases.Count; i++)
-                    if (node.Cases[i].When is { } guard && target.StartsWith(path + "/cases/" + i + "/steps/", StringComparison.Ordinal)) yield return guard;
+                {
+                    if (!target.StartsWith(path + "/cases/" + i + "/steps/", StringComparison.Ordinal)) continue;
+                    var branch = node.Cases[i];
+                    // Match the runtime precedence: expr/value selects a case; otherwise when does.
+                    if (node.Expr is not null && branch.Value is not null)
+                    {
+                        if (branch.Value == "true") yield return node.Expr;
+                    }
+                    else if (branch.When is { } guard) yield return guard;
+                }
             }
         }
     }
@@ -160,11 +169,15 @@ internal static class PlanningDataflow
                         {
                             unresolved ??= Index(workflow, catalog, graph, consumer, includeUnresolved: true);
                             var id = PlanningBindingIdentity.Id(new() { Kind = reference.Kind, Source = reference.Source, ResultChannel = reference.ResultChannel });
-                            rule = (unresolved.TryGetValue(id, out var source) && source.Availability == "opaque" ? "producer:" : "availability:") + reference.Source;
+                            rule = (unresolved.TryGetValue(id, out var source) && source.Availability == "opaque" ? "producer:" :
+                                path.Contains("/finally/", StringComparison.Ordinal) ? "finalizer:" : "availability:") + reference.Source;
                         }
                         else if (reference.Kind == "input") rule = "input:" + reference.Source;
-                        yield return new("BINDING_UNAVAILABLE", path, "The binding is not available in this scope: " + reference.Kind + ":" + reference.Source + "/" + string.Join("/", reference.Path),
-                            Rule: rule);
+                        var message = "The binding is not available in this scope: " + reference.Kind + ":" + reference.Source + "/" + string.Join("/", reference.Path);
+                        if (rule?.StartsWith("finalizer:", StringComparison.Ordinal) == true)
+                            message += ". Cleanup may run before this producer completes. Guard this step or its branch with data.steps[" +
+                                JsonSerializer.Serialize(reference.Source, PlanningJsonContext.Default.String) + "] != null.";
+                        yield return new("BINDING_UNAVAILABLE", path, message, Rule: rule);
                     }
             }
         }

@@ -10,6 +10,8 @@ receipts, HTTP accounting and session histories.
 - Pilot `d6db53e`: three correct of eight, median 3.5 calls.
 - Pilot `ec3e75f`: one correct of eight, median four calls.
 - Pilot `1029d5d`: five correct of eight, median two calls.
+- Pilot `5733aa3`: six correct of eight, median two calls; both complex cases
+  exposed a missing proof for switch selector guards.
 
 These pilots fail acceptance. Later fixes do not rewrite them. The explicit
 inconclusive closure preserves the original request and its full reserved cost;
