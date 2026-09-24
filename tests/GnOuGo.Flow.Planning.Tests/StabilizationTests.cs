@@ -145,11 +145,10 @@ public sealed class StabilizationTests
         var (graph, catalog) = await McpGraph();
         graph.Workflows[0].Finally.Add(new() { Key = "cleanup", Input = PlanningCorpus.Obj(("value", PlanningCorpus.Ref("output", "prepare", "value"))) });
         var findings = PlanningExecutableValidation.Validate(graph, catalog);
-        var scope = PlanningGraphRevisions.Scope(graph, findings);
-        Assert.Equal(["main/cleanup"], scope);
+        Assert.Contains(findings, d => d.Rule == "finalizer:prepare");
         var before = PlannerFixture.Clone(new() { Graph = graph }).Graph!;
         graph.Workflows[0].Finally[0].If = new() { Kind = "present", Source = "prepare" };
-        Assert.Empty(PlanningGraphRevisions.Validate(before, graph, scope));
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(before.Workflows[0].Steps, PlanningJsonContext.Default.ListPlanningNode), System.Text.Json.JsonSerializer.Serialize(graph.Workflows[0].Steps, PlanningJsonContext.Default.ListPlanningNode));
         await ValidateRuntime(graph, catalog);
         catalog.Capabilities[0].FixedInput["raise_on_error"] = true;
         graph.Workflows[0].Steps[0].Input.Members.Add(new("raise_on_error", new() { Kind = "boolean", Boolean = false }));
@@ -167,6 +166,7 @@ public sealed class StabilizationTests
     {
         var catalog = await new TestRuntime().DiscoverAsync(PlannerFixture.Session().Request, PlannerFixture.Ct);
         catalog.Policy.RequireExternalConfirmation = false;
+        catalog.Capabilities.Clear();
         catalog.Capabilities.Add(new() { Id = "operation", StepType = "mcp.call", Server = "source", Method = "acquire", Kind = "tool", EffectKind = "read",
             InputSchema = new() { ["type"] = "object", ["additionalProperties"] = false },
             OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}""")!.AsObject() });

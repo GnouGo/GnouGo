@@ -61,21 +61,19 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 if (ctx.Engine.HumanInputProvider is not { } human) break;
                 if (state.Status == PlanningStatus.Clarification)
                 {
-                    var answers = new JsonObject();
-                    foreach (var question in state.GetQuestions())
+                    var selections = new JsonObject();
+                    foreach (var choice in state.GetChoices().Where(c => c.Selected is null))
                     {
                         var answer = await human.RequestInputAsync(new HumanInputRequest
                         {
-                            RunId = state.Request.SessionId, StepId = question.Id,
-                            Prompt = question.Question + "\nReturn a JSON value of this business type: " + System.Text.Json.JsonSerializer.Serialize(question.AnswerType, PlanningJsonContext.Default.PlanningSchema),
-                            Mode = "text", AllowAbandon = true
+                            RunId = state.Request.SessionId, StepId = choice.Id,
+                            Prompt = choice.Question + "\nRecommended: " + choice.Recommended + "\n" + string.Join("\n", choice.Alternatives.Select(a => a.Id + ": " + a.Description)),
+                            Mode = "choice", Choices = choice.Alternatives.Select(a => a.Id).ToList(), AllowAbandon = true
                         }, ct);
                         if (HumanInputContract.IsAbandoned(answer)) { command.Kind = "cancel"; break; }
-                        var text = (answer is JsonObject obj ? obj["response"] : answer)?.GetValue<string>();
-                        try { answers[question.Id] = JsonNode.Parse(text ?? "null"); }
-                        catch (System.Text.Json.JsonException) { answers[question.Id] = text; }
+                        selections[choice.Id] = (answer is JsonObject obj ? obj["response"] : answer)?.GetValue<string>();
                     }
-                    if (command.Kind != "cancel") { command.Kind = "answer"; command.Answers = answers; }
+                    if (command.Kind != "cancel") { command.Kind = "choose"; command.Selections = selections; }
                 }
                 else
                 {
@@ -83,7 +81,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     {
                         RunId = state.Request.SessionId, StepId = "review-" + state.Revision,
                         Prompt = "Review the validated workflow stages, execution scopes and required evidence. Runtime outcomes have not yet been observed.",
-                        Context = JsonValue.Create(state.Requirements?.Summary + "\n\n```yaml\n" + state.Yaml + "\n```"),
+                        Context = JsonValue.Create(state.Requirements?.Summary + "\n\nBusiness tasks and selections:\n" + System.Text.Json.JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan) + "\n\n```yaml\n" + state.Yaml + "\n```"),
                         Mode = "choice", Choices = ["approve", "revise", "cancel"], AllowAbandon = true
                     }, ct);
                     command.Kind = HumanInputContract.IsAbandoned(answer) ? "cancel" : (answer is JsonObject obj ? obj["response"] : answer)?.GetValue<string>() ?? "cancel";

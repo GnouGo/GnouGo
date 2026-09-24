@@ -22,27 +22,6 @@ internal static class PlanningJsonTransport
             if (group.Key.Prerequisite is not null) item["prerequisite"] = JsonNode.Parse(group.Key.Prerequisite);
             return (JsonNode)item;
         }).ToArray());
-    internal static JsonObject? GraphContext(PlanningGraph? graph)
-    {
-        if (graph is null) return null;
-        var json = JsonSerializer.SerializeToNode(graph, PlanningJsonContext.Default.PlanningGraph)!.AsObject();
-        Visit(json);
-        return json;
-
-        static void Visit(JsonNode? node)
-        {
-            if (node is JsonArray array) { foreach (var item in array) Visit(item); return; }
-            if (node is not JsonObject obj) return;
-            var schemaReference = obj["capabilityId"] is not null && obj["schemaPointer"] is not null;
-            foreach (var key in obj.Select(p => p.Key).ToArray())
-            {
-                Visit(obj[key]);
-                if (schemaReference && key is not ("capabilityId" or "schemaPointer") ||
-                    obj[key] is null || obj[key] is JsonArray { Count: 0 } || obj[key] is JsonObject { Count: 0 }) obj.Remove(key);
-            }
-        }
-    }
-
     internal static PlanningValue Literal(JsonNode? json) => json switch
     {
         null => new(),

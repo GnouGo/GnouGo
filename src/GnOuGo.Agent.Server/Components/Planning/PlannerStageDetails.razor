@@ -5,7 +5,7 @@
 }
 @if (Session.RevisionScope.Count > 0)
 {
-    <p>Stages open for revision: @string.Join(", ", Session.RevisionScope)</p>
+    <p>Tasks open for revision: @string.Join(", ", Session.RevisionScope)</p>
 }
 @if (Session.DiscoveryLimitations.Count > 0)
 {
@@ -27,11 +27,18 @@
         </li>
     }</ul>
 }
-@foreach (var answer in Session.Clarifications)
+@if (Session.TaskPlan is { } plan)
 {
-    <details class="planner-clarification-history">
-        <summary>Answered business clarification</summary>
-        <p style="white-space: pre-wrap">@answer.Question</p><pre>@answer.Answers.ToJsonString()</pre>
+    var semantic = System.Text.Json.JsonSerializer.Deserialize(plan, PlanningJsonContext.Default.TaskPlan)!;
+    <details open><summary>Business tasks</summary><PlannerTasks Scope="semantic.Root" />
+        @foreach (var group in semantic.Groups) { <p>Reusable group: @group.Id</p><PlannerTasks Scope="group.Body" /> }
+    </details>
+}
+@foreach (var choice in Session.Choices.Where(c => c.Selected is not null))
+{
+    <details><summary>@choice.Question</summary>
+        <p>Recommended: @choice.Recommended · Selected: @choice.Selected</p>
+        @foreach (var alternative in choice.Alternatives) { <p>@alternative.Id: @alternative.Description</p> }
     </details>
 }
 @code {

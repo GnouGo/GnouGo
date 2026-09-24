@@ -1,0 +1,24 @@
+@using System.Text.Json.Nodes
+<form @onsubmit="Submit" @onsubmit:preventDefault>
+    @foreach (var choice in Choices.Where(c => c.Selected is null))
+    {
+        <label for="@choice.Id">@choice.Question</label>
+        <select id="@choice.Id" class="form-control" disabled="@Busy" value="@_selections.GetValueOrDefault(choice.Id, choice.Recommended)" @onchange="e => _selections[choice.Id] = e.Value?.ToString() ?? choice.Recommended">
+            @foreach (var alternative in choice.Alternatives)
+            {
+                <option value="@alternative.Id">@alternative.Description @(alternative.Id == choice.Recommended ? "(Recommended)" : "")</option>
+            }
+        </select>
+    }
+    <button type="submit" disabled="@Busy">Confirm selections</button>
+    <button type="button" disabled="@Busy" @onclick="Cancel">Cancel planning</button>
+</form>
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<PlanningChoiceDto> Choices { get; set; } = [];
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback<JsonObject> Select { get; set; }
+    [Parameter] public EventCallback Cancel { get; set; }
+    private readonly Dictionary<string, string> _selections = new();
+    private Task Submit() => Select.InvokeAsync(new JsonObject(Choices.Where(c => c.Selected is null)
+        .Select(c => new KeyValuePair<string, JsonNode?>(c.Id, JsonValue.Create(_selections.GetValueOrDefault(c.Id, c.Recommended))))));
+}

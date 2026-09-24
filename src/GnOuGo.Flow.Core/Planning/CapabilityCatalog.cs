@@ -21,6 +21,7 @@ public sealed class CapabilityDiscoveryState
 {
     public List<CapabilitySource> Sources { get; set; } = [];
     public List<CapabilityPage> Pages { get; set; } = [];
+    public List<PlanningCapability> Resolved { get; set; } = [];
     public List<string> Limitations { get; set; } = [];
 }
 
@@ -29,25 +30,22 @@ public sealed class PlanningRequirements
 {
     public string Summary { get; set; } = "";
     public List<PlanningRequirement> Outcomes { get; set; } = [];
-    public List<PlanningQuestion> Questions { get; set; } = [];
 }
 
 public sealed record PlanningRequirement(string Id, string Description);
-public sealed record PlanningQuestion(string Id, string Question, PlanningSchema AnswerType);
 
-/// <summary>A bounded discovery request or complete graph proposal; the host validates exclusivity.</summary>
+/// <summary>A bounded discovery request or complete semantic task proposal; the host validates exclusivity.</summary>
 public sealed class PlanningProposal
 {
     public PlanningRequirements Requirements { get; set; } = new();
     public string? SourceId { get; set; }
     public string? Cursor { get; set; }
-    public List<string> CapabilityIds { get; set; } = [];
-    public PlanningGraph? Graph { get; set; }
+    public TaskPlan? Plan { get; set; }
     public string Explanation { get; set; } = "";
 }
 
 public static class PlanningPhase
 {
-    public const string Requirements = "requirements", Discovery = "discovery", Graph = "graph",
+    public const string Requirements = "requirements", Discovery = "discovery", Tasks = "tasks",
         Validation = "validation", Review = "review", Replanning = "replanning";
 }

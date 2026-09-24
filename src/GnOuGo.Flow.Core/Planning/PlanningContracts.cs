@@ -12,7 +12,7 @@ public sealed class PlanningRequest
     public string SessionId { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "generated";
     public string Prompt { get; set; } = "";
-    public PlanningGraph? Baseline { get; set; }
+    public TaskPlan? Baseline { get; set; }
     public string? RevisionContext { get; set; }
     public JsonObject? FailureEvidence { get; set; }
     public JsonObject Options { get; set; } = new();
@@ -55,18 +55,19 @@ public sealed class PlanningCommand
     public long ExpectedRevision { get; set; }
     public string? ArtifactHash { get; set; }
     public string? Text { get; set; }
-    public JsonObject? Answers { get; set; }
+    public JsonObject? Selections { get; set; }
     public PlanningGenerationOptions? Generation { get; set; }
 }
 
 /// <summary>The sole durable state. Hosts encrypt its content and use optimistic revisions.</summary>
 public sealed class PlanningSession
 {
-    public IReadOnlyList<PlanningQuestion> GetQuestions() => Requirements?.Questions ?? [];
+    public IReadOnlyList<PlanningChoice> GetChoices() => Plan?.Choices ?? [];
     public string? ComputeArtifactHash() => Yaml is null ? null : Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(new JsonObject
     {
         ["schemaVersion"] = SchemaVersion, ["yaml"] = Yaml,
         ["requirements"] = JsonSerializer.SerializeToNode(Requirements, PlanningJsonContext.Default.PlanningRequirements),
+        ["taskPlan"] = JsonSerializer.SerializeToNode(Plan, PlanningJsonContext.Default.TaskPlan),
         ["graph"] = JsonSerializer.SerializeToNode(Graph, PlanningJsonContext.Default.PlanningGraph),
         ["catalog"] = JsonSerializer.SerializeToNode(Catalog, PlanningJsonContext.Default.PlanningCatalog),
         ["maxModelCalls"] = Request.MaxModelCalls, ["maxReplanAttempts"] = Request.MaxReplanAttempts,
@@ -74,7 +75,7 @@ public sealed class PlanningSession
         ["diagnostics"] = JsonSerializer.SerializeToNode(Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)
     }.ToJsonString())));
 
-    public int SchemaVersion { get; set; } = 9;
+    public int SchemaVersion { get; set; } = 10;
     public PlanningRequest Request { get; set; } = new();
     public long Revision { get; set; }
     public string Status { get; set; } = PlanningStatus.Created;
@@ -87,11 +88,10 @@ public sealed class PlanningSession
     public CapabilityDiscoveryState Discovery { get; set; } = new();
     public List<string> RevisionScope { get; set; } = [];
     public string Phase { get; set; } = PlanningPhase.Requirements;
+    public TaskPlan? Plan { get; set; }
     public PlanningGraph? Graph { get; set; }
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
     public List<PlanningValidationResult> ValidationResults { get; set; } = [];
-    public List<PlanningAnswer> Answers { get; set; } = [];
-    public int ClarificationRounds { get; set; }
     public int ReplanAttempts { get; set; }
     public int ModelCalls { get; set; }
     public PlanningModelCall? PendingCall { get; set; }
@@ -105,7 +105,7 @@ public sealed class PlanningSession
 public sealed class PlanningModelCall
 {
     public string Id { get; set; } = "";
-    public string Purpose { get; set; } = "graph";
+    public string Purpose { get; set; } = "tasks";
     public LLMRequest Request { get; set; } = new();
 }
 
@@ -140,7 +140,6 @@ public sealed class PlanningCapability
 
 public sealed record PlanningLiteralBinding(string Path, JsonNode? Value);
 public sealed record PlanningBinding(string Id, string WorkflowKey, PlanningValue Value, JsonObject Schema, string Availability);
-public sealed record PlanningAnswer(string Question, JsonObject Answers);
 public sealed record PlanningDiagnostic(string Code, string Location, string Message, bool Required = true, string? ValidationStage = null, string? Rule = null)
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -187,7 +186,6 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 [JsonSerializable(typeof(PlanningOperation))]
 [JsonSerializable(typeof(PlanningSession))]
 [JsonSerializable(typeof(PlanningRequirements))]
-[JsonSerializable(typeof(PlanningQuestion))]
 [JsonSerializable(typeof(CapabilityDiscoveryState))]
 [JsonSerializable(typeof(CapabilityPage))]
 [JsonSerializable(typeof(CapabilitySummary))]

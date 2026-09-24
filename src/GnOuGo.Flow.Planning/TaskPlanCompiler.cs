@@ -49,7 +49,7 @@ public sealed class TaskPlanCompiler
     { public PlanningDiagnostic Diagnostic { get; } = new(code, location, message); }
     private TaskPlan _plan = null!;
     private PlanningCatalog _catalog = null!;
-    private readonly PlanningGraph _graph = new();
+    private PlanningGraph _graph = new();
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
     private readonly HashSet<string> _compilingGroups = new(StringComparer.Ordinal);
     private readonly Dictionary<string, PlanningWorkflow> _groups = new(StringComparer.Ordinal);
@@ -57,15 +57,21 @@ public sealed class TaskPlanCompiler
 
     public TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog)
     {
-        _plan = plan; _catalog = catalog; _graph.Workflows.Clear(); _sources.Clear(); _groups.Clear(); _compilingGroups.Clear();
+        _plan = plan; _catalog = catalog; _location = "/"; _graph = new(); _sources.Clear(); _groups.Clear(); _compilingGroups.Clear();
         try
         {
             Unique(plan.Groups.Select(g => g.Id)); Unique(plan.Choices.Select(c => c.Id));
+            Unique(TaskPlanRevisions.Tasks(plan).Select(t => t.Id));
             foreach (var choice in plan.Choices) ValidateChoice(choice);
             foreach (var capability in catalog.Capabilities)
                 if (TaskOperations.Validate(capability).FirstOrDefault() is { } invalid)
                     throw new InvalidTask(invalid.Code, invalid.Location, invalid.Message);
-            var main = new PlanningWorkflow(); _graph.Workflows.Add(main);
+            var allValues = TaskPlanRevisions.Tasks(plan).SelectMany(Values)
+                .Concat(Scopes(plan.Root).Concat(plan.Groups.SelectMany(g => Scopes(g.Body))).SelectMany(s => s.Outputs).SelectMany(o => Values(o.Value))).ToArray();
+            foreach (var choice in plan.Choices)
+                if (allValues.Count(v => v.Kind == "choice" && v.Source == choice.Id) != 1)
+                    throw new InvalidTask("CHOICE_SLOT_INVALID", "/choices/" + choice.Id, "A choice must target exactly one business value slot.");
+            var main = new PlanningWorkflow(); _graph.Workflows.Add(main); _sources["main"] = "/root";
             var scope = new Scope(main, null); AddInputs(scope, plan.Inputs);
             CompileScope(plan.Root, scope, "main");
             return new(_graph, [], new Dictionary<string, string>(_sources));
@@ -112,6 +118,7 @@ public sealed class TaskPlanCompiler
         Unique(inputs.Select(i => i.Name));
         foreach (var input in inputs)
         {
+            _location = "/inputs/" + input.Name;
             var schema = Schema(input.Type);
             PlanningValue? fallback = null;
             if (input.Default is { } supplied)
@@ -140,7 +147,7 @@ public sealed class TaskPlanCompiler
         Unique(source.Outputs.Select(o => o.Name));
         foreach (var output in source.Outputs)
         {
-            _location = "/tasks/" + key + "/outputs/" + output.Name;
+            _location = (_sources.GetValueOrDefault(key) ?? "/root") + "/outputs/" + output.Name;
             var bound = Value(output.Value, scope);
             scope.Workflow.Outputs.Add(new() { Name = output.Name, Value = bound.Value, Schema = Contract(bound.Schema) });
         }
@@ -245,10 +252,11 @@ public sealed class TaskPlanCompiler
         // Cleanup can observe a failed/absent producer. Guard each generated stage before resolving inputs.
         if (cleanup)
         {
-            var producers = Values(task).Where(v => v.Kind == "output" && v.Source != task.Id).Select(v => Value(v, scope).Value)
-                .Where(v => v.Kind == "output").Select(v => v.Source!).Distinct(StringComparer.Ordinal).ToArray();
             foreach (var node in target.Skip(start))
+            {
+                var producers = PlanningGraphTopology.ReferencedStages(node.Input).Distinct(StringComparer.Ordinal).ToArray();
                 if (producers.Length > 0) node.If = new() { Kind = "expression", Text = string.Join(" && ", producers.Select(p => "data.steps[" + Quote(p) + "] != null")) };
+            }
         }
         foreach (var node in target.Skip(start))
         {
@@ -288,7 +296,7 @@ public sealed class TaskPlanCompiler
     {
         var childKey = Key(key, role); var workflow = new PlanningWorkflow { Key = childKey };
         _graph.Workflows.Add(workflow); _sources[childKey] = _location;
-        var child = new Scope(workflow, parent); CompileScope(source, child, childKey);
+        var location = _location; var child = new Scope(workflow, parent); CompileScope(source, child, childKey); _location = location;
         return (workflow, Call(Key(childKey, "call"), childKey, Object(child.Captures)));
     }
 
@@ -298,7 +306,7 @@ public sealed class TaskPlanCompiler
         if (_groups.TryGetValue(group.Id, out var existing)) return existing;
         var workflow = new PlanningWorkflow { Key = Key("group", group.Id) };
         _graph.Workflows.Add(workflow); _sources[workflow.Key] = "/groups/" + group.Id; _groups.Add(group.Id, workflow); _compilingGroups.Add(group.Id);
-        var scope = new Scope(workflow, null); AddInputs(scope, group.Inputs); CompileScope(group.Body, scope, workflow.Key);
+        var location = _location; var scope = new Scope(workflow, null); AddInputs(scope, group.Inputs); CompileScope(group.Body, scope, workflow.Key); _location = location;
         _compilingGroups.Remove(group.Id); return workflow;
     }
 
@@ -307,7 +315,13 @@ public sealed class TaskPlanCompiler
         Unique(arguments.Select(a => a.Name));
         if (arguments.Any(a => ports.All(p => p.Name != a.Name)) || ports.Any(p => p.Required && arguments.All(a => a.Name != p.Name)))
             Fail("TASK_GROUP_INPUTS", "Supply the declared reusable group's inputs.");
-        return Object(arguments.Select(a => new PlanningMember(a.Name, Value(a.Value, scope).Value)));
+        return Object(arguments.Select(a =>
+        {
+            var bound = Value(a.Value, scope); var expected = PlanningGraphCompiler.ToJsonSchema(ports.Single(p => p.Name == a.Name).Schema, _catalog);
+            if (PlanningGraphValidation.IsLiteral(bound.Value) ? PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(bound.Value), expected).Count > 0 : !PlanningGraphValidation.TypesFit(bound.Schema, expected))
+                Fail("TASK_GROUP_INPUT_TYPE", "Group input '" + a.Name + "' violates its declared business type.");
+            return new PlanningMember(a.Name, bound.Value);
+        }));
     }
 
     private Bound Value(TaskValue value, Scope scope)
@@ -436,6 +450,8 @@ public sealed class TaskPlanCompiler
             }
         }
     }
+    private static IEnumerable<TaskScope> Scopes(TaskScope scope) => new[] { scope }.Concat(scope.Tasks.Concat(scope.Always).SelectMany(t =>
+        (t.Body is null ? [] : Scopes(t.Body)).Concat(t.Otherwise is null ? [] : Scopes(t.Otherwise)).Concat(t.Branches.SelectMany(Scopes))));
     internal static IEnumerable<TaskValue> Values(PlanTask task) => task.Inputs.Concat(task.Outputs).SelectMany(o => Values(o.Value))
         .Concat(task.Condition is null ? [] : Values(task.Condition)).Concat(task.Items is null ? [] : Values(task.Items));
     internal static IEnumerable<TaskValue> Values(TaskValue value) => new[] { value }.Concat(value.Members.SelectMany(m => Values(m.Value))).Concat(value.Items.SelectMany(Values));

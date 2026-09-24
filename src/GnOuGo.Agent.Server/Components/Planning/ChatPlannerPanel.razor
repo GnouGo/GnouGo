@@ -13,7 +13,7 @@
             { <p>The graph is ready for review. Execution requires approval of its stages, scopes, evidence requirements and budgets.</p> }
             @if (session.Status == PlanningStatus.Clarification)
             {
-                <PlannerClarificationCard Questions="session.Questions" Busy="_busy" Answer='answers => Submit(session, new() { Kind = "answer", Answers = answers })' Cancel="() => Cancel(session)" />
+                <PlannerChoiceCard Choices="session.Choices" Busy="_busy" Select='selections => Submit(session, new() { Kind = "choose", Selections = selections })' Cancel="() => Cancel(session)" />
             }
             <PlannerStageDetails Session="session" />
             <a href="@($"/planning/{Uri.EscapeDataString(session.Id)}" + (session.WorkflowSession ? "?source=workflow" : ""))">Planning details</a>
@@ -54,7 +54,7 @@
         _busy = true; _error = null; command.ExpectedRevision = session.Revision;
         try { await service.SubmitAsync(ConversationId, session.Id, command, _lifetime.Token); }
         catch (Exception ex) when (ex is ArgumentException or PlanningConflictException) { _error = ex.Message; }
-        catch (Exception) { _error = "The answer could not be saved. Reload the current decision before retrying."; }
+        catch (Exception) { _error = "The selection could not be saved. Reload the current decision before retrying."; }
         finally { _busy = false; await Refresh(); }
     }
     public async ValueTask DisposeAsync() { await _lifetime.CancelAsync(); if (_poll is not null) await _poll; _lifetime.Dispose(); }

@@ -20,7 +20,7 @@ using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class ChatPlanningClarificationTests
+public sealed class ChatPlanningChoiceTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     private static PlanningSession Initial() => new() { Request = new() { TenantId = "planning-tests", Prompt = "Return a greeting", Options = new() { ["generator"] = new JsonObject { ["model"] = "fixture" } } } };
@@ -45,16 +45,16 @@ public sealed class ChatPlanningClarificationTests
         Assert.Equal(PlanningStatus.Clarification, state.Status);
         var ownerCommand = bridge.RequestAsync(state, Ct);
         var dto = Assert.Single(await service.ListAsync("chat", Ct));
-        Assert.Single(dto.Questions); Assert.Empty(await service.ListAsync("other", Ct));
-        var command = new PlanningCommand { Kind = "answer", ExpectedRevision = state.Revision, Answers = new() { ["tone"] = "brief" } };
+        Assert.Single(dto.Choices); Assert.Empty(await service.ListAsync("other", Ct));
+        var command = new PlanningCommand { Kind = "choose", ExpectedRevision = state.Revision, Selections = new() { ["tone"] = "brief" } };
         await Assert.ThrowsAsync<KeyNotFoundException>(() => service.SubmitAsync("other", state.Request.SessionId, command, Ct));
         var submitted = service.SubmitAsync("chat", state.Request.SessionId, command, Ct);
         var delivered = await ownerCommand;
         Assert.False(submitted.IsCompleted);
         state = await planner.AdvanceAsync(state, delivered, owned.Runtime, Ct);
         await bridge.CheckpointedAsync(state, Ct);
-        Assert.Single((await submitted).Clarifications); Assert.Equal(1, model.Calls);
-        var stored = await fixture.Records.GetAsync("flow-planning-sessions-v9", "planning-tests", state.Request.SessionId, "test", Ct);
+        Assert.Single((await submitted).Choices); Assert.Equal(1, model.Calls);
+        var stored = await fixture.Records.GetAsync("flow-planning-sessions-v10", "planning-tests", state.Request.SessionId, "test", Ct);
         Assert.Contains("PRIVATE_DECISION_CONTEXT", stored!.Value);
         foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
             Assert.DoesNotContain("PRIVATE_DECISION_CONTEXT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
@@ -75,10 +75,10 @@ public sealed class ChatPlanningClarificationTests
         var reopened = Service(fixture, designer, model);
         var conversation = Assert.Single(await reopened.ConversationsAsync(Ct));
         Assert.Equal("chat", conversation.Id); Assert.Equal("Return a greeting", Assert.Single(conversation.Messages).Content);
-        var pending = Assert.Single(await reopened.ListAsync("chat", Ct)); Assert.Single(pending.Questions);
-        var cancelled = await reopened.SubmitAsync("chat", id, new() { Kind = answer ? "answer" : "cancel", ExpectedRevision = revision,
-            Answers = answer ? new() { ["tone"] = "brief" } : null }, Ct);
-        Assert.Equal(answer ? PlanningStatus.FinalReview : PlanningStatus.Cancelled, cancelled.Status); Assert.Equal(answer ? 2 : 1, model.Calls);
+        var pending = Assert.Single(await reopened.ListAsync("chat", Ct)); Assert.Single(pending.Choices);
+        var cancelled = await reopened.SubmitAsync("chat", id, new() { Kind = answer ? "choose" : "cancel", ExpectedRevision = revision,
+            Selections = answer ? new() { ["tone"] = "brief" } : null }, Ct);
+        Assert.Equal(answer ? PlanningStatus.FinalReview : PlanningStatus.Cancelled, cancelled.Status); Assert.Equal(1, model.Calls);
         Assert.Null(cancelled.ApprovedHash);
         await Assert.ThrowsAsync<ArgumentException>(() => reopened.SubmitAsync("chat", id, new() { Kind = "approve", ExpectedRevision = cancelled.Revision }, Ct));
     }
@@ -92,13 +92,13 @@ public sealed class ChatPlanningClarificationTests
         Assert.Equal(PlanningStatus.Clarification, pending.Status);
         Assert.True(await fixture.Store.TrySaveAsync(pending, null, Ct));
         var restored = (await fixture.Store.LoadAsync("planning-tests", pending.Request.SessionId, Ct))!;
-        Assert.Equal(pending.GetQuestions()[0].Id, restored.GetQuestions()[0].Id);
-        var answered = await planner.AdvanceAsync(restored, new() { Kind = "answer", ExpectedRevision = restored.Revision, Answers = new() { ["tone"] = "brief" } }, runtime, Ct);
+        Assert.Equal(pending.GetChoices()[0].Id, restored.GetChoices()[0].Id);
+        var answered = await planner.AdvanceAsync(restored, new() { Kind = "choose", ExpectedRevision = restored.Revision, Selections = new() { ["tone"] = "brief" } }, runtime, Ct);
         Assert.True(await fixture.Store.TrySaveAsync(answered, restored.Revision, Ct));
         Assert.False(await fixture.Store.TrySaveAsync(answered, restored.Revision, Ct));
         var resumed = (await fixture.Store.LoadAsync("planning-tests", pending.Request.SessionId, Ct))!;
         resumed = await planner.AdvanceAsync(resumed, new() { ExpectedRevision = resumed.Revision }, runtime, Ct);
-        Assert.Equal(PlanningStatus.FinalReview, resumed.Status); Assert.Equal(2, model.Calls); Assert.Single(resumed.Answers);
+        Assert.Equal(PlanningStatus.FinalReview, resumed.Status); Assert.Equal(1, model.Calls); Assert.Single(resumed.GetChoices());
     }
 
     [Theory]
@@ -114,13 +114,13 @@ public sealed class ChatPlanningClarificationTests
         await using (var owned = await first.Attach("scope-chat", _ => { }).OpenAsync(Context(model), initial, Ct))
         {
             var state = await new HybridWorkflowPlanner().AdvanceAsync(owned.Session, new(), owned.Runtime, Ct);
-            Assert.True(state.Status == PlanningStatus.Clarification, state.Status + ": " + JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)); Assert.Single(state.GetQuestions());
+            Assert.True(state.Status == PlanningStatus.Clarification, state.Status + ": " + JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)); Assert.Single(state.GetChoices());
             id = state.Request.SessionId; revision = state.Revision;
         }
         var reopened = Service(fixture, designer, model);
         var waiting = Assert.Single(await reopened.ListAsync("scope-chat", Ct));
-        Assert.Single(waiting.Questions);  Assert.Empty(await reopened.ListAsync("other", Ct));
-        var command = new PlanningCommand { Kind = "answer", ExpectedRevision = revision, Answers = new() { ["accept_scope_revision"] = accept } };
+        Assert.Single(waiting.Choices);  Assert.Empty(await reopened.ListAsync("other", Ct));
+        var command = new PlanningCommand { Kind = "choose", ExpectedRevision = revision, Selections = new() { ["accept_scope_revision"] = accept ? "include" : "omit" } };
         await Assert.ThrowsAsync<KeyNotFoundException>(() => reopened.SubmitAsync("other", id, command, Ct));
         // Exercise the HTTP mapping as well as owner recovery: dropping Answers here must fail this test.
         var builder = WebApplication.CreateSlimBuilder();
@@ -131,11 +131,11 @@ public sealed class ChatPlanningClarificationTests
         await using var app = builder.Build(); app.MapPlanningEndpoints(); await app.StartAsync(Ct);
         using var http = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
         var response = await http.PostAsJsonAsync("/api/chat/conversations/scope-chat/planning/" + id + "/commands",
-            new PlanningCommandDto("answer", revision, Answers: command.Answers), ChatJsonContext.Default.PlanningCommandDto, Ct);
+            new PlanningCommandDto("choose", revision, Selections: command.Selections), ChatJsonContext.Default.PlanningCommandDto, Ct);
         response.EnsureSuccessStatusCode();
         var result = (await response.Content.ReadFromJsonAsync(ChatJsonContext.Default.PlanningSessionDto, Ct))!;
         Assert.Equal(PlanningStatus.FinalReview, result.Status);
-        Assert.Single(result.Clarifications); Assert.Null(result.ApprovedHash); Assert.Equal(2, model.Calls);
+        Assert.Single(result.Choices); Assert.Null(result.ApprovedHash); Assert.Equal(1, model.Calls);
         await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.SubmitAsync("scope-chat", id, command, Ct));
     }
     private sealed class Lifetime : IHostApplicationLifetime
@@ -154,15 +154,13 @@ public sealed class ChatPlanningClarificationTests
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Calls++;
-            var proposal = new PlanningProposal { Requirements = GnOuGo.Planning.Examples.PlanningCorpus.Requirements("local"),
-                Graph = GnOuGo.Planning.Examples.PlanningCorpus.Graph("local", new()) };
-            if (Calls == 1)
-            {
-                proposal.Graph = null;
-                proposal.Requirements.Questions = [ScopeRevision
-                    ? new("accept_scope_revision", "Include the detailed presentation?", new() { Type = "boolean" })
-                    : new("tone", "PRIVATE_DECISION_CONTEXT: Which tone?", new() { Enum = ["brief", "full"] })];
-            }
+            var plan = GnOuGo.Planning.Examples.PlanningCorpus.LiteralResult();
+            var choice = new PlanningChoice { Id = ScopeRevision ? "accept_scope_revision" : "tone", Question = "PRIVATE_DECISION_CONTEXT: Include the detailed presentation?",
+                Recommended = ScopeRevision ? "include" : "brief", Alternatives = ScopeRevision
+                    ? [new("include", "Include detail", new() { Kind = "string", Text = "detailed" }), new("omit", "Omit detail", new() { Kind = "string", Text = "brief" })]
+                    : [new("brief", "Brief", new() { Kind = "string", Text = "brief" }), new("full", "Full", new() { Kind = "string", Text = "full" })] };
+            plan.Choices.Add(choice); plan.Root.Outputs.Add(new("presentation", new() { Kind = "choice", Source = choice.Id }));
+            var proposal = new PlanningProposal { Requirements = GnOuGo.Planning.Examples.PlanningCorpus.Requirements("local"), Plan = plan };
             return Task.FromResult(new LLMResponse
             {
                 Json = GnOuGo.Planning.Examples.PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal), request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()),

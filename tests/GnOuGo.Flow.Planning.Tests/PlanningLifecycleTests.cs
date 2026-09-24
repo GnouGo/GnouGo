@@ -57,22 +57,23 @@ public sealed class PlanningLifecycleTests
         Assert.Equal(PlanningStatus.Stopped, rejected.Status); Assert.Null(rejected.ApprovedHash);
     }
     [Fact]
-    public async Task ClarificationValidatesAnswersWithoutModelDispatchOrNewAllowance()
+    public async Task ChoiceCompilesWithoutModelDispatchOrNewAllowance()
     {
-        var runtime = new TestRuntime(); runtime.Proposal.Graph = null;
-        runtime.Proposal.Requirements.Questions = [new("tone", "Which tone?", new() { Enum = ["formal", "casual"] })];
+        var runtime = new TestRuntime(); runtime.Proposal.Plan = GnOuGo.Planning.Examples.PlanningCorpus.Decision();
         var state = await PlannerFixture.RunAsync(runtime); var planner = new HybridWorkflowPlanner();
         Assert.Equal(PlanningStatus.Clarification, state.Status);
-        await Assert.ThrowsAsync<ArgumentException>(() => planner.AdvanceAsync(state, new() { Kind = "answer", ExpectedRevision = state.Revision, Answers = new() { ["tone"] = 42 } }, runtime, Ct));
-        state = await planner.AdvanceAsync(state, new() { Kind = "answer", ExpectedRevision = state.Revision, Answers = new() { ["tone"] = "formal" } }, runtime, Ct);
-        Assert.Equal(1, state.ModelCalls); Assert.Single(state.Answers); Assert.Empty(state.GetQuestions());
+        await Assert.ThrowsAsync<ArgumentException>(() => planner.AdvanceAsync(state, new() { Kind = "choose", ExpectedRevision = state.Revision, Selections = new() { ["tone"] = "unissued" } }, runtime, Ct));
+        state = await planner.AdvanceAsync(state, new() { Kind = "choose", ExpectedRevision = state.Revision, Selections = new() { ["tone"] = "casual" } }, runtime, Ct);
+        Assert.Equal(1, state.ModelCalls); Assert.Equal("casual", Assert.Single(state.GetChoices()).Selected);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Contains("Hi", state.Yaml);
     }
     [Fact]
-    public async Task AutoModeStopsForInsufficientBusinessInformation()
+    public async Task AutoModeSelectsTheValidatedRecommendationWithoutExtraCalls()
     {
-        var runtime = new TestRuntime(); runtime.Proposal.Graph = null; runtime.Proposal.Requirements.Questions = [new("tone", "Which tone?", new())];
+        var runtime = new TestRuntime(); runtime.Proposal.Plan = GnOuGo.Planning.Examples.PlanningCorpus.Decision();
         var state = PlannerFixture.Session(); state.Request.Mode = PlanningMode.Auto;
-        Assert.Equal(PlanningStatus.Stopped, (await PlannerFixture.RunAsync(runtime, state)).Status);
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal("formal", Assert.Single(state.GetChoices()).Selected); Assert.Single(runtime.Calls);
     }
     [Fact]
     public async Task SchemaEightAndCancelledCallsCannotSpend()
@@ -80,7 +81,7 @@ public sealed class PlanningLifecycleTests
         var runtime = new TestRuntime(); var state = PlannerFixture.Session(); state.SchemaVersion = 8;
         var ex = await Assert.ThrowsAsync<PlanningConflictException>(() => new HybridWorkflowPlanner().AdvanceAsync(state, new(), runtime, Ct));
         Assert.Contains("Regenerate and approve", ex.Message); Assert.Empty(runtime.Calls);
-        state.SchemaVersion = 9; using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
+        state.SchemaVersion = 10; using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new HybridWorkflowPlanner().AdvanceAsync(state, new(), runtime, cancelled.Token));
         Assert.Empty(runtime.Calls);
     }

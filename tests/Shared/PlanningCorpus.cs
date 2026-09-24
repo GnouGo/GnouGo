@@ -5,7 +5,7 @@ using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 namespace GnOuGo.Planning.Examples;
 
-/// <summary>Scripted graph responses for offline tests. Requests and outcome oracles are frozen separately.</summary>
+/// <summary>Scripted semantic responses for offline tests. Requests and outcome oracles are frozen separately.</summary>
 public static class PlanningCorpus
 {
     public static readonly string[] Names = PlanningBenchmarkCases.Names;
@@ -16,53 +16,23 @@ public static class PlanningCorpus
     public static PlanningValue Obj(params (string Name, PlanningValue Value)[] fields) => new() { Kind = "object", Members = fields.Select(f => new PlanningMember(f.Name, f.Value)).ToList() };
     public static PlanningGraph Graph(string name, PlanningCatalog catalog)
     {
-        var main = new PlanningWorkflow(); var graph = new PlanningGraph { Summary = Prompt(name), Workflows = [main] };
-        PlanningNode Invoke(string id, string method, params (string Name, PlanningValue Value)[] fields) => new()
-        { Key = id, Type = "mcp.call", CapabilityId = catalog.Capabilities.Single(c => c.Method == method).Id, Input = Obj(("request", Obj(fields))) };
-        PlanningNode Math(string id, string operation, PlanningValue left, PlanningValue right) => new() { Key = id, Type = operation, Input = Obj(("left", left), ("right", right)) };
-        var result = Ref("output", "result", "value"); var schema = new PlanningSchema { Type = "number" };
-        switch (name)
-        {
-            case "local": main.Steps.Add(Math("result", "number.multiply", Num(6), Num(7))); break;
-            case "read_transform":
-                main.Steps.Add(Invoke("read", "read")); main.Steps.Add(Math("result", "number.multiply", Ref("output", "read", "value"), Num(2))); break;
-            case "nullable_defaults":
-                main.Inputs.Add(new() { Name = "increment", Schema = new() { Type = "number" }, Required = false, Default = Num(2) });
-                main.Steps.Add(Invoke("read", "read_optional")); main.Steps.Add(Math("fallback", "number.default", Ref("output", "read", "value"), Num(0)));
-                main.Steps.Add(Math("result", "number.add", Ref("output", "fallback", "value"), Ref("input", "increment"))); break;
-            case "conditional":
-                main.Inputs.Add(new() { Name = "enabled", Schema = new() { Type = "boolean" } });
-                main.Steps.Add(new() { Key = "choose", Type = "switch", Expr = Ref("input", "enabled"), Cases = [new("true", null, [Invoke("read", "read")])],
-                    Default = [new() { Key = "zero", Type = "set", Input = Obj(("value", Num(0))) }] });
-                main.Steps.Add(new() { Key = "result", Type = "value.project", OutputSchema = new() { Type = "object", Properties = [new() { Name = "value", Schema = schema }] },
-                    Input = Obj(("value", Ref("output", "choose")), ("paths", new() { Kind = "array", Items = [new() { Kind = "array", Items = [Text("read"), Text("response"), Text("value")] }, new() { Kind = "array", Items = [Text("zero"), Text("value")] }] })) });
-                break;
-            case "collections":
-                main.Inputs.Add(new() { Name = "values", Schema = new() { Type = "array", Items = schema } });
-                graph.Workflows.Add(new() { Key = "double", Inputs = [new() { Name = "value", Schema = schema }],
-                    Steps = [Math("double", "number.multiply", Ref("input", "value"), Num(2))], Outputs = [new() { Name = "result", Schema = schema, Value = Ref("output", "double", "value") }] });
-                main.Steps.Add(new() { Key = "each", Type = "loop.parallel", Input = Obj(("items", Ref("input", "values"))),
-                    Steps = [new() { Key = "call", Type = "workflow.call", Input = Obj(("ref", Ref("workflow", "double")), ("args", Obj(("value", Ref("loop_item", "each"))))) }] });
-                main.Steps.Add(new() { Key = "result", Type = "array.project", Input = Obj(("items", Ref("output", "each", "results")), ("path", new() { Kind = "array", Items = [Text("call"), Text("outputs"), Text("result")] })),
-                    OutputSchema = new() { Type = "object", Properties = [new() { Name = "values", Schema = new() { Type = "array", Items = schema } }] } });
-                schema = new() { Type = "array", Items = schema }; result = Ref("output", "result", "values"); break;
-            case "protected_cleanup":
-                main.Steps.Add(Invoke("write", "write")); main.Finally.Add(Invoke("cleanup", "cleanup")); result = Num(42); break;
-            case "review_french": case "review_distractors":
-                main.Inputs = [new() { Name = "pr_url" }, new() { Name = "review_text" }];
-                main.Steps.Add(Invoke("clone", "clone_repository", ("pr_url", Ref("input", "pr_url"))));
-                foreach (var check in new[] { "dependencies", "lint", "unit", "integration" })
-                    main.Steps.Add(Invoke(check, "run_check", ("directory", Ref("output", "clone", "directory")), ("check", Text(check))));
-                main.Steps.Add(Invoke("review", "review_changes", ("directory", Ref("output", "clone", "directory")), ("review_text", Ref("input", "review_text"))));
-                main.Steps.Add(Invoke("evaluate", "evaluate_review", ("directory", Ref("output", "clone", "directory"))));
-                main.Steps.Add(Invoke("publish", "publish_review", ("draftId", Ref("output", "evaluate", "draftId"))));
-                var cleanup = Invoke("cleanup", "remove_workspace", ("directory", Ref("output", "clone", "directory")));
-                cleanup.If = new() { Kind = "expression", Text = "data.steps[\"clone\"] != null" }; main.Finally.Add(cleanup);
-                main.Outputs.Add(new() { Name = "review", Schema = new() { CapabilityId = catalog.Capabilities.Single(c => c.Method == "evaluate_review").Id, SchemaPointer = "/output" }, Value = Ref("output", "evaluate") });
-                return graph;
-        }
-        main.Outputs.Add(new() { Name = "result", Schema = schema, Value = result }); return graph;
+        var compiled = new TaskPlanCompiler().Compile(Tasks(name, catalog), catalog);
+        if (compiled.Diagnostics.Count != 0) throw new InvalidOperationException(JsonSerializer.Serialize(compiled.Diagnostics.ToList(), PlanningJsonContext.Default.ListPlanningDiagnostic));
+        return compiled.Graph!;
     }
+    public static TaskPlan Greeting(string message = "Hello") => new() { Root = new()
+    {
+        Tasks = [new() { Id = "greet", Kind = "value", Objective = "Return a greeting", Outputs = [new("message", String(message))] }],
+        Outputs = [new("message", Business("output", "greet", "message"))]
+    } };
+    public static TaskPlan Decision()
+    {
+        var plan = Greeting();
+        plan.Choices = [new() { Id = "tone", Question = "Which tone?", Recommended = "formal", Alternatives = [new("formal", "Formal greeting", String("Hello")), new("casual", "Casual greeting", String("Hi"))] }];
+        plan.Root.Tasks[0].Outputs = [new("message", Business("choice", "tone"))];
+        return plan;
+    }
+    public static TaskPlan LiteralResult() => new() { Root = new() { Outputs = [new("result", Number(42))] } };
 
     public static TaskValue Business(string kind, string? source = null, string? port = null) => new() { Kind = kind, Source = source, Port = port };
     public static TaskValue Number(decimal value) => new() { Kind = "number", Number = value };
@@ -89,7 +59,7 @@ public static class PlanningCorpus
             case "collections":
                 plan.Inputs.Add(new() { Name = "values", Type = new() { Kind = "array", Items = new() { Kind = "number" } } });
                 plan.Groups.Add(new() { Id = "double", Inputs = [new() { Name = "value", Type = new() { Kind = "number" } }],
-                    Body = new() { Tasks = [Math("double", "number.multiply", Business("input", "value"), Number(2))], Outputs = [new("result", Output("double"))] } });
+                    Body = new() { Tasks = [Math("multiply_item", "number.multiply", Business("input", "value"), Number(2))], Outputs = [new("result", Output("multiply_item"))] } });
                 main.Tasks.Add(new() { Id = "result", Objective = "Double each value preserving order", Kind = "foreach", Items = Business("input", "values"), Parallel = true,
                     Body = new() { Tasks = [new() { Id = "double", Objective = "Double this item", Kind = "call", Group = "double", Inputs = [new("value", Business("item"))] }], Outputs = [new("values", Output("double", "result"))] } });
                 result = Output("result", "values"); break;
@@ -155,9 +125,13 @@ public static class PlanningCorpus
             if (!local && discovery.Pages.Count == 0) proposal.SourceId = discovery.Sources[0].Id;
             else if (!local && discovery.Pages[^1].NextCursor is { } cursor)
             { proposal.SourceId = discovery.Pages[^1].SourceId; proposal.Cursor = cursor; }
-            else if (!local && catalog.Capabilities.Count == 0)
-                proposal.CapabilityIds = discovery.Pages.SelectMany(p => p.Capabilities).Where(c => !c.Name.StartsWith("unrelated_", StringComparison.Ordinal)).Select(c => c.Id).ToList();
-            else proposal.Graph = Graph(name, catalog);
+            else
+            {
+                var issued = new PlanningCatalog { Capabilities = catalog.Capabilities.Concat(discovery.Pages.SelectMany(p => p.Capabilities)
+                    .Where(c => catalog.Capabilities.All(resolved => resolved.Id != c.Id)).Select(c => new PlanningCapability
+                    { Id = c.Id, Method = c.Name, StepType = c.StepType, Operation = c.Operation })).ToList() };
+                proposal.Plan = Tasks(name, issued);
+            }
             var json = JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal);
             return new() { Json = Transport(json, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
         }

@@ -7,18 +7,14 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class GraphContractTests
 {
     [Fact]
-    public void SchemaReferencesCannotCarryConflictingInlineConstraints()
+    public void ModelContractExcludesExecutorPlumbingAndArbitraryExpressions()
     {
-        var catalog = new PlanningCatalog { Capabilities = [new() { Id = "selected", OutputSchema = new() { ["type"] = "number" } }] };
-        var root = PlanningSchemas.Proposal(new() { Catalog = catalog });
-        var schema = root["$defs"]!["schema"]!.DeepClone().AsObject();
-        schema["$defs"] = root["$defs"]!.DeepClone();
-        var reference = new JsonObject { ["capabilityId"] = "selected", ["schemaPointer"] = "/output" };
-        Assert.Empty(PlanningContractValidation.ValidateInstance(reference, schema));
-        var decoded = JsonSerializer.Deserialize(reference, PlanningJsonContext.Default.PlanningSchema)!;
-        Assert.Equal("number", PlanningSchemaReferences.Resolve(decoded, catalog)["type"]!.ToString());
-        reference["type"] = "any";
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(reference, schema));
+        var root = PlanningSchemas.Proposal(new() { Catalog = new() });
+        var contract = root.ToJsonString();
+        foreach (var forbidden in new[] { "schemaPointer", "capabilityId", "structuredOutput", "workflow.call", "mcp.call", "expression", "projection", "graph" })
+            Assert.DoesNotContain("\"" + forbidden + "\"", contract);
+        var value = root["$defs"]!["value"]!.DeepClone().AsObject(); value["$defs"] = root["$defs"]!.DeepClone();
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(new JsonObject { ["kind"] = "expression", ["text"] = "data.steps.secret" }, value));
     }
 
     [Fact]
@@ -111,7 +107,7 @@ public sealed class GraphContractTests
         var paths = projection.Input.Members.Single(m => m.Name == "paths").Value;
         if (opaque) catalog.Capabilities.Single(c => c.Method == "read").OutputSchema.Clear();
         else paths.Items[0].Items.RemoveAt(1); // read.value is absent; read.response.value is declared.
-        Assert.Contains(PlanningExecutableValidation.Validate(graph, catalog), d => d.Code == "PROJECTION_CONTRACT_INVALID");
+        Assert.Contains(PlanningExecutableValidation.Validate(graph, catalog), d => d.Code == (opaque ? "OUTPUT_REFERENCE_INVALID" : "PROJECTION_CONTRACT_INVALID"));
     }
 
     [Theory]

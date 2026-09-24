@@ -13,7 +13,7 @@ internal static class PlanningEndpoints
             Results.Json((await service.ListAsync(conversationId, ct)).ToList(), ChatJsonContext.Default.ListPlanningSessionDto));
         app.MapPost("/api/chat/conversations/{conversationId}/planning/{id}/commands", async (string conversationId, string id, PlanningCommandDto request, ChatPlanningService service, CancellationToken ct) =>
         {
-            try { return Results.Json(await service.SubmitAsync(conversationId, id, new() { Kind = request.Kind, ExpectedRevision = request.ExpectedRevision, Mode = request.Mode, Answers = request.Answers }, ct), ChatJsonContext.Default.PlanningSessionDto); }
+            try { return Results.Json(await service.SubmitAsync(conversationId, id, new() { Kind = request.Kind, ExpectedRevision = request.ExpectedRevision, Mode = request.Mode, Selections = request.Selections }, ct), ChatJsonContext.Default.PlanningSessionDto); }
             catch (PlanningConflictException ex) { return Results.Conflict(ex.Message); }
             catch (KeyNotFoundException) { return Results.NotFound(); }
             catch (ArgumentException) { return Results.BadRequest("Invalid planner decision command."); }
@@ -39,7 +39,7 @@ internal static class PlanningEndpoints
                     ExpectedRevision = request.ExpectedRevision,
                     ArtifactHash = request.ArtifactHash,
                     Text = request.Text,
-                    Answers = request.Answers,
+                    Selections = request.Selections,
                     Generation = request.Generation is { } options ? new() { Reasoning = options.Reasoning, MaxInputTokensPerRequest = options.MaxInputTokensPerRequest, MaxOutputTokens = options.MaxOutputTokens } : null
                 }, ct);
                 return Results.Json(ToDto(state), ChatJsonContext.Default.PlanningSessionDto);
@@ -51,7 +51,7 @@ internal static class PlanningEndpoints
     }
 
     internal static PlanningSessionDto ToDto(PlanningSession state) => new(
-        state.Request.SessionId, state.Request.Name, state.Revision, state.Status, state.Requirements?.Summary ?? "", PlanningReviewFormatter.Diagram(state.Graph),
+        state.Request.SessionId, state.Request.Name, state.Revision, state.Status, state.Requirements?.Summary ?? "", PlanningReviewFormatter.TaskDiagram(state.Plan),
         state.Requirements is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements)!.AsObject(),
         state.Graph is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(state.Graph, PlanningJsonContext.Default.PlanningGraph)!.AsObject(),
         state.Yaml, PlanningArtifactApproval.Hash(state), state.ApprovedHash,
@@ -61,14 +61,14 @@ internal static class PlanningEndpoints
             Prerequisite = d.Prerequisite is { } p ? new(p.Kind, p.Description, p.Output, p.ConsumerCapability, p.ContractPath, p.RootActionId) : null,
         }).ToArray(),
         state.ValidationResults.Select(s => new PlanningValidationResultDto(s.Id, s.Outcome, s.Description)).ToArray(),
-        state.Status == PlanningStatus.Clarification ? state.GetQuestions().Select(q => new PlanningQuestionDto(q.Id, q.Question, PlanningGraphCompiler.ToJsonSchema(q.AnswerType, state.Catalog!))).ToArray() : [],
+        state.GetChoices().Select(c => new PlanningChoiceDto(c.Id, c.Question, c.Alternatives.Select(a => new PlanningAlternativeDto(a.Id, a.Description, System.Text.Json.JsonSerializer.SerializeToNode(a.Value, PlanningJsonContext.Default.TaskValue))).ToArray(), c.Recommended, c.Selected)).ToArray(),
         state.ModelCalls, state.ReplanAttempts, state.Usage?.InputTokens ?? 0, state.Usage?.OutputTokens ?? 0,
         state.Usage?.EstimatedCost ?? 0, state.Usage?.EstimatedCostCurrency ?? "", state.ActiveMilliseconds, state.HumanWaitMilliseconds, state.Phase, state.Request.Mode)
     {
         SchemaVersion = state.SchemaVersion,
         RevisionScope = state.RevisionScope.ToArray(),
         DiscoveryLimitations = state.Discovery.Limitations.ToArray(),
-        Clarifications = state.Answers.Select(a => new PlanningClarificationHistoryDto(a.Question, a.Answers.DeepClone().AsObject())).ToArray()
+        TaskPlan = state.Plan is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)!.AsObject()
     };
 
 }

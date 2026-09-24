@@ -64,7 +64,7 @@
         }
         @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification)
         {
-            <PlannerClarificationCard Questions="PlanningEndpoints.ToDto(_state).Questions" Busy="_busy" Answer='answers => SubmitAsync("answer", answers: answers)' Cancel='() => SubmitAsync("cancel")' />
+            <PlannerChoiceCard Choices="PlanningEndpoints.ToDto(_state).Choices" Busy="_busy" Select='selections => SubmitAsync("choose", selections: selections)' Cancel='() => SubmitAsync("cancel")' />
         }
         <PlannerStageDetails Session="PlanningEndpoints.ToDto(_state)" ShowFindings="false" />
         @if (_state.Diagnostics.Count > 0)
@@ -125,7 +125,6 @@
     private PlanningSession? _state;
     private PlanningSessionListEntry? _entry;
     private IReadOnlyList<PlanningSessionListEntry> _sessions = [];
-    private readonly Dictionary<string, string> _answers = new();
     private readonly CancellationTokenSource _lifetime = new();
     private Task? _polling;
     private string _name = "", _prompt = "", _revision = "", _reasoning = "medium";
@@ -140,7 +139,7 @@
     {
         _viewVersion++;
         CloseTraces(); _traceSessionId = null;
-        _state = null; _entry = null; _answers.Clear(); _renderedRevision = -1; _error = null;
+        _state = null; _entry = null; _renderedRevision = -1; _error = null;
         if (Source is not (null or "workflow")) { _error = "Unknown planning session source."; return; }
         if (SessionId is null && !string.IsNullOrWhiteSpace(AgentName)) { _name = AgentName; _reviseExisting = true; }
         try { await RefreshAsync(); } catch (Exception ex) { _error = ex.Message; }
@@ -193,11 +192,11 @@
         catch (Exception ex) { _error = ex.Message; }
         finally { _busy = false; }
     }
-    private async Task SubmitAsync(string kind, string? text = null, JsonObject? answers = null, PlanningGenerationOptions? generation = null, string? mode = null)
+    private async Task SubmitAsync(string kind, string? text = null, JsonObject? selections = null, PlanningGenerationOptions? generation = null, string? mode = null)
     {
         if (_state is null || IsWorkflowSession) return;
         _busy = true; _error = null;
-        try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Answers = answers, Generation = generation, Mode = mode }, _lifetime.Token); }
+        try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Selections = selections, Generation = generation, Mode = mode }, _lifetime.Token); }
         catch (Exception ex) { _error = ex.Message; await RefreshAsync(); }
         finally { _busy = false; }
     }
@@ -206,7 +205,7 @@
     private static string Phase(string status) => status switch
     {
         PlanningStatus.Created => "Discovering capabilities", PlanningStatus.Generating => "Building and validating workflow",
-        PlanningStatus.Clarification => "Your answers are needed", PlanningStatus.FinalReview => "Ready for your review",
+        PlanningStatus.Clarification => "Choose a business alternative", PlanningStatus.FinalReview => "Ready for your review",
         PlanningStatus.Approved => "Approved", PlanningStatus.Saving => "Saving", PlanningStatus.Saved => "Saved",
         PlanningStatus.Stopped or PlanningStatus.Failed => "Planning stopped", PlanningStatus.Cancelled => "Cancelled", _ => status
     };

@@ -1,0 +1,14 @@
+@using GnOuGo.Flow.Core.Planning
+<ul>
+    @foreach (var task in Scope.Tasks.Concat(Scope.Always))
+    {
+        <li><strong>@task.Id</strong>: @task.Objective <small>(@task.Kind@(Scope.Always.Contains(task) ? ", always" : ""))</small>
+            @if (task.DependsOn.Count > 0) { <p>After: @string.Join(", ", task.DependsOn)</p> }
+            @if (task.Body is { } body) { <PlannerTasks Scope="body" /> }
+            @if (task.Otherwise is { } otherwise) { <p>Otherwise</p><PlannerTasks Scope="otherwise" /> }
+            @foreach (var branch in task.Branches) { <PlannerTasks Scope="branch" /> }
+        </li>
+    }
+</ul>
+@if (Scope.Outputs.Count > 0) { <p>Business outputs: @string.Join(", ", Scope.Outputs.Select(o => o.Name))</p> }
+@code { [Parameter, EditorRequired] public TaskScope Scope { get; set; } = default!; }

@@ -31,7 +31,7 @@ internal sealed class TestRuntime : IPlanningRuntime
     internal readonly List<LLMRequest> Calls = [];
     internal readonly List<PlanningSession> Checkpoints = [];
     internal readonly WorkflowPlanningRuntime Actual;
-    internal PlanningProposal Proposal = new() { Requirements = PlannerFixture.Requirements(), Graph = PlannerFixture.Greeting() };
+    internal PlanningProposal Proposal = new() { Requirements = PlannerFixture.Requirements(), Plan = PlanningCorpus.Greeting() };
     internal Func<LLMRequest, string, LLMResponse>? Respond;
     internal IReadOnlyList<PlanningDiagnostic>? CatalogChanges;
     internal IReadOnlyList<PlanningDiagnostic>? Validation { get; set; }
