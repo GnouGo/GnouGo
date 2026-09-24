@@ -17,6 +17,10 @@ receipts, HTTP accounting and session histories.
   passed; the conditional case exposed an unchecked projection path, subsequently
   fixed with a deterministic producer-contract check.
 
+- Pilot `6352146`: six correct of eight, median 2.5 calls. The French repair
+  exhausted its output limit; the distractor workflow omitted cleanup because it
+  compared the executor status to an undeclared value. Both failures are retained.
+
 These pilots fail acceptance. Later fixes do not rewrite them. The explicit
 inconclusive closure preserves the original request and its full reserved cost;
 it neither fabricates a completion receipt nor permits that identity to redispatch.

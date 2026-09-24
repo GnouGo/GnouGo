@@ -38,7 +38,7 @@ Cancellation variants interrupt the mocked work operation before it returns a re
 then require a cancelled result, cleanup and no publication. Cancelling only after the last
 operation completed can race with successful completion and is not a reliable interruption test.
 
-Summary gates use all 21 measured runs on one revision: at least 19 reach FinalReview, at least 16 reach it within two calls, median calls at most two, zero safety violations and every approved artifact passing independent execution. Missing cases, mixed revisions or execution failures cannot pass. Pilot and measured statistics remain separate. Unknown usage is never zero; known partial tokens/cost are reported separately. Costs are metadata/FX estimates from provider usage, not invoices.
+Summary gates use all 24 measured runs on one revision: at least 22 reach FinalReview, at least 19 reach it within two calls, median calls at most two, zero safety violations and every approved artifact passing independent execution. Missing cases, mixed revisions or execution failures cannot pass. Pilot and measured statistics remain separate. Unknown usage is never zero; known partial tokens/cost are reported separately. Costs are metadata/FX estimates from provider usage, not invoices.
 
 The historical [independent candidate report](../../docs/planning-candidate-reliability-2026-09-19.md) records a failed initial pilot, targeted nested-input inference correction and subsequent provider stop. That campaign did not establish measured reliability. The later accepted cohort is documented separately; campaigns, revisions and costs must not be pooled into a success rate.
 
