@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+from click import unstyle
 from typer.testing import CliRunner
 
 from gnougo_flow_cli.cli import _resolve_telemetry_config, app
@@ -9,11 +11,24 @@ from gnougo_flow_cli.settings import FlowCliSettings
 runner = CliRunner()
 
 
-def test_durable_run_command_requires_revision_before_dispatch() -> None:
+@pytest.mark.parametrize("ci_terminal", [False, True])
+def test_durable_run_command_requires_revision_before_dispatch(monkeypatch, ci_terminal) -> None:
+    if ci_terminal:
+        for name, value in {"GITHUB_ACTIONS": "true", "CI": "true", "TERM": "xterm-256color",
+                            "FORCE_COLOR": "1"}.items():
+            monkeypatch.setenv(name, value)
+    calls = []
+
+    async def dispatch(*args, **kwargs):
+        calls.append((args, kwargs))
+        raise AssertionError("A missing revision must prevent dispatch")
+
+    monkeypatch.setattr("gnougo_flow_cli.cli.WorkflowRunClient.command_async", dispatch)
     result = runner.invoke(app, ["runs", "--server", "http://127.0.0.1:1", "--tenant", "a",
                                  "--id", "run", "--command", "resume"])
     assert result.exit_code == 2
-    assert "--revision" in result.output
+    assert "--revision" in unstyle(result.output)
+    assert not calls
 
 
 def test_durable_run_command_forwards_tenant_and_revision(monkeypatch) -> None:
@@ -129,4 +144,3 @@ def test_resolve_telemetry_config_disables_export_when_telemetry_is_disabled() -
     config = _resolve_telemetry_config(settings, None)
     assert config.service_name == "from-settings"
     assert config.otlp_endpoint is None
-
