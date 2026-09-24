@@ -32,6 +32,7 @@ flowchart TD
   Hosts --> Persistence[Flow.Persistence: encrypted journal and EF index]
   Hosts --> Copilot[Flow.Copilot: injected MCP transport]
   Planner --> Core[Flow.Core: contracts and one durable runtime]
+  Integrations --> Planner
   Integrations --> Core
   Persistence --> Core
   Copilot --> Core

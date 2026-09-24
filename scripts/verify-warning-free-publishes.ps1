@@ -486,6 +486,8 @@ function Invoke-AgentServerSmoke {
         '--OpenTelemetry:Enabled=false',
         '--TypedWorkflowPlanning:BackgroundProcessingEnabled=false',
         "--TypedWorkflowPlanning:DatabasePath=$(Join-Path $DataDirectory 'planning.db')",
+        "--Flow:Execution:IndexPath=$(Join-Path $DataDirectory 'flow-runs.db')",
+        "--Flow:Execution:OwnerPath=$(Join-Path $DataDirectory 'flow-owners')",
         "--Agent:DatabasePath=$(Join-Path $DataDirectory 'agent.db')",
         "--KeyVault:DatabasePath=$(Join-Path $DataDirectory 'keyvault.db')",
         "--DocsIngestorMcp:DatabasePath=$(Join-Path $DataDirectory 'docs-mcp.db')",
