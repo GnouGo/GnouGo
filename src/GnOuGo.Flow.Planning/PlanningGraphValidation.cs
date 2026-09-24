@@ -255,7 +255,7 @@ public static class PlanningGraphValidation
                         !inCondition && !location.StartsWith(loop.Path + "/steps/", StringComparison.Ordinal))
                         errors.Add(new("LOOP_BINDING_SCOPE_INVALID", location, "Loop bindings are scoped to their loop body; previous results and indices may also be used in that loop's while condition. Previous results require sequential execution."));
                 }
-                if (value.Kind is "output" or "input" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection")
+                if (value.Kind is "present" or "output" or "input" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection")
                 {
                     try { _ = ValueSchema(value, new(StringComparer.Ordinal)); }
                     catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException)
@@ -267,6 +267,13 @@ public static class PlanningGraphValidation
 
             JsonObject? ValueSchema(PlanningValue value, HashSet<string> visiting)
             {
+                if (value.Kind == "present")
+                {
+                    if (value.Source is null || !byKey.ContainsKey(value.Source) || value.Path.Count != 0 || value.ResultChannel is not null ||
+                        value.Text is not null || value.Number is not null || value.Boolean is not null || value.Members.Count != 0 || value.Items.Count != 0)
+                        throw new InvalidOperationException("Presence requires only an existing stage source.");
+                    return new() { ["type"] = "boolean" };
+                }
                 if (value.Kind == "loop_previous")
                 {
                     var loop = byKey.GetValueOrDefault(value.Source ?? "");
@@ -530,7 +537,9 @@ public static class PlanningGraphValidation
 
     internal static PlanningValue? Member(PlanningValue value, string name) => value.Members.FirstOrDefault(m => m.Name == name)?.Value;
 
-    internal static bool IsLiteral(PlanningValue value) => value.Kind is "null" or "string" or "number" or "boolean" || value.Kind == "object" && value.Members.All(m => IsLiteral(m.Value)) || value.Kind == "array" && value.Items.All(IsLiteral);
+    internal static bool IsLiteral(PlanningValue value) => value.Kind is "null" or "number" or "boolean" ||
+        value.Kind == "string" && value.Text?.Contains("${", StringComparison.Ordinal) != true ||
+        value.Kind == "object" && value.Members.All(m => IsLiteral(m.Value)) || value.Kind == "array" && value.Items.All(IsLiteral);
 
     private static JsonObject HumanSchema(PlanningValue input)
     {

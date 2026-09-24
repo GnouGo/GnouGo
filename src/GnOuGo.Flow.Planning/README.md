@@ -12,6 +12,10 @@ The generated language permits literals, typed references, simple conditions and
 
 Generated `agent.run` stages require a nonempty literal `workspace`, reviewed with the objective, permissions, budgets and verification requirements. Runtime input/output references and interpolation cannot choose this scope. Changing the workspace changes the approval hash; the injected runner still applies its existing path and filesystem policy. Authored YAML retains dynamic workspace inputs.
 
+Use `{"kind":"present","source":"stage_key"}` as a boolean step or switch condition to test whether an earlier stage produced a non-null result. The compiler emits a safe `!= null` check, including during finalization after interrupted main execution. This condition does not prove external success, validate an opaque payload, or expose results from a different branch or loop body. Existing explicit expressions remain supported; `!== null` alone does not exclude a missing result.
+
+Generated MCP calls share one permitted input shape across catalog presentation and validation: `request`, `timeout_ms`, `preserve_optional_nulls`, `raise_on_error`, and `detect_result_errors`. Targets and fixed policy bindings belong to the selected catalog contract; conflicting bindings are rejected during deterministic compilation.
+
 A failed validation opens one bounded graph revision scope, including affected consumers and subworkflow callers. Other stages and interfaces remain frozen. Invalid scope changes cannot become the next repair baseline. Discovery, revisions and retries share cumulative call, token, cost and elapsed-time ceilings; the defaults remain eight model calls and two graph repairs.
 
 Interactive mode asks typed business clarification questions. Auto mode stops when necessary information is missing. Approval identifies an exact artifact hash covering requirements, graph, selected contracts and budget ceilings. External effects also require the existing host confirmation boundary.

@@ -9,7 +9,7 @@ internal static class PlanningGraphTopology
         .Concat(node.OnError.SelectMany(e => (e.If is null ? Enumerable.Empty<PlanningValue>() : PlanningDataflow.References(e.If)).Concat(e.SetOutput is null ? [] : PlanningDataflow.References(e.SetOutput))));
     internal static IEnumerable<string> ReferencedStages(PlanningValue value)
     {
-        foreach (var reference in PlanningDataflow.References(value).Where(v => v.Kind == "output" && v.Source is not null)) yield return reference.Source!;
+        foreach (var reference in PlanningDataflow.References(value).Where(v => v.Kind is "output" or "present" && v.Source is not null)) yield return reference.Source!;
         if (value.Kind == "expression")
         {
             Acornima.Ast.Node? expression = null;
@@ -33,7 +33,7 @@ internal static class PlanningGraphTopology
         .Concat(node.Cases.Select(c => c.When)).Concat(node.OnError.SelectMany(e => new[] { e.If, e.SetOutput }))
         .OfType<PlanningValue>();
     internal static bool GuardsFinalizerSource(PlanningValue guard, string source)
-        => guard.Kind == "expression" && WorkflowResultAvailability.ProvesPresence(guard.Text, source);
+        => guard.Kind == "present" && guard.Source == source || guard.Kind == "expression" && WorkflowResultAvailability.ProvesPresence(guard.Text, source);
     internal static bool FinalizerAvailableOnSuccess(PlanningNode node, PlanningWorkflow workflow)
     {
         return Available(node, new(StringComparer.Ordinal));
@@ -43,8 +43,9 @@ internal static class PlanningGraphTopology
             try
             {
                 if (current.If is null) return true;
-                if (current.If.Kind != "expression") return false;
-                var required = WorkflowResultAvailability.RequiredResults(current.If.Text);
+                if (current.If.Kind is not ("expression" or "present")) return false;
+                var required = current.If.Kind == "present" && current.If.Source is { } source
+                    ? new HashSet<string>([source], StringComparer.Ordinal) : WorkflowResultAvailability.RequiredResults(current.If.Text);
                 if (required.Count == 0) return false;
                 foreach (var id in required)
                 {

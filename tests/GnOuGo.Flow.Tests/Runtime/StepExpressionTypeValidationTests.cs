@@ -10,6 +10,21 @@ namespace GnOuGo.Flow.Tests.Runtime;
 public sealed class StepExpressionTypeValidationTests
 {
     [Theory]
+    [InlineData("data.steps.source != null", true)]
+    [InlineData("null == data.steps.source", true)]
+    [InlineData("data.steps.source !== null", true)]
+    [InlineData("data.steps.source === null", true)]
+    [InlineData("data.steps.source > null", false)]
+    public void NullEqualityIsValidWithoutChangingPresenceProofs(string expression, bool valid)
+    {
+        var outputs = new Dictionary<string, FlowTypeDescriptor> { ["source"] = FlowTypeDescriptor.Object(new Dictionary<string, FlowPropertyDescriptor>()) };
+        var mismatch = StepExpressionTypeValidator.ValidateExpression("${" + expression + "}", "if", FlowTypeDescriptor.Boolean,
+            new Dictionary<string, FlowTypeDescriptor>(), outputs);
+        Assert.Equal(valid, mismatch is null);
+        Assert.Equal(expression == "data.steps.source != null", WorkflowResultAvailability.ProvesPresence(expression, "source"));
+    }
+
+    [Theory]
     [InlineData("data.steps.source && data.steps.source.message || 'fallback'", "string")]
     [InlineData("data.steps.source && data.steps.source.items || []", "array")]
     [InlineData("false || 'fallback'", "string")]

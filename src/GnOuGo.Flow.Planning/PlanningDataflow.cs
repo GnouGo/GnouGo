@@ -28,6 +28,8 @@ internal static class PlanningDataflow
             : new[] { new PlanningValue { Kind = "output", Source = n.Key }, new PlanningValue { Kind = "output", Source = n.Key, ResultChannel = "structured" } }))
             .Concat(nodes.Take(Math.Max(0, consumerIndex)).Where(n => n.Type == "mcp.call" && n.OnError.Any(h => h.Action == "continue") && Available(n.Key))
                 .Select(n => new PlanningValue { Kind = "output", Source = n.Key, ResultChannel = "envelope" }));
+        sources = sources.Concat(nodes.Take(Math.Max(0, consumerIndex)).Where(n => Available(n.Key, presence: true))
+            .Select(n => new PlanningValue { Kind = "present", Source = n.Key }));
         foreach (var source in sources)
         {
             JsonObject schema;
@@ -76,10 +78,10 @@ internal static class PlanningDataflow
                 }
         return result;
 
-        bool Available(string key)
+        bool Available(string key, bool presence = false)
         {
             if (consumer is null) return true;
-            foreach (var condition in Guards(key))
+            foreach (var condition in presence ? Enumerable.Empty<PlanningValue>() : Guards(key))
             {
                 if (consumer == WorkflowOutputs && workflow.Finally.Any(n => n.Key == key) &&
                     PlanningGraphTopology.FinalizerAvailableOnSuccess(nodes.Single(n => n.Key == key), workflow)) continue;
@@ -93,7 +95,7 @@ internal static class PlanningDataflow
             // container outside that body. A direct producer is available only in the same body.
             var path = locations[key]; var target = consumer == WorkflowOutputs ? "/outputs" : locations[consumer];
             // Main execution can stop before any producer; finalizers cannot assume those results exist.
-            if (target.StartsWith("/finally/", StringComparison.Ordinal) && path.StartsWith("/steps/", StringComparison.Ordinal) &&
+            if (!presence && target.StartsWith("/finally/", StringComparison.Ordinal) && path.StartsWith("/steps/", StringComparison.Ordinal) &&
                 !Guards(consumer).Any(guard => PlanningGraphTopology.GuardsFinalizerSource(guard, key))) return false;
             if (target.StartsWith(path + "/", StringComparison.Ordinal)) return false; // An executing ancestor has no completed result yet.
             foreach (var marker in new[] { "/cases/", "/default/", "/branches/" })
@@ -185,7 +187,7 @@ internal static class PlanningDataflow
 
     internal static IEnumerable<PlanningValue> References(PlanningValue value)
     {
-        if (value.Kind is "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection") yield return value;
+        if (value.Kind is "present" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection") yield return value;
         var members = value.Members.AsEnumerable();
         foreach (var child in members.Select(m => m.Value).Concat(value.Items)) foreach (var reference in References(child)) yield return reference;
     }

@@ -52,7 +52,7 @@ public sealed class PlanningSchema
     public string? SchemaPointer { get; set; }
 }
 
-/// <summary>Literal, input/output reference, expression, object, array, or workflow reference.</summary>
+/// <summary>Literal, input/output reference, stage-presence condition, expression, object, array, or workflow reference.</summary>
 public sealed class PlanningValue
 {
     public string Kind { get; set; } = "null";

@@ -17,6 +17,7 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("object")), ("members", Array(Ref("member")))),
                 Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
                 Object(("kind", Enum("input", "output", "loop_item", "loop_index", "workflow")), ("source", String()), ("path", Ref("strings"))),
+                Object(("kind", Enum("present")), ("source", Describe(String(), "Stage whose completed non-null result must exist; safe when the stage did not run. Does not prove external success or validate its payload."))),
                 Object(("kind", Enum("expression")), ("text", String()))) },
             ["member"] = Object(("name", String()), ("value", Ref("value"))),
             ["schema"] = new JsonObject { ["anyOf"] = new JsonArray(

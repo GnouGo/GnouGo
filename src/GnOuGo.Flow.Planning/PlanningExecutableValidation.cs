@@ -221,7 +221,7 @@ public static class PlanningExecutableValidation
         "object" => new JsonObject(value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted).Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Preview(m.Value)))),
         "array" => new JsonArray(value.Items.Select(Preview).ToArray()),
         "workflow" => new JsonObject { ["kind"] = "local", ["name"] = value.Source },
-        "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "expression" or "template" => JsonValue.Create("${data.value}"),
+        "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "template" => JsonValue.Create("${data.value}"),
         _ => PlanningGraphValidation.Literal(value)
     };
 }

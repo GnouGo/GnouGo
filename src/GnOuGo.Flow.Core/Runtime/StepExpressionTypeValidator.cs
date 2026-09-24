@@ -622,6 +622,12 @@ internal static class StepExpressionTypeValidator
         if (!TrySplitTopLevelComparison(expression, out var left, out var comparisonOperator, out var right))
             return null;
 
+        // Equality with null is a valid presence comparison even when a completed
+        // producer's declared payload is non-null. This does not establish that a
+        // result exists: availability proofs separately account for undefined.
+        if (comparisonOperator is "==" or "!=" or "===" or "!==" &&
+            (left == "null" || right == "null")) return null;
+
         var leftType = InferExpressionType(left, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
         var rightType = InferExpressionType(right, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
         if (leftType == null
