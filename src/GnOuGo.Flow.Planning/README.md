@@ -2,25 +2,25 @@
 
 A separately publishable package depending only on Flow.Core.
 
-`Requirements → progressive capability discovery → PlanningGraph → validation → approval`
+`Requirements → progressive discovery → LLM TaskPlan → deterministic compilation → PlanningGraph → YAML → validation → scoped TaskPlan repair → approval`
 
-`HybridWorkflowPlanner` is the only planner. Requirements retain reviewable outcomes and acceptance criteria; `PlanningGraph` is the only executable representation. YAML is compiled deterministically from that graph. Static validation and optional simulations do not establish external execution success.
+`TaskPlan` is editable business intent. `PlanningGraph` is the sole executable representation. `HybridWorkflowPlanner` uses one bounded discovery/planning/repair loop; resolving selected operations and compiling them do not call a model. Static validation and simulations do not establish external success.
 
-`ICapabilityCatalog` exposes source summaries, paginated capability summaries and exact versioned contracts. Discovery connects only requested sources. Pages and resolved contracts survive graph repairs. The model retains summaries from every discovered page without reopening them; unrelated unavailable sources become visible limitations. Approval and execution revalidate the selected capabilities, executor contracts and host policy.
+Tasks declare stable IDs, objectives, operation IDs, named business bindings and dependencies. Sequence is the default; concurrency requires a parallel scope or parallel iteration. Conditional alternatives declare matching business outputs. Reusable groups declare their inputs and outputs. Iteration has finite item and concurrency ceilings, preserves order and duplicates, and validates the collection bound before dispatch. Each scope can own `always` tasks.
 
-The generated language permits literals, typed references, simple conditions and registered typed operations. Built-in numeric and projection operations validate their contracts at runtime. Generated functions and arbitrary computation are rejected. Authored YAML retains its expression language.
+`TaskPlanCompiler` owns executor selection, stable generated IDs, request envelopes, references, branch merges, collection projections, defaults and cleanup guards. Transient symbol tables and source maps are not another persisted plan. Compilation diagnostics address business tasks and ports. Generated executor validation failures stop as compiler diagnostics; the model is never asked to repair generated plumbing.
 
-Generated `agent.run` stages require a nonempty literal `workspace`, reviewed with the objective, permissions, budgets and verification requirements. Runtime input/output references and interpolation cannot choose this scope. Changing the workspace changes the approval hash; the injected runner still applies its existing path and filesystem policy. Authored YAML retains dynamic workspace inputs.
+`ICapabilityCatalog` exposes source summaries, paginated versioned operation summaries and exact contracts. Ordinary business ports come directly from authoritative schemas. Injected catalogs may supply `PlanningOperation` mappings to exact schema fields; mappings never come from names, descriptions or examples. Registered executors explicitly opt into planning through `StepContract.PlanningEffectKind`. Selected contracts resolve automatically and are revalidated before approval and execution. Discovery pages and resolved receipts survive repair; unavailable unrelated sources remain visible limitations.
 
-Use `{"kind":"present","source":"stage_key"}` as a boolean step or switch condition to test whether an earlier stage produced a non-null result. The compiler emits a safe `!= null` check, including during finalization after interrupted main execution. This condition does not prove external success, validate an opaque payload, or expose results from a different branch or loop body. Existing explicit expressions remain supported; `!== null` alone does not exclude a missing result.
+Values allow literals, named business references and closed typed predicates. An output reference uses a task ID and business port; a null port selects its whole business result. Opaque results have no typed fields. Presence tests only whether a task produced a non-null result; it proves neither payload shape nor external success. JavaScript, executor types, wire paths, projection recipes and schema pointers are absent from the model response contract. Authored YAML retains the existing runtime language.
 
-Generated MCP calls share one permitted input shape across catalog presentation and validation: `request`, `timeout_ms`, `preserve_optional_nulls`, `raise_on_error`, and `detect_result_errors`. Targets and fixed policy bindings belong to the selected catalog contract; conflicting bindings are rejected during deterministic compilation.
+Generated agent stages require literal objective, nonempty workspace, capabilities, budgets, output contract and verification requirements. A business choice cannot select these scope fields. The injected runner still enforces paths, permissions, filesystem and inference policy.
 
-A failed validation opens one bounded graph revision scope, including affected consumers and subworkflow callers. Other stages and interfaces remain frozen. Invalid scope changes cannot become the next repair baseline. Discovery, revisions and retries share cumulative call, token, cost and elapsed-time ceilings; the defaults remain eight model calls and two graph repairs.
+`PlanningChoice` binds exactly one business value slot. It declares typed literal alternatives, a recommended ID and a host-owned selected ID. Interactive mode presents alternatives; auto mode validates and records the recommendation without another model call. Selection recompiles locally. Choices never approve execution or replace runtime confirmation.
 
-Interactive mode asks typed business clarification questions. Auto mode stops when necessary information is missing. Approval identifies an exact artifact hash covering requirements, graph, selected contracts and budget ceilings. External effects also require the existing host confirmation boundary.
+Repairs preserve unaffected tasks, interfaces and compiled stages; discovery, retries and revisions share cumulative budgets. Defaults remain eight model calls and two repairs. Approval hashes intent, choices, mappings, exact contracts, graph/YAML and ceilings. Approval verification recompiles and requires the reviewed artifact to match exactly.
 
-Schema-9 storage rejects previous planning approvals. Old encrypted records are left intact. Regenerate and approve old workflows; there is no legacy planner switch or compatibility execution path. See [migration and implementation status](../../docs/flow-hybrid-v9-implementation.md).
+Planning storage format **10** rejects prior planning sessions and approvals without modifying their encrypted records. Execution journal schema **9** is unchanged. AI revision requires a saved TaskPlan or fresh requirements and renewed approval; YAML import into the planner has been removed.
 
 ```bash
 dotnet build src/GnOuGo.Flow.Planning -c Release -warnaserror
@@ -29,4 +29,4 @@ dotnet run --project tests/GnOuGo.Flow.Planning.Smoke -c Release
 dotnet pack src/GnOuGo.Flow.Planning -c Release
 ```
 
-Tests preserve the frozen business requests and independent execution oracles in `tests/Shared/PlanningBenchmarkCases.cs`. The scripted response harness produces graphs directly; no removed intermediate representation is retained for comparison. Live comparisons use an isolated checkout of the parent revision and the shared campaign spending ceiling.
+The eight frozen business requests and independent execution oracles remain in `tests/Shared/PlanningBenchmarkCases.cs`. Scripted responses now produce TaskPlans. Retained live evidence is unchanged; the authorized candidate evaluates three complex cases, three repetitions each, under the original cumulative campaign ceiling. See [architecture and migration](../../docs/workflow-planning-v9.md).

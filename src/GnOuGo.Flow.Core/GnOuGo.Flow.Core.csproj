@@ -7,7 +7,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <PackageId>GnOuGo.Flow.Core</PackageId>
-    <PackageReleaseNotes>Breaking schema-9 planning and execution: unified executable graph, bounded agent tasks, encrypted tenant journals; regenerate and approve previous planning sessions.</PackageReleaseNotes>
+    <PackageReleaseNotes>Breaking planning format 10: semantic TaskPlan compilation and local business choices; regenerate and approve previous planning sessions. Execution journals remain schema 9.</PackageReleaseNotes>
     <Authors>GnOuGo</Authors>
     <Company>GnOuGo</Company>
     <Description>NativeAOT-compatible YAML workflow DSL engine for orchestrating LLMs, MCP servers, templates, loops, and human input.</Description>

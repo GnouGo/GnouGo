@@ -1,18 +1,31 @@
-# Schema-9 workflow planning and execution
+# TaskPlan planning format 10 and execution schema 9
 
-Flow uses one planner, one executable graph and one execution journal. Requirements
-record the requested outcomes and acceptance criteria. Progressive capability
-discovery selects declared operations; exact versioned contracts establish which
-inputs and outputs can be used. The planner proposes `PlanningGraph`, deterministic
-validators check it, and the compiler produces YAML for review and approval.
+Flow uses one semantic planner, one executable graph and one execution journal.
+
+```mermaid
+flowchart LR
+  Requirements --> Discovery[Progressive discovery]
+  Discovery --> Tasks[LLM TaskPlan]
+  Tasks --> Compiler[Deterministic TaskPlanCompiler]
+  Compiler --> Graph[PlanningGraph]
+  Graph --> YAML
+  YAML --> Validation
+  Validation --> Approval
+  Validation --> Repair[Scoped TaskPlan repair]
+  Repair --> Tasks
+```
+
+The model selects declared operation intents and connects business ports. The compiler
+owns binding and executor plumbing. There is no model-generated graph, separate
+binding session, grounded-plan representation or additional model phase.
 
 ## Package boundaries
 
-- **Flow.Core** owns the authored YAML runtime, graph and requirement contracts,
+- **Flow.Core** owns the authored YAML runtime, TaskPlan, graph and requirement contracts,
   `ICapabilityCatalog`, `IAgentTaskRunner`, `IAgentTaskVerifier` and `IWorkflowRunStore`.
   It references no other GnOuGo package.
-- **Flow.Planning** implements `HybridWorkflowPlanner`, graph validation, bounded
-  revisions and deterministic compilation. Its only GnOuGo dependency is Core.
+- **Flow.Planning** implements `HybridWorkflowPlanner`, task compilation, shared graph validation, bounded
+  semantic revisions and deterministic compilation. Its only GnOuGo dependency is Core.
 - **Flow.Integrations** supplies AI and MCP transports and encrypted planning
   sessions through injected interfaces.
 - **Flow.Copilot** implements the agent runner over injected MCP transport. Its only
@@ -38,13 +51,13 @@ simple conditions and registered typed transformations. Authored YAML retains it
 existing expression runtime. Opaque output needs whole-value validation before
 field access; assistant descriptions and sample values cannot establish a contract.
 
-A failed validation opens one bounded revision scope. Dependent findings are
+A semantic binding failure opens one bounded task revision scope. Generated executor validation failures stop with compiler diagnostics. Dependent findings are
 invalidated; unaffected validated stages and interfaces remain unchanged. Repairs,
 retries and restarts share the original planning budget. Defaults remain eight
 model calls, two repairs, 12,000 input tokens per request and the configured output
 ceiling. A host may explicitly configure a larger request limit before dispatch.
 
-Approval identifies the exact requirements, graph, compiled artifact, selected
+Approval recompiles the TaskPlan and requires the reviewed artifact to match exactly. It identifies the exact requirements, TaskPlan, choices, operation mappings, graph, compiled artifact, selected
 contracts, task scopes, verification requirements and budget ceilings. A change to
 that scope requires a fresh review. Artifact approval does not replace the host's
 existing runtime permission decisions. Static validation and simulations are
@@ -129,21 +142,38 @@ gnougo-flow runs --tenant default --id RUN_ID --command cancel --revision REVISI
 gnougo-flow runs --tenant default --id RUN_ID --command reconcile --revision REVISION --invocation INVOCATION_ID
 ```
 
-## Migration from schema 8
+## Business choices
 
-1. Upgrade the host and all affected Flow consumers together. There are no old
-   checkpoint routes, compatibility DTOs or legacy planner switch.
-2. Keep existing encrypted records. No in-place conversion or deletion is performed.
-3. Regenerate the workflow through the new planner and review its requirements,
-   stages, contracts, evidence requirements and budgets. Approve the new artifact.
-4. Start a new schema-9 run. Old approvals and checkpoints cannot authorize execution
-   or resume; incompatible sessions instruct the user to regenerate and approve.
-5. Independently authored YAML remains supported by the runtime language. It may
-   start a new run under the host's normal authorization; it does not inherit a
-   previous planning approval.
+Each `PlanningChoice` targets one semantic value slot and supplies typed literal
+alternatives, a recommendation and a host-owned selection. Interactive mode presents
+the alternatives. Auto mode validates and records the recommendation without another
+model call. Selection recompiles deterministically. Choices cannot change agent scope,
+grant permissions, raise budgets or replace runtime confirmation.
 
-Public planning consumers use requirements, stages, discovery limitations and
-validation results. Chat and Designer expose agent stages and verification; execution
-views expose invocation receipts, budgets, human waits and recovery state.
+## Migration to planning format 10
 
-See [implementation evidence and deleted subsystems](flow-hybrid-v9-implementation.md).
+1. Upgrade hosts, planning consumers and source-generated serialization together.
+2. Keep old encrypted planning records. New `flow-planning-*-v10` and
+   `agent-planning-*-v10` records hold TaskPlans, choices and derived artifacts. Existing
+   EF indexes remain tenant scoped; incompatible historical records are inspection-only.
+3. Regenerate requirements and review tasks, selected operation mappings, contracts,
+   workspace, evidence requirements and budgets. Previous approvals do not transfer.
+4. Execution journals remain schema 9. This change does not migrate or restart runs.
+5. Authored YAML remains executable through the existing runtime and permission policy.
+   AI revision requires a saved TaskPlan or newly stated requirements and fresh approval.
+   YAML-to-planner import is removed.
+
+Commands selecting business alternatives use `kind: "choose"`, `expectedRevision`, and
+`selections: { "choice_id": "alternative_id" }`. Stale revisions conflict. Selection
+is separate from `approve`, which requires the exact artifact hash. Chat, Designer,
+planning pages and CLI review expose tasks, choices and compiled validation findings;
+YAML and agent execution scopes remain available for review.
+
+Deleted: direct graph response variants and graph-generation prompt recipes, model
+capability-resolution actions, graph-level repair baselines, graph revision machinery,
+YAML revision importer, graph revision context serializer, free-form clarification
+DTOs and their old UI. Shared graph/runtime validators, expression support for authored
+YAML, adapters, tenant isolation and durable execution remain in place.
+
+See [TaskPlan contract and package instructions](../src/GnOuGo.Flow.Planning/README.md)
+and [retained implementation evidence](flow-hybrid-v9-implementation.md).

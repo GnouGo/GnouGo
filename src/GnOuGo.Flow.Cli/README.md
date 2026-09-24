@@ -3,7 +3,7 @@
 The CLI validates and executes Flow workflows, with the typed planner injected for
 `workflow.plan`. Configure a model and MCP capabilities in `appsettings.json` or
 configuration overrides. Console prompts collect typed clarification and final artifact approval. YAML is produced by deterministic lowering
-of the validated typed graph. See [planning architecture](../../docs/workflow-planning-v9.md).
+of the semantic tasks, selected choices and compiled graph. Planning storage uses format 10; execution journals remain schema 9. See [planning architecture](../../docs/workflow-planning-v9.md).
 
 ```sh
 dotnet build src/GnOuGo.Flow.Cli

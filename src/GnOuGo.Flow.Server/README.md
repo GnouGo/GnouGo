@@ -1,6 +1,6 @@
 # GnOuGo.Flow.Server
 
-ASP.NET Core host and workflow editor for Flow. Engines inject the same hybrid planner as the CLI and Agent.Server: requirements, progressive discovery, one executable graph, deterministic validation and approval. Simulated validation is separate from observed execution evidence. The compiler owns YAML generation and execution verifies the stored approval. Human input uses the server's endpoints. See [architecture](../../docs/workflow-planning-v9.md).
+ASP.NET Core host and workflow editor for Flow. Engines inject the same hybrid planner as the CLI and Agent.Server: requirements, progressive discovery, a semantic TaskPlan, deterministic graph/YAML compilation, validation and approval. Simulated validation is separate from observed execution evidence. The compiler owns YAML generation and execution verifies the stored approval. Human input uses the server's endpoints. See [architecture](../../docs/workflow-planning-v9.md).
 
 ```sh
 dotnet build src/GnOuGo.Flow.Server
@@ -23,7 +23,7 @@ curl --fail http://localhost:5300/health
 The image includes the planner and encrypted persistence dependencies. Its `URLS`
 setting binds the exposed port on all container interfaces.
 
-The planning runtime stores encrypted schema-9 sessions and request receipts under the run ID.
+The planning runtime stores encrypted format-10 planning sessions and request receipts under the run ID.
 Reopening a planning call with that identity reuses completed requests and retained budgets.
 Execution uses `GnOuGo.Flow.Persistence`: encrypted KeyVault journal payloads and a rebuildable EF Core/SQLite index.
 

@@ -32,7 +32,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
     public IAgentTaskVerifier AgentTaskVerifier { get; set; } = new EvidenceAgentTaskVerifier();
     public IWorkflowRunStore? RunStore { get; set; }
     internal WorkflowRunJournal? Journal { get; set; }
-    /// <summary>Optional separately injected schema-9 planner; Flow.Core does not reference its implementation.</summary>
+    /// <summary>Optional separately injected TaskPlan planner; Flow.Core does not reference its implementation.</summary>
     public Planning.IPlanningInteraction? PlanningInteraction { get; set; }
     public string DefaultPlanningMode { get; set; } = Planning.PlanningMode.Interactive;
     public Planning.IWorkflowPlanner? WorkflowPlanner { get; set; }

@@ -7,7 +7,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <PackageId>GnOuGo.Flow.Integrations</PackageId>
-    <PackageReleaseNotes>Breaking schema-9 planning and execution: unified executable graph, bounded agent tasks, encrypted tenant journals; regenerate and approve previous planning sessions.</PackageReleaseNotes>
+    <PackageReleaseNotes>Breaking planning format 10: semantic TaskPlan compilation and local business choices; regenerate and approve previous planning sessions. Execution journals remain schema 9.</PackageReleaseNotes>
     <Authors>GnOuGo</Authors>
     <Company>GnOuGo</Company>
     <Description>AI provider and MCP transport integrations for the autonomous GnOuGo.Flow.Core workflow engine.</Description>

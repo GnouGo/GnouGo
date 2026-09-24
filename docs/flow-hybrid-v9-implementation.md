@@ -154,3 +154,42 @@ allowlist. Audit publication enables the warnings again and rejects changed orig
 Agent server audit was repeated against the isolated parent: 106 distinct warning
 origins before, 105 after; the compiled planning model removed its application
 IL2026. No additional warning origin was accepted.
+
+## TaskPlan replacement (planning format 10)
+
+The latest authorized change replaces direct graph generation with one semantic
+TaskPlan and deterministic lowering. Runtime, adapters and execution journal schema 9
+remain unchanged. Prior planning approvals are rejected; original evidence remains
+under [the completed stabilization cohort](evidence/flow-v9-112/stabilization/README.md).
+
+Before:
+
+```mermaid
+flowchart LR
+  Requirements --> Discovery --> LLM[LLM graph and executor bindings]
+  LLM --> PlanningGraph --> Validation --> Approval
+  Validation --> GraphRepair[Model graph repair] --> LLM
+```
+
+After:
+
+```mermaid
+flowchart LR
+  Requirements --> Discovery --> LLM[LLM semantic TaskPlan]
+  LLM --> Compiler[Deterministic binding and control flow]
+  Compiler --> PlanningGraph --> YAML --> Validation --> Approval
+  Validation --> TaskRepair[Scoped semantic repair] --> LLM
+  Choices[Typed business choices] --> Compiler
+```
+
+Deleted subsystems: direct-graph response schema and graph prompt recipes; explicit
+model capability-resolution action; model graph revision baselines and graph repair;
+YAML-to-planner importer and graph revision context; free-form clarification contracts,
+serialization and input UI. Tests now supply semantic tasks while retaining the frozen
+business prompts and independent runtime oracles. Compiler symbols/source maps are
+transient and no additional binding representation is persisted.
+
+`TaskPlanCompiler` owns operation binding, stable IDs, result envelopes, branch output
+merges, ordered iteration, projections, defaults and finalizer guards. Approval includes
+TaskPlan/choices and requires deterministic recompilation to reproduce the reviewed
+artifact. The semantic response contract contains no JavaScript or executor plumbing.
