@@ -73,18 +73,21 @@ public sealed class CopilotExecutionBoundsTests
         Assert.IsType<PermissionDecisionReject>(permission);
     }
     [Fact]
-    public async Task BoundedCommandsBootstrapManagedPolicyForCreateAndResume()
+    public async Task BoundedCommandsBootstrapPolicyWithoutChangingAuthenticationOrProvider()
     {
         var bounds = new CopilotExecutionBounds(1, 10000, DateTimeOffset.UtcNow.AddMinutes(1), new HashSet<string> { "bash" }, (_, _, _) => Task.CompletedTask);
         var config = new CopilotRuntimeConfiguration(Path.GetTempPath(), "model", GitHubToken: "test-token") { ExecutionBounds = bounds };
         await using var client = new GitHubCopilotSdkClient(new CopilotClient(new CopilotClientOptions()), config, NullLogger.Instance);
-        var source = new CopilotSdkSessionConfiguration(new(new("tenant"), config), null, null);
+        var provider = new CopilotProviderResolution("configured", "model", new GitHub.Copilot.ProviderConfig { Type = "openai", BaseUrl = "https://provider.example/v1" });
+        var source = new CopilotSdkSessionConfiguration(new(new("tenant"), config), provider, null);
         var create = client.BuildCreateConfig(source);
         var resume = client.BuildResumeConfig(source);
-        Assert.True(create.EnableManagedSettings); Assert.Equal("test-token", create.GitHubToken);
-        Assert.True(resume.EnableManagedSettings); Assert.Equal("test-token", resume.GitHubToken);
+        Assert.True(create.EnableManagedSettings); Assert.Null(create.GitHubToken); Assert.Same(provider.Provider, create.Provider);
+        Assert.Equal(DisableBypassPermissionsModes.Disable, create.ManagedSettings!.Permissions!.DisableBypassPermissionsMode);
+        Assert.True(resume.EnableManagedSettings); Assert.Null(resume.GitHubToken); Assert.Equal(DisableBypassPermissionsModes.Disable, resume.ManagedSettings!.Permissions!.DisableBypassPermissionsMode);
+        Assert.Same(provider.Provider, resume.Provider);
         var missing = source with { Request = source.Request with { Configuration = config with { GitHubToken = null } } };
-        Assert.Throws<CopilotSandboxRequiredException>(() => client.BuildCreateConfig(missing));
+        Assert.True(client.BuildCreateConfig(missing).EnableManagedSettings);
     }
     private static HttpRequestMessage Request(string json) => new(HttpMethod.Post, "https://provider.example/v1/responses") { Content = new StringContent(json) };
 }

@@ -199,8 +199,6 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
     {
         var request = source.Request;
         var configuration = request.Configuration;
-        if (configuration.ExecutionBounds?.RequiresSandbox == true && string.IsNullOrWhiteSpace(configuration.GitHubToken))
-            throw new CopilotSandboxRequiredException("Bounded commands require a configured GitHub token for the managed SDK policy bootstrap, including when using a separate inference provider.");
         if (source.FileSystem is not null)
             foreach (var directory in configuration.SkillDirectories ?? []) source.FileSystem.ValidateRead(directory);
         return new SessionConfig
@@ -208,7 +206,10 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             SessionId = string.IsNullOrWhiteSpace(request.RequestedSessionId) ? null : request.RequestedSessionId,
             ClientName = "GnOuGo.GithubCopilot.Core",
             EnableManagedSettings = configuration.ExecutionBounds?.RequiresSandbox == true ? true : null,
-            GitHubToken = configuration.ExecutionBounds?.RequiresSandbox == true ? configuration.GitHubToken : null,
+            // Runtime 1.0.88 resolves device policy with this flag after ManagedSettings.ReadAsync.
+            // Keep authentication on the client: a per-session token conflicts with BYOK providers.
+            ManagedSettings = configuration.ExecutionBounds?.RequiresSandbox == true
+                ? new() { Permissions = new() { DisableBypassPermissionsMode = DisableBypassPermissionsModes.Disable } } : null,
             Model = source.Provider?.Model ?? configuration.Model,
             ReasoningEffort = NormalizeNullable(configuration.ReasoningEffort),
             Provider = source.Provider?.Provider,
@@ -241,7 +242,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         {
             ClientName = create.ClientName,
             EnableManagedSettings = create.EnableManagedSettings,
-            GitHubToken = create.GitHubToken,
+            ManagedSettings = create.ManagedSettings,
             Model = create.Model,
             ReasoningEffort = create.ReasoningEffort,
             Provider = create.Provider,
