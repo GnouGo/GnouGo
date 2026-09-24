@@ -1,5 +1,7 @@
 # Compact intent correction validation
 
+> Historical evidence: the Agent.Server review-publication subsystem described below was removed on 2026-09-24. Its draft, publication and replay checks describe the earlier implementation. Current workflows use configured MCP capabilities and generic approval mechanisms; see [migration details](github-mcp-workflow-execution.md).
+
 This follow-up keeps the architecture, schema-7 sessions and planning budgets unchanged. The uncertain request in `compact-intent-candidate-20260919-2d15b1` remains stopped. Previous live results and accounting are preserved.
 
 ## Recorded-response replay

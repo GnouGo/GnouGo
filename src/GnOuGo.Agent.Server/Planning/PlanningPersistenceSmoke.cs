@@ -56,10 +56,9 @@ internal static class PlanningPersistenceSmoke
             throw new InvalidOperationException("Incompatible history isolation failed.");
         try { await reopened.LoadAsync("smoke", legacy.Request.SessionId, CancellationToken.None); throw new InvalidOperationException("Incompatible history was admitted."); }
         catch (PlanningConflictException) { }
-        await Reviews.ReviewPersistenceSmoke.RunAsync(records);
         foreach (var file in Directory.EnumerateFiles(directory, "*.db"))
             if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)) is { } bytes &&
-                (bytes.Contains("Private published smoke content", StringComparison.Ordinal) || bytes.Contains("Private published review smoke", StringComparison.Ordinal) || bytes.Contains("JSON.parse(text)", StringComparison.Ordinal)))
+                (bytes.Contains("Private published smoke content", StringComparison.Ordinal) || bytes.Contains("JSON.parse(text)", StringComparison.Ordinal)))
                 throw new InvalidOperationException("Sensitive session content was persisted unencrypted.");
         Console.WriteLine("Schema-8 planning persistence smoke passed.");
     }

@@ -31,8 +31,9 @@ It provides:
 - `interactive`, `auto_approve_allowlist`, `deny`, and policy-gated `approve_all` permission modes. Interactive callbacks always offer allow-once and refuse. When the SDK supplies a safe matching scope they also offer allow-similar-for-task. A disabled-by-default host gate controls broad current-task, workflow-run, and future-agent-run choices without changing the session to `approve_all`; a second independent gate controls explicit reusable sandbox-bypass choices;
 - KeyVault-provider abstractions that keep credentials out of workflow arguments and results;
 - bounded pull-request review batches, caller instructions applied to every batch, bounded untrusted existing-comment context, strict structured finding parsing, diff-line/path validation, fingerprints, existing-comment deduplication, and coverage metadata;
-- deterministic `ReviewEvaluation` for declared requested checks. It derives `APPROVE` for complete passing reviews (including zero findings), `REQUEST_CHANGES` for blockers or established failed checks, and `COMMENT` for incomplete verification. Command outcomes come from matching original invocation arguments, working directories and observed exit codes. Missing or reused observations cannot pass several checks. Evaluation does not authorize publication; Agent.Server owns confirmation and the GitHub write;
 - source-generated JSON metadata for trimming and Native AOT consumers.
+
+Review analysis returns findings and coverage; it does not derive a publication verdict or authorize writes. GitHub mutations use the configured official GitHub MCP through the consuming workflow. The former evaluation/publication API has been removed; see [migration details](../../docs/github-mcp-workflow-execution.md).
 
 Raw model reasoning is discarded. Streaming exposes only operational progress events.
 Interactive one-shot execution reports stable lifecycle milestones for session creation, request processing, cancellation/failure, and session deletion. A deletion failure never replaces an earlier request failure; it is attached as cleanup diagnostics while the primary exception is preserved.

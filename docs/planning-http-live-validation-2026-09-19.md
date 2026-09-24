@@ -1,5 +1,7 @@
 # Live validation of HTTP recovery
 
+> Historical evidence: the Agent.Server review-publication subsystem described below was removed on 2026-09-24. Its draft, publication and replay checks describe the earlier implementation. Current workflows use configured MCP capabilities and generic approval mechanisms; see [migration details](github-mcp-workflow-execution.md).
+
 ## Scope and configuration
 
 Campaign `compact-intent-http-recovery-20260919-952f64a` is a distinct validation of the HTTP retry implementation, authorized by the request to run live tests. It retains an independent encrypted KeyVault ledger and a EUR 50 ceiling. Previous campaigns and stopped planning sessions remain untouched. All workflow effects are mocked: no repository was cloned, no GitHub review was published and no actual PR execution occurred.

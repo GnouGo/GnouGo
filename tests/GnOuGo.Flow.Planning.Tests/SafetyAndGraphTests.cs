@@ -44,6 +44,13 @@ public sealed class SafetyAndGraphTests
             Assert.Equal(answer == true, result.Success);
             if (answer == true) Assert.Equal(["action", "cleanup"], effects); else Assert.Empty(effects);
         }
+        effects.Clear();
+        var cancelledEngine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new CancelledHuman() };
+        var cancelledDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
+        var cancelledResult = await cancelledEngine.ExecuteAsync(cancelledDocument.Workflows[cancelledDocument.Entrypoint!], new JsonObject(), Ct);
+        Assert.False(cancelledResult.Success);
+        Assert.Empty(effects);
+
         state.Graph!.Workflows[0].Steps.RemoveAt(1);
         Assert.Throws<InvalidOperationException>(() => new PlanningGraphCompiler().Compile(state.Graph, state.Catalog!));
     }
@@ -108,5 +115,10 @@ public sealed class SafetyAndGraphTests
     private sealed class Human(bool answer) : IHumanInputProvider
     {
         public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct) => Task.FromResult<JsonNode?>(new JsonObject { ["response"] = answer });
+    }
+    private sealed class CancelledHuman : IHumanInputProvider
+    {
+        public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+            => Task.FromException<JsonNode?>(new OperationCanceledException("User cancelled confirmation."));
     }
 }

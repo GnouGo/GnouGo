@@ -1,5 +1,7 @@
 # LLM HTTP recovery validation
 
+> Historical evidence: the Agent.Server review-publication subsystem described below was removed on 2026-09-24. Its draft, publication and replay checks describe the earlier implementation. Current workflows use configured MCP capabilities and generic approval mechanisms; see [migration details](github-mcp-workflow-execution.md).
+
 This change keeps the compact planner architecture, schema-7 sessions, approval and runtime confirmation boundaries unchanged. No paid model calls, campaign resumptions, real workflow integrations or GitHub publications were performed. Existing live campaign evidence and accounting were not opened or modified.
 
 ## Retry ownership

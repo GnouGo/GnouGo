@@ -2,6 +2,12 @@
 
 The current architecture replaces the previously frozen deterministic-planner-v2 design.
 
+MCP capabilities come from configured servers through the normal discovery and
+execution path. Agent.Server supplies no virtual review publisher or GitHub-specific
+catalog filter. GitHub mutations use the configured official GitHub MCP, with the
+same generic workflow approval and runtime confirmation boundaries as other
+effects. See [MCP workflow execution and migration](github-mcp-workflow-execution.md).
+
 1. **SemanticPlan:** business actions, outcomes, named inputs and outputs, conditions, collections, parallel branches, reusable subflows and cleanup. No technical capabilities or executable expressions are requested at this stage.
 2. **Capability grounding:** complete authorized catalog coverage in bounded pages. Declared behavior and metadata support selection; argument compatibility cannot establish semantic suitability. Each action receives viable matches or an explicit global `none_of_the_above` after all pages complete.
 3. **GroundedPlan:** exact capability bindings, technical arguments, explicit computations and adapters, with mappings back to semantic actions and required business outputs. Oversized work is partitioned into balanced complete subgraphs; persisted prefixes are revalidated and provide typed boundaries to later batches.

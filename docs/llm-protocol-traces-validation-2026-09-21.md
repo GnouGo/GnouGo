@@ -1,5 +1,7 @@
 # Protocol selection and trace inspection — validation
 
+> Historical evidence: the Agent.Server review-publication subsystem described below was removed on 2026-09-24. Its draft, publication and replay checks describe the earlier implementation. Current workflows use configured MCP capabilities and generic approval mechanisms; see [migration details](github-mcp-workflow-execution.md).
+
 Date: 2026-09-21. Branch: `feat/deterministic-planner-v2`.
 Starting revision: `6655f5a`.
 Configuration change: `d476717`. Tracing change: `d00c528`.

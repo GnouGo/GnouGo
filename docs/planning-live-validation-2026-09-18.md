@@ -1,5 +1,7 @@
 # Agent.Server live planning validation — 2026-09-18
 
+> Historical evidence: the Agent.Server review-publication subsystem described below was removed on 2026-09-24. Its draft, publication and replay checks describe the earlier implementation. Current workflows use configured MCP capabilities and generic approval mechanisms; see [migration details](github-mcp-workflow-execution.md).
+
 ## Result
 
 The schema-6 refactor was committed and pushed as `ff567a2` on `feat/deterministic-planner-v2`. The user's unchanged French PR-review prompt was submitted through the actual Agent.Server planning API using its configured model and KeyVault-backed integrations.

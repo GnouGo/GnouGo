@@ -1,5 +1,7 @@
 # Designer capability and result-boundary recovery
 
+> Historical evidence: the Agent.Server review-publication subsystem described below was removed on 2026-09-24. Its draft, publication and replay checks describe the earlier implementation. Current workflows use configured MCP capabilities and generic approval mechanisms; see [migration details](github-mcp-workflow-execution.md).
+
 ## Scope and retained evidence
 
 Started from `07cbac1`; the first correction is `e20ce1a`, followed by the

@@ -1,5 +1,7 @@
 # Cleanup ordering correction and live validation
 
+> Historical evidence: the Agent.Server review-publication subsystem described below was removed on 2026-09-24. Its draft, publication and replay checks describe the earlier implementation. Current workflows use configured MCP capabilities and generic approval mechanisms; see [migration details](github-mcp-workflow-execution.md).
+
 The cleanup ordering defect is corrected, including guarded conditions and cancellation testing. The full reliability gates remain unmet: the latest pilot exposed a separate input-default hole defect in two cases. Paid evaluation stopped after that failed pilot. No actual repository clone, PR execution or GitHub publication occurred.
 
 ## Changes and scope

@@ -114,34 +114,3 @@ public sealed record CopilotReviewResult(
     // Includes validated findings suppressed because an existing comment already reports them.
     public int BlockingFindingCount { get; init; }
 }
-
-public sealed record ReviewCheckRequirement(string Name, bool RequiresExecution, bool AllowNotApplicable = false,
-    string? ExpectedArgumentsJson = null);
-
-public sealed record ReviewEvaluationRequest(CopilotReviewResult Review, string WorkingDirectory,
-    IReadOnlyList<ReviewCheckRequirement> RequiredChecks, IReadOnlyList<ReviewCheckResult> Checks);
-
-public sealed record ReviewEvaluationResult(ReviewSubmitEvent SubmitEvent, IReadOnlyList<ReviewCheckResult> Checks,
-    IReadOnlyList<string> Limitations, string Body);
-
-[JsonConverter(typeof(JsonStringEnumConverter<ReviewSubmitEvent>))]
-public enum ReviewSubmitEvent
-{
-    [JsonStringEnumMemberName("comment")]
-    Comment,
-    [JsonStringEnumMemberName("request_changes")]
-    RequestChanges,
-    [JsonStringEnumMemberName("approve")]
-    Approve
-}
-
-[JsonConverter(typeof(JsonStringEnumConverter<ReviewCheckStatus>))]
-public enum ReviewCheckStatus { Passed, Failed, Blocked, NotApplicable }
-
-/// <summary>A requested verification and its evidence. Command checks retain the original SDK observation.</summary>
-public sealed record ReviewCheckResult(
-    string Name,
-    ReviewCheckStatus Status,
-    string Evidence,
-    bool RequiresExecution,
-    CopilotToolExecutionObservation? Execution = null);
