@@ -3,7 +3,6 @@
 Execution storage uses `IWorkflowRunStore` (schema 9). Hosts inject the separately publishable `GnOuGo.Flow.Persistence`; Core remains independent of persistence libraries. A run records invocation paths, inputs, control decisions, receipts, usage, pending human answers and finalization. `ResumeAsync(tenantId, runId, expectedRevision, workflow, ct)` follows the same execution path as a new run. An external operation with an unknown outcome requires reconciliation and prevents cleanup. Custom executors default to external effects; declare `StepRecovery.ReplaySafe` only when restarting the executor cannot repeat an external effect.
 
 
-`ExpressionContractInference` models successful results without executing sample data. `ComputationInferenceProfile` documents supported scalar conversions and conservatively excludes shadowed or reassigned intrinsic names. `String` and URI encode/decode calls over one declared JSON scalar infer strings, while opaque/container inputs and unsupported forms remain uninferred. Runtime exceptions and explicit validation boundaries remain authoritative; scalar conversion is not business validation.
 
 `GeneratedFunctionDocumentation.Validate` exposes the generated-workflow JSDoc
 requirements for earlier construction checks. It validates manually authored generated-function contracts and reports missing
@@ -27,7 +26,6 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 
 Core owns `PlanningSession`, reviewable requirements, `PlanningGraph`, typed contracts and provider-neutral planning interfaces. It references no other GnOuGo project. Hosts inject the separately publishable Planning implementation and Integrations persistence boundary.
 
-Expression inference treats a typed string's literal-regex `match()` result as an array of nullable strings or null. Capture aliases support string methods; optional captures and missing indexes never establish presence. Dynamic patterns and opaque receivers remain uninferred, and runtime failures or `value.validate` still prevent invalid values reaching consumers.
 
 The flow is requirements → progressive capability discovery → one executable graph → deterministic validation → approval. A bounded graph revision preserves unaffected stages. Generated glue uses literals, references, simple conditions and registered typed transformations; authored YAML retains its expression language. Runtime confirmation for protected effects is separate from final artifact approval. See [workflow planning](../../docs/workflow-planning-v9.md).
 

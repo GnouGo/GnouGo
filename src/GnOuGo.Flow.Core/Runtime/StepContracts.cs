@@ -103,7 +103,7 @@ public static class BuiltInStepContracts
             ["mcp.call"] = Contract(
                 McpCallInput(),
                 Object(
-                    ("status", String()), ("response", Any()), ("error", OpenObject()),
+                    ("status", Enum("ok", "error")), ("response", Any()), ("error", OpenObject()),
                     ("correlation_id", String()), ("trace_id", String()), ("results", Array(Any())),
                     ("selection_mode", String()), ("text", String()), ("selection_text", String()),
                     ("tool_calls", Array(Any())), ("json", Any()), ("description", String()), ("messages", Array(Any()))),

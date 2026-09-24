@@ -1,3 +1,4 @@
+using Acornima.Ast;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using GnOuGo.Flow.Core.Models;
@@ -526,8 +527,61 @@ internal static class StepExpressionTypeValidator
             return null;
 
         var expression = exact.Groups["expression"].Value.Trim();
-        return ValidateTernaryConditions(expression, text, field, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences)
+        return ValidateEnumComparisons(expression, text, field, workflowInputs, knownStepOutputs, dataVariables)
+               ?? ValidateTernaryConditions(expression, text, field, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences)
                ?? ValidateComparisonOperands(expression, text, field, workflowInputs, knownStepOutputs, dataVariables, nonNullReferences);
+    }
+
+    private static StepExpressionTypeMismatch? ValidateEnumComparisons(
+        string expression, string original, string field,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? inputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor> outputs,
+        IReadOnlyDictionary<string, FlowTypeDescriptor>? variables)
+    {
+        Expression parsed;
+        try { parsed = new Acornima.Parser().ParseExpression(expression); }
+        catch (Acornima.ParseErrorException) { return null; }
+        return Visit(parsed);
+
+        StepExpressionTypeMismatch? Visit(Node node)
+        {
+            if (node is BinaryExpression binary)
+            {
+                if (binary.Operator is Acornima.Operator.Equality or Acornima.Operator.StrictEquality or
+                    Acornima.Operator.Inequality or Acornima.Operator.StrictInequality)
+                {
+                    var mismatch = Check(binary.Left, binary.Right) ?? Check(binary.Right, binary.Left);
+                    if (mismatch is not null) return mismatch;
+                }
+                return Visit(binary.Left) ?? Visit(binary.Right);
+            }
+            // Stay outside functions and assignments: their local bindings are not workflow contracts.
+            return node switch
+            {
+                UnaryExpression unary => Visit(unary.Argument),
+                ConditionalExpression conditional => Visit(conditional.Test) ?? Visit(conditional.Consequent) ?? Visit(conditional.Alternate),
+                _ => null
+            };
+        }
+        StepExpressionTypeMismatch? Check(Node reference, Node constant)
+        {
+            if (constant is not StringLiteral literal || Reference(reference) is not { } path) return null;
+            var type = InferExpressionType(path, inputs, outputs, variables, null);
+            if (type is null) return null;
+            var variants = type.Kind == FlowTypeKind.Union ? type.Variants : [type];
+            var strings = variants.Where(v => v.Kind == FlowTypeKind.String).ToArray();
+            if (strings.Length == 0 || variants.Any(v => v.Kind is not (FlowTypeKind.String or FlowTypeKind.Null)) ||
+                strings.Any(v => v.EnumValues.Count == 0 || v.EnumValues.Contains(literal.Value, StringComparer.Ordinal))) return null;
+            return new(field, original, type.Describe(), "string literal",
+                $"Comparison in '{field}' uses '{literal.Value}', which is outside the declared {type.Describe()} for '{path}'.");
+        }
+        static string? Reference(Node node) => node switch
+        {
+            Identifier identifier => identifier.Name,
+            MemberExpression { Computed: false, Property: Identifier property } member when Reference(member.Object) is { } parent => parent + "." + property.Name,
+            MemberExpression { Computed: true, Property: StringLiteral property } member when Reference(member.Object) is { } parent => parent + "." + property.Value,
+            _ => null
+        };
     }
 
     private static StepExpressionTypeMismatch? ValidateComparisonOperands(

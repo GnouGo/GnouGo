@@ -23,6 +23,54 @@ public sealed class StepExpressionTypeValidationTests
         Assert.Equal(expected, inferred?["type"]?.GetValue<string>());
     }
 
+    [Theory]
+    [InlineData("ok", true)]
+    [InlineData("error", true)]
+    [InlineData("success", false)]
+    public void CleanupGuardUsesExecutorStatusContract(string status, bool valid)
+    {
+        var document = Parse("""
+steps:
+  - id: acquire
+    type: mcp.call
+    input: { server: source, method: acquire, request: {} }
+finally:
+  - id: release
+    type: set
+    if: '${data.steps["acquire"] != null && data.steps["acquire"].status == "STATUS"}'
+    input: { released: true }
+""".Replace("STATUS", status, StringComparison.Ordinal));
+        if (valid) WorkflowPlanSemanticValidator.Validate(document);
+        else Assert.Contains(Assert.Throws<WorkflowSemanticValidationException>(() => WorkflowPlanSemanticValidator.Validate(document)).Errors, error => error.Message.Contains("outside the declared", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("data.inputs.mode == 'invented'", false)]
+    [InlineData("'invented' !== data.inputs.mode", false)]
+    [InlineData("!(data.inputs.mode === 'invented')", false)]
+    [InlineData("true ? data.inputs.mode === 'invented' : false", false)]
+    [InlineData("data.inputs.mode == 'read'", true)]
+    [InlineData("data.inputs.mode != null", true)]
+    public void ComparisonsRespectDeclaredEnumsWithoutProviderNames(string expression, bool valid)
+    {
+        var mismatch = StepExpressionTypeValidator.ValidateExpression("${" + expression + "}", "if", FlowTypeDescriptor.Boolean,
+            new Dictionary<string, FlowTypeDescriptor> { ["mode"] = FlowTypeDescriptor.Union([FlowTypeDescriptor.Enum("read", "write"), FlowTypeDescriptor.Null]) },
+            new Dictionary<string, FlowTypeDescriptor>());
+        Assert.Equal(valid, mismatch is null);
+    }
+
+    [Fact]
+    public void OpenStringAndOpaqueAlternativesDoNotEstablishClosedEnums()
+    {
+        foreach (var alternative in new[] { FlowTypeDescriptor.String, FlowTypeDescriptor.Any })
+        {
+            var mismatch = StepExpressionTypeValidator.ValidateExpression("${data.inputs.mode == 'future'}", "if", FlowTypeDescriptor.Boolean,
+                new Dictionary<string, FlowTypeDescriptor> { ["mode"] = FlowTypeDescriptor.Union([FlowTypeDescriptor.Enum("known"), alternative]) },
+                new Dictionary<string, FlowTypeDescriptor>());
+            Assert.Null(mismatch);
+        }
+    }
+
     [Fact]
     public void McpResponseTyping_DoesNotUseExampleResponseAsAuthoritativeEvidence()
     {
