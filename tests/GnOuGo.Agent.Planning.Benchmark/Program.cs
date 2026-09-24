@@ -54,19 +54,23 @@ if (compareParent is not null)
     var candidatePhase = Option("--candidate-phase") ?? "measured";
     if (candidatePhase is not ("measured" or "fixture")) throw new ArgumentException("Compare measured or live fixture cohorts.");
     var referenceSource = Option("--compare-reference"); var referencePhase = Option("--reference-phase") ?? "fixture";
-    var before = new List<JsonObject>(); var after = new List<JsonObject>(); var reference = new List<JsonObject>();
-    foreach (var name in PlanningBenchmarkMeasurements.CandidateCases)
+    var stabilizationSource = Option("--compare-stabilization");
+    var before = new List<JsonObject>(); var after = new List<JsonObject>(); var reference = new List<JsonObject>(); var stabilization = new List<JsonObject>();
+    foreach (var name in stabilizationSource is null ? PlanningBenchmarkMeasurements.CandidateCases : names)
         for (var repetition = 1; repetition <= 3; repetition++)
         {
             if (await evidenceStore!.LoadAsync("planning-evaluation-runs", $"{compareParent}:{parentPhase}:{name}:{repetition}") is { } old) before.Add(old);
             if (await evidenceStore!.LoadAsync("planning-evaluation-runs", $"{candidateSource}:{candidatePhase}:{name}:{repetition}") is { } next) after.Add(next);
             if (referenceSource is not null && await evidenceStore.LoadAsync("planning-evaluation-runs", $"{referenceSource}:{referencePhase}:{name}:{repetition}") is { } prior) reference.Add(prior);
+            if (stabilizationSource is not null && await evidenceStore.LoadAsync("planning-evaluation-runs", $"{stabilizationSource}:fixture:{name}:{repetition}") is { } stable) stabilization.Add(stable);
         }
     var retainedCase = Option("--retained-case") ?? "review_french";
-    var original = PlanningBenchmarkMeasurements.Compare(before, after, retainedCase, referenceSource is null ? null : reference);
+    JsonObject Compare() => stabilizationSource is null ? PlanningBenchmarkMeasurements.Compare(before, after, retainedCase, referenceSource is null ? null : reference)
+        : PlanningBenchmarkMeasurements.CompareBest(names, new Dictionary<string, IReadOnlyList<JsonObject>> { ["parent"] = before, ["previous_candidate"] = reference, ["stabilization"] = stabilization }, after);
+    var original = Compare();
     var audits = new JsonArray();
     if (args.Contains("--audit-admission-denials", StringComparer.Ordinal))
-        foreach (var auditedRun in before.Concat(after).Concat(reference))
+        foreach (var auditedRun in before.Concat(after).Concat(reference).Concat(stabilization))
         {
             var row = auditedRun["result"]!;
             var key = $"{row["source_commit"]}:{row["phase"]}:{row["case"]}:{row["repetition"]}";
@@ -79,8 +83,18 @@ if (compareParent is not null)
             row["calls"] = auditedRun["session"]!["modelCalls"]!.GetValue<int>() + PlanningBenchmarkMeasurements.ExtraTransportCalls(auditedRun);
             audit["audited_result"] = row.DeepClone(); audits.Add((JsonNode)audit);
         }
-    var comparison = PlanningBenchmarkMeasurements.Compare(before, after, retainedCase, referenceSource is null ? null : reference);
-    if (args.Contains("--audit-admission-denials", StringComparer.Ordinal))
+    if (args.Contains("--audit-closed-http", StringComparer.Ordinal))
+        foreach (var auditedRun in before.Concat(after).Concat(reference).Concat(stabilization))
+        {
+            var row = auditedRun["result"]!;
+            var key = $"{row["source_commit"]}:{row["phase"]}:{row["case"]}:{row["repetition"]}";
+            if (await evidenceStore!.AuditClosedHttpSessionAsync(key, auditedRun) is not { } audit) continue;
+            foreach (var (field, value) in audit["audited_usage"]!.AsObject()) row[field] = value?.DeepClone();
+            audit["audited_result"] = row.DeepClone(); audits.Add((JsonNode)audit);
+        }
+    var comparison = Compare();
+    comparison["stabilization_commit"] = stabilizationSource;
+    if (args.Contains("--audit-admission-denials", StringComparer.Ordinal) || args.Contains("--audit-closed-http", StringComparer.Ordinal))
     {
         comparison["original_comparison"] = original;
         comparison["admission_audits"] = audits;

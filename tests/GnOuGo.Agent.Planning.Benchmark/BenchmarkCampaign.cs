@@ -1,3 +1,4 @@
+using GnOuGo.Planning.Examples;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
@@ -89,6 +90,35 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
             ["original_result"] = run["result"]!.DeepClone()
         };
     }
+    // Read-only proof for a closed exhausted session whose unknown attempts retain full reservations.
+    // This establishes bounds, not completed usage or a successful outcome.
+    internal async Task<JsonObject?> AuditClosedHttpSessionAsync(string runKey, JsonObject run, CancellationToken ct = default)
+    {
+        if (run["result"]?["termination_reason"]?.ToString() != "session_http_budget" || run["result"]?["execution_correct"]?.GetValue<bool>() != false ||
+            run["session"]?["pendingCall"]?["id"]?.ToString() is not { } pending || run["session"]?["request"]?["sessionId"]?.ToString() is not { } session) return null;
+        var closure = await LoadAsync("planning-evaluation-closures", pending, ct);
+        if (closure?["reason"]?.ToString() != "session_http_attempts_exhausted" || closure["run_key"]?.ToString() != runKey ||
+            closure["run_hash"]?.ToString() != PlanningGraphCompiler.Fingerprint(run.ToJsonString()) || closure["accounting_at_closure"]?["session_calls"]?.GetValue<long>() != 8) return null;
+        if (run["usage_receipts"] is not JsonObject receipts) return null;
+        var keys = receipts.Select(p => p.Key).Append(pending).Distinct(StringComparer.Ordinal).ToArray();
+        if (keys.Length != run["session"]?["modelCalls"]?.GetValue<int>() || keys.Any(k => !k.StartsWith(session + ":", StringComparison.Ordinal))) return null;
+        var hashes = new JsonObject(); var journals = new List<JsonObject>();
+        foreach (var key in keys)
+        {
+            var request = await LoadAsync("planning-evaluation-requests", key, ct);
+            var journal = await LoadAsync(BenchmarkHttpJournal.Collection, key, ct);
+            if (request?["clientRequestId"]?.ToString() != key || journal is null ||
+                key == pending && closure["request_hash"]?.ToString() != PlanningGraphCompiler.Fingerprint(request.ToJsonString())) return null;
+            hashes[key] = PlanningGraphCompiler.Fingerprint(journal.ToJsonString()); journals.Add(journal);
+        }
+        var measurement = PlanningBenchmarkMeasurements.ClosedHttpUsage(journals, 8);
+        if (measurement is null) return null;
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(this, pending, ct: ct);
+        if (accounting["session_calls"]?.GetValue<long>() != 8 || accounting["cost_upper_bound_eur"]?.GetValue<decimal>() is not <= 50m) return null;
+        return new() { ["run_key"] = runKey, ["reason"] = "closed_session_with_conservative_http_reservations", ["original_run_hash"] = closure["run_hash"]!.DeepClone(),
+            ["closure_hash"] = PlanningGraphCompiler.Fingerprint(closure.ToJsonString()), ["http_journal_hashes"] = hashes,
+            ["original_result"] = run["result"]!.DeepClone(), ["audited_usage"] = measurement };
+    }
     internal async Task<JsonObject> InspectAsync(CancellationToken ct = default)
     {
         var evidence = new List<KeyVaultRecordValue>();
@@ -114,6 +144,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
     internal async Task<(PlanningSession State, ILLMClient Client)> ReadReplayAsync(string runKey, CancellationToken ct = default)
     {
         var evidence = await LoadAsync("planning-evaluation-runs", runKey, ct) ?? throw new InvalidOperationException("No recorded run.");
+        if (evidence["session"]?["schemaVersion"]?.GetValue<int>() != 10) throw new InvalidOperationException("Regenerate and approve incompatible planning sessions; retained evidence remains unchanged.");
         var saved = JsonSerializer.Deserialize(evidence["session"], PlanningJsonContext.Default.PlanningSession) ?? throw new InvalidOperationException("No recorded session.");
         if (saved.SchemaVersion != 10) throw new InvalidOperationException("Unsupported recorded session format.");
         var prefix = Id + ":" + saved.Request.SessionId + ":1:";

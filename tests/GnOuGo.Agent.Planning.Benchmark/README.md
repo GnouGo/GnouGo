@@ -199,3 +199,36 @@ unchanged. The report includes the raw comparison, original and audited result,
 proof hashes and measurement commit. Only the detached usage and physical call
 count change; the failed outcome remains failed. No request, receipt, original run,
 closure or spending reservation is written, erased, refunded or redispatched.
+
+## TaskPlan candidate: one bounded complex cohort
+
+The format-10 replacement freezes production, operation metadata, harness and oracles
+before evaluating only `conditional,review_french,review_distractors`, three repetitions
+each, in the existing `flow-v9-112` campaign. It uses the pinned OpenAi provider,
+`gpt-5.5-2026-04-24`, medium reasoning, 96,000 input and 32,768 output tokens, eight
+physical attempts and two repairs. The cumulative EUR 50 ceiling includes all earlier
+uncertain reservations. No pilots, replacement repetitions or budget reset are allowed.
+A terminal journal or budget stop ends implementation and paid evaluation.
+
+```sh
+dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --keyvault-provider OpenAi --model gpt-5.5-2026-04-24 --campaign flow-v9-112 \
+  --phase fixture --cases conditional,review_french,review_distractors --repetitions 3
+```
+
+Compare using `--compare-parent`, `--compare-reference`, `--compare-stabilization`,
+`--candidate`, the three `--cases`, and fixture phases. `CompareBest` requires complete
+three-repetition evidence, matching model/limits, bounded usage, no unsafe or incorrect
+approval, and no per-case correctness regression against the maximum retained baseline.
+Calls, tokens and latency are separate metrics. Historical fixture/pilot gates are not
+additional readiness criteria for this cohort.
+
+`--audit-closed-http` optionally proves bounds for an exhausted, permanently closed
+session using every durable HTTP journal, the unchanged closure/request hashes and the
+campaign ledger. The report retains original results and proof hashes. Unknown usage
+remains unknown and fully reserved; no receipt, success or measured token count is
+invented. This read-only audit cannot dispatch, alter original encrypted evidence,
+replenish an allowance or raise the campaign ceiling.
+
+Execution journals and the real Copilot edit/test limitation remain unchanged. Mocked
+workflow outcomes do not establish real sandboxed Copilot command execution.

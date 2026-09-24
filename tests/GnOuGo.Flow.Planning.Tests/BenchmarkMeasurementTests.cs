@@ -127,6 +127,51 @@ public sealed class BenchmarkMeasurementTests
         if (defect is "missing" or "limits" or "model" or "reference_missing" or "reference_usage") Assert.Equal("inconclusive", report["status"]!.ToString());
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("missing")]
+    [InlineData("unsafe")]
+    [InlineData("best_regression")]
+    [InlineData("unbounded")]
+    [InlineData("limits")]
+    public void SemanticCandidateUsesBestPerCaseBaselineAndDoesNotAddEfficiencyGates(string? defect)
+    {
+        var names = new[] { "conditional", "review_french", "review_distractors" };
+        List<JsonObject> Cohort(string source) => names.SelectMany(name => Enumerable.Range(1, 3).Select(i =>
+        {
+            var row = Row(name, i); row["source_commit"] = source; row["provider"] = "same"; row["model"] = "same"; row["campaign"] = "same";
+            row["mode"] = "live"; row["usage_bounded"] = true; row["usage_complete"] = true; row["calls"] = source == "candidate" ? 6 : 2;
+            if (name == "review_distractors" && i == 3 || name == "review_french" && source != "stabilization" && source != "candidate")
+            { row["execution_correct"] = false; row["final_review"] = false; }
+            return new JsonObject { ["result"] = row, ["session"] = new JsonObject { ["request"] = new JsonObject
+                { ["maxModelCalls"] = 8, ["maxReplanAttempts"] = 2, ["generation"] = new JsonObject { ["reasoning"] = "medium", ["maxInputTokensPerRequest"] = 96000, ["maxOutputTokens"] = 32768 } } } };
+        })).ToList();
+        var parent = Cohort("parent"); var previous = Cohort("previous"); var stabilization = Cohort("stabilization"); var candidate = Cohort("candidate");
+        if (defect == "missing") candidate.RemoveAt(0);
+        if (defect == "unsafe") candidate[0]["result"]!["safety_violations"]!.AsArray().Add("unsafe");
+        if (defect == "best_regression") { candidate[3]["result"]!["execution_correct"] = false; candidate[3]["result"]!["final_review"] = false; }
+        if (defect == "unbounded") candidate[0]["result"]!["usage_bounded"] = false;
+        if (defect == "limits") candidate[0]["session"]!["request"]!["maxModelCalls"] = 9;
+        var report = PlanningBenchmarkMeasurements.CompareBest(names, new Dictionary<string, IReadOnlyList<JsonObject>> { ["parent"] = parent, ["previous"] = previous, ["stabilization"] = stabilization }, candidate);
+        Assert.Equal(defect is null, report["passed"]!.GetValue<bool>());
+        if (defect is "missing" or "unbounded" or "limits") Assert.Equal("inconclusive", report["status"]!.ToString());
+        if (defect is null) Assert.Equal(6, report["metrics"]!["candidate"]!["median_calls"]!.GetValue<double>());
+    }
+
+    [Fact]
+    public void ClosedUnknownHttpAttemptsStayReservedAndNeverBecomeKnownTokens()
+    {
+        var journal = new JsonObject { ["input_ceiling"] = 96000L, ["output_ceiling"] = 32768L, ["cost_ceiling_eur"] = 3m,
+            ["transport"] = new JsonObject { ["Attempts"] = new JsonArray(new JsonObject { ["Status"] = null }, new JsonObject { ["Status"] = 429 }) } };
+        var original = journal.ToJsonString();
+        var usage = PlanningBenchmarkMeasurements.ClosedHttpUsage([journal], 2)!;
+        Assert.True(usage["usage_bounded"]!.GetValue<bool>()); Assert.False(usage["usage_complete"]!.GetValue<bool>());
+        Assert.Null(usage["input_tokens"]); Assert.Null(usage["estimated_cost_eur"]); Assert.Equal(3m, usage["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(0L, usage["known_input_tokens"]!.GetValue<long>()); Assert.Equal(original, journal.ToJsonString());
+        Assert.Null(PlanningBenchmarkMeasurements.ClosedHttpUsage([journal], 3));
+        journal.Remove("cost_ceiling_eur"); Assert.Null(PlanningBenchmarkMeasurements.ClosedHttpUsage([journal], 2));
+    }
+
     private static JsonObject Row(string name, int repetition) => new() { ["source_commit"] = "frozen", ["case"] = name, ["repetition"] = repetition,
         ["calls"] = 1, ["final_review"] = true, ["first_pass_valid"] = true, ["execution_correct"] = true, ["safety_violations"] = new JsonArray() };
 }
