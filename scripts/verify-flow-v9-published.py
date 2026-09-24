@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Black-box checks against published Flow CLI/server binaries; never uses repository databases."""
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,7 @@ import urllib.request
 parser = argparse.ArgumentParser()
 parser.add_argument('--cli', type=Path, required=True)
 parser.add_argument('--server', type=Path)
+parser.add_argument('--copilot', type=Path)
 parser.add_argument('--data-directory', type=Path)
 args = parser.parse_args()
 root = args.data_directory or Path(tempfile.mkdtemp(prefix='gnougo-flow-v9-published-'))
@@ -97,6 +99,41 @@ if args.server:
         assert saved['finalizationCompleted'] and saved['status'] == 'completed'
         request('/api/tenants/other/runs/server', expected=404)
         request('/api/tenants/smoke/runs/server/resume', {'expectedRevision': saved['revision'] - 1}, expected=409)
+        human_yaml = '''version: 1
+workflows:
+  main:
+    steps:
+      - id: ask
+        type: human.input
+        input: {prompt: "Approve the published fixture", timeout_ms: 15000}
+    outputs:
+      answer: "${data.steps.ask.response}"
+'''
+        def stream():
+            payload = {'runId': 'human', 'workflow': human_yaml}
+            req = urllib.request.Request(address + '/api/workflow/run/stream', data=json.dumps(payload).encode(), headers={'Content-Type': 'application/json'})
+            with urllib.request.urlopen(req, timeout=20) as response:
+                return [json.loads(line) for line in response if line.strip()]
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pending_stream = pool.submit(stream)
+            for _ in range(100):
+                pending = request('/api/tenants/smoke/runs')
+                pending = next((r for r in pending if r['runId'] == 'human'), None)
+                dialogs = [] if pending is None else [v for v in pending['invocations'].values() if v['status'] == 'waiting_for_human']
+                if dialogs: break
+                if pending_stream.done(): raise AssertionError(pending_stream.result())
+                time.sleep(.1)
+            assert len(dialogs) == 1, pending
+            invocation = next(k for k, v in pending['invocations'].items() if v['status'] == 'waiting_for_human')
+            answer = {'expectedRevision': pending['revision'] - 1, 'invocationId': invocation, 'response': {'response': 'approved'}}
+            request('/api/tenants/smoke/runs/human/human-input', answer, expected=409)
+            answer['expectedRevision'] = pending['revision']
+            request('/api/tenants/smoke/runs/human/human-input', answer)
+            events = pending_stream.result(timeout=20)
+            final = next(e for e in events if e['type'] == 'workflow.result')
+            assert final['data']['response']['success'], final
+            assert final['data']['response']['outputs']['answer'] == 'approved', final
+            assert request('/api/tenants/smoke/runs/human')['status'] == 'completed'
     finally:
         server.terminate(); server.wait(timeout=30); output.close()
     server, output = start()
@@ -106,7 +143,42 @@ if args.server:
         assert saved == request('/api/tenants/smoke/runs/server')
     finally:
         server.terminate(); server.wait(timeout=30); output.close()
-    print('PASS published server: persisted encrypted journal across restart, tenant isolation and revision-checked resume')
+    print('PASS published server: encrypted restart recovery, streamed durable human answers, tenant isolation and revision checks')
+
+if args.copilot:
+    mcp_env = dict(env, Code__DefaultWorkingDirectory=str(root), Code__AllowedWorkingRoots__0=str(root))
+    with open(root / 'copilot-mcp.log', 'w') as errors, ThreadPoolExecutor(max_workers=1) as pool:
+        mcp = subprocess.Popen([str(args.copilot.resolve())], cwd=args.copilot.resolve().parent,
+                               env=mcp_env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=errors, text=True)
+        def rpc(identity, method, params):
+            mcp.stdin.write(json.dumps({'jsonrpc': '2.0', 'id': identity, 'method': method, 'params': params}) + '\n'); mcp.stdin.flush()
+            while True:
+                line = pool.submit(mcp.stdout.readline).result(timeout=30)
+                assert line, 'Published MCP exited before replying'
+                response = json.loads(line)
+                if response.get('id') == identity:
+                    assert 'error' not in response, response
+                    return response['result']
+        def content(response):
+            assert not response.get('isError'), response
+            return response.get('structuredContent') or json.loads(response['content'][0]['text'])
+        try:
+            rpc(1, 'initialize', {'protocolVersion': '2025-11-25', 'capabilities': {}, 'clientInfo': {'name': 'flow-v9-published', 'version': '1.0'}})
+            mcp.stdin.write(json.dumps({'jsonrpc': '2.0', 'method': 'notifications/initialized'}) + '\n'); mcp.stdin.flush()
+            assert content(rpc(2, 'tools/call', {'name': 'copilot_task_contract', 'arguments': {}}))['schemaVersion'] == 9
+            context = {'tenant_id': 'smoke', 'run_id': 'rejected-fixture', 'invocation_id': 'main/task', 'task': {
+                'runner': 'coding', 'objective': 'This invalid scope must never dispatch inference.', 'workspace': str(root),
+                'inputs': {}, 'output_schema': {'type': 'object'}, 'capabilities': ['unsupported-fixture-capability'],
+                'budget': {'max_model_calls': 1, 'max_total_tokens': 1000, 'max_elapsed_milliseconds': 1000},
+                'verification': []}}
+            arguments = {'contextJson': json.dumps(context)}
+            assert content(rpc(3, 'tools/call', {'name': 'copilot_task_validate', 'arguments': arguments}))['errors']
+            receipt = content(rpc(4, 'tools/call', {'name': 'copilot_task_run', 'arguments': arguments}))
+            assert receipt['schemaVersion'] == 9 and receipt['result']['status'] == 'failed'
+            assert receipt['result']['usage']['model_calls'] == 0
+        finally:
+            mcp.terminate(); mcp.wait(timeout=30)
+    print('PASS published Copilot MCP: bounded protocol, unsupported-scope refusal before inference, terminal failed receipt envelope')
 
 for path in root.glob('*.db*'):
     assert marker.encode() not in path.read_bytes(), f'Unencrypted payload in {path.name}'

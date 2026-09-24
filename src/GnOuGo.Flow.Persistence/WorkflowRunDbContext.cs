@@ -17,8 +17,8 @@ public sealed class WorkflowRunDbContext : DbContext
     {
         var runs = modelBuilder.Entity<WorkflowRunIndex>();
         runs.ToTable("WorkflowRuns");
-        runs.HasKey(r => new { r.TenantId, r.RunId });
-        runs.HasIndex(r => new { r.TenantId, r.UpdatedAtTicks });
+        runs.HasKey(nameof(WorkflowRunIndex.TenantId), nameof(WorkflowRunIndex.RunId));
+        runs.HasIndex(nameof(WorkflowRunIndex.TenantId), nameof(WorkflowRunIndex.UpdatedAtTicks));
     }
 }
 
