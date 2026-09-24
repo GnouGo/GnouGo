@@ -1,6 +1,6 @@
 # Frozen stabilization candidate
 
-Source: `4cb8586440d22adf02bc0496565c4f9cc6064ef0`. This cohort is complete and **fails acceptance**: 21/24 correct, versus parent 14/24 and previous candidate 22/24. Median physical planning calls is 2, versus 4 and 2.5. All approved executions passed the independent variants; zero safety violations were recorded.
+Source: `4cb8586440d22adf02bc0496565c4f9cc6064ef0`. All 24 outcomes are retained. The comparison is **inconclusive** because it reports `usage_bounded: false`; correctness also regressed: 21/24 correct, versus parent 14/24 and previous candidate 22/24. Median physical planning calls is 2, versus 4 and 2.5. All approved executions passed the independent variants; zero safety violations were recorded.
 
 | Case | Parent | Previous candidate | Stabilization |
 | --- | ---: | ---: | ---: |
@@ -23,7 +23,7 @@ Source: `4cb8586440d22adf02bc0496565c4f9cc6064ef0`. This cohort is complete and 
 
 ## Accounting and validation
 
-Campaign `flow-v9-112` used 68 additional physical attempts. Known cumulative cost is EUR 27.8121452481; reservations are EUR 10.2769019878; the cumulative upper bound is EUR 38.0890472358 under EUR 50. Eight uncertain attempts retain reservations. Estimates use recorded usage and FX, not invoices.
+Campaign `flow-v9-112` used 68 additional physical attempts. Known cumulative cost is EUR 27.8121452481; reservations are EUR 10.2769019878; the cumulative upper bound is EUR 38.0890472358 under EUR 50. Eight uncertain attempts retain reservations. The campaign-wide ledger remains bounded, but the retained cohort comparison does not establish bounded per-session usage. These are distinct claims; no acceptance pass is inferred from the ledger. Estimates use recorded usage and FX, not invoices.
 
 Frozen-commit CI completed with 32 successful checks and four release-only skips. Local .NET validation: 2,814 passed, five opt-in live skips. Python: 287 core and 27 CLI passed. Frontends, five Flow packages, Native AOT smoke and published encrypted persistence checks passed under the existing documented framework-exception policy. Exact CI checks and publish-attempt accounting are retained in the manifests.
 
