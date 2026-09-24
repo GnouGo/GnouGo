@@ -81,6 +81,28 @@ public sealed class AgentTaskTests
         Assert.Equal("failed", invocation.Status);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RecoveryVerifiesAdapterEvidenceBeforeReleasingDownstreamWork(bool fabricated)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var store = new InMemoryWorkflowRunStore();
+        var initial = new Runner { Result = Result() with { Status = "needs_reconciliation" } };
+        await Execute(initial, store);
+        var saved = (await store.ReadAsync("tenant", "run", ct))!;
+        Assert.Equal(WorkflowRunStatus.NeedsReconciliation, saved.Status);
+        var runner = new Runner { Result = fabricated ? Result() with { Evidence = [] } : Result() };
+        var recovered = new WorkflowEngine { RunStore = store }; recovered.AgentTaskRunners["fixture"] = runner;
+        var invocation = Assert.Single(saved.Invocations.Values, i => i.StepType == "agent.run");
+        var reconciled = await recovered.ReconcileAsync("tenant", "run", saved.Revision, invocation.Id, null, ct);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(saved.WorkflowYaml));
+        var result = await recovered.ResumeAsync("tenant", "run", reconciled.Revision, document.Workflows["main"], ct);
+        Assert.Equal(!fabricated, result.Success);
+        Assert.Equal(0, runner.Dispatches); Assert.Equal(1, initial.Dispatches);
+        if (fabricated) Assert.DoesNotContain(result.StepResults, s => s.StepId == "consume");
+        else Assert.True(result.Outputs!["done"]!.GetValue<bool>());
+    }
     private static Task<RunResult> Execute(Runner runner, IWorkflowRunStore? store = null)
     {
         var engine = new WorkflowEngine { RunStore = store, Limits = new() { TenantId = "tenant", RunId = "run" } };

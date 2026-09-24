@@ -18,6 +18,15 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
     public string? ApprovedPrompt { get; init; }
     public IReadOnlyList<string> DeniedPaths { get; init; } = [];
     private int _turnStarted;
+    private volatile bool _stopped;
+    public bool Stopped => _stopped;
+    /// <summary>Prevent further admissions and wait for any admitted reservation to become durable.</summary>
+    public async Task StopAsync()
+    {
+        _stopped = true;
+        await _gate.WaitAsync(CancellationToken.None);
+        _gate.Release();
+    }
     internal void BeginTurn(string prompt)
     {
         if (ApprovedPrompt != prompt || Interlocked.Exchange(ref _turnStarted, 1) != 0)
@@ -29,6 +38,7 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
         await _gate.WaitAsync(ct);
         try
         {
+            if (_stopped) throw new InvalidOperationException("The bounded task no longer admits inference.");
             if (DateTimeOffset.UtcNow >= Deadline || ModelCalls >= maxModelCalls)
                 throw ExhaustedBudget();
             var path = request.RequestUri?.AbsolutePath ?? "";

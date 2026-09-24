@@ -32,12 +32,12 @@ public sealed class EncryptedWorkflowRunStore : IWorkflowRunStore
     }
 
     public static EncryptedWorkflowRunStore CreateWorkspace(string? keyVaultPath = null, string? indexPath = null,
-        string? baseDirectory = null, ILogger? logger = null)
+        string? baseDirectory = null, ILogger? logger = null, string? ownerPath = null)
     {
         var root = baseDirectory ?? AppContext.BaseDirectory;
         var path = GnOuGoWorkspace.ResolveDatabasePath(indexPath, root, ".GnOuGo/data/flow-execution-v9.db");
         return new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultPath, root), path,
-            GnOuGoWorkspace.ResolveDatabasePath(null, root, ".GnOuGo/data/flow-execution-v9/owners"), logger);
+            GnOuGoWorkspace.ResolveDatabasePath(ownerPath, root, ".GnOuGo/data/flow-execution-v9/owners"), logger);
     }
 
     public async Task<WorkflowRun?> ReadAsync(string tenantId, string runId, CancellationToken ct = default)
@@ -100,6 +100,15 @@ public sealed class EncryptedWorkflowRunStore : IWorkflowRunStore
         return run;
     }
 
+    public async Task<WorkflowRun> RequestInputAsync(string tenantId, string runId, long expectedRevision, HumanInputRequest request, CancellationToken ct = default)
+    {
+        await using var write = await WriteLockAsync(tenantId, runId, ct);
+        var run = await ReadRequiredAsync(tenantId, runId, expectedRevision, ct);
+        WorkflowRunStorage.RequestInput(run, request);
+        run.Revision++; run.UpdatedAt = DateTimeOffset.UtcNow;
+        await PersistAsync(run, ct); return run;
+    }
+
     public async Task<WorkflowRun> AnswerAsync(string tenantId, string runId, long expectedRevision, string invocationId,
         System.Text.Json.Nodes.JsonNode? response, CancellationToken ct = default)
     {
@@ -135,7 +144,9 @@ public sealed class EncryptedWorkflowRunStore : IWorkflowRunStore
                 """, ct);
             var tenant = run.TenantId;
             var id = run.RunId;
-            var row = await db.Runs.SingleOrDefaultAsync(r => r.TenantId == tenant && r.RunId == id, ct);
+            // EF Core 10.0.12 query precompilation resolves local tokens but fails on a method parameter.
+            var queryCancellation = ct;
+            var row = await db.Runs.SingleOrDefaultAsync(r => r.TenantId == tenant && r.RunId == id, queryCancellation);
             if (row is null) { row = new() { TenantId = tenant, RunId = id }; db.Runs.Add(row); }
             if (row.Revision > run.Revision) return;
             row.Revision = run.Revision;
@@ -152,7 +163,7 @@ public sealed class EncryptedWorkflowRunStore : IWorkflowRunStore
     }
 
     private FileStream OpenLock(string tenant, string id, string kind) => new(
-        Path.Combine(_lockDirectory, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(tenant + "\n" + id))) + "." + kind),
+        Path.Combine(_lockDirectory, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(new System.Text.Json.Nodes.JsonArray(tenant, id).ToJsonString()))) + "." + kind),
         FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 
     private async Task<FileStream> WriteLockAsync(string tenant, string id, CancellationToken ct)

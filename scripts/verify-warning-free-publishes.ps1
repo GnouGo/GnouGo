@@ -574,7 +574,17 @@ $knownAuditFingerprints = @{
         'IL2026|Jint.DefaultObjectConverter.ConvertSystemTextJsonValue(Engine,JsonNode)',
         'IL2026|Jint.Runtime.Interop.DefaultTypeConverter.BuildDelegate(Type,Func`3<JsValue,JsValue[],JsValue>,Expression)',
         'IL2104|Jint.dll',
-        'IL3053|Jint.dll'
+        'IL3053|Jint.dll',
+        'IL2104|Microsoft.EntityFrameworkCore.dll',
+        'IL2104|Microsoft.EntityFrameworkCore.Relational.dll',
+        'IL2104|Microsoft.EntityFrameworkCore.Sqlite.dll',
+        'IL3053|Microsoft.EntityFrameworkCore.dll',
+        'IL3053|Microsoft.EntityFrameworkCore.Relational.dll',
+        'IL3053|Microsoft.EntityFrameworkCore.Sqlite.dll',
+        'IL3002|Microsoft.EntityFrameworkCore.Infrastructure.SpatialiteLoader.FindExtension()',
+        'IL3002|Microsoft.Extensions.DependencyModel.DependencyContext..cctor()',
+        'EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:QueryPrecompilationExperimental',
+        'EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:NativeAotExperimental'
     )
     'GnOuGo.GithubCopilot.Mcp' = @(
         'IL2104|Microsoft.EntityFrameworkCore.dll',

@@ -42,7 +42,7 @@ public sealed class CopilotAgentTaskRunner(IMcpClientFactory transport, string s
             new() { TenantId = context?.TenantId, RunId = context?.RunId, ExecutionId = context?.ExecutionId ?? context?.RunId, AgentId = context?.AgentId, AgentName = context?.AgentName,
                 StepId = context?.InvocationId, StepType = "agent.run", ServerName = serverName, MethodName = method, Kind = "tool" },
             progress => context?.Progress?.Invoke(new(progress.EventKind ?? "progress", progress.Message)),
-            signal => context?.Progress?.Invoke(new("human_input", signal.Request.Prompt))));
+            signal => context?.HumanInput?.Invoke(signal.Request, signal.Phase.ToString())));
         await using var session = await transport.GetClientAsync(serverName, ct);
         if (session is ILiveMcpToolDiscoverySession discovery) await discovery.EnsureToolsDiscoveredAsync(ct);
         var result = await session.CallToolAsync(method, arguments, ct);

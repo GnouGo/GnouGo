@@ -8,6 +8,20 @@ namespace GnOuGo.GithubCopilot.Core.Tests;
 public sealed class CopilotExecutionBoundsTests
 {
     [Fact]
+    public async Task ClosingAnInterruptedTaskWaitsForItsReservationAndPreventsLateInference()
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var bounds = new CopilotExecutionBounds(4, 100000, DateTimeOffset.UtcNow.AddMinutes(1), new HashSet<string>(), async (_, _, _) => { entered.SetResult(); await release.Task; });
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://provider.example/v1/chat/completions") { Content = new StringContent("{\"messages\":[]}") };
+        var reserving = bounds.ReserveAsync(request, TestContext.Current.CancellationToken);
+        await entered.Task;
+        var stopped = bounds.StopAsync(); Assert.False(stopped.IsCompleted); Assert.True(bounds.Stopped);
+        release.SetResult(); await reserving; await stopped;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => bounds.ReserveAsync(request, TestContext.Current.CancellationToken));
+        Assert.Equal(1, bounds.ModelCalls);
+    }
+    [Fact]
     public async Task ReservationsAreDurableBeforeDispatchAndNeverReplenished()
     {
         var reservations = new List<(int, long)>();

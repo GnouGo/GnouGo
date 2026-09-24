@@ -489,8 +489,8 @@ public static class GnOuGoAgentWebHost
             GnOuGo.KeyVault.Core.Services.KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultDbPath, applicationBasePath));
         builder.Services.AddSingleton<IWorkflowRunStore>(sp => new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(
             sp.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>(),
-            GnOuGoWorkspace.ResolveDatabasePath(null, applicationBasePath, ".GnOuGo/data/flow-execution-v9.db"),
-            GnOuGoWorkspace.ResolveDatabasePath(null, applicationBasePath, ".GnOuGo/data/flow-execution-v9/owners"),
+            GnOuGoWorkspace.ResolveDatabasePath(builder.Configuration["Flow:Execution:IndexPath"], applicationBasePath, ".GnOuGo/data/flow-execution-v9.db"),
+            GnOuGoWorkspace.ResolveDatabasePath(builder.Configuration["Flow:Execution:OwnerPath"], applicationBasePath, ".GnOuGo/data/flow-execution-v9/owners"),
             sp.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Flow.Persistence")));
         builder.Services.AddSingleton<GnOuGo.Agent.Server.SmartFlow.WorkflowRunService>();
         builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IPlanningSessionStore, GnOuGo.Agent.Server.Planning.EfPlanningSessionStore>();

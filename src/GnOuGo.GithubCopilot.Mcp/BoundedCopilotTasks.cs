@@ -129,7 +129,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
             var evidence = CommandEvidence(sent, runtime.WorkingDirectory, context.Task.Verification);
             var uncertain = !sent.Completed || sent.ToolExecutions.Any(t => !t.CompletionObserved || t.ConflictingCompletion) ||
                 sent.ToolExecutions.Where(t => t.ToolName is "bash" or "powershell").Any(t => !CommandCompleted(t, sent.ToolExecutions));
-            if (uncertain) result = Unknown(record, "The observed tool events do not establish that all dispatched work has stopped.");
+            if (uncertain) result = Unknown(null, "The observed tool events do not establish that all dispatched work has stopped.");
             else
             {
                 // Close the managed session before collecting final file evidence. This is the existing lifecycle API.
@@ -144,22 +144,24 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
                 }
                 JsonNode? output = null;
                 try { output = JsonNode.Parse(sent.Content); } catch (JsonException) { }
-                result = new(bounds.Exhausted ? "budget_exhausted" : "completed", output, evidence, artifacts, Usage(record, started));
+                result = new(bounds.Exhausted ? "budget_exhausted" : "completed", output, evidence, artifacts, new(0, 0, 0));
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            result = dispatched ? Unknown(record, bounds.Exhausted ? "The approved inference budget is exhausted; reconcile interrupted work." : "Execution was interrupted; inspect and reconcile the original invocation.")
-                : new("failed", null, [], [], Usage(record, started), "The host rejected task preparation before dispatch (" + ex.GetType().Name + ").");
+            result = dispatched ? Unknown(null, bounds.Exhausted ? "The approved inference budget is exhausted; reconcile interrupted work." : "Execution was interrupted; inspect and reconcile the original invocation.")
+                : new("failed", null, [], [], new(0, 0, 0), "The host rejected task preparation before dispatch (" + ex.GetType().Name + ").");
         }
         finally
         {
+            await bounds.StopAsync();
             if (handle is not null)
             {
                 // Abort is best effort and is not proof of quiescence. Keep uncertainty in the receipt.
                 try { using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(10)); await sessions.AbortAsync(providerContext, handle, stop.Token); } catch (Exception) { }
             }
         }
+        result = result with { Usage = Usage(record, started) };
         record["status"] = result.Status; record["result"] = JsonSerializer.SerializeToNode(result, AgentTaskJsonContext.Default.AgentTaskResult);
         await SaveAsync(context, record, CancellationToken.None);
         return result;

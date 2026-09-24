@@ -251,7 +251,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             OnPreToolUse = (input, _) =>
             {
                 logger.LogDebug("Copilot hook pre-tool-use: {ToolName}", input.ToolName);
-                if (bounds is not null && (DateTimeOffset.UtcNow >= bounds.Deadline || !bounds.Tools.Contains(input.ToolName)))
+                if (bounds is not null && (bounds.Stopped || DateTimeOffset.UtcNow >= bounds.Deadline || !bounds.Tools.Contains(input.ToolName)))
                     return Task.FromResult<PreToolUseHookOutput?>(new() { PermissionDecision = "deny", PermissionDecisionReason = "The operation exceeds the approved task scope or deadline." });
                 return Task.FromResult(ValidateFileTool(input, filePolicy));
             },

@@ -1530,7 +1530,7 @@ Produce the final answer strictly from the executed MCP results.
             TraceId = traceId,
             SpanId = spanId,
             TraceParent = activity != null ? $"00-{activity.TraceId}-{activity.SpanId}-{(activity.ActivityTraceFlags.HasFlag(ActivityTraceFlags.Recorded) ? "01" : "00")}" : null,
-            StepId = ctx.Step.Id,
+            StepId = ctx.InvocationId,
             StepType = ctx.Step.Type,
             ServerName = serverName,
             MethodName = method,

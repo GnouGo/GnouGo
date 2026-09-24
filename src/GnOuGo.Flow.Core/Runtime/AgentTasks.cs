@@ -44,6 +44,7 @@ public sealed record AgentTaskContext(string TenantId, string RunId, string Invo
     public string? AgentId { get; init; }
     public string? AgentName { get; init; }
     [JsonIgnore] public Action<AgentTaskProgress>? Progress { get; init; }
+    [JsonIgnore] public Action<HumanInputRequest, string>? HumanInput { get; init; }
 }
 public sealed record AgentTaskProgress(string Kind, string Message);
 public sealed record AgentTaskRunnerContract(string Description, JsonObject InputSchema);

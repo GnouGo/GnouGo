@@ -20,6 +20,34 @@ public sealed class WorkflowRunTests
               - { id: cleanup, type: test.effect, input: { value: cleanup } }
         """;
 
+    [Fact]
+    public async Task AdapterDialogsAreDurableDistinctAndMergedWithTheExecutionOwner()
+    {
+        var store = new InMemoryWorkflowRunStore(); var ct = TestContext.Current.CancellationToken;
+        var run = new WorkflowRun { TenantId = "tenant", RunId = "run", Limits = new() { TenantId = "tenant", RunId = "run" } };
+        run.Invocations["/work"] = new() { Id = "/work", StepType = "agent.run", Recovery = StepRecovery.External, Status = "dispatched", DispatchedAt = DateTimeOffset.UtcNow };
+        await store.CreateAsync(run, ct);
+        await using var owner = await store.AcquireAsync("tenant", "run", 0, ct);
+        var request = new HumanInputRequest { RunId = "run", StepId = "/work/human/one", ParentInvocationId = "/work", Prompt = "Allow this operation?" };
+        await WorkflowRunHumanResponses.PrepareAsync(store, "tenant", request, ct);
+        var waiting = (await store.ReadAsync("tenant", "run", ct))!;
+        Assert.Equal("waiting_for_human", waiting.Invocations[request.StepId].Status);
+        Assert.Equal(request.Prompt, waiting.Invocations[request.StepId].ResolvedInput!["prompt"]!.GetValue<string>());
+        await store.AnswerAsync("tenant", "run", waiting.Revision, request.StepId, null, ct);
+        await owner.SaveAsync(ct);
+        Assert.Equal("completed", owner.Run.Invocations[request.StepId].Status);
+        Assert.True(owner.Run.Invocations[request.StepId].Control.ContainsKey("human_response"));
+        request.StepId = "/work/human/two";
+        await WorkflowRunHumanResponses.PrepareAsync(store, "tenant", request, ct);
+        var second = (await store.ReadAsync("tenant", "run", ct))!;
+        await Assert.ThrowsAsync<WorkflowRunConflictException>(() => store.AnswerAsync("tenant", "run", second.Revision, "/work/human/one", JsonValue.Create("Allow"), ct));
+        await Assert.ThrowsAsync<WorkflowRunConflictException>(() => store.RequestInputAsync("other", "run", second.Revision, request, ct));
+        owner.Run.Invocations["/work"].CompletedAt = DateTimeOffset.UtcNow;
+        await owner.SaveAsync(ct);
+        Assert.Equal("failed", owner.Run.Invocations[request.StepId].Status);
+        Assert.Equal("HUMAN_INPUT_ABANDONED", owner.Run.Invocations[request.StepId].Error!.Code);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -336,6 +364,7 @@ public sealed class WorkflowRunTests
         public Task<WorkflowRun?> ReadAsync(string tenantId, string runId, CancellationToken ct = default) => inner.ReadAsync(tenantId, runId, ct);
         public Task<IReadOnlyList<WorkflowRun>> ListAsync(string tenantId, CancellationToken ct = default) => inner.ListAsync(tenantId, ct);
         public Task CreateAsync(WorkflowRun run, CancellationToken ct = default) => inner.CreateAsync(run, ct);
+        public Task<WorkflowRun> RequestInputAsync(string tenantId, string runId, long expectedRevision, HumanInputRequest request, CancellationToken ct = default) => inner.RequestInputAsync(tenantId, runId, expectedRevision, request, ct);
         public Task<WorkflowRun> AnswerAsync(string tenantId, string runId, long expectedRevision, string invocationId, JsonNode? response, CancellationToken ct = default)
             => inner.AnswerAsync(tenantId, runId, expectedRevision, invocationId, response, ct);
         public Task<WorkflowRun> CancelAsync(string tenantId, string runId, long expectedRevision, CancellationToken ct = default) => inner.CancelAsync(tenantId, runId, expectedRevision, ct);

@@ -134,7 +134,7 @@ public class ConfiguredMcpClientFactoryTests
         Assert.Equal([McpHumanInputSignalPhase.Waiting, McpHumanInputSignalPhase.Resumed], signals.Select(static signal => signal.Phase));
         Assert.All(signals, signal => Assert.Same(correlation, signal.Correlation));
         Assert.Equal("run-1", signals[0].Request.RunId);
-        Assert.Equal("copilot-step", signals[0].Request.StepId);
+        Assert.Equal("copilot-step", signals[0].Request.ParentInvocationId); Assert.StartsWith("copilot-step" + "/human/", signals[0].Request.StepId);
         Assert.Equal("copilot", signals[0].Request.Context!["mcp_server"]!.GetValue<string>());
         Assert.Equal("copilot_interactive_one_shot", signals[0].Request.Context!["mcp_method"]!.GetValue<string>());
     }
@@ -312,7 +312,7 @@ public class ConfiguredMcpClientFactoryTests
         Assert.Empty(staleSignals);
         Assert.Equal([McpHumanInputSignalPhase.Waiting, McpHumanInputSignalPhase.Resumed], activeSignals.Select(static signal => signal.Phase));
         Assert.Equal("active-run", provider.LastRequest!.RunId);
-        Assert.Equal("active-step", provider.LastRequest.StepId);
+        Assert.Equal("active-step", provider.LastRequest.ParentInvocationId); Assert.StartsWith("active-step" + "/human/", provider.LastRequest.StepId);
     }
 
     [Fact]
@@ -337,7 +337,7 @@ public class ConfiguredMcpClientFactoryTests
 
         Assert.Equal("accept", result.Action);
         Assert.Equal("active-run", provider.LastRequest!.RunId);
-        Assert.Equal("active-step", provider.LastRequest.StepId);
+        Assert.Equal("active-step", provider.LastRequest.ParentInvocationId); Assert.StartsWith("active-step" + "/human/", provider.LastRequest.StepId);
         Assert.Equal([McpHumanInputSignalPhase.Waiting, McpHumanInputSignalPhase.Resumed], signals.Select(static signal => signal.Phase));
     }
 
@@ -424,7 +424,7 @@ public class ConfiguredMcpClientFactoryTests
 
         Assert.False(callTask.IsCompleted);
         Assert.Equal("stream-run", request.RunId);
-        Assert.Equal("stream-step", request.StepId);
+        Assert.Equal("stream-step", request.ParentInvocationId); Assert.StartsWith("stream-step" + "/human/", request.StepId);
         provider.Response.TrySetResult(new JsonObject { ["response"] = "Allow once" });
         var result = await callTask;
 

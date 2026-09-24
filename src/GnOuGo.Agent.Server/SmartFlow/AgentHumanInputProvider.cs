@@ -40,6 +40,9 @@ public sealed class AgentHumanInputProvider : IHumanInputProvider
     /// </summary>
     public ChannelReader<HumanInputRequest> PendingRequests => _requestChannel.Reader;
 
+    public Task PrepareAsync(HumanInputRequest request, CancellationToken ct)
+        => _runs is null ? Task.CompletedTask : WorkflowRunHumanResponses.PrepareAsync(_runs, _tenant, request, ct);
+
     public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
     {
         var key = $"{request.RunId}:{request.StepId}";

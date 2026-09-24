@@ -22,7 +22,8 @@ public sealed class WorkflowRunDbContext : DbContext
     }
 }
 
-public sealed class WorkflowRunIndex
+// EF Core 10.0.12 generated materializers test IInjectableService; the persisted entity must remain unsealed.
+public class WorkflowRunIndex
 {
     public string TenantId { get; set; } = "";
     public string RunId { get; set; } = "";

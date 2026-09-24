@@ -310,10 +310,14 @@ export function useWorkflowStream(): WorkflowStreamState {
       // that may arrive on the SSE stream before the fetch response returns.
       setPendingHumanInput(null)
       try {
-        const reply = await fetch(`/api/tenants/${encodeURIComponent(tenantRef.current)}/runs/${encodeURIComponent(runId)}/human-input`, {
+        const base = `/api/tenants/${encodeURIComponent(tenantRef.current)}/runs/${encodeURIComponent(runId)}`
+        const inspection = await fetch(base)
+        if (!inspection.ok) throw new Error('The execution journal could not be inspected.')
+        const journal = await inspection.json() as { revision: number }
+        const reply = await fetch(`${base}/human-input`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ invocationId: stepId, response: data }),
+          body: JSON.stringify({ expectedRevision: journal.revision, invocationId: stepId, response: data }),
         })
         if (!reply.ok) throw new Error(`Answer was not accepted (HTTP ${reply.status}).`)
       } catch (e) {

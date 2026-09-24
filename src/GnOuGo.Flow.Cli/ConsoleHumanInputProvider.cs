@@ -9,9 +9,20 @@ namespace GnOuGo.Flow.Cli;
 /// Console-based human input provider. Prompts the user on stdout
 /// and reads responses from stdin. Used when running workflows in the CLI.
 /// </summary>
-public sealed class ConsoleHumanInputProvider : IHumanInputProvider
+public sealed class ConsoleHumanInputProvider(IWorkflowRunStore? store = null, string tenant = "default") : IHumanInputProvider
 {
-    public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+    public Task PrepareAsync(HumanInputRequest request, CancellationToken ct) => store is null
+        ? Task.CompletedTask : WorkflowRunHumanResponses.PrepareAsync(store, tenant, request, ct);
+
+    public async Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+    {
+        var response = await ReadInputAsync(request, ct);
+        if (store is not null)
+            await WorkflowRunHumanResponses.RecordAsync(store, tenant, request.RunId, request.StepId, response, ct);
+        return response;
+    }
+
+    private static Task<JsonNode?> ReadInputAsync(HumanInputRequest request, CancellationToken ct)
     {
         Console.WriteLine();
         Console.ForegroundColor = ConsoleColor.Yellow;

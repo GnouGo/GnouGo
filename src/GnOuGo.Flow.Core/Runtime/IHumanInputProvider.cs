@@ -288,6 +288,9 @@ public sealed class HumanInputRequest
     /// <summary>Step that is waiting for input.</summary>
     public string StepId { get; set; } = "";
 
+    /// <summary>Owning external invocation for an adapter dialog; null for workflow human.input stages.</summary>
+    public string? ParentInvocationId { get; set; }
+
     /// <summary>Human-readable prompt / question.</summary>
     public string Prompt { get; set; } = "";
 
@@ -316,6 +319,8 @@ public sealed class HumanInputRequest
 /// </summary>
 public interface IHumanInputProvider
 {
+    /// <summary>Persist adapter dialogs before advertising them to a host UI.</summary>
+    Task PrepareAsync(HumanInputRequest request, CancellationToken ct) => Task.CompletedTask;
     /// <summary>
     /// Sends a prompt to the user and waits for a response.
     /// Returns the user response as a JsonNode (object with field values, or a simple string).

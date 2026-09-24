@@ -68,6 +68,17 @@ public sealed class InMemoryWorkflowRunStore : IWorkflowRunStore
         return run;
     }
 
+    public Task<WorkflowRun> RequestInputAsync(string tenantId, string runId, long expectedRevision, HumanInputRequest request, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            var run = Get(tenantId, runId, expectedRevision); WorkflowRunStorage.RequestInput(run, request);
+            run.Revision++; run.UpdatedAt = DateTimeOffset.UtcNow;
+            return Task.FromResult(WorkflowRunStorage.Clone(run));
+        }
+    }
+
     public Task<WorkflowRun> AnswerAsync(string tenantId, string runId, long expectedRevision, string invocationId,
         System.Text.Json.Nodes.JsonNode? response, CancellationToken ct = default)
     {

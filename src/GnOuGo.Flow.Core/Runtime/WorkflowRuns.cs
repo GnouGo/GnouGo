@@ -43,6 +43,7 @@ public sealed class WorkflowRun
 
 public sealed class WorkflowInvocation
 {
+    public string? ParentInvocationId { get; set; }
     public string Id { get; set; } = "";
     public string StepType { get; set; } = "";
     public StepRecovery Recovery { get; set; }
@@ -74,6 +75,7 @@ public interface IWorkflowRunStore
     Task CreateAsync(WorkflowRun run, CancellationToken ct = default);
     Task<IWorkflowRunLease> AcquireAsync(string tenantId, string runId, long expectedRevision, CancellationToken ct = default);
     Task<WorkflowRun> CancelAsync(string tenantId, string runId, long expectedRevision, CancellationToken ct = default);
+    Task<WorkflowRun> RequestInputAsync(string tenantId, string runId, long expectedRevision, HumanInputRequest request, CancellationToken ct = default);
     Task<WorkflowRun> AnswerAsync(string tenantId, string runId, long expectedRevision, string invocationId, JsonNode? response, CancellationToken ct = default);
 }
 
@@ -115,6 +117,30 @@ public static class WorkflowRunStorage
 
     public static WorkflowRun Clone(WorkflowRun run) => Read(JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun), run.TenantId, run.RunId);
 
+    public static void RequestInput(WorkflowRun run, HumanInputRequest request)
+    {
+        if (run.CancelRequested || request.RunId != run.RunId || request.ParentInvocationId is null ||
+            !run.Invocations.TryGetValue(request.ParentInvocationId, out var parent) || parent.Recovery != StepRecovery.External || parent.CompletedAt is not null ||
+            string.IsNullOrWhiteSpace(request.StepId) || !request.StepId.StartsWith(parent.Id + "/human/", StringComparison.Ordinal))
+            throw new WorkflowRunConflictException("An adapter dialog requires its active tenant-owned invocation.");
+        var invocation = new WorkflowInvocation { Id = request.StepId, ParentInvocationId = parent.Id, StepType = "human.input",
+            Recovery = StepRecovery.HumanInput, Status = "waiting_for_human", ResolvedInput = HumanInputContract.BuildRequestPayload(request),
+            DispatchedAt = DateTimeOffset.UtcNow, IsFinalization = parent.IsFinalization };
+        if (request.TimeoutMs > 0) invocation.Control["human_deadline"] = DateTimeOffset.UtcNow.AddMilliseconds(request.TimeoutMs).ToUnixTimeMilliseconds();
+        if (!run.Invocations.TryAdd(invocation.Id, invocation)) throw new WorkflowRunConflictException("The adapter dialog identity already exists.");
+        run.Events.Add(new(DateTimeOffset.UtcNow, "human_requested", invocation.Id));
+    }
+
+    internal static void CloseAdapterInputs(WorkflowRun run)
+    {
+        foreach (var input in run.Invocations.Values.Where(i => i.ParentInvocationId is not null && i.CompletedAt is null))
+            if (run.Invocations.TryGetValue(input.ParentInvocationId!, out var parent) && parent.CompletedAt is not null)
+            {
+                input.CompletedAt = DateTimeOffset.UtcNow; input.Status = "failed";
+                input.Error = new WorkflowError { Code = "HUMAN_INPUT_ABANDONED", Message = "The owning external invocation has stopped." };
+            }
+    }
+
     public static void Answer(WorkflowRun run, string invocationId, JsonNode? response)
     {
         if (run.CancelRequested || !run.Invocations.TryGetValue(invocationId, out var invocation) ||
@@ -123,6 +149,8 @@ public static class WorkflowRunStorage
         if (invocation.Control.GetValueOrDefault("human_deadline") is { } deadline && deadline.GetValue<long>() < DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
             throw new WorkflowRunConflictException("The original human-input deadline has expired. Resume the run to record its timeout.");
         invocation.Control["human_response"] = response?.DeepClone();
+        if (invocation.ParentInvocationId is not null)
+        { invocation.Status = "completed"; invocation.CompletedAt = DateTimeOffset.UtcNow; invocation.Output = response?.DeepClone(); }
         run.Events.Add(new(DateTimeOffset.UtcNow, "human_answer", invocationId));
     }
 
@@ -131,9 +159,17 @@ public static class WorkflowRunStorage
     {
         target.CancelRequested |= saved.CancelRequested;
         foreach (var invocation in saved.Invocations.Values)
+        {
+            if (invocation.ParentInvocationId is not null && !target.Invocations.ContainsKey(invocation.Id))
+                target.Invocations[invocation.Id] = JsonSerializer.Deserialize(JsonSerializer.Serialize(invocation, WorkflowRunJsonContext.Default.WorkflowInvocation), WorkflowRunJsonContext.Default.WorkflowInvocation)!;
             if (invocation.Control.TryGetValue("human_response", out var response) && target.Invocations.TryGetValue(invocation.Id, out var current))
+            {
                 current.Control["human_response"] = response?.DeepClone();
-        target.Events.AddRange(saved.Events.Where(e => e.Kind is "cancel_requested" or "human_answer" && !target.Events.Contains(e)));
+                if (current.ParentInvocationId is not null) { current.Status = invocation.Status; current.CompletedAt = invocation.CompletedAt; current.Output = response?.DeepClone(); }
+            }
+        }
+        CloseAdapterInputs(target);
+        target.Events.AddRange(saved.Events.Where(e => e.Kind is "cancel_requested" or "human_answer" or "human_requested" && !target.Events.Contains(e)));
     }
 }
 

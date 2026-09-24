@@ -89,6 +89,8 @@ public sealed partial class WorkflowEngine
         var journal = new WorkflowRunJournal(lease);
         if (!string.IsNullOrWhiteSpace(confirmedStoppedReason))
             await journal.ResolveAsFailedAsync(invocationId, confirmedStoppedReason, ct);
+        else if (invocation.Observation?["status"]?.ToString() == "rejected_before_dispatch")
+            await journal.ResolveAsFailedAsync(invocationId, "The task scope was rejected before dispatch.", ct);
         else if (invocation.StepType == "agent.run")
         {
             var task = JsonSerializer.Deserialize(invocation.ResolvedInput, AgentTaskJsonContext.Default.AgentTaskDefinition)

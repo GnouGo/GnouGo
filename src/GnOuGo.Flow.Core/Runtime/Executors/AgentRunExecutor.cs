@@ -36,6 +36,9 @@ public sealed class AgentRunExecutor : IStepExecutor
             context = new(ctx.Limits.TenantId, ctx.Limits.RunId, ctx.InvocationId, taskDefinition)
             {
                 ExecutionId = ctx.Limits.ExecutionId, AgentId = ctx.Limits.AgentId, AgentName = ctx.Limits.AgentName,
+                HumanInput = (request, phase) => ctx.AddTelemetryEvent(phase == "Waiting" ? "gnougo-flow.step.waiting_for_human" : "gnougo-flow.step.human_input_resumed",
+                    [new("gnougo-flow.human.prompt", request.Prompt), new("gnougo-flow.human.request", HumanInputContract.BuildRequestPayload(request).ToJsonString()),
+                     new("gnougo-flow.human.run_id", request.RunId), new("gnougo-flow.human.step_id", request.StepId), new("gnougo-flow.human.phase", phase.ToLowerInvariant())]),
                 Progress = progress => ctx.AddTelemetryEvent("gnougo-flow.step.thinking",
                     [new("gnougo-flow.thinking.message", progress.Message), new("gnougo-flow.thinking.kind", progress.Kind),
                      new("gnougo-flow.thinking.source", "agent.progress"), new("gnougo-flow.invocation.id", ctx.InvocationId)])
