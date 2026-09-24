@@ -106,6 +106,10 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         {
             state.Catalog = await runtime.DiscoverAsync(state.Request, ct);
             state.Discovery.Sources = (await runtime.Capabilities.ListSourcesAsync(ct)).ToList();
+            // One source needs no model selection. Fetch only its first summary page;
+            // full contracts still require explicit selection before graph generation.
+            if (state.Discovery.Sources.Count == 1)
+                await DiscoverPageAsync(state, runtime, state.Discovery.Sources[0].Id, null, ct);
         }
         var repair = state.Diagnostics.Any(d => d.Required);
         if (repair && state.PendingCall is null && state.ReplanAttempts >= state.Request.MaxReplanAttempts) { Stop(state); return; }
@@ -135,9 +139,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             }
             if (proposal.Cursor is not null && !state.Discovery.Pages.Any(p => p.SourceId == source && p.NextCursor == proposal.Cursor))
                 Reject("CURSOR_UNKNOWN", "/cursor", "Choose a continuation cursor issued by this source.");
-            var page = await runtime.Capabilities.ListAsync(source, proposal.Cursor, ct);
-            state.Discovery.Pages.Add(page); state.Discovery.ActivePageIndex = state.Discovery.Pages.Count - 1;
-            if (page.UnavailableReason is { } reason) state.Discovery.Limitations.Add(source + ": " + reason);
+            await DiscoverPageAsync(state, runtime, source, proposal.Cursor, ct);
             state.Phase = PlanningPhase.Discovery; return;
         }
         if (proposal.CapabilityIds.Count > 0)
@@ -193,6 +195,23 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         state.Graph = graph; state.Diagnostics = findings;
         state.RevisionScope = PlanningGraphRevisions.Scope(graph, findings).ToList();
         Invalidate(state);
+    }
+
+    private static async Task DiscoverPageAsync(PlanningSession state, IPlanningRuntime runtime, string source, string? cursor, CancellationToken ct)
+    {
+        CapabilityPage page;
+        try
+        {
+            page = await runtime.Capabilities.ListAsync(source, cursor, ct);
+            if (page.SourceId != source || page.Cursor != cursor || page.Capabilities.Any(c => c.SourceId != source) ||
+                page.Capabilities.Select(c => c.Id).Distinct(StringComparer.Ordinal).Count() != page.Capabilities.Count)
+                page = new(source, cursor, [], null, "The source returned an ambiguous discovery contract.");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch { page = new(source, cursor, [], null, "This source is unavailable; its capabilities have not been inspected."); }
+        state.Discovery.Pages.Add(page);
+        state.Discovery.ActivePageIndex = state.Discovery.Pages.Count - 1;
+        if (page.UnavailableReason is { } reason) state.Discovery.Limitations.Add(source + ": " + reason);
     }
 
     private static void ValidateRequirements(PlanningSession state, PlanningProposal proposal)

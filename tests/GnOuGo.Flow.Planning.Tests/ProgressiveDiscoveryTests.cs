@@ -6,6 +6,39 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ProgressiveDiscoveryTests
 {
     private static CancellationToken Ct => PlannerFixture.Ct;
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SoleSourceNeedsNoModelSelection_AndCannotBlockLocalPlanning(bool unavailable)
+    {
+        var catalog = new SingleSource(unavailable);
+        var runtime = new TestRuntime { Capabilities = catalog };
+        var state = await PlannerFixture.RunAsync(runtime);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.Single(runtime.Calls);
+        Assert.Equal(1, catalog.Pages);
+        Assert.Empty(state.Catalog!.Capabilities);
+        Assert.Single(state.Discovery.Pages);
+        Assert.NotEmpty(state.Discovery.Limitations);
+    }
+
+    private sealed class SingleSource(bool unavailable) : ICapabilityCatalog
+    {
+        public int Pages { get; private set; }
+        public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<CapabilitySource>>([new("source", "A declared source")]);
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct)
+        {
+            Pages++;
+            Assert.Null(cursor);
+            if (unavailable) throw new IOException("Unavailable discovery transport");
+            return Task.FromResult(new CapabilityPage(sourceId, null,
+                [new("capability", sourceId, "operation", "An optional operation", "mcp.call", "read", "v1")], "next"));
+        }
+        public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) =>
+            throw new InvalidOperationException("Unselected contracts must not be fetched.");
+    }
+
     [Fact]
     public async Task UnavailableUnrelatedSourcesDoNotPreventLocalPlanning()
     {
