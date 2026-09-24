@@ -38,14 +38,17 @@ if (inspectCampaign) { Console.WriteLine((await evidenceStore!.InspectAsync()).T
 if (compareParent is not null)
 {
     var parentPhase = Option("--parent-phase") ?? "measured"; var candidateSource = Option("--candidate") ?? source;
+    var candidatePhase = Option("--candidate-phase") ?? "measured";
+    if (candidatePhase is not ("measured" or "fixture")) throw new ArgumentException("Compare measured or live fixture cohorts.");
     var before = new List<JsonObject>(); var after = new List<JsonObject>();
     foreach (var name in PlanningBenchmarkMeasurements.CandidateCases)
         for (var repetition = 1; repetition <= 3; repetition++)
         {
             if (await evidenceStore!.LoadAsync("planning-evaluation-runs", $"{compareParent}:{parentPhase}:{name}:{repetition}") is { } old) before.Add(old);
-            if (await evidenceStore!.LoadAsync("planning-evaluation-runs", $"{candidateSource}:measured:{name}:{repetition}") is { } next) after.Add(next);
+            if (await evidenceStore!.LoadAsync("planning-evaluation-runs", $"{candidateSource}:{candidatePhase}:{name}:{repetition}") is { } next) after.Add(next);
         }
     var comparison = PlanningBenchmarkMeasurements.Compare(before, after, Option("--retained-case") ?? "review_french");
+    comparison["parent_phase"] = parentPhase; comparison["candidate_phase"] = candidatePhase;
     comparison["parent_commit"] = compareParent; comparison["candidate_commit"] = candidateSource; comparison["campaign"] = campaignId;
     Console.WriteLine(comparison.ToJsonString()); Environment.ExitCode = comparison["passed"]!.GetValue<bool>() ? 0 : 2; return;
 }

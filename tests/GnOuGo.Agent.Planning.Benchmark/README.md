@@ -131,3 +131,11 @@ dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark
 
 The parent campaign used the `fixture` phase label to collect its failed baseline;
 those receipts still must record live inference with the same model and limits.
+
+For an ungated three-repetition live comparison after a failed pilot, use the existing
+`--phase fixture --repetitions 3` collection mode with the same campaign and provider.
+Read those results with `--compare-parent <sha> --candidate <sha> --candidate-phase fixture`
+(and `--parent-phase fixture` when applicable). Comparison still requires 24 live results,
+identical model and limits, no per-case correctness regression, retained complex-case
+improvement and reduced median calls. This records the failed pilot and its unsuccessful
+repairs; it does not pass or change the stricter pilot/measured acceptance gates.
