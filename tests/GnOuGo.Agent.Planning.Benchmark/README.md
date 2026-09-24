@@ -139,3 +139,13 @@ Read those results with `--compare-parent <sha> --candidate <sha> --candidate-ph
 identical model and limits, no per-case correctness regression, retained complex-case
 improvement and reduced median calls. This records the failed pilot and its unsuccessful
 repairs; it does not pass or change the stricter pilot/measured acceptance gates.
+
+A fixture cohort interrupted by a terminal per-session limit can continue at a
+missing ordinal with `--phase fixture --first-repetition 3 --repetitions 3`.
+Existing run keys, failures and reservations are retained. This does not reopen the
+failed session or authorize another attempt for it. When only this runner entry
+point or its README changed, `--evaluation-source <full-commit>` retains the frozen
+source identity and records `harness_commit` separately. The command rejects any
+other file difference, including production, frozen cases, oracles, measurements,
+model transport and spending-accounting changes. Read-only comparison still loads
+all three repetitions, including earlier failures and inconclusive runs.
