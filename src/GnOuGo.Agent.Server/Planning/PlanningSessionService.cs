@@ -275,6 +275,7 @@ public sealed class PlanningSessionService(
             LlmDefaults = new() { Provider = runtime.Options.DefaultProvider, Model = runtime.Options.DefaultModel },
             Limits = new() { LogStepContent = false, TenantId = Tenant, RunId = current.Request.SessionId }
         };
+        runtime.ConfigureAgentRunners(engine);
         var revision = current.Revision;
         var adapter = new WorkflowPlanningRuntime(engine, async (state, token) =>
         {
@@ -300,7 +301,7 @@ public sealed class PlanningSessionService(
             throw new PlanningConflictException("Saving requires approval of this exact validated artifact.");
         PlanningArtifactApproval.Verify(state);
         await using var runtime = await runtimeFactory.CreateAsync(ct);
-        var validation = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory, PlanningPolicy = AgentPlanningPolicy.Create() }, (_, _) => Task.CompletedTask);
+        var validation = new WorkflowPlanningRuntime(runtime.ConfigureAgentRunners(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory, PlanningPolicy = AgentPlanningPolicy.Create() }), (_, _) => Task.CompletedTask);
         var errors = await validation.ValidateCatalogAsync(state.Catalog!, ct);
         if (errors.Count == 0) errors = await validation.ValidateAsync(new(state.Yaml!, state.Request, state.Catalog!, PlanningGraphCompiler.CapabilityBindings(state.Graph!)), ct);
         if (errors.Count != 0)

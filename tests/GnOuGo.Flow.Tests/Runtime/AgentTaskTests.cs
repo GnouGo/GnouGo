@@ -58,9 +58,32 @@ public sealed class AgentTaskTests
         Assert.DoesNotContain(result.StepResults, s => s.StepId == "consume");
     }
 
-    private static Task<RunResult> Execute(Runner runner)
+    [Fact]
+    public async Task RejectedScopeIsARecordedFailureWithoutUncertainExternalWork()
     {
-        var engine = new WorkflowEngine { Limits = new() { TenantId = "tenant", RunId = "run" } };
+        var store = new InMemoryWorkflowRunStore();
+        var runner = new Runner { Rejections = ["Unsupported capability"] };
+        await Execute(runner, store);
+        var run = await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken);
+        Assert.Equal(0, runner.Dispatches);
+        var invocation = Assert.Single(run!.Invocations.Values, i => i.StepType == "agent.run");
+        Assert.Equal("failed", invocation.Status); Assert.NotNull(invocation.CompletedAt);
+        Assert.True(invocation.ExternalCompletionObserved);
+    }
+    [Fact]
+    public async Task FailedVerificationRetainsObservedEvidenceAndFindingsInJournal()
+    {
+        var store = new InMemoryWorkflowRunStore();
+        await Execute(new Runner { Result = Result() with { Evidence = [] } }, store);
+        var run = await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken);
+        var invocation = Assert.Single(run!.Invocations.Values, i => i.StepType == "agent.run");
+        Assert.False(invocation.Observation!["verification"]![0]!["passed"]!.GetValue<bool>());
+        Assert.Equal("failed", invocation.Status);
+    }
+
+    private static Task<RunResult> Execute(Runner runner, IWorkflowRunStore? store = null)
+    {
+        var engine = new WorkflowEngine { RunStore = store, Limits = new() { TenantId = "tenant", RunId = "run" } };
         engine.AgentTaskRunners["fixture"] = runner;
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
             version: 1

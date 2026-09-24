@@ -131,6 +131,7 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
             await using var runtime = await runtimeFactory.CreateAsync(ct);
             var engine = new WorkflowEngine { LLMClient = runtime.LlmClient, LLMCapabilities = runtime.LlmCapabilityResolver,
                 McpClientFactory = runtime.McpClientFactory, ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(runtime.Options), PlanningPolicy = AgentPlanningPolicy.Create() };
+            runtime.ConfigureAgentRunners(engine);
             var context = new StepExecutionContext { Engine = engine, Data = new(), Step = new() { Source = new StepDef { Id = origin.StepId, Type = "workflow.plan" } },
                 Limits = new() { TenantId = Tenant, RunId = origin.RunId }, CallDepth = origin.CallDepth, CallStack = new(origin.CallStack, StringComparer.Ordinal) };
             await using var owned = await Factory().OpenAsync(context, new() { Request = JsonSerializer.Deserialize(JsonSerializer.Serialize(origin.Request, PlanningJsonContext.Default.PlanningRequest), PlanningJsonContext.Default.PlanningRequest)! }, ct);

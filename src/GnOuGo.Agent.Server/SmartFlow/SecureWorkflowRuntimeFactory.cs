@@ -1,3 +1,4 @@
+using GnOuGo.Flow.Copilot;
 using GnOuGo.Agent.Server.Telemetry;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Runtime;
@@ -18,6 +19,7 @@ public sealed class SecureWorkflowRuntimeFactory
     private readonly IHumanInputProvider? _humanInputProvider;
     private readonly ILocalLLMRuntime? _localRuntime;
     private readonly LlmTraceCapture? _capture;
+    private readonly IReadOnlyDictionary<string, string> _copilotRunners;
 
     internal bool UsesLiveMcpConfiguration => _mcpClientFactoryOverride is null;
 
@@ -30,7 +32,8 @@ public sealed class SecureWorkflowRuntimeFactory
         ILLMCapabilityResolver? llmCapabilityResolver = null,
         IHumanInputProvider? humanInputProvider = null,
         ILocalLLMRuntime? localRuntime = null,
-        LlmTraceCapture? capture = null)
+        LlmTraceCapture? capture = null,
+        IReadOnlyDictionary<string, string>? copilotRunners = null)
     {
         _optionsStore = optionsStore;
         _keyVaultStore = keyVaultStore;
@@ -41,6 +44,7 @@ public sealed class SecureWorkflowRuntimeFactory
         _humanInputProvider = humanInputProvider;
         _localRuntime = localRuntime;
         _capture = capture;
+        _copilotRunners = copilotRunners ?? new Dictionary<string, string>();
     }
 
     internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct)
@@ -64,7 +68,7 @@ public sealed class SecureWorkflowRuntimeFactory
             mcpFactory,
             _llmCapabilityResolver,
             options,
-            http);
+            http) { CopilotRunners = _copilotRunners };
     }
 }
 
@@ -93,6 +97,8 @@ internal sealed class SecureWorkflowRuntimeSession : IAsyncDisposable
     public ILLMCapabilityResolver? LlmCapabilityResolver { get; }
 
     public LLMOptions Options { get; }
+    public IReadOnlyDictionary<string, string> CopilotRunners { get; init; } = new Dictionary<string, string>();
+    public WorkflowEngine ConfigureAgentRunners(WorkflowEngine engine) => engine.WithCopilotRunners(CopilotRunners);
 
     public async ValueTask DisposeAsync()
     {

@@ -1,3 +1,4 @@
+using GnOuGo.Flow.Copilot;
 
 using System.CommandLine;
 using System.Text.Json;
@@ -174,6 +175,7 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
         ILLMClient llmClient;
         IMcpClientFactory mcpFactory;
         IConfiguration? appConfig = null;
+        var humanInput = new ConsoleHumanInputProvider();
 
         if (useMock)
         {
@@ -204,6 +206,7 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
             mcpFactory = llmOptions.McpServers.Count > 0
                 ? new ConfiguredMcpClientFactory(
                     llmOptions.McpServers,
+                    humanInputProvider: humanInput,
                     defaultLlmProvider: llmOptions.DefaultProvider,
                     defaultLlmModel: llmOptions.DefaultModel)
                 : new InMemoryMcpClientFactory();
@@ -287,10 +290,13 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
             ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
             McpClientFactory = mcpFactory,
             McpCache = new MemoryCache(new MemoryCacheOptions()),
-            HumanInputProvider = new ConsoleHumanInputProvider(),
+            HumanInputProvider = humanInput,
             Telemetry = new OTelWorkflowTelemetry(),
             Logger = loggerFactory.CreateLogger("GnOuGo.Flow.WorkflowEngine"),
         };
+
+        engine.WithCopilotRunners(appConfig?.GetSection("Flow:CopilotRunners").GetChildren()
+            .Select(c => new KeyValuePair<string, string>(c.Key, c.Value ?? throw new InvalidOperationException("A Copilot runner requires an MCP server name."))) ?? []);
 
         var workflow = compiled.Workflows[entrypoint];
         inputObj = WorkflowInputDefaults.Apply(workflow.Source, inputObj);
@@ -427,8 +433,11 @@ rootCommand.Add(validateCommand);
 var runsCommand = new Command("runs", "Inspect durable executions and issue revision-checked commands");
 var tenantOption = new Option<string>("--tenant") { DefaultValueFactory = _ => "default", Description = "Execution tenant" };
 var inspectIdOption = new Option<string?>("--id") { Description = "Execution identity; omit to list tenant runs" };
-var commandOption = new Option<string>("--command") { DefaultValueFactory = _ => "inspect", Description = "inspect or cancel (resume uses run --resume-revision)" };
+var commandOption = new Option<string>("--command") { DefaultValueFactory = _ => "inspect", Description = "inspect, cancel or reconcile (resume uses run --resume-revision)" };
 var revisionOption = new Option<long?>("--revision") { Description = "Required inspected revision for commands" };
+var invocationOption = new Option<string?>("--invocation") { Description = "Exact invocation identity from the inspected journal" };
+var stoppedOption = new Option<string?>("--confirmed-stopped-reason") { Description = "Explicit confirmation of stopped external work; reconciliation records failure" };
+runsCommand.Add(invocationOption); runsCommand.Add(stoppedOption);
 runsCommand.Add(tenantOption); runsCommand.Add(inspectIdOption); runsCommand.Add(commandOption); runsCommand.Add(revisionOption);
 runsCommand.SetAction(async (ParseResult parsed, CancellationToken ct) =>
 {
@@ -442,6 +451,19 @@ runsCommand.SetAction(async (ParseResult parsed, CancellationToken ct) =>
         {
             if (id is null || parsed.GetValue(revisionOption) is not { } revision) throw new ArgumentException("Cancellation requires --id and --revision.");
             Console.WriteLine(JsonSerializer.Serialize(await store.CancelAsync(tenant, id, revision, ct), WorkflowRunJsonContext.Default.WorkflowRun));
+        }
+        else if (command == "reconcile")
+        {
+            if (id is null || parsed.GetValue(revisionOption) is not { } revision || parsed.GetValue(invocationOption) is not { } invocation)
+                throw new ArgumentException("Reconciliation requires --id, --revision and --invocation.");
+            var directory = File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json")) ? Directory.GetCurrentDirectory() : AppContext.BaseDirectory;
+            var config = new ConfigurationBuilder().SetBasePath(directory).AddJsonFile("appsettings.json", optional: true).AddEnvironmentVariables().Build();
+            var options = config.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
+            await using var transport = new ConfiguredMcpClientFactory(options.McpServers, new ConsoleHumanInputProvider(), options.DefaultProvider, options.DefaultModel);
+            var engine = new WorkflowEngine { RunStore = store, McpClientFactory = transport }.WithCopilotRunners(
+                config.GetSection("Flow:CopilotRunners").GetChildren().Select(c => new KeyValuePair<string, string>(c.Key, c.Value ?? throw new ArgumentException("A Copilot runner requires a server name."))));
+            var reconciled = await engine.ReconcileAsync(tenant, id, revision, invocation, parsed.GetValue(stoppedOption), ct);
+            Console.WriteLine(JsonSerializer.Serialize(reconciled, WorkflowRunJsonContext.Default.WorkflowRun));
         }
         else if (command != "inspect") throw new ArgumentException("Unknown execution command.");
         else if (id is null) Console.WriteLine(JsonSerializer.Serialize((await store.ListAsync(tenant, ct)).ToList(), WorkflowRunJsonContext.Default.ListWorkflowRun));

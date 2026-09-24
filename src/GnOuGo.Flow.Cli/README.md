@@ -25,5 +25,16 @@ gnougo-flow run workflow.yaml --run-id RUN_ID --resume-revision REVISION
 gnougo-flow runs --tenant default --id RUN_ID --command cancel --revision REVISION
 ```
 
-Completed receipts are reused. Unknown external outcomes require reconciliation through the run API before execution or cleanup can continue. The CLI reports recovery status and the remaining step ceiling. Reusing a run ID without `--resume-revision` is rejected.
+Completed receipts are reused. Unknown external outcomes require reconciliation through the run API or CLI before execution or cleanup can continue. The CLI reports recovery status and the remaining step ceiling. Reusing a run ID without `--resume-revision` is rejected.
 Completed model receipts are reused and an unverifiable dispatch stops without another call.
+
+Configure bounded Copilot explicitly under `Flow:CopilotRunners`, mapping a runner
+identifier to its configured MCP server name (for example `coding` to
+`GnOuGo.GithubCopilot.Mcp`). Ordinary MCP execution needs no agent adapter.
+See [adapter scope and evidence](../GnOuGo.Flow.Copilot/README.md).
+
+```sh
+gnougo-flow runs --tenant default --id RUN_ID --command reconcile --revision REVISION --invocation INVOCATION_ID
+# For effects without a reconciling adapter, explicitly confirm quiescence; this records failure:
+gnougo-flow runs --tenant default --id RUN_ID --command reconcile --revision REVISION --invocation INVOCATION_ID --confirmed-stopped-reason "Confirmed the external process exited; its result is unavailable"
+```

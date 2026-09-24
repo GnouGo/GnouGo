@@ -67,10 +67,11 @@ public sealed class AgentHumanInputProvider : IHumanInputProvider
         var key = $"{runId}:{stepId}";
         if (!_pending.ContainsKey(key)) return false;
         if (_runs is not null) await WorkflowRunHumanResponses.RecordAsync(_runs, _tenant, runId, stepId, response, CancellationToken.None);
-        if (_pending.TryRemove(key, out var tcs))
-            return tcs.TrySetResult(response);
-        return false;
+        return ReleaseRecordedResponse(runId, stepId, response);
     }
+
+    internal bool ReleaseRecordedResponse(string runId, string stepId, JsonNode? response)
+        => _pending.TryRemove($"{runId}:{stepId}", out var tcs) && tcs.TrySetResult(response);
 
     /// <summary>
     /// Returns true if there is a pending request for the given run+step.

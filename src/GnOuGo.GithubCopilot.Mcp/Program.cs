@@ -65,6 +65,8 @@ builder.Services.AddSingleton<CopilotMcpConfiguration>();
 builder.Services.AddSingleton<CopilotCodeService>();
 builder.Services.AddTransient<CodeTools>();
 builder.Services.AddTransient<CopilotTools>();
+builder.Services.AddSingleton<BoundedCopilotTasks>();
+builder.Services.AddTransient<BoundedCopilotTools>();
 builder.Services
     .AddMcpServer(options =>
     {
@@ -84,7 +86,8 @@ builder.Services
     })
     .WithStdioServerTransport()
     .WithTools<CodeTools>(CodeMcpJson.SerializerOptions)
-    .WithTools<CopilotTools>(CodeMcpJson.SerializerOptions);
+    .WithTools<CopilotTools>(CodeMcpJson.SerializerOptions)
+    .WithTools<BoundedCopilotTools>(CodeMcpJson.SerializerOptions);
 
 var host = builder.Build();
 var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.GithubCopilot.Mcp.Startup");

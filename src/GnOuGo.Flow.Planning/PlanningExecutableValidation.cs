@@ -84,13 +84,20 @@ public static class PlanningExecutableValidation
                         ? new StepContract(inputSchema, outputSchema, InputRequired: true) : BuiltInStepContracts.Get(node.Type);
                     if (declaredContract is { } contract)
                         errors.AddRange(PlanningContractValidation.ValidateStepInput(input, contract).Select(d => new PlanningDiagnostic("NATIVE_INPUT_INVALID", location + "/" + d.Field.Replace('.', '/'), d.Message)));
+                    if (node.Type == "agent.run")
+                    {
+                        _ = AgentTaskContracts.Parse(input);
+                        if (capability is not null)
+                            errors.AddRange(PlanningContractValidation.ValidateStepInput(input, new StepContract(capability.InputSchema, capability.OutputSchema, InputRequired: true))
+                                .Select(d => new PlanningDiagnostic("AGENT_SCOPE_INVALID", location + "/" + d.Field.Replace('.', '/'), d.Message)));
+                    }
                     if (node.Type == "human.input")
                     {
                         var doc = new WorkflowDocument { Skill = new() { Description = "Validate expression contract", Inputs = new(), Outputs = new() }, Workflows = new() { ["main"] = new() { Steps = [new() { Id = "question", Type = node.Type, Input = input }] } } };
                         errors.AddRange(new WorkflowValidator().Validate(doc).Select(d => new PlanningDiagnostic(d.Code, location + "/" + d.Field?.Replace('.', '/'), d.Message)));
                     }
                 }
-                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { errors.Add(new("NATIVE_INPUT_INVALID", location + "/input", ex.Message)); }
+                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException or WorkflowRuntimeException) { errors.Add(new("NATIVE_INPUT_INVALID", location + "/input", ex.Message)); }
             }
             for (var i = 0; i < workflow.Outputs.Count; i++) Values(workflow.Outputs[i].Value, path + "/outputs/" + i + "/value");
         }

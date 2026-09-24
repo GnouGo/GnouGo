@@ -1,3 +1,4 @@
+using GnOuGo.Flow.Copilot;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
@@ -155,6 +156,8 @@ builder.Services.AddSingleton<IWorkflowRunStore>(_ => EncryptedWorkflowRunStore.
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
 
+var copilotRunners = builder.Configuration.GetSection("Flow:CopilotRunners").GetChildren()
+    .ToDictionary(c => c.Key, c => c.Value ?? throw new InvalidOperationException("A Copilot runner requires an MCP server name."), StringComparer.Ordinal);
 var app = builder.Build();
 
 app.UseCors();
@@ -182,7 +185,7 @@ app.MapPost("/api/workflow/run", async (
         var runId = request.RunId ?? Guid.NewGuid().ToString("N");
         httpContext.Response.Headers["X-Workflow-Run-Id"] = runId;
         httpContext.Response.Headers["X-Workflow-Tenant-Id"] = string.IsNullOrWhiteSpace(otelSettings.TenantId) ? "default" : otelSettings.TenantId.Trim();
-        var result = await ExecuteWorkflowAsync(prepared.Workflow, prepared.Inputs, telemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, cts.Token, runStore, otelSettings.TenantId);
+        var result = await ExecuteWorkflowAsync(prepared.Workflow, prepared.Inputs, telemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, cts.Token, runStore, otelSettings.TenantId, copilotRunners);
         return Results.Ok(ToWorkflowRunResponse(result));
     }
     catch (WorkflowParseException ex)
@@ -232,7 +235,7 @@ runs.MapPost("/{runId}/{command}", async (string tenantId, string runId, string 
         var run = await store.ReadAsync(tenantId, runId, ct);
         if (run is null) return Results.NotFound();
         var engine = CreateWorkflowEngine(telemetry, llm, mcpFactory, cache, human,
-            loggers.CreateLogger("GnOuGo.Flow.WorkflowEngine"), runId, store, tenantId);
+            loggers.CreateLogger("GnOuGo.Flow.WorkflowEngine"), runId, store, tenantId, copilotRunners);
         if (command == "reconcile")
             return Results.Json(await engine.ReconcileAsync(tenantId, runId, request.ExpectedRevision,
                 request.InvocationId ?? "", request.ConfirmedStoppedReason, ct), WorkflowRunJsonContext.Default.WorkflowRun);
@@ -308,7 +311,7 @@ app.MapPost("/api/workflow/run/stream", async (
     {
         try
         {
-            runResult = await ExecuteWorkflowAsync(prepared.Workflow, prepared.Inputs, streamingTelemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, linkedCts.Token, runStore, otelSettings.TenantId);
+            runResult = await ExecuteWorkflowAsync(prepared.Workflow, prepared.Inputs, streamingTelemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, linkedCts.Token, runStore, otelSettings.TenantId, copilotRunners);
         }
         catch (Exception ex)
         {
@@ -414,14 +417,14 @@ static Task<RunResult> ExecuteWorkflowAsync(
     ILogger logger,
     string? runId,
     CancellationToken ct,
-    IWorkflowRunStore? runStore = null, string? tenantId = null)
+    IWorkflowRunStore? runStore = null, string? tenantId = null, IReadOnlyDictionary<string, string>? copilotRunners = null)
 {
-    return CreateWorkflowEngine(telemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, runStore, tenantId)
+    return CreateWorkflowEngine(telemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, runStore, tenantId, copilotRunners)
         .ExecuteAsync(workflow, inputs, ct);
 }
 
 static WorkflowEngine CreateWorkflowEngine(IWorkflowTelemetry telemetry, ILLMClient llm, IMcpClientFactory mcpFactory,
-    IMemoryCache mcpCache, IHumanInputProvider hitlProvider, ILogger logger, string? runId, IWorkflowRunStore? runStore, string? tenantId)
+    IMemoryCache mcpCache, IHumanInputProvider hitlProvider, ILogger logger, string? runId, IWorkflowRunStore? runStore, string? tenantId, IReadOnlyDictionary<string, string>? copilotRunners)
     => new WorkflowEngine
     {
         WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
@@ -435,7 +438,7 @@ static WorkflowEngine CreateWorkflowEngine(IWorkflowTelemetry telemetry, ILLMCli
         Telemetry = telemetry,
         Logger = logger,
         Limits = new ExecutionLimits { LogStepContent = true, RunId = runId, TenantId = string.IsNullOrWhiteSpace(tenantId) ? "default" : tenantId.Trim() }
-    };
+    }.WithCopilotRunners(copilotRunners ?? new Dictionary<string, string>());
 
 static WorkflowRunResponse ToWorkflowRunResponse(RunResult result) => new()
 {

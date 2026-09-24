@@ -61,7 +61,7 @@ public sealed class WorkflowInvocation
     public DateTimeOffset? CompletedAt { get; set; }
 }
 
-public sealed record WorkflowRunCommand(long ExpectedRevision, string? InvocationId = null, string? ConfirmedStoppedReason = null);
+public sealed record WorkflowRunCommand(long ExpectedRevision, string? InvocationId = null, string? ConfirmedStoppedReason = null, JsonNode? Response = null);
 
 public sealed record WorkflowRunEvent(DateTimeOffset Timestamp, string Kind, string? InvocationId);
 public sealed class WorkflowRunConflictException(string message) : InvalidOperationException(message);
@@ -120,6 +120,8 @@ public static class WorkflowRunStorage
         if (run.CancelRequested || !run.Invocations.TryGetValue(invocationId, out var invocation) ||
             invocation.Recovery != StepRecovery.HumanInput || invocation.Status != "waiting_for_human" || invocation.Control.ContainsKey("human_response"))
             throw new WorkflowRunConflictException("This invocation is no longer waiting for an answer.");
+        if (invocation.Control.GetValueOrDefault("human_deadline") is { } deadline && deadline.GetValue<long>() < DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+            throw new WorkflowRunConflictException("The original human-input deadline has expired. Resume the run to record its timeout.");
         invocation.Control["human_response"] = response?.DeepClone();
         run.Events.Add(new(DateTimeOffset.UtcNow, "human_answer", invocationId));
     }

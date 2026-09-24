@@ -197,3 +197,43 @@ The opt-in [controlled editing fixture](../../tests/GnOuGo.GithubCopilot.E2E.Tes
 runs both legacy and managed MCP entry points with a real model, bounded allow-once
 elicitation, failing/passing Python tests, SDK command receipts, reconnect, and refusal.
 It supports the published Native AOT binary and performs no remote publication.
+
+## Bounded Flow tasks (schema 9)
+
+`GnOuGo.Flow.Copilot` uses `copilot_task_contract`, `copilot_task_validate`,
+`copilot_task_run` and `copilot_task_inspect`. These adapter operations are hidden
+from general workflow capability discovery; planners select the registered
+`agent.run` contract instead. Each task uses the existing managed session lifecycle.
+
+Task scope, intent, cumulative inference reservations and final receipts are stored
+through encrypted KeyVault record APIs. An invocation is never dispatched twice.
+After a process crash, inspection returns a saved receipt or `needs_reconciliation`;
+it does not promise restoration of the SDK session. Cross-process ownership uses
+workspace-resolved owner files, so all hosts sharing the record store must share
+the same workspace owner directory.
+
+Project tools retain the existing filesystem and permission policies. Adaptive
+commands require a mandatory, available Copilot sandbox: managed `sandbox.enabled`
+and `sandbox.failIfUnavailable` must both be enabled. The task disables sandbox
+bypass, outbound/local networking and Git/GitHub credential grants. It retains
+host-defined sandbox read-only access and allows writes in the task workspace.
+This is checked before the task prompt is dispatched. See the [upstream managed
+sandbox policy](https://docs.github.com/en/copilot/reference/enterprise-administrators/enterprise-managed-settings).
+
+Inference retains the configured policy proxy. Supported text HTTP protocols have
+explicit output ceilings and conservative, non-refundable token reservations;
+opaque prior-conversation references, multimodal requests and unaccounted WebSockets
+are rejected. Receipts label reservations `reserved_upper_bound`.
+
+Verification evidence comes from SDK tool events and controlled file reads. Exact
+command subjects include the final exit code and retained attempt history; earlier
+failed tests are not erased. A test before a later file edit or non-verification
+command cannot establish final success. File evidence includes an SHA-256 digest of
+the observed UTF-8 content and whether it changed during this invocation. Required
+verification commands must themselves be suitable checks of the task outcome.
+
+```sh
+dotnet test tests/GnOuGo.GithubCopilot.Core.Tests
+dotnet test tests/GnOuGo.GithubCopilot.Mcp.Tests
+dotnet test tests/GnOuGo.Flow.Copilot.Tests
+```

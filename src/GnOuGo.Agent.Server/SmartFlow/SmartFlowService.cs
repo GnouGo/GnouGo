@@ -435,6 +435,7 @@ public sealed class SmartFlowService
                     TenantId = _tenantId
                 }
             };
+            runtime.ConfigureAgentRunners(engine);
             var inputs = BuildWorkflowInputs(task, selectedAgentName, correlationId, filesIds, workflowInputs);
             var resolvedInputs = WorkflowInputDefaults.Apply(workflow.Source, inputs);
 

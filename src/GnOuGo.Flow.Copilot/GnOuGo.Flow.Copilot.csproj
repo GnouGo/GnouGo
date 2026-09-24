@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+    <IsAotCompatible>true</IsAotCompatible><IsPackable>true</IsPackable>
+    <PackageId>GnOuGo.Flow.Copilot</PackageId><Authors>GnOuGo</Authors>
+    <Description>Bounded Copilot agent tasks through injected MCP transport and managed Copilot execution.</Description>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/GnouGo/GnouGo/</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/GnouGo/GnouGo/</RepositoryUrl><RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile><PackageTags>gnougo;flow;copilot;agent;mcp;nativeaot</PackageTags>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj" /></ItemGroup>
+  <ItemGroup><None Include="README.md" Pack="true" PackagePath="/" /></ItemGroup>
+</Project>

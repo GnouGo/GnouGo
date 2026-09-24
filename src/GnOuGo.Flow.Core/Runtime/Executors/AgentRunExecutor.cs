@@ -10,18 +10,7 @@ public sealed class AgentRunExecutor : IStepExecutor
 {
     public string StepType => "agent.run";
     public StepContract Contract => new(
-        JsonNode.Parse("""
-        {"type":"object","required":["runner","objective","output_schema","workspace","capabilities","budget","verification"],
-         "additionalProperties":false,"properties":{
-          "runner":{"type":"string","minLength":1},"objective":{"type":"string","minLength":1},
-          "inputs":{"type":"object"},"output_schema":{"type":"object"},"workspace":{"type":"string","minLength":1},
-          "capabilities":{"type":"array","items":{"type":"string"},"uniqueItems":true},
-          "budget":{"type":"object","additionalProperties":false,"required":["max_elapsed_milliseconds","max_model_calls","max_total_tokens"],
-            "properties":{"max_elapsed_milliseconds":{"type":"integer","minimum":1},"max_model_calls":{"type":"integer","minimum":1},"max_total_tokens":{"type":"integer","minimum":1}}},
-          "verification":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,
-            "required":["id","kind","subject","facts_schema"],"properties":{"id":{"type":"string"},"kind":{"type":"string"},
-              "subject":{"type":"string"},"facts_schema":{"type":"object"}}}}}}
-        """)!.AsObject(),
+        AgentTaskContracts.InputSchema,
         JsonNode.Parse("""{"type":"object","properties":{"status":{"type":"string"},"output":{},"evidence":{"type":"array"},"artifacts":{"type":"array"},"usage":{"type":"object"},"verification":{"type":"array"}},"required":["status","output","evidence","artifacts","usage","verification"]}""")!.AsObject(),
         InputRequired: true);
 
@@ -35,24 +24,33 @@ public sealed class AgentRunExecutor : IStepExecutor
 
     public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
     {
-        var input = ctx.Engine.GetResolvedInput(ctx);
-        if (JsonSchemaContractValidator.ValidateInstance(input, Contract.InputSchema).Count != 0)
-            throw Failure(ErrorCodes.InputValidation, "The agent task does not satisfy its declared input contract.");
-        var task = JsonSerializer.Deserialize(input, AgentTaskJsonContext.Default.AgentTaskDefinition)
-            ?? throw Failure(ErrorCodes.InputValidation, "An agent task definition is required.");
-        if (string.IsNullOrWhiteSpace(ctx.Limits.TenantId) || string.IsNullOrWhiteSpace(ctx.Limits.RunId))
-            throw Failure(ErrorCodes.InputValidation, "Agent execution requires tenant and run identities.");
-        if (!ctx.Engine.AgentTaskRunners.TryGetValue(task.Runner, out var runner))
-            throw Failure("AGENT_RUNNER_UNAVAILABLE", "The configured agent runner is unavailable.");
-        if (JsonSchemaContractValidator.ValidateSchema(task.OutputSchema, strictProfile: false).Count > 0 ||
-            task.Verification.Any(v => string.IsNullOrWhiteSpace(v.Id) || string.IsNullOrWhiteSpace(v.Kind) ||
-                string.IsNullOrWhiteSpace(v.Subject) || JsonSchemaContractValidator.ValidateSchema(v.FactsSchema, strictProfile: false).Count > 0) ||
-            task.Verification.Select(v => v.Id).Distinct(StringComparer.Ordinal).Count() != task.Verification.Count)
-            throw Failure(ErrorCodes.InputValidation, "Agent output and verification contracts must be valid and unambiguous.");
-        var context = new AgentTaskContext(ctx.Limits.TenantId, ctx.Limits.RunId, ctx.InvocationId, task);
-        var errors = await runner.ValidateAsync(context, ct);
-        if (errors.Count != 0)
-            throw Failure("AGENT_SCOPE_UNSUPPORTED", "The runner cannot enforce the approved task scope: " + string.Join("; ", errors));
+        AgentTaskContext context;
+        IAgentTaskRunner runner;
+        try
+        {
+            var taskDefinition = AgentTaskContracts.Parse(ctx.Engine.GetResolvedInput(ctx));
+            if (string.IsNullOrWhiteSpace(ctx.Limits.TenantId) || string.IsNullOrWhiteSpace(ctx.Limits.RunId))
+                throw Failure(ErrorCodes.InputValidation, "Agent execution requires tenant and run identities.");
+            if (!ctx.Engine.AgentTaskRunners.TryGetValue(taskDefinition.Runner, out runner!))
+                throw Failure("AGENT_RUNNER_UNAVAILABLE", "The configured agent runner is unavailable.");
+            context = new(ctx.Limits.TenantId, ctx.Limits.RunId, ctx.InvocationId, taskDefinition)
+            {
+                ExecutionId = ctx.Limits.ExecutionId, AgentId = ctx.Limits.AgentId, AgentName = ctx.Limits.AgentName,
+                Progress = progress => ctx.AddTelemetryEvent("gnougo-flow.step.thinking",
+                    [new("gnougo-flow.thinking.message", progress.Message), new("gnougo-flow.thinking.kind", progress.Kind),
+                     new("gnougo-flow.thinking.source", "agent.progress"), new("gnougo-flow.invocation.id", ctx.InvocationId)])
+            };
+            var errors = await runner.ValidateAsync(context, ct);
+            if (errors.Count != 0)
+                throw Failure("AGENT_SCOPE_UNSUPPORTED", "The runner cannot enforce the approved task scope: " + string.Join("; ", errors));
+        }
+        catch
+        {
+            // No task dispatch took place. Recovery must not classify a rejected scope as an uncertain external effect.
+            await ctx.RecordExternalCompletionAsync(new JsonObject { ["status"] = "rejected_before_dispatch" }, CancellationToken.None);
+            throw;
+        }
+        var task = context.Task;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         deadline.CancelAfter(TimeSpan.FromMilliseconds(task.Budget.MaxElapsedMilliseconds));
         AgentTaskResult result;
@@ -61,10 +59,11 @@ public sealed class AgentRunExecutor : IStepExecutor
         { throw Failure("AGENT_OUTCOME_UNCERTAIN", "The agent deadline expired; reconcile the invocation before continuing."); }
         if (result.Status != "needs_reconciliation")
             await ctx.RecordExternalCompletionAsync(JsonSerializer.SerializeToNode(result, AgentTaskJsonContext.Default.AgentTaskResult), CancellationToken.None);
-        return await ValidateResultAsync(context, result, ctx.Engine.AgentTaskVerifier, ct);
+        return await ValidateResultAsync(context, result, ctx.Engine.AgentTaskVerifier, ct,
+            verified => ctx.RecordExternalCompletionAsync(JsonSerializer.SerializeToNode(verified, AgentTaskJsonContext.Default.AgentTaskResult), CancellationToken.None));
     }
 
-    internal static async Task<JsonNode?> ValidateResultAsync(AgentTaskContext context, AgentTaskResult result, IAgentTaskVerifier verifier, CancellationToken ct)
+    internal static async Task<JsonNode?> ValidateResultAsync(AgentTaskContext context, AgentTaskResult result, IAgentTaskVerifier verifier, CancellationToken ct, Func<AgentTaskResult, Task>? persistVerified = null)
     {
         var task = context.Task;
         if (result.Status != "completed")
@@ -80,12 +79,13 @@ public sealed class AgentRunExecutor : IStepExecutor
             result.Evidence.Select(e => e.Id).Distinct(StringComparer.Ordinal).Count() != result.Evidence.Count)
             throw Failure("AGENT_EVIDENCE_INVALID", "Execution evidence requires unique observation identities.");
         var findings = await verifier.VerifyAsync(context, result, ct);
+        result = result with { Verification = findings };
+        if (persistVerified is not null) await persistVerified(result);
         if (findings.Count != task.Verification.Count || findings.Any(f => !f.Passed) ||
             !findings.Select(f => f.RequirementId).Order(StringComparer.Ordinal)
                 .SequenceEqual(task.Verification.Select(v => v.Id).Order(StringComparer.Ordinal)))
             throw Failure("AGENT_VERIFICATION_FAILED", "Observed execution does not establish every required task outcome.");
         var output = JsonSerializer.SerializeToNode(result, AgentTaskJsonContext.Default.AgentTaskResult)!.AsObject();
-        output["verification"] = JsonSerializer.SerializeToNode(findings.ToList(), AgentTaskJsonContext.Default.ListAgentVerificationFinding);
         return output;
     }
 

@@ -62,6 +62,8 @@ public sealed class StepExecutionContext
     public string? StageInvocationId { get; init; }
     public string InvocationId => ExecutionScope?.Path ?? "/workflow/main/step/" + Uri.EscapeDataString(Step.Id);
 
+    public bool HasRecordedControl(string key) => Engine.Journal?.Run.Invocations.GetValueOrDefault(InvocationId)?.Control.ContainsKey(key) == true;
+
     public JsonNode? ReadRecordedControl(string key) => Engine.Journal?.Run.Invocations.GetValueOrDefault(InvocationId)?.Control.GetValueOrDefault(key)?.DeepClone();
 
     public Task<JsonNode?> RecordControlAsync(string key, Func<JsonNode?> resolve, CancellationToken ct)

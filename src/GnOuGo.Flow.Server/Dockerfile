@@ -51,6 +51,7 @@ COPY src/GnOuGo.Flow.Server/GnOuGo.Flow.Server.csproj src/GnOuGo.Flow.Server/
 COPY src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj     src/GnOuGo.Flow.Core/
 COPY src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj src/GnOuGo.Flow.Integrations/
 COPY src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj src/GnOuGo.Flow.Persistence/
+COPY src/GnOuGo.Flow.Copilot/GnOuGo.Flow.Copilot.csproj src/GnOuGo.Flow.Copilot/
 COPY src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj src/GnOuGo.Flow.Planning/
 COPY src/GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj src/GnOuGo.KeyVault.Core/
 COPY src/GnOuGo.Workspace/GnOuGo.Workspace.csproj src/GnOuGo.Workspace/
@@ -64,6 +65,8 @@ RUN dotnet restore src/GnOuGo.Flow.Server/GnOuGo.Flow.Server.csproj
 COPY src/GnOuGo.Flow.Server/ src/GnOuGo.Flow.Server/
 COPY src/GnOuGo.Flow.Core/   src/GnOuGo.Flow.Core/
 COPY src/GnOuGo.Flow.Integrations/ src/GnOuGo.Flow.Integrations/
+COPY src/GnOuGo.Flow.Persistence/ src/GnOuGo.Flow.Persistence/
+COPY src/GnOuGo.Flow.Copilot/ src/GnOuGo.Flow.Copilot/
 COPY src/GnOuGo.Flow.Planning/ src/GnOuGo.Flow.Planning/
 COPY src/GnOuGo.KeyVault.Core/ src/GnOuGo.KeyVault.Core/
 COPY src/GnOuGo.Workspace/ src/GnOuGo.Workspace/

@@ -20,6 +20,12 @@ public sealed class WorkflowRunService(IWorkflowRunStore store, SecureWorkflowRu
     public async Task<WorkflowRun> CommandAsync(string id, string command, WorkflowRunCommand request, CancellationToken ct)
     {
         if (command == "cancel") return await store.CancelAsync(TenantId, id, request.ExpectedRevision, ct);
+        if (command == "answer")
+        {
+            var answered = await store.AnswerAsync(TenantId, id, request.ExpectedRevision, request.InvocationId ?? "", request.Response, ct);
+            human.ReleaseRecordedResponse(id, request.InvocationId ?? "", request.Response);
+            return answered;
+        }
         var run = await ReadAsync(id, ct) ?? throw new KeyNotFoundException();
         await using var runtime = await runtimeFactory.CreateAsync(ct);
         var engine = new WorkflowEngine
@@ -34,6 +40,7 @@ public sealed class WorkflowRunService(IWorkflowRunStore store, SecureWorkflowRu
             Telemetry = telemetry, Logger = logger,
             LlmDefaults = new() { Provider = runtime.Options.DefaultProvider, Model = runtime.Options.DefaultModel }
         };
+        runtime.ConfigureAgentRunners(engine);
         if (command == "reconcile")
             return await engine.ReconcileAsync(TenantId, id, request.ExpectedRevision, request.InvocationId ?? "", request.ConfirmedStoppedReason, ct);
         if (command != "resume") throw new ArgumentException("Unknown execution command.");

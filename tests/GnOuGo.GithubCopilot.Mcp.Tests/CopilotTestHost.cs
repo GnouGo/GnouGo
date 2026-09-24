@@ -14,6 +14,9 @@ internal sealed class CopilotTestHost : ICopilotSdkClientFactory
     public int DeleteCount { get; private set; }
     public int DisposedSessions { get; private set; }
     public CopilotCodeService Service { get; }
+    public CopilotSessionManager Manager { get; }
+    public Func<CopilotSdkSessionConfiguration, string, CopilotSendRequest, CancellationToken, Task<CopilotSendResult>>? OnSend { get; set; }
+    public int Sends { get; private set; }
     public McpCopilotHumanInputProvider Human { get; }
     public CopilotTestHost(CodeServerSettings settings, string root, CodePolicy? policy = null)
     {
@@ -24,6 +27,7 @@ internal sealed class CopilotTestHost : ICopilotSdkClientFactory
         var options = Options.Create(settings);
         var manager = new CopilotSessionManager(this, humanInputProvider: Human,
             fileSystems: new LocalProjectSessionFsFactory(policy, options, NullLoggerFactory.Instance));
+        Manager = manager;
         Service = new(manager, new(policy, options, trace), policy, options, trace, reporter);
     }
     public ICopilotSdkClient Create(CopilotRuntimeConfiguration configuration) => new Client(this);
@@ -48,7 +52,8 @@ internal sealed class CopilotTestHost : ICopilotSdkClientFactory
         public string SessionId { get; } = Guid.NewGuid().ToString("N");
         public async Task<CopilotSendResult> SendAsync(string handle, CopilotSendRequest request, CancellationToken ct)
         {
-            owner.LastRequest = request;
+            owner.LastRequest = request; owner.Sends++;
+            if (owner.OnSend is not null) return await owner.OnSend(owner.Configuration!, handle, request, ct);
             if (owner.AgentEditCalled) await owner.Configuration!.FileSystem!.WriteFileAsync("src/Program.cs", "// edited\n", null, ct);
             request.Progress?.Invoke(new("completed", "info", "fake suggestion completed", DateTimeOffset.UtcNow));
             return new(handle, SessionId, owner.AgentEditCalled ? "fake edit summary" : "fake suggestion", "fake-model", []);

@@ -95,14 +95,15 @@ public sealed partial class WorkflowEngine
                 ?? throw new WorkflowRunConflictException("The approved agent scope is missing.");
             if (!AgentTaskRunners.TryGetValue(task.Runner, out var runner))
                 throw new WorkflowRunConflictException("The approved agent adapter is unavailable.");
-            var context = new AgentTaskContext(tenantId, runId, invocationId, task);
+            var context = new AgentTaskContext(tenantId, runId, invocationId, task)
+            { ExecutionId = lease.Run.Limits.ExecutionId, AgentId = lease.Run.Limits.AgentId, AgentName = lease.Run.Limits.AgentName };
             var observed = invocation.Observation is null ? await runner.ReconcileAsync(context, ct) :
                 JsonSerializer.Deserialize(invocation.Observation, AgentTaskJsonContext.Default.AgentTaskResult)!;
             if (observed.Status == "needs_reconciliation") return WorkflowRunStorage.Clone(lease.Run);
             await journal.ObserveAsync(invocationId, JsonSerializer.SerializeToNode(observed, AgentTaskJsonContext.Default.AgentTaskResult), ct);
             try
             {
-                var output = await AgentRunExecutor.ValidateResultAsync(context, observed, AgentTaskVerifier, ct);
+                var output = await AgentRunExecutor.ValidateResultAsync(context, observed, AgentTaskVerifier, ct, verified => journal.ObserveAsync(invocationId, JsonSerializer.SerializeToNode(verified, AgentTaskJsonContext.Default.AgentTaskResult), ct));
                 await journal.ResolveOutputAsync(invocationId, output, ct);
             }
             catch (WorkflowRuntimeException ex) { await journal.ResolveAsFailedAsync(invocationId, ex.Message, ct); }

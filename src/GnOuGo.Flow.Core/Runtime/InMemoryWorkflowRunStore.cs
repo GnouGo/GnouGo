@@ -27,6 +27,7 @@ public sealed class InMemoryWorkflowRunStore : IWorkflowRunStore
     {
         ct.ThrowIfCancellationRequested();
         WorkflowRunStorage.ValidateOwnership(run, run.TenantId, run.RunId);
+        if (run.Revision != 0) throw new WorkflowRunConflictException("A new run must start at revision zero.");
         lock (_gate)
         {
             if (!_runs.TryAdd((run.TenantId, run.RunId), WorkflowRunStorage.Clone(run)))

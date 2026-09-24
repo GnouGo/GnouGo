@@ -418,7 +418,8 @@ public static class GnOuGoAgentWebHost
             llmCapabilityResolver: sp.GetService<ILLMCapabilityResolver>(),
             humanInputProvider: sp.GetRequiredService<AgentHumanInputProvider>(),
             localRuntime: sp.GetRequiredService<ILocalLLMRuntime>(),
-            capture: sp.GetRequiredService<LlmTraceCapture>()));
+            capture: sp.GetRequiredService<LlmTraceCapture>(),
+            copilotRunners: builder.Configuration.GetSection("Flow:CopilotRunners").GetChildren().ToDictionary(c => c.Key, c => c.Value ?? throw new InvalidOperationException("A Copilot runner requires an MCP server name."), StringComparer.Ordinal)));
         builder.Services.AddSingleton<CollectorTracePersistence>();
         builder.Services.AddSingleton<ILoggerProvider, CollectorLoggerProvider>();
 

@@ -240,6 +240,7 @@ public sealed class ConfigureAgentsService
                 TenantId = _tenantId
             }
         };
+        runtime.ConfigureAgentRunners(engine);
 
         RunResult? result = null;
         Exception? error = null;

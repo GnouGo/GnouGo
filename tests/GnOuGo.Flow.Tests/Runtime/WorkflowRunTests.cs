@@ -183,8 +183,10 @@ public sealed class WorkflowRunTests
         Assert.Equal(saved.Revision, (await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken))!.Revision);
     }
 
-    [Fact]
-    public async Task AnswerCommittedBeforeAcknowledgement_IsConsumedAfterProcessRestart()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AnswerCommittedBeforeAcknowledgement_IsConsumedAfterProcessRestart(bool nullAnswer)
     {
         const string yaml = """
             version: 1
@@ -200,14 +202,36 @@ public sealed class WorkflowRunTests
         initial.HumanInputProvider = new Human(null);
         await initial.ExecuteAsync(Compile(yaml), null, ct);
         var run = (await store.ReadAsync("tenant", "run", ct))!;
-        run = await store.AnswerAsync("tenant", "run", run.Revision, "/workflow/main/step/ask", new JsonObject { ["response"] = "42" }, ct);
+        run = await store.AnswerAsync("tenant", "run", run.Revision, "/workflow/main/step/ask", nullAnswer ? null : new JsonObject { ["response"] = "42" }, ct);
         var restarted = Engine(store, new Effect());
         var human = new Human("incorrect");
         restarted.HumanInputProvider = human;
         var result = await restarted.ResumeAsync("tenant", "run", run.Revision, Compile(yaml), ct);
         Assert.True(result.Success, result.Error?.Message);
         Assert.Null(human.Id);
-        Assert.Equal("42", result.StepResults.Single(s => s.StepId == "consume").Output!["value"]!.GetValue<string>());
+        var value = result.StepResults.Single(s => s.StepId == "consume").Output!["value"];
+        if (nullAnswer) Assert.Null(value); else Assert.Equal("42", value!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task HumanDeadlineSurvivesRecoveryAndRejectsLateAnswers()
+    {
+        const string yaml = "version: 1\nworkflows:\n  main:\n    steps:\n      - { id: ask, type: human.input, input: { mode: text, prompt: Answer } }";
+        var ct = TestContext.Current.CancellationToken;
+        var store = new InMemoryWorkflowRunStore(); var first = Engine(store, new Effect());
+        first.HumanInputProvider = new Human(null);
+        await first.ExecuteAsync(Compile(yaml), null, ct);
+        var run = (await store.ReadAsync("tenant", "run", ct))!;
+        await using (var owner = await store.AcquireAsync("tenant", "run", run.Revision, ct))
+        {
+            owner.Run.Invocations["/workflow/main/step/ask"].Control["human_deadline"] = DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeMilliseconds();
+            await owner.SaveAsync(ct);
+        }
+        run = (await store.ReadAsync("tenant", "run", ct))!;
+        await Assert.ThrowsAsync<WorkflowRunConflictException>(() => store.AnswerAsync("tenant", "run", run.Revision, "/workflow/main/step/ask", null, ct));
+        var resumed = Engine(store, new Effect()); var provider = new Human("too late"); resumed.HumanInputProvider = provider;
+        var result = await resumed.ResumeAsync("tenant", "run", run.Revision, Compile(yaml), ct);
+        Assert.Equal("HUMAN_INPUT_TIMEOUT", result.Error?.Code); Assert.Null(provider.Id);
     }
 
     [Fact]

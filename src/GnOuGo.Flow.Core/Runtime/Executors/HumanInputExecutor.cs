@@ -250,14 +250,24 @@ public sealed class HumanInputExecutor : IStepExecutor
             new KeyValuePair<string, object?>("gnougo-flow.human.request", requestPayload.ToJsonString()),
         });
 
-        // Wait for user response with timeout
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        // Recovery reuses the original deadline and distinguishes an acknowledged null answer from no answer.
+        var answered = ctx.HasRecordedControl("human_response");
+        var remainingMs = timeoutMs;
         if (timeoutMs > 0)
-            cts.CancelAfter(timeoutMs);
+        {
+            var deadline = await ctx.RecordControlAsync("human_deadline", () => JsonValue.Create(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + timeoutMs), ct);
+            remainingMs = (int)Math.Clamp(deadline!.GetValue<long>() - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), 0, timeoutMs);
+        }
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        if (!answered && timeoutMs > 0)
+        {
+            if (remainingMs == 0) cts.Cancel(); else cts.CancelAfter(remainingMs);
+        }
 
         try
         {
-            var response = ctx.ReadRecordedControl("human_response") ?? await provider.RequestInputAsync(request, cts.Token);
+            cts.Token.ThrowIfCancellationRequested();
+            var response = answered ? ctx.ReadRecordedControl("human_response") : await provider.RequestInputAsync(request, cts.Token).WaitAsync(cts.Token);
 
             if (HumanInputContract.IsAbandoned(response))
             {

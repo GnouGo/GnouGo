@@ -18,6 +18,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../GnOuGo.Flow.Copilot/GnOuGo.Flow.Copilot.csproj" />
     <ProjectReference Include="../GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj" />
   </ItemGroup>
   <ItemGroup>

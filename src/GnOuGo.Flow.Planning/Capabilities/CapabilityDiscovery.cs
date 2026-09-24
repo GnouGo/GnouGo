@@ -28,7 +28,7 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
     {
         ct.ThrowIfCancellationRequested();
         var sources = (engine.McpClientFactory?.ServerMetadata ?? []).Select(s => new CapabilitySource(SourceId(s.Name), s.Description ?? s.Name)).ToList();
-        if (engine.AgentTaskRunners.Count > 0) sources.Add(new("agent-runners", "Configured bounded adaptive task runners with host-enforced execution scopes."));
+        foreach (var (name, runner) in engine.AgentTaskRunners) sources.Add(new(RunnerSource(name), runner.Description));
         return Task.FromResult<IReadOnlyList<CapabilitySource>>(sources.OrderBy(s => s.Id, StringComparer.Ordinal).ToArray());
     }
 
@@ -65,13 +65,15 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
     {
         if (_cache.TryGetValue(id, out var cached)) return cached;
         var capabilities = new List<PlanningCapability>();
-        if (id == "agent-runners")
+        var selectedRunner = engine.AgentTaskRunners.FirstOrDefault(p => RunnerSource(p.Key) == id);
+        if (selectedRunner.Value is { } runner)
         {
-            var contract = new AgentRunExecutor().Contract;
-            foreach (var runner in engine.AgentTaskRunners.Keys.Order(StringComparer.Ordinal))
-                capabilities.Add(new() { Id = Identity(id, "agent", runner), Method = runner, Kind = "agent", StepType = "agent.run", EffectKind = "execute",
-                    Description = "Execute a bounded adaptive task using the configured runner " + runner + ". Required observed evidence is verified before successful output is available.",
-                    InputSchema = contract.InputSchema.DeepClone().AsObject(), OutputSchema = contract.OutputSchema.DeepClone().AsObject(), FixedInput = new() { ["runner"] = runner } });
+            var declared = await runner.DescribeAsync(ct);
+            if (string.IsNullOrWhiteSpace(declared.Description) || PlanningContractValidation.ValidateSchema(declared.InputSchema).Count > 0)
+                throw new InvalidOperationException("The task runner declares an invalid contract.");
+            capabilities.Add(new() { Id = Identity(id, "agent", selectedRunner.Key), Method = selectedRunner.Key, Kind = "agent", StepType = "agent.run", EffectKind = "execute",
+                Description = declared.Description, InputSchema = declared.InputSchema.DeepClone().AsObject(),
+                OutputSchema = new AgentRunExecutor().Contract.OutputSchema.DeepClone().AsObject(), FixedInput = new() { ["runner"] = selectedRunner.Key } });
         }
         else
         {
@@ -98,6 +100,7 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
         return _cache[id] = capabilities.OrderBy(c => c.Id, StringComparer.Ordinal).ToList();
     }
 
+    private static string RunnerSource(string name) => "runner_" + PlanningGraphCompiler.Fingerprint(name)[..24];
     internal static string SourceId(string name) => "source_" + PlanningGraphCompiler.Fingerprint(name)[..24];
     internal static string Identity(string server, string kind, string method) => "cap_" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(new[] { server, kind, method }, PlanningJsonContext.Default.StringArray))[..24];
     internal static PlanningCapability Tool(string server, McpToolInfo tool)
