@@ -47,7 +47,7 @@ public sealed class PlanningSessionService(
     public Task<IReadOnlyList<PlanningSession>> ListAsync(CancellationToken ct) => store.ListAsync(Tenant, ct);
 
     // Workflow-owned sessions are inspection-only here. Their original runtime owns all commands.
-    private const string WorkflowSessions = "flow-planning-sessions-v9";
+    private const string WorkflowSessions = "flow-planning-sessions-v10";
     public async Task<PlanningSession?> GetWorkflowSessionAsync(string id, CancellationToken ct)
     {
         return (await InspectAsync(id, true, ct))?.RequireSession();
@@ -60,7 +60,7 @@ public sealed class PlanningSessionService(
     internal async Task<IReadOnlyList<PlanningSessionListEntry>> ListHistoryAsync(CancellationToken ct)
     {
         var designer = await EfPlanningSessionStore.InspectAllAsync(contexts, records, Tenant, ct);
-        var chat = await records.ListAsync(WorkflowSessions, Tenant, EfPlanningSessionStore.Author, ct);
+        var chat = (await records.ListAsync(WorkflowSessions, Tenant, EfPlanningSessionStore.Author, ct)).Concat(await records.ListAsync("flow-planning-sessions-v9", Tenant, EfPlanningSessionStore.Author, ct)).DistinctBy(r => r.Key);
         return designer.Concat(chat.Select(ReadWorkflowSession)).Select(s => s.Entry).OrderByDescending(s => s.UpdatedAtUtc).ToArray();
     }
 
@@ -68,7 +68,8 @@ public sealed class PlanningSessionService(
     {
         if (workflow)
         {
-            var record = await records.GetAsync(WorkflowSessions, Tenant, id, EfPlanningSessionStore.Author, ct);
+            var record = await records.GetAsync(WorkflowSessions, Tenant, id, EfPlanningSessionStore.Author, ct)
+                ?? await records.GetAsync("flow-planning-sessions-v9", Tenant, id, EfPlanningSessionStore.Author, ct);
             return record is null ? null : ReadWorkflowSession(record);
         }
         await using var db = await contexts.CreateDbContextAsync(ct);
@@ -121,7 +122,10 @@ public sealed class PlanningSessionService(
         };
         if (original is not null)
         {
-            state.Request.RevisionContext = PlanningRevisionContext.FromGraph(PlanningGraphImporter.ImportBaseline(original));
+            var saved = (await store.ListAsync(Tenant, ct)).Where(s => s.Plan is not null && s.SavedAgentId == response!["agent"]!["id"]!.ToString())
+                .OrderByDescending(s => s.UpdatedAtUtc).FirstOrDefault();
+            state.Request.Baseline = saved?.Plan;
+            if (saved is null) state.Request.RevisionContext = "No saved TaskPlan exists. Regenerate from the newly stated requirements and require renewed approval; authored YAML is not imported.";
         }
         PlanningGenerationPolicy.Validate(state.Request.Generation);
         if (!await store.TrySaveAsync(state, expectedRevision: null, ct)) throw new PlanningConflictException("The planning session already exists.");

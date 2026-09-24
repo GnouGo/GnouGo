@@ -21,15 +21,15 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
     PlanningSessionService designer, IOptions<OpenTelemetrySettings> telemetry, IHostApplicationLifetime lifetime, ILogger<ChatPlanningService> logger)
 {
     private readonly IKeyVaultRecordStore _records = records;
-    private const string Origins = "agent-chat-planning-origins-v1";
-    private const string Sessions = "flow-planning-sessions-v9";
+    private const string Origins = "agent-chat-planning-origins-v2";
+    private const string Sessions = "flow-planning-sessions-v10";
     private const string Author = "GnOuGo.Agent.Server.Planning";
     private string Tenant => WorkflowExecutionTenant.Resolve(telemetry);
     private readonly ConcurrentDictionary<string, Waiter> _waiting = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, byte> _owners = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, Task<PlanningSession>> _recoveries = new(StringComparer.Ordinal);
-    private WorkflowPlanningRuntimeFactory Factory() => new(_records, GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/flow-planning-v9/leases"));
+    private WorkflowPlanningRuntimeFactory Factory() => new(_records, GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/flow-planning-v10/leases"));
 
     public Bridge Attach(string conversationId, Action<PlanningSessionDto> changed) => new(this, conversationId, changed);
 
@@ -93,7 +93,7 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
     public async Task<PlanningSessionDto> SubmitAsync(string conversationId, string id, PlanningCommand command, CancellationToken ct)
     {
         // Planner-only transport cannot approve or execute a workflow.
-        if (command.Kind is not ("answer" or "configure_mode" or "cancel")) throw new ArgumentException("Unsupported chat planning command.");
+        if (command.Kind is not ("choose" or "configure_mode" or "cancel")) throw new ArgumentException("Unsupported chat planning command.");
         var origin = await OriginAsync(conversationId, id, ct);
         if (!origin.Workflow) return PlanningEndpoints.ToDto(await designer.SubmitAsync(id, command, ct));
         var gate = _gates.GetOrAdd(id, _ => new(1, 1));

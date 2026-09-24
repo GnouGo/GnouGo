@@ -136,12 +136,12 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         string id;
         await using (var session = await Factory().OpenAsync(Context(new Client()), Initial(), Ct)) { id = session.Session.Request.SessionId; }
         var records = new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db"));
-        var record = (await records.GetAsync("flow-planning-sessions-v9", "tenant", id, "test", Ct))!;
+        var record = (await records.GetAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct))!;
         var json = JsonNode.Parse(record.Value)!.AsObject(); json["schemaVersion"] = 8;
-        var original = await records.UpsertAsync("flow-planning-sessions-v9", "tenant", id, json.ToJsonString(), "test", Ct);
+        var original = await records.UpsertAsync("flow-planning-sessions-v10", "tenant", id, json.ToJsonString(), "test", Ct);
         var error = await Assert.ThrowsAsync<PlanningConflictException>(() => Factory().OpenAsync(Context(new Client()), Initial(), Ct));
         Assert.Contains("Regenerate and approve", error.Message);
-        Assert.Equal(original, await records.GetAsync("flow-planning-sessions-v9", "tenant", id, "test", Ct));
+        Assert.Equal(original, await records.GetAsync("flow-planning-sessions-v10", "tenant", id, "test", Ct));
     }
 
     private static PlanningSession Initial() => new()

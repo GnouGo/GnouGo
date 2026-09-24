@@ -31,8 +31,8 @@ public sealed class SecureWorkflowRuntimeFactoryTests
         var catalog = await ResolveAllAsync(planning);
 
         Assert.Equal([server], runtime.McpClientFactory.ServerMetadata.Select(item => item.Name));
-        Assert.Equal(3, catalog.Capabilities.Count);
-        Assert.All(catalog.Capabilities, capability => Assert.Equal(server, capability.Server));
+        Assert.Equal(3, catalog.Capabilities.Count(c => c.Kind != "registered"));
+        Assert.All(catalog.Capabilities.Where(c => c.Kind != "registered"), capability => Assert.Equal(server, capability.Server));
         foreach (var tool in configuration.Tools)
             Assert.Equal(tool.EffectKind, catalog.Capabilities.Single(capability => capability.Method == tool.Name).EffectKind);
     }
@@ -58,8 +58,8 @@ public sealed class SecureWorkflowRuntimeFactoryTests
 
         Assert.Equal(2, diagnostics.Count);
         Assert.All(diagnostics, diagnostic => Assert.Equal("CATALOG_CHANGED", diagnostic.Code));
-        Assert.Equal(savedCatalog.Capabilities.Select(capability => capability.Id), diagnostics.Select(diagnostic => diagnostic.Location));
-        Assert.Equal(2, savedCatalog.Capabilities.Count);
+        Assert.Equal(savedCatalog.Capabilities.Where(c => c.Kind != "registered").Select(capability => capability.Id), diagnostics.Select(diagnostic => diagnostic.Location));
+        Assert.Equal(2, savedCatalog.Capabilities.Count(c => c.Kind != "registered"));
     }
 
     [Fact]

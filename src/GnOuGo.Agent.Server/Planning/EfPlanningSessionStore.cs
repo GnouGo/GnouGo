@@ -7,7 +7,7 @@ namespace GnOuGo.Agent.Server.Planning;
 /// <summary>Immutable encrypted revisions with an optimistic EF Core/SQLite index.</summary>
 public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records) : IPlanningSessionStore
 {
-    internal const string Collection = "agent-planning-sessions-v9";
+    internal const string Collection = "agent-planning-sessions-v10";
     internal const string Author = "GnOuGo.Agent.Server.Planning";
 
     public async Task<PlanningSession?> LoadAsync(string tenantId, string sessionId, CancellationToken ct)
@@ -20,7 +20,7 @@ public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> 
 
     public async Task<bool> TrySaveAsync(PlanningSession snapshot, long? expectedRevision, CancellationToken ct)
     {
-        if (snapshot.SchemaVersion != 9) throw new InvalidOperationException("Unsupported planning session schema.");
+        if (snapshot.SchemaVersion != 10) throw new InvalidOperationException("Unsupported planning session schema.");
         ValidateKey(snapshot.Request.TenantId, snapshot.Request.SessionId);
         if (snapshot.Revision < 0 || expectedRevision is { } prior && snapshot.Revision <= prior)
             throw new ArgumentException("A saved planning revision must advance monotonically.");
@@ -68,6 +68,7 @@ public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> 
     internal static async Task<PlanningSessionInspection> InspectAsync(IKeyVaultRecordStore records, PlanningSessionIndex row, CancellationToken ct)
     {
         var payload = await records.GetAsync(Collection, row.TenantId, row.PayloadKey, Author, ct)
+            ?? await records.GetAsync("agent-planning-sessions-v9", row.TenantId, row.PayloadKey, Author, ct)
             ?? throw new InvalidOperationException("The encrypted planning revision is unavailable.");
         return PlanningSessionHistory.Read(payload.Value, row.TenantId, row.SessionId, false, new DateTimeOffset(row.UpdatedAtTicks, TimeSpan.Zero), row.Revision);
     }

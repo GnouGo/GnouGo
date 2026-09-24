@@ -12,13 +12,13 @@ namespace GnOuGo.Flow.Integrations.Planning;
 public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records, string leaseDirectory) : IPlanningRuntimeFactory
 {
     internal const string Author = "GnOuGo.Flow.Planning";
-    internal const string Sessions = "flow-planning-sessions-v9";
-    private const string Definitions = "flow-planning-definitions-v9";
+    internal const string Sessions = "flow-planning-sessions-v10";
+    private const string Definitions = "flow-planning-definitions-v10";
 
     public static WorkflowPlanningRuntimeFactory CreateWorkspace(string? keyVaultPath = null, string? leasePath = null, string? baseDirectory = null)
     {
         var root = baseDirectory ?? AppContext.BaseDirectory;
-        var leases = GnOuGoWorkspace.ResolveDatabasePath(leasePath, root, ".GnOuGo/data/flow-planning-v9/leases");
+        var leases = GnOuGoWorkspace.ResolveDatabasePath(leasePath, root, ".GnOuGo/data/flow-planning-v10/leases");
         return new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultPath, root), leases);
     }
 
@@ -49,10 +49,10 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             if (savedDefinition is not null && JsonSerializer.Serialize(JsonSerializer.Deserialize(savedDefinition.Value, PlanningJsonContext.Default.PlanningRequest), PlanningJsonContext.Default.PlanningRequest) != definition)
                 throw new PlanningConflictException("The planning request changed for this run ID. Resume the original request or start a new run.");
             var saved = await records.GetAsync(Sessions, tenant, key, Author, ct);
-            if (saved is null && await records.GetAsync("flow-planning-sessions-v8", tenant, key, Author, ct) is not null)
+            if (saved is null && (await records.GetAsync("flow-planning-sessions-v9", tenant, key, Author, ct) is not null || await records.GetAsync("flow-planning-sessions-v8", tenant, key, Author, ct) is not null))
                 throw new PlanningConflictException(PlanningSessionStorage.IncompatibleMessage);
             var state = saved is null ? initial : PlanningSessionStorage.Read(saved.Value, tenant, key);
-            if (state.SchemaVersion != 9 || state.Request.TenantId != tenant || state.Request.SessionId != key || saved is not null && savedDefinition is null)
+            if (state.SchemaVersion != 10 || state.Request.TenantId != tenant || state.Request.SessionId != key || saved is not null && savedDefinition is null)
                 throw new PlanningConflictException("The planning session ownership or schema is invalid.");
             if (savedDefinition is null) await records.UpsertAsync(Definitions, tenant, key, definition, Author, ct);
             // A crash after the receipt but before the coordinator checkpoint must not
@@ -90,9 +90,9 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
     {
         var tenant = context.Limits.TenantId ?? "default";
         var stored = await records.GetAsync(Sessions, tenant, sessionId, Author, ct)
-            ?? throw new PlanningConflictException("The approved schema-9 planning session is unavailable for this tenant. Regenerate and approve the workflow.");
+            ?? throw new PlanningConflictException("The approved format-10 planning session is unavailable for this tenant. Regenerate and approve the workflow.");
         var state = PlanningSessionStorage.Read(stored.Value, tenant, sessionId);
-        if (state.SchemaVersion != 9 || state.Request.TenantId != tenant || state.Request.SessionId != sessionId ||
+        if (state.SchemaVersion != 10 || state.Request.TenantId != tenant || state.Request.SessionId != sessionId ||
             state.Status != PlanningStatus.Approved || state.ApprovedHash != artifactHash || PlanningArtifactApproval.Hash(state) != artifactHash)
             throw new PlanningConflictException("The artifact does not have a current, tenant-owned approval.");
         PlanningArtifactApproval.Verify(state);

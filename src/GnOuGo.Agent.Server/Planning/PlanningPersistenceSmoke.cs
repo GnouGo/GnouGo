@@ -22,6 +22,7 @@ internal static class PlanningPersistenceSmoke
         if (!await store.TrySaveAsync(state, null, CancellationToken.None)) throw new InvalidOperationException("Insert failed.");
         state.Revision = 1; state.Status = PlanningStatus.Stopped; state.ModelCalls = 2; state.ReplanAttempts = 1;
         state.RevisionScope = ["main/consumer"];
+        state.Plan = new() { Root = new() { Outputs = [new("private", new() { Kind = "string", Text = "Private semantic value" })] } };
         state.Graph = new() { Workflows = [new() { Key = "main" }] };
         state.Diagnostics = [new("STAGE_CONTRACT_INVALID", "/scopes/main/operations/consumer", "Private computation finding")
         {
@@ -31,7 +32,7 @@ internal static class PlanningPersistenceSmoke
         if (!await store.TrySaveAsync(state, 0, CancellationToken.None)) throw new InvalidOperationException("Update failed.");
         var reopened = new EfPlanningSessionStore(factory, KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory));
         var restored = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
-        if (restored?.SchemaVersion != 9 || restored.Revision != 1 || restored.ModelCalls != 2 || restored.ReplanAttempts != 1 || restored.Requirements?.Summary != "Private requirements" || restored.Graph is null || restored.Diagnostics.Count != 1 ||
+        if (restored?.SchemaVersion != 10 || restored.Revision != 1 || restored.ModelCalls != 2 || restored.ReplanAttempts != 1 || restored.Requirements?.Summary != "Private requirements" || restored.Graph is null || restored.Plan?.Root.Outputs[0].Value.Text != "Private semantic value" || restored.Diagnostics.Count != 1 ||
             restored.Diagnostics[0].Prerequisite?.RootActionId != "producer" || !restored.RevisionScope.SequenceEqual(["main/consumer"]) ||
             await reopened.LoadAsync("another-tenant", state.Request.SessionId, CancellationToken.None) is not null || (await reopened.ListAsync("smoke", CancellationToken.None)).Count == 0)
             throw new InvalidOperationException("Published persistence or tenant isolation failed.");
