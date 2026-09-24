@@ -182,14 +182,14 @@ public sealed partial class PlanningGraphCompiler
         {
             // The host's availability guard must run before evaluating a condition that
             // consumes the guarded result. Ordinary computation parameters evaluate eagerly.
-            if (node.If is { Kind: "compute", Text: PlanningGraphBuilder.GuardedCondition, Members.Count: 2 } &&
+            if (node.If is { Kind: "compute", Text: PlanningGraphTopology.GuardedCondition, Members.Count: 2 } &&
                 node.If.Members.SingleOrDefault(m => m.Name == "available")?.Value is { } available &&
                 node.If.Members.SingleOrDefault(m => m.Name == "condition")?.Value is { } condition)
                 result["if"] = "${(" + ToExpression(available, scope)[2..^1] + ") && (" + ToExpression(condition, scope)[2..^1] + ")}";
             else result["if"] = ToExpression(node.If, scope);
         }
         if (node.Expr is not null) result["expr"] = ToExpression(node.Expr, scope);
-        if (node.OutputSchema is not null && node.Type is "set" or "value.validate") result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Catalog);
+        if (node.OutputSchema is not null && node.Type is "set" or "value.validate" or "array.project" or "value.project") result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Catalog);
         if (node.StructuredOutput is { } structured)
         {
             if (input.ContainsKey("structured_output")) throw new InvalidOperationException("Use one typed structured-output declaration, not a second input schema.");
@@ -518,7 +518,7 @@ public sealed partial class PlanningGraphCompiler
 
     internal static JsonObject ToFlowSchema(JsonObject schema)
     {
-        if (GroundedTypes.IsOpaque(schema)) return new() { ["type"] = "any", ["nullable"] = true, ["schema"] = schema.DeepClone() };
+        if (PlanningContractShapes.IsOpaque(schema)) return new() { ["type"] = "any", ["nullable"] = true, ["schema"] = schema.DeepClone() };
         if (schema["type"] is null && (schema["anyOf"] is JsonArray || schema["oneOf"] is JsonArray))
             return new() { ["type"] = "any", ["nullable"] = PlanningContractValidation.ValidateInstance(null, schema).Count == 0, ["schema"] = schema.DeepClone() };
         string[] supported = ["type", "description", "enum", "items", "properties", "required", "additionalProperties", "title", "$schema"];

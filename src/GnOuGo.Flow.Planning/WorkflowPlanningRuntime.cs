@@ -12,17 +12,18 @@ namespace GnOuGo.Flow.Planning;
 public sealed class WorkflowPlanningRuntime : IPlanningRuntime
 {
     private readonly WorkflowEngine _engine;
+    public ICapabilityCatalog Capabilities { get; }
     private readonly StepExecutionContext _context;
     private readonly ILLMClient? _model;
     private readonly Func<PlanningSession, CancellationToken, Task> _checkpoint;
-    public WorkflowPlanningRuntime(WorkflowEngine engine, Func<PlanningSession, CancellationToken, Task> checkpoint)
+    public WorkflowPlanningRuntime(WorkflowEngine engine, Func<PlanningSession, CancellationToken, Task> checkpoint, ICapabilityCatalog? capabilities = null)
     {
-        _engine = engine; _checkpoint = checkpoint;
+        _engine = engine; Capabilities = capabilities ?? new CapabilityDiscovery(engine); _checkpoint = checkpoint;
         _context = new() { Engine = engine, Step = new() { Source = new() { Id = "planning", Type = "workflow.plan" } },
             Data = new(), Limits = engine.Limits, LLMUsageBudget = engine.LLMUsageBudget };
     }
     public WorkflowPlanningRuntime(StepExecutionContext context, ILLMClient model, Func<PlanningSession, CancellationToken, Task> checkpoint)
-    { _context = context; _engine = context.Engine; _model = model; _checkpoint = checkpoint; }
+    { _context = context; _engine = context.Engine; Capabilities = new CapabilityDiscovery(context.Engine); _model = model; _checkpoint = checkpoint; }
     public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => CapabilityDiscovery.DiscoverAsync(_engine, request, ct);
     public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
         => _context.CallLLMAsync(_model ?? _engine.LLMClient ?? throw new InvalidOperationException("No planning model configured."), request, "workflow.plan." + purpose, ct);
@@ -89,9 +90,27 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
             var current = await CapabilityDiscovery.DiscoverAsync(_engine, new PlanningRequest { Policy = catalog.Policy }, ct);
             if (!JsonNode.DeepEquals(catalog.StepContracts, current.StepContracts) || !catalog.AllowedStepTypes.SequenceEqual(current.AllowedStepTypes))
                 return [new("CATALOG_CHANGED", "/stepContracts", "The host's executable contracts changed; rebuild and review the workflow.")];
-            return catalog.Capabilities.Where(c => !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(c, PlanningJsonContext.Default.PlanningCapability),
-                current.Capabilities.FirstOrDefault(n => n.Id == c.Id) is { } match ? JsonSerializer.SerializeToNode(match, PlanningJsonContext.Default.PlanningCapability) : null))
-                .Select(c => new PlanningDiagnostic("CATALOG_CHANGED", c.Id, "A capability contract changed; revise against the current catalog.")).ToArray();
+            var fresh = Capabilities is CapabilityDiscovery ? new CapabilityDiscovery(_engine) : Capabilities;
+            var findings = new List<PlanningDiagnostic>();
+            foreach (var capability in catalog.Capabilities)
+            {
+                try
+                {
+                var summary = new CapabilitySummary(capability.Id,
+                    capability.Kind == "agent" ? "agent-runners" : CapabilityDiscovery.SourceId(capability.Server!),
+                    capability.Method ?? capability.Id, capability.Description, capability.StepType, capability.EffectKind, capability.Version);
+                var resolved = await fresh.ResolveAsync(summary, ct);
+                if (!JsonNode.DeepEquals(JsonSerializer.SerializeToNode(capability, PlanningJsonContext.Default.PlanningCapability),
+                    JsonSerializer.SerializeToNode(resolved, PlanningJsonContext.Default.PlanningCapability)))
+                    findings.Add(new("CATALOG_CHANGED", capability.Id, "A selected capability changed; regenerate and approve the workflow."));
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                catch (Exception ex) when (ex is PlanningConflictException or ArgumentException)
+                { findings.Add(new("CATALOG_CHANGED", capability.Id, "A selected capability changed or was removed. Regenerate and approve the workflow.")); }
+                catch (Exception) { findings.Add(new("CATALOG_UNAVAILABLE", capability.Id, "The selected capability could not be verified.")); }
+            }
+            return findings;
+
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception) { return [new("CATALOG_UNAVAILABLE", "$", "Current capability contracts could not be verified.")]; }

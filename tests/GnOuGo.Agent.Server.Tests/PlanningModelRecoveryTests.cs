@@ -84,7 +84,7 @@ public sealed class PlanningModelRecoveryTests
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = await SeedAsync(fixture);
-        using var service = PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
+        using var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
         await Assert.ThrowsAsync<PlanningConflictException>(() => service.SubmitAsync("recovery", new() { Kind = "retry_model", ExpectedRevision = 1 }, Ct));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => service.SubmitAsync("another-tenant-session", new() { Kind = "retry_model" }, Ct));
         var resumed = await service.SubmitAsync("recovery", new() { Kind = "retry_model", ExpectedRevision = 0 }, Ct);

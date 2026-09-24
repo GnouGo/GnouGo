@@ -25,6 +25,12 @@ public static class BuiltInStepContracts
     private static readonly IReadOnlyDictionary<string, StepContract> Contracts =
         new Dictionary<string, StepContract>(StringComparer.Ordinal)
         {
+            ["agent.run"] = new Executors.AgentRunExecutor().Contract,
+            ["value.project"] = new Executors.ValueProjectExecutor().Contract,
+            ["array.project"] = new Executors.ArrayProjectExecutor().Contract,
+            ["number.add"] = new Executors.NumericTransformExecutor("number.add").Contract,
+            ["number.multiply"] = new Executors.NumericTransformExecutor("number.multiply").Contract,
+            ["number.default"] = new Executors.NumericTransformExecutor("number.default").Contract,
             ["sequence"] = Contract(ClosedObject(), OpenObject()),
             ["parallel"] = Contract(
                 Object(("max_concurrency", PositiveInteger())),

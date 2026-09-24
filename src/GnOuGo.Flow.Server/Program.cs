@@ -266,7 +266,7 @@ app.MapPost("/api/workflow/resume/{runId}", async (
 
         var engine = new WorkflowEngine
         {
-            WorkflowPlanner = new GnOuGo.Flow.Planning.TypedWorkflowPlanner(),
+            WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
             PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
             LLMClient = llm,
             ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
@@ -473,7 +473,7 @@ static Task<RunResult> ExecuteWorkflowAsync(
 {
     var engine = new WorkflowEngine
     {
-        WorkflowPlanner = new GnOuGo.Flow.Planning.TypedWorkflowPlanner(),
+        WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
         PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
         LLMClient = llm,
         ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),

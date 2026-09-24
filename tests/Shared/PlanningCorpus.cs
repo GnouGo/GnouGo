@@ -5,168 +5,119 @@ using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 namespace GnOuGo.Planning.Examples;
 
+/// <summary>Scripted graph responses for offline tests. Requests and outcome oracles are frozen separately.</summary>
 public static class PlanningCorpus
 {
     public static readonly string[] Names = PlanningBenchmarkCases.Names;
     public static string Prompt(string name) => PlanningBenchmarkCases.Prompt(name);
-    public static GroundedPlan Intent(string name, PlanningCatalog catalog)
+    public static PlanningValue Ref(string kind, string source, params string[] path) => new() { Kind = kind, Source = source, Path = path.ToList() };
+    public static PlanningValue Num(decimal n) => new() { Kind = "number", Number = n };
+    public static PlanningValue Text(string text) => new() { Kind = "string", Text = text };
+    public static PlanningValue Obj(params (string Name, PlanningValue Value)[] fields) => new() { Kind = "object", Members = fields.Select(f => new PlanningMember(f.Name, f.Value)).ToList() };
+    public static PlanningGraph Graph(string name, PlanningCatalog catalog)
     {
-        var plan = new GroundedPlan { Summary = Prompt(name) };
-        InvokeGroundedOperation Invoke(string id, string method, params GroundedMember[] args) => new() { Id = id, Capability = catalog.Capabilities.Single(c => c.Method == method).Id, Arguments = args.ToList() };
-        GroundedValue Ref(string kind, string source, params string[] path) => new() { Kind = kind, Source = source, Path = path.ToList() };
-        GroundedValue Num(decimal value) => new() { Kind = "number", Number = value };
-        GroundedValue Text(string value) => new() { Kind = "string", Text = value };
-        var value = new GroundedValue { Kind = "compute", Text = "6 * 7" };
+        var main = new PlanningWorkflow(); var graph = new PlanningGraph { Summary = Prompt(name), Workflows = [main] };
+        PlanningNode Invoke(string id, string method, params (string Name, PlanningValue Value)[] fields) => new()
+        { Key = id, Type = "mcp.call", CapabilityId = catalog.Capabilities.Single(c => c.Method == method).Id, Input = Obj(("request", Obj(fields))) };
+        PlanningNode Math(string id, string operation, PlanningValue left, PlanningValue right) => new() { Key = id, Type = operation, Input = Obj(("left", left), ("right", right)) };
+        var result = Ref("output", "result", "value"); var schema = new PlanningSchema { Type = "number" };
         switch (name)
         {
+            case "local": main.Steps.Add(Math("result", "number.multiply", Num(6), Num(7))); break;
             case "read_transform":
-                plan.Operations.Add(Invoke("read", "read"));
-                value = new() { Kind = "compute", Text = "value * 2", Members = [new("value", Ref("result", "read", "value"))] };
-                break;
+                main.Steps.Add(Invoke("read", "read")); main.Steps.Add(Math("result", "number.multiply", Ref("output", "read", "value"), Num(2))); break;
             case "nullable_defaults":
-                plan.Inputs.Add(new("increment", Optional: true, Default: Num(2)));
-                plan.Operations.Add(Invoke("read", "read_optional"));
-                value = new() { Kind = "compute", Text = "(value ?? 0) + increment", Members = [new("value", Ref("result", "read", "value")), new("increment", Ref("input", "increment"))] };
-                break;
+                main.Inputs.Add(new() { Name = "increment", Schema = new() { Type = "number" }, Required = false, Default = Num(2) });
+                main.Steps.Add(Invoke("read", "read_optional")); main.Steps.Add(Math("fallback", "number.default", Ref("output", "read", "value"), Num(0)));
+                main.Steps.Add(Math("result", "number.add", Ref("output", "fallback", "value"), Ref("input", "increment"))); break;
             case "conditional":
-                plan.Inputs.Add(new("enabled", new() { Type = "boolean" }));
-                plan.Operations.Add(new ChooseGroundedOperation { Id = "choose", Condition = Ref("input", "enabled"), Then = new([Invoke("read", "read")], Ref("result", "read", "value")), Otherwise = new([], Num(0)) });
-                value = Ref("result", "choose");
+                main.Inputs.Add(new() { Name = "enabled", Schema = new() { Type = "boolean" } });
+                main.Steps.Add(new() { Key = "choose", Type = "switch", Expr = Ref("input", "enabled"), Cases = [new("true", null, [Invoke("read", "read")])],
+                    Default = [new() { Key = "zero", Type = "set", Input = Obj(("value", Num(0))) }] });
+                main.Steps.Add(new() { Key = "result", Type = "value.project", OutputSchema = new() { Type = "object", Properties = [new() { Name = "value", Schema = schema }] },
+                    Input = Obj(("value", Ref("output", "choose")), ("paths", new() { Kind = "array", Items = [new() { Kind = "array", Items = [Text("read"), Text("response"), Text("value")] }, new() { Kind = "array", Items = [Text("zero"), Text("value")] }] })) });
                 break;
             case "collections":
-                plan.Inputs.Add(new("values", new() { Type = "array", Items = new() { Type = "number" } }));
-                plan.Operations.Add(new EachGroundedOperation { Id = "each", Items = Ref("input", "values"), Parallel = true,
-                    Body = new([new CallGroundedOperation { Id = "call", Flow = "double", Arguments = [new("value", Ref("item", "each"))] }], Ref("result", "call", "result")) });
-                plan.Subflows.Add(new("double", [new("value", new() { Type = "number" })], [new CalculateGroundedOperation { Id = "double", Value = new() { Kind = "compute", Text = "value * 2", Members = [new("value", Ref("input", "value"))] } }], [new("result", Ref("result", "double"))]));
-                value = Ref("result", "each");
-                break;
+                main.Inputs.Add(new() { Name = "values", Schema = new() { Type = "array", Items = schema } });
+                graph.Workflows.Add(new() { Key = "double", Inputs = [new() { Name = "value", Schema = schema }],
+                    Steps = [Math("double", "number.multiply", Ref("input", "value"), Num(2))], Outputs = [new() { Name = "result", Schema = schema, Value = Ref("output", "double", "value") }] });
+                main.Steps.Add(new() { Key = "each", Type = "loop.parallel", Input = Obj(("items", Ref("input", "values"))),
+                    Steps = [new() { Key = "call", Type = "workflow.call", Input = Obj(("ref", Ref("workflow", "double")), ("args", Obj(("value", Ref("loop_item", "each"))))) }] });
+                main.Steps.Add(new() { Key = "result", Type = "array.project", Input = Obj(("items", Ref("output", "each", "results")), ("path", new() { Kind = "array", Items = [Text("call"), Text("outputs"), Text("result")] })),
+                    OutputSchema = new() { Type = "object", Properties = [new() { Name = "values", Schema = new() { Type = "array", Items = schema } }] } });
+                schema = new() { Type = "array", Items = schema }; result = Ref("output", "result", "values"); break;
             case "protected_cleanup":
-                plan.Operations.Add(Invoke("write", "write"));
-                plan.Operations.Add(new CleanupGroundedOperation { Id = "finalize", Operations = [Invoke("cleanup", "cleanup")] });
-                break;
-            case "review_french":
-            case "review_distractors":
-                plan.Inputs = [new("pr_url", new() { Type = "string" }), new("review_text", new() { Type = "string" })];
-                plan.Operations.Add(Invoke("clone", "clone_repository", new GroundedMember("pr_url", Ref("input", "pr_url"))));
+                main.Steps.Add(Invoke("write", "write")); main.Finally.Add(Invoke("cleanup", "cleanup")); result = Num(42); break;
+            case "review_french": case "review_distractors":
+                main.Inputs = [new() { Name = "pr_url" }, new() { Name = "review_text" }];
+                main.Steps.Add(Invoke("clone", "clone_repository", ("pr_url", Ref("input", "pr_url"))));
                 foreach (var check in new[] { "dependencies", "lint", "unit", "integration" })
-                {
-                    var operation = Invoke(check, "run_check", new GroundedMember("directory", Ref("result", "clone", "directory")), new GroundedMember("check", Text(check)));
-                    if (check != "dependencies") operation.After = ["dependencies"];
-                    plan.Operations.Add(operation);
-                }
-                var review = Invoke("review", "review_changes", new GroundedMember("directory", Ref("result", "clone", "directory")), new GroundedMember("review_text", Ref("input", "review_text")));
-                review.After = ["dependencies", "lint", "unit", "integration"]; plan.Operations.Add(review);
-                var evaluate = Invoke("evaluate", "evaluate_review", new GroundedMember("directory", Ref("result", "clone", "directory")));
-                evaluate.After = ["review"]; plan.Operations.Add(evaluate);
-                plan.Operations.Add(Invoke("publish", "publish_review", new GroundedMember("draftId", Ref("result", "evaluate", "draftId"))));
-                plan.Operations.Add(new CleanupGroundedOperation { Id = "finalize", Operations = [Invoke("cleanup", "remove_workspace", new GroundedMember("directory", Ref("result", "clone", "directory")))] });
-                plan.Outputs.Add(new("review", Ref("result", "evaluate"))); return plan;
+                    main.Steps.Add(Invoke(check, "run_check", ("directory", Ref("output", "clone", "directory")), ("check", Text(check))));
+                main.Steps.Add(Invoke("review", "review_changes", ("directory", Ref("output", "clone", "directory")), ("review_text", Ref("input", "review_text"))));
+                main.Steps.Add(Invoke("evaluate", "evaluate_review", ("directory", Ref("output", "clone", "directory"))));
+                main.Steps.Add(Invoke("publish", "publish_review", ("draftId", Ref("output", "evaluate", "draftId"))));
+                var cleanup = Invoke("cleanup", "remove_workspace", ("directory", Ref("output", "clone", "directory")));
+                cleanup.If = new() { Kind = "expression", Text = "data.steps[\"clone\"] != null" }; main.Finally.Add(cleanup);
+                main.Outputs.Add(new() { Name = "review", Schema = new() { CapabilityId = catalog.Capabilities.Single(c => c.Method == "evaluate_review").Id, SchemaPointer = "/output" }, Value = Ref("output", "evaluate") });
+                return graph;
         }
-        plan.Operations.Add(new CalculateGroundedOperation { Id = "result", Value = value });
-        plan.Outputs.Add(new("result", Ref("result", "result")));
-        return plan;
-    }
-    // Test-only scripted stage responses. Independent execution oracles remain separate.
-    public static SemanticPlan Semantic(GroundedPlan plan)
-    {
-        var actions = new Dictionary<GroundedOperation, SemanticAction>();
-        foreach (var (operation, path) in GroundedTraversal.Located(plan))
-        {
-            operation.SemanticAction = "a_" + PlanningGraphCompiler.Fingerprint(path)[..12];
-            operation.BusinessOutputs = operation is CleanupGroundedOperation ? [] : [new("value", [])];
-            actions[operation] = new() { Id = operation.SemanticAction, Kind = operation switch {
-                InvokeGroundedOperation => "action", CleanupGroundedOperation => "cleanup", EachGroundedOperation => "each", ChooseGroundedOperation => "choose", ParallelGroundedOperation => "parallel", CallGroundedOperation => "call", _ => "calculate" },
-                Purpose = string.IsNullOrWhiteSpace(operation.Purpose) ? "Perform " + operation.Id : operation.Purpose,
-                Outputs = operation is CleanupGroundedOperation ? [] : [new("value", "The required result")] };
-        }
-        SemanticAction Tree(GroundedOperation operation)
-        {
-            var action = actions[operation];
-            action.Blocks = operation switch {
-                CleanupGroundedOperation cleanup => [new("body", cleanup.Operations.Select(Tree).ToList(), [])],
-                EachGroundedOperation each => [new("body", each.Body.Operations.Select(Tree).ToList(), [])],
-                ChooseGroundedOperation choose => [new("then", choose.Then.Operations.Select(Tree).ToList(), []), new("otherwise", choose.Otherwise.Operations.Select(Tree).ToList(), [])],
-                ParallelGroundedOperation parallel => parallel.Branches.Select(b => new SemanticBlock(b.Name, b.Body.Operations.Select(Tree).ToList(), [])).ToList(), _ => [] };
-            return action;
-        }
-        return new() { Summary = plan.Summary, Actions = plan.Operations.Select(Tree).ToList(),
-            Subflows = plan.Subflows.Select(f => new SemanticSubflow(f.Name, [], f.Operations.Select(Tree).ToList(), [])).ToList() };
+        main.Outputs.Add(new() { Name = "result", Schema = schema, Value = result }); return graph;
     }
 
-    public static LLMResponse FixtureResponse(LLMRequest request, string purpose, GroundedPlan plan)
+    public static PlanningRequirements Requirements(string name) => new()
+    { Summary = Prompt(name), Outcomes = [new(name.StartsWith("review_", StringComparison.Ordinal) ? "review" : "result", Prompt(name), [])] };
+
+    /// <summary>Projects fixture DTOs to the exact strict transport schema. Never used in production.</summary>
+    public static JsonNode? Transport(JsonNode? value, JsonObject schema, JsonObject root)
     {
-        if (request.StructuredOutputSchema?["properties"]?["decision"] is not null)
+        if (schema["$ref"] is { } reference) return Transport(value, root["$defs"]![reference.ToString().Split('/')[^1]]!.AsObject(), root);
+        if (schema["anyOf"] is JsonArray alternatives)
         {
-            var inner = DecisionResultRequest(request);
-            var response = FixtureResponse(inner, purpose, plan);
-            response.Json = new JsonObject { ["result"] = response.Json, ["decision"] = null };
-            return response;
+            var selected = alternatives.OfType<JsonObject>().First(s => Matches(value, s, root));
+            return Transport(value, selected, root);
         }
-        var semantic = Semantic(plan);
-        if (purpose == "semantic") return new() { Json = SemanticPlanning.Json(semantic) };
-        if (purpose == "grounding")
-        {
-            var context = JsonNode.Parse(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..])!;
-            var ids = context["capabilities"]!.AsArray().Select(c => c![0]!.GetValue<string>()).ToHashSet();
-            return new() { Json = new JsonObject { ["decisions"] = new JsonArray(context["actions"]!.AsArray().Select(a =>
-            {
-                var id = a!["id"]!.GetValue<string>();
-                var op = GroundedTraversal.Located(plan).Select(p => p.Operation).OfType<InvokeGroundedOperation>().SingleOrDefault(o => o.SemanticAction == id);
-                var matched = op?.Capability is not null && ids.Contains(op.Capability);
-                return (JsonNode)new JsonObject { ["actionId"] = id, ["outcome"] = matched ? "matched" : "none_of_the_above", ["reason"] = "Scripted semantic fixture decision.",
-                    ["matches"] = matched ? new JsonArray(new JsonObject { ["capabilityId"] = op!.Capability, ["reason"] = "The fixture declares this behavior." }) : new JsonArray() };
-            }).ToArray()) } };
-        }
-        if (purpose == "binding" && request.Prompt.Contains("This is one complete binding subgraph.", StringComparison.Ordinal))
-        {
-            var reader = new System.Text.Json.Utf8JsonReader(System.Text.Encoding.UTF8.GetBytes(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..]));
-            var context = JsonNode.Parse(ref reader)!;
-            var ids = context["semanticPlan"]!["actions"]!.AsArray().Select(a => a!["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
-            var batch = new GroundedPlan { Summary = plan.Summary, Operations = plan.Operations.Where(o => ids.Contains(o.SemanticAction)).ToList(),
-                Inputs = request.Prompt.Contains("Declare the workflow inputs and named subflows.", StringComparison.Ordinal) ? plan.Inputs : [],
-                Subflows = request.Prompt.Contains("Declare the workflow inputs and named subflows.", StringComparison.Ordinal) ? plan.Subflows : [],
-                Outputs = request.Prompt.Contains("Declare all required workflow outputs.", StringComparison.Ordinal) ? plan.Outputs : [] };
-            return new() { Json = PlanningJsonTransport.ModelGrounded(PlanningJsonTransport.Grounded(batch), request.StructuredOutputSchema!) };
-        }
-        if (purpose == "replan")
-        {
-            if (request.StructuredOutputSchema?["properties"]?["operations"] is not null)
-            {
-                var grounded = PlanningJsonTransport.Grounded(plan);
-                return new() { Json = PlanningJsonTransport.ModelGrounded(new JsonObject(request.StructuredOutputSchema["properties"]!.AsObject().Where(p => p.Key != "blockedActions").Select(p => new KeyValuePair<string, JsonNode?>(p.Key, grounded[p.Key]?.DeepClone()))), request.StructuredOutputSchema) };
-            }
-            if (request.StructuredOutputSchema?["properties"]?["summary"] is not null) return new() { Json = SemanticPlanning.Json(semantic) };
-            var json = SemanticPlanning.Json(semantic);
-            return new() { Json = new JsonObject { ["actions"] = json["actions"]!.DeepClone(), ["questions"] = json["questions"]!.DeepClone() } };
-        }
-        return new() { Json = PlanningJsonTransport.ModelGrounded(PlanningJsonTransport.Grounded(plan), request.StructuredOutputSchema!) };
+        if (value is null) return null;
+        if (schema["properties"] is JsonObject properties)
+            return new JsonObject(properties.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, Transport(value[p.Key], p.Value!.AsObject(), root))));
+        if (schema["items"] is JsonObject item && value is JsonArray array) return new JsonArray(array.Select(v => Transport(v, item, root)).ToArray());
+        return value.DeepClone();
     }
-    public static LLMRequest DecisionResultRequest(LLMRequest request)
+    private static bool Matches(JsonNode? value, JsonObject schema, JsonObject root)
     {
-        var inner = JsonSerializer.Deserialize(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
-        var schema = request.StructuredOutputSchema!["$defs"]!["decisionResult"]!.DeepClone().AsObject();
-        var definitions = request.StructuredOutputSchema["$defs"]!.DeepClone().AsObject(); definitions.Remove("decisionResult");
-        if (definitions.Count > 0) schema["$defs"] = definitions;
-        inner.StructuredOutputSchema = schema;
-        return inner;
+        if (schema["$ref"] is { } reference) return Matches(value, root["$defs"]![reference.ToString().Split('/')[^1]]!.AsObject(), root);
+        if (schema["type"]?.ToString() == "null") return value is null;
+        if (value is null) return false;
+        if (schema["properties"]?["kind"]?["enum"] is JsonArray kinds) return kinds.Any(k => k?.ToString() == value["kind"]?.ToString());
+        return true;
     }
     public sealed class Human(bool answer = true) : IHumanInputProvider
     { public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct) => Task.FromResult<JsonNode?>(new JsonObject { ["response"] = answer }); }
     public sealed class Runtime(string name, WorkflowEngine engine, ILLMClient? live = null) : IPlanningRuntime
     {
         private readonly WorkflowPlanningRuntime _actual = new(engine, (_, _) => Task.CompletedTask);
-        private PlanningCatalog? _catalog;
+        private PlanningSession? _snapshot;
+        public ICapabilityCatalog Capabilities => _actual.Capabilities;
         public List<PlanningDiagnostic> DiagnosticHistory { get; } = [];
-        public async Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => _catalog = await _actual.DiscoverAsync(request, ct);
+        public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => _actual.DiscoverAsync(request, ct);
         public async Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
         {
             if (live is not null) return await live.CallAsync(request, ct);
-            _catalog ??= await _actual.DiscoverAsync(new(), ct);
-            return FixtureResponse(request, purpose, Intent(name, _catalog));
+            var catalog = _snapshot!.Catalog!;
+            var discovery = _snapshot.Discovery;
+            var proposal = new PlanningProposal { Requirements = Requirements(name) };
+            var local = name is "local" or "collections";
+            if (!local && discovery.Pages.Count == 0) proposal.SourceId = discovery.Sources[0].Id;
+            else if (!local && discovery.Pages[^1].NextCursor is { } cursor)
+            { proposal.SourceId = discovery.Pages[^1].SourceId; proposal.Cursor = cursor; }
+            else if (!local && catalog.Capabilities.Count == 0)
+                proposal.CapabilityIds = discovery.Pages.SelectMany(p => p.Capabilities).Where(c => !c.Name.StartsWith("unrelated_", StringComparison.Ordinal)).Select(c => c.Id).ToList();
+            else proposal.Graph = Graph(name, catalog);
+            var json = JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal);
+            return new() { Json = Transport(json, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
         }
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => _actual.ValidateAsync(request, ct);
         public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct) => _actual.ValidateScenariosAsync(request, ct);
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => _actual.ValidateCatalogAsync(catalog, ct);
-        public Task CheckpointAsync(PlanningSession state, CancellationToken ct) { DiagnosticHistory.AddRange(state.Diagnostics.Where(d => !DiagnosticHistory.Contains(d))); return Task.CompletedTask; }
+        public Task CheckpointAsync(PlanningSession state, CancellationToken ct) { _snapshot = state; DiagnosticHistory.AddRange(state.Diagnostics.Where(d => !DiagnosticHistory.Contains(d))); return Task.CompletedTask; }
     }
 }

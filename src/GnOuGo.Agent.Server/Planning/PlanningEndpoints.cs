@@ -13,8 +13,7 @@ internal static class PlanningEndpoints
             Results.Json((await service.ListAsync(conversationId, ct)).ToList(), ChatJsonContext.Default.ListPlanningSessionDto));
         app.MapPost("/api/chat/conversations/{conversationId}/planning/{id}/commands", async (string conversationId, string id, PlanningCommandDto request, ChatPlanningService service, CancellationToken ct) =>
         {
-            try { return Results.Json(await service.SubmitAsync(conversationId, id, new() { Kind = request.Kind, ExpectedRevision = request.ExpectedRevision, Mode = request.Mode, Answers = request.Answers,
-                DecisionAnswer = request.DecisionAnswer is { } answer ? new(answer.DecisionId, answer.OptionId, answer.Text) : null }, ct), ChatJsonContext.Default.PlanningSessionDto); }
+            try { return Results.Json(await service.SubmitAsync(conversationId, id, new() { Kind = request.Kind, ExpectedRevision = request.ExpectedRevision, Mode = request.Mode, Answers = request.Answers }, ct), ChatJsonContext.Default.PlanningSessionDto); }
             catch (PlanningConflictException ex) { return Results.Conflict(ex.Message); }
             catch (KeyNotFoundException) { return Results.NotFound(); }
             catch (ArgumentException) { return Results.BadRequest("Invalid planner decision command."); }
@@ -37,7 +36,6 @@ internal static class PlanningEndpoints
                 {
                     Kind = request.Kind,
                     Mode = request.Mode,
-                    DecisionAnswer = request.DecisionAnswer is { } answer ? new(answer.DecisionId, answer.OptionId, answer.Text) : null,
                     ExpectedRevision = request.ExpectedRevision,
                     ArtifactHash = request.ArtifactHash,
                     Text = request.Text,
@@ -53,9 +51,9 @@ internal static class PlanningEndpoints
     }
 
     internal static PlanningSessionDto ToDto(PlanningSession state) => new(
-        state.Request.SessionId, state.Request.Name, state.Revision, state.Status, state.SemanticPlan?.Summary ?? "", PlanningReviewFormatter.Diagram(state.Graph),
-        state.SemanticPlan is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(state.SemanticPlan, PlanningJsonContext.Default.SemanticPlan)!.AsObject(),
-        state.GroundedPlan is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(state.GroundedPlan, PlanningJsonContext.Default.GroundedPlan)!.AsObject(),
+        state.Request.SessionId, state.Request.Name, state.Revision, state.Status, state.Requirements?.Summary ?? "", PlanningReviewFormatter.Diagram(state.Graph),
+        state.Requirements is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements)!.AsObject(),
+        state.Graph is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(state.Graph, PlanningJsonContext.Default.PlanningGraph)!.AsObject(),
         state.Yaml, PlanningArtifactApproval.Hash(state), state.ApprovedHash,
         state.Diagnostics.Select(d => new PlanningValidationDto(d.Code, d.Location, d.Message, d.Required)
         {
@@ -64,15 +62,14 @@ internal static class PlanningEndpoints
             Computation = d.Computation is { } c ? new(c.Expression, c.Limitation, c.ReceiverContract.DeepClone().AsObject(), c.ParameterContracts.DeepClone().AsObject(), c.OriginExpression, c.ProducerLocation) : null
         }).ToArray(),
         state.Scenarios.Select(s => new PlanningScenarioDto(s.Id, s.Outcome, s.Description)).ToArray(),
-        state.Status == PlanningStatus.Clarification ? state.GetQuestions().Select(q => new PlanningQuestionDto(q.Id, q.Question, PlanningGraphCompiler.ToJsonSchema(PlanningGraphBuilder.Schema(q.AnswerType), state.Catalog!))).ToArray() : [],
+        state.Status == PlanningStatus.Clarification ? state.GetQuestions().Select(q => new PlanningQuestionDto(q.Id, q.Question, PlanningGraphCompiler.ToJsonSchema(q.AnswerType, state.Catalog!))).ToArray() : [],
         state.ModelCalls, state.ReplanAttempts, state.Usage?.InputTokens ?? 0, state.Usage?.OutputTokens ?? 0,
-        state.Usage?.EstimatedCost ?? 0, state.Usage?.EstimatedCostCurrency ?? "", state.ActiveMilliseconds, state.HumanWaitMilliseconds, state.Phase, state.Request.Mode, state.PendingDecision is { } pending ? ToDto(pending) : null,
-        state.Decisions.Select(d => new PlanningDecisionRecordDto(ToDto(d.Decision), new(d.Answer.DecisionId, d.Answer.OptionId, d.Answer.Text), d.Source, d.Reason, d.AnsweredAtUtc)).ToArray())
+        state.Usage?.EstimatedCost ?? 0, state.Usage?.EstimatedCostCurrency ?? "", state.ActiveMilliseconds, state.HumanWaitMilliseconds, state.Phase, state.Request.Mode)
     {
-        PendingRepair = state.PendingRepair is { } repair ? new(repair.ActionIds.ToArray(), repair.Questions.Count > 0 ? string.Join("\n", repair.Questions.Select(q => q.Question)) : repair.Candidate.Summary, repair.Questions.Count > 0 && repair.Answers is null) : null,
+        SchemaVersion = state.SchemaVersion,
+        RevisionScope = state.RevisionScope.ToArray(),
+        DiscoveryLimitations = state.Discovery.Limitations.ToArray(),
         Clarifications = state.Answers.Select(a => new PlanningClarificationHistoryDto(a.Question, a.Answers.DeepClone().AsObject())).ToArray()
     };
 
-    internal static PlanningDecisionDto ToDto(PlanningDecision decision) => new(decision.Id, decision.Question, decision.Context, decision.Phase, decision.Scope, decision.ActionIds,
-        decision.Options.Select(o => new PlanningDecisionOptionDto(o.Id, o.Label, o.Reason, o.Preferred)).ToArray(), decision.AllowCustomAnswer);
 }

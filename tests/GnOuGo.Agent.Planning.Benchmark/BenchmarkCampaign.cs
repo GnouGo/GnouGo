@@ -55,7 +55,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
     {
         var evidence = await LoadAsync("planning-evaluation-runs", runKey, ct) ?? throw new InvalidOperationException("No recorded run.");
         var saved = JsonSerializer.Deserialize(evidence["session"], PlanningJsonContext.Default.PlanningSession) ?? throw new InvalidOperationException("No recorded session.");
-        if (saved.SchemaVersion != 8) throw new InvalidOperationException("Unsupported recorded session format.");
+        if (saved.SchemaVersion != 9) throw new InvalidOperationException("Unsupported recorded session format.");
         var prefix = Id + ":" + saved.Request.SessionId + ":1:";
         var reservations = (await records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct)).Where(r => r.Key.StartsWith(prefix, StringComparison.Ordinal)).ToArray();
         if (reservations.Length != 1) throw new InvalidOperationException("Replay requires one original interpretation reservation.");

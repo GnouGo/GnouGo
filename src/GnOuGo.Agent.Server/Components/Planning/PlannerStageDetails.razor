@@ -1,11 +1,17 @@
-@if (Session.PendingRepair is { } repair)
+@using GnOuGo.Flow.Core.Planning
+@if (Session.Graph is { } graph)
 {
-    <aside class="planner-repair" aria-label="Unapplied planning repair">
-        <strong>Proposed repair — not applied</strong>
-        <p>The accepted plan is retained. A replacement is saved for: @string.Join(", ", repair.ActionIds).</p>
-        <details><summary>Proposed scope and reason</summary><p style="white-space: pre-wrap">@repair.Summary</p></details>
-        @if (repair.AwaitingConsent) { <p>The requested business outcome needs an explicit revision.</p> }
-    </aside>
+    <PlannerAgentStages Graph="@(System.Text.Json.JsonSerializer.Deserialize(graph, PlanningJsonContext.Default.PlanningGraph)!)" />
+}
+@if (Session.RevisionScope.Count > 0)
+{
+    <p>Stages open for revision: @string.Join(", ", Session.RevisionScope)</p>
+}
+@if (Session.DiscoveryLimitations.Count > 0)
+{
+    <details><summary>Discovery limitations</summary><ul>
+        @foreach (var limitation in Session.DiscoveryLimitations) { <li>@limitation</li> }
+    </ul></details>
 }
 @if (ShowFindings && Session.Diagnostics.Count > 0)
 {

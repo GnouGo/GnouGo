@@ -10,7 +10,7 @@ internal static class PlanningConfirmationGuards
     internal const string Body = "__planning_body", Confirm = "__planning_confirm", Assert = "__planning_permission", Call = "__planning_run";
     internal static bool Required(PlanningGraph graph, PlanningCatalog catalog) => catalog.Policy.RequireExternalConfirmation &&
         graph.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally)))
-            .Any(n => n.Type == "mcp.call" && catalog.Capabilities.FirstOrDefault(c => c.Id == n.CapabilityId)?.EffectKind is not ("read" or "none"));
+            .Any(n => n.Type is "mcp.call" or "agent.run" && catalog.Capabilities.FirstOrDefault(c => c.Id == n.CapabilityId)?.EffectKind is not ("read" or "none"));
     internal static void Apply(PlanningGraph graph, PlanningCatalog catalog)
     {
         if (!Required(graph, catalog)) return;
@@ -18,6 +18,16 @@ internal static class PlanningConfirmationGuards
         var main = graph.Workflows.Single(w => w.Key == graph.Entrypoint);
         main.Key = Body;
         graph.Workflows.Insert(0, Wrapper(main, graph.Entrypoint, graph.Summary));
+    }
+    internal static PlanningGraph UserGraph(PlanningGraph executable)
+    {
+        var graph = JsonSerializer.Deserialize(JsonSerializer.Serialize(executable, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph)!;
+        if (graph.Workflows.SingleOrDefault(w => w.Key == Body) is { } body)
+        {
+            graph.Workflows.RemoveAll(w => w.Key == graph.Entrypoint);
+            body.Key = graph.Entrypoint;
+        }
+        return graph;
     }
     private static PlanningWorkflow Wrapper(PlanningWorkflow body, string entrypoint, string summary) => new()
     {

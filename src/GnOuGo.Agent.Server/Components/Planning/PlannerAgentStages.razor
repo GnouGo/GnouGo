@@ -1,0 +1,28 @@
+@using GnOuGo.Flow.Core.Planning
+@using GnOuGo.Flow.Planning
+@foreach (var stage in Graph.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally))).Where(n => n.Type == "agent.run"))
+{
+    <section aria-label="Agent stage scope">
+        <h3>Agent stage: @stage.Key</h3>
+        <p>@Field(stage.Input, "objective")?.Text</p>
+        <dl>
+            <dt>Workspace</dt><dd>@Describe(Field(stage.Input, "workspace"))</dd>
+            <dt>Permitted capabilities</dt><dd>@string.Join(", ", Field(stage.Input, "capabilities")?.Items.Select(Describe) ?? [])</dd>
+            <dt>Budget ceilings</dt><dd>
+                @Field(Field(stage.Input, "budget"), "max_model_calls")?.Number model calls ·
+                @Field(Field(stage.Input, "budget"), "max_total_tokens")?.Number tokens ·
+                @((Field(Field(stage.Input, "budget"), "max_elapsed_milliseconds")?.Number ?? 0) / 1000) seconds
+            </dd>
+        </dl>
+        <p>Required observed evidence:</p>
+        <ul>@foreach (var requirement in Field(stage.Input, "verification")?.Items ?? [])
+        { <li>@Field(requirement, "kind")?.Text: @Field(requirement, "subject")?.Text</li> }</ul>
+        <p>These requirements have not yet been verified by execution.</p>
+    </section>
+}
+@code {
+    [Parameter, EditorRequired] public PlanningGraph Graph { get; set; } = null!;
+    private static PlanningValue? Field(PlanningValue? value, string name) => value?.Members.FirstOrDefault(m => m.Name == name)?.Value;
+    private static string Describe(PlanningValue? value) => value?.Kind switch
+    { "string" => value.Text ?? "", "input" or "output" => string.Join(".", new[] { value.Source }.Concat(value.Path)), _ => "Resolved at execution" };
+}

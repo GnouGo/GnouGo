@@ -2,82 +2,53 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Planning.Examples;
 namespace GnOuGo.Flow.Planning.Tests;
-
 internal static class PlannerFixture
 {
-    internal static PlanningGraph Build(GroundedPlan plan, PlanningCatalog catalog) => PlanningGraphBuilder.Build(GroundedPlanValidator.RequireValid(plan, catalog));
-    internal static InMemoryMcpClientFactory Factory(int count, string fields = "{}", string[]? required = null)
+    internal static CancellationToken Ct => TestContext.Current.CancellationToken;
+    internal static PlanningSession Session() => new() { Request = new() { TenantId = "test", Prompt = "Return a greeting" } };
+    internal static PlanningGraph Greeting(string message = "Hello") => new()
     {
-        var factory = new InMemoryMcpClientFactory(); var server = new MockMcpServerConfig();
-        for (var i = 0; i < count; i++) server.Tools.Add(new() { Name = "read_" + i, Description = "Read a value", EffectKind = "read", InputSchema = new JsonObject { ["type"] = "object", ["properties"] = JsonNode.Parse(fields), ["required"] = new JsonArray((required ?? []).Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()), ["additionalProperties"] = false }, OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"number"}},"required":["value"]}""") });
-        factory.RegisterServer("fixture", server); return factory;
-    }
-    internal static GroundedPlan Greeting(string message = "Hello") => new()
-    {
-        Summary = "Return a greeting",
-        Operations = [new CalculateGroundedOperation { Id = "greet", Value = new() { Kind = "string", Text = message } }],
-        Outputs = [new("message", new() { Kind = "result", Source = "greet" })]
+        Summary = "Return a greeting", Workflows = [new()
+        {
+            Steps = [new() { Key = "greet", Type = "set", Input = PlanningCorpus.Obj(("message", PlanningCorpus.Text(message))) }],
+            Outputs = [new() { Name = "message", Value = PlanningCorpus.Ref("output", "greet", "message") }]
+        }]
     };
-    internal static PlanningSession Session() => new() { Request = new() { TenantId = "test", Prompt = "Return a greeting", Options = new() { ["generator"] = new JsonObject { ["model"] = "test" } } } };
+    internal static PlanningRequirements Requirements() => new() { Summary = "Return a greeting", Outcomes = [new("message", "Return a greeting", [])] };
+    internal static PlanningSession Clone(PlanningSession state) => JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
     internal static async Task<PlanningSession> RunAsync(TestRuntime runtime, PlanningSession? state = null)
     {
-        state ??= Session(); var planner = new TypedWorkflowPlanner();
+        state ??= Session(); var planner = new HybridWorkflowPlanner();
         for (var i = 0; i < 30 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); i++)
-            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, TestContext.Current.CancellationToken);
+            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
         return state;
     }
-
 }
 internal sealed class TestRuntime : IPlanningRuntime
 {
     internal readonly List<LLMRequest> Calls = [];
     internal readonly List<PlanningSession> Checkpoints = [];
-    internal readonly Queue<GroundedPlan> Plans = new();
-    internal List<PlanningQuestion> Questions = [];
-    internal Func<LLMRequest, LLMResponse>? Respond;
-    internal bool RawDecisionResponse;
-    internal IReadOnlyList<PlanningDiagnostic>? Validation { get; set; }
-    internal Exception? ValidationFailure;
-    internal IReadOnlyList<PlanningDiagnostic>? CatalogChanges { get; set; }
-    internal int Discoveries;
     internal readonly WorkflowPlanningRuntime Actual;
-    internal TestRuntime(GroundedPlan? plan = null, IMcpClientFactory? mcp = null)
-    {
-        Plans.Enqueue(plan ?? PlannerFixture.Greeting());
-        Actual = new(new WorkflowEngine { McpClientFactory = mcp }, (_, _) => Task.CompletedTask);
-    }
+    internal PlanningProposal Proposal = new() { Requirements = PlannerFixture.Requirements(), Graph = PlannerFixture.Greeting() };
+    internal Func<LLMRequest, string, LLMResponse>? Respond;
+    internal IReadOnlyList<PlanningDiagnostic>? CatalogChanges;
+    internal IReadOnlyList<PlanningDiagnostic>? Validation { get; set; }
+    internal int Discoveries;
+    public ICapabilityCatalog Capabilities { get; set; }
+    internal TestRuntime(WorkflowEngine? engine = null)
+    { Actual = new(engine ?? new(), (_, _) => Task.CompletedTask); Capabilities = Actual.Capabilities; }
     public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) { Discoveries++; return Actual.DiscoverAsync(request, ct); }
     public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
     {
         Calls.Add(request);
-        var envelope = request.StructuredOutputSchema?["properties"]?["decision"] is not null;
-        var inner = envelope ? GnOuGo.Planning.Examples.PlanningCorpus.DecisionResultRequest(request) : request;
-        if (Respond is not null)
-        {
-            var provided = Respond(RawDecisionResponse ? request : inner);
-            if (envelope && !RawDecisionResponse && provided.Json is not null) provided.Json = new JsonObject { ["result"] = provided.Json, ["decision"] = null };
-            return Task.FromResult(provided);
-        }
-        var plan = purpose == "replan" && Plans.Count > 1 ? Plans.Dequeue() : Plans.Peek();
-        var response = GnOuGo.Planning.Examples.PlanningCorpus.FixtureResponse(inner, purpose, plan);
-        if (purpose == "semantic" && Questions.Count > 0)
-        {
-            var semantic = GnOuGo.Planning.Examples.PlanningCorpus.Semantic(plan); semantic.Questions = Questions;
-            response.Json = SemanticPlanning.Json(semantic);
-        }
-        if (envelope) response.Json = new JsonObject { ["result"] = response.Json, ["decision"] = null };
-        return Task.FromResult(response);
+        return Task.FromResult(Respond?.Invoke(request, purpose) ?? Response(request, Proposal));
     }
-
-    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => ValidationFailure is { } failure
-        ? Task.FromException<IReadOnlyList<PlanningDiagnostic>>(failure)
-        : Validation is null ? Actual.ValidateAsync(request, ct) : Task.FromResult(Validation);
-    public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct) => Actual.ValidateScenariosAsync(request, ct);
+    internal static LLMResponse Response(LLMRequest request, PlanningProposal proposal) => new()
+    { Json = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal), request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
+    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => Validation is null ? Actual.ValidateAsync(request, ct) : Task.FromResult(Validation);
+    public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct) => throw new InvalidOperationException("Planning must not require simulated scenarios.");
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => CatalogChanges is null ? Actual.ValidateCatalogAsync(catalog, ct) : Task.FromResult(CatalogChanges);
-    public Task CheckpointAsync(PlanningSession state, CancellationToken ct)
-    {
-        Checkpoints.Add(JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!);
-        return Task.CompletedTask;
-    }
+    public Task CheckpointAsync(PlanningSession state, CancellationToken ct) { Checkpoints.Add(PlannerFixture.Clone(state)); return Task.CompletedTask; }
 }

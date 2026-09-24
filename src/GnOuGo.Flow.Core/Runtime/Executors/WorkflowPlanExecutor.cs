@@ -50,9 +50,9 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         while (!PlanningStatus.IsTerminal(state.Status))
         {
             var command = new PlanningCommand { ExpectedRevision = state.Revision };
-            if (state.Status == PlanningStatus.WaitingForDecision || state.Status == PlanningStatus.Clarification && state.PendingRepair is not null)
+            if (state.Status == PlanningStatus.Clarification && ctx.Engine.PlanningInteraction is not null)
             {
-                if (ctx.Engine.PlanningDecisionProvider is not { } decisions) break;
+                if (ctx.Engine.PlanningInteraction is not { } decisions) break;
                 command = await decisions.RequestAsync(state, ct);
             }
             else if (PlanningStatus.IsWaiting(state.Status))
@@ -66,7 +66,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                         var answer = await human.RequestInputAsync(new HumanInputRequest
                         {
                             RunId = state.Request.SessionId, StepId = question.Id,
-                            Prompt = question.Question + "\nReturn a JSON value of this business type: " + System.Text.Json.JsonSerializer.Serialize(question.AnswerType, PlanningJsonContext.Default.BusinessType),
+                            Prompt = question.Question + "\nReturn a JSON value of this business type: " + System.Text.Json.JsonSerializer.Serialize(question.AnswerType, PlanningJsonContext.Default.PlanningSchema),
                             Mode = "text", AllowAbandon = true
                         }, ct);
                         if (HumanInputContract.IsAbandoned(answer)) { command.Kind = "cancel"; break; }
@@ -81,8 +81,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     var answer = await human.RequestInputAsync(new HumanInputRequest
                     {
                         RunId = state.Request.SessionId, StepId = "review-" + state.Revision,
-                        Prompt = "Review the validated workflow. Scenario checks use simulated integrations.",
-                        Context = JsonValue.Create(state.SemanticPlan?.Summary + "\n\n```yaml\n" + state.Yaml + "\n```"),
+                        Prompt = "Review the validated workflow stages, execution scopes and required evidence. Runtime outcomes have not yet been observed.",
+                        Context = JsonValue.Create(state.Requirements?.Summary + "\n\n```yaml\n" + state.Yaml + "\n```"),
                         Mode = "choice", Choices = ["approve", "revise", "cancel"], AllowAbandon = true
                     }, ct);
                     command.Kind = HumanInputContract.IsAbandoned(answer) ? "cancel" : (answer is JsonObject obj ? obj["response"] : answer)?.GetValue<string>() ?? "cancel";
@@ -97,7 +97,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 }
             }
             state = await planner.AdvanceAsync(state, command, owned.Runtime, ct);
-            if (ctx.Engine.PlanningDecisionProvider is { } observer) await observer.CheckpointedAsync(state, ct);
+            if (ctx.Engine.PlanningInteraction is { } observer) await observer.CheckpointedAsync(state, ct);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.status", state.Status);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.calls", state.ModelCalls);
         }

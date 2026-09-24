@@ -15,11 +15,15 @@ internal static class StepOutputTypeResolver
         return step.Type switch
         {
             "set" => ResolveSet(step, symbols),
-            "value.validate" => step.OutputSchema is null ? FlowTypeDescriptor.Any : FlowTypeDescriptorConverter.FromJsonSchema(step.OutputSchema),
+            "value.validate" or "array.project" or "value.project" => step.OutputSchema is null ? FlowTypeDescriptor.Any : FlowTypeDescriptorConverter.FromJsonSchema(step.OutputSchema),
             "assert.non_null" => ResolveAssertNonNull(step, symbols),
             "template.render" => ResolveTemplateRender(step),
             "llm.call" => ResolveLlmCall(step),
             "mcp.call" => ResolveMcpCall(step, mcpContracts),
+            "agent.run" => Object(("status", FlowTypeDescriptor.String),
+                ("output", step.Input?["output_schema"] is JsonObject schema ? FlowTypeDescriptorConverter.FromJsonSchema(schema) : FlowTypeDescriptor.Any),
+                ("evidence", FlowTypeDescriptor.Array()), ("artifacts", FlowTypeDescriptor.Array()),
+                ("usage", Object()), ("verification", FlowTypeDescriptor.Array())),
             "workflow.call" => ResolveWorkflowCall(step, workflows),
             "human.input" => ResolveHumanInput(step),
             "decision.evaluate" => ResolveDecisionEvaluate(step),

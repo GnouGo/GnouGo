@@ -31,8 +31,8 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public IDictionary<string, IAgentTaskRunner> AgentTaskRunners { get; } = new Dictionary<string, IAgentTaskRunner>(StringComparer.Ordinal);
     public IAgentTaskVerifier AgentTaskVerifier { get; set; } = new EvidenceAgentTaskVerifier();
     public IWorkflowCheckpointer? Checkpointer { get; set; }
-    /// <summary>Optional separately injected version-2 planner; Flow.Core does not reference its implementation.</summary>
-    public Planning.IPlanningDecisionProvider? PlanningDecisionProvider { get; set; }
+    /// <summary>Optional separately injected schema-9 planner; Flow.Core does not reference its implementation.</summary>
+    public Planning.IPlanningInteraction? PlanningInteraction { get; set; }
     public string DefaultPlanningMode { get; set; } = Planning.PlanningMode.Interactive;
     public Planning.IWorkflowPlanner? WorkflowPlanner { get; set; }
     public Planning.PlanningPolicy? PlanningPolicy { get; set; }
@@ -1175,6 +1175,10 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         registry.Register(new Executors.DecisionEvaluateExecutor());
         registry.Register(new Executors.SetExecutor());
         registry.Register(new Executors.ValidateValueExecutor());
+        registry.Register(new Executors.ArrayProjectExecutor());
+        registry.Register(new Executors.ValueProjectExecutor());
+        foreach (var type in new[] { "number.add", "number.multiply", "number.default" })
+            registry.Register(new Executors.NumericTransformExecutor(type));
         registry.Register(new Executors.AssertNonNullExecutor());
         registry.Register(new Executors.TemplateRenderExecutor());
         registry.Register(new Executors.LlmCallExecutor());

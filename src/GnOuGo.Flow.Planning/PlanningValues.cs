@@ -24,7 +24,7 @@ internal static class PlanningValues
     internal static bool Established(JsonObject schema) => Established(schema, schema, 0);
     private static bool Established(JsonObject schema, JsonObject root, int depth)
     {
-        if (GroundedTypes.IsOpaque(schema)) return true;
+        if (PlanningContractShapes.IsOpaque(schema)) return true;
         if (depth > 32) return false;
         if (schema.ContainsKey("const") || schema["enum"] is JsonArray { Count: > 0 }) return true;
         if (schema["$ref"] is JsonValue reference)

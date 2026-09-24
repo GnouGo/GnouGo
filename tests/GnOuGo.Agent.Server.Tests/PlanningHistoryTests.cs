@@ -72,7 +72,7 @@ public sealed class PlanningHistoryTests
         var client = new RejectingClient();
         var runtime = new WorkflowPlanningRuntimeFactory(fixture.Records, Path.Combine(fixture.Root, "leases"));
         var context = new StepExecutionContext { Engine = new WorkflowEngine { LLMClient = client }, Limits = new() { TenantId = "planning-tests" }, Data = new(), Step = new() { Source = new StepDef { Id = "execute", Type = "workflow.execute" } } };
-        await Assert.ThrowsAsync<JsonException>(() => runtime.ReadApprovedYamlAsync(context, "legacy", "stale", Ct));
+        await Assert.ThrowsAsync<PlanningConflictException>(() => runtime.ReadApprovedYamlAsync(context, "legacy", "stale", Ct));
         Assert.Equal(0, client.Calls);
         Assert.Equal(legacy, await fixture.Records.GetAsync(legacy.Collection, legacy.TenantId, legacy.Key, "test", Ct));
     }
@@ -126,18 +126,19 @@ public sealed class PlanningHistoryTests
             Request = new() { TenantId = "planning-tests", SessionId = "legacy", Name = "legacy session", Prompt = "PRIVATE_HISTORY_PROMPT" },
             Status = PlanningStatus.Generating, Revision = 3, ModelCalls = 2, ReplanAttempts = 1,
             PendingCall = new() { Id = "uncertain", Request = new() { Prompt = "PRIVATE_UNCERTAIN_REQUEST" } },
-            GroundedPlan = new() { Operations = [new CalculateGroundedOperation { Id = "value", Value = new() { Kind = "string", Text = "value" } }] }
+            Graph = new()
         };
         var json = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession)!;
-        json["groundedPlan"]!["operations"]![0]!["resultType"] = new JsonObject { ["type"] = "string" };
+        json["schemaVersion"] = 8;
+        json["groundedPlan"] = new JsonObject { ["operations"] = new JsonArray(new JsonObject { ["kind"] = "obsolete", ["resultType"] = new JsonObject { ["type"] = "string" } }) };
         var key = state.Request.SessionId;
-        var collection = "flow-planning-sessions-v8";
+        var collection = "flow-planning-sessions-v9";
         if (!workflow)
         {
             Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
             await using var db = fixture.CreateDbContext();
             key = (await db.Sessions.SingleAsync(s => s.SessionId == "legacy" && s.TenantId == "planning-tests", Ct)).PayloadKey;
-            collection = "agent-planning-sessions-v8";
+            collection = "agent-planning-sessions-v9";
         }
         return await fixture.Records.UpsertAsync(collection, state.Request.TenantId, key, json.ToJsonString(), "test", Ct);
     }

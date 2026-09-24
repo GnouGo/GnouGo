@@ -82,9 +82,9 @@ internal static class PlanningDataflow
             foreach (var condition in Guards(key))
             {
                 if (consumer == WorkflowOutputs && workflow.Finally.Any(n => n.Key == key) &&
-                    PlanningGraphBuilder.FinalizerAvailableOnSuccess(nodes.Single(n => n.Key == key), workflow)) continue;
+                    PlanningGraphTopology.FinalizerAvailableOnSuccess(nodes.Single(n => n.Key == key), workflow)) continue;
                 if (consumer != WorkflowOutputs && locations[consumer].StartsWith("/finally/", StringComparison.Ordinal) &&
-                    PlanningGraphBuilder.GuardsFinalizerSource(nodes.Single(n => n.Key == consumer), key)) continue;
+                    PlanningGraphTopology.GuardsFinalizerSource(nodes.Single(n => n.Key == consumer), key)) continue;
                 if (consumer == WorkflowOutputs || !Guards(consumer).Any(guard => JsonNode.DeepEquals(
                     JsonSerializer.SerializeToNode(condition, PlanningJsonContext.Default.PlanningValue),
                     JsonSerializer.SerializeToNode(guard, PlanningJsonContext.Default.PlanningValue)))) return false;
@@ -94,7 +94,7 @@ internal static class PlanningDataflow
             var path = locations[key]; var target = consumer == WorkflowOutputs ? "/outputs" : locations[consumer];
             // Main execution can stop before any producer; finalizers cannot assume those results exist.
             if (target.StartsWith("/finally/", StringComparison.Ordinal) && path.StartsWith("/steps/", StringComparison.Ordinal) &&
-                !PlanningGraphBuilder.GuardsFinalizerSource(nodes.Single(n => n.Key == consumer), key)) return false;
+                !PlanningGraphTopology.GuardsFinalizerSource(nodes.Single(n => n.Key == consumer), key)) return false;
             if (target.StartsWith(path + "/", StringComparison.Ordinal)) return false; // An executing ancestor has no completed result yet.
             foreach (var marker in new[] { "/cases/", "/default/", "/branches/" })
             {
@@ -122,7 +122,7 @@ internal static class PlanningDataflow
             var workflow = graph.Workflows[wi];
             foreach (var (node, path) in PlanningGraphValidation.Located(workflow.Steps, $"/workflows/{wi}/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, $"/workflows/{wi}/finally")))
             {
-                foreach (var finding in Check(PlanningGraphBuilder.References(node), node.Key, path)) yield return finding;
+                foreach (var finding in Check(PlanningGraphTopology.References(node), node.Key, path)) yield return finding;
                 var capability = catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
                 var request = PlanningGraphValidation.Member(node.Input, "request");
                 foreach (var artifact in capability?.ArtifactContract?.Consumes ?? [])

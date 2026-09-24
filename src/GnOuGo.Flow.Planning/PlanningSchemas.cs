@@ -4,92 +4,44 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningSchemas
 {
-    internal static JsonObject Grounded(IEnumerable<string>? capabilityIds = null)
+    internal static JsonObject Proposal(PlanningSession state)
     {
-        var root = Object(("summary", String()), ("inputs", Array(Ref("input"))), ("operations", Array(Ref("operation"))),
-            ("outputs", Array(Ref("output"))), ("subflows", Array(Ref("subflow"))));
-        var definitions = Definitions(capabilityIds);
-        if (capabilityIds is not null)
-        {
-            root["properties"]!["blockedActions"] = Array(Object(("actionId", String()), ("reason", String()),
-                ("prerequisite", Nullable(Object(("kind", Enum("missing_observation", "missing_artifact", "unavailable_outcome", "blocked_dependency")),
-                    ("description", String()), ("output", Nullable(String())), ("consumerCapability", Nullable(String())),
-                    ("contractPath", Nullable(String())), ("rootActionId", Nullable(String())))))));
-            root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("blockedActions"));
-        }
-        if (capabilityIds is not null && !capabilityIds.Any()) definitions["operation"]!["anyOf"]!.AsArray().RemoveAt(0);
-        if (capabilityIds is not null)
-        {
-            var variants = definitions["operation"]!["anyOf"]!.AsArray();
-            string[] common = ["id", "semanticAction", "businessOutputs", "purpose", "after", "when"];
-            var commonFields = variants[0]!["properties"]!.AsObject().Where(p => common.Contains(p.Key)).Select(p => (p.Key, p.Value!.DeepClone().AsObject())).ToArray();
-            definitions["implementation"] = new JsonObject { ["anyOf"] = new JsonArray(variants.Select(v => (JsonNode)Object(v!["properties"]!.AsObject()
-                .Where(p => !common.Contains(p.Key)).Select(p => (p.Key, p.Value!.DeepClone().AsObject())).ToArray())).ToArray()) };
-            definitions["operation"] = Object(commonFields.Concat(new[] { ("implementation", Ref("implementation")) }).ToArray());
-        }
-        root["$defs"] = definitions; PlanningJsonTransport.PruneDefinitions(root); return root;
-    }
-    internal static JsonObject Definitions(IEnumerable<string>? capabilityIds = null)
-    {
-        // The unrestricted form validates stored intent shape, without executable escape hatches.
-        // Newly issued model requests always supply their exposed/allowed identities.
-        var ids = capabilityIds?.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
-        var capability = ids is null || ids.Length == 0 ? String() : Enum(ids);
-        JsonObject Operation(string kind, params (string Name, JsonObject Schema)[] fields) => Object(new[] {
-            ("kind", Enum(kind)), ("id", String()), ("semanticAction", String()), ("businessOutputs", Ref("business_outputs")), ("purpose", String()), ("after", Ref("strings")), ("when", Ref("optional_value")) }.Concat(fields).ToArray());
-        JsonObject Input(JsonObject type, JsonObject value) => Object(("name", String()), ("type", type), ("optional", Type("boolean")), ("default", value));
-        JsonObject BusinessType(bool nullableOnly = false)
-        {
-            JsonObject Nullability() => nullableOnly ? new() { ["type"] = "boolean", ["enum"] = new JsonArray(true) } : Type("boolean");
-            return new() { ["anyOf"] = new JsonArray(
-                Object(("type", Enum("string", "number", "integer", "boolean", "opaque")), ("nullable", Nullability()), ("enum", Array(String()))),
-                Object(("type", Enum("array")), ("nullable", Nullability()), ("items", Ref("type"))),
-                Object(("type", Enum("object")), ("nullable", Nullability()), ("fields", NonEmptyArray(Ref("field"))))) };
-        }
-        return new()
+        var root = Object(("requirements", Ref("requirements")), ("sourceId", Nullable(String())), ("cursor", Nullable(String())),
+            ("capabilityIds", Array(String())), ("graph", Nullable(Ref("graph"))), ("explanation", String()));
+        var definitions = new JsonObject
         {
             ["strings"] = Array(String()),
-            ["optional_value"] = Nullable(Ref("value")),
-            ["business_outputs"] = Array(Object(("name", String()), ("path", Array(String())))),
-            ["result_contract"] = Object(("capability", capability.DeepClone().AsObject()), ("direction", Enum("input", "output")), ("path", Array(String()))),
             ["value"] = new JsonObject { ["anyOf"] = new JsonArray(
                 Object(("kind", Enum("null"))), Object(("kind", Enum("string")), ("text", String())),
                 Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
-                Object(("kind", Enum("object")), ("members", Array(Ref("member")))), Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
-                Object(("kind", Enum("input", "result", "item", "index")), ("source", String()), ("path", Array(String()))),
-                Object(("kind", Enum("compute", "template")), ("text", String()), ("members", Array(Ref("member"))))) },
+                Object(("kind", Enum("object")), ("members", Array(Ref("member")))),
+                Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
+                Object(("kind", Enum("input", "output", "loop_item", "loop_index", "workflow")), ("source", String()), ("path", Ref("strings"))),
+                Object(("kind", Enum("expression")), ("text", String()))) },
             ["member"] = Object(("name", String()), ("value", Ref("value"))),
-            ["literal_null"] = Object(("kind", Enum("null"))),
-            ["literal_nonnull"] = new JsonObject { ["anyOf"] = new JsonArray(
-                Object(("kind", Enum("string")), ("text", String())), Object(("kind", Enum("number")), ("number", Type("number"))),
-                Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))), Ref("literal_object"), Ref("literal_array")) },
-            ["literal"] = new JsonObject { ["anyOf"] = new JsonArray(Ref("literal_null"), Ref("literal_nonnull")) },
-            ["literal_object"] = Object(("kind", Enum("object")), ("members", Array(Object(("name", String()), ("value", Ref("literal")))))),
-            ["literal_array"] = Object(("kind", Enum("array")), ("items", Array(Ref("literal")))),
-            ["type"] = BusinessType(),
-            ["nullable_type"] = BusinessType(nullableOnly: true),
-            ["field"] = Object(("name", String()), ("type", Ref("type")), ("optional", Type("boolean"))),
-            // JSON null is absence. A literal null requires a nullable declaration, or a
-            // derived contract whose nullability is checked by deterministic validation.
-            ["input"] = Input(Nullable(Ref("type")), Nullable(Ref("literal"))),
-            ["output"] = Object(("name", String()), ("value", Ref("value"))),
-            ["block"] = Object(("operations", Array(Ref("operation"))), ("result", Ref("value"))),
-            ["branch"] = Object(("name", String()), ("body", Ref("block"))),
-            ["subflow"] = Object(("name", String()), ("inputs", Array(Ref("input"))), ("operations", Array(Ref("operation"))), ("outputs", Array(Ref("output")))),
-            ["question"] = Object(("id", String()), ("question", String()), ("answerType", Ref("type"))),
-            ["operation"] = new JsonObject { ["anyOf"] = new JsonArray(
-                Operation("invoke", ("capability", capability), ("arguments", Array(Ref("member"))), ("fallback", Nullable(Ref("value")))),
-                Operation("calculate", ("value", Ref("value"))),
-                Operation("transform", ("instruction", String()), ("data", Array(Ref("member"))), ("resultType", Ref("type")), ("resultContract", Type("null"))),
-                Operation("transform", ("instruction", String()), ("data", Array(Ref("member"))), ("resultType", Type("null")), ("resultContract", Ref("result_contract"))),
-                Operation("choose", ("condition", Ref("value")), ("then", Ref("block")), ("otherwise", Ref("block"))),
-                Operation("each", ("items", Ref("value")), ("parallel", Type("boolean")), ("body", Ref("block"))),
-                Operation("parallel", ("branches", Array(Ref("branch")))),
-                Operation("call", ("flow", String()), ("arguments", Array(Ref("member")))),
-                Operation("cleanup", ("operations", Array(Ref("operation")))),
-                Operation("validate", ("value", Ref("value")), ("format", Enum("json_value", "json_text")), ("resultType", Ref("type")), ("resultContract", Type("null"))),
-                Operation("validate", ("value", Ref("value")), ("format", Enum("json_value", "json_text")), ("resultType", Type("null")), ("resultContract", Ref("result_contract")))) }
+            ["schema"] = Object(("type", Enum("string", "number", "integer", "boolean", "array", "object", "any")),
+                ("nullable", Type("boolean")), ("description", Nullable(String())), ("enum", Ref("strings")),
+                ("items", Nullable(Ref("schema"))), ("properties", Array(Ref("port"))),
+                ("capabilityId", Nullable(String())), ("schemaPointer", Nullable(String()))),
+            ["port"] = Object(("name", String()), ("schema", Ref("schema")), ("required", Type("boolean")), ("default", Nullable(Ref("value")))),
+            ["output"] = Object(("name", String()), ("schema", Ref("schema")), ("value", Ref("value"))),
+            ["requirements"] = Object(("summary", String()),
+                ("outcomes", NonEmptyArray(Object(("id", String()), ("description", String()), ("stageIds", Ref("strings"))))),
+                ("questions", Array(Object(("id", String()), ("question", String()), ("answerType", Ref("schema")))))),
+            ["graph"] = Object(("summary", String()), ("entrypoint", String()), ("workflows", NonEmptyArray(Ref("workflow")))),
+            ["workflow"] = Object(("key", String()), ("purpose", String()), ("inputs", Array(Ref("port"))),
+                ("outputs", Array(Ref("output"))), ("steps", Array(Ref("node"))), ("finally", Array(Ref("node")))),
+            ["node"] = Object(("key", String()), ("type", Enum(state.Catalog!.AllowedStepTypes.ToArray())),
+                ("purpose", String()), ("capabilityId", Nullable(state.Catalog.Capabilities.Count == 0 ? Type("null") : Enum(state.Catalog.Capabilities.Select(c => c.Id).ToArray()))),
+                ("dependencies", Ref("strings")), ("input", Ref("value")), ("if", Nullable(Ref("value"))), ("expr", Nullable(Ref("value"))),
+                ("outputSchema", Nullable(Ref("schema"))), ("structuredOutput", Nullable(Object(("schema", Ref("schema")), ("strict", Type("boolean"))))),
+                ("itemVar", Nullable(String())), ("indexVar", Nullable(String())),
+                ("steps", Array(Ref("node"))), ("branches", Array(Object(("steps", Array(Ref("node")))))),
+                ("cases", Array(Object(("value", Nullable(String())), ("when", Nullable(Ref("value"))), ("steps", Array(Ref("node")))))),
+                ("default", Array(Ref("node"))))
         };
+        root["$defs"] = definitions;
+        return root;
     }
     internal static JsonObject String() => Type("string");
     internal static JsonObject Type(string type) => new() { ["type"] = type };

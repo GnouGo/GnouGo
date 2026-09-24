@@ -26,7 +26,14 @@ public static class PlanningReviewFormatter
                 foreach (var node in nodes)
                 {
                     var id = prefix + "n" + PlanningGraphCompiler.Fingerprint(node.Key)[..12];
-                    result.AppendLine(id + "[\"" + Label(node.Key + ": " + node.Type + (node.If is null ? "" : " (conditional)")) + "\"]");
+                    var label = node.Key + ": " + node.Type + (node.If is null ? "" : " (conditional)");
+                    if (node.Type == "agent.run")
+                    {
+                        var calls = PlanningGraphValidation.Member(PlanningGraphValidation.Member(node.Input, "budget") ?? new(), "max_model_calls")?.Number;
+                        var evidence = PlanningGraphValidation.Member(node.Input, "verification")?.Items.Count ?? 0;
+                        label += $" · max {calls} calls · {evidence} evidence requirements";
+                    }
+                    result.AppendLine(id + (node.Type == "agent.run" ? "{{\"" : "[\"") + Label(label) + (node.Type == "agent.run" ? "\"}}" : "\"]"));
                     foreach (var source in previous) result.AppendLine(source + " --> " + id);
                     var tails = new List<string>();
                     if (node.Branches.Count > 0) foreach (var branch in node.Branches) tails.AddRange(Draw(branch.Steps, [id]));

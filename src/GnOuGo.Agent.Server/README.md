@@ -6,7 +6,7 @@ Diagrams explicitly retain the existing Dagre layout, classic look, and custom
 theme. The lazy ELK engine is an upstream prebuilt module with a separate 1,500 kB
 bundle limit; all other Agent chunks retain an enforced 700 kB limit.
 
-Workflow planning uses `User request → SemanticPlan → capability grounding → GroundedPlan → deterministic validation → PlanningGraph → compile → scenarios → approval`; see [the planning architecture](../../docs/workflow-planning-v2.md). The planning page offers **Retry with retained usage** after an uncertain model dispatch. This explicit action preserves the failed call, conservatively accounts for missing usage, and reserves a new call within existing session limits. A stored completion is reused instead. Restart never silently redispatches an uncertain request. Workflow approval and generic runtime effect confirmation remain separate.
+Workflow planning uses `Requirements → progressive capability discovery → PlanningGraph → validation → approval`; see [the planning architecture](../../docs/workflow-planning-v2.md). The planning page offers **Retry with retained usage** after an uncertain model dispatch. This explicit action preserves the failed call, conservatively accounts for missing usage, and reserves a new call within existing session limits. A stored completion is reused instead. Restart never silently redispatches an uncertain request. Workflow approval and generic runtime effect confirmation remain separate.
 
 Workflow Designer keeps incompatible saved sessions visible as **Unavailable**, with their origin, identity and existing traces. Other sessions remain usable. These entries cannot be resumed, approved or executed; start a new plan instead. Encrypted historical payloads and uncertain reservations remain unchanged, and startup recovery skips records that cannot satisfy the current strict session format.
 
@@ -30,7 +30,7 @@ Trace lookup requires an exact planning-session attribute and the current tenant
 
 `TypedWorkflowPlanning` configures `MaxReplanAttempts` (2), `MaxModelCalls` (8), `Reasoning` (`medium`), request token ceilings (12,000 input / 8,192 output), cumulative token/active-time limits and `DatabasePath`. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
 
-Schema-8 session payloads, model reservations/receipts and budgets use encrypted KeyVault records and tenant-scoped EF Core/SQLite indexes. The fresh default is `.GnOuGo/data/gnougo-planning-v8.db`; existing databases are untouched. Restart preserves resolved graphs and cumulative budgets. Completed calls replay without another charge; uncertain dispatches stop. Saving reconciles an already committed identical artifact.
+Schema-9 session payloads, model reservations/receipts and budgets use encrypted KeyVault records and tenant-scoped EF Core/SQLite indexes. The fresh default is `.GnOuGo/data/gnougo-planning-v9.db`; existing databases are untouched. Restart preserves resolved graphs and cumulative budgets. Completed calls replay without another charge; uncertain dispatches stop. Saving reconciles an already committed identical artifact.
 
 See [the planning architecture](../../docs/workflow-planning-v2.md) for public contracts, policy boundaries, diagnostics and validation commands.
 

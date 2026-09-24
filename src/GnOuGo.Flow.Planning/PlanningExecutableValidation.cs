@@ -16,7 +16,6 @@ public static class PlanningExecutableValidation
         // Only broken identities or cycles prevent safe traversal. Report independent
         // contract errors together so one scope error does not consume an entire replan.
         if (errors.Any(d => d.Code is "WORKFLOW_IDENTITIES_INVALID" or "NODE_IDENTITIES_INVALID" or "PORT_IDENTITIES_INVALID" or "ENTRYPOINT_INVALID" or "DEPENDENCY_CYCLE")) return errors;
-        errors.AddRange(PlanningComputationContracts.Findings(graph, catalog));
         errors.AddRange(PlanningArtifactBindings.PrerequisiteFindings(graph, catalog));
         errors.AddRange(PlanningDataflow.Validate(graph, catalog));
         errors.AddRange(PlanningConfirmationGuards.Validate(graph, catalog));
@@ -80,7 +79,10 @@ public static class PlanningExecutableValidation
                         foreach (var (key, value) in capability.FixedInput) input[key] ??= value?.DeepClone();
                         if (node.Type == "mcp.call") { input["server"] ??= capability.Server; input["method"] ??= capability.Method; input["kind"] ??= capability.Kind; }
                     }
-                    if (BuiltInStepContracts.Get(node.Type) is { } contract)
+                    var registered = catalog.StepContracts[node.Type] as JsonObject;
+                    var declaredContract = registered?["input"] is JsonObject inputSchema && registered["output"] is JsonObject outputSchema
+                        ? new StepContract(inputSchema, outputSchema, InputRequired: true) : BuiltInStepContracts.Get(node.Type);
+                    if (declaredContract is { } contract)
                         errors.AddRange(PlanningContractValidation.ValidateStepInput(input, contract).Select(d => new PlanningDiagnostic("NATIVE_INPUT_INVALID", location + "/" + d.Field.Replace('.', '/'), d.Message)));
                     if (node.Type == "human.input")
                     {

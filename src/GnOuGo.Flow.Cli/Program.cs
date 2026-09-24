@@ -277,7 +277,7 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
         var engine = new WorkflowEngine
         {
             Limits = new ExecutionLimits { RunId = runId, TenantId = string.IsNullOrWhiteSpace(otelTenantId) ? "default" : otelTenantId.Trim() },
-            WorkflowPlanner = new GnOuGo.Flow.Planning.TypedWorkflowPlanner(),
+            WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
             PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
             LLMClient = llmClient,
             ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),

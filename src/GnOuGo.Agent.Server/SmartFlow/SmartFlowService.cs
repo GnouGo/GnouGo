@@ -399,10 +399,10 @@ public sealed class SmartFlowService
                 state => channel.Writer.TryWrite(new SmartFlowEvent("planner_session", System.Text.Json.JsonSerializer.Serialize(state, GnOuGo.Agent.Shared.ChatJsonContext.Default.PlanningSessionDto))));
             var engine = new WorkflowEngine
             {
-                WorkflowPlanner = new GnOuGo.Flow.Planning.TypedWorkflowPlanner(),
+                WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
                 PlanningPolicy = GnOuGo.Agent.Server.Planning.AgentPlanningPolicy.Create(),
                 PlanningRuntimeFactory = (GnOuGo.Flow.Core.Planning.IPlanningRuntimeFactory?)planningBridge ?? GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
-                PlanningDecisionProvider = planningBridge,
+                PlanningInteraction = planningBridge,
                 DefaultPlanningMode = workflowInputs?["planning_mode"]?.GetValue<string>() ?? GnOuGo.Flow.Core.Planning.PlanningMode.Interactive,
                 LLMClient = runtime.LlmClient,
                 ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(runtime.Options),

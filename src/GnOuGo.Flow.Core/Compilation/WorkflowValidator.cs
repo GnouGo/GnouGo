@@ -17,6 +17,7 @@ public sealed class WorkflowValidator
     {
         "sequence", "parallel",
         "loop.sequential", "loop.parallel",
+        "agent.run", "array.project", "value.project", "number.add", "number.multiply", "number.default",
         "switch", "decision.evaluate", "set", "value.validate", "assert.non_null",
         "template.render",
         "llm.call",
@@ -459,11 +460,11 @@ public sealed class WorkflowValidator
     {
         if (step.OutputSchema == null)
         {
-            if (step.Type == "value.validate") errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = "output_schema", Message = "value.validate requires a literal output schema." });
+            if (step.Type is "value.validate" or "array.project" or "value.project") errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = "output_schema", Message = "value.validate requires a literal output schema." });
             return;
         }
 
-        if (step.Type is not ("set" or "value.validate"))
+        if (step.Type is not ("set" or "value.validate" or "array.project" or "value.project"))
         {
             errors.Add(new ValidationError
             {
@@ -471,7 +472,7 @@ public sealed class WorkflowValidator
                 WorkflowName = wfName,
                 StepId = step.Id,
                 Field = "output_schema",
-                Message = "output_schema is currently supported only on set steps."
+                Message = "output_schema is supported on set, value.validate and array.project steps."
             });
             return;
         }

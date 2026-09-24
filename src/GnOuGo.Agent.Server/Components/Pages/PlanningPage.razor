@@ -56,32 +56,17 @@
         <p aria-live="polite"><strong>@Phase(_state.Status)</strong> · @_state.Phase · Revision @_state.Revision</p>
         <p>@_state.ModelCalls model calls · @_state.ReplanAttempts replans · @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") active</p>
         @if (_state.Usage is { } usage) { <p>Estimated cost @usage.EstimatedCost.ToString("0.00") @usage.EstimatedCostCurrency</p> }
-        <p>@_state.SemanticPlan?.Summary</p>
+        <p>@_state.Requirements?.Summary</p>
         @if (_state.Graph is { } graph)
         {
             <MarkdownContent Content="@("```mermaid\n" + PlanningReviewFormatter.Diagram(graph) + "\n```")" />
 
         }
-        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification && _state.PendingRepair is not null)
+        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification)
         {
-            <PlannerScopeRevisionCard Question="@(_state.GetQuestions().Single().Question)" Busy="_busy" Answer="AnswerScopeAsync" Cancel='() => SubmitAsync("cancel")' />
+            <PlannerClarificationCard Questions="PlanningEndpoints.ToDto(_state).Questions" Busy="_busy" Answer='answers => SubmitAsync("answer", answers: answers)' Cancel='() => SubmitAsync("cancel")' />
         }
-        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification && _state.PendingRepair is null && _state.SemanticPlan is not null)
-        {
-            @foreach (var question in _state.GetQuestions())
-            {
-                <label for="@question.Id">@question.Question</label>
-                <input id="@question.Id" class="form-control" value="@_answers.GetValueOrDefault(question.Id)" @oninput="e => _answers[question.Id] = e.Value?.ToString() ?? string.Empty" />
-                <small>Expected value: @PlanningGraphBuilder.Schema(question.AnswerType).Type @(PlanningGraphBuilder.Schema(question.AnswerType).Enum.Count > 0 ? "(" + string.Join(", ", PlanningGraphBuilder.Schema(question.AnswerType).Enum) + ")" : "")</small>
-            }
-            <button class="btn btn-primary" disabled="@_busy" @onclick="AnswerAsync">Submit answers</button>
-        }
-        @if (!IsWorkflowSession && _state.Status == PlanningStatus.WaitingForDecision && _state.PendingDecision is { } decision)
-        {
-            <PlannerDecisionCard Decision="PlanningEndpoints.ToDto(decision)" Busy="_busy" Answer="AnswerDecisionAsync" Cancel='() => SubmitAsync("cancel")' />
-        }
-        <PlannerDecisionHistory Decisions="PlanningEndpoints.ToDto(_state).Decisions" />
-        <PlannerRepairDetails Session="PlanningEndpoints.ToDto(_state)" ShowFindings="false" />
+        <PlannerStageDetails Session="PlanningEndpoints.ToDto(_state)" ShowFindings="false" />
         @if (_state.Diagnostics.Count > 0)
         {
             <h3>Findings</h3><ul>@foreach (var diagnostic in _state.Diagnostics)
@@ -110,8 +95,8 @@
         }
         @if (_state.Scenarios.Count > 0)
         {
-            <h3>Validation scenarios</h3><ul>@foreach (var scenario in _state.Scenarios) { <li>@scenario.Id — @scenario.Outcome</li> }</ul>
-            <p>Scenarios use simulated integrations.</p>
+            <h3>Validation scenarios</h3><ul>@foreach (var scenario in _state.Scenarios) { <li>@scenario.Id — @scenario.Outcome: @scenario.Description</li> }</ul>
+            <p>Static or simulated validation does not establish external execution success.</p>
         }
         @if (_state.Yaml is { } yaml) { <details open><summary>Workflow YAML</summary><pre><code>@yaml</code></pre></details> }
         @if (!IsWorkflowSession && _state.Status == PlanningStatus.FinalReview)
@@ -219,33 +204,20 @@
         catch (Exception ex) { _error = ex.Message; }
         finally { _busy = false; }
     }
-    private async Task SubmitAsync(string kind, string? text = null, JsonObject? answers = null, PlanningGenerationOptions? generation = null, string? mode = null, PlanningDecisionAnswer? decisionAnswer = null)
+    private async Task SubmitAsync(string kind, string? text = null, JsonObject? answers = null, PlanningGenerationOptions? generation = null, string? mode = null)
     {
         if (_state is null || IsWorkflowSession) return;
         _busy = true; _error = null;
-        try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Answers = answers, Generation = generation, Mode = mode, DecisionAnswer = decisionAnswer }, _lifetime.Token); }
+        try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Answers = answers, Generation = generation, Mode = mode }, _lifetime.Token); }
         catch (Exception ex) { _error = ex.Message; await RefreshAsync(); }
         finally { _busy = false; }
     }
-    private Task AnswerDecisionAsync(PlanningDecisionAnswerDto answer) => SubmitAsync("answer_decision", decisionAnswer: new(answer.DecisionId, answer.OptionId, answer.Text));
-    private Task AnswerScopeAsync(bool accepted) => SubmitAsync("answer", answers: new() { ["accept_scope_revision"] = accepted });
     private async Task ApproveAndSaveAsync() { await SubmitAsync("approve"); if (_state?.Status == PlanningStatus.Approved) await SubmitAsync("save"); }
     private Task ConfigureAsync() => SubmitAsync("configure_generation", generation: new() { Reasoning = _reasoning, MaxInputTokensPerRequest = _inputLimit, MaxOutputTokens = _outputLimit });
-    private Task AnswerAsync()
-    {
-        var answers = new JsonObject();
-        foreach (var question in _state!.GetQuestions())
-        {
-            var text = _answers.GetValueOrDefault(question.Id) ?? "";
-            if (PlanningGraphBuilder.Schema(question.AnswerType).Type == "string") answers[question.Id] = text;
-            else { try { answers[question.Id] = JsonNode.Parse(text); } catch (System.Text.Json.JsonException) { _error = "Enter a valid " + PlanningGraphBuilder.Schema(question.AnswerType).Type + " value."; return Task.CompletedTask; } }
-        }
-        return SubmitAsync("answer", answers: answers);
-    }
     private static string Phase(string status) => status switch
     {
         PlanningStatus.Created => "Discovering capabilities", PlanningStatus.Generating => "Building and validating workflow",
-        PlanningStatus.WaitingForDecision => "Your planning decision is needed", PlanningStatus.Clarification => "Your answers are needed", PlanningStatus.FinalReview => "Ready for your review",
+        PlanningStatus.Clarification => "Your answers are needed", PlanningStatus.FinalReview => "Ready for your review",
         PlanningStatus.Approved => "Approved", PlanningStatus.Saving => "Saving", PlanningStatus.Saved => "Saved",
         PlanningStatus.Stopped or PlanningStatus.Failed => "Planning stopped", PlanningStatus.Cancelled => "Cancelled", _ => status
     };

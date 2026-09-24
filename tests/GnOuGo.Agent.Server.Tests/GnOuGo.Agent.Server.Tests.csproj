@@ -32,4 +32,8 @@
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs" Link="BenchmarkCampaign.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs" Link="BenchmarkHttpJournal.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs" Link="KeyVaultBenchmarkModel.cs" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" />
+    <Compile Include="../Shared/PlanningBenchmarkCases.cs" Link="PlanningBenchmarkCases.cs" />
+  </ItemGroup>
 </Project>

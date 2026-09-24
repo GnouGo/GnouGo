@@ -47,7 +47,7 @@ public sealed class PlanningSessionService(
     public Task<IReadOnlyList<PlanningSession>> ListAsync(CancellationToken ct) => store.ListAsync(Tenant, ct);
 
     // Workflow-owned sessions are inspection-only here. Their original runtime owns all commands.
-    private const string WorkflowSessions = "flow-planning-sessions-v8";
+    private const string WorkflowSessions = "flow-planning-sessions-v9";
     public async Task<PlanningSession?> GetWorkflowSessionAsync(string id, CancellationToken ct)
     {
         return (await InspectAsync(id, true, ct))?.RequireSession();
@@ -121,9 +121,7 @@ public sealed class PlanningSessionService(
         };
         if (original is not null)
         {
-            var discovery = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory, PlanningPolicy = AgentPlanningPolicy.Create() }, (_, _) => Task.CompletedTask);
-            state.Catalog = await discovery.DiscoverAsync(state.Request, ct);
-            state.Request.RevisionContext = PlanningRevisionContext.FromGraph(PlanningGraphImporter.Import(original, state.Catalog));
+            state.Request.RevisionContext = PlanningRevisionContext.FromGraph(PlanningGraphImporter.ImportBaseline(original));
         }
         PlanningGenerationPolicy.Validate(state.Request.Generation);
         if (!await store.TrySaveAsync(state, expectedRevision: null, ct)) throw new PlanningConflictException("The planning session already exists.");

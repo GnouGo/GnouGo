@@ -22,7 +22,7 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 
 ## Typed planning
 
-Core owns `PlanningSession`, `SemanticPlan` / `GroundedPlan`, `PlanningGraph`, typed contracts and provider-neutral planning interfaces. It references no other GnOuGo project. Hosts inject the separately publishable Planning implementation and Integrations persistence boundary.
+Core owns `PlanningSession`, reviewable requirements, `PlanningGraph`, typed contracts and provider-neutral planning interfaces. It references no other GnOuGo project. Hosts inject the separately publishable Planning implementation and Integrations persistence boundary.
 
 Expression inference treats a typed string's literal-regex `match()` result as an array of nullable strings or null. Capture aliases support string methods; optional captures and missing indexes never establish presence. Dynamic patterns and opaque receivers remain uninferred, and runtime failures or `value.validate` still prevent invalid values reaching consumers.
 
@@ -1315,7 +1315,7 @@ Accepts `input.value` and `input.format` (`json_value` by default, or explicit `
 
 ### `workflow.plan` — Typed workflow planning
 
-Runs the injected semantic/grounded planner to business clarification or final artifact review. Semantic generation has no capability catalog. Grounding covers every authorized capability, then binding uses authoritative contracts. Missing runtime inputs remain declared inputs. Atomic replanning replaces an action or affected scope and reruns validation. Grounding, selection, binding, fixtures and replanning share the total call budget.
+Runs the injected hybrid planner through progressive capability discovery, one executable graph, deterministic validation and exact artifact approval. Missing business information produces typed clarification questions. Graph repair preserves unaffected stages and cumulative planning budgets.
 
 ```yaml
 - id: plan
@@ -1336,9 +1336,7 @@ Runs the injected semantic/grounded planner to business clarification or final a
       unverifiable: fail
 ```
 
-Business alternatives use a durable `PlanningDecision` with one preferred option. `planning_mode` defaults to `interactive`; `auto` records the preferred answer and continues. Hosts inject `IPlanningDecisionProvider` to collect planner commands; without it the session remains `waiting_for_decision`. This provider is separate from `IHumanInputProvider`, which retains existing review and runtime behavior.
-
-Optional schema-8 prerequisite diagnostics and repair checkpoints preserve exact scopes, root/dependent causes, candidate fingerprints and explicit business revision answers. Technical prerequisites never request human decisions. An unavailable mandatory outcome stops Auto; Interactive uses a scoped business clarification through the separate planner provider. Runtime `human.input`, FinalReview and workflow approval remain unchanged.
+Interactive planning uses typed clarification questions through `IPlanningInteraction`; Auto stops when required information is missing. Runtime `human.input` and final approval remain separate. Schema-9 records reject earlier saved approvals with instructions to regenerate and approve; old encrypted records are untouched.
 
 Results include status, session ID and revision. Approved results also include artifact hash and YAML obtained from trusted storage. Without a human provider, planning pauses for the host to collect review or clarification. [Architecture and persistence](../../docs/workflow-planning-v2.md).
 

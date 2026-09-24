@@ -18,8 +18,8 @@ internal static class PlanningContractCompatibility
     private static bool Fits(JsonObject actual, JsonObject expected, JsonObject sourceRoot, JsonObject targetRoot, int depth, ProofWork work)
     {
         if (depth > 32 || --work.Remaining < 0) return false;
-        if (GroundedTypes.IsOpaque(expected)) return true;
-        if (GroundedTypes.IsOpaque(actual)) return expected.Count == 0;
+        if (PlanningContractShapes.IsOpaque(expected)) return true;
+        if (PlanningContractShapes.IsOpaque(actual)) return expected.Count == 0;
         // Only existing set/structured-fallback runtime assertions may establish
         // unresolved computation values. Explicit producer opacity is never narrowed.
         if (work.AllowUnresolved && actual.Count == 0) return true;

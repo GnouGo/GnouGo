@@ -105,69 +105,6 @@ internal static class PlanningJsonTransport
                 if (node[key] is JsonArray children) foreach (var child in children.OfType<JsonObject>()) yield return child;
         }
     }
-    internal static JsonNode ModelGrounded(JsonNode json, JsonNode schema, bool unpack = false)
-    {
-        var result = json.DeepClone();
-        if (schema["properties"]?["blockedActions"] is not null && result is JsonObject response)
-        {
-            if (unpack) response.Remove("blockedActions");
-            else if (!response.ContainsKey("blockedActions")) response["blockedActions"] = new JsonArray();
-            if (!unpack && schema["properties"]?["blockedActions"]?["items"]?["properties"]?["prerequisite"] is not null)
-                foreach (var blocker in (response["blockedActions"] as JsonArray ?? []).OfType<JsonObject>())
-                    if (!blocker.ContainsKey("prerequisite")) blocker["prerequisite"] = null;
-        }
-        if (schema["$defs"]?["implementation"] is null) return result;
-        void Visit(JsonNode? node)
-        {
-            if (node is JsonArray array) { foreach (var item in array) Visit(item); return; }
-            if (node is not JsonObject obj) return;
-            foreach (var child in obj.Select(p => p.Value).ToArray()) Visit(child);
-            if (unpack && obj["implementation"] is JsonObject implementation && obj.ContainsKey("id"))
-            {
-                obj.Remove("implementation");
-                foreach (var field in implementation) obj.Add(field.Key, field.Value?.DeepClone());
-            }
-            else if (!unpack && obj.ContainsKey("id") && obj.ContainsKey("kind"))
-            {
-                string[] common = ["id", "semanticAction", "businessOutputs", "purpose", "after", "when"];
-                var body = new JsonObject();
-                foreach (var key in obj.Select(p => p.Key).Where(k => !common.Contains(k)).ToArray())
-                { body[key] = obj[key]?.DeepClone(); obj.Remove(key); }
-                obj["implementation"] = body;
-            }
-        }
-        Visit(result); return result;
-    }
-    internal static JsonObject Grounded(GroundedPlan plan)
-    {
-        var json = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.GroundedPlan)!.AsObject();
-        Compact(json); return json;
-    }
-    internal static void Compact(JsonNode? value)
-    {
-        if (value is JsonArray array) { foreach (var child in array) Compact(child); return; }
-        if (value is not JsonObject obj) return;
-        string[]? fields = null;
-        if (obj.ContainsKey("kind") && !obj.ContainsKey("id") && !obj.ContainsKey("key"))
-            fields = obj["kind"]?.ToString() switch
-            {
-                "null" or "missing" => ["kind"], "string" => ["kind", "text"], "number" => ["kind", "number"], "boolean" => ["kind", "boolean"],
-                "object" => ["kind", "members"], "array" => ["kind", "items"],
-                "input" or "result" or "item" or "index" => ["kind", "source", "path"],
-                "compute" or "template" => ["kind", "text", "members"], _ => null
-            };
-        else if (obj["type"] is JsonValue && obj.ContainsKey("nullable") && obj.ContainsKey("fields"))
-            fields = obj["type"]?.ToString() switch
-            {
-                "object" => ["type", "nullable", "fields"], "array" => ["type", "nullable", "items"],
-                "string" or "number" or "integer" or "boolean" or "opaque" => ["type", "nullable", "enum"], _ => null
-            };
-        if (fields is not null)
-            foreach (var key in obj.Select(p => p.Key).Where(k => !fields.Contains(k, StringComparer.Ordinal)).ToArray())
-                if (obj[key] is null || obj[key] is JsonArray { Count: 0 }) obj.Remove(key);
-        foreach (var (_, child) in obj) Compact(child);
-    }
-
     internal static PlanningValue Literal(JsonNode? json) => json switch
     {
         null => new(),

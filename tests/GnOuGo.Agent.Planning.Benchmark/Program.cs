@@ -99,8 +99,8 @@ foreach (var name in names)
         if (current.Status == PlanningStatus.FinalReview) { run["final_review"] = true; if (current.ModelCalls == 1 && PlanningBenchmarkMeasurements.ExtraTransportCalls(run) == 0) run["first_pass_valid"] = true; }
         if (campaign is not null) await campaign.SaveAsync("planning-evaluation-runs", key, run, ct);
     }
-    var runtime = new MeasuredRuntime(new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask), name, model, run, Checkpoint);
-    var planner = new TypedWorkflowPlanner(); var clock = Stopwatch.StartNew(); var execution = false; string? failure = null;
+    var runtime = new MeasuredRuntime(new PlanningCorpus.Runtime(name, engine), model, run, Checkpoint);
+    var planner = new HybridWorkflowPlanner(); var clock = Stopwatch.StartNew(); var execution = false; string? failure = null;
     var variants = new JsonArray(); var safety = new JsonArray();
     try
     {
@@ -173,10 +173,10 @@ Console.WriteLine(summary.ToJsonString());
 if (campaign is not null) await campaign.SaveAsync("planning-evaluation-summaries", source + ":" + phase, summary);
 if (!summary["gates_passed"]!.GetValue<bool>()) Environment.ExitCode = 1;
 
-sealed class MeasuredRuntime(IPlanningRuntime inner, string name, ILLMClient? live, JsonObject run, Func<PlanningSession, CancellationToken, Task> checkpoint) : IPlanningRuntime
+sealed class MeasuredRuntime(IPlanningRuntime inner, ILLMClient? live, JsonObject run, Func<PlanningSession, CancellationToken, Task> checkpoint) : IPlanningRuntime
 {
-    private PlanningCatalog? _catalog = run["session"]?["catalog"] is { } json ? JsonSerializer.Deserialize(json, PlanningJsonContext.Default.PlanningCatalog) : null;
-    public async Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => _catalog = await inner.DiscoverAsync(request, ct);
+    public ICapabilityCatalog Capabilities => inner.Capabilities;
+    public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => inner.DiscoverAsync(request, ct);
     public async Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
     {
         if (run["initial_request_bytes"] is null)
@@ -184,7 +184,7 @@ sealed class MeasuredRuntime(IPlanningRuntime inner, string name, ILLMClient? li
             run["initial_request_bytes"] = Encoding.UTF8.GetByteCount(request.Prompt ?? "") + Encoding.UTF8.GetByteCount(request.StructuredOutputSchema!.ToJsonString());
             run["initial_estimated_input_tokens"] = PlanningJsonTransport.EstimateInputTokens(request.Prompt ?? "", request.StructuredOutputSchema!.AsObject());
         }
-        if (live is null) return new() { Json = PlanningJsonTransport.Grounded(PlanningCorpus.Intent(name, _catalog!)) };
+        if (live is null) return await inner.CallAsync(request, purpose, ct);
         try
         {
             var response = await live.CallAsync(request, ct);
@@ -203,7 +203,7 @@ sealed class MeasuredRuntime(IPlanningRuntime inner, string name, ILLMClient? li
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => inner.ValidateAsync(request, ct);
     public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct) => inner.ValidateScenariosAsync(request, ct);
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => inner.ValidateCatalogAsync(catalog, ct);
-    public Task CheckpointAsync(PlanningSession state, CancellationToken ct) => checkpoint(state, ct);
+    public async Task CheckpointAsync(PlanningSession state, CancellationToken ct) { await inner.CheckpointAsync(state, ct); await checkpoint(state, ct); }
 }
 
 sealed class CommandModel(string executable) : ILLMClient

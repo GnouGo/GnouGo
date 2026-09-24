@@ -969,7 +969,7 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             TemplateEngine = ctx.Engine.TemplateEngine,
             McpClientFactory = ctx.Engine.McpClientFactory,
             HumanInputProvider = ctx.Engine.HumanInputProvider,
-            PlanningDecisionProvider = ctx.Engine.PlanningDecisionProvider,
+            PlanningInteraction = ctx.Engine.PlanningInteraction,
             DefaultPlanningMode = ctx.Engine.DefaultPlanningMode,
             WorkflowPlanner = ctx.Engine.WorkflowPlanner,
             PlanningPolicy = ctx.Engine.PlanningPolicy,

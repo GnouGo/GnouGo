@@ -40,7 +40,7 @@ internal static class PlanningStructureValidation
                     else if (!DependencyInScope(workflow, location[path.Length..], dependency, nodes.Single(n => n.Node.Key == dependency).Path[path.Length..]))
                         findings.Add(new("DEPENDENCY_SCOPE", location + "/dependencies", "Dependencies must join sibling steps, or finalizers to a main step in the same workflow. Depend on the container to cross another control-flow scope. Ordering does not make results available."));
             }
-            var edges = nodes.ToDictionary(n => n.Node.Key, n => n.Node.Dependencies.Concat(PlanningGraphBuilder.References(n.Node).Where(v => v.Kind == "output").Select(v => v.Source!)).Where(keys.Contains).Distinct().ToArray());
+            var edges = nodes.ToDictionary(n => n.Node.Key, n => n.Node.Dependencies.Concat(PlanningGraphTopology.References(n.Node).Where(v => v.Kind == "output").Select(v => v.Source!)).Where(keys.Contains).Distinct().ToArray());
             var visiting = new List<string>(); var completed = new HashSet<string>();
             bool Cycle(string key)
             {
@@ -74,7 +74,7 @@ internal static class PlanningStructureValidation
         var target = nodes.FirstOrDefault(n => n.Node.Key == consumer);
         if (target.Node is null || nodes.Select(n => n.Node.Key).Distinct(StringComparer.Ordinal).Count() != nodes.Length) return [];
         var edges = nodes.ToDictionary(n => n.Node.Key, n => n.Node.Dependencies.Concat(
-            PlanningGraphCompiler.Enumerate([n.Node]).SelectMany(PlanningGraphBuilder.References).Where(v => v.Kind == "output").Select(v => v.Source!)).ToArray(), StringComparer.Ordinal);
+            PlanningGraphCompiler.Enumerate([n.Node]).SelectMany(PlanningGraphTopology.References).Where(v => v.Kind == "output").Select(v => v.Source!)).ToArray(), StringComparer.Ordinal);
         return nodes.Where(n => n.Node.Key != consumer && !n.Node.Key.StartsWith("__planning_", StringComparison.Ordinal) &&
             DependencyInScope(workflow, target.Path, n.Node.Key, n.Path) && !Reaches(n.Node.Key, consumer, []))
             .Select(n => n.Node.Key).Order(StringComparer.Ordinal).ToArray();

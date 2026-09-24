@@ -10,5 +10,5 @@ public sealed class TypedWorkflowPlanningSettings
     public string Reasoning { get; set; } = "medium";
     public int MaxInputTokensPerRequest { get; set; } = 12_000;
     public int MaxOutputTokens { get; set; } = 8_192;
-    public string DatabasePath { get; set; } = ".GnOuGo/data/gnougo-planning-v8.db";
+    public string DatabasePath { get; set; } = ".GnOuGo/data/gnougo-planning-v9.db";
 }
