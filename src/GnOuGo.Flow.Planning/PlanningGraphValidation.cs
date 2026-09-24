@@ -501,6 +501,8 @@ public static class PlanningGraphValidation
                     throw new InvalidOperationException("The producer schema reference cannot be resolved without losing constraints.");
                 current = resolved;
             }
+            if (projection && (current.Count == 0 || current["x-gnougo-opaque"]?.ToString() == "true"))
+                throw new InvalidOperationException("Validate the whole opaque source before projecting its fields.");
             if ((current["anyOf"] ?? current["oneOf"]) is JsonArray alternatives)
             {
                 if (alternatives.Count == 0) throw new InvalidOperationException("The producer schema has no possible result.");

@@ -94,8 +94,10 @@ public sealed class GraphContractTests
         Assert.Equal(available, !PlanningDataflow.Validate(graph, catalog).Any(d => d.Code == "BINDING_UNAVAILABLE"));
     }
 
-    [Fact]
-    public async Task ProjectionRejectsAFieldMissingFromEveryDeclaredAlternative()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProjectionRejectsMissingFieldsAndOpaqueAlternatives(bool opaque)
     {
         var runtime = new PlanningCorpus.Runtime("conditional", new WorkflowEngine { McpClientFactory = new PlanningBenchmarkCases.Environment("conditional").Factory() });
         var request = new PlanningRequest();
@@ -107,7 +109,8 @@ public sealed class GraphContractTests
         Assert.Empty(PlanningExecutableValidation.Validate(graph, catalog));
         var projection = graph.Workflows[0].Steps.Single(n => n.Type == "value.project");
         var paths = projection.Input.Members.Single(m => m.Name == "paths").Value;
-        paths.Items[0].Items.RemoveAt(1); // read.value is absent; read.response.value is declared.
+        if (opaque) catalog.Capabilities.Single(c => c.Method == "read").OutputSchema.Clear();
+        else paths.Items[0].Items.RemoveAt(1); // read.value is absent; read.response.value is declared.
         Assert.Contains(PlanningExecutableValidation.Validate(graph, catalog), d => d.Code == "PROJECTION_CONTRACT_INVALID");
     }
 
