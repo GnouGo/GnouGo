@@ -1,0 +1,63 @@
+[
+  {
+    "summary": true,
+    "phase": "fixture",
+    "runs": 16,
+    "expected_runs": 16,
+    "coverage_complete": true,
+    "first_pass_valid_rate": 0.1875,
+    "final_review_rate": 0.875,
+    "final_review_within_two_calls_rate": 0.4375,
+    "median_calls": 3,
+    "p75_calls": 4,
+    "approved_execution_correct": true,
+    "zero_safety_violations": true,
+    "gates_passed": false,
+    "campaign": "flow-v9-112",
+    "source_commit": "87acc5f0e41702e193795b45b4ddfab1055d2143",
+    "campaign_accounting": {
+      "calls": 359,
+      "session_calls": 0,
+      "known_input_tokens": 1582487,
+      "known_output_tokens": 575318,
+      "known_cost_eur": 22.059394443957586,
+      "reserved_input_tokens": 384000,
+      "reserved_output_tokens": 131072,
+      "reserved_cost_eur": 5.128525107352554,
+      "cost_upper_bound_eur": 27.187919551310138,
+      "unknown_attempts": 4
+    }
+  },
+  {
+    "summary": true,
+    "phase": "fixture",
+    "runs": 8,
+    "expected_runs": 8,
+    "coverage_complete": true,
+    "first_pass_valid_rate": 0.125,
+    "final_review_rate": 1,
+    "final_review_within_two_calls_rate": 0.625,
+    "median_calls": 2,
+    "p75_calls": 4,
+    "approved_execution_correct": true,
+    "zero_safety_violations": true,
+    "gates_passed": true,
+    "campaign": "flow-v9-112",
+    "source_commit": "87acc5f0e41702e193795b45b4ddfab1055d2143",
+    "harness_commit": "c0a2d216a3378a7b9831cee538de3fab59c5836d",
+    "first_repetition": 3,
+    "last_repetition": 3,
+    "campaign_accounting": {
+      "calls": 384,
+      "session_calls": 0,
+      "known_input_tokens": 1722190,
+      "known_output_tokens": 607474,
+      "known_cost_eur": 23.51693103146087,
+      "reserved_input_tokens": 384000,
+      "reserved_output_tokens": 131072,
+      "reserved_cost_eur": 5.128525107352554,
+      "cost_upper_bound_eur": 28.645456138813426,
+      "unknown_attempts": 4
+    }
+  }
+]

@@ -39,6 +39,7 @@ flowchart TD
   Integrations --> AI[AI.Core / MCP helpers]
   Integrations --> Vault[KeyVault.Core / Workspace]
   Persistence --> Vault
+  Python[Python run client / CLI] -. HTTP .-> Hosts
   Copilot -. protocol .-> Managed[GithubCopilot.Mcp → existing managed Copilot Core APIs]
 ```
 
@@ -56,6 +57,8 @@ record API; the rebuildable index never becomes an alternative payload store.
 - Planning-only computation inference, its documentation wrapper, repair diagnostics
   and legacy UI fields.
 - Top-level checkpoint API, routes, payloads and the duplicate resume path.
+- Python demo checkpoint model/store/resume path; Python durable commands now use
+  the same tenant-scoped schema-9 host API through `WorkflowRunClient`.
 - Schema-8 execution support and the legacy planner switch.
 
 Production C# under `Flow.Planning` and `Flow.Core/Planning` decreased from 55 files /
@@ -77,16 +80,27 @@ are retained. The parent's `fixture` phase label permits live baseline collectio
 after its failed pilot; every result still records `mode: live`. It does not waive
 the candidate acceptance gate.
 
-[Parent and failed pilot measurements](evidence/flow-v9-112/README.md) are reviewable
-without private prompts. Underlying comparison evidence remains in encrypted
-campaign records. Failed and inconclusive runs are not replaced. One exhausted
-inconclusive request was explicitly closed with a separate audit record, retaining
-its full reservation and blocking redispatch of that identity. The original
-request, HTTP journal, failure and absence of a receipt remain intact.
+[All original parent, pilot and candidate measurements](evidence/flow-v9-112/README.md)
+are reviewable without private prompts. Candidate `87acc5f` completed all three
+repetitions: 22/24 correct versus 14/24, median 2.5 calls versus four, with no per-case
+regression. The retained French failure improves from 0/3 to 2/3. Every approved
+workflow passes the independent execution variants with no safety violation.
+
+The raw comparison remains inconclusive because one exhausted session's rejected
+logical reservation was reported as a ninth call with unknown usage. A read-only
+admission audit proves the request had no HTTP attempt and that the session ledger
+contains eight admitted attempts. The audited comparison passes; its proof hashes,
+raw comparison and unchanged failed outcome are retained together. Both exhausted
+inconclusive sessions remain permanently closed. The complete campaign evidence
+hash and accounting are unchanged by the audit. Known cost plus conservative
+reservations total EUR 28.6454561388 under the unchanged EUR 50 ceiling.
 
 Latest completed checks:
 
-- Full solution: 2,767 tests passed; five opt-in live tests skipped; no build warnings.
+- Full solution: 2,777 tests passed; five opt-in live tests skipped; no build warnings.
+- Python: 287 core and 26 CLI tests passed; both packages pass lint and build. The
+  schema-9 client also passed against the published Native AOT host, including
+  journal inspection, durable human answers and receipt reuse across restart.
 - Agent and Flow frontends built without warnings; the corrected Flow.Server Docker
   image builds and serves its health and UI endpoints.
 - Native CLI and Flow server: encrypted journal receipts, native EF query/index
@@ -98,14 +112,17 @@ Latest completed checks:
 - Live bounded file editing passed in both Debug and Native AOT after correcting the managed SDK mode: observed
   file changes, permission refusal, receipt reuse and rejected objective expansion.
   The command-based edit/test cycle remains blocked by host sandbox enforcement.
-- Planner: 76 tests; Copilot adapter: five tests. All five affected Flow packages
+- Planner: 77 tests; Copilot adapter: five tests. All five affected Flow packages
   packed without warnings; package contents and independent dependency boundaries were checked.
 
-The PR stays draft while the full candidate comparison and real bounded Copilot
-edit/test cycle remain incomplete. This Mac lacks mandatory administrator-managed
+The PR stays draft. The audited relative comparison passes, while the existing
+stricter pilot/measured release gates remain unpassed. The real bounded Copilot
+command edit/test cycle also remains incomplete. This Mac lacks mandatory administrator-managed
 sandbox policy. An isolated non-root Linux container recognizes that policy after
 the SDK bootstrap correction, but its enforcement probe fails on the available
-host. Neither attempt dispatches the task prompt. The adapter fails closed and
+host. The final Native AOT preflight preserves BYOK/client authentication and
+reaches the expected mandatory-policy check; it no longer fails SDK session creation.
+Neither host dispatches the task prompt. The adapter fails closed and
 reports that distinction; a file-only, native or unit-test pass does not establish
 command execution success.
 
