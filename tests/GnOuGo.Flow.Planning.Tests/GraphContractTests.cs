@@ -49,6 +49,18 @@ public sealed class GraphContractTests
     }
 
     [Theory]
+    [InlineData("prompt")]
+    [InlineData("methods")]
+    [InlineData("request_template")]
+    public void GeneratedMcpStagesCannotChooseTargetsOrTransformArgumentsImplicitly(string field)
+    {
+        var graph = new PlanningGraph { Workflows = [new() { Steps = [new() { Key = "read", Type = "mcp.call", CapabilityId = "selected",
+            Input = PlanningCorpus.Obj(("request", PlanningCorpus.Obj()), (field, PlanningCorpus.Text("unapproved mode"))) }] }] };
+        var catalog = new PlanningCatalog { Capabilities = [new() { Id = "selected", StepType = "mcp.call" }] };
+        Assert.Contains(PlanningGeneratedGraph.Validate(graph, catalog), d => d.Code == "GENERATED_MCP_MODE_DENIED");
+    }
+
+    [Theory]
     [InlineData("data.steps.greet!=null", true)]
     [InlineData("null != data.steps['greet'] && true", true)]
     [InlineData("data.steps.greet != null || true", false)]
