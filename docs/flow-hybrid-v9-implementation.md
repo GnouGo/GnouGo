@@ -58,7 +58,7 @@ record API; the rebuildable index never becomes an alternative payload store.
 - Schema-8 execution support and the legacy planner switch.
 
 Production C# under `Flow.Planning` and `Flow.Core/Planning` decreased from 55 files /
-7,190 lines at the parent to 40 files / approximately 4,400 lines. This intentionally
+7,190 lines at the parent to 40 files / 4,400 lines. This intentionally
 excludes the new execution, adapter and persistence functionality. The comparison
 uses Git source files, excluding generated `obj` and `bin` files.
 
@@ -85,7 +85,7 @@ request, HTTP journal, failure and absence of a receipt remain intact.
 
 Latest completed checks:
 
-- Full solution: 2,787 tests passed; five opt-in live tests skipped; no build warnings.
+- Full solution: 2,767 tests passed; five opt-in live tests skipped; no build warnings.
 - Agent and Flow frontends built without warnings.
 - Native CLI and Flow server: encrypted journal receipts, native EF query/index
   rebuilding, tenant isolation, revision conflicts, streamed human answers and
@@ -95,15 +95,27 @@ Latest completed checks:
   planning persistence, HTTP health, static UI and Blazor negotiation passed.
 - Live bounded file editing passed in both Debug and Native AOT after correcting the managed SDK mode: observed
   file changes, permission refusal, receipt reuse and rejected objective expansion.
-  The command-based edit/test cycle still requires the administrator-managed sandbox.
-- Planner: 70 tests; Copilot adapter: five tests. All five affected Flow packages
+  The command-based edit/test cycle remains blocked by host sandbox enforcement.
+- Planner: 76 tests; Copilot adapter: five tests. All five affected Flow packages
   packed without warnings; package contents and independent dependency boundaries were checked.
 
-The PR stays draft: the live planner acceptance gate, real bounded Copilot edit/test
-cycle are not yet complete. The bounded real-model test currently fails before
-inference because this Mac lacks
-mandatory administrator-managed Copilot sandbox policy. A native or unit-test pass
-is not presented as observed external-agent success.
+The PR stays draft while the full candidate comparison and real bounded Copilot
+edit/test cycle remain incomplete. This Mac lacks mandatory administrator-managed
+sandbox policy. An isolated non-root Linux container recognizes that policy after
+the SDK bootstrap correction, but its enforcement probe fails on the available
+host. Neither attempt dispatches the task prompt. The adapter fails closed and
+reports that distinction; a file-only, native or unit-test pass does not establish
+command execution success.
+
+Representative behavioral coverage:
+
+| Contract | Evidence |
+| --- | --- |
+| Discovery, unavailable sources, exact contracts and bounded repair | `ProgressiveDiscoveryTests`, `GraphContractTests`, `GraphRevisionTests` |
+| Structured outputs, fabricated claims and failed verification | `AgentTaskTests`, `BoundedCopilotTasksTests` |
+| Dispatch/receipt crashes, nested calls, loops, parallel cleanup and durable answers | `WorkflowRunTests` |
+| Encryption, index rebuilding, concurrent owners and tenant isolation | `EncryptedWorkflowRunStoreTests`, published-binary smoke script |
+| Real model editing, refused permissions, immutable objective and receipt reuse | Debug and Native AOT controlled-edit tests; command cycle remains unpassed |
 
 ## Published persistence and framework exceptions
 
