@@ -65,7 +65,7 @@ public static class PlanningCorpus
     }
 
     public static PlanningRequirements Requirements(string name) => new()
-    { Summary = Prompt(name), Outcomes = [new(name.StartsWith("review_", StringComparison.Ordinal) ? "review" : "result", Prompt(name), [])] };
+    { Summary = Prompt(name), Outcomes = [new(name.StartsWith("review_", StringComparison.Ordinal) ? "review" : "result", Prompt(name))] };
 
     /// <summary>Projects fixture DTOs to the exact strict transport schema. Never used in production.</summary>
     public static JsonNode? Transport(JsonNode? value, JsonObject schema, JsonObject root)
@@ -89,6 +89,7 @@ public static class PlanningCorpus
         if (value is null) return false;
         if (schema["properties"]?["schemaPointer"] is not null) return value["capabilityId"] is not null;
         if (schema["properties"]?["kind"]?["enum"] is JsonArray kinds) return kinds.Any(k => k?.ToString() == value["kind"]?.ToString());
+        if (schema["properties"]?["type"]?["enum"] is JsonArray types) return types.Any(t => t?.ToString() == value["type"]?.ToString());
         return true;
     }
     public sealed class Human(bool answer = true) : IHumanInputProvider

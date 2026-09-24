@@ -17,7 +17,7 @@ internal static class PlanningPersistenceSmoke
         var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory);
         var store = new EfPlanningSessionStore(factory, records);
         var state = new PlanningSession { Request = new() { TenantId = "smoke", SessionId = Guid.NewGuid().ToString("N"), Prompt = "Private published smoke content" } };
-        state.Requirements = new() { Summary = "Private requirements", Outcomes = [new("result", "Private acceptance criterion", ["main/value"])] };
+        state.Requirements = new() { Summary = "Private requirements", Outcomes = [new("result", "Private acceptance criterion")] };
         state.Discovery.Limitations.Add("Private unavailable source detail");
         if (!await store.TrySaveAsync(state, null, CancellationToken.None)) throw new InvalidOperationException("Insert failed.");
         state.Revision = 1; state.Status = PlanningStatus.Stopped; state.ModelCalls = 2; state.ReplanAttempts = 1;

@@ -5,15 +5,10 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>The generated language is smaller than the authored YAML runtime.</summary>
 internal static class PlanningGeneratedGraph
 {
-    internal static IEnumerable<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningRequirements requirements, PlanningCatalog catalog)
+    internal static IEnumerable<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningCatalog catalog)
     {
         if (!string.IsNullOrWhiteSpace(graph.Functions) || graph.Workflows.Any(w => !string.IsNullOrWhiteSpace(w.Functions)))
             yield return new("GENERATED_SCRIPT_DENIED", "/functions", "Use a declared typed operation or bounded agent task.");
-        var identities = graph.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally)).Select(n => (Qualified: w.Key + "/" + n.Key, n.Key))).ToArray();
-        foreach (var outcome in requirements.Outcomes)
-            if (outcome.StageIds.Count == 0 && !graph.Workflows.SelectMany(w => w.Outputs).Any(o => o.Name == outcome.Id) ||
-                outcome.StageIds.Any(id => identities.Count(n => n.Qualified == id || n.Key == id) != 1))
-                yield return new("REQUIREMENT_UNBOUND", "/requirements/" + outcome.Id, "Update this outcome stageIds to actual implementing stages. Available qualified stage IDs: " + string.Join(", ", identities.Select(n => n.Qualified)) + ". Only outcome IDs and descriptions are immutable; stageIds must match the graph.");
         foreach (var workflow in graph.Workflows)
         {
             if (string.IsNullOrWhiteSpace(workflow.Key) || workflow.Key.StartsWith("__planning_", StringComparison.Ordinal))

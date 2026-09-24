@@ -8,8 +8,6 @@ internal static class PlanningGraphRevisions
 {
     internal static IReadOnlyList<string> Scope(PlanningGraph graph, IReadOnlyList<PlanningDiagnostic> findings)
     {
-        if (findings.Count > 0 && findings.All(f => f.Location.StartsWith("/requirements/", StringComparison.Ordinal)))
-            return ["$requirements"];
         var result = new HashSet<string>(StringComparer.Ordinal);
         for (var wi = 0; wi < graph.Workflows.Count; wi++)
         {
@@ -19,6 +17,11 @@ internal static class PlanningGraphRevisions
             var roots = workflow.Steps.Concat(workflow.Finally).ToArray();
             foreach (var finding in local)
             {
+                if (finding.Rule is { } rule && workflow.Inputs.Any(p => rule == "input:" + p.Name))
+                    result.Add(workflow.Key + "/$interface");
+                foreach (var root in roots)
+                    if (PlanningGraphCompiler.Enumerate([root]).Any(n => finding.Rule == "availability:" + n.Key))
+                        result.Add(workflow.Key + "/" + root.Key);
                 var addressed = roots.FirstOrDefault(n => (finding.Location.EndsWith("/stages/" + n.Key, StringComparison.Ordinal) || finding.Location.Contains("/stages/" + n.Key + "/", StringComparison.Ordinal)));
                 foreach (var (node, path) in PlanningGraphValidation.Located(workflow.Steps, prefix + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, prefix + "/finally")))
                     if (finding.Location == path || finding.Location.StartsWith(path + "/", StringComparison.Ordinal))

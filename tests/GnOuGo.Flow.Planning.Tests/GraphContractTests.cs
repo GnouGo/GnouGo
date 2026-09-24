@@ -27,7 +27,7 @@ public sealed class GraphContractTests
         var graph = PlannerFixture.Greeting();
         graph.Workflows[0].Steps[0].Type = "sequence";
         graph.Workflows[0].Steps[0].OutputSchema = new() { Type = "number" };
-        Assert.Contains(PlanningGeneratedGraph.Validate(graph, PlannerFixture.Requirements(), new()),
+        Assert.Contains(PlanningGeneratedGraph.Validate(graph, new()),
             d => d.Code == "GENERATED_SCHEMA_OVERRIDE_DENIED");
     }
 

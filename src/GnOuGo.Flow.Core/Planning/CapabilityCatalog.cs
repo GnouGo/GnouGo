@@ -32,7 +32,7 @@ public sealed class PlanningRequirements
     public List<PlanningQuestion> Questions { get; set; } = [];
 }
 
-public sealed record PlanningRequirement(string Id, string Description, List<string> StageIds);
+public sealed record PlanningRequirement(string Id, string Description);
 public sealed record PlanningQuestion(string Id, string Question, PlanningSchema AnswerType);
 
 /// <summary>A bounded discovery request or complete graph proposal; the host validates exclusivity.</summary>

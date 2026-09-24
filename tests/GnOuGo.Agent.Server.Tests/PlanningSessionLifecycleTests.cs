@@ -108,7 +108,7 @@ public sealed class PlanningSessionLifecycleTests
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = new PlanningSession { Request = new() { TenantId = "phase-tests", Prompt = "PRIVATE_PHASE_REQUIREMENT" }, Phase = phase,
-            Requirements = new() { Outcomes = [new("action", "Required business outcome", [])] },
+            Requirements = new() { Outcomes = [new("action", "Required business outcome")] },
             Discovery = new() { Sources = [new("source", "Declared metadata")], Pages = [new("source", null, [], null)] },
             Graph = new(), ModelCalls = 5, ReplanAttempts = 1, Revision = 7 };
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));

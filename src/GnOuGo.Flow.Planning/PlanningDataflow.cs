@@ -153,6 +153,7 @@ internal static class PlanningDataflow
                             var id = PlanningBindingIdentity.Id(new() { Kind = reference.Kind, Source = reference.Source, ResultChannel = reference.ResultChannel });
                             rule = (unresolved.TryGetValue(id, out var source) && source.Availability == "opaque" ? "producer:" : "availability:") + reference.Source;
                         }
+                        else if (reference.Kind == "input") rule = "input:" + reference.Source;
                         yield return new("BINDING_UNAVAILABLE", path, "The binding is not available in this scope: " + reference.Kind + ":" + reference.Source + "/" + string.Join("/", reference.Path),
                             Rule: rule);
                     }

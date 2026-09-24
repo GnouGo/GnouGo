@@ -28,22 +28,48 @@ internal static class PlanningSchemas
             ["port"] = Object(("name", String()), ("schema", Ref("schema")), ("required", Type("boolean")), ("default", Nullable(Ref("value")))),
             ["output"] = Object(("name", String()), ("schema", Ref("schema")), ("value", Ref("value"))),
             ["requirements"] = Object(("summary", String()),
-                ("outcomes", NonEmptyArray(Object(("id", String()), ("description", String()), ("stageIds", Ref("strings"))))),
+                ("outcomes", NonEmptyArray(Object(("id", String()), ("description", String())))),
                 ("questions", Array(Object(("id", String()), ("question", String()), ("answerType", Ref("schema")))))),
             ["graph"] = Object(("summary", String()), ("entrypoint", String()), ("workflows", NonEmptyArray(Ref("workflow")))),
             ["workflow"] = Object(("key", String()), ("purpose", String()), ("inputs", Array(Ref("port"))),
                 ("outputs", Array(Ref("output"))), ("steps", Array(Ref("node"))), ("finally", Array(Ref("node")))),
-            ["node"] = Object(("key", String()), ("type", Enum(state.Catalog!.AllowedStepTypes.ToArray())),
-                ("purpose", String()), ("capabilityId", Nullable(state.Catalog.Capabilities.Count == 0 ? Type("null") : Enum(state.Catalog.Capabilities.Select(c => c.Id).ToArray()))),
-                ("dependencies", Ref("strings")), ("input", Ref("value")), ("if", Nullable(Ref("value"))), ("expr", Nullable(Ref("value"))),
-                ("outputSchema", Nullable(Ref("schema"))), ("structuredOutput", Nullable(Object(("schema", Ref("schema")), ("strict", Type("boolean"))))),
-                ("itemVar", Nullable(String())), ("indexVar", Nullable(String())),
-                ("steps", Array(Ref("node"))), ("branches", Array(Object(("steps", Array(Ref("node")))))),
-                ("cases", Array(Object(("value", Nullable(String())), ("when", Nullable(Ref("value"))), ("steps", Array(Ref("node")))))),
-                ("default", Array(Ref("node"))))
+            ["node"] = Nodes(state.Catalog!)
         };
+        if (state.Catalog!.Capabilities.Count == 0) definitions["schema"] = definitions["schema"]!["anyOf"]![1]!.DeepClone();
         root["$defs"] = definitions;
         return root;
+    }
+    private static JsonObject Nodes(PlanningCatalog catalog)
+    {
+        var variants = new JsonArray();
+        var remaining = catalog.AllowedStepTypes.ToHashSet(StringComparer.Ordinal);
+        void Add(string[] types, params (string Name, JsonObject Schema)[] fields)
+        {
+            var allowed = types.Where(remaining.Remove).ToArray();
+            if (allowed.Length == 0) return;
+            variants.Add((JsonNode)Object(new (string Name, JsonObject Schema)[] {
+                ("key", String()), ("type", Enum(allowed)), ("purpose", String()),
+                ("dependencies", Ref("strings")), ("input", Ref("value")), ("if", Nullable(Ref("value")))
+            }.Concat(fields).ToArray()));
+        }
+        JsonObject Structured() => Nullable(Object(("schema", Ref("schema")), ("strict", Type("boolean"))));
+        foreach (var type in new[] { "mcp.call", "agent.run" })
+        {
+            var ids = catalog.Capabilities.Where(c => c.StepType == type).Select(c => c.Id).ToArray();
+            if (ids.Length == 0) { remaining.Remove(type); continue; }
+            if (type == "mcp.call") Add([type], ("capabilityId", Enum(ids)), ("structuredOutput", Structured()));
+            else Add([type], ("capabilityId", Enum(ids)));
+        }
+        Add(["llm.call"], ("structuredOutput", Structured()));
+        Add(["set", "value.validate", "value.project", "array.project"], ("outputSchema", Nullable(Ref("schema"))));
+        Add(["sequence"], ("steps", Array(Ref("node"))));
+        Add(["parallel"], ("branches", Array(Object(("steps", Array(Ref("node")))))));
+        Add(["loop.sequential", "loop.parallel"], ("steps", Array(Ref("node"))), ("itemVar", Nullable(String())), ("indexVar", Nullable(String())));
+        Add(["switch"], ("expr", Nullable(Ref("value"))),
+            ("cases", Array(Object(("value", Nullable(String())), ("when", Nullable(Ref("value"))), ("steps", Array(Ref("node")))))),
+            ("default", Array(Ref("node"))));
+        Add(remaining.Order(StringComparer.Ordinal).ToArray());
+        return variants.Count == 0 ? Type("null") : new() { ["anyOf"] = variants };
     }
     internal static JsonObject String() => Type("string");
     private static JsonObject Describe(JsonObject schema, string description) { schema["description"] = description; return schema; }

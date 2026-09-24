@@ -5,6 +5,38 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class GraphRevisionTests
 {
     [Fact]
+    public async Task ConditionalProducerAvailabilityCanBeRepairedWithoutChangingIndependentStages()
+    {
+        var runtime = new TestRuntime(); var graph = PlannerFixture.Greeting();
+        var workflow = graph.Workflows[0];
+        workflow.Inputs.Add(new() { Name = "enabled", Schema = new() { Type = "boolean" } });
+        workflow.Steps.Add(new() { Key = "conditional", If = PlanningCorpus.Ref("input", "enabled"), Input = PlanningCorpus.Obj(("value", PlanningCorpus.Num(2))) });
+        workflow.Steps.Add(new() { Key = "consumer", Input = PlanningCorpus.Obj(("value", PlanningCorpus.Ref("output", "conditional", "value"))) });
+        var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, PlannerFixture.Ct);
+        var findings = PlanningExecutableValidation.Validate(graph, catalog);
+        Assert.Contains(findings, f => f.Rule == "availability:conditional");
+        var scope = PlanningGraphRevisions.Scope(graph, findings);
+        Assert.Contains("main/conditional", scope); Assert.Contains("main/consumer", scope); Assert.DoesNotContain("main/greet", scope);
+    }
+    [Fact]
+    public async Task MissingInputDefaultsOpenTheInterfaceWithoutUnfreezingIndependentWork()
+    {
+        var runtime = new TestRuntime();
+        var graph = PlannerFixture.Greeting();
+        graph.Workflows[0].Inputs.Add(new() { Name = "increment", Required = false, Schema = new() { Type = "number", Nullable = true } });
+        graph.Workflows[0].Steps.Add(new() { Key = "fallback", Type = "number.default", Input = PlanningCorpus.Obj(("left", PlanningCorpus.Ref("input", "increment")), ("right", PlanningCorpus.Num(2))) });
+        var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, PlannerFixture.Ct);
+        var findings = PlanningExecutableValidation.Validate(graph, catalog);
+        Assert.Contains(findings, f => f.Code == "BINDING_UNAVAILABLE" && f.Rule == "input:increment");
+        var scope = PlanningGraphRevisions.Scope(graph, findings);
+        Assert.Contains("main/$interface", scope); Assert.Contains("main/fallback", scope); Assert.DoesNotContain("main/greet", scope);
+        var revised = JsonSerializer.Deserialize(JsonSerializer.Serialize(graph, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph)!;
+        revised.Workflows[0].Inputs[0].Default = PlanningCorpus.Num(2);
+        Assert.Empty(PlanningGraphRevisions.Validate(graph, revised, scope));
+        Assert.Empty(PlanningExecutableValidation.Validate(revised, catalog));
+    }
+
+    [Fact]
     public void DependentStagesAndCallersAreInvalidatedWhileUnrelatedStagesStayFrozen()
     {
         var graph = new PlanningGraph { Workflows = [new() { Key = "main", Steps =
@@ -34,17 +66,8 @@ public sealed class GraphRevisionTests
         runtime.Proposal.Graph.Workflows[0].Steps[0].Input = PlanningCorpus.Obj(("message", PlanningCorpus.Text("unapproved change")));
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Contains(state.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED");
+        Assert.Contains(state.Diagnostics, d => d.Code != "REVISION_SCOPE_CHANGED");
         Assert.Equal(original, JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph)); Assert.Null(state.Yaml);
-    }
-    [Fact]
-    public void RequirementsOnlyRepairPreservesEveryExecutableStage()
-    {
-        var graph = PlannerFixture.Greeting();
-        var scope = PlanningGraphRevisions.Scope(graph, [new("REQUIREMENT_UNBOUND", "/requirements/result", "Unknown stage")]);
-        Assert.Equal(["$requirements"], scope);
-        Assert.Empty(PlanningGraphRevisions.Validate(graph, graph, scope));
-        var replacement = PlannerFixture.Greeting(); replacement.Workflows[0].Steps[0].Purpose = "changed";
-        Assert.NotEmpty(PlanningGraphRevisions.Validate(graph, replacement, scope));
     }
     [Fact]
     public void StageIdentityPrefixesDoNotExpandRepairScope()
@@ -62,6 +85,6 @@ public sealed class GraphRevisionTests
         var runtime = new TestRuntime(); var graph = PlannerFixture.Greeting();
         graph.Workflows[0].Steps[0].Input.Members[0].Value.Kind = kind; graph.Workflows[0].Steps[0].Input.Members[0].Value.Text = text;
         var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, PlannerFixture.Ct);
-        Assert.Contains(PlanningGeneratedGraph.Validate(graph, PlannerFixture.Requirements(), catalog), d => d.Code.StartsWith("GENERATED_", StringComparison.Ordinal));
+        Assert.Contains(PlanningGeneratedGraph.Validate(graph, catalog), d => d.Code.StartsWith("GENERATED_", StringComparison.Ordinal));
     }
 }
