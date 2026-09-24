@@ -1,0 +1,78 @@
+# Configure Flow:CopilotRunners:coding and approve the task's scope in the host.
+# command.execute requires the Copilot host's mandatory sandbox.
+# Use a disposable project containing calculator.py and test_calculator.py.
+version: 1
+name: bounded-coding
+skill:
+  description: Repair a disposable calculator project and verify its existing tests.
+  tags: [coding, tests, bounded-agent]
+  inputs:
+    workspace:
+      type: string
+      description: Project directory permitted by the Copilot host.
+  outputs:
+    summary:
+      type: string
+      description: Summary released after observed verification succeeds.
+    verification:
+      type: array
+      description: Findings for the approved command and file checks.
+workflows:
+  main:
+    inputs:
+      workspace: {type: string, required: true}
+    steps:
+      - id: prepare
+        type: set
+        input:
+          task: Repair addition and verify it with the existing tests.
+      - id: implement
+        type: agent.run
+        input:
+          runner: coding
+          objective: >-
+            Inspect calculator.py and test_calculator.py. Run python3 -m unittest -v
+            and observe the failing assertion. Fix only calculator.py using file
+            tools, then rerun the same command and observe passing tests.
+            Do not change tests, install dependencies or access the network.
+          inputs:
+            task: ${data.steps.prepare.task}
+          workspace: ${data.inputs.workspace}
+          capabilities: [project.read, project.write, command.execute]
+          output_schema:
+            type: object
+            required: [summary]
+            additionalProperties: false
+            properties:
+              summary: {type: string}
+          budget:
+            max_elapsed_milliseconds: 600000
+            max_model_calls: 8
+            max_total_tokens: 512000
+          verification:
+            - id: tests
+              kind: command.exit
+              subject: python3 -m unittest -v
+              facts_schema:
+                type: object
+                required: [exit_code, tool_success]
+                properties:
+                  exit_code: {const: 0}
+                  tool_success: {const: true}
+            - id: edit
+              kind: file.content
+              subject: calculator.py
+              facts_schema:
+                type: object
+                required: [exists, changed]
+                properties:
+                  exists: {const: true}
+                  changed: {const: true}
+      - id: report
+        type: set
+        input:
+          summary: ${data.steps.implement.output.summary}
+          verification: ${data.steps.implement.verification}
+    outputs:
+      summary: ${data.steps.report.summary}
+      verification: ${data.steps.report.verification}

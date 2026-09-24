@@ -31,3 +31,16 @@ dotnet build src/GnOuGo.Flow.Copilot
 dotnet test tests/GnOuGo.Flow.Copilot.Tests
 dotnet pack src/GnOuGo.Flow.Copilot -c Release
 ```
+
+See [bounded-coding.yaml](../GnOuGo.Flow.Cli/examples/bounded-coding.yaml) for a
+mixed deterministic/agent workflow with exact command and changed-file evidence.
+The CLI validates the YAML without dispatching the agent:
+
+```sh
+gnougo-flow validate src/GnOuGo.Flow.Cli/examples/bounded-coding.yaml
+```
+
+Mandatory sandbox policy is documented in [GitHub's managed settings reference](https://docs.github.com/en/copilot/reference/enterprise-administrators/enterprise-managed-settings#sandbox).
+The adapter checks enforcement before dispatch and does not modify global managed
+policy. Preparation failures and task failures remain inspectable terminal receipts;
+transport failures remain uncertain until reconciliation.

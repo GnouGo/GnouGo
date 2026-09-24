@@ -14,3 +14,5 @@ dotnet pack src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj -c Releas
 ```
 
 Schema-8 data is never migrated or deleted automatically. Regenerate and approve workflows before creating schema-9 runs.
+
+`CreateWorkspace(databasePath, indexPath, logger, ownerPath)` accepts explicit host paths; omitted paths use workspace helpers. Run `scripts/verify-flow-v9-published.py` against published CLI/server binaries to check encryption, native EF queries, index rebuilding, restart and tenant/revision boundaries.

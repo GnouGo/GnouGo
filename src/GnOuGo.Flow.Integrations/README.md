@@ -54,6 +54,6 @@ Inject `TypedWorkflowPlanner` and `Planning.WorkflowPlanningRuntimeFactory.Creat
 
 The factory stores schema-9 sessions, reservations, receipts and cumulative budgets through public encrypted KeyVault record APIs in `flow-planning-*-v9` collections. Exclusive tenant/session leases live under `.GnOuGo/data/flow-planning-v9/leases`. Old formats are rejected. Resume the same run ID and request; completed calls replay without a new charge and uncertain dispatches stop without redispatch.
 
-`ReadApprovedYamlAsync` verifies tenant ownership, stored approval, exact content and current capability contracts before `workflow.execute` receives YAML. Integrations propagate provider-neutral effect metadata; unknown MCP effects require conservative confirmation. See [architecture](../../docs/workflow-planning-v2.md).
+`ReadApprovedYamlAsync` verifies tenant ownership, stored approval, exact content and current capability contracts before `workflow.execute` receives YAML. Integrations propagate provider-neutral effect metadata; unknown MCP effects require conservative confirmation. See [architecture](../../docs/workflow-planning-v9.md).
 
 Typed business clarifications use the encrypted schema-9 session journal and exclusive owner lease. An injected `IPlanningInteraction` collects answers separately from runtime `human.input`. Old approvals are rejected; regenerate and approve the workflow. Run `dotnet test tests/GnOuGo.Flow.Integrations.Tests -m:1 -warnaserror` to verify receipt replay, tenant ownership and approval boundaries.

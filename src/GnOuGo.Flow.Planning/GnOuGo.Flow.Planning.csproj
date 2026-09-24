@@ -6,6 +6,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <PackageId>GnOuGo.Flow.Planning</PackageId>
+    <PackageReleaseNotes>Breaking schema-9 planning and execution: unified executable graph, bounded agent tasks, encrypted tenant journals; regenerate and approve previous planning sessions.</PackageReleaseNotes>
     <Authors>GnOuGo</Authors>
     <Description>Provider-neutral, resumable typed workflow planning and deterministic YAML generation.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

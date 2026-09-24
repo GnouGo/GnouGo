@@ -3,7 +3,7 @@
 The CLI validates and executes Flow workflows, with the typed planner injected for
 `workflow.plan`. Configure a model and MCP capabilities in `appsettings.json` or
 configuration overrides. Console prompts collect typed clarification and final artifact approval. YAML is produced by deterministic lowering
-of the validated typed graph. See [planning architecture](../../docs/workflow-planning-v2.md).
+of the validated typed graph. See [planning architecture](../../docs/workflow-planning-v9.md).
 
 ```sh
 dotnet build src/GnOuGo.Flow.Cli
@@ -38,3 +38,5 @@ gnougo-flow runs --tenant default --id RUN_ID --command reconcile --revision REV
 # For effects without a reconciling adapter, explicitly confirm quiescence; this records failure:
 gnougo-flow runs --tenant default --id RUN_ID --command reconcile --revision REVISION --invocation INVOCATION_ID --confirmed-stopped-reason "Confirmed the external process exited; its result is unavailable"
 ```
+
+Persistence paths can be configured with `KeyVault:DatabasePath`, `Flow:Execution:IndexPath`, `Flow:Execution:OwnerPath` and `Flow:Planning:OwnerPath`. Omitted paths use workspace helpers. Hosts sharing a KeyVault must share the execution owner directory.

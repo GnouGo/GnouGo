@@ -3,7 +3,7 @@
 Execution storage uses `IWorkflowRunStore` (schema 9). Hosts inject the separately publishable `GnOuGo.Flow.Persistence`; Core remains independent of persistence libraries. A run records invocation paths, inputs, control decisions, receipts, usage, pending human answers and finalization. `ResumeAsync(tenantId, runId, expectedRevision, workflow, ct)` follows the same execution path as a new run. An external operation with an unknown outcome requires reconciliation and prevents cleanup. Custom executors default to external effects; declare `StepRecovery.ReplaySafe` only when restarting the executor cannot repeat an external effect.
 
 
-`ExpressionContractInference` models successful results without executing sample data. `ComputationInferenceProfile` documents supported scalar conversions and conservatively excludes shadowed or reassigned intrinsic names. `String` and URI encode/decode calls over one declared JSON scalar infer strings, while opaque/container inputs and unsupported forms remain uninferred. Runtime exceptions and explicit validation boundaries remain authoritative; scalar conversion is not business validation. Provider-neutral `PlanningDiagnostic.Computation` optionally carries expression, contract and producer context for consumers.
+`ExpressionContractInference` models successful results without executing sample data. `ComputationInferenceProfile` documents supported scalar conversions and conservatively excludes shadowed or reassigned intrinsic names. `String` and URI encode/decode calls over one declared JSON scalar infer strings, while opaque/container inputs and unsupported forms remain uninferred. Runtime exceptions and explicit validation boundaries remain authoritative; scalar conversion is not business validation.
 
 `GeneratedFunctionDocumentation.Validate` exposes the generated-workflow JSDoc
 requirements for earlier construction checks. It validates manually authored generated-function contracts and reports missing
@@ -29,9 +29,9 @@ Core owns `PlanningSession`, reviewable requirements, `PlanningGraph`, typed con
 
 Expression inference treats a typed string's literal-regex `match()` result as an array of nullable strings or null. Capture aliases support string methods; optional captures and missing indexes never establish presence. Dynamic patterns and opaque receivers remain uninferred, and runtime failures or `value.validate` still prevent invalid values reaching consumers.
 
-The flow is request → semantic plan → complete capability grounding → grounded plan → deterministic validation → graph → compilation → scenarios → final approval. Models interpret meaning; the engine owns executable identities, types, dataflow and policy. Runtime confirmation for protected effects is separate from final artifact approval. See [workflow planning](../../docs/workflow-planning-v2.md).
+The flow is requirements → progressive capability discovery → one executable graph → deterministic validation → approval. A bounded graph revision preserves unaffected stages. Generated glue uses literals, references, simple conditions and registered typed transformations; authored YAML retains its expression language. Runtime confirmation for protected effects is separate from final artifact approval. See [workflow planning](../../docs/workflow-planning-v9.md).
 
-Workflow ports can carry an authoritative `schema` object when shorthand types cannot express a catalog contract. JSON Schema constraints and defaults survive parsing, contract export, scenario sampling and runtime input/output validation. Planning derives these ports; the model does not reproduce their schemas.
+Workflow ports can carry an authoritative `schema` object when shorthand types cannot express a catalog contract. JSON Schema constraints and defaults survive parsing, contract export and runtime input/output validation. Planning derives these ports; the model does not reproduce their schemas.
 
 ## MCP protocol compatibility
 
@@ -1341,7 +1341,7 @@ Runs the injected hybrid planner through progressive capability discovery, one e
 
 Interactive planning uses typed clarification questions through `IPlanningInteraction`; Auto stops when required information is missing. Runtime `human.input` and final approval remain separate. Schema-9 records reject earlier saved approvals with instructions to regenerate and approve; old encrypted records are untouched.
 
-Results include status, session ID and revision. Approved results also include artifact hash and YAML obtained from trusted storage. Without a human provider, planning pauses for the host to collect review or clarification. [Architecture and persistence](../../docs/workflow-planning-v2.md).
+Results include status, session ID and revision. Approved results also include artifact hash and YAML obtained from trusted storage. Without a human provider, planning pauses for the host to collect review or clarification. [Architecture and persistence](../../docs/workflow-planning-v9.md).
 
 ### `workflow.execute` — Execute an approved workflow
 

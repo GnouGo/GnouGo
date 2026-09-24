@@ -1,74 +1,120 @@
 # Flow hybrid planning replacement
 
-Issue: https://github.com/GnouGo/GnouGo/issues/112
+[Issue #112](https://github.com/GnouGo/GnouGo/issues/112) · [Draft PR #113](https://github.com/GnouGo/GnouGo/pull/113)
 
-The accepted implementation replaces the semantic/grounded planning pipeline with
-requirements, progressive capability discovery, one executable graph, deterministic
-validation and approval. Adaptive work belongs inside bounded agent stages.
-Breaking changes remove schema-8 execution, legacy DTOs and top-level checkpointing.
-Old encrypted records remain untouched.
+The implementation replaces the semantic/grounded pipeline with reviewable
+requirements, progressive discovery, one executable graph and bounded graph
+revision. Deterministic stages and bounded agent tasks use the same durable engine.
+Schema-8 records remain untouched; their approvals cannot authorize schema-9 runs.
+See [architecture, APIs and migration](workflow-planning-v9.md).
 
-## Parent baseline
+## Dependency changes
 
-Source: `46c2c77fea19c952d3258d744d886fe52ef52d33`.
-Captured in a separate detached checkout before implementation:
+Before (arrows indicate package dependencies):
 
-- Flow.Planning: 269 tests passed.
-- Flow.Core: 890 tests passed.
-- Both builds completed without warnings.
-
-These deterministic tests are not a live-model reliability measurement.
-Live corpus comparison and execution acceptance remain outstanding.
-
-## Implementation sequence
-
-1. Provider-neutral bounded agent contracts and observed-evidence verification.
-2. Canonical graph planner and progressive catalog; delete superseded models.
-3. Managed Copilot adapter and encrypted durable invocation journal.
-4. Host, API, UI, CLI and corpus migration; delete compatibility paths.
-5. Failure injection, live comparison, packaging, published smokes and documentation.
-
-The issue contains the complete acceptance checklist. The PR stays draft until
-all required implementation and verification is complete.
-
-## Planner replacement checkpoint
-
-The planner now uses one graph and progressive cached discovery. Semantic and grounded models, exhaustive coverage, binding batches, separate repairs, generated scenario fixtures, candidate decisions and their UI contracts have been deleted. Authored YAML keeps its existing runtime language. New generated numeric and projection operations are registered typed executors.
-
-Before:
 ```mermaid
-flowchart LR
-  Request --> SemanticPlan --> Coverage[Exhaustive grounding and selection]
-  Coverage --> Batches[Binding batches] --> GroundedPlan --> Graph --> YAML
-  SemanticRepair --> SemanticPlan
-  GroundedRepair --> GroundedPlan
-  YAML --> Fixtures[Generated fixtures] --> Approval
+flowchart TD
+  Hosts[Agent.Server / Flow.Server / Flow.Cli] --> Integrations[Flow.Integrations]
+  Hosts --> Core[Flow.Core: runtime and top-level checkpoints]
+  Integrations --> Planner[Flow.Planning: semantic, grounding, binding and repair]
+  Integrations --> AI[AI.Core and MCP transport]
+  Integrations --> Vault[KeyVault.Core / Workspace]
+  Planner --> Core
+  Integrations --> Core
 ```
 
 After:
+
 ```mermaid
-flowchart LR
-  Request --> Requirements
-  Requirements --> Planner[One bounded planning loop]
-  Catalog[Injected capability catalog] --> Planner
-  Planner --> Graph[One executable graph]
-  Graph --> Validation[Shared contract validation]
-  Validation --> Approval --> YAML[Deterministic YAML]
-  Validation --> Revision[Scoped graph revision] --> Graph
+flowchart TD
+  Hosts[Agent.Server / Flow.Server / Flow.Cli] --> Planner[Flow.Planning: one graph planner]
+  Hosts --> Integrations[Flow.Integrations: injected AI/MCP]
+  Hosts --> Persistence[Flow.Persistence: encrypted journal and EF index]
+  Hosts --> Copilot[Flow.Copilot: injected MCP transport]
+  Planner --> Core[Flow.Core: contracts and one durable runtime]
+  Integrations --> Core
+  Persistence --> Core
+  Copilot --> Core
+  Integrations --> AI[AI.Core / MCP helpers]
+  Integrations --> Vault[KeyVault.Core / Workspace]
+  Persistence --> Vault
+  Copilot -. protocol .-> Managed[GithubCopilot.Mcp → existing managed Copilot Core APIs]
 ```
 
-The draft is still incomplete: the Copilot adapter, durable execution journal, remaining host test migrations, execution UI, full package/AOT validation and live acceptance comparison are pending.
+Core has no outgoing dependency on another GnOuGo package. Planning and Copilot
+have only Core as a GnOuGo dependency. Persistence owns EF Core and the KeyVault
+record API; the rebuildable index never becomes an alternative payload store.
 
-The baseline pilot reproduced a FinalReview false positive for nullable defaults and a six-call/two-repair failure for the French PR review. The unchanged parent benchmark cannot enter its `measured` phase after a failed pilot. Its existing `fixture` phase label is therefore used for the three-repetition **live baseline comparison**; `mode: live`, exact source revision, model, usage and failures remain recorded. This does not count as passing the candidate validation gate or as offline evidence. The same encrypted campaign retains the original EUR 50 ceiling.
+## Deleted subsystems
 
-Validation at the planner replacement checkpoint: Flow.Core behavioral tests 897/897; Flow.Planning 43/43; Flow.Integrations 79/79. Agent.Server built without warnings. Its full test run passed 391/393 after migration; the remaining two stale UI text assertions were corrected and the entire affected eight-test UI suite then passed. The normal planner smoke passed all eight frozen cases. This is not the final validation run and is not Native AOT evidence.
+- Semantic and grounded executable representations and their serializers.
+- Exhaustive catalog coverage, binding batches and persisted batch prefixes.
+- Separate semantic/grounded repairs, candidate decisions and continuation DTOs.
+- Mandatory model-generated scenario fixtures and production dry-run planning.
+  Independent authored-YAML simulation scenarios remain in tests.
+- Planning-only computation inference/repair diagnostics and legacy UI fields.
+- Top-level checkpoint API, routes, payloads and the duplicate resume path.
+- Schema-8 execution support and the legacy planner switch.
 
-## Durable execution implementation
+Production C# under `Flow.Planning` and `Flow.Core/Planning` decreased from 55 files /
+7,190 lines at the parent to 40 files / approximately 4,400 lines. This intentionally
+excludes the new execution, adapter and persistence functionality. The comparison
+uses Git source files, excluding generated `obj` and `bin` files.
 
-Removed `IWorkflowCheckpointer`, its in-memory implementation, top-level index checkpoints, and the duplicate resume execution path. `workflow.execute` now uses the same nested-workflow lifecycle as `workflow.call`. The journal identifies steps by workflow call path, branch, iteration and retry attempt; recorded switch/loop decisions and resolved remote workflow definitions survive recovery. Planning retries retain their original session identity and budget.
+## Validation evidence
 
-`GnOuGo.Flow.Persistence` is independently publishable. Encrypted KeyVault records are authoritative; EF Core/SQLite indexes contain only tenant/run identifiers, revision, status and timestamp. Process owner locks prevent concurrent execution, short write locks serialize commands, and cancellation/human answers merge into the active owner's next revision. Answer acknowledgement follows durable persistence. Generated EF models avoid runtime model construction; fixed index DDL runs through EF Core rather than runtime migrations. Native AOT publication remains a later validation gate.
+Parent: `46c2c77fea19c952d3258d744d886fe52ef52d33`, checked out separately before
+implementation. Parent Core tests: 890 passed; Planning: 269 passed, without warnings.
 
-Agent.Server, Flow.Server and Flow.Cli now inject the journal. HTTP run commands are tenant-scoped and revision-checked. CLI inspection/cancellation and `run --resume-revision` expose recovery state. Agent execution/reconciliation UI, the Copilot adapter, and published-binary tests remain outstanding.
+The frozen comparison uses `tests/Shared/PlanningBenchmarkCases.cs`, unchanged
+business requests and independent execution oracles, OpenAi `gpt-5.5-2026-04-24`,
+96,000 input / 32,768 output tokens per request, eight session transport attempts,
+two repairs and one shared EUR 50 campaign ceiling. Baseline: 24 live runs, three
+repetitions per case, 14 correct outcomes, median four planning calls. Failed runs
+are retained. The parent's `fixture` phase label permits live baseline collection
+after its failed pilot; every result still records `mode: live`. It does not waive
+the candidate acceptance gate.
 
-At this implementation checkpoint: Core 901/901; Integrations 79/79; Persistence 3/3; Agent.Server 393/393. Flow.Server, Flow.Cli and Agent.Server built without warnings. Flow.Server's frontend built without warnings. Crash tests cover dispatch/receipt boundaries, nested calls, loops, parallel branches, pending human answers, cleanup exclusion, tenant isolation and concurrent owners. The frozen parent comparison completed all 24 live runs; failures are retained. Candidate live comparison is still pending.
+Candidate pilot results and ongoing comparison evidence are retained in encrypted
+campaign records. Failed and inconclusive runs are not replaced. One exhausted
+inconclusive request was explicitly closed with a separate audit record, retaining
+its full reservation and blocking redispatch of that identity. The original
+request, HTTP journal, failure and absence of a receipt remain intact.
+
+Latest completed checks:
+
+- Full solution: 2,769 tests passed; four opt-in live tests skipped; no build warnings.
+- Agent and Flow frontends built without warnings.
+- Native CLI and Flow server: encrypted journal receipts, native EF query/index
+  rebuilding, tenant isolation, revision conflicts, streamed human answers and
+  completed-run recovery across restart passed.
+- Native Copilot MCP: schema-9 protocol, unsupported-scope refusal before inference
+  and failed terminal receipt round-trip passed. Published Agent server: encrypted
+  planning persistence, HTTP health, static UI and Blazor negotiation passed.
+- Planner: 52 tests; Copilot adapter: five tests. All five affected Flow packages
+  packed without warnings; package contents and independent dependency boundaries were checked.
+
+The PR stays draft: the live planner acceptance gate, real bounded Copilot edit/test
+cycle are not yet complete. The bounded real-model test currently fails before
+inference because this Mac lacks
+mandatory administrator-managed Copilot sandbox policy. A native or unit-test pass
+is not presented as observed external-agent success.
+
+## Published persistence and framework exceptions
+
+`scripts/verify-flow-v9-published.py` runs isolated black-box checks against published
+CLI/server executables. It never uses repository databases. Authoritative payloads
+are encrypted, EF Core indexes rebuild from them, and workflow markers must not be
+visible in database bytes. `--planning-persistence-smoke` exercises the published
+Agent server's encrypted planning store independently of HTTP startup.
+
+EF Core 10.0.12 uses generated models and precompiled index queries. Its generator
+currently emits CS8669 and CS9270 in one generated interceptor file; only that file
+has those two diagnostics suppressed. Publish-only Jint 4.16.3 interop diagnostics,
+EF Core package summaries, unused Spatialite discovery and DependencyContext
+single-file diagnostics have exact-origin audit entries in
+`verify-warning-free-publishes.ps1`. Application diagnostics are not added to that
+allowlist. Audit publication enables the warnings again and rejects changed origins. The
+Agent server audit was repeated against the isolated parent: 106 distinct warning
+origins before, 105 after; the compiled planning model removed its application
+IL2026. No additional warning origin was accepted.

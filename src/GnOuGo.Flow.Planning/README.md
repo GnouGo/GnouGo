@@ -6,7 +6,7 @@ A separately publishable package depending only on Flow.Core.
 
 `HybridWorkflowPlanner` is the only planner. Requirements retain reviewable outcomes and acceptance criteria; `PlanningGraph` is the only executable representation. YAML is compiled deterministically from that graph. Static validation and optional simulations do not establish external execution success.
 
-`ICapabilityCatalog` exposes source summaries, paginated capability summaries and exact versioned contracts. Discovery connects only requested sources. Pages and resolved contracts survive graph repairs. The model sees the active page and can reopen cached pages; unrelated unavailable sources become visible limitations. Approval and execution revalidate the selected capabilities, executor contracts and host policy.
+`ICapabilityCatalog` exposes source summaries, paginated capability summaries and exact versioned contracts. Discovery connects only requested sources. Pages and resolved contracts survive graph repairs. The model retains summaries from every discovered page without reopening them; unrelated unavailable sources become visible limitations. Approval and execution revalidate the selected capabilities, executor contracts and host policy.
 
 The generated language permits literals, typed references, simple conditions and registered typed operations. Built-in numeric and projection operations validate their contracts at runtime. Generated functions and arbitrary computation are rejected. Authored YAML retains its expression language.
 

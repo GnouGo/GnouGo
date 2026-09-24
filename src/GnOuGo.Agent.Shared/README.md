@@ -31,7 +31,7 @@ dotnet pack src/GnOuGo.Agent.Shared/GnOuGo.Agent.Shared.csproj -c Release
 dotnet test tests/GnOuGo.Agent.Server.Tests --filter FullyQualifiedName~PlanningConvergenceApiTests
 ```
 
-See [planner architecture](../../docs/workflow-planning-v2.md) and
+See [planner architecture](../../docs/workflow-planning-v9.md) and
 [Agent.Server](../GnOuGo.Agent.Server/README.md) for the API lifecycle and hosting.
 
 Planning DTOs carry the selected mode, pending generic decision and answered history. `PlanningDecisionAnswerDto` selects one issued option or supplies custom text; clients must include the current session revision. Chat requests accept `planningMode`, defaulting to `interactive`.
