@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.19.3 - 2026-09-24
+
+- Add planner decisions and unify Copilot execution through Core (#108) (release) (27759e76)
+- Validate Agent reasoning capabilities and show provider errors (#106) (a54d1118)
+- Update project dependencies and validate build compatibility (#104) (9035cedc)
+
 ## v0.19.2 - 2026-09-22
 
 - Add standalone Copilot Agent proxy with OIDC and live traffic UI (#102) (release) (eb2b9054)
@@ -255,9 +261,6 @@ All notable changes to this project are documented in this file.
 ## v0.4.4 - 2026-05-02
 
 - fix(agent): mcp not found (release) (393048b3)
-
-## v0.4.3 - 2026-05-02
-
 - fix(agent): mcp browser not found (release) (6bcd0e3d)
 - fix(collector): add wwwroot to release (5b92b4d3)
 - fix(agent): browser mcp crash at start (release) (12370a49)
