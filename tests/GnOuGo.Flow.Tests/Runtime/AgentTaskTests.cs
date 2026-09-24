@@ -19,10 +19,14 @@ public sealed class AgentTaskTests
         Assert.DoesNotContain(result.StepResults, s => s.StepId == "consume");
     }
 
-    [Fact]
-    public async Task VerifiedOutputCanCrossTheStageBoundary()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task VerifiedOutputCanCrossTheStageBoundary(bool authoredWorkspaceReference)
     {
-        var result = await Execute(new Runner());
+        var runner = new Runner();
+        var result = await Execute(runner, authoredWorkspaceReference: authoredWorkspaceReference);
+        Assert.Equal("fixture-workspace", runner.Workspace);
         Assert.True(result.Success, result.Error?.Message);
         Assert.True(result.Outputs?["done"]?.GetValue<bool>());
     }
@@ -103,7 +107,7 @@ public sealed class AgentTaskTests
         if (fabricated) Assert.DoesNotContain(result.StepResults, s => s.StepId == "consume");
         else Assert.True(result.Outputs!["done"]!.GetValue<bool>());
     }
-    private static Task<RunResult> Execute(Runner runner, IWorkflowRunStore? store = null)
+    private static Task<RunResult> Execute(Runner runner, IWorkflowRunStore? store = null, bool authoredWorkspaceReference = false)
     {
         var engine = new WorkflowEngine { RunStore = store, Limits = new() { TenantId = "tenant", RunId = "run" } };
         engine.AgentTaskRunners["fixture"] = runner;
@@ -111,6 +115,8 @@ public sealed class AgentTaskTests
             version: 1
             workflows:
               main:
+                inputs:
+                  workspace: { type: string, required: false, default: fixture-workspace }
                 steps:
                   - id: work
                     type: agent.run
@@ -142,7 +148,7 @@ public sealed class AgentTaskTests
                     input: { done: "${data.steps.work.output.done}" }
                 outputs:
                   done: "${data.steps.consume.done}"
-            """));
+            """.Replace("workspace: fixture-workspace", authoredWorkspaceReference ? "workspace: ${data.inputs.workspace}" : "workspace: fixture-workspace", StringComparison.Ordinal)));
         return engine.ExecuteAsync(document.Workflows["main"], null, TestContext.Current.CancellationToken);
     }
 
@@ -154,8 +160,9 @@ public sealed class AgentTaskTests
         public AgentTaskResult Result { get; init; } = AgentTaskTests.Result();
         public IReadOnlyList<string> Rejections { get; init; } = [];
         public int Dispatches { get; private set; }
+        public string? Workspace { get; private set; }
         public Task<IReadOnlyList<string>> ValidateAsync(AgentTaskContext context, CancellationToken ct) => Task.FromResult(Rejections);
-        public Task<AgentTaskResult> RunAsync(AgentTaskContext context, CancellationToken ct) { Dispatches++; return Task.FromResult(Result); }
+        public Task<AgentTaskResult> RunAsync(AgentTaskContext context, CancellationToken ct) { Dispatches++; Workspace = context.Task.Workspace; return Task.FromResult(Result); }
         public Task<AgentTaskResult> ReconcileAsync(AgentTaskContext context, CancellationToken ct) => Task.FromResult(Result);
     }
 }
