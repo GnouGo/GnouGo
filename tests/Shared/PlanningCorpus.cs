@@ -116,7 +116,6 @@ public static class PlanningCorpus
             return new() { Json = Transport(json, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
         }
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => _actual.ValidateAsync(request, ct);
-        public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct) => _actual.ValidateScenariosAsync(request, ct);
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => _actual.ValidateCatalogAsync(catalog, ct);
         public Task CheckpointAsync(PlanningSession state, CancellationToken ct) { _snapshot = state; DiagnosticHistory.AddRange(state.Diagnostics.Where(d => !DiagnosticHistory.Contains(d))); return Task.CompletedTask; }
     }

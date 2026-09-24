@@ -59,9 +59,8 @@ internal static class PlanningEndpoints
         {
             ValidationStage = d.ValidationStage, Rule = d.Rule,
             Prerequisite = d.Prerequisite is { } p ? new(p.Kind, p.Description, p.Output, p.ConsumerCapability, p.ContractPath, p.RootActionId) : null,
-            Computation = d.Computation is { } c ? new(c.Expression, c.Limitation, c.ReceiverContract.DeepClone().AsObject(), c.ParameterContracts.DeepClone().AsObject(), c.OriginExpression, c.ProducerLocation) : null
         }).ToArray(),
-        state.Scenarios.Select(s => new PlanningScenarioDto(s.Id, s.Outcome, s.Description)).ToArray(),
+        state.ValidationResults.Select(s => new PlanningValidationResultDto(s.Id, s.Outcome, s.Description)).ToArray(),
         state.Status == PlanningStatus.Clarification ? state.GetQuestions().Select(q => new PlanningQuestionDto(q.Id, q.Question, PlanningGraphCompiler.ToJsonSchema(q.AnswerType, state.Catalog!))).ToArray() : [],
         state.ModelCalls, state.ReplanAttempts, state.Usage?.InputTokens ?? 0, state.Usage?.OutputTokens ?? 0,
         state.Usage?.EstimatedCost ?? 0, state.Usage?.EstimatedCostCurrency ?? "", state.ActiveMilliseconds, state.HumanWaitMilliseconds, state.Phase, state.Request.Mode)

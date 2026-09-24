@@ -71,7 +71,7 @@ public static class PlanningExecutableValidation
                 {
                     var preview = Preview(node.Input);
                     // set resolves its entire input value at runtime and can assert the result schema.
-                    if (node.Type == "set" && node.Input.Kind is "expression" or "compute" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection") continue;
+                    if (node.Type == "set" && node.Input.Kind is "expression" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection") continue;
                     var input = preview as JsonObject ?? throw new InvalidOperationException("This step requires an object input. For set, put computations in input values or supply an object-producing expression.");
                     var capability = catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
                     if (capability is not null)
@@ -113,9 +113,6 @@ public static class PlanningExecutableValidation
         }
         void Values(PlanningValue value, string location)
         {
-            if (value.Kind == "compute")
-                try { PlanningComputations.Validate(value); }
-                catch (Exception ex) when (ex is InvalidOperationException or Acornima.ParseErrorException) { errors.Add(new("COMPUTATION_BINDING_INVALID", location, ex.Message)); }
             if (value.Kind == "expression")
             {
                 try
@@ -151,8 +148,7 @@ public static class PlanningExecutableValidation
         void Condition(PlanningValue value, string location)
         {
             Values(value, location);
-            if (value.Kind is "string" or "number" or "null" or "object" or "array" or "template" ||
-                value.Kind == "compute" && PlanningComputations.HasNonBooleanResult(value.Text))
+            if (value.Kind is "string" or "number" or "null" or "object" or "array" or "template")
                 errors.Add(new("BOOLEAN_CONDITION_INVALID", location,
                     "A condition must return a boolean. Outcome labels and catch-all labels are not conditions. Omit an error-handler condition for an unconditional handler; preserve its error action and fallback."));
         }
@@ -225,7 +221,7 @@ public static class PlanningExecutableValidation
         "object" => new JsonObject(value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted).Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Preview(m.Value)))),
         "array" => new JsonArray(value.Items.Select(Preview).ToArray()),
         "workflow" => new JsonObject { ["kind"] = "local", ["name"] = value.Source },
-        "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "expression" or "compute" or "template" => JsonValue.Create("${data.value}"),
+        "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "expression" or "template" => JsonValue.Create("${data.value}"),
         _ => PlanningGraphValidation.Literal(value)
     };
 }

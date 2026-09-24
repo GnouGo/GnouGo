@@ -164,13 +164,6 @@ internal static class PlanningDataflow
     {
         if (value.Kind is "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection") yield return value;
         var members = value.Members.AsEnumerable();
-        if (value.Kind == "compute")
-        {
-            HashSet<string> used;
-            try { used = PlanningComputationScopes.Used(new Acornima.Parser().ParseExpression(PlanningComputations.Expression(value.Text)), value.Members.Select(m => m.Name).ToArray()); }
-            catch (Exception ex) when (ex is InvalidOperationException or Acornima.ParseErrorException) { yield break; }
-            members = members.Where(m => used.Contains(m.Name));
-        }
         foreach (var child in members.Select(m => m.Value).Concat(value.Items)) foreach (var reference in References(child)) yield return reference;
     }
 

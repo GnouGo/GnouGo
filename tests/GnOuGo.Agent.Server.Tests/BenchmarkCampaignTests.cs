@@ -243,6 +243,41 @@ public sealed class BenchmarkCampaignTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(new() { ClientRequestId = "one" }, _ => throw new InvalidOperationException("budget"), _ => throw new InvalidOperationException("must not dispatch"), Ct));
         Assert.False(await campaign.HasUncertainRequestAsync(Ct));
     }
+    [Fact]
+    public async Task ExhaustedRunClosureRetainsUncertaintyAndCostWithoutAllowingRedispatch()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "retained");
+        var request = new LLMRequest { ClientRequestId = "session:1:hash" };
+        var journal = new BenchmarkHttpJournal(campaign, request.ClientRequestId, 100, 20, 1m);
+        var state = new LLMHttpRetryState { Fingerprint = "fixed" };
+        for (var i = 0; i < 8; i++) { state.Attempts.Add(new() { Id = i.ToString() }); await journal.SaveAsync(state, Ct); }
+        await Assert.ThrowsAsync<IOException>(() => campaign.CallAsync(request, _ => Task.CompletedTask, _ => throw new IOException(), Ct));
+        var run = new JsonObject { ["session"] = new JsonObject { ["pendingCall"] = new JsonObject { ["id"] = request.ClientRequestId } },
+            ["result"] = new JsonObject { ["execution_correct"] = false, ["termination_reason"] = "session_http_budget" } };
+        await campaign.SaveAsync("planning-evaluation-runs", "source:pilot:case:1", run, Ct);
+        var before = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        await campaign.RetainInconclusiveAsync("source:pilot:case:1", Ct);
+        var writes = records.Writes;
+        await campaign.RetainInconclusiveAsync("source:pilot:case:1", Ct);
+        Assert.Equal(writes, records.Writes);
+        Assert.True(JsonNode.DeepEquals(before, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
+        Assert.True(JsonNode.DeepEquals(run, await campaign.LoadAsync("planning-evaluation-runs", "source:pilot:case:1", Ct)));
+        Assert.True(await campaign.HasUncertainRequestAsync(Ct));
+        Assert.Null(await campaign.LoadAsync("planning-evaluation-receipts", request.ClientRequestId, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(request, _ => Task.CompletedTask, _ => throw new Exception("Must not dispatch"), Ct, allowHttpRecovery: true));
+        await campaign.CallAsync(new() { ClientRequestId = "different-session:1:hash" }, _ => Task.CompletedTask, _ => Task.FromResult(new LLMResponse()), Ct);
+        Assert.Equal(8m, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Single((await campaign.InspectAsync(Ct))["retained_inconclusive_requests"]!.AsArray());
+    }
+    [Fact]
+    public async Task InconclusiveClosureRequiresSavedFailedRunAndExhaustedAllowance()
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "retained");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainInconclusiveAsync("missing", Ct));
+        await campaign.SaveAsync("planning-evaluation-runs", "run", new() { ["session"] = new JsonObject { ["pendingCall"] = new JsonObject { ["id"] = "session:1:hash" } } }, Ct);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainInconclusiveAsync("run", Ct));
+        Assert.Null(await campaign.LoadAsync("planning-evaluation-closures", "session:1:hash", Ct));
+    }
     private sealed class Records : IKeyVaultRecordStore
     {
         internal int Writes;

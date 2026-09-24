@@ -23,5 +23,5 @@ foreach (var name in PlanningCorpus.Names)
     var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
     var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], PlanningBenchmarkCases.Inputs(name, "nominal"), CancellationToken.None);
     if (!environment.Verify(result)) throw new InvalidOperationException("Independent result assertion failed: " + result.Error?.Message);
-    Console.WriteLine(name + ": passed, calls=" + state.ModelCalls + ", replans=" + state.ReplanAttempts + ", scenarios=" + state.Scenarios.Count);
+    Console.WriteLine(name + ": passed, calls=" + state.ModelCalls + ", replans=" + state.ReplanAttempts + ", scenarios=" + state.ValidationResults.Count);
 }

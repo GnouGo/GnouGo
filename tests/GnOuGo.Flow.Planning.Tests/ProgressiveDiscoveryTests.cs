@@ -88,6 +88,27 @@ public sealed class ProgressiveDiscoveryTests
         Assert.NotEmpty(await runtime.ValidateCatalogAsync(catalog, Ct));
         Assert.DoesNotContain("unavailable", factory.Contacts);
     }
+    [Fact]
+    public async Task RunnerContractsAreRevalidatedAtTheirOwnSourceBeforeApproval()
+    {
+        var engine = new WorkflowEngine(); var runner = new Runner(); engine.AgentTaskRunners["coding"] = runner;
+        var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
+        var catalog = await runtime.DiscoverAsync(new(), Ct);
+        var source = Assert.Single(await runtime.Capabilities.ListSourcesAsync(Ct));
+        var page = await runtime.Capabilities.ListAsync(source.Id, null, Ct);
+        catalog.Capabilities.Add(await runtime.Capabilities.ResolveAsync(Assert.Single(page.Capabilities), Ct));
+        Assert.Empty(await runtime.ValidateCatalogAsync(catalog, Ct));
+        runner.Detail = "Changed approved contract";
+        Assert.Contains(await runtime.ValidateCatalogAsync(catalog, Ct), f => f.Code == "CATALOG_CHANGED");
+    }
+    private sealed class Runner : IAgentTaskRunner
+    {
+        internal string Detail = "Declared runner contract";
+        public Task<AgentTaskRunnerContract> DescribeAsync(CancellationToken ct) => Task.FromResult(new AgentTaskRunnerContract(Detail, AgentTaskContracts.InputSchema));
+        public Task<IReadOnlyList<string>> ValidateAsync(AgentTaskContext c, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>>([]);
+        public Task<AgentTaskResult> RunAsync(AgentTaskContext c, CancellationToken ct) => throw new NotSupportedException();
+        public Task<AgentTaskResult> ReconcileAsync(AgentTaskContext c, CancellationToken ct) => throw new NotSupportedException();
+    }
     private sealed class TrackingFactory : IMcpClientFactory
     {
         internal List<string> Contacts { get; } = [];

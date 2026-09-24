@@ -12,7 +12,7 @@
 
 <PageTitle>Workflow designer</PageTitle>
 <main id="planningReview" class="container py-4" style="max-width:1100px;margin:auto;padding:1.5rem">
-    <a href="/">← Back to chat</a>
+    <a href="/">← Back to chat</a> · <a href="/runs">Workflow executions</a>
     <h1>Workflow designer</h1>
     @if (_error is not null) { <p role="alert" class="text-danger">@_error</p> }
     @if (_entry is { Available: false })
@@ -78,24 +78,13 @@
                         @if (prerequisite.RootActionId is { } root) { <p>Blocked by action: <code>@root</code></p> }
                         @if (prerequisite.ContractPath is { } path) { <p>Required consumer input: <code>@path</code></p> }
                     }
-                    @if (diagnostic.Computation is { } computation)
-                    {
-                        <details class="planning-computation-finding">
-                            <summary>Computation details</summary>
-                            <p>Expression: <code>@computation.Expression</code></p>
-                            @if (computation.OriginExpression is { } origin) { <p>Value comes from: <code>@origin</code></p> }
-                            @if (computation.ProducerLocation is { } producer) { <p>@(producer == diagnostic.Location ? "Failing producer:" : "Blocked by producer:") <code>@producer</code></p> }
-                            <p>@(computation.Limitation switch { "inference_unsupported" => "The result type could not be inferred.", "producer_contract_missing" => "The producer contract is unavailable.", _ => "The member is not declared by the known contract." })</p>
-                            <p>Known receiver contract:</p><pre>@computation.ReceiverContract.ToJsonString()</pre>
-                            <p>Known argument contracts:</p><pre>@computation.ParameterContracts.ToJsonString()</pre>
-                        </details>
-                    }
+
                 </li>
             }</ul>
         }
-        @if (_state.Scenarios.Count > 0)
+        @if (_state.ValidationResults.Count > 0)
         {
-            <h3>Validation scenarios</h3><ul>@foreach (var scenario in _state.Scenarios) { <li>@scenario.Id — @scenario.Outcome: @scenario.Description</li> }</ul>
+            <h3>Validation results</h3><ul>@foreach (var scenario in _state.ValidationResults) { <li>@scenario.Id — @scenario.Outcome: @scenario.Description</li> }</ul>
             <p>Static or simulated validation does not establish external execution success.</p>
         }
         @if (_state.Yaml is { } yaml) { <details open><summary>Workflow YAML</summary><pre><code>@yaml</code></pre></details> }

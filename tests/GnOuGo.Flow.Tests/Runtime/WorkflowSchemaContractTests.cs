@@ -39,7 +39,7 @@ public sealed class WorkflowSchemaContractTests
         WorkflowPlanSemanticValidator.Validate(document);
         var result = await new WorkflowEngine().ExecuteAsync(new WorkflowCompiler().Compile(document).Workflows["main"], new JsonObject(), TestContext.Current.CancellationToken);
         Assert.True(result.Success, result.Error?.Message); Assert.True(result.Outputs!["released"]!.GetValue<bool>());
-        var scenarios = await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken);
+        var scenarios = await SimulatedWorkflowValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken);
         Assert.All(scenarios, scenario => Assert.Equal("passed", scenario.Outcome));
         Assert.Contains(scenarios, scenario => scenario.Id == "guard:unavailable:main:release:acquire");
         Assert.Contains(scenarios, scenario => scenario.Id == "guard:unavailable:main:verify:release");

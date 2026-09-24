@@ -149,10 +149,7 @@ public static class PlanningGraphValidation
                         }
                         try
                         {
-                            if (member.Value.Kind == "compute" && PlanningComputations.HasNullResult(member.Value.Text) &&
-                                PlanningContractValidation.ValidateInstance(null, expected).Count != 0)
-                                errors.Add(new("CAPABILITY_ARGUMENT_INVALID", field, "The computation has a null result branch, but argument '" + member.Name + "' does not accept null. Return a contract-valid value or omit an optional argument; omission and null are distinct."));
-                            else if (IsLiteral(member.Value))
+                            if (IsLiteral(member.Value))
                                 errors.AddRange(PlanningContractValidation.ValidateInstanceFindings(Literal(member.Value), expected).Select(e => new PlanningDiagnostic("CAPABILITY_ARGUMENT_INVALID", PlanningValues.LiteralLocation(member.Value, field, e.InstancePointer), e.Message, Rule: e.Rule)));
                             else if (ValueSchema(member.Value, new(StringComparer.Ordinal)) is { } actual && !TypesFit(actual, expected))
                                 errors.Add(new("CAPABILITY_ARGUMENT_TYPE", field, "The binding's producer type does not satisfy argument '" + member.Name + "'. Use an explicit validated transformation."));
@@ -162,10 +159,6 @@ public static class PlanningGraphValidation
                 }
                 if (node.If is not null) CheckValue(node.If, location + "/if");
                 if (node.Expr is not null) CheckValue(node.Expr, location + "/expr");
-                if (node.Type == "switch" && node.Expr is { Kind: "compute", Text: { } computation } && PlanningComputations.FiniteOutcomes(computation) is { } possible)
-                    foreach (var branch in node.Cases.Where(c => c.When is null && c.Value is not null && !possible.Contains(c.Value, StringComparer.Ordinal)))
-                        errors.Add(new("SWITCH_CASE_UNREACHABLE", location + "/expr", "The selector computation can produce only " + new JsonArray(possible.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()).ToJsonString() +
-                            "; accepted case '" + branch.Value + "' cannot match. Preserve the accepted branches and correct the selector computation.", Rule: "case:" + branch.Value));
                 if (node.Type == "switch" && node.Expr is { Kind: "input" or "output" } selector)
                 {
                     try

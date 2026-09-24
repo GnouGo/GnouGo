@@ -13,7 +13,7 @@ internal static class PlanningGeneratedGraph
         foreach (var outcome in requirements.Outcomes)
             if (outcome.StageIds.Count == 0 && !graph.Workflows.SelectMany(w => w.Outputs).Any(o => o.Name == outcome.Id) ||
                 outcome.StageIds.Any(id => identities.Count(n => n.Qualified == id || n.Key == id) != 1))
-                yield return new("REQUIREMENT_UNBOUND", "/requirements/" + outcome.Id, "Every outcome needs unambiguous implementing stages or a declared output.");
+                yield return new("REQUIREMENT_UNBOUND", "/requirements/" + outcome.Id, "Update this outcome stageIds to actual implementing stages. Available qualified stage IDs: " + string.Join(", ", identities.Select(n => n.Qualified)) + ". Only outcome IDs and descriptions are immutable; stageIds must match the graph.");
         foreach (var workflow in graph.Workflows)
         {
             if (string.IsNullOrWhiteSpace(workflow.Key) || workflow.Key.StartsWith("__planning_", StringComparison.Ordinal))

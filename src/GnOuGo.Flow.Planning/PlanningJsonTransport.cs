@@ -12,7 +12,6 @@ internal static class PlanningJsonTransport
     internal static string Prompt(JsonNode value) => value.ToJsonString(new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
     internal static JsonArray Diagnostics(IEnumerable<PlanningDiagnostic> diagnostics) => new(diagnostics
         .GroupBy(d => (d.Code, d.Message, d.Required, d.ValidationStage, d.Rule,
-            Computation: d.Computation is null ? null : JsonSerializer.Serialize(d.Computation, PlanningJsonContext.Default.PlanningComputationContext),
             Prerequisite: d.Prerequisite is null ? null : JsonSerializer.Serialize(d.Prerequisite, PlanningJsonContext.Default.PlanningPrerequisiteContext))).Select(group =>
         {
             var item = new JsonObject { ["code"] = group.Key.Code, ["message"] = group.Key.Message,
@@ -20,7 +19,6 @@ internal static class PlanningJsonTransport
                 ["required"] = group.Key.Required };
             if (group.Key.ValidationStage is not null) item["validationStage"] = group.Key.ValidationStage;
             if (group.Key.Rule is not null) item["rule"] = group.Key.Rule;
-            if (group.Key.Computation is not null) item["computation"] = JsonNode.Parse(group.Key.Computation);
             if (group.Key.Prerequisite is not null) item["prerequisite"] = JsonNode.Parse(group.Key.Prerequisite);
             return (JsonNode)item;
         }).ToArray());

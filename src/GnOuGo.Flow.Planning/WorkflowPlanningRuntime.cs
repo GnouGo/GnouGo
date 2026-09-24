@@ -60,27 +60,6 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
         { findings.Add(new("EXECUTABLE_INVALID", "$", ex.Message)); }
         return Task.FromResult<IReadOnlyList<PlanningDiagnostic>>(findings);
     }
-    public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct)
-    {
-        var fake = new InMemoryMcpClientFactory();
-        foreach (var group in request.Catalog.Capabilities.Where(c => c.Server is not null).GroupBy(c => c.Server!))
-        {
-            var config = new MockMcpServerConfig();
-            foreach (var capability in group.Where(c => c.Kind == "tool"))
-            {
-                config.Tools.Add(new() { Name = capability.Method!, InputSchema = capability.InputSchema, OutputSchema = capability.OutputSchema, EffectKind = capability.EffectKind,
-                    ArtifactContract = capability.ArtifactContract is null ? null : new(capability.ArtifactContract, []) });
-                config.ToolHandlers[capability.Method!] = _ => new()
-                {
-                    Content = capability.ExampleResponse is { } example && PlanningContractValidation.ValidateInstance(example, capability.OutputSchema).Count == 0
-                        ? example.DeepClone() : WorkflowPlanDryRunValidator.CreateArtifactSample(capability.OutputSchema, capability.ArtifactContract)
-                };
-            }
-            foreach (var capability in group.Where(c => c.Kind == "prompt")) config.Prompts.Add(new() { Name = capability.Method!, Description = capability.Description });
-            fake.RegisterServer(group.Key, config);
-        }
-        return WorkflowPlanScenarioValidator.ValidateAsync(WorkflowParser.Parse(request.Yaml), fake, ct, request.Inputs, request.LoopItemSchemas, request.Observations);
-    }
     public async Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct)
     {
         try
@@ -97,7 +76,7 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
                 try
                 {
                 var summary = new CapabilitySummary(capability.Id,
-                    capability.Kind == "agent" ? "agent-runners" : CapabilityDiscovery.SourceId(capability.Server!),
+                    capability.Kind == "agent" ? CapabilityDiscovery.RunnerSource(capability.Method!) : CapabilityDiscovery.SourceId(capability.Server!),
                     capability.Method ?? capability.Id, capability.Description, capability.StepType, capability.EffectKind, capability.Version);
                 var resolved = await fresh.ResolveAsync(summary, ct);
                 if (!JsonNode.DeepEquals(JsonSerializer.SerializeToNode(capability, PlanningJsonContext.Default.PlanningCapability),

@@ -5,7 +5,7 @@ namespace GnOuGo.Planning.Examples;
 
 public static class PlanningBenchmarkMeasurements
 {
-    public static readonly string[] CandidateCases = ["local", "read_transform", "conditional", "collections", "protected_cleanup", "review_french", "review_distractors"];
+    public static readonly string[] CandidateCases = ["local", "read_transform", "nullable_defaults", "conditional", "collections", "protected_cleanup", "review_french", "review_distractors"];
     public static string[] Select(string? selection)
     {
         var names = selection?.Split(',', StringSplitOptions.TrimEntries) ?? CandidateCases;
@@ -72,7 +72,7 @@ public static class PlanningBenchmarkMeasurements
     public static JsonObject Summary(IReadOnlyList<JsonObject> rows, string phase)
     {
         var calls = rows.Select(r => r["calls"]!.GetValue<int>()).Order().ToArray(); var count = calls.Length;
-        var expected = phase == "measured" ? 21 : phase == "pilot" ? 7 : count;
+        var expected = phase == "measured" ? CandidateCases.Length * 3 : phase == "pilot" ? CandidateCases.Length : count;
         var requiredRepetitions = phase == "measured" ? 3 : 1;
         var complete = count == expected && (phase == "fixture" || CandidateCases.All(name => Enumerable.Range(1, requiredRepetitions)
             .All(repetition => rows.Count(r => r["case"]!.ToString() == name && r["repetition"]!.GetValue<int>() == repetition) == 1)))
@@ -85,6 +85,6 @@ public static class PlanningBenchmarkMeasurements
             ["final_review_rate"] = count == 0 ? null : reviewed / (double)count, ["final_review_within_two_calls_rate"] = count == 0 ? null : fast / (double)count,
             ["median_calls"] = median, ["p75_calls"] = count == 0 ? null : calls[(int)Math.Ceiling(count * .75) - 1],
             ["approved_execution_correct"] = correct, ["zero_safety_violations"] = safe,
-            ["gates_passed"] = complete && safe && correct && (phase == "measured" ? reviewed >= 19 && fast >= 16 && median <= 2 : reviewed == count) };
+            ["gates_passed"] = complete && safe && correct && (phase == "measured" ? reviewed >= Math.Ceiling(expected * 19.0 / 21) && fast >= Math.Ceiling(expected * 16.0 / 21) && median <= 2 : reviewed == count) };
     }
 }

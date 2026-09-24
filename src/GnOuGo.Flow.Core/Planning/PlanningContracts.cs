@@ -89,7 +89,7 @@ public sealed class PlanningSession
     public string Phase { get; set; } = PlanningPhase.Requirements;
     public PlanningGraph? Graph { get; set; }
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
-    public List<PlanningScenarioResult> Scenarios { get; set; } = [];
+    public List<PlanningValidationResult> ValidationResults { get; set; } = [];
     public List<PlanningAnswer> Answers { get; set; } = [];
     public int ClarificationRounds { get; set; }
     public int ReplanAttempts { get; set; }
@@ -143,20 +143,15 @@ public sealed record PlanningAnswer(string Question, JsonObject Answers);
 public sealed record PlanningDiagnostic(string Code, string Location, string Message, bool Required = true, string? ValidationStage = null, string? Rule = null)
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PlanningComputationContext? Computation { get; init; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PlanningPrerequisiteContext? Prerequisite { get; init; }
 }
 /// <summary>Located evidence for a missing prerequisite; never grants execution or approval authority.</summary>
 public sealed record PlanningPrerequisiteContext(string Kind, string Description, string? Output = null,
     string? ConsumerCapability = null, string? ContractPath = null, string? RootActionId = null);
 
-public sealed record PlanningComputationContext(string Expression, string Limitation, JsonObject ReceiverContract,
-    JsonObject ParameterContracts, string? OriginExpression = null, string? ProducerLocation = null);
-public sealed record PlanningScenarioResult(string Id, string Outcome, string Description, List<PlanningDiagnostic> Diagnostics);
+public sealed record PlanningValidationResult(string Id, string Outcome, string Description, List<PlanningDiagnostic> Diagnostics);
 public sealed record PlanningArtifactBinding(string Workflow, string Step, string CapabilityId);
 public sealed record PlanningArtifactValidationRequest(string Yaml, PlanningRequest Request, PlanningCatalog Catalog, IReadOnlyList<PlanningArtifactBinding> Bindings);
-public sealed record PlanningScenarioValidationRequest(string Yaml, PlanningCatalog Catalog, JsonObject? Inputs, JsonObject LoopItemSchemas, JsonObject Observations);
 
 public interface IWorkflowPlanner
 {
@@ -169,7 +164,6 @@ public interface IPlanningRuntime
     Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct);
     Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct);
     Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct);
-    Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct);
     Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct);
     Task CheckpointAsync(PlanningSession session, CancellationToken ct);
 }

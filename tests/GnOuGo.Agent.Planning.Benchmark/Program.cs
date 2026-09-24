@@ -14,9 +14,10 @@ using GnOuGo.Workspace;
 
 string? Option(string name) { var index = Array.IndexOf(args, name); return index < 0 ? null : args.ElementAtOrDefault(index + 1) ?? throw new ArgumentException("Missing " + name); }
 var replayKey = Option("--replay-run"); var inspectKey = Option("--inspect-run");
+var retainKey = Option("--retain-inconclusive-run");
 var inspectCampaign = args.Contains("--inspect-campaign", StringComparer.Ordinal);
-if ((replayKey is null ? 0 : 1) + (inspectKey is null ? 0 : 1) + (inspectCampaign ? 1 : 0) > 1) throw new ArgumentException("Choose one replay or inspection command.");
-var readOnly = replayKey is not null || inspectKey is not null || inspectCampaign;
+if ((replayKey is null ? 0 : 1) + (inspectKey is null ? 0 : 1) + (inspectCampaign ? 1 : 0) + (retainKey is null ? 0 : 1) > 1) throw new ArgumentException("Choose one replay or inspection command.");
+var readOnly = replayKey is not null || inspectKey is not null || inspectCampaign || retainKey is not null;
 var command = Option("--live-command"); var providerName = Option("--keyvault-provider"); var live = !readOnly && (command is not null || providerName is not null);
 var campaignId = Option("--campaign") ?? (live || readOnly ? throw new ArgumentException("--campaign is required for live runs and recorded evidence.") : "offline");
 var phase = replayKey is not null ? "replay" : Option("--phase") ?? (live ? "pilot" : "fixture");
@@ -29,9 +30,10 @@ var source = Git("rev-parse HEAD");
 if (live && Git("status --porcelain").Length != 0) throw new InvalidOperationException("Commit the tested source before live evaluation.");
 BenchmarkCampaign? evidenceStore = live || readOnly ? new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, Directory.GetCurrentDirectory()), campaignId) : null;
 BenchmarkCampaign? campaign = live ? evidenceStore : null;
-var leasePath = live ? GnOuGoWorkspace.ResolveDatabasePath(null, Directory.GetCurrentDirectory(), ".GnOuGo/data/planning-evaluation/" + campaignId + ".lock") : null;
+var leasePath = live || retainKey is not null ? GnOuGoWorkspace.ResolveDatabasePath(null, Directory.GetCurrentDirectory(), ".GnOuGo/data/planning-evaluation/" + campaignId + ".lock") : null;
 if (leasePath is not null) Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
 await using var lease = leasePath is null ? null : new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+if (retainKey is not null) { Console.WriteLine((await evidenceStore!.RetainInconclusiveAsync(retainKey, CancellationToken.None)).ToJsonString()); return; }
 if (inspectCampaign) { Console.WriteLine((await evidenceStore!.InspectAsync()).ToJsonString()); return; }
 if (inspectKey is { } inspect)
 {
@@ -67,7 +69,7 @@ if (live && phase == "measured")
     var pilot = new List<JsonObject>();
     foreach (var name in PlanningBenchmarkMeasurements.CandidateCases)
         if ((await campaign!.LoadAsync("planning-evaluation-runs", RunKey("pilot", name, 1)))?["result"] is JsonObject row) pilot.Add(row);
-    if (!PlanningBenchmarkMeasurements.Summary(pilot, "pilot")["gates_passed"]!.GetValue<bool>()) throw new InvalidOperationException("The same revision must pass all seven pilot cases before measured evaluation.");
+    if (!PlanningBenchmarkMeasurements.Summary(pilot, "pilot")["gates_passed"]!.GetValue<bool>()) throw new InvalidOperationException("The same revision must pass all eight pilot cases before measured evaluation.");
 }
 var results = new List<JsonObject>();
 for (var repetition = 1; repetition <= repetitions; repetition++)
@@ -77,7 +79,8 @@ foreach (var name in names)
     var run = campaign is null ? null : await campaign.LoadAsync("planning-evaluation-runs", key);
     if (run?["result"] is JsonObject failedResult && failedResult["termination_reason"] is not null &&
         run["session"]?["pendingCall"]?["id"]?.ToString() is { } pendingId &&
-        await campaign!.LoadAsync(BenchmarkHttpJournal.Collection, pendingId) is not null)
+        await campaign!.LoadAsync(BenchmarkHttpJournal.Collection, pendingId) is not null &&
+        await campaign.LoadAsync("planning-evaluation-closures", pendingId) is null)
     {
         // Re-enter the same reserved call. The HTTP journal replays its receipt or enforces
         // the remaining attempt allowance; neither session accounting nor evidence is reset.
@@ -154,7 +157,7 @@ foreach (var name in names)
         ["provider"] = configured?.Provider, ["model"] = configured?.Model, ["first_pass_valid"] = run["first_pass_valid"]!.DeepClone(), ["final_review"] = run["final_review"]!.DeepClone(),
         ["execution_correct"] = execution, ["execution_variants"] = variants, ["safety_violations"] = safety, ["calls"] = state.ModelCalls + PlanningBenchmarkMeasurements.ExtraTransportCalls(run), ["repairs"] = state.ReplanAttempts,
         ["initial_request_bytes"] = run["initial_request_bytes"]?.DeepClone(), ["initial_estimated_input_tokens"] = run["initial_estimated_input_tokens"]?.DeepClone(),
-        ["scenarios"] = state.Scenarios.Count, ["elapsed_ms"] = run["elapsed_ms"]!.DeepClone(), ["failure"] = failure, ["termination_reason"] = campaign?.StopReason,
+        ["validation_results"] = state.ValidationResults.Count, ["elapsed_ms"] = run["elapsed_ms"]!.DeepClone(), ["failure"] = failure, ["termination_reason"] = campaign?.StopReason,
         ["diagnostics"] = new JsonArray(state.Diagnostics.Select(d => d.Code).Distinct().Select(d => (JsonNode)JsonValue.Create(d)).ToArray()),
         ["failure_history"] = new JsonArray(run["diagnostic_history"]!.AsArray().Select(d => { var entry = d!.DeepClone().AsObject(); entry.Remove("message"); return (JsonNode)entry; }).ToArray()) };
     foreach (var (field, value) in PlanningBenchmarkMeasurements.Usage(run, live)) rowResult[field] = value?.DeepClone();
@@ -201,7 +204,6 @@ sealed class MeasuredRuntime(IPlanningRuntime inner, ILLMClient? live, JsonObjec
         }
     }
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => inner.ValidateAsync(request, ct);
-    public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct) => inner.ValidateScenariosAsync(request, ct);
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => inner.ValidateCatalogAsync(catalog, ct);
     public async Task CheckpointAsync(PlanningSession state, CancellationToken ct) { await inner.CheckpointAsync(state, ct); await checkpoint(state, ct); }
 }

@@ -10,7 +10,7 @@ public sealed class PlanningLifecycleTests
     {
         var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime);
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(1, state.ModelCalls);
-        Assert.Contains("not been observed", Assert.Single(state.Scenarios).Description);
+        Assert.Contains("not been observed", Assert.Single(state.ValidationResults).Description);
         state = PlannerFixture.Clone(state);
         var result = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.Equal(state.ComputeArtifactHash(), result.ComputeArtifactHash()); Assert.Single(runtime.Calls);

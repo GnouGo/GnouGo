@@ -31,7 +31,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
                 throw new InvalidOperationException("Each new dispatch must have one reserved identity.");
             var totals = await AccountingAsync(campaign, requestId, record, ct);
             if (totals["cost_upper_bound_eur"]!.GetValue<decimal>() > 50m || totals["session_calls"]!.GetValue<long>() > 8)
-            { campaign.BudgetExceeded(); throw new InvalidOperationException("The campaign or session cannot cover another HTTP attempt."); }
+            { campaign.BudgetExceeded(totals["session_calls"]!.GetValue<long>() > 8); throw new InvalidOperationException("The campaign or session cannot cover another HTTP attempt."); }
         }
         await campaign.SaveAsync(Collection, requestId, record, ct);
     }

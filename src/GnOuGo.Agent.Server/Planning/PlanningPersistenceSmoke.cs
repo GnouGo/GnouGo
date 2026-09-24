@@ -26,14 +26,12 @@ internal static class PlanningPersistenceSmoke
         state.Diagnostics = [new("STAGE_CONTRACT_INVALID", "/scopes/main/operations/consumer", "Private computation finding")
         {
             Prerequisite = new("blocked_dependency", "Private prerequisite", RootActionId: "producer"),
-            Computation = new("alias.name", "inference_unsupported", new() { ["x-gnougo-opaque"] = true },
-                new() { ["text"] = new System.Text.Json.Nodes.JsonObject { ["type"] = "string" } }, "JSON.parse(text)", "/scopes/main/operations/parse")
+
         }];
         if (!await store.TrySaveAsync(state, 0, CancellationToken.None)) throw new InvalidOperationException("Update failed.");
         var reopened = new EfPlanningSessionStore(factory, KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory));
         var restored = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
         if (restored?.SchemaVersion != 9 || restored.Revision != 1 || restored.ModelCalls != 2 || restored.ReplanAttempts != 1 || restored.Requirements?.Summary != "Private requirements" || restored.Graph is null || restored.Diagnostics.Count != 1 ||
-            restored.Diagnostics[0].Computation?.OriginExpression != "JSON.parse(text)" || restored.Diagnostics[0].Computation?.ProducerLocation != "/scopes/main/operations/parse" ||
             restored.Diagnostics[0].Prerequisite?.RootActionId != "producer" || !restored.RevisionScope.SequenceEqual(["main/consumer"]) ||
             await reopened.LoadAsync("another-tenant", state.Request.SessionId, CancellationToken.None) is not null || (await reopened.ListAsync("smoke", CancellationToken.None)).Count == 0)
             throw new InvalidOperationException("Published persistence or tenant isolation failed.");
@@ -56,7 +54,7 @@ internal static class PlanningPersistenceSmoke
         catch (PlanningConflictException) { }
         foreach (var file in Directory.EnumerateFiles(directory, "*.db"))
             if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)) is { } bytes &&
-                (bytes.Contains("Private published smoke content", StringComparison.Ordinal) || bytes.Contains("JSON.parse(text)", StringComparison.Ordinal)))
+                (bytes.Contains("Private published smoke content", StringComparison.Ordinal) || bytes.Contains("Private requirements", StringComparison.Ordinal)))
                 throw new InvalidOperationException("Sensitive session content was persisted unencrypted.");
         Console.WriteLine("Schema-9 planning persistence smoke passed.");
     }

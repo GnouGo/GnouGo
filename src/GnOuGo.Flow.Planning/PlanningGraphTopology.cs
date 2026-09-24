@@ -4,7 +4,6 @@ using GnOuGo.Flow.Core.Planning;
 namespace GnOuGo.Flow.Planning;
 internal static class PlanningGraphTopology
 {
-    internal const string GuardedCondition = "available && condition";
     internal static IEnumerable<PlanningValue> References(PlanningNode node) => PlanningDataflow.References(node.Input)
         .Concat(node.If is null ? [] : PlanningDataflow.References(node.If)).Concat(node.Expr is null ? [] : PlanningDataflow.References(node.Expr))
         .Concat(node.Cases.Where(c => c.When is not null).SelectMany(c => PlanningDataflow.References(c.When!)))
@@ -40,7 +39,7 @@ internal static class PlanningGraphTopology
     };
     internal static bool GuardsFinalizerSource(PlanningNode node, string source)
     {
-        var guard = node.If?.Kind == "compute" ? node.If.Members.FirstOrDefault(m => m.Name == "available")?.Value : node.If;
+        var guard = node.If;
         return guard?.Kind == "expression" && guard.Text?.Split(" && ", StringSplitOptions.None)
             .Contains(AvailabilityGuard([source]).Text, StringComparer.Ordinal) == true;
     }

@@ -22,8 +22,8 @@ public sealed class BenchmarkMeasurementTests
     [Fact]
     public void SelectionRejectsUnknownAndDuplicateCases()
     {
-        Assert.Equal(7, PlanningBenchmarkMeasurements.Select(null).Length);
-        Assert.DoesNotContain("nullable_defaults", PlanningBenchmarkMeasurements.Select(null));
+        Assert.Equal(8, PlanningBenchmarkMeasurements.Select(null).Length);
+        Assert.Contains("nullable_defaults", PlanningBenchmarkMeasurements.Select(null));
         Assert.Equal(["local", "conditional"], PlanningBenchmarkMeasurements.Select("local,conditional"));
         Assert.Throws<ArgumentException>(() => PlanningBenchmarkMeasurements.Select("local,local"));
         Assert.Throws<ArgumentException>(() => PlanningBenchmarkMeasurements.Select("invented"));

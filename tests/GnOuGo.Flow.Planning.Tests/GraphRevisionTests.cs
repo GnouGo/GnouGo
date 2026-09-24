@@ -36,6 +36,23 @@ public sealed class GraphRevisionTests
         Assert.Contains(state.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED");
         Assert.Equal(original, JsonSerializer.Serialize(state.Graph, PlanningJsonContext.Default.PlanningGraph)); Assert.Null(state.Yaml);
     }
+    [Fact]
+    public void RequirementsOnlyRepairPreservesEveryExecutableStage()
+    {
+        var graph = PlannerFixture.Greeting();
+        var scope = PlanningGraphRevisions.Scope(graph, [new("REQUIREMENT_UNBOUND", "/requirements/result", "Unknown stage")]);
+        Assert.Equal(["$requirements"], scope);
+        Assert.Empty(PlanningGraphRevisions.Validate(graph, graph, scope));
+        var replacement = PlannerFixture.Greeting(); replacement.Workflows[0].Steps[0].Purpose = "changed";
+        Assert.NotEmpty(PlanningGraphRevisions.Validate(graph, replacement, scope));
+    }
+    [Fact]
+    public void StageIdentityPrefixesDoNotExpandRepairScope()
+    {
+        var graph = new PlanningGraph { Workflows = [new() { Steps = [new() { Key = "work" }, new() { Key = "work_long" }] }] };
+        var scope = PlanningGraphRevisions.Scope(graph, [new("INVALID", "/workflows/0/stages/work_long/input", "Bad input")]);
+        Assert.Contains("main/work_long", scope); Assert.DoesNotContain("main/work", scope);
+    }
     [Theory]
     [InlineData("compute", "6 * 7")]
     [InlineData("expression", "data.inputs.value.map(x => x * 2)")]

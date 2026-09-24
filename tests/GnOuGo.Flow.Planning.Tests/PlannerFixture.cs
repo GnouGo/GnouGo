@@ -48,7 +48,6 @@ internal sealed class TestRuntime : IPlanningRuntime
     internal static LLMResponse Response(LLMRequest request, PlanningProposal proposal) => new()
     { Json = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal), request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => Validation is null ? Actual.ValidateAsync(request, ct) : Task.FromResult(Validation);
-    public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct) => throw new InvalidOperationException("Planning must not require simulated scenarios.");
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => CatalogChanges is null ? Actual.ValidateCatalogAsync(catalog, ct) : Task.FromResult(CatalogChanges);
     public Task CheckpointAsync(PlanningSession state, CancellationToken ct) { Checkpoints.Add(PlannerFixture.Clone(state)); return Task.CompletedTask; }
 }

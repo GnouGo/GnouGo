@@ -9,9 +9,9 @@ using GnOuGo.Flow.Core.Runtime.Executors;
 namespace GnOuGo.Flow.Core.Runtime;
 
 /// <summary>Bounded synthetic path testing. No production integration is executed.</summary>
-public static class WorkflowPlanScenarioValidator
+public static class SimulatedWorkflowValidator
 {
-    public static async Task<IReadOnlyList<PlanningScenarioResult>> ValidateAsync(WorkflowDocument document, IMcpClientFactory? fakeFactory, CancellationToken ct, JsonObject? validationInputs = null, JsonObject? loopItemSchemas = null, JsonObject? observations = null)
+    public static async Task<IReadOnlyList<SimulatedValidationResult>> ValidateAsync(WorkflowDocument document, IMcpClientFactory? fakeFactory, CancellationToken ct, JsonObject? validationInputs = null, JsonObject? loopItemSchemas = null, JsonObject? observations = null)
     {
         var definitions = new List<Scenario> { new("nominal", null, null, "normal") };
         var observationLoops = new Dictionary<string, (string Workflow, StepDef Loop)>(StringComparer.Ordinal);
@@ -65,7 +65,7 @@ public static class WorkflowPlanScenarioValidator
             }
         if (definitions.Count > 100)
             return [new("coverage", "inconclusive", "Synthetic scenario limit exceeded.", [new("SCENARIO_LIMIT", "$", "More than 100 scenarios are required; reduce the workflow or increase explicit coverage support.")])];
-        var results = new List<PlanningScenarioResult>();
+        var results = new List<SimulatedValidationResult>();
         foreach (var scenario in definitions)
         {
             ct.ThrowIfCancellationRequested();
@@ -199,7 +199,7 @@ public static class WorkflowPlanScenarioValidator
     private static JsonNode? Sample(InputDef input)
     {
         if (input.Default is not null) return InputDefaultValueConverter.ConvertToNode(input.Default, input);
-        if (input.Schema is not null) return WorkflowPlanDryRunValidator.CreateSampleFromJsonSchema(input.Schema);
+        if (input.Schema is not null) return SimulatedSchemaSamples.Create(input.Schema);
         if (input.Enum is { Count: > 0 }) return JsonValue.Create(input.Enum[0]);
         return input.Type switch
         {
@@ -275,7 +275,7 @@ public static class WorkflowPlanScenarioValidator
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            var json = request.StructuredOutputSchema is null ? null : WorkflowPlanDryRunValidator.CreateSampleFromJsonSchema(request.StructuredOutputSchema);
+            var json = request.StructuredOutputSchema is null ? null : SimulatedSchemaSamples.Create(request.StructuredOutputSchema);
             return Task.FromResult(new LLMResponse { Text = json?.ToJsonString() ?? "sample", Json = json });
         }
     }
@@ -354,7 +354,7 @@ public static class WorkflowPlanScenarioValidator
                 {
                     if ((loop.ContainsKey("items") || loop.ContainsKey("over")) && loopItemSchemas?[workflow + ":" + node.Id] is JsonObject schema)
                     {
-                        var item = WorkflowPlanDryRunValidator.CreateSampleFromJsonSchema(schema);
+                        var item = SimulatedSchemaSamples.Create(schema);
                         if (PlanningContractValidation.ValidateInstance(item, schema).Count == 0)
                         {
                             loop.Remove("over"); loop.Remove("times"); loop.Remove("while");
@@ -370,3 +370,5 @@ public static class WorkflowPlanScenarioValidator
         return false;
     }
 }
+
+public sealed record SimulatedValidationResult(string Id, string Outcome, string Description, List<PlanningDiagnostic> Diagnostics);

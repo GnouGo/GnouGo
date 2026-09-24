@@ -146,7 +146,7 @@ public sealed partial class PlanningGraphCompiler
             throw new InvalidOperationException("An empty grouping requires the native set step in the locked policy.");
         var result = new JsonObject { ["id"] = scope.NodeIds[node.Key], ["type"] = emptySequence ? "set" : node.Type };
         var loweredInput = LowerValue(node.Input, scope);
-        var computedSetInput = node.Type == "set" && node.Input.Kind is "expression" or "compute" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection";
+        var computedSetInput = node.Type == "set" && node.Input.Kind is "expression" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection";
         var input = loweredInput as JsonObject ?? (computedSetInput ? new JsonObject() : throw new InvalidOperationException("A step input must be a typed object."));
         if (node.CapabilityId is { Length: > 0 })
         {
@@ -178,16 +178,7 @@ public sealed partial class PlanningGraphCompiler
         if (emptySequence) result["input"] = new JsonObject();
         else if (computedSetInput) result["input"] = loweredInput;
         else if (input.Count > 0 || node.Type == "set") result["input"] = input;
-        if (node.If is not null)
-        {
-            // The host's availability guard must run before evaluating a condition that
-            // consumes the guarded result. Ordinary computation parameters evaluate eagerly.
-            if (node.If is { Kind: "compute", Text: PlanningGraphTopology.GuardedCondition, Members.Count: 2 } &&
-                node.If.Members.SingleOrDefault(m => m.Name == "available")?.Value is { } available &&
-                node.If.Members.SingleOrDefault(m => m.Name == "condition")?.Value is { } condition)
-                result["if"] = "${(" + ToExpression(available, scope)[2..^1] + ") && (" + ToExpression(condition, scope)[2..^1] + ")}";
-            else result["if"] = ToExpression(node.If, scope);
-        }
+        if (node.If is not null) result["if"] = ToExpression(node.If, scope);
         if (node.Expr is not null) result["expr"] = ToExpression(node.Expr, scope);
         if (node.OutputSchema is not null && node.Type is "set" or "value.validate" or "array.project" or "value.project") result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Catalog);
         if (node.StructuredOutput is { } structured)
@@ -293,7 +284,7 @@ public sealed partial class PlanningGraphCompiler
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
-            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "expression" or "compute" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
+            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "expression" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
@@ -349,12 +340,6 @@ public sealed partial class PlanningGraphCompiler
             var envelope = value.ResultChannel == "envelope" ? "" : value.ResultChannel == "structured" ? ".json" : type switch { "workflow.call" => ".outputs", "mcp.call" => ".response", _ => "" };
             expression = "data.steps." + node + envelope + ResultPath(type, value.Path, scope);
             expression = ProjectResult(scope.Nodes[value.Source], value.Path, expression, scope);
-        }
-        else if (value.Kind == "compute")
-        {
-            EnsureUnique(value.Members.Select(m => m.Name), "computation parameter");
-            PlanningComputations.Validate(value);
-            expression = "((" + string.Join(",", value.Members.Select(m => m.Name)) + ") => (" + PlanningComputations.Expression(value.Text) + "))(" + string.Join(",", value.Members.Select((m, i) => AtValue("/members/" + i + "/value", () => ExpressionBody(m.Value)))) + ")";
         }
         else if (value.Kind == "template")
         {

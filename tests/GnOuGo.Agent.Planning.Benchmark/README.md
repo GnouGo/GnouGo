@@ -19,7 +19,7 @@ Fixture rows leave token usage and cost unknown (`null`). Live rows report parti
 
 ## Independent candidate campaign
 
-The architecture remains frozen from `1f15bec`, with targeted corrections through the accepted behavior revision `65dc34a`. Its 7/7 pilot and measured gates passed; do not seek replacement samples to erase its retained failure. The runner remains available for future regressions. The runner defaults live evaluation to the seven candidate cases (all except `nullable_defaults`). `--cases` accepts a comma-separated selection without changing the frozen requests. Live evaluation requires a clean committed source tree.
+The architecture remains frozen from `1f15bec`, with targeted corrections through the accepted behavior revision `65dc34a`. Its 7/7 pilot and measured gates passed; do not seek replacement samples to erase its retained failure. The runner remains available for future regressions. The runner defaults live evaluation to the eight candidate cases (all except `nullable_defaults`). `--cases` accepts a comma-separated selection without changing the frozen requests. Live evaluation requires a clean committed source tree.
 
 ```bash
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
@@ -28,7 +28,7 @@ dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
   --keyvault-provider openai --campaign <same-candidate-id> --phase measured
 ```
 
-Pilot runs each case once. Measured evaluation requires the same revision's seven passing pilot results and runs three additional repetitions per case. Provider/model/request policy are resolved from KeyVault once at startup and pinned in the campaign's encrypted configuration. `--model` optionally asserts the expected configured model. One EUR 50 ceiling covers the entire new campaign, including failed runs and fixes; previous ledgers are untouched.
+Pilot runs each case once. Measured evaluation requires the same revision's eight passing pilot results and runs three additional repetitions per case. Provider/model/request policy are resolved from KeyVault once at startup and pinned in the campaign's encrypted configuration. `--model` optionally asserts the expected configured model. One EUR 50 ceiling covers the entire new campaign, including failed runs and fixes; previous ledgers are untouched.
 
 The existing encrypted request/receipt journal now also stores session checkpoints, usage receipts keyed by request identity, intermediate diagnostics and final run results. Repeating a command reuses completed results or resumes the reserved session. An uncertain attempt is never resent under its original identity. The shared HTTP retry policy may admit one new attempt after conservative accounting; exhausted or unjournaled uncertainty stops the campaign. `--inspect-run <source-sha>:<phase>:<case>:<repetition>` reads encrypted evidence to stdout for local diagnosis; add `--include-receipts` to inspect the original reserved schemas and responses; do not redirect private evidence to plaintext files or commit it.
 
@@ -96,7 +96,7 @@ defaults. Invalid fields, ambiguous names and invalid limits fail configuration 
 `campaign_accounting` with cumulative verified usage and conservative unknown allowances.
 
 The [live HTTP recovery report](../../docs/planning-http-live-validation-2026-09-19.md)
-records a recovered HTTP 500, unchanged accounting after restart, and seven FinalReview
+records a recovered HTTP 500, unchanged accounting after restart, and eight FinalReview
 results. One independently detected cleanup failure prevented the measured cohort.
 
 The subsequent [cleanup validation report](../../docs/planning-cleanup-validation-2026-09-19.md)
@@ -109,3 +109,7 @@ records literal-only default resolution, exact declaration repairs and atomic ch
 That report's pilot reached 6/7 FinalReview with every reviewed artifact passing independent execution.
 One model proposal exhausted its repairs, so measured evaluation remained gated. A recovered
 uncertain transport attempt retains its conservative allowance; restart added no dispatch or charge.
+
+## Exhausted, inconclusive runs
+
+`--retain-inconclusive-run <commit:phase:case:repetition> --campaign <id>` closes an already failed evaluation only after its eight HTTP attempts are exhausted. It writes a separate encrypted audit record under the campaign lock. The original run, failure, request and HTTP evidence remain unchanged; no completion receipt is invented. Unknown attempts retain their full cost reservation in the same EUR 50 campaign ceiling. That request identity can never dispatch again, while different evaluation identities may use the remaining campaign allowance. `--inspect-campaign` reports both uncertainty and closures. This does not turn an inconclusive run into a successful measurement.

@@ -100,7 +100,7 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
         return _cache[id] = capabilities.OrderBy(c => c.Id, StringComparer.Ordinal).ToList();
     }
 
-    private static string RunnerSource(string name) => "runner_" + PlanningGraphCompiler.Fingerprint(name)[..24];
+    internal static string RunnerSource(string name) => "runner_" + PlanningGraphCompiler.Fingerprint(name)[..24];
     internal static string SourceId(string name) => "source_" + PlanningGraphCompiler.Fingerprint(name)[..24];
     internal static string Identity(string server, string kind, string method) => "cap_" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(new[] { server, kind, method }, PlanningJsonContext.Default.StringArray))[..24];
     internal static PlanningCapability Tool(string server, McpToolInfo tool)
