@@ -1,5 +1,7 @@
 # GnOuGo.Agent.Shared
 
+Planning validation DTOs add optional `ValidationStage`, `Rule` and `Computation` context. Computation details include the failing expression, inference limitation, receiver/argument contracts, local expression origin and root producer location. Existing four-argument diagnostic construction remains compatible; this metadata grants no approval or execution authority.
+
 Provider-neutral chat and planning API DTOs for Agent.Server and its consumers.
 This .NET 10 library has no project dependencies and can be packaged separately.
 
@@ -31,3 +33,5 @@ dotnet test tests/GnOuGo.Agent.Server.Tests --filter FullyQualifiedName~Planning
 
 See [planner architecture](../../docs/workflow-planning-v2.md) and
 [Agent.Server](../GnOuGo.Agent.Server/README.md) for the API lifecycle and hosting.
+
+Planning DTOs carry the selected mode, pending generic decision and answered history. `PlanningDecisionAnswerDto` selects one issued option or supplies custom text; clients must include the current session revision. Chat requests accept `planningMode`, defaulting to `interactive`.

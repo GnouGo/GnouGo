@@ -43,6 +43,13 @@ internal sealed class GroundedTypes
     private readonly PlanningCatalog _catalog;
     private readonly Dictionary<string, Scope> _scopes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, JsonObject> _results = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ComputationFailure> _computationFailures = new(StringComparer.Ordinal);
+    private sealed class ComputationFailure(IReadOnlyList<PlanningComputationContracts.Finding> findings, string? producerLocation = null)
+        : InvalidOperationException(string.Join("; ", findings.Select(f => f.Message)))
+    {
+        internal IReadOnlyList<PlanningComputationContracts.Finding> Findings { get; } = findings;
+        internal string? ProducerLocation { get; } = producerLocation;
+    }
     private readonly Dictionary<string, bool> _structuredStrict = new(StringComparer.Ordinal);
     private readonly HashSet<string> _resolving = new(StringComparer.Ordinal);
     internal static JsonObject Opaque() => new() { ["x-gnougo-opaque"] = true };
@@ -129,6 +136,7 @@ internal sealed class GroundedTypes
             return scope.Parent is null ? throw new InvalidOperationException("Unknown result: " + id) : Result(scope.Parent, id);
         var key = scope.Key + ":" + id;
         if (_results.TryGetValue(key, out var cached)) return cached;
+        if (_computationFailures.TryGetValue(key, out var failure)) throw failure;
         if (!_resolving.Add(key)) throw new InvalidOperationException("Cyclic data dependency: " + id);
         try
         {
@@ -168,6 +176,12 @@ internal sealed class GroundedTypes
                 default: throw new InvalidOperationException("Unsupported grounded operation.");
             }
             _results.Add(key, result); return result;
+        }
+        catch (ComputationFailure ex)
+        {
+            var rooted = ex.ProducerLocation is null ? new ComputationFailure(ex.Findings, "/scopes/" + scope.Key + "/operations/" + id) : ex;
+            _computationFailures[key] = rooted;
+            throw rooted;
         }
         finally { _resolving.Remove(key); }
     }
@@ -223,7 +237,8 @@ internal sealed class GroundedTypes
                 var planningValue = Convert(value);
                 PlanningComputations.Validate(planningValue);
                 var args = value.Members.ToDictionary(m => m.Name, m => Value(scope, m.Value), StringComparer.Ordinal);
-                PlanningComputationContracts.Validate(PlanningComputations.Expression(value.Text), args);
+                var findings = PlanningComputationContracts.Inspect(PlanningComputations.Expression(value.Text), args);
+                if (findings.Count > 0) throw new ComputationFailure(findings);
                 var inferred = ExpressionContractInference.Infer(PlanningComputations.Expression(value.Text), args);
                 // Safe syntax and projections are checked above. Unproved results remain whole opaque values;
                 // only an explicit runtime validation boundary can establish their fields or narrower type.
@@ -235,8 +250,21 @@ internal sealed class GroundedTypes
             case "null": return new() { ["type"] = "null" };
             default: throw new InvalidOperationException("Unresolved or unsupported grounded value: " + value.Kind);
         }
-        return PlanningGraphValidation.AtPath(schema, value.Path);
+        try { return PlanningGraphValidation.AtPath(schema, value.Path); }
+        catch (InvalidOperationException) when (value.Kind == "result" && value.Path.Count > 0 && HasOpaqueResult(schema))
+        {
+            var producer = scope;
+            while (!producer.Direct.ContainsKey(value.Source!) && producer.Parent is not null) producer = producer.Parent;
+            if (producer.Direct.GetValueOrDefault(value.Source!) is not CalculateGroundedOperation { Value.Kind: "compute" } calculation) throw;
+            var parameters = new JsonObject(calculation.Value.Members.Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Value(producer, m.Value).DeepClone())));
+            var context = new PlanningComputationContext(PlanningComputations.Expression(calculation.Value.Text), "inference_unsupported", schema.DeepClone().AsObject(), parameters);
+            throw new ComputationFailure([new("COMPUTATION_FIELD_UNDECLARED", calculation.Id,
+                "The calculated producer has no established complete result contract. Validate its whole value before selecting result fields; renaming fields cannot establish a contract.", context)],
+                "/scopes/" + producer.Key + "/operations/" + calculation.Id);
+        }
     }
+    private static bool HasOpaqueResult(JsonObject schema) => IsOpaque(schema) || schema.Count == 0 ||
+        new[] { "anyOf", "oneOf" }.Any(key => schema[key] is JsonArray variants && variants.OfType<JsonObject>().Any(HasOpaqueResult));
     private static PlanningValue Convert(GroundedValue value) => new() { Kind = value.Kind, Text = value.Text, Source = value.Source,
         Number = value.Number, Boolean = value.Boolean, Path = value.Path, Members = value.Members.Select(m => new PlanningMember(m.Name, Convert(m.Value))).ToList(), Items = value.Items.Select(Convert).ToList() };
 
@@ -264,6 +292,14 @@ internal sealed class GroundedTypes
             void Check(string path, Action action)
             {
                 try { action(); }
+                catch (ComputationFailure ex)
+                {
+                    var producer = ex.ProducerLocation ?? path;
+                    foreach (var finding in ex.Findings)
+                        findings.Add(new("GROUNDED_CONTRACT_INVALID", path, producer == path ? finding.Message : "Blocked by computation at " + producer + ": " + finding.Message,
+                            ValidationStage: "grounded", Rule: finding.Rule)
+                            { Computation = finding.Context with { ProducerLocation = producer } });
+                }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException or Acornima.ParseErrorException)
                 { findings.Add(new("GROUNDED_CONTRACT_INVALID", path, ex.Message, ValidationStage: "grounded")); }
             }
@@ -365,7 +401,8 @@ internal sealed class GroundedTypes
                 foreach (var op in scope.Direct.Values) Visit(op);
             });
         }
-        return findings.Distinct().ToList();
+        return findings.DistinctBy(d => (d.Code, d.Location, d.Message, d.Required, d.ValidationStage, d.Rule,
+            d.Computation?.Expression, d.Computation?.ProducerLocation, d.Computation?.ParameterContracts.ToJsonString())).ToList();
     }
     private void Boolean(Scope scope, GroundedValue value)
     { if (Value(scope, value)["type"]?.ToString() != "boolean") throw new InvalidOperationException("A condition must have a boolean contract."); }

@@ -10,9 +10,17 @@ internal static class PlanningComputationContracts
 {
     internal static void Validate(string expression, IReadOnlyDictionary<string, JsonObject> parameters)
     {
-        var messages = new HashSet<(string Code, string Rule, string Message)>();
-        Walk(new Acornima.Parser().ParseExpression(expression), new(parameters, StringComparer.Ordinal), messages);
-        if (messages.Count > 0) throw new InvalidOperationException(string.Join("; ", messages.Select(m => m.Message)));
+        var findings = Inspect(expression, parameters);
+        if (findings.Count > 0) throw new InvalidOperationException(string.Join("; ", findings.Select(f => f.Message)));
+    }
+    internal sealed record Finding(string Code, string Rule, string Message, PlanningComputationContext Context);
+    internal static IReadOnlyList<Finding> Inspect(string expression, IReadOnlyDictionary<string, JsonObject> parameters)
+    {
+        var node = new Acornima.Parser().ParseExpression(expression);
+        var findings = new List<Finding>();
+        Walk(node, InitialScope(node, parameters), new(StringComparer.Ordinal), findings, expression);
+        return findings.DistinctBy(f => (f.Code, f.Rule, f.Message, f.Context.Expression, f.Context.OriginExpression,
+            f.Context.ReceiverContract.ToJsonString(), f.Context.ParameterContracts.ToJsonString())).ToArray();
     }
     private static readonly HashSet<string> ArrayMembers = new(StringComparer.Ordinal)
     {
@@ -59,10 +67,11 @@ internal static class PlanningComputationContracts
             foreach (var member in value.Members)
                 try { parameters[member.Name] = resolve(member.Value); }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { }
-            var messages = new HashSet<(string Code, string Rule, string Message)>();
-            try { Walk(new Acornima.Parser().ParseExpression(PlanningComputations.Expression(value.Text)), parameters, messages); }
+            IReadOnlyList<Finding> messages = [];
+            try { messages = Inspect(PlanningComputations.Expression(value.Text), parameters); }
             catch (Exception ex) when (ex is Acornima.ParseErrorException or InvalidOperationException) { /* Syntax/binding validators report these independently. */ }
-            foreach (var message in messages) yield return new(message.Code, location + "/text", message.Message, ValidationStage: "dataflow", Rule: message.Rule);
+            foreach (var message in messages) yield return new(message.Code, location + "/text", message.Message, ValidationStage: "dataflow", Rule: message.Rule)
+                { Computation = message.Context with { ProducerLocation = location + "/text" } };
         }
         for (var i = 0; i < value.Members.Count; i++)
             foreach (var diagnostic in Values(value.Members[i].Value, location + "/members/" + i + "/value", resolve)) yield return diagnostic;
@@ -70,49 +79,83 @@ internal static class PlanningComputationContracts
             foreach (var diagnostic in Values(value.Items[i], location + "/items/" + i, resolve)) yield return diagnostic;
     }
 
-    private static void Walk(Node node, Dictionary<string, JsonObject> scope, HashSet<(string Code, string Rule, string Message)> messages)
+    private static Dictionary<string, JsonObject> InitialScope(Node node, IReadOnlyDictionary<string, JsonObject> parameters)
     {
-        if (node is BlockStatement) scope = new(scope, StringComparer.Ordinal);
+        var scope = new Dictionary<string, JsonObject>(parameters, StringComparer.Ordinal);
+        foreach (var name in ComputationInferenceProfile.UntrustedGlobals(node)) scope[name] = GroundedTypes.Opaque();
+        return scope;
+    }
+
+    private static void Walk(Node node, Dictionary<string, JsonObject> scope, Dictionary<string, Node> origins, List<Finding> messages, string expression)
+    {
+        if (node is BlockStatement) { scope = new(scope, StringComparer.Ordinal); origins = new(origins, StringComparer.Ordinal); }
         if (node is ArrowFunctionExpression or FunctionExpression or FunctionDeclaration)
         {
             var parameters = node switch { ArrowFunctionExpression a => a.Params.ToArray(), FunctionExpression f => f.Params.ToArray(), FunctionDeclaration f => f.Params.ToArray(), _ => [] };
             scope = new(scope, StringComparer.Ordinal);
-            foreach (var parameter in parameters.OfType<Identifier>()) scope[parameter.Name] = GroundedTypes.Opaque();
+            origins = new(origins, StringComparer.Ordinal);
+            foreach (var parameter in parameters.OfType<Identifier>()) { scope[parameter.Name] = GroundedTypes.Opaque(); origins.Remove(parameter.Name); }
         }
         if (node is VariableDeclarator { Id: Identifier identifier } variable)
         {
-            if (variable.Init is { } initializer) Walk(initializer, scope, messages);
+            if (variable.Init is { } initializer) Walk(initializer, scope, origins, messages, expression);
             if (Schema(variable.Init, scope) is { } contract) scope[identifier.Name] = contract;
             else scope[identifier.Name] = GroundedTypes.Opaque();
+            if (variable.Init is { } origin) origins[identifier.Name] = origin;
+            else origins.Remove(identifier.Name);
             return;
         }
         if (node is CallExpression { Callee: MemberExpression { Property: Identifier { Name: "map" or "filter" or "every" or "some" } } collection, Arguments.Count: 1 } call &&
             call.Arguments[0] is ArrowFunctionExpression callback && Schema(collection.Object, scope) is { } arrayContract && HasType(arrayContract, "array"))
         {
-            Walk(collection, scope, messages);
+            Walk(collection, scope, origins, messages, expression);
             var local = new Dictionary<string, JsonObject>(scope, StringComparer.Ordinal);
             for (var i = 0; i < callback.Params.Count; i++)
                 if (callback.Params[i] is Identifier parameter) local[parameter.Name] = i switch
                 { 0 => Element(arrayContract), 1 => new() { ["type"] = "integer" }, 2 => arrayContract, _ => GroundedTypes.Opaque() };
-            Walk(callback.Body, local, messages); return;
+            var localOrigins = new Dictionary<string, Node>(origins, StringComparer.Ordinal);
+            foreach (var parameter in callback.Params.OfType<Identifier>()) localOrigins.Remove(parameter.Name);
+            Walk(callback.Body, local, localOrigins, messages, expression); return;
         }
         if (node is MemberExpression { Computed: true } dynamicMember && Name(dynamicMember) is null && Schema(dynamicMember.Object, scope) is { } dynamicOwner &&
             (Unknown(dynamicOwner) || HasType(dynamicOwner, "object")))
-            messages.Add(("COMPUTATION_FIELD_UNDECLARED", MemberIdentity(dynamicMember), "A dynamic projection cannot establish fields of an opaque or closed object; validate the whole value before projection."));
+            Report(dynamicMember, dynamicOwner, "COMPUTATION_FIELD_UNDECLARED", "A dynamic projection cannot establish fields of an opaque or closed object; validate the whole value before projection.");
         if (node is MemberExpression member && Name(member) is { } name && Schema(member.Object, scope) is { } schema &&
             (Unknown(schema) || HasType(schema, "object") || schema["properties"] is JsonObject) &&
             !Declares(schema, name) &&
             name is not ("toString" or "hasOwnProperty" or "valueOf" or "toLocaleString"))
-            messages.Add(("COMPUTATION_FIELD_UNDECLARED", MemberIdentity(member), "Property '" + name + "' is not declared by this computation parameter's producer contract. Declared fields: " + string.Join(", ", (schema["properties"] as JsonObject ?? []).Select(p => p.Key)) +
-                ". Select an established producer binding or obtain the missing runtime observation; trying alternative field names cannot establish that data."));
+            Report(member, schema, "COMPUTATION_FIELD_UNDECLARED", "Property '" + name + "' is not declared by this computation parameter's producer contract. Declared fields: " + string.Join(", ", (schema["properties"] as JsonObject ?? []).Select(p => p.Key)) +
+                ". Select an established producer binding or obtain the missing runtime observation; trying alternative field names cannot establish that data.");
         if (node is MemberExpression arrayMember && Name(arrayMember) is { } field && Schema(arrayMember.Object, scope) is { } array && HasType(array, "array") &&
             !ArrayMembers.Contains(field) && !uint.TryParse(field, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out _))
-            messages.Add(("COMPUTATION_COLLECTION_FIELD_INVALID", MemberIdentity(arrayMember), "Property '" + field + "' belongs to no declared array result. A collection cannot supply an individual item's fields. " +
-                "Use a declared element binding in the approved loop. If the requested per-item actions require a missing loop, revise the intent plan; do not silently select the first item or discard items."));
+            Report(arrayMember, array, "COMPUTATION_COLLECTION_FIELD_INVALID", "Property '" + field + "' belongs to no declared array result. A collection cannot supply an individual item's fields. " +
+                "Use a declared element binding in the approved loop. If the requested per-item actions require a missing loop, revise the intent plan; do not silently select the first item or discard items.");
         if (node is MemberExpression stringMember && Name(stringMember) is { } stringField && Schema(stringMember.Object, scope) is { } text && HasType(text, "string") &&
             !SupportsStringMember(text, stringField))
-            messages.Add(("COMPUTATION_FIELD_UNDECLARED", MemberIdentity(stringMember), "Property '" + stringField + "' is not supported by every non-null alternative of this computation parameter's string contract."));
-        foreach (var child in node.ChildNodes) Walk(child, scope, messages);
+            Report(stringMember, text, "COMPUTATION_FIELD_UNDECLARED", "Property '" + stringField + "' is not supported by every non-null alternative of this computation parameter's string contract.");
+        foreach (var child in node.ChildNodes) Walk(child, scope, origins, messages, expression);
+
+        void Report(MemberExpression member, JsonObject receiver, string code, string message)
+        {
+            Node origin = member.Object;
+            var visited = new HashSet<string>(StringComparer.Ordinal);
+            while (origin is Identifier alias && visited.Add(alias.Name) && origins.TryGetValue(alias.Name, out var initializer)) origin = initializer;
+            var unsupported = Unknown(receiver) && origin is not Identifier;
+            var limitation = unsupported ? "inference_unsupported" : Unknown(receiver) ? "producer_contract_missing" : "field_undeclared";
+            string Source(Node part) => expression[part.Start..part.End];
+            if (unsupported) message = "No static result contract is established for '" + Source(origin) + "'; cannot validate '" + Source(member) +
+                "'. Use a supported computation or validate its whole result before projection. Renaming fields or requesting a different producer observation does not repair unsupported inference.";
+            var names = new SortedSet<string>(StringComparer.Ordinal);
+            void Identifiers(Node part)
+            {
+                if (part is Identifier id && scope.ContainsKey(id.Name)) names.Add(id.Name);
+                foreach (var child in part.ChildNodes) Identifiers(child);
+            }
+            Identifiers(member.Object); Identifiers(origin);
+            var contracts = new JsonObject(names.Select(name => new KeyValuePair<string, JsonNode?>(name, scope[name].DeepClone())));
+            messages.Add(new(code, MemberIdentity(member), message, new(Source(member), limitation, receiver.DeepClone().AsObject(), contracts,
+                ReferenceEquals(origin, member.Object) ? null : Source(origin))));
+        }
     }
 
     private static bool SupportsStringMember(JsonObject schema, string name)
@@ -146,6 +189,7 @@ internal static class PlanningComputationContracts
         ObjectExpression obj when obj.Properties.All(p => p is Property { Computed: false }) => GroundedTypes.Object(obj.Properties.Cast<Property>().Select(p =>
             ((p.Key as Identifier)?.Name ?? (p.Key as StringLiteral)?.Value ?? "", Schema(p.Value, scope) ?? GroundedTypes.Opaque()))),
         ArrayExpression array => new() { ["type"] = "array", ["items"] = new JsonObject { ["anyOf"] = new JsonArray(array.Elements.Select(e => (JsonNode)(Schema(e, scope) ?? GroundedTypes.Opaque()).DeepClone()).ToArray()) } },
+        RegExpLiteral or BigIntLiteral => GroundedTypes.Opaque(),
         Literal literal => new() { ["type"] = literal.Value switch { null => "null", string => "string", bool => "boolean", _ => "number" } },
         LogicalExpression { Operator: Acornima.Operator.LogicalOr or Acornima.Operator.NullishCoalescing } expression => Schema(expression.Left, scope),
         MemberExpression member when Schema(member.Object, scope) is { } parent && HasType(parent, "array") &&

@@ -80,8 +80,9 @@ public sealed class PlanningSessionService(
     private PlanningSessionInspection ReadWorkflowSession(KeyVaultRecordValue record)
         => PlanningSessionHistory.Read(record.Value, Tenant, record.Key, true, record.UpdatedAt);
 
-    public async Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null)
+    public async Task<PlanningSession> StartAsync(string name, string prompt, bool reviseExisting, CancellationToken ct, JsonObject? failureEvidence = null, string mode = PlanningMode.Interactive)
     {
+        PlanningMode.Validate(mode);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
         name = name.Trim();
@@ -105,6 +106,7 @@ public sealed class PlanningSessionService(
         {
             Request = new PlanningRequest
             {
+                Mode = mode,
                 TenantId = Tenant,
                 Name = name,
                 Prompt = prompt.Trim(),
@@ -237,7 +239,7 @@ public sealed class PlanningSessionService(
             current.UpdatedAtUtc = completion.UpdatedAt;
         }
 
-        if (command.Kind is "cancel" or "edit_semantic" or "revise" or "configure_generation" or "answer")
+        if (command.Kind is "cancel" or "edit_semantic" or "revise" or "configure_generation" or "answer" or "answer_decision" or "configure_mode")
         {
             var recordedUsage = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, current.Request.SessionId, EfPlanningSessionStore.Author, ct);
             if (recordedUsage is not null) current.Usage = JsonSerializer.Deserialize(recordedUsage.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);

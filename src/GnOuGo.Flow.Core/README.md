@@ -1,5 +1,7 @@
 # GnOuGo.Flow — YAML Workflow DSL Engine
 
+`ExpressionContractInference` models successful results without executing sample data. `ComputationInferenceProfile` documents supported scalar conversions and conservatively excludes shadowed or reassigned intrinsic names. `String` and URI encode/decode calls over one declared JSON scalar infer strings, while opaque/container inputs and unsupported forms remain uninferred. Runtime exceptions and explicit validation boundaries remain authoritative; scalar conversion is not business validation. Provider-neutral `PlanningDiagnostic.Computation` optionally carries expression, contract and producer context for consumers.
+
 `GeneratedFunctionDocumentation.Validate` exposes the generated-workflow JSDoc
 requirements for earlier construction checks. It validates manually authored generated-function contracts and reports missing
 typed parameters and return documentation. Business intent does not contain helper functions.
@@ -1320,6 +1322,7 @@ Runs the injected semantic/grounded planner to business clarification or final a
   type: workflow.plan
   input:
     raw_prompt: "${data.inputs.intent}"
+    planning_mode: interactive # or auto; independent of runtime human.input
     generator:
       model: "${data.inputs.model}"
       reasoning: medium
@@ -1332,6 +1335,10 @@ Runs the injected semantic/grounded planner to business clarification or final a
       max_elapsed_ms: 18000000
       unverifiable: fail
 ```
+
+Business alternatives use a durable `PlanningDecision` with one preferred option. `planning_mode` defaults to `interactive`; `auto` records the preferred answer and continues. Hosts inject `IPlanningDecisionProvider` to collect planner commands; without it the session remains `waiting_for_decision`. This provider is separate from `IHumanInputProvider`, which retains existing review and runtime behavior.
+
+Optional schema-8 prerequisite diagnostics and repair checkpoints preserve exact scopes, root/dependent causes, candidate fingerprints and explicit business revision answers. Technical prerequisites never request human decisions. An unavailable mandatory outcome stops Auto; Interactive uses a scoped business clarification through the separate planner provider. Runtime `human.input`, FinalReview and workflow approval remain unchanged.
 
 Results include status, session ID and revision. Approved results also include artifact hash and YAML obtained from trusted storage. Without a human provider, planning pauses for the host to collect review or clarification. [Architecture and persistence](../../docs/workflow-planning-v2.md).
 

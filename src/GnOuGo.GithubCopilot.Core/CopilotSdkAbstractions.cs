@@ -42,4 +42,8 @@ public sealed record CopilotSdkSessionConfiguration(
     CopilotProviderResolution? Provider,
     ICopilotHumanInputProvider? HumanInputProvider,
     ICopilotPermissionGrantStore? PermissionGrantStore = null,
-    ICopilotPermissionEventSink? PermissionEventSink = null);
+    ICopilotPermissionEventSink? PermissionEventSink = null,
+    ICopilotSessionFileSystem? FileSystem = null)
+{
+    internal CopilotTransientSessionState? SessionState { get; init; }
+}

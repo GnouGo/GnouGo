@@ -130,6 +130,24 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         await Assert.ThrowsAsync<PlanningConflictException>(() => Factory().OpenAsync(Context(new Client()), changed, Ct));
     }
 
+    [Fact]
+    public async Task SchemaEightRequestWithoutModeDefaultsToInteractiveAfterRestart()
+    {
+        string id;
+        await using (var session = await Factory().OpenAsync(Context(new Client()), Initial(), Ct)) { id = session.Session.Request.SessionId; }
+        var records = new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db"));
+        foreach (var collection in new[] { "flow-planning-definitions-v8", "flow-planning-sessions-v8" })
+        {
+            var record = (await records.GetAsync(collection, "tenant", id, "test", Ct))!;
+            var json = JsonNode.Parse(record.Value)!.AsObject();
+            (json["request"]?.AsObject() ?? json).Remove("mode");
+            await records.UpsertAsync(collection, "tenant", id, json.ToJsonString(), "test", Ct);
+        }
+        await using var restored = await Factory().OpenAsync(Context(new Client()), Initial(), Ct);
+        Assert.Equal(PlanningMode.Interactive, restored.Session.Request.Mode);
+        Assert.Empty(restored.Session.Decisions); Assert.Null(restored.Session.PendingDecision);
+    }
+
     private static PlanningSession Initial() => new()
     {
         Request = new() { TenantId = "tenant", Prompt = "secret intent", Options = new() { ["llm_budget"] = new JsonObject { ["max_calls"] = 1 } } }

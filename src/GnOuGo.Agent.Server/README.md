@@ -673,3 +673,25 @@ context, with byte sizes, labelled token estimates, reported usage and HTTP
 attempts. Content loads on demand from encrypted tenant-scoped storage; missing
 usage is unknown. Historical planner requests remain available as journal history
 when trace links have expired. See [configuration, retention and limitations](../../docs/llm-protocol-and-traces.md).
+
+## Planner decisions
+
+Planner findings expose expandable computation details: the failing expression, where its value came from, known type contracts and the root producer blocking dependent operations. The API carries the same optional context. These details remain in encrypted, tenant-scoped planning payloads; old sessions without them remain readable. See [computation inference verification](../../docs/planner-computation-inference-2026-09-23.md).
+
+The workflow designer and chat offer Interactive (default) and Auto planning modes. Interactive cards show the preferred business option, alternatives, context and optional custom text. Submit resumes the saved phase; Cancel planning ends the session. Switching a pending decision to Auto records the preferred answer and continues. Decision history includes automatic reasons. FinalReview and runtime permissions remain separate.
+
+`POST /api/planning` accepts `mode`. Planning commands support `answer_decision` (`expectedRevision`, `decisionAnswer: {decisionId, optionId}` or `{decisionId, text}`) and `configure_mode` (`mode`). Chat clients use `GET /api/chat/conversations/{conversationId}/planning` and `POST /api/chat/conversations/{conversationId}/planning/{id}/commands`. Chat creation accepts `planningMode`.
+
+Chat origin links and planning state are encrypted through KeyVault. Reopening a chat restores pending decisions; after a server restart, answering resumes only the saved planner through FinalReview. Prior surrounding workflow steps are never replayed, and the chat decision endpoint cannot approve or execute workflows. Workflow-owned sessions remain inspection-only in the designer.
+
+Unfinished planning conversations also appear in a fresh browser's chat list, even before a workflow has produced a completed chat turn. See [local Designer/Chat acceptance evidence](../../docs/planner-decisions-2026-09-23.md).
+
+Run `dotnet test tests/GnOuGo.Agent.Server.Tests -m:1 -warnaserror -p:SkipClientBuild=true` for lifecycle, encrypted persistence and shared-card coverage.
+
+### Prerequisite repair and capability gaps
+
+Designer and originating Chat display structured prerequisite findings, root/dependent links and unapplied repair summaries. Supported business scope revisions use a shared explicit Accept / Keep original and stop / Cancel planning card. Previously answered revisions appear in the history. `answer` submits `answers: {"accept_scope_revision": true|false}` with the current `expectedRevision`; this changes only the proposed planning scope and cannot approve or execute a workflow. Workflow-owned sessions remain inspection-only in Designer.
+
+The protected review publisher declares its own limitation: findings are placed in one review body; inline diff comments are unsupported. The generic planner does not recognize publisher names or rewrite an inline requirement into a review body. Interactive requires explicit scope consent; Auto stops if a mandatory outcome cannot be supported. Existing protected publication confirmations, fresh-head verification and uncertain-write replay rules remain enforced.
+
+Default cumulative budgets remain eight model calls and two replans. Before a repair is installed, the host accounts for reusable coverage, known selection work, binding batches and known outstanding scenario requests. The estimate is a lower bound, not a guarantee of completion. A budget stop retains the coherent accepted state and its encrypted unapplied proposal. [Verification and limitations](../../docs/planner-prerequisite-repair-2026-09-23.md).

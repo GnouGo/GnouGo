@@ -17,7 +17,10 @@ public sealed class BindingBatchTests
         state.Grounding = CapabilityGrounder.Create(state);
         foreach (var page in state.Grounding.Pages) state.Grounding.Results.Add(new(page.Id, page.ActionIds.Select(a => new GroundingDecision(a, "none_of_the_above", [], "Pure calculation.")).ToList()));
         state.Grounding.Selections = state.SemanticPlan.Actions.Select(a => new GroundingSelection(a.Id, [], "Pure calculation.")).ToList();
-        state.Request.Generation.MaxInputTokensPerRequest = 7500;
+        // Keep this a batching test as the shared response contract evolves: one full action
+        // fits while the complete three-action request exceeds the allowance.
+        state.Request.Generation.MaxInputTokensPerRequest = PlanningDecisions.EstimateInputTokens(state,
+            CapabilityGrounder.BindingPrompt(state), PlanningSchemas.Grounded([])) - 2500;
         runtime.Respond = request =>
         {
             var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..]));
@@ -44,7 +47,7 @@ public sealed class BindingBatchTests
         Assert.NotNull(state.GroundedPlan); Assert.Null(state.BindingProgress);
         Assert.Equal(new[] { "a0", "a1", "a2" }, state.GroundedPlan.Operations.Select(o => o.SemanticAction));
         Assert.InRange(runtime.Calls.Count, 2, 3);
-        Assert.All(runtime.Calls, r => Assert.True(PlanningJsonTransport.EstimateInputTokens(r.Prompt, r.StructuredOutputSchema!.AsObject()) <= 7500));
+        Assert.All(runtime.Calls, r => Assert.True(PlanningJsonTransport.EstimateInputTokens(r.Prompt, r.StructuredOutputSchema!.AsObject()) <= state.Request.Generation.MaxInputTokensPerRequest));
         Assert.Empty(CapabilityGrounder.ValidateBindings(state));
         Assert.NotNull(GroundedPlanValidator.Validate(state.GroundedPlan, state.Catalog!).Plan);
     }
@@ -91,6 +94,37 @@ public sealed class BindingBatchTests
         ((CalculateGroundedOperation)state.BindingProgress.Accepted.Operations[0]).Value = new() { Kind = "result", Source = "unissued" };
         await Assert.ThrowsAsync<InvalidOperationException>(() => GroundedBindingBatches.ApplyAsync(state, runtime, Ct));
         Assert.Single(runtime.Calls);
+    }
+    [Fact]
+    public async Task DecisionInLaterBatchPreservesAcceptedPrefixAndCallBudget()
+    {
+        var (state, runtime) = await Setup();
+        await GroundedBindingBatches.ApplyAsync(state, runtime, Ct);
+        var prefix = PlanningJsonTransport.Grounded(state.BindingProgress!.Accepted).ToJsonString();
+        var completed = state.BindingProgress.CompletedActions.ToArray();
+        var original = runtime.Respond!;
+        runtime.RawDecisionResponse = true;
+        runtime.Respond = request =>
+        {
+            var result = original(GnOuGo.Planning.Examples.PlanningCorpus.DecisionResultRequest(request)).Json!;
+            var proposal = PlanningDecisionTests.Proposal();
+            proposal["decision"]!["options"]![0]!["result"] = result.DeepClone();
+            proposal["decision"]!["options"]![1]!["result"] = result.DeepClone();
+            proposal["decision"]!["options"]![1]!["result"]!["operations"]![0]!["implementation"]!["value"]!["number"] = 2;
+            return new() { Json = proposal };
+        };
+        var planner = new TypedWorkflowPlanner();
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(PlanningStatus.WaitingForDecision, state.Status);
+        Assert.Equal(prefix, PlanningJsonTransport.Grounded(state.BindingProgress!.Accepted).ToJsonString());
+        Assert.DoesNotContain(state.PendingDecision!.ActionIds, completed.Contains);
+        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+        state = await planner.AdvanceAsync(state, new() { Kind = "answer_decision", ExpectedRevision = state.Revision, DecisionAnswer = new(state.PendingDecision!.Id, "casual") }, runtime, Ct);
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        var applied = state.GroundedPlan ?? state.BindingProgress!.Accepted;
+        Assert.All(applied.Operations.Where(o => completed.Contains(o.SemanticAction)), o => Assert.Equal(1, ((CalculateGroundedOperation)o).Value.Number));
+        Assert.Contains(applied.Operations, o => !completed.Contains(o.SemanticAction) && ((CalculateGroundedOperation)o).Value.Number == 2);
+        Assert.Equal(2, state.ModelCalls); Assert.Equal(2, runtime.Calls.Count);
     }
     [Fact]
     public async Task LiteralArgumentsRetainTheirRangeAndFiniteValueProofs()

@@ -1,0 +1,13 @@
+<section class="planner-scope-revision" aria-label="Business scope revision">
+    <strong>A requested outcome is unavailable</strong>
+    <p style="white-space: pre-wrap">@Question</p>
+    <button class="btn btn-primary" disabled="@Busy" @onclick="() => Answer.InvokeAsync(true)">Accept revised outcome</button>
+    <button class="btn btn-secondary" disabled="@Busy" @onclick="() => Answer.InvokeAsync(false)">Keep original and stop</button>
+    <button class="btn btn-outline-secondary" disabled="@Busy" @onclick="() => Cancel.InvokeAsync()">Cancel planning</button>
+</section>
+@code {
+    [Parameter, EditorRequired] public string Question { get; set; } = "";
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback<bool> Answer { get; set; }
+    [Parameter] public EventCallback Cancel { get; set; }
+}

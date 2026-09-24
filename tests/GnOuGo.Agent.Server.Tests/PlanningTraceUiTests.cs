@@ -17,6 +17,62 @@ public sealed class PlanningTraceUiTests : BunitContext
 {
     private static CancellationToken Ct => Xunit.TestContext.Current.CancellationToken;
 
+    [Fact]
+    public async Task PrerequisiteCauseAndUnappliedRepairSurvivePersistenceAndDesignerRendering()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
+        var state = Session("repair", "repair failure", PlanningStatus.Stopped);
+        state.Diagnostics = [new("SEMANTIC_BINDING_BLOCKED", "/actions/consumer", "Waiting for original evidence")
+        { Prerequisite = new("blocked_dependency", "PRIVATE_PREREQUISITE_CONTEXT", ConsumerCapability: "issued", ContractPath: "/source", RootActionId: "producer") }];
+        state.PendingRepair = new() { InputHash = "input", CandidateHash = "candidate", ActionIds = ["producer", "consumer"], Candidate = new() { Summary = "Proposed replacement" } };
+        state.Answers = [new("Accept revised business outcome?", new() { ["accept_scope_revision"] = true })];
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var restored = (await fixture.Store.LoadAsync("planning-tests", "repair", Ct))!;
+        var dto = PlanningEndpoints.ToDto(restored);
+        Assert.Equal("producer", Assert.Single(dto.Diagnostics).Prerequisite!.RootActionId);
+        Assert.Equal(new[] { "producer", "consumer" }, dto.PendingRepair!.ActionIds); Assert.Single(dto.Clarifications);
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/repair");
+        var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "repair"));
+        cut.WaitForAssertion(() => { Assert.Contains("Proposed repair", cut.Markup); Assert.Contains("Blocked by action:", cut.Markup); Assert.Contains("Answered business clarification", cut.Markup); });
+        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+            Assert.DoesNotContain("PRIVATE_PREREQUISITE_CONTEXT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
+        await DisposeComponentsAsync();
+    }
+
+    [Fact]
+    public async Task ComputationCauseSurvivesEncryptedPersistenceDtoAndDesignerRendering()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        Configure(fixture);
+        var state = Session("computation", "computation failure", PlanningStatus.Stopped);
+        state.Diagnostics = [new("GROUNDED_CONTRACT_INVALID", "/scopes/main/operations/consumer", "Blocked by computation", Rule: "alias/name", ValidationStage: "grounded")
+        {
+            Computation = new("alias.name", "inference_unsupported", new() { ["x-gnougo-opaque"] = true },
+                new() { ["text"] = new System.Text.Json.Nodes.JsonObject { ["type"] = "string" } }, "JSON.parse(text)", "/scopes/main/operations/parse")
+        }];
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var reopened = new EfPlanningSessionStore(fixture, fixture.Records);
+        var restored = await reopened.LoadAsync("planning-tests", "computation", Ct);
+        Assert.NotNull(restored);
+        var dto = Assert.Single(PlanningEndpoints.ToDto(restored).Diagnostics);
+        Assert.Equal("grounded", dto.ValidationStage); Assert.Equal("alias/name", dto.Rule);
+        Assert.Equal("JSON.parse(text)", dto.Computation!.OriginExpression);
+        Assert.Equal("/scopes/main/operations/parse", dto.Computation.ProducerLocation);
+        Assert.Null(await reopened.LoadAsync("other-tenant", "computation", Ct));
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/computation");
+        var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "computation"));
+        cut.WaitForAssertion(() =>
+        {
+            var details = cut.Find(".planning-computation-finding").TextContent;
+            Assert.Contains("alias.name", details); Assert.Contains("JSON.parse(text)", details);
+            Assert.Contains("Blocked by producer:", details); Assert.Contains("/scopes/main/operations/parse", details);
+            Assert.Contains("Known argument contracts:", details);
+        });
+        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+            Assert.DoesNotContain("JSON.parse(text)", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
+        await DisposeComponentsAsync();
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

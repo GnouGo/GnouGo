@@ -25,14 +25,26 @@ internal sealed class McpCopilotHumanInputProvider : ICopilotHumanInputProvider
         _currentRequest.Value = new RequestContext(
             server,
             cancellationToken,
-            CodeMcpTraceContext.Capture(_traceContext));
+            CodeMcpTraceContext.Capture(_traceContext),
+            _progress.Capture());
         return new Scope(this, previous);
     }
 
-    public async Task<CopilotHumanInputResponse> RequestAsync(CopilotHumanInputRequest request, CancellationToken cancellationToken)
+    public ICopilotHumanInputProvider Capture() => new Captured(this, _currentRequest.Value);
+
+    public Task<CopilotHumanInputResponse> RequestAsync(CopilotHumanInputRequest request, CancellationToken cancellationToken)
+        => RequestCoreAsync(request, _currentRequest.Value, cancellationToken);
+
+    private sealed class Captured(McpCopilotHumanInputProvider owner, RequestContext? context) : ICopilotHumanInputProvider
     {
-        var current = _currentRequest.Value
-            ?? throw new InvalidOperationException("Interactive Copilot callbacks require an active MCP request context.");
+        public Task<CopilotHumanInputResponse> RequestAsync(CopilotHumanInputRequest request, CancellationToken cancellationToken)
+            => owner.RequestCoreAsync(request, context, cancellationToken);
+    }
+
+    private async Task<CopilotHumanInputResponse> RequestCoreAsync(CopilotHumanInputRequest request, RequestContext? current, CancellationToken cancellationToken)
+    {
+        if (current is null)
+            throw new InvalidOperationException("Interactive Copilot callbacks require an active MCP request context.");
         using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
             current.CancellationToken);
@@ -40,7 +52,7 @@ internal sealed class McpCopilotHumanInputProvider : ICopilotHumanInputProvider
             ? ConvertSchema(requestedSchema)
             : BuildAnswerSchema(request);
         var progressKind = NormalizeProgressKind(request.Kind);
-        _progress.Report(
+        current.Progress.Report(
             progressKind + ".requested",
             "thinking",
             BuildWaitingMessage(request.Kind),
@@ -61,7 +73,7 @@ internal sealed class McpCopilotHumanInputProvider : ICopilotHumanInputProvider
         }
         catch (OperationCanceledException)
         {
-            _progress.Report(
+            current.Progress.Report(
                 progressKind + ".cancelled",
                 "warning",
                 BuildCancelledMessage(request.Kind),
@@ -83,7 +95,7 @@ internal sealed class McpCopilotHumanInputProvider : ICopilotHumanInputProvider
         var content = result.Content is null
             ? (JsonElement?)null
             : JsonSerializer.SerializeToElement(result.Content, CodeMcpJsonContext.Default.DictionaryStringJsonElement);
-        _progress.Report(
+        current.Progress.Report(
             progressKind + ".completed",
             accepted ? "info" : "warning",
             BuildCompletedMessage(request.Kind, accepted),
@@ -169,7 +181,8 @@ internal sealed class McpCopilotHumanInputProvider : ICopilotHumanInputProvider
     private sealed record RequestContext(
         McpServer Server,
         CancellationToken CancellationToken,
-        CodeMcpTraceContext? TraceContext);
+        CodeMcpTraceContext? TraceContext,
+        CodeProgressReporter Progress);
 
     private sealed class Scope(McpCopilotHumanInputProvider owner, RequestContext? previous) : IDisposable
     {

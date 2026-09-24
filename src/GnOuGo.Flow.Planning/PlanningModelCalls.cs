@@ -42,13 +42,18 @@ internal static class PlanningModelCalls
         var findings = PlanningContractValidation.ValidateInstanceFindings(json, call.Request.StructuredOutputSchema!);
         if (findings.Count != 0)
         {
-            var rejectedHash = PlanningGraphCompiler.Fingerprint(json.ToJsonString());
+            var rejectedHash = PlanningGraphCompiler.Fingerprint((call.Request.StructuredOutputSchema!["properties"]?["decision"] is not null && json["decision"] is null ? json["result"] ?? json : json).ToJsonString());
             if (state.RejectedProposalHash == rejectedHash) throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated an unchanged invalid proposal.");
             state.RejectedProposalHash = rejectedHash;
             throw new PlanningResponseException(findings.Select(f => new PlanningDiagnostic("PLANNING_RESPONSE_INVALID",
                 f.InstancePointer.Replace("/implementation/", "/", StringComparison.Ordinal), f.Message, ValidationStage: purpose)).ToList());
         }
         state.RejectedProposalHash = null;
+        return call.Request.StructuredOutputSchema!["properties"]?["decision"] is not null ? json : ReadResult(state, json, call.Request.StructuredOutputSchema!);
+    }
+
+    internal static JsonNode ReadResult(PlanningSession state, JsonNode json, JsonNode schema)
+    {
         if (json["blockedActions"] is JsonArray { Count: > 0 } blockers)
         {
             var actions = SemanticPlanning.Actions(state.SemanticPlan!).Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
@@ -56,9 +61,9 @@ internal static class PlanningModelCalls
                 blockers.Select(b => b!["actionId"]!.ToString()).Distinct().Count() != blockers.Count ||
                 new[] { "inputs", "operations", "outputs", "subflows" }.Any(field => json[field] is JsonArray { Count: > 0 }))
                 throw new PlanningResponseException([new("BINDING_BLOCKER_INVALID", "/blockedActions", "A blocked binding must name distinct existing semantic actions, explain each missing prerequisite, and contain no executable proposal.")]);
-            throw new PlanningResponseException(blockers.Select(b => new PlanningDiagnostic("SEMANTIC_BINDING_BLOCKED", "/actions/" + b!["actionId"]!.ToString(), b["reason"]!.ToString(), ValidationStage: "grounding")).ToList());
+            throw new PlanningResponseException(PlanningPrerequisites.Read(state, blockers));
         }
-        return PlanningJsonTransport.ModelGrounded(json, call.Request.StructuredOutputSchema!, unpack: true);
+        return PlanningJsonTransport.ModelGrounded(json, schema, unpack: true);
     }
 
 }

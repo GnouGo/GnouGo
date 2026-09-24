@@ -1,4 +1,4 @@
-﻿using GnOuGo.GithubCopilot.Mcp;
+using GnOuGo.GithubCopilot.Mcp;
 using GnOuGo.Mcp.Core;
 using GnOuGo.GithubCopilot.Core;
 using GnOuGo.KeyVault.Core.Services;
@@ -60,7 +60,9 @@ builder.Services.AddSingleton<CodePolicy>();
 builder.Services.AddSingleton<CodeProjectService>();
 builder.Services.AddSingleton<CodeMcpTraceContextAccessor>();
 builder.Services.AddSingleton<CodeProgressReporter>();
-builder.Services.AddSingleton<ICodeAssistantClient, GitHubCopilotCodeClient>();
+builder.Services.AddSingleton<ICopilotSessionFileSystemFactory, LocalProjectSessionFsFactory>();
+builder.Services.AddSingleton<CopilotMcpConfiguration>();
+builder.Services.AddSingleton<CopilotCodeService>();
 builder.Services.AddTransient<CodeTools>();
 builder.Services.AddTransient<CopilotTools>();
 builder.Services

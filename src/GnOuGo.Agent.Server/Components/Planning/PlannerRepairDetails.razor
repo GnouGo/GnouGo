@@ -1,0 +1,34 @@
+@if (Session.PendingRepair is { } repair)
+{
+    <aside class="planner-repair" aria-label="Unapplied planning repair">
+        <strong>Proposed repair — not applied</strong>
+        <p>The accepted plan is retained. A replacement is saved for: @string.Join(", ", repair.ActionIds).</p>
+        <details><summary>Proposed scope and reason</summary><p style="white-space: pre-wrap">@repair.Summary</p></details>
+        @if (repair.AwaitingConsent) { <p>The requested business outcome needs an explicit revision.</p> }
+    </aside>
+}
+@if (ShowFindings && Session.Diagnostics.Count > 0)
+{
+    <ul>@foreach (var finding in Session.Diagnostics)
+    {
+        <li><strong>@finding.Code</strong>: @finding.Message <small>@finding.Location</small>
+            @if (finding.Prerequisite is { } prerequisite)
+            {
+                <p>@prerequisite.Description</p>
+                @if (prerequisite.RootActionId is { } root) { <p>Blocked by action: <code>@root</code></p> }
+                @if (prerequisite.ContractPath is { } path) { <p>Required consumer input: <code>@path</code></p> }
+            }
+        </li>
+    }</ul>
+}
+@foreach (var answer in Session.Clarifications)
+{
+    <details class="planner-clarification-history">
+        <summary>Answered business clarification</summary>
+        <p style="white-space: pre-wrap">@answer.Question</p><pre>@answer.Answers.ToJsonString()</pre>
+    </details>
+}
+@code {
+    [Parameter, EditorRequired] public PlanningSessionDto Session { get; set; } = default!;
+    [Parameter] public bool ShowFindings { get; set; } = true;
+}

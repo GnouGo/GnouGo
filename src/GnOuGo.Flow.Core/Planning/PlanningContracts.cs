@@ -7,6 +7,7 @@ namespace GnOuGo.Flow.Core.Planning;
 
 public sealed class PlanningRequest
 {
+    public string Mode { get; set; } = PlanningMode.Interactive;
     public string TenantId { get; set; } = "";
     public string SessionId { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "generated";
@@ -43,12 +44,15 @@ public static class PlanningStatus
     public const string Created = "created", Generating = "generating", Clarification = "clarification",
         FinalReview = "final_review", Approved = "approved", Saving = "saving", Saved = "saved",
         Stopped = "stopped", Failed = "failed", Cancelled = "cancelled";
-    public static bool IsWaiting(string status) => status is Clarification or FinalReview;
+    public const string WaitingForDecision = "waiting_for_decision";
+    public static bool IsWaiting(string status) => status is Clarification or FinalReview or WaitingForDecision;
     public static bool IsTerminal(string status) => status is Approved or Saved or Stopped or Failed or Cancelled;
 }
 
 public sealed class PlanningCommand
 {
+    public string? Mode { get; set; }
+    public PlanningDecisionAnswer? DecisionAnswer { get; set; }
     public string Kind { get; set; } = "advance";
     public long ExpectedRevision { get; set; }
     public string? ArtifactHash { get; set; }
@@ -60,6 +64,7 @@ public sealed class PlanningCommand
 /// <summary>The sole durable state. Hosts encrypt its content and use optimistic revisions.</summary>
 public sealed class PlanningSession
 {
+    public IReadOnlyList<PlanningQuestion> GetQuestions() => PendingRepair?.Questions ?? SemanticPlan?.Questions ?? [];
     public string? ComputeArtifactHash() => Yaml is null ? null : Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(new JsonObject
     {
         ["yaml"] = Yaml,
@@ -92,6 +97,11 @@ public sealed class PlanningSession
     public List<PlanningScenarioResult> Scenarios { get; set; } = [];
     public PlanningFixtures? Fixtures { get; set; }
     public List<PlanningAnswer> Answers { get; set; } = [];
+    public PlanningDecision? PendingDecision { get; set; }
+    public PlanningDecisionContinuation? DecisionContinuation { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningRepairCheckpoint? PendingRepair { get; set; }
+    public List<PlanningDecisionRecord> Decisions { get; set; } = [];
     public int ClarificationRounds { get; set; }
     public int ReplanAttempts { get; set; }
     public int ModelCalls { get; set; }
@@ -139,7 +149,30 @@ public sealed class PlanningCapability
 public sealed record PlanningLiteralBinding(string Path, JsonNode? Value);
 public sealed record PlanningBinding(string Id, string WorkflowKey, PlanningValue Value, JsonObject Schema, string Availability);
 public sealed record PlanningAnswer(string Question, JsonObject Answers);
-public sealed record PlanningDiagnostic(string Code, string Location, string Message, bool Required = true, string? ValidationStage = null, string? Rule = null);
+public sealed record PlanningDiagnostic(string Code, string Location, string Message, bool Required = true, string? ValidationStage = null, string? Rule = null)
+{
+    // Omit absent additions so existing artifact hashes and schema-8 histories remain stable.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningComputationContext? Computation { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlanningPrerequisiteContext? Prerequisite { get; init; }
+}
+/// <summary>Located evidence for a missing prerequisite; never grants execution or approval authority.</summary>
+public sealed record PlanningPrerequisiteContext(string Kind, string Description, string? Output = null,
+    string? ConsumerCapability = null, string? ContractPath = null, string? RootActionId = null);
+
+/// <summary>A proposed semantic repair, saved separately from the accepted planning state.</summary>
+public sealed class PlanningRepairCheckpoint
+{
+    public string InputHash { get; set; } = "";
+    public string CandidateHash { get; set; } = "";
+    public List<string> ActionIds { get; set; } = [];
+    public SemanticPlan Candidate { get; set; } = new();
+    public List<PlanningQuestion> Questions { get; set; } = [];
+    public JsonObject? Answers { get; set; }
+}
+public sealed record PlanningComputationContext(string Expression, string Limitation, JsonObject ReceiverContract,
+    JsonObject ParameterContracts, string? OriginExpression = null, string? ProducerLocation = null);
 public sealed record PlanningScenarioResult(string Id, string Outcome, string Description, List<PlanningDiagnostic> Diagnostics);
 public sealed record PlanningArtifactBinding(string Workflow, string Step, string CapabilityId);
 public sealed record PlanningArtifactValidationRequest(string Yaml, PlanningRequest Request, PlanningCatalog Catalog, IReadOnlyList<PlanningArtifactBinding> Bindings);
@@ -171,9 +204,13 @@ public sealed class PlanningConflictException(string message) : InvalidOperation
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, AllowOutOfOrderMetadataProperties = true)]
 [JsonSerializable(typeof(PlanningSession))]
+[JsonSerializable(typeof(PlanningPrerequisiteContext))]
+[JsonSerializable(typeof(PlanningRepairCheckpoint))]
 [JsonSerializable(typeof(List<PlanningSession>))]
 [JsonSerializable(typeof(PlanningRequest))]
 [JsonSerializable(typeof(PlanningCommand))]
+[JsonSerializable(typeof(PlanningDecision))]
+[JsonSerializable(typeof(PlanningDecisionAnswer))]
 [JsonSerializable(typeof(PlanningGenerationOptions))]
 [JsonSerializable(typeof(PlanningCatalog))]
 [JsonSerializable(typeof(PlanningCapability))]

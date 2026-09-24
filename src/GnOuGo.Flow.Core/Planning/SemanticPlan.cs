@@ -37,6 +37,8 @@ public sealed class CapabilityGrounding
     public List<GroundingPage> Pages { get; set; } = [];
     public List<GroundingPageResult> Results { get; set; } = [];
     public List<GroundingSelection>? Selections { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<GroundingSelection>? RetainedSelections { get; set; }
 }
 
 public sealed record GroundingPage(string Id, List<string> ActionIds, List<string> CapabilityIds);

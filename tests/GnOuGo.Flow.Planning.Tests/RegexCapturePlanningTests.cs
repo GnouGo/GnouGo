@@ -22,8 +22,23 @@ public sealed class RegexCapturePlanningTests
         })()
         """;
 
+    private const string StringCaptureCalculation = """
+        (() => { const s = String(text); const m = s.match(/^([^:]+):([^:]+):([0-9]+)$/);
+          return m ? {value: (m[1] + '-' + m[2] + '-' + Number(m[3])).replace(/[^A-Za-z0-9_.-]/g, '-')}
+            : {value: null}; })()
+        """;
+    private const string DecodedCaptureCalculation = """
+        (() => { const m = text.match(/^([^:]+):([^:]+):([0-9]+)$/);
+          if (!m) throw new Error('Invalid reference');
+          const first = decodeURIComponent(m[1]); const second = decodeURIComponent(m[2]); const n = Number(m[3]);
+          const safeFirst = first.replace(/[^A-Za-z0-9_.-]/g, '-'); const safeSecond = second.replace(/[^A-Za-z0-9_.-]/g, '-');
+          return {value: `${safeFirst}-${safeSecond}-${n}`}; })()
+        """;
+
     [Theory]
     [InlineData(CaptureCalculation)]
+    [InlineData(StringCaptureCalculation)]
+    [InlineData(DecodedCaptureCalculation)]
     [InlineData("(() => { const match = text.match(/(a)?b/); const capture = match[1]; return capture.replace(/a/g, 'x').trim().toUpperCase(); })()")]
     [InlineData("text.match(/a/g).map(value => value.replace(/a/g, 'x'))")]
     public void CaptureAliasesAndStringChainsHaveDeclaredMembers(string expression)
@@ -36,6 +51,18 @@ public sealed class RegexCapturePlanningTests
     [InlineData("raw.match(/(a)?b/)[1].replace(/a/g, 'x')")]
     [InlineData("text.match(pattern)[1].replace(/a/g, 'x')")]
     [InlineData("text.match('(a)?b')[1].replace(/a/g, 'x')")]
+    [InlineData("String(raw).match(/a/)")]
+    [InlineData("decodeURIComponent(raw).replace(/a/g, 'x')")]
+    [InlineData("(() => { const result = String(text).match(/a/); const String = text; return result; })()")]
+    [InlineData("[text].map(String => String(text).match(/a/))")]
+    [InlineData("(() => { String = text; return String(text).match(/a/); })()")]
+    [InlineData("decodeURIComponent(text).invented")]
+    [InlineData("(() => { const value = /a/; return String(value).match(/a/); })()")]
+    [InlineData("(() => { const value = 1n; return String(value).match(/a/); })()")]
+    [InlineData("(() => { const result = String(text).match(/a/); class String {} return result; })()")]
+    [InlineData("(() => { with ({String: () => ({})}) { return String(text).match(/a/); } })()")]
+    [InlineData("(() => { Object.defineProperty(this, 'String', {value: () => ({})}); return String(text).match(/a/); })()")]
+    [InlineData("(() => { Object[text](this, 'String', {value: () => ({})}); return String(text).match(/a/); })()")]
     public void UnsupportedMembersAndUnknownPatternsRemainRejected(string expression)
         => Assert.Throws<InvalidOperationException>(() => PlanningComputationContracts.Validate(expression, new Dictionary<string, JsonObject>
         {
@@ -60,6 +87,12 @@ public sealed class RegexCapturePlanningTests
     [InlineData(CaptureCalculation, "\"invalid\"", null)]
     [InlineData(CaptureCalculation, "42", null)]
     [InlineData(CaptureCalculation, "null", null)]
+    [InlineData(StringCaptureCalculation, "\"one space:two space:12\"", "one-space-two-space-12")]
+    [InlineData(StringCaptureCalculation, "\"invalid\"", null)]
+    [InlineData(DecodedCaptureCalculation, "\"one%20space:two%20space:12\"", "one-space-two-space-12")]
+    [InlineData(DecodedCaptureCalculation, "\"invalid\"", null)]
+    [InlineData(DecodedCaptureCalculation, "\"one%ZZ:two:12\"", null)]
+    [InlineData(DecodedCaptureCalculation, "\"one%ED%BF%BF:two:12\"", null)]
     [InlineData("(() => { const m = text.match(/^(a)?b$/); return { value: m[1].replace(/a/g, 'x') }; })()", "\"ab\"", "x")]
     [InlineData("(() => { const m = text.match(/^(a)?b$/); return { value: m[1].replace(/a/g, 'x') }; })()", "\"b\"", null)]
     [InlineData("({value: text.match(/a/g)[1].replace(/a/g, 'x')})", "\"aba\"", "x")]
@@ -98,5 +131,36 @@ public sealed class RegexCapturePlanningTests
         if (expected is not null) { Assert.Equal(expected, Assert.Single(observed)); Assert.Equal(expected, result.Outputs!["value"]!.GetValue<string>()); }
         else Assert.Empty(observed);
         Assert.Empty(runtime.Calls);
+    }
+
+    [Theory]
+    [InlineData(CaptureCalculation)]
+    [InlineData(StringCaptureCalculation)]
+    [InlineData(DecodedCaptureCalculation)]
+    public async Task SavedCalculationPatternsRetainWholeValueValidationAndReachFinalReview(string expression)
+    {
+        var plan = new GroundedPlan
+        {
+            Inputs = [new("text", new() { Type = "string" }, false, new() { Kind = "string", Text = "one:two:12" })],
+            Operations = [
+                new CalculateGroundedOperation { Id = "parse", Value = new() { Kind = "compute", Text = expression, Members = [new("text", new() { Kind = "input", Source = "text" })] } },
+                new ValidateGroundedOperation { Id = "validated", Value = new() { Kind = "result", Source = "parse" }, ResultType = new() { Type = "object", Fields = [new("value", new() { Type = "string" })] } }],
+            Outputs = [new("value", new() { Kind = "result", Source = "validated", Path = ["value"] })]
+        };
+        var runtime = new TestRuntime(plan);
+        var state = await PlannerFixture.RunAsync(runtime);
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message)));
+        Assert.Equal(2, runtime.Calls.Count);
+        Assert.Contains(ComputationInferenceProfile.Guidance, runtime.Calls[1].Prompt);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Null(state.PendingDecision); Assert.Empty(state.Decisions);
+        Assert.Null(state.ApprovedHash); Assert.NotEmpty(state.Scenarios);
+        Assert.DoesNotContain(state.Diagnostics, d => d.Required);
+
+        plan.Outputs[0] = new("value", new() { Kind = "result", Source = "parse", Path = ["value"] });
+        plan.Operations.RemoveAt(1);
+        // Numeric conversion and guarded control flow still need a runtime validation boundary.
+        if (expression != StringCaptureCalculation)
+            Assert.Contains(GroundedPlanValidator.Validate(plan, state.Catalog!).Diagnostics, d => d.Required);
     }
 }

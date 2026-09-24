@@ -6,11 +6,22 @@ internal sealed class CodeProgressReporter
 {
     private const string ProgressEnvelopeType = "gnougo.mcp.progress";
     private readonly CodeMcpTraceContextAccessor _traceContextAccessor;
+    private readonly bool _captured;
+    private readonly CodeMcpTraceContext? _capturedContext;
 
     public CodeProgressReporter(CodeMcpTraceContextAccessor traceContextAccessor)
     {
         _traceContextAccessor = traceContextAccessor;
     }
+
+    private CodeProgressReporter(CodeMcpTraceContextAccessor accessor, CodeMcpTraceContext? context)
+    {
+        _traceContextAccessor = accessor;
+        _captured = true;
+        _capturedContext = context;
+    }
+
+    public CodeProgressReporter Capture() => new(_traceContextAccessor, CodeMcpTraceContext.Capture(_traceContextAccessor));
 
     public CodeProgressEvent Report(
         string kind,
@@ -46,7 +57,7 @@ internal sealed class CodeProgressReporter
     {
         try
         {
-            var context = CodeMcpTraceContext.Capture(_traceContextAccessor);
+            var context = _captured ? _capturedContext : CodeMcpTraceContext.Capture(_traceContextAccessor);
             var envelope = new CodeMcpProgressEnvelope(
                 Type: ProgressEnvelopeType,
                 CorrelationId: context?.CorrelationId,

@@ -1,0 +1,273 @@
+{
+  "date": "2026-09-23",
+  "issue": 109,
+  "pullRequest": 108,
+  "generationCommit": "a701103",
+  "finalImplementationCommit": "48745e4",
+  "provider": "OpenAi",
+  "model": "gpt-5.5-2026-04-24",
+  "cases": [
+    {
+      "case": "designer-auto",
+      "session": "008c4a6d249a41f2aa664ae862caece0",
+      "origin": "designer",
+      "mode": "auto",
+      "answer": "option",
+      "status": "final_review",
+      "calls": 5,
+      "replans": 1,
+      "decisions": [
+        {
+          "source": "auto",
+          "custom": false,
+          "reasonPresent": true
+        }
+      ],
+      "scenarios": [
+        "passed"
+      ],
+      "approved": false,
+      "executed": false,
+      "reportedEstimatedCost": 0.29018490929804575,
+      "currency": "EUR",
+      "card": null,
+      "historyVisible": true,
+      "builtinsInCompletedPlan": {
+        "String": true,
+        "encodeURI": false,
+        "decodeURI": false,
+        "encodeURIComponent": false,
+        "decodeURIComponent": true
+      },
+      "intermediateDiagnosticCodes": [
+        "GROUNDED_CONTRACT_INVALID"
+      ]
+    },
+    {
+      "case": "designer-interactive",
+      "session": "b034cf14eaa045de8ff7b25f73408fc8",
+      "origin": "designer",
+      "mode": "interactive",
+      "answer": "option",
+      "status": "final_review",
+      "calls": 4,
+      "replans": 0,
+      "decisions": [
+        {
+          "source": "user",
+          "custom": false,
+          "reasonPresent": true
+        }
+      ],
+      "scenarios": [
+        "passed"
+      ],
+      "approved": false,
+      "executed": false,
+      "reportedEstimatedCost": 0.15648935237928316,
+      "currency": "EUR",
+      "card": {
+        "preferred": 1,
+        "options": 2
+      },
+      "historyVisible": true,
+      "builtinsInCompletedPlan": {
+        "String": true,
+        "encodeURI": false,
+        "decodeURI": false,
+        "encodeURIComponent": false,
+        "decodeURIComponent": true
+      },
+      "intermediateDiagnosticCodes": []
+    },
+    {
+      "case": "chat-auto",
+      "session": "92050610c7357787b171bc4c4a76446f90c5c34fe36c16054cea6029595ffae9",
+      "origin": "chat",
+      "mode": "auto",
+      "answer": "option",
+      "status": "final_review",
+      "calls": 4,
+      "replans": 1,
+      "decisions": [
+        {
+          "source": "auto",
+          "custom": false,
+          "reasonPresent": true
+        }
+      ],
+      "scenarios": [
+        "passed"
+      ],
+      "approved": false,
+      "executed": false,
+      "reportedEstimatedCost": 0,
+      "currency": "USD",
+      "card": null,
+      "historyVisible": true,
+      "builtinsInCompletedPlan": {
+        "String": true,
+        "encodeURI": false,
+        "decodeURI": false,
+        "encodeURIComponent": false,
+        "decodeURIComponent": true
+      },
+      "intermediateDiagnosticCodes": [
+        "GROUNDED_CONTRACT_INVALID"
+      ]
+    },
+    {
+      "case": "chat-interactive",
+      "session": "a1bd309befecabac4367393297aaa72d1aec8f6bb1873e6bd515b851b7b6aa7b",
+      "origin": "chat",
+      "mode": "interactive",
+      "answer": "custom",
+      "status": "final_review",
+      "calls": 4,
+      "replans": 0,
+      "decisions": [
+        {
+          "source": "user",
+          "custom": true,
+          "reasonPresent": true
+        }
+      ],
+      "scenarios": [
+        "passed"
+      ],
+      "approved": false,
+      "executed": false,
+      "reportedEstimatedCost": 0,
+      "currency": "USD",
+      "card": {
+        "preferred": 1,
+        "options": 2
+      },
+      "historyVisible": true,
+      "builtinsInCompletedPlan": {
+        "String": true,
+        "encodeURI": false,
+        "decodeURI": false,
+        "encodeURIComponent": false,
+        "decodeURIComponent": true
+      },
+      "intermediateDiagnosticCodes": []
+    },
+    {
+      "case": "designer-original",
+      "session": "fa90e89a7dbb4f0aad98029255cde88a",
+      "origin": "designer",
+      "mode": "interactive",
+      "answer": "original",
+      "status": "stopped",
+      "calls": 8,
+      "replans": 1,
+      "decisions": [],
+      "scenarios": [],
+      "approved": false,
+      "executed": false,
+      "reportedEstimatedCost": 0.9317500657260538,
+      "currency": "EUR",
+      "card": null,
+      "historyVisible": false,
+      "builtinsInCompletedPlan": null,
+      "intermediateDiagnosticCodes": [
+        "GROUNDING_BUDGET_INSUFFICIENT",
+        "SEMANTIC_BINDING_BLOCKED"
+      ]
+    }
+  ],
+  "finalCodeContractRevalidation": [
+    {
+      "session": "2c7b955fa52643e58099885c543ce753",
+      "valid": true,
+      "diagnosticCount": 0,
+      "codes": [],
+      "revision": 16,
+      "calls": 7
+    },
+    {
+      "session": "008c4a6d249a41f2aa664ae862caece0",
+      "valid": true,
+      "diagnosticCount": 0,
+      "codes": [],
+      "revision": 14,
+      "calls": 5
+    },
+    {
+      "session": "b034cf14eaa045de8ff7b25f73408fc8",
+      "valid": true,
+      "diagnosticCount": 0,
+      "codes": [],
+      "revision": 12,
+      "calls": 4
+    },
+    {
+      "session": "92050610c7357787b171bc4c4a76446f90c5c34fe36c16054cea6029595ffae9",
+      "valid": true,
+      "diagnosticCount": 0,
+      "codes": [],
+      "revision": 8,
+      "calls": 4
+    },
+    {
+      "session": "a1bd309befecabac4367393297aaa72d1aec8f6bb1873e6bd515b851b7b6aa7b",
+      "valid": true,
+      "diagnosticCount": 0,
+      "codes": [],
+      "revision": 7,
+      "calls": 4
+    }
+  ],
+  "restart": {
+    "version": "0.0.0-dev+48745e489eeb44456204fa663e6da7a80bb2238a",
+    "cases": [
+      {
+        "case": "designer-auto",
+        "status": "final_review",
+        "callsUnchanged": true,
+        "unapproved": true
+      },
+      {
+        "case": "designer-interactive",
+        "status": "final_review",
+        "callsUnchanged": true,
+        "unapproved": true
+      },
+      {
+        "case": "chat-auto",
+        "status": "final_review",
+        "callsUnchanged": true,
+        "unapproved": true
+      },
+      {
+        "case": "chat-interactive",
+        "status": "final_review",
+        "callsUnchanged": true,
+        "unapproved": true
+      },
+      {
+        "case": "designer-original",
+        "status": "stopped",
+        "callsUnchanged": true,
+        "unapproved": true
+      }
+    ],
+    "originalSessionUnchanged": true,
+    "chatUi": [
+      {
+        "case": "chat-interactive",
+        "originatingChatRestored": true,
+        "decisionHistoryVisible": true
+      },
+      {
+        "case": "chat-auto",
+        "originatingChatRestored": true,
+        "decisionHistoryVisible": true
+      }
+    ]
+  },
+  "originalCopyLimitation": "Stopped safely because the review capability requires an authoritative revision.comparison.files artifact that the bound producers did not establish; the unchanged eight-call budget was then exhausted. No computation inference failure recurred.",
+  "privacy": "Private requests and model responses remain encrypted; this report contains only verification metadata.",
+  "costNote": "Reported estimates are not a billing statement; Chat DTOs report zero cost."
+}

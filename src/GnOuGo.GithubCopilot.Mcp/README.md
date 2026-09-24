@@ -112,7 +112,25 @@ Policy, input, provider, cancellation, and unexpected tool failures are returned
 
 ## Agent edit mode
 
-`code_agent_edit` runs the GitHub Copilot SDK with `Mode=agent` and a local `SessionFsProvider` implementation.
+`code_agent_edit` is a compatibility wrapper over Core's ephemeral managed interactive
+session. `code_suggest_change` also uses Core, with tool execution disabled. MCP never
+creates SDK clients or sessions. The shared configuration builder preserves provider,
+telemetry, trace, and timeout settings for both legacy and managed tools.
+
+All agentic sessions use the host's controlled project filesystem through Core. It
+rejects traversal, symbolic links, protected directories, disallowed file types and
+oversized content, and applies `Code:AllowWrites` to every mutation. Recursive moves
+and deletions validate all descendants first. Internal SDK state is isolated in memory.
+Core registers `project_*` file functions instead of native file/child-agent tools. Explicit
+SDK tool allowlists must include the needed `project_*` functions. The same provider and
+permission callbacks are installed on resume; active MCP context is captured per call.
+Commands retain existing CLI sandbox and Core HITL settings; filesystem routing alone
+does not contain shell commands.
+
+Legacy Copilot calls accept optional `tenantId`, or use `_meta.gnougo.tenantId` like the
+managed tools. Agentic execution defaults to interactive permission requests and fails
+closed when human input is unavailable. Broad approval is disabled in shipped defaults.
+`code_agent_edit` additionally exposes Core's `toolExecutions` observations.
 This lets Copilot edit files directly through the MCP process while still enforcing the same project policy as manual file writes:
 
 - `Code:AllowWrites` must be `true`.
@@ -124,11 +142,11 @@ The older `code_suggest_change` tool remains suggestion-only and does not write 
 
 Both `code_suggest_change` and `code_agent_edit` emit progress milestones as structured JSONL stderr messages while the call is running, and include the same events in the final `progressEvents` array.
 
-`progressEvents` is the official GnOuGo contract. Application milestones and native `GitHub.Copilot.SDK` session events are both normalized to this schema before they leave this MCP server. `GnOuGo.Flow.Core`, Agent Server, and the UI must consume this contract instead of coupling directly to SDK-specific event classes or payload shapes. When the SDK exposes useful complete events, this MCP maps them to stable `sdk_*` `kind` values; when it does not, the explicit GnOuGo milestones still provide progress.
+`progressEvents` is the official GnOuGo contract. Application milestones and native `GitHub.Copilot.SDK` session events are both normalized to this schema before they leave this MCP server. `GnOuGo.Flow.Core`, Agent Server, and the UI must consume this contract instead of coupling directly to SDK-specific event classes or payload shapes. When the SDK exposes useful complete events, Core maps them to stable operational `kind` values; when it does not, the explicit GnOuGo milestones still provide progress.
 
 Each item contains:
 
-- `kind`: stable machine-readable phase, for example `prepare`, `provider`, `session_create`, `request_send`, `completed`, `file_modified`, or SDK-mapped phases such as `sdk_assistant_turn_start` and `sdk_tool_execution_progress`.
+- `kind`: stable machine-readable phase, for example `prepare`, `provider`, `session_create`, `request_send`, `completed`, `file_modified`, or SDK-mapped phases such as `assistant.turn_start` and `tool.execution_progress`.
 - `level`: UI hint such as `thinking` or `info`.
 - `message`: user-facing progress text. This is an operational milestone, not raw model chain-of-thought. SDK reasoning/streaming deltas are not forwarded verbatim.
 - `timestamp`: UTC event timestamp.
@@ -172,3 +190,10 @@ dotnet publish "C:\github\GnouGo\src\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopil
 ```
 
 CI validates a dedicated `win-x64` Native AOT publish for `GnOuGo.GithubCopilot.Mcp` in `.github/workflows/build-agent-desktop-trimmed.yml`.
+
+## Local editing acceptance
+
+The opt-in [controlled editing fixture](../../tests/GnOuGo.GithubCopilot.E2E.Tests/README.md#controlled-local-editing)
+runs both legacy and managed MCP entry points with a real model, bounded allow-once
+elicitation, failing/passing Python tests, SDK command receipts, reconnect, and refusal.
+It supports the published Native AOT binary and performs no remote publication.

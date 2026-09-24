@@ -54,6 +54,7 @@ public sealed record SmartFlowEvent(
 public sealed class SmartFlowService
 {
     private readonly PlanningSessionService _planning;
+    private readonly ChatPlanningService? _chatPlanning;
     private readonly ILLMClient _llm;
     private readonly IMemoryCache _mcpCache;
     private readonly SecureWorkflowRuntimeFactory _runtimeFactory;
@@ -98,9 +99,11 @@ public sealed class SmartFlowService
         IOptions<WorkflowMermaidMarkdownOptions>? workflowMermaidOptions = null,
         IOptions<OpenTelemetrySettings>? openTelemetrySettings = null,
         LocalModelsService? localModels = null,
-        ILLMUsageBudgetScopeFactory? llmUsageBudgetScopeFactory = null)
+        ILLMUsageBudgetScopeFactory? llmUsageBudgetScopeFactory = null,
+        ChatPlanningService? chatPlanning = null)
     {
         _planning = planning;
+        _chatPlanning = chatPlanning;
         _llm = llm;
         _mcpCache = mcpCache;
         _runtimeFactory = runtimeFactory;
@@ -392,11 +395,15 @@ public sealed class SmartFlowService
             var telemetry = new CompositeWorkflowTelemetry(
                 new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt), animationBridge),
                 _otel);
+            var planningBridge = _chatPlanning?.Attach(workflowInputs?["conversation_id"]?.GetValue<string>() ?? correlationId,
+                state => channel.Writer.TryWrite(new SmartFlowEvent("planner_session", System.Text.Json.JsonSerializer.Serialize(state, GnOuGo.Agent.Shared.ChatJsonContext.Default.PlanningSessionDto))));
             var engine = new WorkflowEngine
             {
                 WorkflowPlanner = new GnOuGo.Flow.Planning.TypedWorkflowPlanner(),
                 PlanningPolicy = GnOuGo.Agent.Server.Planning.AgentPlanningPolicy.Create(),
-                PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
+                PlanningRuntimeFactory = (GnOuGo.Flow.Core.Planning.IPlanningRuntimeFactory?)planningBridge ?? GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
+                PlanningDecisionProvider = planningBridge,
+                DefaultPlanningMode = workflowInputs?["planning_mode"]?.GetValue<string>() ?? GnOuGo.Flow.Core.Planning.PlanningMode.Interactive,
                 LLMClient = runtime.LlmClient,
                 ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(runtime.Options),
                 LLMUsageBudget = _llmUsageBudgetScopeFactory?.CreateScope(),
@@ -469,7 +476,7 @@ public sealed class SmartFlowService
                                    new WorkflowFailure("INTERNAL_ERROR", error.Message, error.GetType().FullName, null),
                                    parentActivity,
                                    repairedValue => repaired = repairedValue,
-                                   ct))
+                                   ct, conversationId: workflowInputs?["conversation_id"]?.GetValue<string>(), planningMode: workflowInputs?["planning_mode"]?.GetValue<string>() ?? "interactive"))
                 {
                     yield return evt;
                 }
@@ -501,7 +508,7 @@ public sealed class SmartFlowService
                                        parentActivity,
                                        repairedValue => repaired = repairedValue,
                                        ct,
-                                       handledFailure: true))
+                                       handledFailure: true, conversationId: workflowInputs?["conversation_id"]?.GetValue<string>(), planningMode: workflowInputs?["planning_mode"]?.GetValue<string>() ?? "interactive"))
                     {
                         yield return evt;
                     }
@@ -522,7 +529,7 @@ public sealed class SmartFlowService
                                        parentActivity,
                                        repairedValue => repaired = repairedValue,
                                        ct,
-                                       handledFailure: routedRepair.HandledFailure))
+                                       handledFailure: routedRepair.HandledFailure, conversationId: workflowInputs?["conversation_id"]?.GetValue<string>(), planningMode: workflowInputs?["planning_mode"]?.GetValue<string>() ?? "interactive"))
                     {
                         yield return evt;
                     }
@@ -555,7 +562,7 @@ public sealed class SmartFlowService
                                    WorkflowFailure.FromResult(result, resolvedWorkflow.Workflow.Name),
                                    parentActivity,
                                    repairedValue => repaired = repairedValue,
-                                   ct))
+                                   ct, conversationId: workflowInputs?["conversation_id"]?.GetValue<string>(), planningMode: workflowInputs?["planning_mode"]?.GetValue<string>() ?? "interactive"))
                 {
                     yield return evt;
                 }
@@ -1202,7 +1209,7 @@ public sealed class SmartFlowService
         Activity? parentActivity,
         Action<bool> setRevisionStarted,
         [EnumeratorCancellation] CancellationToken ct,
-        bool handledFailure = false)
+        bool handledFailure = false, string? conversationId = null, string planningMode = "interactive")
     {
         setRevisionStarted(false);
 
@@ -1252,9 +1259,10 @@ public sealed class SmartFlowService
             : agent.OriginalPrompt;
         GnOuGo.Flow.Core.Planning.PlanningSession? session = null;
         string? revisionError = null;
-        try { session = await _planning.StartAsync(agent.Name, intent, reviseExisting: true, ct, evidence); }
+        try { session = await _planning.StartAsync(agent.Name, intent, reviseExisting: true, ct, evidence, mode: planningMode); }
         catch (InvalidOperationException ex) { revisionError = ex.Message; }
         if (revisionError is not null) { yield return new SmartFlowEvent("error", revisionError); yield break; }
+        if (_chatPlanning is not null && conversationId is not null) await _chatPlanning.RegisterDesignerAsync(conversationId, session!, ct);
         setRevisionStarted(true);
         yield return new SmartFlowEvent("answer",
             $"A revision session is ready. [Open the workflow designer](/planning/{session!.Request.SessionId}) to review the intent and approve the validated workflow.");

@@ -11,7 +11,10 @@ internal static class PlanningSchemas
         var definitions = Definitions(capabilityIds);
         if (capabilityIds is not null)
         {
-            root["properties"]!["blockedActions"] = Array(Object(("actionId", String()), ("reason", String())));
+            root["properties"]!["blockedActions"] = Array(Object(("actionId", String()), ("reason", String()),
+                ("prerequisite", Nullable(Object(("kind", Enum("missing_observation", "missing_artifact", "unavailable_outcome", "blocked_dependency")),
+                    ("description", String()), ("output", Nullable(String())), ("consumerCapability", Nullable(String())),
+                    ("contractPath", Nullable(String())), ("rootActionId", Nullable(String())))))));
             root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("blockedActions"));
         }
         if (capabilityIds is not null && !capabilityIds.Any()) definitions["operation"]!["anyOf"]!.AsArray().RemoveAt(0);

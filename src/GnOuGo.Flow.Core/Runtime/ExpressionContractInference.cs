@@ -12,6 +12,7 @@ public static class ExpressionContractInference
     public static JsonObject? Infer(Node expression, IReadOnlyDictionary<string, JsonObject> arguments)
     {
         var variables = arguments.ToDictionary(p => p.Key, p => FlowTypeDescriptorConverter.FromJsonSchema(p.Value), StringComparer.Ordinal);
+        foreach (var name in ComputationInferenceProfile.UntrustedGlobals(expression)) variables[name] = FlowTypeDescriptor.Any;
         var result = Infer(expression, variables);
         return result.IsOpaque ? null : FlowTypeDescriptorConverter.ToRuntimeJsonSchema(result);
     }
@@ -48,6 +49,7 @@ public static class ExpressionContractInference
                 }
                 return FlowTypeDescriptor.Any; // Fall-through does not establish a result contract.
             case Identifier identifier: return variables.GetValueOrDefault(identifier.Name) ?? FlowTypeDescriptor.Any;
+            case RegExpLiteral or BigIntLiteral: return FlowTypeDescriptor.Any;
             case Literal literal: return literal.Value switch { null => FlowTypeDescriptor.Null, string text => FlowTypeDescriptor.Enum(text), bool => FlowTypeDescriptor.Boolean, _ => FlowTypeDescriptor.Number };
             case TemplateLiteral: return FlowTypeDescriptor.String;
             case ArrayExpression array: return FlowTypeDescriptor.Array(FlowTypeDescriptor.Union(array.Elements.Where(e => e is not null).Select(e => Type(e!))));
@@ -93,6 +95,11 @@ public static class ExpressionContractInference
             case CallExpression { Callee: MemberExpression { Computed: false, Object: Identifier { Name: "JSON" }, Property: Identifier { Name: "stringify" } }, Arguments.Count: 1 } json when !variables.ContainsKey("JSON"):
                 // Serialization of a declared JSON container/scalar has a string result. Parsing never creates a field contract.
                 return Type(json.Arguments[0]).IsOpaque ? FlowTypeDescriptor.Any : FlowTypeDescriptor.String;
+            case CallExpression { Callee: Identifier intrinsic, Arguments.Count: 1 } conversion
+                when ComputationInferenceProfile.IsScalarConversion(intrinsic.Name) && !variables.ContainsKey(intrinsic.Name):
+                // ECMAScript scalar ToString coercion establishes only the successful return type.
+                // Opaque values/containers cannot gain a business contract through coercion.
+                return Scalar(Type(conversion.Arguments[0])) ? FlowTypeDescriptor.String : FlowTypeDescriptor.Any;
             case CallExpression { Callee: MemberExpression { Computed: false, Property: Identifier { Name: "match" } } receiver, Arguments.Count: 1 } match
                 when match.Arguments[0] is RegExpLiteral && Type(receiver.Object).Kind == FlowTypeKind.String:
                 // A literal regex yields strings or null for no match. Optional captures
@@ -124,4 +131,6 @@ public static class ExpressionContractInference
     }
     private static string? Name(Node node) => node switch { Identifier identifier => identifier.Name, Literal { Value: string text } => text, _ => null };
     private static bool Numeric(FlowTypeDescriptor type) => type.Kind is FlowTypeKind.Number or FlowTypeKind.Integer;
+    private static bool Scalar(FlowTypeDescriptor type) => type.Kind is FlowTypeKind.Null or FlowTypeKind.String or FlowTypeKind.Number or FlowTypeKind.Integer or FlowTypeKind.Boolean ||
+        type.Kind == FlowTypeKind.Union && type.Variants.Count > 0 && type.Variants.All(Scalar);
 }
