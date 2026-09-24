@@ -1,5 +1,7 @@
 # Compact planner merge finalization — 2026-09-20
 
+> Historical evidence: the Agent.Server review-publication subsystem described below was removed on 2026-09-24. Its draft, publication and replay checks describe the earlier implementation. Current workflows use configured MCP capabilities and generic approval mechanisms; see [migration details](github-mcp-workflow-execution.md).
+
 The accepted planner behavior remains frozen at `65dc34a5184e1ab118c0edd7676f1b2c3dd23f45`. This pass starts from `9216cbc3f336c2eef4bd34ebcd89f0b1c644e304` and performs documentation cleanup and offline release verification only. There were no paid model calls, new benchmark samples, production planner changes, public API changes or storage migrations.
 
 The [accepted live reliability report](planning-default-response-domains-2026-09-20.md) remains the live evidence. Documentation and release-tooling commits have not received another live-model evaluation.

@@ -55,6 +55,32 @@ public sealed class GnOuGoAgentWebHostTests
     }
 
     [Fact]
+    public async Task RuntimeFactory_ExposesOnlyConfiguredServersWithoutPublicationAdapter()
+    {
+        var options = new LLMOptions
+        {
+            McpServers = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["github"] = new() { Type = "http", Url = "http://127.0.0.1:65530/mcp" }
+            }
+        };
+        await using var app = GnOuGoAgentWebHost.Build(
+            TelemetryTestHostArgs.Create(),
+            urls: "http://127.0.0.1:0",
+            contentRoot: GetServerContentRoot(),
+            enableHttpsRedirection: false,
+            configureServices: services => services.AddSingleton<IKeyVaultRuntimeConfigStore>(
+                new FakeKeyVaultRuntimeConfigStore().WithEffectiveOptions(options)));
+
+        await using var runtime = await app.Services.GetRequiredService<SecureWorkflowRuntimeFactory>()
+            .CreateAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(["github"], runtime.McpClientFactory.ServerMetadata.Select(server => server.Name));
+        Assert.DoesNotContain(typeof(SecureWorkflowRuntimeFactory).Assembly.GetReferencedAssemblies(),
+            assembly => assembly.Name == "GnOuGo.GithubCopilot.Core");
+    }
+
+    [Fact]
     public async Task RuntimeFactory_UsesMcpServerSavedAfterFactoryResolution()
     {
         var contentRoot = GetServerContentRoot();

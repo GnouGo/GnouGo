@@ -1,5 +1,7 @@
 # Independent compact-intent candidate evaluation
 
+> Historical evidence: the Agent.Server review-publication subsystem described below was removed on 2026-09-24. Its draft, publication and replay checks describe the earlier implementation. Current workflows use configured MCP capabilities and generic approval mechanisms; see [migration details](github-mcp-workflow-execution.md).
+
 Campaign: `compact-intent-candidate-20260919-2d15b1`. Architecture base: `1f15bec`. Previous campaigns and stopped sessions are untouched. All effects are mocked; no PR execution or GitHub publication occurs.
 
 Configured provider/model resolved through public KeyVault configuration: `openai` / `gpt-5.5-2026-04-24`. Medium reasoning, eight calls, two repairs, 96,000 input and 32,768 output tokens, EUR 50 cumulative campaign ceiling. Encrypted records retain original request schemas, receipts, session checkpoints and diagnostic evidence. Redacted rows are reported separately from private reproduction evidence.

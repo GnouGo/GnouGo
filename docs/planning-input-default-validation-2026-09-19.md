@@ -1,5 +1,7 @@
 # Input-default corrections and live validation
 
+> Historical evidence: the Agent.Server review-publication subsystem described below was removed on 2026-09-24. Its draft, publication and replay checks describe the earlier implementation. Current workflows use configured MCP capabilities and generic approval mechanisms; see [migration details](github-mcp-workflow-execution.md).
+
 The input-default construction and repair defects are corrected. The latest pilot reached **6/7 FinalReview**, with **27/27 independent execution variants passing** across those six artifacts and zero observed safety violations. `collections` exhausted two repairs because the model alternated between explicit null and a missing default despite receiving the correct declaration targets. The pilot failed, so no 21-run measured cohort was started. Reliability acceptance gates remain unestablished on this revision.
 
 All workflow integrations were mocked. No actual PR clone, repository execution or GitHub publication occurred. The planner architecture, public contract shapes, schema-7 storage, policy gates and cumulative budgets remain unchanged.

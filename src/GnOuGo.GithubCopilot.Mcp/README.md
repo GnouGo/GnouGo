@@ -37,7 +37,7 @@ additional external read operation. Legacy results deserialize with an empty lis
 - Optionally write files with `code_write_file` when `Code:AllowWrites=true`.
 - Use the additive `copilot_*` tools backed by `GnOuGo.GithubCopilot.Core` for status/auth/models, explicit managed or one-shot sessions, foreground selection, messages/steering/queueing, safe history, abort, plans, modes/models, attachments, workspace files, skills/tool filtering, and stable elicitation callbacks.
 - Run structured reviews with `copilot_review_start`, `copilot_review_analyze_batch`, `copilot_review_finish`, or the one-call `copilot_review` wrapper.
-- In Agent.Server, pass original results to `GnOuGo.Review` / `review_evaluate`, then pass its `draftId` to `review_publish`. The host owns confirmation, the fresh head read and publication.
+- Use review results as workflow data. GitHub mutations use the configured official GitHub MCP through normal workflow execution and its generic approval/confirmation mechanisms.
 
 Git repository workflows are provided by the separate `GnOuGo.Git.Mcp` tool.
 
@@ -87,7 +87,7 @@ Git MCP supplies exact patches. `copilot_review_start` and `copilot_review` acce
 
 The review session has no tools, no configuration discovery, no write permission, and is deleted after completion. Results include `complete`, derived from completed batches, coverage and rejected invalid findings, plus `blockingFindingCount`, which retains blockers whose duplicate comments were suppressed. An empty model response is invalid; an explicit `[]` can represent a completed review with no findings.
 
-Publication belongs to Agent.Server's host integration and the configured official GitHub MCP. The old `copilot_review_publication_gate`, caller-supplied approval boolean and headless publication modes are removed. Standalone consumers may use the pure `ReviewEvaluation` API but must supply their own publication authorization boundary. See [Agent.Server review publication](../GnOuGo.Agent.Server/Reviews/README.md).
+Review analysis does not publish or authorize a GitHub mutation. Workflows use the configured official GitHub MCP for those operations, with normal workflow approval, generic runtime confirmation and MCP elicitation. No host-managed draft, publication gate, fresh-head check or publication replay guarantee is supplied. See [MCP workflow execution and removed publication APIs](../../docs/github-mcp-workflow-execution.md).
 
 `code_suggest_change` and `code_agent_edit` also accept an optional `provider` parameter. When omitted, the default GitHub Copilot SDK behavior above is unchanged.
 When provided, the MCP reads the matching provider from its typed `CodeCopilotSettings.Providers` dictionary and passes it as a custom Copilot SDK provider for that call. At process startup, the MCP uses the storage-agnostic `IKeyVaultSecretCatalogReader` contract to map shared provider secrets and MCP-specific leaf overrides into the `Code:Copilot` configuration namespace before typed settings are created. Database resolution, SQL, decryption, auditing, and storage-specific failures remain encapsulated by `GnOuGo.KeyVault.Core`.

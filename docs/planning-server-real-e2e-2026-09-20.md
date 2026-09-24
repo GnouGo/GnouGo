@@ -1,5 +1,7 @@
 # Real Server PR-review validation — 2026-09-20
 
+> Historical evidence: the Agent.Server review-publication subsystem described below was removed on 2026-09-24. Its draft, publication and replay checks describe the earlier implementation. Current workflows use configured MCP capabilities and generic approval mechanisms; see [migration details](github-mcp-workflow-execution.md).
+
 Follow-up: the authorized [64,000-token retry](planning-server-64k-retry-2026-09-20.md)
 passed repair preflight, then stopped on an unreceipted provider HTTP 500. The
 results below remain the historical 12,000-token attempt.

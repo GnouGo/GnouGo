@@ -1,5 +1,7 @@
 # Scoped prerequisite repair and capability gaps
 
+> Historical evidence: the Agent.Server review-publication subsystem described below was removed on 2026-09-24. Its draft, publication and replay checks describe the earlier implementation. Current workflows use configured MCP capabilities and generic approval mechanisms; see [migration details](github-mcp-workflow-execution.md).
+
 PR #108 / issue #110 extends the existing semantic planning pipeline. It adds no transport or MCP tool, and no provider-specific planner rule.
 
 ## Reported failure

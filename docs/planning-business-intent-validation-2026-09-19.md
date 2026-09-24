@@ -1,5 +1,7 @@
 # Business-intent refactor validation — 2026-09-19
 
+> Historical evidence: the Agent.Server review-publication subsystem described below was removed on 2026-09-24. Its draft, publication and replay checks describe the earlier implementation. Current workflows use configured MCP capabilities and generic approval mechanisms; see [migration details](github-mcp-workflow-execution.md).
+
 The planner now accepts compact business operations and constructs executable workflows deterministically. The eight offline cases pass generation and independent execution. Initial request size on the large-catalog case fell 73.0%. **Live-model reliability remains unmeasured for the candidate**: the baseline campaign stopped at an uncertain second dispatch and was not replaced or retried.
 
 ## Delivered architecture

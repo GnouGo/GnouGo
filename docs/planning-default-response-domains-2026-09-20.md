@@ -1,5 +1,7 @@
 # Default response domains: live validation, 20 September 2026
 
+> Historical evidence: the Agent.Server review-publication subsystem described below was removed on 2026-09-24. Its draft, publication and replay checks describe the earlier implementation. Current workflows use configured MCP capabilities and generic approval mechanisms; see [migration details](github-mcp-workflow-execution.md).
+
 The targeted response-schema correction passed the acceptance gates on **`65dc34a`**: a clean **7/7 pilot**, followed by **20/21 measured FinalReview**, **18/21 FinalReview within two physical calls**, median **one call**, zero observed policy/capability safety violations, and **85/85 independent execution variants passing** across every approved artifact. Failed attempted runs remain in the denominator. The measured cohort used one unchanged revision; results from earlier revisions are separate.
 
 All workflow integrations were mocked. No real PR clone, repository execution or GitHub publication occurred. The architecture remains frozen; public contract shapes, schema-7 storage, frozen requests, host policy and approval boundaries are unchanged.

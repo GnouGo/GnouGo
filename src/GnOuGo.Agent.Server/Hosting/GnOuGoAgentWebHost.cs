@@ -403,8 +403,6 @@ public static class GnOuGoAgentWebHost
             .WithKeyVaultMcpTools()
             .WithDocsIngestorMcpTools();
         builder.Services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
-        builder.Services.Configure<GnOuGo.Agent.Server.Reviews.ReviewPublicationSettings>(builder.Configuration.GetSection("ReviewPublication"));
-        builder.Services.AddSingleton<GnOuGo.Agent.Server.Reviews.ReviewPublicationService>();
         // Do not let DI inject the singleton IMcpClientFactory here. That
         // factory is a startup snapshot, while /mcp add and /mcp edit update
         // the encrypted runtime configuration without restarting the host.
@@ -419,7 +417,6 @@ public static class GnOuGoAgentWebHost
             llmCapabilityResolver: sp.GetService<ILLMCapabilityResolver>(),
             humanInputProvider: sp.GetRequiredService<AgentHumanInputProvider>(),
             localRuntime: sp.GetRequiredService<ILocalLLMRuntime>(),
-            reviews: sp.GetRequiredService<GnOuGo.Agent.Server.Reviews.ReviewPublicationService>(),
             capture: sp.GetRequiredService<LlmTraceCapture>()));
         builder.Services.AddSingleton<CollectorTracePersistence>();
         builder.Services.AddSingleton<ILoggerProvider, CollectorLoggerProvider>();

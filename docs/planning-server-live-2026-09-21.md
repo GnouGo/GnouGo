@@ -1,5 +1,7 @@
 # Real Server validation after focused repair batching
 
+> Historical evidence: the Agent.Server review-publication subsystem described below was removed on 2026-09-24. Its draft, publication and replay checks describe the earlier implementation. Current workflows use configured MCP capabilities and generic approval mechanisms; see [migration details](github-mcp-workflow-execution.md).
+
 **Stopped at the provider/uncertain-dispatch boundary.** Four real Server chat
 attempts tested PR #597; none reached FinalReview. Three small reproduced fixes
 were tested, committed and pushed. The last attempt returned HTTP 500 without a
