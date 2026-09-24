@@ -29,6 +29,17 @@ internal static class PlanningConfirmationGuards
         }
         return graph;
     }
+    internal static PlanningDiagnostic UserDiagnostic(PlanningDiagnostic diagnostic, PlanningGraph executable, PlanningGraph proposed)
+    {
+        const string prefix = "/workflows/";
+        if (!diagnostic.Location.StartsWith(prefix, StringComparison.Ordinal)) return diagnostic;
+        var suffix = diagnostic.Location.IndexOf('/', prefix.Length);
+        var indexText = suffix < 0 ? diagnostic.Location[prefix.Length..] : diagnostic.Location[prefix.Length..suffix];
+        if (!int.TryParse(indexText, out var index) || index < 0 || index >= executable.Workflows.Count) return diagnostic;
+        var key = executable.Workflows[index].Key;
+        var original = proposed.Workflows.FindIndex(w => w.Key == (key == Body ? proposed.Entrypoint : key));
+        return original < 0 ? diagnostic : diagnostic with { Location = prefix + original + (suffix < 0 ? "" : diagnostic.Location[suffix..]) };
+    }
     private static PlanningWorkflow Wrapper(PlanningWorkflow body, string entrypoint, string summary) => new()
     {
         Key = entrypoint, Purpose = "Confirm external effects before executing the workflow.", Inputs = body.Inputs,

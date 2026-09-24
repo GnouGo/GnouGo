@@ -164,12 +164,13 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         {
             var executable = JsonSerializer.Deserialize(JsonSerializer.Serialize(graph, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph)!;
             PlanningConfirmationGuards.Apply(executable, state.Catalog);
-            findings.AddRange(PlanningExecutableValidation.Validate(executable, state.Catalog));
+            findings.AddRange(PlanningExecutableValidation.Validate(executable, state.Catalog)
+                .Select(d => PlanningConfirmationGuards.UserDiagnostic(d, executable, graph)));
             if (!findings.Any(d => d.Required))
             {
                 var yaml = new PlanningGraphCompiler().Compile(executable, state.Catalog, state.Request.Name);
                 findings.AddRange((await runtime.ValidateAsync(new(yaml, state.Request, state.Catalog, PlanningGraphCompiler.CapabilityBindings(executable)), ct))
-                    .Select(d => PlanningExecutableValidation.MapRuntimeDiagnostic(d, executable)));
+                    .Select(d => PlanningConfirmationGuards.UserDiagnostic(PlanningExecutableValidation.MapRuntimeDiagnostic(d, executable), executable, graph)));
                 if (!findings.Any(d => d.Required))
                 {
                     var selected = new HashSet<string>(StringComparer.Ordinal);
@@ -238,14 +239,14 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         The agent's approved objective, capabilities, workspace, budget and evidence requirements must cover the requested work.
         Keep stages coarse. Use literals and typed references for data flow; expression values allow only simple conditions over known fields.
         Substantial computation belongs in a declared typed operation or bounded agent task. Do not generate JavaScript functions.
-        mcp.call input contains only request; targets come from capabilityId. Full contracts are available only after explicit resolution.
+        mcp.call input contains only request; targets come from capabilityId. Never add structured_output to an MCP stage: it invokes another model instead of using the selected output contract. Full contracts are available only after explicit resolution.
         Resolved capability inputSchema and outputSchema are authoritative contracts. An empty outputSchema {} is opaque; a declared schema is not.
         Typed output references select the producer's business result: mcp.call already unwraps response and workflow.call already unwraps outputs.
         Example: {"kind":"output","source":"stage_key","path":["field"]} reads field from that result, without an extra response/outputs path segment.
         Typed input references use the workflow input name as source; loop_item and loop_index use the enclosing loop stage key as source.
         workflow.call input.ref MUST be {"kind":"workflow","source":"target_workflow_key","path":[]}; input.args supplies that workflow's inputs.
         Each input object member is {"name":"field","value":<typed value>}; do not encode references as literal runtime objects.
-        Expression text uses data.inputs.input_name and data.steps.stage_key; bare input names are not variables. Prefer typed references.
+        Expression text uses data.inputs.input_name and data.steps.stage_key; bare input names are not variables. Raw expressions retain executor envelopes: MCP business fields are under response, workflow.call outputs are under outputs. Prefer typed references.
         Use schema references as {"capabilityId":"issued_id","schemaPointer":"/output/properties/field"} with NO inline schema fields.
         Inline schemas describe the actual value, not its source. Properties use port objects; array items must declare a schema.
         Optional inputs need a declared literal default before unconditional reference; required:false alone does not establish a value.

@@ -57,8 +57,7 @@ internal static class PlanningSchemas
         {
             var ids = catalog.Capabilities.Where(c => c.StepType == type).Select(c => c.Id).ToArray();
             if (ids.Length == 0) { remaining.Remove(type); continue; }
-            if (type == "mcp.call") Add([type], ("capabilityId", Enum(ids)), ("structuredOutput", Structured()));
-            else Add([type], ("capabilityId", Enum(ids)));
+            Add([type], ("capabilityId", Enum(ids)));
         }
         Add(["llm.call"], ("structuredOutput", Structured()));
         Add(["set", "value.validate", "value.project", "array.project"], ("outputSchema", Nullable(Ref("schema"))));

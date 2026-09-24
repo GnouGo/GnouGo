@@ -1,5 +1,4 @@
-using System.Text.Json;
-using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Core.Planning;
 namespace GnOuGo.Flow.Planning;
 internal static class PlanningGraphTopology
@@ -33,16 +32,8 @@ internal static class PlanningGraphTopology
     internal static IEnumerable<PlanningValue> Values(PlanningNode node) => new[] { node.Input, node.If, node.Expr }
         .Concat(node.Cases.Select(c => c.When)).Concat(node.OnError.SelectMany(e => new[] { e.If, e.SetOutput }))
         .OfType<PlanningValue>();
-    private static PlanningValue AvailabilityGuard(IEnumerable<string> sources) => new()
-    {
-        Kind = "expression", Text = string.Join(" && ", sources.Order(StringComparer.Ordinal).Select(s => "data.steps[" + JsonSerializer.Serialize(s, PlanningJsonContext.Default.String) + "] != null"))
-    };
-    internal static bool GuardsFinalizerSource(PlanningNode node, string source)
-    {
-        var guard = node.If;
-        return guard?.Kind == "expression" && guard.Text?.Split(" && ", StringSplitOptions.None)
-            .Contains(AvailabilityGuard([source]).Text, StringComparer.Ordinal) == true;
-    }
+    internal static bool GuardsFinalizerSource(PlanningValue guard, string source)
+        => guard.Kind == "expression" && WorkflowResultAvailability.ProvesPresence(guard.Text, source);
     internal static bool FinalizerAvailableOnSuccess(PlanningNode node, PlanningWorkflow workflow)
     {
         return Available(node, new(StringComparer.Ordinal));
@@ -52,10 +43,9 @@ internal static class PlanningGraphTopology
             try
             {
                 if (current.If is null) return true;
-                var required = References(current).Where(v => v.Kind == "output").Select(v => v.Source!).Distinct().ToArray();
-                if (required.Length == 0 || current.If.Kind != "expression" ||
-                    !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(current.If, PlanningJsonContext.Default.PlanningValue),
-                        JsonSerializer.SerializeToNode(AvailabilityGuard(required), PlanningJsonContext.Default.PlanningValue))) return false;
+                if (current.If.Kind != "expression") return false;
+                var required = WorkflowResultAvailability.RequiredResults(current.If.Text);
+                if (required.Count == 0) return false;
                 foreach (var id in required)
                 {
                     var producer = workflow.Steps.Concat(workflow.Finally).SingleOrDefault(n => n.Key == id);

@@ -194,7 +194,7 @@ public static class PlanningExecutableValidation
         var workflow = graph.Workflows[wi]; var path = "/workflows/" + wi;
         var field = parts.FirstOrDefault(p => p.StartsWith("field:", StringComparison.Ordinal))?["field:".Length..];
         var step = parts.FirstOrDefault(p => p.StartsWith("step:", StringComparison.Ordinal))?["step:".Length..];
-        if (step is not null)
+        if (!string.IsNullOrEmpty(step))
         {
             var locations = PlanningGraphValidation.Located(workflow.Steps, path + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, path + "/finally"))
                 .Where(n => "n_" + PlanningGraphCompiler.Fingerprint(n.Node.Key)[..16] == step).ToArray();

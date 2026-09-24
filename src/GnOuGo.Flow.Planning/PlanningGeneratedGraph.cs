@@ -22,6 +22,8 @@ internal static class PlanningGeneratedGraph
                     yield return new("CAPABILITY_UNKNOWN", location, "Resolve an authorized contract before using this stage.");
                 if (node.OutputSchema is not null && node.Type is not ("set" or "value.validate" or "value.project" or "array.project"))
                     yield return new("GENERATED_SCHEMA_OVERRIDE_DENIED", location + "/outputSchema", "Set outputSchema to null. This stage derives its output contract from its operation or child stages; a model declaration cannot override it.");
+                if (node.Type == "mcp.call" && (node.StructuredOutput is not null || PlanningGraphValidation.Member(node.Input, "structured_output") is not null))
+                    yield return new("GENERATED_INFERENCE_DENIED", location, "Use the exact selected MCP output contract. If it is opaque, validate the complete value explicitly with value.validate; do not add implicit model interpretation to a deterministic stage.");
                 if (node.Type == "agent.run")
                     foreach (var name in new[] { "objective", "capabilities", "budget", "verification", "output_schema" })
                         if (PlanningGraphValidation.Member(node.Input, name) is not { } field || !PlanningGraphValidation.IsLiteral(field))

@@ -37,6 +37,21 @@ public sealed class GraphRevisionTests
     }
 
     [Fact]
+    public void ApprovalWrapperDoesNotRedirectFindingsToAnUnrelatedWorkflow()
+    {
+        var graph = PlannerFixture.Greeting();
+        graph.Workflows[0].Steps.Add(new() { Key = "bad", Type = "mcp.call", CapabilityId = "external" });
+        graph.Workflows.Add(new() { Key = "unrelated", Steps = [new() { Key = "keep" }] });
+        var executable = JsonSerializer.Deserialize(JsonSerializer.Serialize(graph, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph)!;
+        PlanningConfirmationGuards.Apply(executable, new() { Capabilities = [new() { Id = "external", StepType = "mcp.call", EffectKind = "write" }] });
+        var diagnostic = PlanningConfirmationGuards.UserDiagnostic(new("INVALID", "/workflows/1/steps/1/input", "Bad input"), executable, graph);
+        Assert.Equal("/workflows/0/steps/1/input", diagnostic.Location);
+        var scope = PlanningGraphRevisions.Scope(graph, [diagnostic]);
+        Assert.Contains("main/bad", scope); Assert.DoesNotContain("main/greet", scope);
+        Assert.DoesNotContain(scope, s => s.StartsWith("unrelated/", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void DependentStagesAndCallersAreInvalidatedWhileUnrelatedStagesStayFrozen()
     {
         var graph = new PlanningGraph { Workflows = [new() { Key = "main", Steps =

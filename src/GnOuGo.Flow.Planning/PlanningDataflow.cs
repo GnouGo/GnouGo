@@ -84,7 +84,7 @@ internal static class PlanningDataflow
                 if (consumer == WorkflowOutputs && workflow.Finally.Any(n => n.Key == key) &&
                     PlanningGraphTopology.FinalizerAvailableOnSuccess(nodes.Single(n => n.Key == key), workflow)) continue;
                 if (consumer != WorkflowOutputs && locations[consumer].StartsWith("/finally/", StringComparison.Ordinal) &&
-                    PlanningGraphTopology.GuardsFinalizerSource(nodes.Single(n => n.Key == consumer), key)) continue;
+                    Guards(consumer).Any(guard => PlanningGraphTopology.GuardsFinalizerSource(guard, key))) continue;
                 if (consumer == WorkflowOutputs || !Guards(consumer).Any(guard => JsonNode.DeepEquals(
                     JsonSerializer.SerializeToNode(condition, PlanningJsonContext.Default.PlanningValue),
                     JsonSerializer.SerializeToNode(guard, PlanningJsonContext.Default.PlanningValue)))) return false;
@@ -94,7 +94,7 @@ internal static class PlanningDataflow
             var path = locations[key]; var target = consumer == WorkflowOutputs ? "/outputs" : locations[consumer];
             // Main execution can stop before any producer; finalizers cannot assume those results exist.
             if (target.StartsWith("/finally/", StringComparison.Ordinal) && path.StartsWith("/steps/", StringComparison.Ordinal) &&
-                !PlanningGraphTopology.GuardsFinalizerSource(nodes.Single(n => n.Key == consumer), key)) return false;
+                !Guards(consumer).Any(guard => PlanningGraphTopology.GuardsFinalizerSource(guard, key))) return false;
             if (target.StartsWith(path + "/", StringComparison.Ordinal)) return false; // An executing ancestor has no completed result yet.
             foreach (var marker in new[] { "/cases/", "/default/", "/branches/" })
             {
@@ -111,8 +111,17 @@ internal static class PlanningDataflow
             return true;
         }
 
-        IEnumerable<PlanningValue> Guards(string key) => nodes.Where(n => n.If is not null &&
-            (n.Key == key || locations[key].StartsWith(locations[n.Key] + "/", StringComparison.Ordinal))).Select(n => n.If!);
+        IEnumerable<PlanningValue> Guards(string key)
+        {
+            foreach (var node in nodes)
+            {
+                var path = locations[node.Key]; var target = locations[key];
+                if (node.If is not null && (node.Key == key || target.StartsWith(path + "/", StringComparison.Ordinal))) yield return node.If;
+                if (node.Type != "switch" || node.Expr is not null) continue;
+                for (var i = 0; i < node.Cases.Count; i++)
+                    if (node.Cases[i].When is { } guard && target.StartsWith(path + "/cases/" + i + "/steps/", StringComparison.Ordinal)) yield return guard;
+            }
+        }
     }
 
     internal static IEnumerable<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningCatalog catalog)

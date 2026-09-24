@@ -151,7 +151,7 @@ foreach (var name in names)
     catch (Exception ex) { failure = ex.GetType().Name; }
     run["elapsed_ms"] = run["elapsed_ms"]!.GetValue<long>() + clock.ElapsedMilliseconds;
     await Checkpoint(state, CancellationToken.None);
-    var rowResult = new JsonObject { ["campaign"] = campaignId, ["source_commit"] = source, ["architecture_base"] = "1f15bec", ["phase"] = phase,
+    var rowResult = new JsonObject { ["campaign"] = campaignId, ["source_commit"] = source, ["phase"] = phase,
         ["case"] = name, ["repetition"] = repetition, ["session_id"] = state.Request.SessionId, ["mode"] = replayKey is not null ? "replay" : live ? "live" : "fixture",
         ["replay_source_run"] = replayKey, ["live_model_calls"] = replayKey is not null ? 0 : (int?)null,
         ["provider"] = configured?.Provider, ["model"] = configured?.Model, ["first_pass_valid"] = run["first_pass_valid"]!.DeepClone(), ["final_review"] = run["final_review"]!.DeepClone(),
