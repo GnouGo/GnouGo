@@ -72,5 +72,19 @@ public sealed class CopilotExecutionBoundsTests
         var permission = await GitHubCopilotSdkClient.BuildPermissionHandler(source)(new PermissionRequestShell { FullCommandText = "echo escaped", RequestSandboxBypass = true, CanOfferSessionApproval = false, Commands = [], HasWriteFileRedirection = false, Intention = "test", PossiblePaths = [], PossibleUrls = [] }, new());
         Assert.IsType<PermissionDecisionReject>(permission);
     }
+    [Fact]
+    public async Task BoundedCommandsBootstrapManagedPolicyForCreateAndResume()
+    {
+        var bounds = new CopilotExecutionBounds(1, 10000, DateTimeOffset.UtcNow.AddMinutes(1), new HashSet<string> { "bash" }, (_, _, _) => Task.CompletedTask);
+        var config = new CopilotRuntimeConfiguration(Path.GetTempPath(), "model", GitHubToken: "test-token") { ExecutionBounds = bounds };
+        await using var client = new GitHubCopilotSdkClient(new CopilotClient(new CopilotClientOptions()), config, NullLogger.Instance);
+        var source = new CopilotSdkSessionConfiguration(new(new("tenant"), config), null, null);
+        var create = client.BuildCreateConfig(source);
+        var resume = client.BuildResumeConfig(source);
+        Assert.True(create.EnableManagedSettings); Assert.Equal("test-token", create.GitHubToken);
+        Assert.True(resume.EnableManagedSettings); Assert.Equal("test-token", resume.GitHubToken);
+        var missing = source with { Request = source.Request with { Configuration = config with { GitHubToken = null } } };
+        Assert.Throws<CopilotSandboxRequiredException>(() => client.BuildCreateConfig(missing));
+    }
     private static HttpRequestMessage Request(string json) => new(HttpMethod.Post, "https://provider.example/v1/responses") { Content = new StringContent(json) };
 }

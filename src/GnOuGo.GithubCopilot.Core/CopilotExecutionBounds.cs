@@ -4,8 +4,8 @@ using GitHub.Copilot;
 
 namespace GnOuGo.GithubCopilot.Core;
 
-public sealed class CopilotSandboxRequiredException() : InvalidOperationException(
-    "Bounded commands require an available mandatory host sandbox. Configure managed sandbox.enabled=true and sandbox.failIfUnavailable=true before approving command execution.");
+public sealed class CopilotSandboxRequiredException(string? reason = null) : InvalidOperationException(
+    reason ?? "Bounded commands require an available mandatory host sandbox. Configure managed sandbox.enabled=true and sandbox.failIfUnavailable=true before approving command execution.");
 
 /// <summary>One invocation's non-renewable ceilings. Reservations precede inference and are never refunded.</summary>
 public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalTokens, DateTimeOffset deadline,
@@ -13,6 +13,7 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     public IReadOnlySet<string> Tools { get; } = tools;
+    internal bool RequiresSandbox => Tools.Contains("bash") || Tools.Contains("powershell");
     public DateTimeOffset Deadline { get; } = deadline;
     public int ModelCalls { get; private set; }
     /// <summary>Conservative charged token ceiling, not measured model usage.</summary>

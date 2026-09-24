@@ -14,6 +14,9 @@ The server preserves interactive permissions and controlled project file access.
 Commands require an available mandatory Copilot sandbox (`enabled` and managed
 `failIfUnavailable`); optional sandbox fallback is rejected. Commands have no network
 or credential grants. Existing host filesystem policy can further restrict access.
+The pinned managed SDK also requires a configured GitHub token to bootstrap policy,
+including with BYOK inference. Configure it through the MCP credential boundary;
+logged-in-user authentication alone does not satisfy that SDK bootstrap contract.
 
 Inference uses explicit output ceilings and non-refundable conservative token
 reservations. `usage.metering=reserved_upper_bound` identifies charged allowances,

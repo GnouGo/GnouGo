@@ -128,7 +128,22 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
 
     public async Task<ICopilotSdkSession> CreateSessionAsync(CopilotSdkSessionConfiguration configuration, CancellationToken cancellationToken)
     {
-        var session = await _client.CreateSessionAsync(BuildCreateConfig(configuration), cancellationToken);
+        var config = BuildCreateConfig(configuration);
+        await ReadManagedPolicyAsync(cancellationToken);
+        var session = await _client.CreateSessionAsync(config, cancellationToken);
+        return await ConfigureBoundedSessionAsync(session, configuration, cancellationToken);
+    }
+
+    private async Task ReadManagedPolicyAsync(CancellationToken cancellationToken)
+    {
+        if (_configuration.ExecutionBounds?.RequiresSandbox != true) return;
+        var policy = await _client.Rpc.ManagedSettings.ReadAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(policy.ErrorMessage))
+            throw new CopilotSandboxRequiredException("Device-managed sandbox policy could not be validated.");
+    }
+
+    private async Task<ICopilotSdkSession> ConfigureBoundedSessionAsync(CopilotSession session, CopilotSdkSessionConfiguration configuration, CancellationToken cancellationToken)
+    {
         try
         {
             if (_configuration.ExecutionBounds is { } bounds)
@@ -147,11 +162,13 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
                             Network = new() { AllowOutbound = false, AllowLocalNetwork = false }
                         }
                     }, cancellationToken: cancellationToken);
-                if (bounds.Tools.Contains("bash") || bounds.Tools.Contains("powershell"))
+                if (bounds.RequiresSandbox)
                 {
                     var enforcement = await session.Rpc.Sandbox.GetEnforcementStatusAsync(cancellationToken);
                     if (!enforcement.Required || enforcement.Blocked)
-                        throw new CopilotSandboxRequiredException();
+                        throw new CopilotSandboxRequiredException(enforcement.Required
+                            ? "Mandatory sandbox policy is active, but the host enforcement probe failed. Verify the host sandbox dependencies and platform support."
+                            : null);
                 }
             }
             return new GitHubCopilotSdkSession(session, _configuration, configuration.FileSystem);
@@ -161,8 +178,10 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
 
     public async Task<ICopilotSdkSession> ResumeSessionAsync(string sessionId, CopilotSdkSessionConfiguration configuration, CancellationToken cancellationToken)
     {
-        var session = await _client.ResumeSessionAsync(sessionId, BuildResumeConfig(configuration), cancellationToken);
-        return new GitHubCopilotSdkSession(session, _configuration, configuration.FileSystem);
+        var config = BuildResumeConfig(configuration);
+        await ReadManagedPolicyAsync(cancellationToken);
+        var session = await _client.ResumeSessionAsync(sessionId, config, cancellationToken);
+        return await ConfigureBoundedSessionAsync(session, configuration, cancellationToken);
     }
 
     public Task DeleteSessionAsync(string sessionId, CancellationToken cancellationToken)
@@ -180,12 +199,16 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
     {
         var request = source.Request;
         var configuration = request.Configuration;
+        if (configuration.ExecutionBounds?.RequiresSandbox == true && string.IsNullOrWhiteSpace(configuration.GitHubToken))
+            throw new CopilotSandboxRequiredException("Bounded commands require a configured GitHub token for the managed SDK policy bootstrap, including when using a separate inference provider.");
         if (source.FileSystem is not null)
             foreach (var directory in configuration.SkillDirectories ?? []) source.FileSystem.ValidateRead(directory);
         return new SessionConfig
         {
             SessionId = string.IsNullOrWhiteSpace(request.RequestedSessionId) ? null : request.RequestedSessionId,
             ClientName = "GnOuGo.GithubCopilot.Core",
+            EnableManagedSettings = configuration.ExecutionBounds?.RequiresSandbox == true ? true : null,
+            GitHubToken = configuration.ExecutionBounds?.RequiresSandbox == true ? configuration.GitHubToken : null,
             Model = source.Provider?.Model ?? configuration.Model,
             ReasoningEffort = NormalizeNullable(configuration.ReasoningEffort),
             Provider = source.Provider?.Provider,
@@ -217,6 +240,8 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         return new ResumeSessionConfig
         {
             ClientName = create.ClientName,
+            EnableManagedSettings = create.EnableManagedSettings,
+            GitHubToken = create.GitHubToken,
             Model = create.Model,
             ReasoningEffort = create.ReasoningEffort,
             Provider = create.Provider,

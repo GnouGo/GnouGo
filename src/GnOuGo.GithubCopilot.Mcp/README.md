@@ -217,7 +217,12 @@ commands require a mandatory, available Copilot sandbox: managed `sandbox.enable
 and `sandbox.failIfUnavailable` must both be enabled. The task disables sandbox
 bypass, outbound/local networking and Git/GitHub credential grants. It retains
 host-defined sandbox read-only access and allows writes in the task workspace.
-This is checked before the task prompt is dispatched. See the [upstream managed
+The pinned SDK requires a configured GitHub token for managed-policy bootstrap,
+including BYOK inference; use the existing encrypted credential configuration or
+configured token environment source. The adapter reads device policy through the
+SDK and enables managed policy on creation and resume. No credentials are passed
+to task commands. Missing policy, invalid policy and unavailable enforcement fail
+before the task prompt is dispatched. See the [upstream managed
 sandbox policy](https://docs.github.com/en/copilot/reference/enterprise-administrators/enterprise-managed-settings).
 
 Inference retains the configured policy proxy. Supported text HTTP protocols have
