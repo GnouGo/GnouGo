@@ -32,7 +32,7 @@ public sealed class NumericTransformExecutor : IStepExecutor
             }
         },
         JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"number"}},"required":["value"],"additionalProperties":false}""")!.AsObject(),
-        InputRequired: true);
+        InputRequired: true, PlanningEffectKind: "none");
 
     public Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
     {

@@ -76,9 +76,9 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime
                 try
                 {
                 var summary = new CapabilitySummary(capability.Id,
-                    capability.Kind == "agent" ? CapabilityDiscovery.RunnerSource(capability.Method!) : CapabilityDiscovery.SourceId(capability.Server!),
+                    capability.Kind == "registered" ? "runtime" : capability.Kind == "agent" ? CapabilityDiscovery.RunnerSource(capability.Method!) : CapabilityDiscovery.SourceId(capability.Server!),
                     capability.Method ?? capability.Id, capability.Description, capability.StepType, capability.EffectKind, capability.Version);
-                var resolved = await fresh.ResolveAsync(summary, ct);
+                var resolved = capability.Kind == "registered" ? current.Capabilities.Single(c => c.Id == capability.Id) : await fresh.ResolveAsync(summary, ct);
                 if (!JsonNode.DeepEquals(JsonSerializer.SerializeToNode(capability, PlanningJsonContext.Default.PlanningCapability),
                     JsonSerializer.SerializeToNode(resolved, PlanningJsonContext.Default.PlanningCapability)))
                     findings.Add(new("CATALOG_CHANGED", capability.Id, "A selected capability changed; regenerate and approve the workflow."));

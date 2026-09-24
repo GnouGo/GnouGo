@@ -13,7 +13,7 @@ public interface ICapabilityCatalog
 
 public sealed record CapabilitySource(string Id, string Description);
 public sealed record CapabilitySummary(string Id, string SourceId, string Name, string Description,
-    string StepType, string EffectKind, string Version, McpCapabilityComposition? Composition = null);
+    string StepType, string EffectKind, string Version, McpCapabilityComposition? Composition = null, PlanningOperation? Operation = null);
 public sealed record CapabilityPage(string SourceId, string? Cursor, List<CapabilitySummary> Capabilities,
     string? NextCursor, string? UnavailableReason = null);
 

@@ -64,6 +64,50 @@ public static class PlanningCorpus
         main.Outputs.Add(new() { Name = "result", Schema = schema, Value = result }); return graph;
     }
 
+    public static TaskValue Business(string kind, string? source = null, string? port = null) => new() { Kind = kind, Source = source, Port = port };
+    public static TaskValue Number(decimal value) => new() { Kind = "number", Number = value };
+    public static TaskValue String(string value) => new() { Kind = "string", Text = value };
+    public static TaskPlan Tasks(string name, PlanningCatalog catalog)
+    {
+        var plan = new TaskPlan(); var main = plan.Root;
+        PlanTask Invoke(string id, string method, params TaskOutput[] inputs) => new() { Id = id, Objective = "Perform " + method, Operation = TaskOperations.Describe(catalog.Capabilities.Single(c => c.Method == method)).Id, Inputs = inputs.ToList() };
+        PlanTask Math(string id, string operation, TaskValue left, TaskValue right) => new() { Id = id, Objective = "Calculate result", Operation = TaskOperations.Describe(catalog.Capabilities.Single(c => c.StepType == operation)).Id, Inputs = [new("left", left), new("right", right)] };
+        TaskValue Output(string id, string? port = "value") => Business("output", id, port);
+        var result = Output("result");
+        switch (name)
+        {
+            case "local": main.Tasks.Add(Math("result", "number.multiply", Number(6), Number(7))); break;
+            case "read_transform": main.Tasks.Add(Invoke("read", "read")); main.Tasks.Add(Math("result", "number.multiply", Output("read"), Number(2))); break;
+            case "nullable_defaults":
+                plan.Inputs.Add(new() { Name = "increment", Type = new() { Kind = "number" }, Required = false, Default = Number(2) });
+                main.Tasks.Add(Invoke("read", "read_optional")); main.Tasks.Add(Math("fallback", "number.default", Output("read"), Number(0)));
+                main.Tasks.Add(Math("result", "number.add", Output("fallback"), Business("input", "increment"))); break;
+            case "conditional":
+                plan.Inputs.Add(new() { Name = "enabled", Type = new() { Kind = "boolean" } });
+                main.Tasks.Add(new() { Id = "result", Objective = "Read only when enabled", Kind = "conditional", Condition = Business("input", "enabled"),
+                    Body = new() { Tasks = [Invoke("read", "read")], Outputs = [new("value", Output("read"))] }, Otherwise = new() { Outputs = [new("value", Number(0))] } }); break;
+            case "collections":
+                plan.Inputs.Add(new() { Name = "values", Type = new() { Kind = "array", Items = new() { Kind = "number" } } });
+                plan.Groups.Add(new() { Id = "double", Inputs = [new() { Name = "value", Type = new() { Kind = "number" } }],
+                    Body = new() { Tasks = [Math("double", "number.multiply", Business("input", "value"), Number(2))], Outputs = [new("result", Output("double"))] } });
+                main.Tasks.Add(new() { Id = "result", Objective = "Double each value preserving order", Kind = "foreach", Items = Business("input", "values"), Parallel = true,
+                    Body = new() { Tasks = [new() { Id = "double", Objective = "Double this item", Kind = "call", Group = "double", Inputs = [new("value", Business("item"))] }], Outputs = [new("values", Output("double", "result"))] } });
+                result = Output("result", "values"); break;
+            case "protected_cleanup":
+                main.Tasks.Add(Invoke("write", "write")); main.Always.Add(Invoke("cleanup", "cleanup")); result = Number(42); break;
+            case "review_french": case "review_distractors":
+                plan.Inputs = [new() { Name = "pr_url" }, new() { Name = "review_text" }];
+                main.Tasks.Add(Invoke("clone", "clone_repository", new TaskOutput("pr_url", Business("input", "pr_url"))));
+                foreach (var check in new[] { "dependencies", "lint", "unit", "integration" }) main.Tasks.Add(Invoke(check, "run_check", new TaskOutput("directory", Output("clone", "directory")), new("check", String(check))));
+                main.Tasks.Add(Invoke("review", "review_changes", new TaskOutput("directory", Output("clone", "directory")), new("review_text", Business("input", "review_text"))));
+                main.Tasks.Add(Invoke("evaluate", "evaluate_review", new TaskOutput("directory", Output("clone", "directory"))));
+                main.Tasks.Add(Invoke("publish", "publish_review", new TaskOutput("draftId", Output("evaluate", "draftId"))));
+                main.Always.Add(Invoke("cleanup", "remove_workspace", new TaskOutput("directory", Output("clone", "directory"))));
+                main.Outputs.Add(new("review", Output("evaluate", null))); return plan;
+        }
+        main.Outputs.Add(new("result", result)); return plan;
+    }
+
     public static PlanningRequirements Requirements(string name) => new()
     { Summary = Prompt(name), Outcomes = [new(name.StartsWith("review_", StringComparison.Ordinal) ? "review" : "result", Prompt(name))] };
 

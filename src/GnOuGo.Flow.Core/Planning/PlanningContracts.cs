@@ -131,6 +131,7 @@ public sealed class PlanningCapability
     public List<PlanningLiteralBinding> RequestBindings { get; set; } = [];
     public string EffectKind { get; set; } = "unknown";
     public string Version { get; set; } = "";
+    public PlanningOperation? Operation { get; set; }
     public McpCapabilityComposition? Composition { get; set; }
     public McpArtifactContract? ArtifactContract { get; set; }
     public JsonNode? Metadata { get; set; }
@@ -178,6 +179,12 @@ public interface IPlanningSessionStore
 public sealed class PlanningConflictException(string message) : InvalidOperationException(message);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, AllowOutOfOrderMetadataProperties = true)]
+[JsonSerializable(typeof(TaskPlan))]
+[JsonSerializable(typeof(PlanTask))]
+[JsonSerializable(typeof(TaskValue))]
+[JsonSerializable(typeof(TaskType))]
+[JsonSerializable(typeof(PlanningChoice))]
+[JsonSerializable(typeof(PlanningOperation))]
 [JsonSerializable(typeof(PlanningSession))]
 [JsonSerializable(typeof(PlanningRequirements))]
 [JsonSerializable(typeof(PlanningQuestion))]

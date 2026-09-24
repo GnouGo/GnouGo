@@ -11,7 +11,8 @@ public sealed record StepContract(
     JsonObject InputSchema,
     JsonObject OutputSchema,
     bool InputRequired = false,
-    IReadOnlyList<IReadOnlyList<string>>? MutuallyExclusiveInputFields = null)
+    IReadOnlyList<IReadOnlyList<string>>? MutuallyExclusiveInputFields = null,
+    string? PlanningEffectKind = null)
 {
     internal FlowTypeDescriptor InputType { get; } = FlowTypeDescriptorConverter.FromJsonSchema(InputSchema);
     internal FlowTypeDescriptor OutputType { get; } = FlowTypeDescriptorConverter.FromJsonSchema(OutputSchema);

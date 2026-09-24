@@ -20,6 +20,14 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
                 request.Policy.AllowedStepTypes.Count > 0 && !request.Policy.AllowedStepTypes.Contains(type)) continue;
             catalog.AllowedStepTypes.Add(type);
             catalog.StepContracts[type] = new JsonObject { ["input"] = contract.InputSchema.DeepClone(), ["output"] = contract.OutputSchema.DeepClone() };
+            if (contract.PlanningEffectKind is { } effect)
+            {
+                var capability = new PlanningCapability { Id = Identity("runtime", "registered", type), Kind = "registered", StepType = type,
+                    Description = contract.InputSchema["description"]?.ToString() ?? "Registered typed operation",
+                    InputSchema = contract.InputSchema.DeepClone().AsObject(), OutputSchema = contract.OutputSchema.DeepClone().AsObject(), EffectKind = effect };
+                capability.Version = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(capability, PlanningJsonContext.Default.PlanningCapability));
+                catalog.Capabilities.Add(capability);
+            }
         }
         return Task.FromResult(catalog);
     }
@@ -42,7 +50,7 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
             if (offset > capabilities.Count) throw new ArgumentException("Discovery cursor is outside this source.");
             const int pageSize = 24;
             return new(sourceId, cursor, capabilities.Skip(offset).Take(pageSize).Select(c => new CapabilitySummary(c.Id, sourceId,
-                c.Method ?? c.Id, c.Description, c.StepType, c.EffectKind, c.Version, c.Composition)).ToList(),
+                c.Method ?? c.Id, c.Description, c.StepType, c.EffectKind, c.Version, c.Composition, TaskOperations.Describe(c))).ToList(),
                 offset + pageSize < capabilities.Count ? (offset + pageSize).ToString(System.Globalization.CultureInfo.InvariantCulture) : null);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
