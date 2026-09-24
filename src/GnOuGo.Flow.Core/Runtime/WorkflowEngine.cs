@@ -28,6 +28,8 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public ITemplateEngine? TemplateEngine { get; set; }
     public IMcpClientFactory? McpClientFactory { get; set; }
     public IHumanInputProvider? HumanInputProvider { get; set; }
+    public IDictionary<string, IAgentTaskRunner> AgentTaskRunners { get; } = new Dictionary<string, IAgentTaskRunner>(StringComparer.Ordinal);
+    public IAgentTaskVerifier AgentTaskVerifier { get; set; } = new EvidenceAgentTaskVerifier();
     public IWorkflowCheckpointer? Checkpointer { get; set; }
     /// <summary>Optional separately injected version-2 planner; Flow.Core does not reference its implementation.</summary>
     public Planning.IPlanningDecisionProvider? PlanningDecisionProvider { get; set; }
@@ -1176,6 +1178,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         registry.Register(new Executors.AssertNonNullExecutor());
         registry.Register(new Executors.TemplateRenderExecutor());
         registry.Register(new Executors.LlmCallExecutor());
+        registry.Register(new Executors.AgentRunExecutor());
         registry.Register(new Executors.WorkflowCallExecutor());
         registry.Register(new Executors.WorkflowRouteExecutor());
         registry.Register(new Executors.WorkflowPlanExecutor());
