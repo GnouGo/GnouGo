@@ -1,6 +1,6 @@
 ﻿// ── Shared types for GnOuGo.Flow Client ──
 
-export type TabId = 'runner' | 'editor'
+export type TabId = 'runner' | 'editor' | 'executions'
 
 export type StreamEventType =
   | 'workflow.started'

@@ -32,6 +32,20 @@ export interface StepTypeDef {
 }
 
 export const STEP_TYPES: StepTypeDef[] = [
+  {
+    type: 'agent.run', label: 'Bounded agent', icon: '◈', category: 'ai', color: '#7c3aed',
+    description: 'Adaptive work within an approved scope. Verified evidence is required before downstream execution.',
+    fields: [
+      { name: 'runner', label: 'Configured runner', type: 'string', required: true },
+      { name: 'objective', label: 'Approved objective', type: 'text', required: true },
+      { name: 'workspace', label: 'Workspace', type: 'expression', required: true },
+      { name: 'inputs', label: 'Task inputs', type: 'json' },
+      { name: 'capabilities', label: 'Permitted capabilities', type: 'json', required: true },
+      { name: 'output_schema', label: 'Output schema', type: 'json', required: true },
+      { name: 'budget', label: 'Budget ceilings', type: 'json', required: true, description: 'max_elapsed_milliseconds, max_model_calls, max_total_tokens' },
+      { name: 'verification', label: 'Required evidence', type: 'json', required: true, description: 'Requirements with id, kind, subject and facts_schema' },
+    ],
+  },
   // ── Control flow ──
   {
     type: 'sequence',

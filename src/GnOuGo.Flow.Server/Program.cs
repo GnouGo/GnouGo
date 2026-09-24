@@ -218,7 +218,7 @@ runs.MapPost("/{runId}/human-input", async (string tenantId, string runId, Workf
 {
     try
     {
-        await WorkflowRunHumanResponses.RecordAsync(store, tenantId, runId, request.InvocationId, request.Response, ct);
+        await store.AnswerAsync(tenantId, runId, request.ExpectedRevision, request.InvocationId, request.Response, ct);
         human.TrySubmitResponse(runId, request.InvocationId, request.Response);
         return Results.Ok();
     }
@@ -471,7 +471,7 @@ file sealed record PreparedWorkflowRun(CompiledWorkflow Workflow, JsonNode? Inpu
 
 file sealed class InvalidWorkflowRunRequestException(string message) : Exception(message);
 
-public sealed record WorkflowHumanAnswer(string InvocationId, JsonNode? Response);
+public sealed record WorkflowHumanAnswer(long ExpectedRevision, string InvocationId, JsonNode? Response);
 
 public sealed class WorkflowRunRequest
 {

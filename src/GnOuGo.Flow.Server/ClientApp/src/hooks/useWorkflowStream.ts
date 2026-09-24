@@ -19,6 +19,7 @@ import type {
 import { makeStepKey, parseInputsYamlToJsonString, readNdjsonLines } from '../utils'
 
 export interface WorkflowStreamState {
+  tenantId: string
   result: WorkflowResult | null
   error: string | null
   loading: boolean
@@ -324,6 +325,7 @@ export function useWorkflowStream(): WorkflowStreamState {
   )
 
   return {
+    tenantId: tenantRef.current || 'default',
     result,
     error,
     loading,
