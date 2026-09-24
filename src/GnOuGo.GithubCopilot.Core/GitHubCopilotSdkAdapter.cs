@@ -136,7 +136,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
                 await session.Rpc.Options.UpdateAsync(
                     availableTools: bounds.Tools.ToList(), enableHostGitOperations: false,
                     enableSkills: false, enableSessionStore: false, enableOnDemandInstructionDiscovery: false,
-                    includedBuiltinAgents: [], excludedBuiltinAgents: ["*"], skipCustomInstructions: true,
+                    includedBuiltinAgents: [], skipCustomInstructions: true,
                     sandboxConfig: new SandboxConfig
                     {
                         Enabled = true, AddCurrentWorkingDirectory = true, AllowBypass = false,
@@ -151,7 +151,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
                 {
                     var enforcement = await session.Rpc.Sandbox.GetEnforcementStatusAsync(cancellationToken);
                     if (!enforcement.Required || enforcement.Blocked)
-                        throw new InvalidOperationException("Bounded commands require an available mandatory host sandbox. Configure the managed failIfUnavailable policy before approving command execution.");
+                        throw new CopilotSandboxRequiredException();
                 }
             }
             return new GitHubCopilotSdkSession(session, _configuration, configuration.FileSystem);

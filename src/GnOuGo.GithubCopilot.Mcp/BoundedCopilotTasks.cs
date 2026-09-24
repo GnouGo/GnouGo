@@ -150,7 +150,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             result = dispatched ? Unknown(null, bounds.Exhausted ? "The approved inference budget is exhausted; reconcile interrupted work." : "Execution was interrupted; inspect and reconcile the original invocation.")
-                : new("failed", null, [], [], new(0, 0, 0), "The host rejected task preparation before dispatch (" + ex.GetType().Name + ").");
+                : new("failed", null, [], [], new(0, 0, 0), ex is CopilotSandboxRequiredException ? ex.Message : "The host rejected task preparation before dispatch (" + ex.GetType().Name + ").");
         }
         finally
         {

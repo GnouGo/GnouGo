@@ -4,6 +4,9 @@ using GitHub.Copilot;
 
 namespace GnOuGo.GithubCopilot.Core;
 
+public sealed class CopilotSandboxRequiredException() : InvalidOperationException(
+    "Bounded commands require an available mandatory host sandbox. Configure managed sandbox.enabled=true and sandbox.failIfUnavailable=true before approving command execution.");
+
 /// <summary>One invocation's non-renewable ceilings. Reservations precede inference and are never refunded.</summary>
 public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalTokens, DateTimeOffset deadline,
     IReadOnlySet<string> tools, Func<int, long, CancellationToken, Task> persistReservation)

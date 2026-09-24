@@ -30,8 +30,13 @@ public sealed class CopilotAgentTaskRunner(IMcpClientFactory transport, string s
     public Task<AgentTaskResult> ReconcileAsync(AgentTaskContext context, CancellationToken ct) => ResultAsync("copilot_task_inspect", context, ct);
 
     private async Task<AgentTaskResult> ResultAsync(string method, AgentTaskContext context, CancellationToken ct)
-        => JsonSerializer.Deserialize(await CallAsync(method, Arguments(context), context, ct), AgentTaskJsonContext.Default.AgentTaskResult)
+    {
+        var response = await CallAsync(method, Arguments(context), context, ct);
+        if (response?["schemaVersion"]?.GetValue<int>() != 9 || response["result"] is null)
+            throw new InvalidOperationException("Invalid Copilot receipt protocol. Regenerate and approve the task.");
+        return JsonSerializer.Deserialize(response["result"], AgentTaskJsonContext.Default.AgentTaskResult)
             ?? throw new InvalidOperationException("Invalid Copilot task receipt.");
+    }
 
     private static JsonObject Arguments(AgentTaskContext context) => new()
     { ["contextJson"] = JsonSerializer.Serialize(context, AgentTaskJsonContext.Default.AgentTaskContext) };

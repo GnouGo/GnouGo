@@ -8,6 +8,13 @@ namespace GnOuGo.Flow.Copilot.Tests;
 public sealed class CopilotAgentTaskRunnerTests
 {
     [Fact]
+    public async Task FailedTaskReceiptsRemainTerminalAndCanBeReconciled()
+    {
+        var runner = new CopilotAgentTaskRunner(new Transport { TaskStatus = "failed" }, "configured-server");
+        Assert.Equal("failed", (await runner.RunAsync(Context(), TestContext.Current.CancellationToken)).Status);
+        Assert.Equal("failed", (await runner.ReconcileAsync(Context(), TestContext.Current.CancellationToken)).Status);
+    }
+    [Fact]
     public async Task RecoveryInspectsOriginalIdentityWithoutDispatchingAgain()
     {
         var transport = new Transport(); var runner = new CopilotAgentTaskRunner(transport, "configured-server");
@@ -57,6 +64,7 @@ public sealed class CopilotAgentTaskRunnerTests
         public List<(string Method, JsonNode? Input)> Calls { get; } = [];
         public int Version { get; set; } = 9;
         public bool Fail { get; set; }
+        public string TaskStatus { get; set; } = "completed";
         public IReadOnlyList<McpServerMetadata> ServerMetadata => [];
         public string ServerName => "configured-server";
         public Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct) { Assert.Equal(ServerName, serverName); return Task.FromResult<IMcpSession>(this); }
@@ -67,7 +75,7 @@ public sealed class CopilotAgentTaskRunnerTests
             {
                 "copilot_task_contract" => new JsonObject { ["schemaVersion"] = Version, ["contract"] = JsonSerializer.SerializeToNode(new AgentTaskRunnerContract("Declared scope", AgentTaskContracts.InputSchema), AgentTaskJsonContext.Default.AgentTaskRunnerContract) },
                 "copilot_task_validate" => new JsonObject { ["errors"] = new JsonArray() },
-                _ => JsonSerializer.SerializeToNode(new AgentTaskResult("completed", new JsonObject(), [], [], new(1, 100, 1), "Everything passed!"), AgentTaskJsonContext.Default.AgentTaskResult)
+                _ => new JsonObject { ["schemaVersion"] = Version, ["result"] = JsonSerializer.SerializeToNode(new AgentTaskResult(TaskStatus, new JsonObject(), [], [], new(1, 100, 1), "Everything passed!"), AgentTaskJsonContext.Default.AgentTaskResult) }
             };
             return Task.FromResult(new McpCallResult { IsError = Fail, Content = body });
         }

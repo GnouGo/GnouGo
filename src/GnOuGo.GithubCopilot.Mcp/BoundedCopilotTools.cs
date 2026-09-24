@@ -27,13 +27,18 @@ internal sealed class BoundedCopilotTools(BoundedCopilotTasks tasks, McpCopilotH
     public async Task<JsonObject> RunAsync(RequestContext<CallToolRequestParams> request, string contextJson, CancellationToken cancellationToken)
     {
         using var scope = human.Push(request.Server, cancellationToken);
-        return JsonSerializer.SerializeToNode(await tasks.RunAsync(Parse(contextJson), cancellationToken), AgentTaskJsonContext.Default.AgentTaskResult)!.AsObject();
+        return Receipt(await tasks.RunAsync(Parse(contextJson), cancellationToken));
     }
 
     [McpServerTool(Name = "copilot_task_inspect", UseStructuredContent = true), Description("Read the encrypted receipt for an interrupted task without restoring a Copilot session or repeating its effects.")]
     [McpMeta("gnougo", JsonValue = Metadata)]
     public async Task<JsonObject> InspectAsync(string contextJson, CancellationToken cancellationToken)
-        => JsonSerializer.SerializeToNode(await tasks.InspectAsync(Parse(contextJson), cancellationToken), AgentTaskJsonContext.Default.AgentTaskResult)!.AsObject();
+        => Receipt(await tasks.InspectAsync(Parse(contextJson), cancellationToken));
+
+    // A successful receipt lookup can describe a failed task. Keep task status out
+    // of the transport error envelope so recovery can consume that terminal result.
+    private static JsonObject Receipt(AgentTaskResult result) => new()
+    { ["schemaVersion"] = 9, ["result"] = JsonSerializer.SerializeToNode(result, AgentTaskJsonContext.Default.AgentTaskResult) };
 
     private AgentTaskContext Parse(string json)
     {
