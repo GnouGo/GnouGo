@@ -19,6 +19,10 @@ The model selects declared operation intents and connects business ports. The co
 owns binding and executor plumbing. There is no model-generated graph, separate
 binding session, grounded-plan representation or additional model phase.
 
+Task, group and choice declarations share one case-sensitive global namespace. IDs and references allow only nonempty ASCII letters, digits, underscores and hyphens, with `__` reserved. Alternative IDs remain local to their choice; business ports, operation IDs and requirements are outside this namespace. Invalid declarations are never automatically renamed or granted repair permission. Previously saved format-10 plans with invalid declarations must be regenerated; approval verification and recovery fail closed without changing stored records. Malformed consumer references may be corrected only within an existing diagnosed binding scope.
+
+The model response schema expresses literal-only choice alternatives, minimum branch/alternative counts, nonblank objectives/questions, predicate arity, typed array items and existing iteration/concurrency ceilings. Deterministic semantic validation remains authoritative for uniqueness, contracts, visibility and recovered plans. Follow the required [planning skill](../.agents/skills/gnougo-planning/SKILL.md) through [AGENTS.md](../AGENTS.md) for changes to this architecture.
+
 ## Package boundaries
 
 - **Flow.Core** owns the authored YAML runtime, TaskPlan, graph and requirement contracts,

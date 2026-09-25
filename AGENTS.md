@@ -2,6 +2,10 @@
 
 Use English only.
 
+## Required planning skill
+
+For any planning, TaskPlan, compiler or scoped-repair change, including related tests and documentation, use `$gnougo-planning` and follow [.agents/skills/gnougo-planning/SKILL.md](.agents/skills/gnougo-planning/SKILL.md). Agents without skill-invocation syntax must read and apply that file directly. It defines the current architecture, fail-closed boundaries and deterministic regression method; historical evaluation reports do not authorize new live campaigns.
+
 ## Architecture Principles
 - Split into **independent** **libraries / APIs / CLIs**.
 - Each component must be:
