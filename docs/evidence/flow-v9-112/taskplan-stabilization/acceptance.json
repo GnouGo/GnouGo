@@ -1,0 +1,35 @@
+{
+  "source_commit": "d636c998acd08b17cd21cb4a9b85c0911b3290ba",
+  "status": "passed",
+  "coverage_complete": true,
+  "minimum_correct": {
+    "conditional": 3,
+    "review_french": 3,
+    "review_distractors": 2
+  },
+  "correct": {
+    "conditional": 3,
+    "review_french": 3,
+    "review_distractors": 2
+  },
+  "previous_taskplan_correct": {
+    "conditional": 3,
+    "review_french": 1,
+    "review_distractors": 1
+  },
+  "previous_taskplan_metrics": {
+    "source_commit": "78b8b3468104e576358839c5315846957746c519",
+    "physical_attempts": 31,
+    "median_calls": 3,
+    "median_latency_ms": 100116,
+    "known_input_tokens": 129035,
+    "known_output_tokens": 39462
+  },
+  "no_regression_against_previous_taskplan": true,
+  "zero_unsafe_or_incorrect_approvals": true,
+  "usage_bounded": true,
+  "known_cost_eur": "1.152876748482449195038268672",
+  "reserved_cost_eur": "2.574188440221694378463974664",
+  "cli_summary_note": "The original CLI summary and exit code 1 retain historical aggregate gates. The frozen stabilization comparison applies the agreed best-per-case baselines instead; no outcome or threshold was changed.",
+  "comparison_query_note": "An initial read-only comparison used parent phase measured and found no parent rows. That inconclusive query is retained. The recorded parent cohort uses phase fixture; querying those existing records produced the complete passing comparison. No model request was dispatched by either comparison."
+}

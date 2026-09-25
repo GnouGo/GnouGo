@@ -1,0 +1,27 @@
+[
+  {
+    "file": "ci-proxy-standalone.log",
+    "sha256": "463e06d207732ad4553a3871f32f31c16dd7131ed210881388ddd015fcdd1f79",
+    "unexpected_build_warnings": []
+  },
+  {
+    "file": "ci-planner.log",
+    "sha256": "9679e17834d7573d6acabb031a18435507c798891e2006d7fd371dc1b14c8c5b",
+    "unexpected_build_warnings": []
+  },
+  {
+    "file": "ci-main.log",
+    "sha256": "b7474048da25ed0c6d3a409c0e697052161a97a2fae0b9a62271cc592e263ae2",
+    "unexpected_build_warnings": []
+  },
+  {
+    "file": "ci-dependencies.log",
+    "sha256": "5308de2162a54f932bcc12d480ac361dd6217b28ca79008a37df496dc98b08af",
+    "unexpected_build_warnings": []
+  },
+  {
+    "file": "ci-proxy-aot.log",
+    "sha256": "bef87bb9370b5c75cfdcbcce8c3d73006e5b60042a81573bc16a3f46eb11f04a",
+    "unexpected_build_warnings": []
+  }
+]

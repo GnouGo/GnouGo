@@ -199,3 +199,10 @@ the completed nine-outcome comparison: 5/9 correct, median three physical calls,
 bounded usage and no unsafe approvals. Correctness regressed against the best retained
 review-case baselines, so acceptance failed. Implementation and paid evaluation stopped;
 the PR remains draft with the compiler/contract failures and real Copilot limitation visible.
+
+The subsequent [TaskPlan stabilization report](evidence/flow-v9-112/taskplan-stabilization/README.md)
+records 8/9 correct outcomes and a one-call median on frozen candidate `d636c99`.
+It meets the agreed per-case thresholds without changing the architecture or public
+contracts. One parallel-branch export repair failure remains; the full failure and
+uncertain usage reservations are retained. Implementation and paid evaluation stopped
+after the nine outcomes. The real Copilot command-execution limitation keeps the PR draft.
