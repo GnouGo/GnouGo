@@ -66,7 +66,7 @@ public sealed class TaskPlanStabilizationTests
         var failed = new TaskPlanCompiler().Compile(original, catalog);
         Assert.Contains(failed.Diagnostics, d => d.Code == "TASK_PRESENCE_SCOPE");
         var scope = TaskPlanRevisions.Scope(original, failed.Diagnostics);
-        Assert.Equal(new[] { "always_cleanup_workspace" }, scope);
+        Assert.Equal(new[] { "/tasks/always_cleanup_workspace/condition" }, scope);
         var repaired = Clone(original); repaired.Root.Always[0].Condition!.Source = original.Root.Tasks[0].Id;
         Assert.Empty(TaskPlanRevisions.Validate(original, repaired, scope));
         var compilation = new TaskPlanCompiler().Compile(repaired, catalog); Assert.Empty(compilation.Diagnostics);

@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 namespace GnOuGo.Flow.Planning;
 
-/// <summary>Repairs edit business tasks and dependent outputs, never generated executor plumbing.</summary>
+/// <summary>Only diagnosed semantic slots are editable. Revalidation never grants edit permission.</summary>
 internal static class TaskPlanRevisions
 {
     internal static IEnumerable<PlanTask> Tasks(TaskScope scope) => scope.Tasks.Concat(scope.Always).SelectMany(t => new[] { t }.Concat(
@@ -11,116 +11,140 @@ internal static class TaskPlanRevisions
     internal static IEnumerable<PlanTask> Tasks(TaskPlan plan) => Tasks(plan.Root).Concat(plan.Groups.SelectMany(g => Tasks(g.Body)));
     internal static IReadOnlyList<string> Scope(TaskPlan plan, IReadOnlyList<PlanningDiagnostic> findings)
     {
-        var tasks = Tasks(plan).ToArray();
-        var affected = findings.Where(d => d.Required).Select(d => d.Location.Split('/')).Where(p => p.Length > 2 && p[1] == "tasks")
-            .Select(p => p[2]).Where(id => tasks.Any(t => t.Id == id)).ToHashSet(StringComparer.Ordinal);
-        foreach (var finding in findings.Where(d => d.Required))
+        var symbols = new TaskPlanSymbols(plan);
+        var inputs = plan.Inputs.Select(i => "/inputs/" + i.Name).Concat(plan.Groups.SelectMany(g => g.Inputs.Select(i => "/groups/" + g.Id + "/inputs/" + i.Name))).ToHashSet(StringComparer.Ordinal);
+        var scope = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var finding in findings.Where(d => d.Required && d.Code != "REVISION_SCOPE_CHANGED"))
         {
-            if (finding.Location.StartsWith("/inputs/", StringComparison.Ordinal)) affected.Add(finding.Location);
-            if (finding.Location.StartsWith("/root/outputs/", StringComparison.Ordinal)) affected.Add(finding.Location);
-            if (finding.Location.StartsWith("/tasks/", StringComparison.Ordinal) && finding.Location.Contains("/outputs/", StringComparison.Ordinal)) affected.Add(finding.Location);
-            if (finding.Location.StartsWith("/groups/", StringComparison.Ordinal) &&
-                (finding.Location.Contains("/inputs/", StringComparison.Ordinal) || finding.Location.Contains("/outputs/", StringComparison.Ordinal))) affected.Add(finding.Location);
-            if (finding.Location.StartsWith("/choices/", StringComparison.Ordinal)) affected.Add(finding.Location);
+            var path = finding.Location;
+            if (symbols.Values.ContainsKey(path) || inputs.Contains(path) || plan.Choices.Any(c => path == "/choices/" + c.Id)) scope.Add(path);
+            else if (finding.Code == "TASK_EXPORT_REQUIRED" && symbols.Scopes.Any(s => s.Path + "/outputs" == path)) scope.Add(path);
+            else if (finding.Code == "TASK_BRANCH_OUTPUTS" && symbols.Scopes.Any(s => s.Owner?.Kind == "conditional" && path.StartsWith(s.Path + "/outputs/", StringComparison.Ordinal))) scope.Add(path);
+            else if (path.Split('/') is ["", "tasks", var id, var field] && symbols.Tasks.ContainsKey(id) &&
+                field is "objective" or "operation" or "group" or "condition" or "items" or "dependsOn" or "maxItems" or "maxConcurrency") scope.Add(path);
+            else if (finding.Code is "TASK_INPUT_REQUIRED" or "TASK_GROUP_INPUTS" && path.Split('/') is ["", "tasks", var taskId, "inputs", _] && symbols.Tasks.ContainsKey(taskId)) scope.Add(path);
         }
-        if (affected.Count == 0) affected.UnionWith(tasks.Select(t => t.Id));
-        bool changed;
-        do
-        {
-            changed = false;
-            foreach (var (task, inputScope) in Tasks(plan.Root).Select(t => (t, "/inputs/"))
-                .Concat(plan.Groups.SelectMany(g => Tasks(g.Body).Select(t => (t, "/groups/" + g.Id + "/inputs/")))))
-                if (task.DependsOn.Any(affected.Contains) || TaskPlanCompiler.Values(task).Any(v =>
-                    v.Source is not null && (v.Kind is "output" or "present" && affected.Contains(v.Source) || v.Kind == "input" && affected.Contains(inputScope + v.Source))) ||
-                    task.Body is not null && Tasks(task.Body).Any(t => affected.Contains(t.Id)) ||
-                    task.Otherwise is not null && Tasks(task.Otherwise).Any(t => affected.Contains(t.Id)) ||
-                    task.Branches.SelectMany(Tasks).Any(t => affected.Contains(t.Id)) ||
-                    task.Kind == "call" && plan.Groups.Where(g => g.Id == task.Group).Any(g => Tasks(g.Body).Any(t => affected.Contains(t.Id)) ||
-                        affected.Any(p => p.StartsWith("/groups/" + g.Id + "/", StringComparison.Ordinal))))
-                    changed |= affected.Add(task.Id);
-        } while (changed);
-        return affected.Order(StringComparer.Ordinal).ToArray();
+        return scope.Order(StringComparer.Ordinal).ToArray();
     }
+
     internal static IEnumerable<PlanningDiagnostic> Validate(TaskPlan? previous, TaskPlan candidate, IReadOnlyList<string> scope)
     {
-        if (previous is null || scope.Count == 0) yield break;
+        if (previous is null) yield break;
+        var symbols = new TaskPlanSymbols(previous); var revised = new TaskPlanSymbols(candidate);
         var before = JsonSerializer.SerializeToNode(previous, PlanningJsonContext.Default.TaskPlan)!;
         var after = JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskPlan)!;
-        var baseline = before.DeepClone();
-        var outputSlots = new HashSet<string>(StringComparer.Ordinal);
-        FindOutputs(before, ""); Mask(before, ""); Mask(after, "");
-        foreach (var location in Differences(before, after, "").Distinct(StringComparer.Ordinal))
+        var additions = new HashSet<string>(StringComparer.Ordinal);
+        var permittedValues = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var path in scope)
+        {
+            if (symbols.Values.TryGetValue(path, out var site) && revised.Values.TryGetValue(path, out var replacement))
+            {
+                var used = new HashSet<string>(StringComparer.Ordinal);
+                if (Related(site.Value, replacement.Value, site.Scope, used)) { permittedValues.Add(path); additions.UnionWith(used); }
+            }
+            // A diagnosed missing conditional counterpart has a fixed name. Its value
+            // must be explicitly supplied and will undergo the complete compiler preflight.
+            foreach (var boundary in symbols.Scopes.Where(s => s.Owner?.Kind == "conditional"))
+            {
+                var prefix = boundary.Path + "/outputs/";
+                if (!path.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                var name = path[prefix.Length..];
+                var other = boundary.Owner!.Body == boundary.Source ? boundary.Owner.Otherwise : boundary.Owner.Body;
+                if (boundary.Source.Outputs.All(o => o.Name != name) && other?.Outputs.Any(o => o.Name == name) == true) additions.Add(path);
+            }
+            if (path.Split('/') is ["", "tasks", var id, "inputs", var input] && symbols.Tasks.TryGetValue(id, out var task) && task.Task.Inputs.All(i => i.Name != input)) additions.Add(path);
+        }
+        Mask(before, "", false); Mask(after, "", true);
+        foreach (var location in Differences(before, after, "").Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
             yield return new("REVISION_SCOPE_CHANGED", location, "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.");
-        void FindOutputs(JsonNode? node, string path)
+
+        bool Related(TaskValue original, TaskValue replacement, TaskPlanSymbols.Scope owner, HashSet<string> used, bool preserve = false)
         {
-            if (node is JsonArray array) { for (var i = 0; i < array.Count; i++) FindOutputs(array[i], path + "/" + i); return; }
-            if (node is not JsonObject obj) return;
-            if (obj["outputs"] is JsonArray outputs)
-                for (var i = 0; i < outputs.Count; i++)
-                    if (UsesAffected(outputs[i]?["value"], InputScope(path)) || scope.Contains(Location(path + "/outputs/" + i))) outputSlots.Add(path + "/outputs/" + i);
-            foreach (var (key, child) in obj) FindOutputs(child, path + "/" + key);
-        }
-        void Mask(JsonNode? node, string path)
-        {
-            if (node is JsonArray array) { for (var i = 0; i < array.Count; i++) Mask(array[i], path + "/" + i); return; }
-            if (node is not JsonObject obj) return;
-            if (obj["id"] is { } id && obj["kind"] is not null && scope.Contains(id.ToString()))
+            var routes = original.Kind == "output" && original.Source is { } producer ? symbols.ExportRoute(owner, producer) : [];
+            if (routes.Count > 0)
             {
-                // A dependent container is invalidated with its child, but does not confer
-                // permission to replace unaffected descendants or their control-flow scope.
-                var container = obj["body"] is not null || obj["otherwise"] is not null || obj["branches"] is JsonArray { Count: > 0 };
-                foreach (var key in obj.Select(p => p.Key).ToArray())
-                    if (key != "id" && !(container && key is "kind" or "body" or "otherwise" or "branches")) obj.Remove(key);
-            }
-            if (obj["name"] is { } input && IsInput(path) && scope.Contains(Location(path)))
-            { var name = input.ToString(); obj.Clear(); obj["name"] = name; return; }
-            if (path.StartsWith("/choices/", StringComparison.Ordinal) && obj["id"] is { } choice && scope.Contains("/choices/" + choice))
-            { var name = choice.ToString(); obj.Clear(); obj["id"] = name; return; }
-            if (outputSlots.Contains(path)) obj["value"] = null;
-            foreach (var (key, child) in obj) Mask(child, path + "/" + key);
-        }
-        bool UsesAffected(JsonNode? node, string inputScope) => node is JsonObject obj &&
-            (obj["source"] is { } source && (obj["kind"]?.ToString() is "output" or "present" && scope.Contains(source.ToString()) ||
-                obj["kind"]?.ToString() == "input" && scope.Contains(inputScope + source)) || obj.Any(p => UsesAffected(p.Value, inputScope))) ||
-            node is JsonArray array && array.Any(n => UsesAffected(n, inputScope));
-        bool IsInput(string path) => path.StartsWith("/inputs/", StringComparison.Ordinal) ||
-            path.StartsWith("/groups/", StringComparison.Ordinal) && path.Split('/') is ["", "groups", _, "inputs", _];
-        string InputScope(string path) => path.StartsWith("/groups/", StringComparison.Ordinal)
-            ? "/groups/" + previous.Groups[int.Parse(path.Split('/')[2], System.Globalization.CultureInfo.InvariantCulture)].Id + "/inputs/" : "/inputs/";
-        string Location(string path)
-        {
-            // Convert serialized array positions to the same stable business locations
-            // used by the compiler. Read the immutable baseline, not the masked copy.
-            JsonNode? node = baseline;
-            var location = ""; var parts = path.Split('/').Skip(1).ToArray();
-            for (var i = 0; i < parts.Length; i++)
-            {
-                var part = parts[i];
-                if (node is JsonArray array && int.TryParse(part, out var index))
+                if (Same(original, replacement)) return true; // Unchanged errors remain errors; no addition is authorized.
+                var current = replacement;
+                foreach (var boundary in routes.Reverse())
                 {
-                    node = index < array.Count ? array[index] : null;
-                    var collection = i > 0 ? parts[i - 1] : "";
-                    if (collection is "tasks" or "always" && node?["id"] is { } taskId) location = "/tasks/" + taskId;
-                    else location += "/" + ((node as JsonObject)?[collection is "groups" or "choices" ? "id" : "name"]?.ToString() ?? part);
+                    if (!scope.Contains(boundary.Path + "/outputs") || current.Kind != "output" || current.Source != boundary.Owner!.Id || current.Port is null) return false;
+                    var replacementScope = revised.Scopes.SingleOrDefault(s => s.Path == boundary.Path);
+                    var exports = replacementScope?.Source.Outputs.Where(o => o.Name == current.Port).ToArray();
+                    if (exports is not { Length: 1 }) return false;
+                    if (boundary.Source.Outputs.All(o => o.Name != current.Port)) used.Add(boundary.Path + "/outputs/" + current.Port);
+                    if (boundary.Owner.Kind == "conditional")
+                    {
+                        var other = symbols.Scopes.Single(s => s.Owner == boundary.Owner && s != boundary);
+                        var counterpart = revised.Scopes.SingleOrDefault(s => s.Path == other.Path);
+                        if (!scope.Contains(other.Path + "/outputs") || counterpart?.Source.Outputs.Count(o => o.Name == current.Port) != 1) return false;
+                        if (other.Source.Outputs.All(o => o.Name != current.Port)) used.Add(other.Path + "/outputs/" + current.Port);
+                    }
+                    current = exports[0].Value;
                 }
-                else { node = node is JsonObject obj ? obj[part] : null; location += "/" + part; }
+                return Same(original, current);
             }
-            return location;
+            // A composite's unaffected members cannot hide unrelated edits when only
+            // descendant references need an export route.
+            if (TaskPlanCompiler.Values(original).Any(v => v.Kind == "output" && v.Source is { } id && symbols.ExportRoute(owner, id).Count > 0))
+            {
+                if (original.Kind != replacement.Kind || original.Members.Count != replacement.Members.Count || original.Items.Count != replacement.Items.Count) return false;
+                for (var i = 0; i < original.Members.Count; i++)
+                    if (original.Members[i].Name != replacement.Members[i].Name || !Related(original.Members[i].Value, replacement.Members[i].Value, owner, used, true)) return false;
+                for (var i = 0; i < original.Items.Count; i++) if (!Related(original.Items[i], replacement.Items[i], owner, used, true)) return false;
+                var a = JsonSerializer.SerializeToNode(original, PlanningJsonContext.Default.TaskValue)!.AsObject();
+                var b = JsonSerializer.SerializeToNode(replacement, PlanningJsonContext.Default.TaskValue)!.AsObject();
+                a.Remove("members"); a.Remove("items"); b.Remove("members"); b.Remove("items");
+                return JsonNode.DeepEquals(a, b);
+            }
+            return !preserve || Same(original, replacement);
         }
-        IEnumerable<string> Differences(JsonNode? left, JsonNode? right, string path)
+        void Mask(JsonNode? node, string path, bool updated)
         {
-            if (JsonNode.DeepEquals(left, right)) yield break;
-            if (left is JsonObject a && right is JsonObject b)
+            if (node is JsonArray list)
             {
-                foreach (var key in a.Select(p => p.Key).Union(b.Select(p => p.Key), StringComparer.Ordinal))
-                    foreach (var difference in Differences(a[key], b[key], path + "/" + key)) yield return difference;
+                for (var i = list.Count - 1; i >= 0; i--)
+                {
+                    var location = Element(path, list[i], i);
+                    if (updated && additions.Contains(location)) { list.RemoveAt(i); continue; }
+                    Mask(list[i], location, updated);
+                }
+                return;
             }
-            else if (left is JsonArray aList && right is JsonArray bList && aList.Count == bList.Count)
+            if (node is not JsonObject obj) return;
+            if (obj["name"] is not null && obj.ContainsKey("value") && permittedValues.Contains(path)) { obj["value"] = null; return; }
+            if (obj["name"] is not null && obj.ContainsKey("required") && scope.Contains(path))
+            { foreach (var key in obj.Select(p => p.Key).Where(k => k != "name").ToArray()) obj.Remove(key); return; }
+            if (obj["id"] is not null && path.StartsWith("/choices/", StringComparison.Ordinal) && scope.Contains(path))
+            { foreach (var key in obj.Select(p => p.Key).Where(k => k is not ("id" or "selected")).ToArray()) obj.Remove(key); return; }
+            foreach (var (key, child) in obj.ToArray())
             {
-                for (var i = 0; i < aList.Count; i++)
-                    foreach (var difference in Differences(aList[i], bList[i], path + "/" + i)) yield return difference;
+                var location = path + "/" + key;
+                if (scope.Contains(location) && (permittedValues.Contains(location) || location.Split('/') is ["", "tasks", _, var field] &&
+                    field is "objective" or "operation" or "group" or "dependsOn" or "maxItems" or "maxConcurrency")) obj[key] = null;
+                else Mask(child, location, updated);
             }
-            else yield return Location(path);
         }
+    }
+    private static bool Same(TaskValue left, TaskValue right) => JsonNode.DeepEquals(JsonSerializer.SerializeToNode(left, PlanningJsonContext.Default.TaskValue), JsonSerializer.SerializeToNode(right, PlanningJsonContext.Default.TaskValue));
+    private static string Element(string path, JsonNode? node, int index)
+    {
+        var collection = path.Split('/')[^1];
+        if (collection is "tasks" or "always" && node?["id"] is { } task) return "/tasks/" + task;
+        return path + "/" + ((node as JsonObject)?[collection is "groups" or "choices" ? "id" : "name"]?.ToString() ?? index.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+    private static IEnumerable<string> Differences(JsonNode? left, JsonNode? right, string path)
+    {
+        if (JsonNode.DeepEquals(left, right)) yield break;
+        if (left is JsonObject a && right is JsonObject b)
+        {
+            foreach (var key in a.Select(p => p.Key).Union(b.Select(p => p.Key), StringComparer.Ordinal))
+                foreach (var difference in Differences(a[key], b[key], path + "/" + key)) yield return difference;
+        }
+        else if (left is JsonArray aList && right is JsonArray bList && aList.Count == bList.Count)
+        {
+            for (var i = 0; i < aList.Count; i++)
+                foreach (var difference in Differences(aList[i], bList[i], Element(path, aList[i], i))) yield return difference;
+        }
+        else yield return path;
     }
 }

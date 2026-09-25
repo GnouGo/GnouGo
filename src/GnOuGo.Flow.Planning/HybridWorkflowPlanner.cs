@@ -157,7 +157,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             { state.Catalog.Capabilities.Add(cached); continue; }
             var summaries = state.Discovery.Pages.SelectMany(p => p.Capabilities).Where(c => c.Operation?.Id == operation).DistinctBy(c => (c.Id, c.Version)).ToArray();
             if (summaries.Length != 1 || state.Catalog.Policy.DeniedCapabilityIds.Contains(summaries[0].Id) || !state.Catalog.AllowedStepTypes.Contains(summaries[0].StepType))
-            { SemanticFailure(state, [new("TASK_OPERATION_UNKNOWN", "/tasks/" + TaskPlanRevisions.Tasks(plan).First(t => t.Operation == operation).Id, "Select an issued operation permitted by host policy.")]); return; }
+                continue; // Compiler preflight reports every invalid selection and independent semantic error together.
             try
             {
                 var resolved = await runtime.Capabilities.ResolveAsync(summaries[0], ct);
@@ -195,7 +195,11 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         }
         var graph = compilation.Graph!;
         var findings = PlanningGeneratedGraph.Validate(graph, state.Catalog!).Select(compilation.Locate).ToList();
-        if (findings.Count > 0) { SemanticFailure(state, findings); return; }
+        if (findings.Count > 0)
+        {
+            state.Diagnostics = findings.Select(d => d with { Code = "TASK_COMPILER_VALIDATION", Message = d.Code + ": " + d.Message }).ToList();
+            Stop(state); return;
+        }
         PlanningConfirmationGuards.Apply(graph, state.Catalog!);
         findings = PlanningExecutableValidation.Validate(graph, state.Catalog!).Select(compilation.Locate).ToList();
         if (findings.Count == 0)
@@ -224,7 +228,9 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
     {
         state.Diagnostics = findings.ToList(); state.Graph = null;
         state.RevisionScope = TaskPlanRevisions.Scope(state.Plan!, findings).ToList();
-        Invalidate(state); state.Status = PlanningStatus.Generating;
+        Invalidate(state);
+        if (state.RevisionScope.Count == 0 || findings.Any(d => d.Code == "TASK_COMPILER_VALIDATION")) Stop(state);
+        else state.Status = PlanningStatus.Generating;
     }
 
     private static async Task DiscoverPageAsync(PlanningSession state, IPlanningRuntime runtime, string source, string? cursor, CancellationToken ct)
