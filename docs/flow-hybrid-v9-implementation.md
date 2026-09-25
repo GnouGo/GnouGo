@@ -130,7 +130,7 @@ Representative behavioral coverage:
 
 | Contract | Evidence |
 | --- | --- |
-| Discovery, unavailable sources, exact contracts and bounded repair | `ProgressiveDiscoveryTests`, `GraphContractTests`, `GraphRevisionTests` |
+| Discovery, unavailable sources, exact contracts and bounded repair | `ProgressiveDiscoveryTests`, `GraphContractTests`, `TaskPlanRevisionTests`, `TaskPlanSafetyTests` |
 | Structured outputs, fabricated claims and failed verification | `AgentTaskTests`, `BoundedCopilotTasksTests` |
 | Dispatch/receipt crashes, nested calls, loops, parallel cleanup and durable answers | `WorkflowRunTests` |
 | Encryption, index rebuilding, concurrent owners and tenant isolation | `EncryptedWorkflowRunStoreTests`, published-binary smoke script |
@@ -193,3 +193,9 @@ transient and no additional binding representation is persisted.
 merges, ordered iteration, projections, defaults and finalizer guards. Approval includes
 TaskPlan/choices and requires deterministic recompilation to reproduce the reviewed
 artifact. The semantic response contract contains no JavaScript or executor plumbing.
+
+The [frozen TaskPlan candidate report](evidence/flow-v9-112/taskplan/README.md) records
+the completed nine-outcome comparison: 5/9 correct, median three physical calls,
+bounded usage and no unsafe approvals. Correctness regressed against the best retained
+review-case baselines, so acceptance failed. Implementation and paid evaluation stopped;
+the PR remains draft with the compiler/contract failures and real Copilot limitation visible.
