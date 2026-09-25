@@ -45,6 +45,37 @@ public sealed class PlanningLifecycleTests
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(1, state.ModelCalls);
         Assert.All(runtime.Calls, c => Assert.Equal(identity, c.ClientRequestId));
     }
+    [Theory]
+    [InlineData(LLMClientFailureKind.InvalidRequest, false, 400, "MODEL_REQUEST_REJECTED")]
+    [InlineData(LLMClientFailureKind.Authentication, false, 401, "MODEL_REQUEST_REJECTED")]
+    [InlineData(LLMClientFailureKind.Authorization, false, 403, "MODEL_REQUEST_REJECTED")]
+    [InlineData(LLMClientFailureKind.ModelUnavailable, false, 404, "MODEL_REQUEST_REJECTED")]
+    [InlineData(LLMClientFailureKind.QuotaOrBilling, false, 429, "MODEL_REQUEST_REJECTED")]
+    [InlineData(LLMClientFailureKind.RateLimited, true, 429, "MODEL_DISPATCH_UNVERIFIABLE")]
+    [InlineData(LLMClientFailureKind.ServiceUnavailable, true, 503, "MODEL_DISPATCH_UNVERIFIABLE")]
+    [InlineData(LLMClientFailureKind.Timeout, false, 408, "MODEL_DISPATCH_UNVERIFIABLE")]
+    [InlineData(LLMClientFailureKind.Transport, false, 502, "MODEL_DISPATCH_UNVERIFIABLE")]
+    [InlineData(LLMClientFailureKind.Unknown, false, 500, "MODEL_DISPATCH_UNVERIFIABLE")]
+    public async Task ProviderFailureRetainsSafeClassificationWithoutRetryOrPrivateMessage(
+        LLMClientFailureKind kind, bool retryable, int status, string code)
+    {
+        var runtime = new TestRuntime { Respond = (_, _) => throw new LLMClientException(kind,
+            "PRIVATE_PROVIDER_BODY", retryable, status, "safe_error_code") };
+        var state = await PlannerFixture.RunAsync(runtime);
+        var diagnostic = Assert.Single(state.Diagnostics);
+        Assert.Equal(code, diagnostic.Code);
+        Assert.Contains(kind.ToString(), diagnostic.Message);
+        Assert.Contains("HTTP " + status, diagnostic.Message);
+        Assert.Contains("safe_error_code", diagnostic.Message);
+        Assert.DoesNotContain("PRIVATE_PROVIDER_BODY", diagnostic.Message);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(1, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts); Assert.Single(runtime.Calls);
+        var pending = state.PendingCall!.Id;
+        state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state),
+            new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(pending, state.PendingCall!.Id); Assert.Single(runtime.Calls);
+    }
+
     [Fact]
     public async Task ApprovalBindsGraphContractsAndExactRevision()
     {

@@ -166,6 +166,25 @@ public sealed class PlanningTraceUiTests : BunitContext
         await DisposeComponentsAsync();
     }
 
+    [Theory]
+    [InlineData("MODEL_REQUEST_REJECTED", false)]
+    [InlineData("MODEL_DISPATCH_UNVERIFIABLE", true)]
+    public async Task OnlyUncertainDispatchOffersRetainedUsageRetry(string code, bool canRetry)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
+        var state = Session("rejected", "rejected request", PlanningStatus.Stopped);
+        state.PendingCall = new() { Id = "rejected:1", Purpose = "tasks", Request = new() { Prompt = "private" } };
+        state.Diagnostics = [new(code, "/", "Provider status")];
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/rejected");
+        var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "rejected"));
+        cut.WaitForAssertion(() => Assert.Contains(code, cut.Markup));
+        Assert.Equal(canRetry, cut.Markup.Contains("Retry with retained usage", StringComparison.Ordinal));
+        Assert.Equal(canRetry, cut.Markup.Contains("The previous request has no confirmed result", StringComparison.Ordinal));
+        if (!canRetry) Assert.Contains("start a new planning session", cut.Markup);
+        await DisposeComponentsAsync();
+    }
+
     private void Configure(PlanningPersistenceTests.StoreFixture fixture)
     {
         JSInterop.Mode = JSRuntimeMode.Loose;

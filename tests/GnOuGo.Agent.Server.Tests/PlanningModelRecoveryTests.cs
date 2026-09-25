@@ -92,6 +92,24 @@ public sealed class PlanningModelRecoveryTests
         await Assert.ThrowsAsync<PlanningConflictException>(() => service.SubmitAsync("recovery", new() { Kind = "retry_model", ExpectedRevision = 0 }, Ct));
     }
 
+    [Fact]
+    public async Task RejectedRequestCannotReserveOrRetryAfterRecovery()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = await SeedAsync(fixture);
+        state.Diagnostics = [new("MODEL_REQUEST_REJECTED", "/", "InvalidRequest (HTTP 400)")];
+        var revision = state.Revision++;
+        Assert.True(await fixture.Store.TrySaveAsync(state, revision, Ct));
+        state = (await fixture.Store.LoadAsync("planning-tests", "recovery", Ct))!;
+        var baseline = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var budget = await fixture.Records.GetAsync(PlanningBudgetSink.Collection, "planning-tests", "recovery", EfPlanningSessionStore.Author, Ct);
+        var ex = await Assert.ThrowsAsync<PlanningConflictException>(() => PrepareAsync(state, fixture));
+        Assert.Contains("rejected", ex.Message);
+        Assert.Equal(baseline, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.Equal(budget, await fixture.Records.GetAsync(PlanningBudgetSink.Collection, "planning-tests", "recovery", EfPlanningSessionStore.Author, Ct));
+        Assert.Single(await fixture.Records.ListAsync(PlanningBudgetSink.Collection, "planning-tests", EfPlanningSessionStore.Author, Ct));
+    }
+
     private static Task PrepareAsync(PlanningSession state, PlanningPersistenceTests.StoreFixture fixture)
         => PlanningModelRecovery.PrepareAsync(state, fixture.Records, Limits, new Estimator(), new TestExchangeRateProvider(), Ct);
 

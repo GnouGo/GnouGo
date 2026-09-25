@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Planning;
 
@@ -100,6 +101,19 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         }
         catch (WorkflowRuntimeException ex)
         { state.Diagnostics.Add(new(ex.Code, "/", ex.Message)); Stop(state); }
+        catch (LLMClientException ex)
+        {
+            // Never surface exception messages or provider bodies. The integration supplies
+            // a redacted classification; the pending reservation remains durable evidence.
+            var detail = $"{ex.Kind}; retryable: {ex.Retryable.ToString().ToLowerInvariant()}";
+            if (ex.StatusCode is { } status) detail += $"; HTTP {status}";
+            if (ex.SafeProviderCode is { } code) detail += $"; provider code: {code}";
+            state.Diagnostics.Add(new(ex.IsRequestRejected ? ErrorCodes.ModelRequestRejected : "MODEL_DISPATCH_UNVERIFIABLE", "/",
+                ex.IsRequestRejected
+                    ? $"The model provider rejected the request ({detail}). Correct the request or provider configuration, then start a new planning session."
+                    : $"The model request has no retained completion ({detail}). Usage remains unconfirmed."));
+            Stop(state);
+        }
         catch (JsonException)
         { state.Diagnostics = [new("PLANNING_RESPONSE_INVALID", "/", "The response does not satisfy the semantic TaskPlan proposal contract.")]; Invalidate(state); state.Status = PlanningStatus.Generating; }
         catch (Exception)

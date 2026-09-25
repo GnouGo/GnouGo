@@ -89,6 +89,45 @@ public sealed class LlmTraceCaptureTests : BunitContext
     }
 
     [Fact]
+    public async Task RejectionPreservesSafeMetadataAndJournalBackedStatusWithoutProviderBody()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = new PlanningSession { Request = new() { SessionId = "session", TenantId = "tenant" } };
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var request = new LLMRequest { ClientRequestId = "session:1:hash", Prompt = "PRIVATE_REQUEST" };
+        await fixture.Records.UpsertAsync("agent-planning-model-requests-v10", "tenant", "session:" + request.ClientRequestId,
+            JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), "test", Ct);
+        var harness = SmartFlowTestFactory.CreateTelemetryHarness(); using var telemetry = harness.Telemetry;
+        var local = new LocalTraceDebugStore(new TestOptionsMonitor<OpenTelemetrySettings>(new() { TenantId = "tenant" }));
+        var store = Store(fixture);
+        var capture = new LlmTraceCapture(telemetry, store, local, NullLogger<LlmTraceCapture>.Instance);
+        using var listener = new ActivityListener { ShouldListenTo = s => s.Name == AgentOTelTelemetry.ActivitySourceName,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStopped = local.Complete };
+        ActivitySource.AddActivityListener(listener);
+        var failure = new LLMClientException(LLMClientFailureKind.InvalidRequest, "PRIVATE_PROVIDER_BODY", false, 400, "invalid_json_schema");
+        await Assert.ThrowsAsync<LLMClientException>(() => capture.CallAsync(request, new(), (_, _) => throw failure, Ct));
+        var record = Assert.Single(await fixture.Records.ListAsync(LlmTraceContentStore.Collection, "tenant", "test", Ct));
+        var saved = JsonSerializer.Deserialize(record.Value, LlmTraceJsonContext.Default.LlmTraceContent)!;
+        var reopened = await Store(fixture).LoadAsync(record.Key, saved.TraceId, saved.SpanId, "session", Ct);
+        Assert.StartsWith("rejected", reopened!.OutputStatus); Assert.Null(reopened.Output); Assert.Null(reopened.OutputBytes);
+        var trace = local.GetTrace(saved.TraceId)!;
+        var call = Assert.Single(trace.Spans);
+        Assert.Equal("InvalidRequest", call.Attributes["gnougo.llm.failure.kind"]);
+        Assert.Equal("400", call.Attributes["gnougo.llm.failure.http_status"]!.ToString());
+        Assert.Equal("False", call.Attributes["gnougo.llm.failure.retryable"]!.ToString());
+        Assert.Equal("invalid_json_schema", call.Attributes["gnougo.llm.failure.provider_code"]);
+        var cut = Render<TracePipeline>(p => p.Add(c => c.Trace, trace));
+        Assert.Contains("HTTP 400", cut.Markup); Assert.Contains("InvalidRequest", cut.Markup);
+        Assert.DoesNotContain("PRIVATE_PROVIDER_BODY", cut.Markup + record.Value + string.Join(";", call.Attributes.Values));
+        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        {
+            var bytes = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct));
+            Assert.DoesNotContain("PRIVATE_PROVIDER_BODY", bytes); Assert.DoesNotContain("PRIVATE_REQUEST", bytes);
+        }
+    }
+
+    [Fact]
     public async Task SizeLimitsAndDisabledCaptureAreExplicit()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();

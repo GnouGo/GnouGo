@@ -42,7 +42,10 @@ public sealed class LlmTraceContentStore(IKeyVaultRecordStore records, IOptionsM
             else
             {
                 content.Input = journal.Input; content.Output = journal.Output;
-                content.InputStatus = journal.InputStatus; content.OutputStatus = journal.OutputStatus;
+                content.InputStatus = journal.InputStatus;
+                // A missing completion does not erase a captured provider rejection.
+                if (!content.OutputStatus.StartsWith("rejected", StringComparison.Ordinal) || journal.OutputBytes is not null)
+                    content.OutputStatus = journal.OutputStatus;
                 content.InputBytes = journal.InputBytes; content.OutputBytes = journal.OutputBytes;
             }
         }

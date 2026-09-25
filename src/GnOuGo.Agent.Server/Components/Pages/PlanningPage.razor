@@ -94,8 +94,15 @@
         { <button class="btn btn-primary" disabled="@_busy" @onclick='() => SubmitAsync("save")'>Save approved workflow</button> }
         @if (!IsWorkflowSession && _state.Status == PlanningStatus.Stopped && _state.PendingCall is not null)
         {
-            <p>The previous request has no confirmed result. Retrying retains its call count and adds a conservative token and cost estimate before using another call. Session limits remain unchanged.</p>
-            <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("retry_model")'>Retry with retained usage</button>
+            @if (_state.Diagnostics.Any(d => d.Code == GnOuGo.Flow.Core.Models.ErrorCodes.ModelRequestRejected))
+            {
+                <p>The provider rejected this request. Correct the request or provider configuration, then start a new planning session. The original request and its accounting are retained.</p>
+            }
+            else
+            {
+                <p>The previous request has no confirmed result. Retrying retains its call count and adds a conservative token and cost estimate before using another call. Session limits remain unchanged.</p>
+                <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("retry_model")'>Retry with retained usage</button>
+            }
         }
         @if (!IsWorkflowSession && _state.Status is not (PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled))
         {

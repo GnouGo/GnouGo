@@ -16,6 +16,8 @@ internal static class PlanningModelRecovery
     {
         if (state.Status != PlanningStatus.Stopped || state.PendingCall is not { } pending)
             throw new PlanningConflictException("Only a stopped pending model request can be retried.");
+        if (state.Diagnostics.Any(d => d.Code == ErrorCodes.ModelRequestRejected))
+            throw new PlanningConflictException("The provider rejected this request. Correct the request or provider configuration, then start a new planning session.");
         var tenant = state.Request.TenantId; var session = state.Request.SessionId;
         var key = session + ":" + pending.Id;
         var author = EfPlanningSessionStore.Author;
