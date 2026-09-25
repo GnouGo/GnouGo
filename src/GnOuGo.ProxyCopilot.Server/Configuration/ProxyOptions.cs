@@ -36,6 +36,14 @@ public sealed class ProxyModelOptions
 {
     public string UpstreamId { get; set; } = "";
     public LLMModelMetadata Metadata { get; set; } = new();
+    public List<ProxyPricingTier> PricingTiers { get; set; } = [];
+    public string? DefaultReasoningEffort { get; set; }
+}
+
+public sealed class ProxyPricingTier
+{
+    public long InputTokensAbove { get; set; }
+    public ModelPricingMetadata? Pricing { get; set; }
 }
 
 public sealed record ModelRoute(string Id, string Provider, ProxyProviderOptions Options, ProxyModelOptions Model)
@@ -127,9 +135,24 @@ public sealed class ModelRegistry : IModelRegistry
                 // Input and output are independent ceilings, not simultaneous defaults.
                 Require(metadata.ContextWindowTokens is null || metadata.MaxInputTokens <= metadata.ContextWindowTokens
                     && metadata.MaxOutputTokens <= metadata.ContextWindowTokens, "context window capacity");
-                var price = metadata.Pricing;
-                Require(price is null || price.InputPer1MTokens is not < 0 && price.OutputPer1MTokens is not < 0
-                    && price.CachedInputPer1MTokens is not < 0 && price.ReasoningOutputPer1MTokens is not < 0, "model pricing");
+                static bool ValidPrice(ModelPricingMetadata price) => price.Currency is { Length: 3 }
+                    && price.Currency.All(char.IsAsciiLetterUpper)
+                    && price.InputPer1MTokens is not < 0 && price.OutputPer1MTokens is not < 0
+                    && price.CachedInputPer1MTokens is not < 0 && price.CacheWriteInputPer1MTokens is not < 0
+                    && price.ReasoningOutputPer1MTokens is not < 0;
+                Require(metadata.Pricing is null || ValidPrice(metadata.Pricing), "model pricing");
+                Require(model.PricingTiers is not null, "pricing tiers");
+                var thresholds = new HashSet<long>();
+                foreach (var tier in model.PricingTiers!)
+                    Require(tier is not null && tier.InputTokensAbove >= 0 && thresholds.Add(tier.InputTokensAbove)
+                        && tier.Pricing is not null && ValidPrice(tier.Pricing)
+                        && metadata.Pricing is not null && tier.Pricing.Currency == metadata.Pricing.Currency, "pricing tier");
+                if (model.DefaultReasoningEffort is { } effort)
+                    Require(connection.Type is "openai" or "copilot"
+                        && metadata.Capabilities.SupportsReasoningEffort == true
+                        && metadata.Capabilities.UnsupportedRequestParameters?.Contains("reasoning_effort", StringComparer.Ordinal) != true
+                        && !string.IsNullOrWhiteSpace(effort)
+                        && metadata.Capabilities.SupportedReasoningEfforts?.Contains(effort, StringComparer.Ordinal) == true, "default reasoning effort");
             }
         }
     }

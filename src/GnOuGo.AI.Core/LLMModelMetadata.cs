@@ -9,6 +9,7 @@ public sealed class ModelPricingMetadata
     public decimal? InputPer1MTokens { get; set; }
     public decimal? OutputPer1MTokens { get; set; }
     public decimal? CachedInputPer1MTokens { get; set; }
+    public decimal? CacheWriteInputPer1MTokens { get; set; }
     public decimal? ReasoningOutputPer1MTokens { get; set; }
 }
 

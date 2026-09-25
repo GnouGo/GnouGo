@@ -159,6 +159,14 @@ public static class ChatContract
     }
 
     public static JsonObject Usage(long input, long output) => new() { ["prompt_tokens"] = input, ["completion_tokens"] = output, ["total_tokens"] = input + output };
+
+    public static JsonObject ReportedUsage(JsonNode? input, JsonNode? output)
+    {
+        static long? Read(JsonNode? node) => node is JsonValue value && value.TryGetValue<long>(out var count) && count >= 0 ? count : null;
+        var prompt = Read(input); var completion = Read(output);
+        return new() { ["prompt_tokens"] = prompt, ["completion_tokens"] = completion,
+            ["total_tokens"] = prompt is not null && completion is not null && prompt <= long.MaxValue - completion ? prompt + completion : null };
+    }
     public static JsonObject Completion(string id, string model, JsonObject message, string finish, JsonObject? usage) => new()
     {
         ["id"] = id, ["object"] = "chat.completion", ["created"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds(), ["model"] = model,

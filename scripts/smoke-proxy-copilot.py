@@ -170,6 +170,19 @@ def main():
             values.update(Connection__Url=upstream_url + "/internal/deployments/{model_name}", Connection__ApiVersion="smoke")
         elif provider in ("copilot", "anthropic"):
             values.update(Authentication="ApiKey", Connection__ApiKey="synthetic-" + provider + "-key")
+        if provider != "ollama":
+            values.update(Models__code__Metadata__Pricing__Currency="USD" if provider == "copilot" else "EUR",
+                          Models__code__Metadata__Pricing__InputPer1MTokens="2",
+                          Models__code__Metadata__Pricing__OutputPer1MTokens="10")
+        if provider == "internal":
+            values.update(Models__code__PricingTiers__0__InputTokensAbove="300",
+                          Models__code__PricingTiers__0__Pricing__Currency="EUR",
+                          Models__code__PricingTiers__0__Pricing__InputPer1MTokens="4",
+                          Models__code__PricingTiers__0__Pricing__OutputPer1MTokens="15",
+                          Models__code__Metadata__Capabilities__SupportsReasoningEffort="true",
+                          Models__code__Metadata__Capabilities__SupportedReasoningEfforts__0="none",
+                          Models__code__Metadata__Capabilities__SupportedReasoningEfforts__1="high",
+                          Models__code__DefaultReasoningEffort="none")
         env.update({prefix + key: value for key, value in values.items()})
     process = subprocess.Popen([str(binary)], cwd=binary.parent, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     logs = []
@@ -193,6 +206,8 @@ def main():
         assert len(json.loads(call(base, "/v1/models"))["data"]) == 4
         setup = call(base, "/api/setup")
         assert "customendpoint" in setup and "synthetic" not in setup
+        generated = next(model for group in json.loads(setup)["configuration"] for model in group["models"] if model["id"] == "internal/code")
+        assert generated["defaultReasoningEffort"] == "none" and generated["supportsReasoningEffort"] == ["none", "high"]
         for provider in ["internal", "copilot", "anthropic", "ollama"]:
             messages = [{"role": "system", "content": "You are a coding assistant. Explain the code precisely."}, {"role": "user", "content": "Read the relay and explain how cancellation flows through a streaming request."}]
             request = {"model": provider + "/code", "stream": True, "stream_options": {"include_usage": True}, "messages": messages,
@@ -212,12 +227,18 @@ def main():
             answer = call(base, "/v1/chat/completions", request)
             assert "[DONE]" in answer and "392" in answer
         assert Provider.token_calls == 1, f"Expected one cached token, got {Provider.token_calls}"
-        calls = json.loads(call(base, "/api/traffic"))["calls"]
+        snapshot = json.loads(call(base, "/api/traffic"))
+        calls = snapshot["calls"]
         assert len(calls) == 8 and all(item["status"] == "completed" for item in calls)
+        assert snapshot["unknownCostCalls"] == 2
+        totals = {item["currency"]: item for item in snapshot["costTotals"]}
+        assert totals["EUR"]["amount"] == 0.007136 and totals["EUR"]["calls"] == 4
+        assert totals["USD"]["amount"] == 0.002592 and totals["USD"]["calls"] == 2
+        assert all(item["cost"]["inputTokensAbove"] == 300 for item in calls if item["provider"] == "internal")
         for item in calls:
             detail = call(base, "/api/traffic/" + item["id"])
             assert "synthetic-" not in detail
-        print(f"PASS: published binary; four providers; streaming tool round trips; OIDC cache; UI; models; setup; traffic. URL={base}", flush=True)
+        print(f"PASS: published binary; four providers; streaming tool round trips; OIDC cache; UI; setup reasoning defaults; tier binding; separate currency totals; unknown costs. URL={base}", flush=True)
         if args.serve:
             signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
             while True:
