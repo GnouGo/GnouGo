@@ -15,6 +15,7 @@ description: Develop or review GnOuGo TaskPlan planning, deterministic compilati
 ## Model and deterministic responsibilities
 
 - The model may select declared operations and generate tasks, dependencies, business inputs/outputs, structured scopes, literal values, named references, typed predicates and typed business choices.
+- `value` copies or assembles values. `transform` interprets named inputs using its objective and an explicit `resultType`: a nonempty closed object of required, fully typed fields (nullable for missing values; no opaque types or defaults). The compiler owns fixed prompt assembly and strict structured `llm.call` lowering. Transform results are runtime-validated interpretations, never authoritative replacements for source contracts or evidence of external success.
 - The model must explicitly declare branch exports and alternative values. It must not generate executor types, wire paths, schema pointers, projection recipes, JavaScript or unverified contracts.
 - Derive bindings only from authoritative schemas or validated injected metadata. Never infer semantics from provider/tool names, descriptions, examples or benchmark names.
 - Validate identities, scope visibility, dependencies and business contracts before lowering. Collect independent errors at task/port locations; suppress dependent errors whose prerequisite contract is unavailable.
@@ -26,9 +27,11 @@ description: Develop or review GnOuGo TaskPlan planning, deterministic compilati
 ## Scoped repair and safety
 
 - Derive minimal complete edit permissions from the immutable baseline and diagnostics. Permit related export declarations and consumer bindings together. Revalidation of a dependent task does not grant permission to edit it.
+- Repair only diagnosed transform input bindings or exact result-type slots; preserve existing field names and unrelated fields. Never silently convert a `value` task into a transform.
 - Preserve unrelated tasks, interfaces, ordering, choices, scopes and ceilings. Added exports must connect diagnosed producers to affected consumers; reject unrelated additions and rewrites atomically.
 - Never widen repair to every task when a location is unknown or ambiguous. Stop safely when no bounded repair can be identified. Rejected proposals must not replace the baseline or reset discovery, receipts, request identities or budgets.
 - Invalid or colliding declarations grant no repair permissions. A malformed reference can only be corrected in its already diagnosed consumer binding; it never authorizes identity rewrites or wider edits. Check candidate identities before adopting a proposal or copying selections, and enforce the same rules after recovery.
+- Discovery batches contain one to four issued source/cursor pairs, exclusive with a TaskPlan. Validate the entire batch before sequential metadata reads; retain receipts and reuse pending request identities. Superseded pending response contracts require regeneration without dispatch or accounting reset.
 - Keep opaque values opaque. Presence proves neither payload shape nor external success. Static checks, simulations and assistant claims are not observed execution evidence.
 - Keep agent workspace, objective, permissions, budgets and verification requirements literal and approved. Choices cannot grant permissions, raise ceilings or replace runtime confirmation.
 - Recompile for approval verification. Changed intent, choices, mappings, contracts or generated artifacts invalidate approval. Never bypass filesystem, sandbox or permission enforcement to make a test pass.

@@ -1,6 +1,6 @@
 # Native AOT planner smoke
 
-Exercises the eight-case corpus, strict semantic TaskPlan transport, source-generated format-10 restart after each advance, deterministic compiler, contract validation, final approval and independently asserted outputs/effects.
+Exercises typed HTML → product records → tabular text transformations with mocked inference, ordered collection and cleanup, plus batched-discovery serialization and the eight-case corpus, strict semantic TaskPlan transport, source-generated format-10 restart after each advance, deterministic compiler, contract validation, final approval and independently asserted outputs/effects.
 
 ```bash
 dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 -m:1 -warnaserror

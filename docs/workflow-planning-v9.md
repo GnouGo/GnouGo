@@ -52,12 +52,39 @@ testing and routine commands belong inside an approved agent task.
 summaries, paginated operation summaries and exact contracts. Cached pages and
 versions survive repairs. Unavailable and uninspected sources remain visible as
 discovery limitations; unrelated unavailable sources do not stop a valid plan.
-Selected contracts are checked again before approval and execution.
+Selected contracts are checked again before approval and execution. A proposal uses
+`discoveryRequests` (one to four source/cursor pairs) or a TaskPlan, never both.
+The host validates every pair before sequential reads; cached pages and unissued
+continuations are rejected. Recovery reuses the recorded model response and request
+identity; interrupted metadata reads may repeat without another inference. Pending
+requests with the superseded singular `sourceId`/`cursor` contract stop with
+`PLANNING_REQUEST_INCOMPATIBLE`: regenerate in a new session. Their encrypted records,
+reservations and accounting are preserved. Planning storage remains format 10.
 
 Requirements are reviewable intent, not another executable program. Outcome descriptions remain stable throughout technical repairs. New generated glue permits literals, typed references,
 simple conditions and registered typed transformations. Authored YAML retains its
 existing expression runtime. Opaque output needs whole-value validation before
 field access; assistant descriptions and sample values cannot establish a contract.
+
+`value` tasks only copy or assemble business values. Use an explicit `transform`
+for interpretation such as HTML extraction or tabular formatting: its `objective`
+is the instruction, `inputs` bind named data, and `resultType` is a nonempty,
+nonnullable, closed object of named business fields. Every field is required;
+explicit nullable types represent missing values. Nested types must be complete,
+with no opaque types or defaults. The compiler validates policy and inputs, renders
+a fixed prompt with instruction and data as separate template values, then lowers
+to `llm.call` with strict structured output. Data is never template code. The
+runtime's existing model configuration, permissions and inference budgets apply.
+Only validated structured fields become business ports; schema validity alone
+does not prove factual accuracy or external success. Transform result types do not
+change the source MCP contract. Text-mode template output is guaranteed by a shared
+mode-aware graph/runtime contract; unresolved modes remain conservative.
+
+Transform repairs target diagnosed inputs or exact result-type slots, preserving
+existing names and unrelated fields. Replacing an old `value` task with a transform
+requires an explicit semantic revision or regeneration. Existing sessions are not
+rewritten. Review shows transformation inputs and typed results; approval covers
+them and deterministic recompilation must reproduce the artifact.
 
 Compiler preflight checks semantic identities, scope visibility, dependencies and business contracts before emitting graph nodes. It reports independent input/output errors together, including invalid cross-scope consumers and required export boundaries, while suppressing errors caused solely by unavailable prerequisite contracts. Children may capture available ancestor values; parent consumers require explicit exports and parallel siblings cannot directly consume each other. Group inputs and business output bindings retain semantic locations through compilation and confirmation wrapping.
 
