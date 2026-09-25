@@ -185,6 +185,40 @@ public sealed class PlanningTraceUiTests : BunitContext
         await DisposeComponentsAsync();
     }
 
+    [Theory]
+    [InlineData("MODEL_INPUT_LIMIT", true)]
+    [InlineData("MODEL_OUTPUT_LIMIT", false)]
+    public async Task InputBudgetStopOffersExplicitSettingsContinuation(string code, bool inputStop)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
+        var state = Session("input-budget", "Budget stop", PlanningStatus.Stopped);
+        state.ModelCalls = 2;
+        state.Diagnostics = [new(code, "/phases/tasks", "Request allowance exhausted")];
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/input-budget");
+        var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "input-budget"));
+        cut.WaitForAssertion(() => Assert.Contains(code, cut.Markup));
+        var settings = cut.Find("details");
+        Assert.Equal(inputStop, settings.HasAttribute("open"));
+        Assert.Equal(inputStop ? "Apply settings and resume planning" : "Apply settings", settings.QuerySelector("button")!.TextContent.Trim());
+        Assert.Equal("12000", settings.QuerySelector("input[type=number]")!.GetAttribute("value"));
+        var before = (await fixture.Store.LoadAsync("planning-tests", "input-budget", Ct))!;
+        Assert.Equal(state.Revision, before.Revision); Assert.Equal(PlanningStatus.Stopped, before.Status);
+        Assert.Equal(2, before.ModelCalls);
+        if (inputStop)
+        {
+            cut.Find("details input[type=number]").Change("24000");
+            cut.Find("details button").Click();
+            cut.WaitForAssertion(() => Assert.DoesNotContain("Apply settings and resume planning", cut.Markup));
+            var resumed = (await fixture.Store.LoadAsync("planning-tests", "input-budget", Ct))!;
+            Assert.Equal(PlanningStatus.Generating, resumed.Status);
+            Assert.Equal(24_000, resumed.Request.Generation.MaxInputTokensPerRequest);
+            Assert.Equal(2, resumed.ModelCalls); Assert.Equal(0, resumed.ReplanAttempts);
+            Assert.Empty(resumed.Diagnostics); Assert.Null(resumed.PendingCall);
+        }
+        await DisposeComponentsAsync();
+    }
+
     private void Configure(PlanningPersistenceTests.StoreFixture fixture)
     {
         JSInterop.Mode = JSRuntimeMode.Loose;

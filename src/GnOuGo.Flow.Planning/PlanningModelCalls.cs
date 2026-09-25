@@ -25,7 +25,7 @@ internal static class PlanningModelCalls
             var inputTokens = PlanningJsonTransport.EstimateInputTokens(prompt, schema);
             var inputLimit = state.Request.Generation.MaxInputTokensPerRequest;
             if (inputTokens > inputLimit)
-                throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", $"The complete {purpose} request needs approximately {inputTokens} input tokens; the configured limit is {inputLimit}. The action/subgraph cannot proceed within its current request budget.",
+                throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", $"The conservative input estimate for the complete {purpose} request (prompt and response schema) is {inputTokens} tokens; the configured limit is {inputLimit}. Planning stopped before dispatch without consuming another model call or repair. Increase the input token limit in generation settings and explicitly resume planning; cumulative session budgets remain unchanged.",
                     details: new JsonObject { ["location"] = "/phases/" + purpose });
             var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
             request.ClientRequestId = state.Request.SessionId + ":" + (++state.ModelCalls) + ":" + hash;

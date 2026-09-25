@@ -100,7 +100,11 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             Invalidate(state); state.Status = PlanningStatus.Generating;
         }
         catch (WorkflowRuntimeException ex)
-        { state.Diagnostics.Add(new(ex.Code, "/", ex.Message)); Stop(state); }
+        {
+            var location = ex.Code is "MODEL_INPUT_LIMIT" or "MODEL_OUTPUT_LIMIT"
+                ? ex.Details?["location"]?.GetValue<string>() ?? "/" : "/";
+            state.Diagnostics.Add(new(ex.Code, location, ex.Message)); Stop(state);
+        }
         catch (LLMClientException ex)
         {
             // Never surface exception messages or provider bodies. The integration supplies

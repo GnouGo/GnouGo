@@ -8,7 +8,7 @@ public sealed class TypedWorkflowPlanningSettings
     public long MaxTotalTokens { get; set; } = 15_000_000;
     public long MaxActiveMilliseconds { get; set; } = 18_000_000;
     public string Reasoning { get; set; } = "medium";
-    public int MaxInputTokensPerRequest { get; set; } = 12_000;
+    public int MaxInputTokensPerRequest { get; set; } = 24_000;
     public int MaxOutputTokens { get; set; } = 8_192;
     public string DatabasePath { get; set; } = ".GnOuGo/data/gnougo-planning-v9.db";
 }

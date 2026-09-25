@@ -113,11 +113,11 @@
             {
                 <label>Planning mode<select @bind="_mode"><option value="interactive">Interactive</option><option value="auto">Auto</option></select></label>
                 <button disabled="@_busy" @onclick='() => SubmitAsync("configure_mode", mode: _mode)'>Apply planning mode</button>
-                <details><summary>Generation settings</summary>
+                <details open="@IsInputBudgetStop"><summary>Generation settings</summary>
                     <label>Reasoning<select class="form-select" @bind="_reasoning"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
                     <label>Input token limit<input type="number" @bind="_inputLimit" /></label>
                     <label>Output token limit<input type="number" @bind="_outputLimit" /></label>
-                    <button disabled="@_busy" @onclick="ConfigureAsync">Apply settings</button>
+                    <button disabled="@_busy" @onclick="ConfigureAsync">@(IsInputBudgetStop ? "Apply settings and resume planning" : "Apply settings")</button>
                 </details>
             }
         }
@@ -130,6 +130,8 @@
     private bool IsWorkflowSession => Source == "workflow";
     [SupplyParameterFromQuery(Name = "agent")] public string? AgentName { get; set; }
     private PlanningSession? _state;
+    private bool IsInputBudgetStop => _state is { Status: PlanningStatus.Stopped, PendingCall: null }
+        && _state.Diagnostics.Any(d => d.Code == "MODEL_INPUT_LIMIT");
     private PlanningSessionListEntry? _entry;
     private IReadOnlyList<PlanningSessionListEntry> _sessions = [];
     private readonly CancellationTokenSource _lifetime = new();

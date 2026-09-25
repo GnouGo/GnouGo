@@ -12,6 +12,47 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class PlanningSessionLifecycleTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    [Theory]
+    [InlineData(null, 24_000)]
+    [InlineData(12_000, 12_000)]
+    public async Task DesignerDefaultAndOverrideApplyOnlyToNewSessions(int? configured, int expected)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var settings = new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false };
+        if (configured is { } limit) settings.MaxInputTokensPerRequest = limit;
+        using var service = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog(), settings: settings);
+        var saved = new PlanningSession { Request = new() { TenantId = "planning-tests", Prompt = "Saved intent" },
+            Status = PlanningStatus.Stopped, Revision = 5, ModelCalls = 2,
+            Discovery = new() { Sources = [new("source", "Declared metadata")], Pages = [new("source", null, [], null)] },
+            Usage = new() { Calls = 2, TotalTokens = 10000, EstimatedCost = 0.07m, EstimatedCostCurrency = "EUR" },
+            Diagnostics = [new("MODEL_INPUT_LIMIT", "/phases/tasks", "Input allowance exhausted")] };
+        Assert.True(await fixture.Store.TrySaveAsync(saved, null, Ct));
+        var created = await service.StartAsync("new-budget", "Return a greeting", false, Ct);
+        Assert.Equal(expected, created.Request.Generation.MaxInputTokensPerRequest);
+        Assert.Equal(8192, created.Request.Generation.MaxOutputTokens);
+        Assert.Equal("medium", created.Request.Generation.Reasoning);
+        Assert.Equal(8, created.Request.MaxModelCalls); Assert.Equal(2, created.Request.MaxReplanAttempts);
+        Assert.Equal(12_000, new PlanningGenerationOptions().MaxInputTokensPerRequest);
+
+        using var reopened = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog(), settings: settings);
+        var restored = (await reopened.GetAsync(saved.Request.SessionId, Ct))!;
+        Assert.Equal(12_000, restored.Request.Generation.MaxInputTokensPerRequest);
+        Assert.Equal(saved.Revision, restored.Revision); Assert.Equal(PlanningStatus.Stopped, restored.Status);
+        var continued = await reopened.SubmitAsync(restored.Request.SessionId, new()
+        {
+            Kind = "configure_generation", ExpectedRevision = restored.Revision,
+            Generation = new() { MaxInputTokensPerRequest = 24_000 }
+        }, Ct);
+        Assert.Equal(PlanningStatus.Generating, continued.Status); Assert.Empty(continued.Diagnostics);
+        Assert.Equal(24_000, continued.Request.Generation.MaxInputTokensPerRequest);
+        Assert.Equal(2, continued.ModelCalls); Assert.Equal(0, continued.ReplanAttempts);
+        Assert.Equal(saved.Usage!.TotalTokens, continued.Usage!.TotalTokens);
+        Assert.Equal(saved.Usage.EstimatedCost, continued.Usage.EstimatedCost);
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(saved.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState),
+            System.Text.Json.JsonSerializer.Serialize(continued.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
+        Assert.Equal(saved.Request.Options.ToJsonString(), continued.Request.Options.ToJsonString());
+    }
+
     [Fact]
     public async Task SaveRequiresApprovalAndReconcilesCommittedWriteAfterRestart()
     {
