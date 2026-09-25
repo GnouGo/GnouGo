@@ -1,16 +1,12 @@
-# Flow hybrid planning replacement
+# Flow TaskPlan planning and durable execution
 
 [Issue #112](https://github.com/GnouGo/GnouGo/issues/112) · [Draft PR #113](https://github.com/GnouGo/GnouGo/pull/113)
 
-The implementation replaces the semantic/grounded pipeline with reviewable
-requirements, progressive discovery, one executable graph and bounded graph
-revision. Deterministic stages and bounded agent tasks use the same durable engine.
-Schema-8 records remain untouched; their approvals cannot authorize schema-9 runs.
-See [architecture, APIs and migration](workflow-planning-v9.md).
+Current architecture: Requirements → progressive discovery → LLM TaskPlan → deterministic compiler → PlanningGraph → YAML → validation → approval. The compiler validates semantic intent before lowering. Scoped TaskPlan repair stays inside the existing bounded planning loop. Planning storage is format 10; execution journals remain schema 9. See [architecture, APIs and migration](workflow-planning-v9.md).
 
-## Dependency changes
+## Dependency boundaries
 
-Before (arrows indicate package dependencies):
+Before the replacement (arrows indicate package dependencies):
 
 ```mermaid
 flowchart TD
@@ -23,11 +19,11 @@ flowchart TD
   Integrations --> Core
 ```
 
-After:
+Current dependencies:
 
 ```mermaid
 flowchart TD
-  Hosts[Agent.Server / Flow.Server / Flow.Cli] --> Planner[Flow.Planning: one graph planner]
+  Hosts[Agent.Server / Flow.Server / Flow.Cli] --> Planner[Flow.Planning: TaskPlan validation and compilation]
   Hosts --> Integrations[Flow.Integrations: injected AI/MCP]
   Hosts --> Persistence[Flow.Persistence: encrypted journal and EF index]
   Hosts --> Copilot[Flow.Copilot: injected MCP transport]
@@ -40,169 +36,58 @@ flowchart TD
   Integrations --> Vault[KeyVault.Core / Workspace]
   Persistence --> Vault
   Python[Python run client / CLI] -. HTTP .-> Hosts
-  Copilot -. protocol .-> Managed[GithubCopilot.Mcp → existing managed Copilot Core APIs]
+  Copilot -. protocol .-> Managed[GithubCopilot.Mcp: existing managed Copilot APIs]
 ```
 
-Core has no outgoing dependency on another GnOuGo package. Planning and Copilot
-have only Core as a GnOuGo dependency. Persistence owns EF Core and the KeyVault
-record API; the rebuildable index never becomes an alternative payload store.
+Core has no outgoing dependency on another GnOuGo package. Planning and Copilot have only Core as a GnOuGo dependency. Persistence owns EF Core and the KeyVault record API; rebuildable indexes never become an alternative payload store.
 
-## Deleted subsystems
-
-- Semantic and grounded executable representations and their serializers.
-- Exhaustive catalog coverage, binding batches and persisted batch prefixes.
-- Separate semantic/grounded repairs, candidate decisions and continuation DTOs.
-- Mandatory model-generated scenario fixtures and production dry-run planning.
-  Independent authored-YAML simulation scenarios remain in tests.
-- Planning-only computation inference, its documentation wrapper, repair diagnostics
-  and legacy UI fields.
-- Top-level checkpoint API, routes, payloads and the duplicate resume path.
-- Python demo checkpoint model/store/resume path; Python durable commands now use
-  the same tenant-scoped schema-9 host API through `WorkflowRunClient`.
-- Schema-8 execution support and the legacy planner switch.
-
-Production C# under `Flow.Planning` and `Flow.Core/Planning` decreased from 55 files /
-7,190 lines at the parent to 40 files / 4,400 lines. This intentionally
-excludes the new execution, adapter and persistence functionality. The comparison
-uses Git source files, excluding generated `obj` and `bin` files.
-
-## Validation evidence
-
-Parent: `46c2c77fea19c952d3258d744d886fe52ef52d33`, checked out separately before
-implementation. Parent Core tests: 890 passed; Planning: 269 passed, without warnings.
-
-The frozen comparison uses `tests/Shared/PlanningBenchmarkCases.cs`, unchanged
-business requests and independent execution oracles, OpenAi `gpt-5.5-2026-04-24`,
-96,000 input / 32,768 output tokens per request, eight session transport attempts,
-two repairs and one shared EUR 50 campaign ceiling. Baseline: 24 live runs, three
-repetitions per case, 14 correct outcomes, median four planning calls. Failed runs
-are retained. The parent's `fixture` phase label permits live baseline collection
-after its failed pilot; every result still records `mode: live`. It does not waive
-the candidate acceptance gate.
-
-[All original parent, pilot and candidate measurements](evidence/flow-v9-112/README.md)
-are reviewable without private prompts. Candidate `87acc5f` completed all three
-repetitions: 22/24 correct versus 14/24, median 2.5 calls versus four, with no per-case
-regression. The retained French failure improves from 0/3 to 2/3. Every approved
-workflow passes the independent execution variants with no safety violation.
-
-The raw comparison remains inconclusive because one exhausted session's rejected
-logical reservation was reported as a ninth call with unknown usage. A read-only
-admission audit proves the request had no HTTP attempt and that the session ledger
-contains eight admitted attempts. The audited comparison passes; its proof hashes,
-raw comparison and unchanged failed outcome are retained together. Both exhausted
-inconclusive sessions remain permanently closed. The complete campaign evidence
-hash and accounting are unchanged by the audit. Known cost plus conservative
-reservations total EUR 28.6454561388 under the unchanged EUR 50 ceiling.
-
-Latest completed checks:
-
-- Full solution: 2,777 tests passed; five opt-in live tests skipped; no build warnings.
-- Python: 287 core and 26 CLI tests passed; both packages pass lint and build. The
-  schema-9 client also passed against the published Native AOT host, including
-  journal inspection, durable human answers and receipt reuse across restart.
-- Agent and Flow frontends built without warnings; the corrected Flow.Server Docker
-  image builds and serves its health and UI endpoints.
-- Native CLI and Flow server: encrypted journal receipts, native EF query/index
-  rebuilding, tenant isolation, revision conflicts, streamed human answers and
-  completed-run recovery across restart passed.
-- Native Copilot MCP: schema-9 protocol, unsupported-scope refusal before inference
-  and failed terminal receipt round-trip passed. Published Agent server: encrypted
-  planning persistence, HTTP health, static UI and Blazor negotiation passed.
-- Live bounded file editing passed in both Debug and Native AOT after correcting the managed SDK mode: observed
-  file changes, permission refusal, receipt reuse and rejected objective expansion.
-  The command-based edit/test cycle remains blocked by host sandbox enforcement.
-- Planner: 77 tests; Copilot adapter: five tests. All five affected Flow packages
-  packed without warnings; package contents and independent dependency boundaries were checked.
-
-The PR stays draft. The audited relative comparison passes, while the existing
-stricter pilot/measured release gates remain unpassed. The real bounded Copilot
-command edit/test cycle also remains incomplete. This Mac lacks mandatory administrator-managed
-sandbox policy. An isolated non-root Linux container recognizes that policy after
-the SDK bootstrap correction, but its enforcement probe fails on the available
-host. The final Native AOT preflight preserves BYOK/client authentication and
-reaches the expected mandatory-policy check; it no longer fails SDK session creation.
-Neither host dispatches the task prompt. The adapter fails closed and
-reports that distinction; a file-only, native or unit-test pass does not establish
-command execution success.
-
-Representative behavioral coverage:
-
-| Contract | Evidence |
-| --- | --- |
-| Discovery, unavailable sources, exact contracts and bounded repair | `ProgressiveDiscoveryTests`, `GraphContractTests`, `TaskPlanRevisionTests`, `TaskPlanSafetyTests` |
-| Structured outputs, fabricated claims and failed verification | `AgentTaskTests`, `BoundedCopilotTasksTests` |
-| Dispatch/receipt crashes, nested calls, loops, parallel cleanup and durable answers | `WorkflowRunTests` |
-| Encryption, index rebuilding, concurrent owners and tenant isolation | `EncryptedWorkflowRunStoreTests`, published-binary smoke script |
-| Real model editing, refused permissions, immutable objective and receipt reuse | Debug and Native AOT controlled-edit tests; command cycle remains unpassed |
-
-## Published persistence and framework exceptions
-
-`scripts/verify-flow-v9-published.py` runs isolated black-box checks against published
-CLI/server executables. It never uses repository databases. Authoritative payloads
-are encrypted, EF Core indexes rebuild from them, and workflow markers must not be
-visible in database bytes. `--planning-persistence-smoke` exercises the published
-Agent server's encrypted planning store independently of HTTP startup.
-
-EF Core 10.0.12 uses generated models and precompiled index queries. Its generator
-currently emits CS8669 and CS9270 in one generated interceptor file; only that file
-has those two diagnostics suppressed. Publish-only Jint 4.16.3 interop diagnostics,
-EF Core package summaries, unused Spatialite discovery and DependencyContext
-single-file diagnostics have exact-origin audit entries in
-`verify-warning-free-publishes.ps1`. Application diagnostics are not added to that
-allowlist. Audit publication enables the warnings again and rejects changed origins. The
-Agent server audit was repeated against the isolated parent: 106 distinct warning
-origins before, 105 after; the compiled planning model removed its application
-IL2026. No additional warning origin was accepted.
-
-## TaskPlan replacement (planning format 10)
-
-The latest authorized change replaces direct graph generation with one semantic
-TaskPlan and deterministic lowering. Runtime, adapters and execution journal schema 9
-remain unchanged. Prior planning approvals are rejected; original evidence remains
-under [the completed stabilization cohort](evidence/flow-v9-112/stabilization/README.md).
-
-Before:
+## Planning responsibilities
 
 ```mermaid
 flowchart LR
-  Requirements --> Discovery --> LLM[LLM graph and executor bindings]
-  LLM --> PlanningGraph --> Validation --> Approval
-  Validation --> GraphRepair[Model graph repair] --> LLM
-```
-
-After:
-
-```mermaid
-flowchart LR
-  Requirements --> Discovery --> LLM[LLM semantic TaskPlan]
-  LLM --> Compiler[Deterministic binding and control flow]
+  Requirements --> Discovery --> Tasks[LLM semantic TaskPlan]
+  Tasks --> Compiler[Deterministic semantic preflight and lowering]
   Compiler --> PlanningGraph --> YAML --> Validation --> Approval
-  Validation --> TaskRepair[Scoped semantic repair] --> LLM
+  Compiler --> Findings[Task and business-port diagnostics]
+  Findings --> Repair[Bounded semantic repair] --> Tasks
   Choices[Typed business choices] --> Compiler
 ```
 
-Deleted subsystems: direct-graph response schema and graph prompt recipes; explicit
-model capability-resolution action; model graph revision baselines and graph repair;
-YAML-to-planner importer and graph revision context; free-form clarification contracts,
-serialization and input UI. Tests now supply semantic tasks while retaining the frozen
-business prompts and independent runtime oracles. Compiler symbols/source maps are
-transient and no additional binding representation is persisted.
+TaskPlan owns operation intent, business bindings, explicit scopes and branch exports. PlanningGraph remains the sole executable representation. Transient symbols and source maps point into the TaskPlan; there is no additional persisted plan or model phase.
 
-`TaskPlanCompiler` owns operation binding, stable IDs, result envelopes, branch output
-merges, ordered iteration, projections, defaults and finalizer guards. Approval includes
-TaskPlan/choices and requires deterministic recompilation to reproduce the reviewed
-artifact. The semantic response contract contains no JavaScript or executor plumbing.
+Preflight collects independent semantic errors before emitting graph nodes. It preserves scope visibility, authoritative contracts and opaque values. The compiler owns stable IDs, executor envelopes, projections, declared branch merges, ordered collection mechanics, explicit literal defaults and cleanup guards. It never invents business exports or fallback values.
 
-The [frozen TaskPlan candidate report](evidence/flow-v9-112/taskplan/README.md) records
-the completed nine-outcome comparison: 5/9 correct, median three physical calls,
-bounded usage and no unsafe approvals. Correctness regressed against the best retained
-review-case baselines, so acceptance failed. Implementation and paid evaluation stopped;
-the PR remains draft with the compiler/contract failures and real Copilot limitation visible.
+Repair permissions cover diagnosed business slots and the explicit export chains needed by their consumers. Related missing conditional declarations require explicit alternative values. Revalidation of dependent tasks grants no edit permission. Unrelated tasks, interfaces, choices, scopes and ordering remain fixed; ambiguous locations never widen permission to the whole plan. Rejected proposals preserve the baseline, receipts and cumulative budgets. Approval recompiles intent and requires the reviewed artifact to match exactly.
 
-The subsequent [TaskPlan stabilization report](evidence/flow-v9-112/taskplan-stabilization/README.md)
-records 8/9 correct outcomes and a one-call median on frozen candidate `d636c99`.
-It meets the agreed per-case thresholds without changing the architecture or public
-contracts. One parallel-branch export repair failure remains; the full failure and
-uncertain usage reservations are retained. Implementation and paid evaluation stopped
-after the nine outcomes. The real Copilot command-execution limitation keeps the PR draft.
+## Deleted subsystems and superseded behavior
+
+- SemanticPlan/GroundedPlan executable intermediates, serializers, exhaustive catalog coverage, binding batches and separate repair pipelines.
+- Direct-graph model response schemas/prompts, explicit model capability-resolution actions, graph revision baselines and model graph repair.
+- YAML-to-planner revision import, free-form clarification/decision DTOs and their obsolete UI. Authored YAML remains executable.
+- Mandatory model-generated scenario fixtures and planning-only computation inference. Independent test scenarios and authored-YAML expression support remain.
+- Top-level checkpoint API/routes and duplicate resume paths, schema-8 execution support and the legacy planner switch.
+- First-error-only semantic input checking, the unused compiler scope traversal, transitive whole-task edit permissions and the unmapped-diagnostic whole-plan repair fallback.
+- Active host documentation for removed `answer_decision`/scope-consent flows, binding batches and computation-inference details; expired benchmark instructions are replaced with links to retained evidence.
+
+The latest semantic validation/repair work changes no runtime, persistence, host security or public storage contract. Follow the [repository planning skill](../.agents/skills/gnougo-planning/SKILL.md) for future changes.
+
+## Retained evidence and limitations
+
+The reports below describe their pinned revisions, not the current implementation or permission to run another campaign. Historical dated `planning-*` and `planner-*` reports likewise document superseded implementations; current integration instructions are in [workflow planning](workflow-planning-v9.md).
+
+| Cohort | Retained result |
+| --- | --- |
+| [Original parent and graph candidate](evidence/flow-v9-112/README.md) | Parent 14/24, candidate 22/24; full-eight-case medians 4 and 2.5 |
+| [Graph stabilization](evidence/flow-v9-112/stabilization/README.md) | Conditional-case regression and all stopped/uncertain evidence retained |
+| [Initial TaskPlan](evidence/flow-v9-112/taskplan/README.md) | 5/9 correct, three-call median; acceptance failed |
+| [TaskPlan stabilization](evidence/flow-v9-112/taskplan-stabilization/README.md) | 8/9 correct, one-call median; agreed per-case acceptance passed |
+
+The latest live source remains `d636c99`; its failed parallel-export repair, accounting and all previous evidence remain unchanged. Semantic preflight/repair follow-up uses deterministic tests only and makes no new live-performance claim.
+
+Real Copilot command edit/test execution remains unverified. This Mac lacks mandatory administrator-managed sandbox policy. The prior isolated non-root Linux container recognized that policy but failed its enforcement probe on the available host. No command-task prompt was dispatched. The adapter fails closed; controlled file editing, Native AOT publication and simulated workflow success do not establish command execution. Keep the PR draft and do not bypass enforcement.
+
+## Published persistence and framework exceptions
+
+`scripts/verify-flow-v9-published.py` checks published CLI/server executables using isolated databases: encrypted payloads, rebuildable EF indexes, tenant isolation, receipt reuse and absence of plaintext workflow markers. `--planning-persistence-smoke` exercises the published Agent server's encrypted planning store.
+
+EF Core 10.0.12 uses generated models and precompiled index queries. Its generator emits CS8669 and CS9270 in one generated interceptor file; only that file suppresses those two diagnostics. Publish-only Jint 4.16.3 interop diagnostics, EF Core package summaries, unused Spatialite discovery and DependencyContext single-file diagnostics have exact-origin audit entries in `verify-warning-free-publishes.ps1`. Application diagnostics must not be added to that allowlist. Audited publication restores the warnings and rejects changed origins; existing exceptions require published-binary smoke coverage.

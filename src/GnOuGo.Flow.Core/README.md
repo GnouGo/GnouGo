@@ -19,7 +19,7 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 
 ## Typed planning
 
-Core owns `PlanningSession`, reviewable requirements, `PlanningGraph`, typed contracts and provider-neutral planning interfaces. It references no other GnOuGo project. Hosts inject the separately publishable Planning implementation and Integrations persistence boundary.
+Core owns `PlanningSession`, reviewable requirements, `TaskPlan`, `PlanningGraph`, typed contracts and provider-neutral planning interfaces. It references no other GnOuGo project. Hosts inject the separately publishable Planning implementation and Integrations persistence boundary.
 
 
 The flow is requirements → progressive discovery → semantic TaskPlan → deterministic compilation → PlanningGraph → YAML → validation → scoped TaskPlan repair → approval. Bounded task revisions preserve unaffected generated stages. Planning format 10 records TaskPlan intent and choices; execution journal schema 9 is unchanged. Generated glue uses literals, references, simple conditions and registered typed transformations; authored YAML retains its expression language. Runtime confirmation for protected effects is separate from final artifact approval. See [workflow planning](../../docs/workflow-planning-v9.md).

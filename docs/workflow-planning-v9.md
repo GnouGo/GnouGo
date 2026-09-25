@@ -6,7 +6,7 @@ Flow uses one semantic planner, one executable graph and one execution journal.
 flowchart LR
   Requirements --> Discovery[Progressive discovery]
   Discovery --> Tasks[LLM TaskPlan]
-  Tasks --> Compiler[Deterministic TaskPlanCompiler]
+  Tasks --> Compiler[Deterministic compiler: semantic preflight and lowering]
   Compiler --> Graph[PlanningGraph]
   Graph --> YAML
   YAML --> Validation
@@ -51,7 +51,9 @@ simple conditions and registered typed transformations. Authored YAML retains it
 existing expression runtime. Opaque output needs whole-value validation before
 field access; assistant descriptions and sample values cannot establish a contract.
 
-A semantic binding failure opens one bounded task revision scope. Independent input failures are collected together; group inputs and business output bindings keep their semantic locations through compilation and confirmation wrapping. Rejected revisions identify unauthorized changed slots and retain the last accepted baseline. Optional workflow/group inputs require literal defaults, while optional object fields may remain absent. Composite outputs use the existing typed `set` primitive after cleanup; opaque payloads remain opaque. Generated executor validation failures stop with compiler diagnostics. Dependent findings are
+Compiler preflight checks semantic identities, scope visibility, dependencies and business contracts before emitting graph nodes. It reports independent input/output errors together, including invalid cross-scope consumers and required export boundaries, while suppressing errors caused solely by unavailable prerequisite contracts. Children may capture available ancestor values; parent consumers require explicit exports and parallel siblings cannot directly consume each other. Group inputs and business output bindings retain semantic locations through compilation and confirmation wrapping.
+
+A semantic failure opens a bounded revision scope over diagnosed business slots and the explicit export declarations required by their consumers. Conditional alternatives must explicitly provide matching outputs; the compiler invents neither exports nor fallback values. Added exports must belong to the diagnosed connection, with unrelated declarations and ordering preserved. Revalidation of a dependent task grants no edit permission. Unknown or ambiguous locations never authorize whole-plan repair. Rejected revisions identify unauthorized changed slots and retain the last accepted baseline. Optional workflow/group inputs require literal defaults, while optional object fields may remain absent. Composite outputs use the existing typed `set` primitive after cleanup; opaque payloads remain opaque. Generated executor validation failures stop with compiler diagnostics. Dependent findings are
 invalidated; unaffected validated stages and interfaces remain unchanged. Repairs,
 retries and restarts share the original planning budget. Defaults remain eight
 model calls, two repairs, 12,000 input tokens per request and the configured output
@@ -177,3 +179,9 @@ YAML, adapters, tenant isolation and durable execution remain in place.
 
 See [TaskPlan contract and package instructions](../src/GnOuGo.Flow.Planning/README.md)
 and [retained implementation evidence](flow-hybrid-v9-implementation.md).
+
+## Development and retained evidence
+
+Use the [repository planning skill](../.agents/skills/gnougo-planning/SKILL.md) for deterministic regression work. Historical live reports retain their original outcomes and accounting; they do not authorize more dispatches. The latest completed cohort is [8/9 correct](evidence/flow-v9-112/taskplan-stabilization/README.md). The semantic preflight/repair follow-up runs no paid/live evaluation.
+
+Real Copilot command edit/test execution remains unverified because the available host does not satisfy mandatory sandbox enforcement. Keep that limitation visible; do not relax permissions or substitute simulated execution for external evidence.
