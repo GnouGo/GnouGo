@@ -11,6 +11,7 @@ internal static class TaskPlanRevisions
     internal static IEnumerable<PlanTask> Tasks(TaskPlan plan) => Tasks(plan.Root).Concat(plan.Groups.SelectMany(g => Tasks(g.Body)));
     internal static IReadOnlyList<string> Scope(TaskPlan plan, IReadOnlyList<PlanningDiagnostic> findings)
     {
+        if (TaskPlanCompiler.InvalidDeclarations(plan).Count > 0) return [];
         var symbols = new TaskPlanSymbols(plan);
         var inputs = plan.Inputs.Select(i => "/inputs/" + i.Name).Concat(plan.Groups.SelectMany(g => g.Inputs.Select(i => "/groups/" + g.Id + "/inputs/" + i.Name))).ToHashSet(StringComparer.Ordinal);
         var scope = new HashSet<string>(StringComparer.Ordinal);
@@ -29,6 +30,13 @@ internal static class TaskPlanRevisions
 
     internal static IEnumerable<PlanningDiagnostic> Validate(TaskPlan? previous, TaskPlan candidate, IReadOnlyList<string> scope)
     {
+        var identities = TaskPlanCompiler.IdentityDiagnostics(candidate);
+        if (previous is not null) identities = identities.Concat(TaskPlanCompiler.IdentityDiagnostics(previous, includeReferences: false)).Distinct().ToArray();
+        if (identities.Count > 0)
+        {
+            foreach (var finding in identities) yield return finding;
+            if (TaskPlanCompiler.InvalidDeclarations(candidate).Count > 0 || previous is not null && TaskPlanCompiler.InvalidDeclarations(previous).Count > 0) yield break;
+        }
         if (previous is null) yield break;
         var symbols = new TaskPlanSymbols(previous); var revised = new TaskPlanSymbols(candidate);
         var before = JsonSerializer.SerializeToNode(previous, PlanningJsonContext.Default.TaskPlan)!;

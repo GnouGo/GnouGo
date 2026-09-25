@@ -7,26 +7,84 @@ public sealed partial class TaskPlanCompiler
 {
     private sealed class UnavailableValue : Exception;
 
+    // The final lookahead is an absolute end check in both JSON Schema/ECMAScript
+    // and .NET; '$' alone would also accept a trailing newline.
+    internal const string IdentityPattern = @"^(?!__)[A-Za-z0-9_-]+(?![\s\S])";
+    internal static bool ValidIdentity(string? id) => !string.IsNullOrEmpty(id) && !id.StartsWith("__", StringComparison.Ordinal)
+        && id.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-');
+
+    internal static IEnumerable<(string Id, string Location)> Declarations(TaskPlan plan)
+    {
+        var index = 0;
+        foreach (var task in TaskPlanRevisions.Tasks(plan)) yield return (task.Id, Location("tasks", task.Id, index++));
+        index = 0;
+        foreach (var group in plan.Groups) yield return (group.Id, Location("groups", group.Id, index++));
+        index = 0;
+        foreach (var choice in plan.Choices) yield return (choice.Id, Location("choices", choice.Id, index++));
+        static string Location(string kind, string? id, int index) => "/" + kind + "/" +
+            (ValidIdentity(id) ? id : index.ToString(System.Globalization.CultureInfo.InvariantCulture)) + "/id";
+    }
+
+    internal static HashSet<string> InvalidDeclarations(TaskPlan plan) => Declarations(plan).GroupBy(d => d.Id, StringComparer.Ordinal)
+        .Where(g => !ValidIdentity(g.Key) || g.Count() != 1).Select(g => g.Key).ToHashSet(StringComparer.Ordinal);
+
+    internal static IReadOnlyList<PlanningDiagnostic> IdentityDiagnostics(TaskPlan plan, bool includeReferences = true)
+    {
+        var invalid = InvalidDeclarations(plan);
+        var findings = Declarations(plan).Where(d => invalid.Contains(d.Id)).Select(d => new PlanningDiagnostic("TASK_IDENTITY_INVALID", d.Location,
+            "Task, group and choice IDs must be globally unique, use only ASCII letters, digits, '_' or '-', and not start with '__'. Regenerate invalid identities; they are not repair permissions.")).ToList();
+        if (includeReferences)
+        {
+            ScanScope(plan.Root, "/root");
+            foreach (var group in plan.Groups)
+                if (ValidIdentity(group.Id)) ScanScope(group.Body, "/groups/" + group.Id + "/body");
+            foreach (var choice in plan.Choices.Where(c => ValidIdentity(c.Id)))
+                for (var i = 0; i < choice.Alternatives.Count; i++) ScanValue(choice.Alternatives[i].Value, "/choices/" + choice.Id + "/alternatives/" + i + "/value");
+        }
+        return findings.Distinct().OrderBy(d => d.Location, StringComparer.Ordinal).ThenBy(d => d.Code, StringComparer.Ordinal).ToArray();
+
+        void Reference(string? id, string path)
+        {
+            if (!ValidIdentity(id)) findings.Add(new("TASK_IDENTITY_INVALID", path, "Identity references must use a nonempty path-safe ID outside the reserved '__' namespace."));
+        }
+        void ScanValue(TaskValue value, string path)
+        {
+            foreach (var nested in Values(value))
+                if (nested.Kind is "output" or "present" or "choice") Reference(nested.Source, path + "/source");
+        }
+        void ScanScope(TaskScope scope, string path)
+        {
+            foreach (var output in scope.Outputs) ScanValue(output.Value, path + "/outputs/" + output.Name);
+            foreach (var task in scope.Tasks.Concat(scope.Always))
+            {
+                if (!ValidIdentity(task.Id)) continue; // Never turn an invalid ID into an authoritative path.
+                var location = "/tasks/" + task.Id;
+                for (var i = 0; i < task.DependsOn.Count; i++) Reference(task.DependsOn[i], location + "/dependsOn/" + i);
+                if (task.Kind == "call") Reference(task.Group, location + "/group");
+                foreach (var input in task.Inputs) ScanValue(input.Value, location + "/inputs/" + input.Name);
+                foreach (var output in task.Outputs) ScanValue(output.Value, location + "/outputs/" + output.Name);
+                if (task.Condition is not null) ScanValue(task.Condition, location + "/condition");
+                if (task.Items is not null) ScanValue(task.Items, location + "/items");
+                if (task.Body is not null) ScanScope(task.Body, location + "/body");
+                if (task.Otherwise is not null) ScanScope(task.Otherwise, location + "/otherwise");
+                for (var i = 0; i < task.Branches.Count; i++) ScanScope(task.Branches[i], location + "/branches/" + i);
+            }
+        }
+    }
+
     // Validate business symbols and contracts before emitting any graph node. Bound
     // values reuse the compiler's existing type rules; no executable plan is built here.
     private IReadOnlyList<PlanningDiagnostic> Preflight()
     {
-        var findings = new List<PlanningDiagnostic>();
+        var findings = IdentityDiagnostics(_plan).ToList();
         var symbols = new TaskPlanSymbols(_plan);
         var groups = new Dictionary<string, Scope>(StringComparer.Ordinal);
         var activeGroups = new HashSet<string>(StringComparer.Ordinal);
-        var invalidChoices = _plan.Choices.GroupBy(c => c.Id, StringComparer.Ordinal).Where(g => g.Count() != 1).Select(g => g.Key).ToHashSet(StringComparer.Ordinal);
-        Check("/groups", () => Unique(_plan.Groups.Select(g => g.Id)));
-        Check("/choices", () => Unique(_plan.Choices.Select(c => c.Id)));
-        foreach (var task in TaskPlanRevisions.Tasks(_plan))
-            Check("/tasks/" + task.Id + "/id", () =>
-            {
-                Unique([task.Id]);
-                if (symbols.AmbiguousTasks.Contains(task.Id)) Fail("TASK_IDENTITY_INVALID", "Task identities must be globally unambiguous.");
-            });
+        var invalidChoices = _plan.Choices.Where(c => symbols.InvalidIds.Contains(c.Id)).Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
         foreach (var capability in _catalog.Capabilities) findings.AddRange(TaskOperations.Validate(capability));
         foreach (var choice in _plan.Choices)
         {
+            if (invalidChoices.Contains(choice.Id)) continue;
             var before = findings.Count;
             Check("/choices/" + choice.Id, () => ValidateChoice(choice));
             if (symbols.Values.Values.SelectMany(s => Values(s.Value)).Count(v => v.Kind == "choice" && v.Source == choice.Id) != 1)
@@ -51,6 +109,7 @@ public sealed partial class TaskPlanCompiler
         }
         Bound? Read(TaskValue value, Scope scope, string location)
         {
+            if (value.Kind is "output" or "present" or "choice" && symbols.InvalidIds.Contains(value.Source!)) return null;
             Bound? result = null;
             var children = value.Members.Select(m => m.Value).Concat(value.Items).ToArray();
             var valid = true;
@@ -80,6 +139,7 @@ public sealed partial class TaskPlanCompiler
         }
         Scope? GroupScope(string id)
         {
+            if (!ValidIdentity(id) || symbols.InvalidIds.Contains(id)) return null;
             if (activeGroups.Contains(id)) { findings.Add(new("TASK_GROUP_CYCLE", "/groups/" + id, "Reusable groups cannot recurse.")); return null; }
             if (groups.TryGetValue(id, out var cached)) return cached;
             var matches = _plan.Groups.Where(g => g.Id == id).ToArray();
@@ -126,7 +186,7 @@ public sealed partial class TaskPlanCompiler
         void InspectTask(PlanTask task, Scope scope)
         {
             var path = "/tasks/" + task.Id;
-            if (symbols.AmbiguousTasks.Contains(task.Id)) { scope.Blocked.Add(("output", task.Id, "*")); return; }
+            if (symbols.InvalidIds.Contains(task.Id)) { scope.Blocked.Add(("output", task.Id, "*")); return; }
             Check(path + "/objective", () => { if (string.IsNullOrWhiteSpace(task.Objective)) Fail("TASK_OBJECTIVE_REQUIRED", "Each task requires an objective."); });
             Check(path + "/dependsOn", () => { if (task.DependsOn.Any(d => !scope.Tasks.ContainsKey(d))) Fail("TASK_DEPENDENCY_UNKNOWN", "A dependency must name a preceding task in this scope."); });
             var ports = new Dictionary<string, Bound>(StringComparer.Ordinal);

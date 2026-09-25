@@ -10,14 +10,14 @@ internal sealed class TaskPlanSymbols
     internal List<Scope> Scopes { get; } = [];
     internal Dictionary<string, (PlanTask Task, Scope Scope)> Tasks { get; } = new(StringComparer.Ordinal);
     internal Dictionary<string, Site> Values { get; } = new(StringComparer.Ordinal);
-    internal HashSet<string> AmbiguousTasks { get; } = new(StringComparer.Ordinal);
+    internal HashSet<string> InvalidIds { get; }
     private readonly HashSet<string> _ambiguousValues = new(StringComparer.Ordinal);
 
     internal TaskPlanSymbols(TaskPlan plan)
     {
+        InvalidIds = TaskPlanCompiler.InvalidDeclarations(plan);
         Add(plan.Root, "/root", null, null);
-        foreach (var group in plan.Groups) Add(group.Body, "/groups/" + group.Id + "/body", null, null);
-        foreach (var id in AmbiguousTasks) Tasks.Remove(id);
+        foreach (var group in plan.Groups.Where(g => !InvalidIds.Contains(g.Id))) Add(group.Body, "/groups/" + group.Id + "/body", null, null);
     }
     private void Add(TaskScope source, string path, Scope? parent, PlanTask? owner)
     {
@@ -25,7 +25,8 @@ internal sealed class TaskPlanSymbols
         foreach (var output in source.Outputs) AddValue(output.Value, scope, path + "/outputs/" + output.Name);
         foreach (var task in source.Tasks.Concat(source.Always))
         {
-            if (!Tasks.TryAdd(task.Id, (task, scope))) AmbiguousTasks.Add(task.Id);
+            if (InvalidIds.Contains(task.Id)) continue;
+            Tasks.Add(task.Id, (task, scope));
             var location = "/tasks/" + task.Id;
             foreach (var input in task.Inputs) AddValue(input.Value, scope, location + "/inputs/" + input.Name);
             foreach (var output in task.Outputs) AddValue(output.Value, scope, location + "/outputs/" + output.Name);
@@ -41,7 +42,7 @@ internal sealed class TaskPlanSymbols
     {
         if (_ambiguousValues.Contains(path)) return;
         if (Values.TryAdd(path, new(value, scope, path))) return;
-        // Identities may contain path delimiters. An ambiguous display location must
+        // Business-port names remain unrestricted. Ambiguous display locations must
         // never become authority to edit more than one semantic slot.
         Values.Remove(path); _ambiguousValues.Add(path);
     }

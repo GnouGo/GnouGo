@@ -38,7 +38,11 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         { state.HumanWaitMilliseconds += Math.Max(0, (_time.GetUtcNow() - waiting).TotalMilliseconds); state.WaitingSinceUtc = null; }
         try
         {
-            switch (command.Kind)
+            // Recovery must not operate on identities which no longer satisfy the
+            // semantic contract, even if an older request/approval was persisted.
+            if (command.Kind != "cancel" && state.Plan is { } recovered && TaskPlanCompiler.IdentityDiagnostics(recovered, includeReferences: false) is { Count: > 0 } invalidIdentities)
+            { state.Diagnostics = invalidIdentities.ToList(); Invalidate(state); Stop(state); }
+            else switch (command.Kind)
             {
                 case "advance": await AdvancePlanAsync(state, runtime, deadline.Token); break;
                 case "approve":
@@ -137,6 +141,12 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         }
         var plan = proposal.Plan!;
         if (proposal.Cursor is not null) Reject("PROPOSAL_ACTION_INVALID", "/cursor", "A TaskPlan has no discovery cursor.");
+        var identities = TaskPlanCompiler.IdentityDiagnostics(plan, includeReferences: false);
+        if (identities.Count > 0)
+        {
+            if (state.Plan is not null) throw new PlanningResponseException(identities.ToList());
+            state.Diagnostics = identities.ToList(); Stop(state); return;
+        }
         // Selections are host-owned. Model repairs cannot silently change a user's decision.
         foreach (var choice in plan.Choices)
         {

@@ -58,10 +58,10 @@ public static class PlanningCorpus
                     Body = new() { Tasks = [Invoke("read", "read")], Outputs = [new("value", Output("read"))] }, Otherwise = new() { Outputs = [new("value", Number(0))] } }); break;
             case "collections":
                 plan.Inputs.Add(new() { Name = "values", Type = new() { Kind = "array", Items = new() { Kind = "number" } } });
-                plan.Groups.Add(new() { Id = "double", Inputs = [new() { Name = "value", Type = new() { Kind = "number" } }],
+                plan.Groups.Add(new() { Id = "double_group", Inputs = [new() { Name = "value", Type = new() { Kind = "number" } }],
                     Body = new() { Tasks = [Math("multiply_item", "number.multiply", Business("input", "value"), Number(2))], Outputs = [new("result", Output("multiply_item"))] } });
                 main.Tasks.Add(new() { Id = "result", Objective = "Double each value preserving order", Kind = "foreach", Items = Business("input", "values"), Parallel = true,
-                    Body = new() { Tasks = [new() { Id = "double", Objective = "Double this item", Kind = "call", Group = "double", Inputs = [new("value", Business("item"))] }], Outputs = [new("values", Output("double", "result"))] } });
+                    Body = new() { Tasks = [new() { Id = "double", Objective = "Double this item", Kind = "call", Group = "double_group", Inputs = [new("value", Business("item"))] }], Outputs = [new("values", Output("double", "result"))] } });
                 result = Output("result", "values"); break;
             case "protected_cleanup":
                 main.Tasks.Add(Invoke("write", "write")); main.Always.Add(Invoke("cleanup", "cleanup")); result = Number(42); break;
