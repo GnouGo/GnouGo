@@ -91,8 +91,7 @@ public sealed class TaskPlanStabilizationTests
         state.Discovery.Pages = [new("source", null, [], null)];
         var schema = PlanningSchemas.Proposal(state);
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
-        Assert.Equal("null", schema["properties"]!["sourceId"]!["type"]!.ToString());
-        Assert.Equal("null", schema["properties"]!["cursor"]!["type"]!.ToString());
+        Assert.Equal("null", schema["properties"]!["discoveryRequests"]!["type"]!.ToString());
         foreach (var response in fixture["responses"]!.AsArray().Where(r => r?["proposal"]?["sourceId"] is not null))
             Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response!["proposal"], schema));
     }
@@ -181,13 +180,10 @@ public sealed class TaskPlanStabilizationTests
         state.Discovery.Pages = [new("complete", null, [], null), new("paged", null, [], "next")];
         var schema = PlanningSchemas.Proposal(state);
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, true));
-        var source = schema["properties"]!["sourceId"]!.DeepClone().AsObject();
-        var cursor = schema["properties"]!["cursor"]!.DeepClone().AsObject();
-        Assert.Empty(PlanningContractValidation.ValidateInstance(JsonValue.Create("paged"), source));
-        Assert.Empty(PlanningContractValidation.ValidateInstance(JsonValue.Create("unseen"), source));
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(JsonValue.Create("complete"), source));
-        Assert.Empty(PlanningContractValidation.ValidateInstance(JsonValue.Create("next"), cursor));
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(JsonValue.Create("invented"), cursor));
+        var batch = schema["properties"]!["discoveryRequests"]!.DeepClone().AsObject();
+        Assert.Empty(PlanningContractValidation.ValidateInstance(JsonNode.Parse("""[{"sourceId":"paged","cursor":"next"},{"sourceId":"unseen","cursor":null}]"""), batch));
+        foreach (var invalid in new[] { """[{"sourceId":"complete","cursor":null}]""", """[{"sourceId":"unseen","cursor":"next"}]""", """[{"sourceId":"paged","cursor":"invented"}]""" })
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(JsonNode.Parse(invalid), batch));
     }
 
     [Fact]

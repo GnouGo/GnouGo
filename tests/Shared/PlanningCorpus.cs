@@ -122,9 +122,9 @@ public static class PlanningCorpus
             var discovery = _snapshot.Discovery;
             var proposal = new PlanningProposal { Requirements = Requirements(name) };
             var local = name is "local" or "collections";
-            if (!local && discovery.Pages.Count == 0) proposal.SourceId = discovery.Sources[0].Id;
+            if (!local && discovery.Pages.Count == 0) proposal.DiscoveryRequests = [new(discovery.Sources[0].Id)];
             else if (!local && discovery.Pages[^1].NextCursor is { } cursor)
-            { proposal.SourceId = discovery.Pages[^1].SourceId; proposal.Cursor = cursor; }
+            { proposal.DiscoveryRequests = [new(discovery.Pages[^1].SourceId, cursor)]; }
             else
             {
                 var issued = new PlanningCatalog { Capabilities = catalog.Capabilities.Concat(discovery.Pages.SelectMany(p => p.Capabilities)

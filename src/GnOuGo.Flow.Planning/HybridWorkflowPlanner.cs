@@ -145,20 +145,27 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         var response = await PlanningModelCalls.CallAsync(state, runtime, state.PendingCall?.Purpose ?? (repair ? "replan" : "tasks"), Prompt(state), PlanningSchemas.Proposal(state), ct);
         var proposal = JsonSerializer.Deserialize(response, PlanningJsonContext.Default.PlanningProposal)!;
         ValidateRequirements(state, proposal);
-        if ((proposal.SourceId is null) == (proposal.Plan is null)) Reject("PROPOSAL_ACTION_INVALID", "/", "Return one discovery request or a complete TaskPlan.");
+        if ((proposal.DiscoveryRequests is null) == (proposal.Plan is null)) Reject("PROPOSAL_ACTION_INVALID", "/", "Return one discovery batch or a complete TaskPlan.");
         state.Requirements = proposal.Requirements;
-        if (proposal.SourceId is { } source)
+        if (proposal.DiscoveryRequests is { } requests)
         {
-            if (!state.Discovery.Sources.Any(s => s.Id == source)) Reject("SOURCE_UNKNOWN", "/sourceId", "Choose an issued capability source.");
-            if (state.Discovery.Pages.Any(p => p.SourceId == source && p.Cursor == proposal.Cursor))
-                Reject("DISCOVERY_NO_PROGRESS", "/sourceId", "This source page is cached. Use its operations or request an issued continuation cursor.");
-            if (proposal.Cursor is not null && !state.Discovery.Pages.Any(p => p.SourceId == source && p.NextCursor == proposal.Cursor))
-                Reject("CURSOR_UNKNOWN", "/cursor", "Choose an issued continuation cursor.");
-            await DiscoverPageAsync(state, runtime, source, proposal.Cursor, ct);
+            if (requests.Count is < 1 or > 4 || requests.Distinct().Count() != requests.Count)
+                Reject("DISCOVERY_BATCH_INVALID", "/discoveryRequests", "Request one to four distinct issued source pages.");
+            // Admit the complete batch before reading any source. Fetches are metadata
+            // reads; recovery can repeat them using the same recorded model response.
+            for (var i = 0; i < requests.Count; i++)
+            {
+                var request = requests[i]; var path = "/discoveryRequests/" + i;
+                if (!state.Discovery.Sources.Any(s => s.Id == request.SourceId)) Reject("SOURCE_UNKNOWN", path + "/sourceId", "Choose an issued capability source.");
+                if (state.Discovery.Pages.Any(p => p.SourceId == request.SourceId && p.Cursor == request.Cursor))
+                    Reject("DISCOVERY_NO_PROGRESS", path, "This source page is cached. Use its operations or request an issued continuation cursor.");
+                if (request.Cursor is not null && !state.Discovery.Pages.Any(p => p.SourceId == request.SourceId && p.NextCursor == request.Cursor))
+                    Reject("CURSOR_UNKNOWN", path + "/cursor", "Choose an issued continuation cursor.");
+            }
+            foreach (var request in requests) await DiscoverPageAsync(state, runtime, request.SourceId, request.Cursor, ct);
             state.Phase = PlanningPhase.Discovery; return;
         }
         var plan = proposal.Plan!;
-        if (proposal.Cursor is not null) Reject("PROPOSAL_ACTION_INVALID", "/cursor", "A TaskPlan has no discovery cursor.");
         var identities = TaskPlanCompiler.IdentityDiagnostics(plan, includeReferences: false);
         if (identities.Count > 0)
         {
@@ -291,7 +298,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
 
     private static string Prompt(PlanningSession state) => """
         Plan business tasks that satisfy every requested outcome. Preserve accepted outcome IDs and descriptions.
-        Return one next action: browse an issued source page, or propose a complete TaskPlan using declared operations.
+        Return one next action: browse one to four issued source pages, or propose a complete TaskPlan using declared operations.
         Select relevant sources progressively. Cached pages remain available; an incomplete search does not prove an operation is absent.
         Connect named business inputs and outputs. A null output port means the whole business result; opaque results have no typed fields.
         Execution is sequential unless a parallel scope or parallel iteration is explicit. Both conditional alternatives declare matching outputs.

@@ -70,7 +70,7 @@ public sealed class DocumentTools
     }
 
     [McpServerTool(Name = "document_write", UseStructuredContent = true, OutputSchemaType = typeof(DocumentWriteResult)), Description(
-        "Writes text content to a file. For .docx, automatically detects Markdown and maps headings, lists, emphasis, code, links, blockquotes, and tables to Word structures. " +
+        "Writes text content to a file, creating missing parent directories within the allowed workspace. For .docx, automatically detects Markdown and maps headings, lists, emphasis, code, links, blockquotes, and tables to Word structures. " +
         "For .pdf, generates a readable A4 PDF and automatically renders Markdown headings, lists, emphasis, code, links, blockquotes, tables, and separators. " +
         "For .xlsx, generates a spreadsheet from tab/comma-separated text. " +
         "For other allowed extensions, writes plain text. " +

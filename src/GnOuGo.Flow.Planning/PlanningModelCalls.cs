@@ -11,6 +11,9 @@ internal static class PlanningModelCalls
     internal static async Task<JsonNode> CallAsync(PlanningSession state, IPlanningRuntime runtime, string purpose, string prompt, JsonObject schema, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
+        if (state.PendingCall?.Request.StructuredOutputSchema?["properties"] is JsonObject previous &&
+            (previous.ContainsKey("sourceId") || previous.ContainsKey("cursor")))
+            throw new WorkflowRuntimeException("PLANNING_REQUEST_INCOMPATIBLE", "The pending request uses a superseded discovery response contract. Start a new planning session and regenerate the workflow. Its original request, reservation and accounting are retained.");
         if (state.PendingCall is null)
         {
             if (state.ModelCalls >= state.Request.MaxModelCalls) throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetExceeded, "The session model-call budget was exhausted.");

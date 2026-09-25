@@ -12,10 +12,9 @@ internal static class PlanningSchemas
             .Concat(state.Discovery.Pages.Where(p => p.SourceId == source.Id).Select(p => p.NextCursor).OfType<string>())
             .Where(cursor => !state.Discovery.Pages.Any(p => p.SourceId == source.Id && p.Cursor == cursor))
             .Select(cursor => (Source: source.Id, Cursor: cursor))).Distinct().ToArray();
-        var cursors = pages.Select(p => p.Cursor).OfType<string>().Distinct(StringComparer.Ordinal).ToArray();
         var root = Object(("requirements", Ref("requirements")),
-            ("sourceId", pages.Length == 0 ? Type("null") : Nullable(Enum(pages.Select(p => p.Source).Distinct(StringComparer.Ordinal).ToArray()))),
-            ("cursor", cursors.Length == 0 ? Type("null") : Nullable(Enum(cursors))),
+            ("discoveryRequests", pages.Length == 0 ? Type("null") : Nullable(Array(new JsonObject { ["anyOf"] = new JsonArray(pages.Select(p => (JsonNode?)Object(
+                ("sourceId", Enum(p.Source)), ("cursor", p.Cursor is null ? Type("null") : Enum(p.Cursor)))).ToArray()) }, 1, 4))),
             ("plan", pages.Length == 0 ? Ref("plan") : Nullable(Ref("plan"))), ("explanation", String()));
         root["$defs"] = new JsonObject
         {

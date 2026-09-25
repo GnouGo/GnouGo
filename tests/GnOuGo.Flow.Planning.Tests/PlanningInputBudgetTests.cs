@@ -20,7 +20,7 @@ public sealed class PlanningInputBudgetTests
         runtime.Respond = (request, _) => TestRuntime.Response(request, new()
         {
             Requirements = PlannerFixture.Requirements(),
-            SourceId = runtime.Calls.Count <= 2 ? "source" + runtime.Calls.Count : null,
+            DiscoveryRequests = runtime.Calls.Count <= 2 ? [new("source" + runtime.Calls.Count)] : null,
             Plan = runtime.Calls.Count <= 2 ? null : PlanningCorpus.Greeting()
         });
         var state = await PlannerFixture.RunAsync(runtime);

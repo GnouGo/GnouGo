@@ -38,11 +38,12 @@ public sealed record PlanningRequirement(string Id, string Description);
 public sealed class PlanningProposal
 {
     public PlanningRequirements Requirements { get; set; } = new();
-    public string? SourceId { get; set; }
-    public string? Cursor { get; set; }
+    public List<PlanningDiscoveryRequest>? DiscoveryRequests { get; set; }
     public TaskPlan? Plan { get; set; }
     public string Explanation { get; set; } = "";
 }
+
+public sealed record PlanningDiscoveryRequest(string SourceId, string? Cursor = null);
 
 public static class PlanningPhase
 {

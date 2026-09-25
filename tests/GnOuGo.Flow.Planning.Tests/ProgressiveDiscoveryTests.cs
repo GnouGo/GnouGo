@@ -67,10 +67,10 @@ public sealed class ProgressiveDiscoveryTests
     {
         var runtime = new TestRuntime(new() { McpClientFactory = new TrackingFactory() });
         var unavailable = (await runtime.Capabilities.ListSourcesAsync(Ct)).Single(s => s.Description == "Unavailable source");
-        runtime.Proposal.Plan = null; runtime.Proposal.SourceId = unavailable.Id;
+        runtime.Proposal.Plan = null; runtime.Proposal.DiscoveryRequests = [new(unavailable.Id)];
         var state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Session(), new(), runtime, Ct);
         Assert.Single(state.Discovery.Limitations); Assert.DoesNotContain(state.Catalog!.Capabilities, c => c.Kind != "registered");
-        runtime.Proposal.SourceId = null; runtime.Proposal.Plan = GnOuGo.Planning.Examples.PlanningCorpus.Greeting();
+        runtime.Proposal.DiscoveryRequests = null; runtime.Proposal.Plan = GnOuGo.Planning.Examples.PlanningCorpus.Greeting();
         state = await PlannerFixture.RunAsync(runtime, PlannerFixture.Clone(state));
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Contains(state.Discovery.Limitations, l => l.Contains("unavailable", StringComparison.Ordinal)); Assert.Equal(1, runtime.Discoveries);
     }
@@ -79,12 +79,12 @@ public sealed class ProgressiveDiscoveryTests
     {
         var factory = new TrackingFactory(); var runtime = new TestRuntime(new() { McpClientFactory = factory });
         var source = (await runtime.Capabilities.ListSourcesAsync(Ct)).Single(s => s.Description == "Available source");
-        runtime.Proposal.Plan = null; runtime.Proposal.SourceId = source.Id;
+        runtime.Proposal.Plan = null; runtime.Proposal.DiscoveryRequests = [new(source.Id)];
         var planner = new HybridWorkflowPlanner();
         var state = await planner.AdvanceAsync(PlannerFixture.Session(), new(), runtime, Ct);
-        runtime.Proposal.Cursor = Assert.Single(state.Discovery.Pages).NextCursor;
+        runtime.Proposal.DiscoveryRequests = [new(source.Id, Assert.Single(state.Discovery.Pages).NextCursor)];
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-        runtime.Proposal.SourceId = null; runtime.Proposal.Cursor = null; runtime.Proposal.Plan = GnOuGo.Planning.Examples.PlanningCorpus.Greeting();
+        runtime.Proposal.DiscoveryRequests = null; runtime.Proposal.Plan = GnOuGo.Planning.Examples.PlanningCorpus.Greeting();
         state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.Equal(2, state.Discovery.Pages.Count);
