@@ -44,7 +44,7 @@ public sealed record TaskCompilation(PlanningGraph? Graph, IReadOnlyList<Plannin
 }
 
 /// <summary>One deterministic lowering pass. Symbols and source locations are transient compiler bookkeeping.</summary>
-public sealed class TaskPlanCompiler
+public sealed partial class TaskPlanCompiler
 {
     private sealed record Bound(PlanningValue Value, JsonObject Schema, string Expression);
     private sealed class Scope(PlanningWorkflow workflow, Scope? parent)
@@ -54,6 +54,7 @@ public sealed class TaskPlanCompiler
         public Dictionary<string, Bound> Inputs { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, Dictionary<string, Bound>> Tasks { get; } = new(StringComparer.Ordinal);
         public List<PlanningMember> Captures { get; } = [];
+        public HashSet<(string Kind, string Source, string Port)> Blocked { get; } = [];
         public Bound? Item { get; set; }
         public Bound? Index { get; set; }
     }
@@ -72,26 +73,14 @@ public sealed class TaskPlanCompiler
         _plan = plan; _catalog = catalog; _location = "/"; _graph = new(); _sources.Clear(); _groups.Clear(); _compilingGroups.Clear();
         try
         {
-            Unique(plan.Groups.Select(g => g.Id)); Unique(plan.Choices.Select(c => c.Id));
-            Unique(TaskPlanRevisions.Tasks(plan).Select(t => t.Id));
-            var inputFindings = InputFindings(plan.Inputs, "/inputs")
-                .Concat(plan.Groups.SelectMany(g => InputFindings(g.Inputs, "/groups/" + g.Id + "/inputs"))).ToArray();
-            if (inputFindings.Length > 0) return new(null, inputFindings, new Dictionary<string, string>(_sources));
-            foreach (var choice in plan.Choices) ValidateChoice(choice);
-            foreach (var capability in catalog.Capabilities)
-                if (TaskOperations.Validate(capability).FirstOrDefault() is { } invalid)
-                    throw new InvalidTask(invalid.Code, invalid.Location, invalid.Message);
-            var allValues = TaskPlanRevisions.Tasks(plan).SelectMany(Values)
-                .Concat(Scopes(plan.Root).Concat(plan.Groups.SelectMany(g => Scopes(g.Body))).SelectMany(s => s.Outputs).SelectMany(o => Values(o.Value))).ToArray();
-            foreach (var choice in plan.Choices)
-                if (allValues.Count(v => v.Kind == "choice" && v.Source == choice.Id) != 1)
-                    throw new InvalidTask("CHOICE_SLOT_INVALID", "/choices/" + choice.Id, "A choice must target exactly one business value slot.");
+            var findings = Preflight();
+            if (findings.Count > 0) return new(null, findings, new Dictionary<string, string>());
             var main = new PlanningWorkflow(); _graph.Workflows.Add(main); _sources["main"] = "/root";
             var scope = new Scope(main, null); AddInputs(scope, plan.Inputs, "/inputs");
             CompileScope(plan.Root, scope, "main");
             return new(_graph, [], new Dictionary<string, string>(_sources));
         }
-        catch (InvalidTask error) { return new(null, [error.Diagnostic], new Dictionary<string, string>(_sources)); }
+        catch (InvalidTask error) { return new(null, [error.Diagnostic with { Code = "TASK_COMPILER_VALIDATION", Message = error.Diagnostic.Code + ": " + error.Message }], new Dictionary<string, string>(_sources)); }
     }
 
     public static JsonObject TypeSchema(TaskType type)
@@ -125,20 +114,6 @@ public sealed class TaskPlanCompiler
             var value = Value(alternative.Value, new(new(), null));
             if (PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(value.Value), type).Count > 0)
                 Fail("CHOICE_INVALID", "An alternative violates the declared business type.");
-        }
-    }
-
-    private IEnumerable<PlanningDiagnostic> InputFindings(List<TaskInput> inputs, string path)
-    {
-        _location = path;
-        Unique(inputs.Select(i => i.Name));
-        foreach (var input in inputs)
-        {
-            _location = path + "/" + input.Name;
-            PlanningDiagnostic? finding = null;
-            try { InputPort(input); }
-            catch (InvalidTask error) { finding = error.Diagnostic; }
-            if (finding is not null) yield return finding;
         }
     }
 
@@ -333,7 +308,7 @@ public sealed class TaskPlanCompiler
             if (capability.StepType == "agent.run" && port!.Path[0] is "objective" or "workspace" or "capabilities" or "budget" or "verification" or "output_schema" && !Literal(argument.Value))
                 Fail("AGENT_SCOPE_DYNAMIC", "Agent scope fields must be literal before approval; choices and runtime references cannot change them.");
             var bound = Value(argument.Value, scope);
-            if (PlanningGraphValidation.IsLiteral(bound.Value) ? PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(bound.Value), port!.Schema).Count > 0 : !PlanningGraphValidation.TypesFit(bound.Schema, port!.Schema, allowUnresolved: false)) Fail("TASK_INPUT_TYPE", "Business input '" + argument.Name + "' does not satisfy its exact operation contract.");
+            Fits(bound, port!.Schema, "TASK_INPUT_TYPE");
             Bind(input, port.Path, bound.Value);
         }
         foreach (var port in operation.Inputs.Where(p => p.Required))
@@ -384,14 +359,15 @@ public sealed class TaskPlanCompiler
         return Object(arguments.Select(a =>
         {
             var bound = Value(a.Value, scope); var expected = PlanningGraphCompiler.ToJsonSchema(ports.Single(p => p.Name == a.Name).Schema, _catalog);
-            if (PlanningGraphValidation.IsLiteral(bound.Value) ? PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(bound.Value), expected).Count > 0 : !PlanningGraphValidation.TypesFit(bound.Schema, expected))
-                Fail("TASK_GROUP_INPUT_TYPE", "Group input '" + a.Name + "' violates its declared business type.");
+            Fits(bound, expected, "TASK_GROUP_INPUT_TYPE");
             return new PlanningMember(a.Name, bound.Value);
         }));
     }
 
     private Bound Value(TaskValue value, Scope scope)
     {
+        if (scope.Blocked.Contains((value.Kind, value.Source ?? "", value.Port ?? "")) ||
+            scope.Blocked.Contains((value.Kind, value.Source ?? "", "*"))) throw new UnavailableValue();
         switch (value.Kind)
         {
             case "null": return new(new(), new() { ["type"] = "null" }, "null");
@@ -436,7 +412,7 @@ public sealed class TaskPlanCompiler
             case "predicate": return Predicate(value, scope);
             default: Fail("TASK_VALUE_INVALID", "Values allow literals, business references and typed predicates only."); break;
         }
-        if (scope.Parent is null) Fail("TASK_REFERENCE_UNKNOWN", "Business reference is unavailable in this scope.");
+        if (scope.Parent is null) Fail("TASK_REFERENCE_UNKNOWN", "Business reference '" + value.Source + "' is unavailable in this scope.");
         var captured = Value(value, scope.Parent!);
         var name = Key(value.Kind, (value.Source ?? "") + ":" + value.Port);
         if (scope.Inputs.TryGetValue(name, out var already)) return already;
