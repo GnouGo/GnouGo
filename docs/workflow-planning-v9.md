@@ -51,7 +51,7 @@ simple conditions and registered typed transformations. Authored YAML retains it
 existing expression runtime. Opaque output needs whole-value validation before
 field access; assistant descriptions and sample values cannot establish a contract.
 
-A semantic binding failure opens one bounded task revision scope. Generated executor validation failures stop with compiler diagnostics. Dependent findings are
+A semantic binding failure opens one bounded task revision scope. Independent input failures are collected together; group inputs and business output bindings keep their semantic locations through compilation and confirmation wrapping. Rejected revisions identify unauthorized changed slots and retain the last accepted baseline. Optional workflow/group inputs require literal defaults, while optional object fields may remain absent. Composite outputs use the existing typed `set` primitive after cleanup; opaque payloads remain opaque. Generated executor validation failures stop with compiler diagnostics. Dependent findings are
 invalidated; unaffected validated stages and interfaces remain unchanged. Repairs,
 retries and restarts share the original planning budget. Defaults remain eight
 model calls, two repairs, 12,000 input tokens per request and the configured output

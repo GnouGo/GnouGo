@@ -20,6 +20,8 @@ Generated agent stages require literal objective, nonempty workspace, capabiliti
 
 Repairs preserve unaffected tasks, interfaces and compiled stages; discovery, retries and revisions share cumulative budgets. Defaults remain eight model calls and two repairs. Approval hashes intent, choices, mappings, exact contracts, graph/YAML and ceilings. Approval verification recompiles and requires the reviewed artifact to match exactly.
 
+Optional workflow and group inputs require literal defaults; optional fields inside an object do not. Independent input errors are reported together, with group-qualified locations. Discovery responses can select only unconsumed source pages; an exhausted catalog requires a TaskPlan response. Composite scope outputs are assembled by typed `set` stages after cleanup, preserving their nested contracts. Repair rejections identify the changed business slots without accepting the rejected proposal as a new baseline. Presence sources remain exact task IDs, not dotted payload addresses.
+
 Planning storage format **10** rejects prior planning sessions and approvals without modifying their encrypted records. Execution journal schema **9** is unchanged. AI revision requires a saved TaskPlan or fresh requirements and renewed approval; YAML import into the planner has been removed.
 
 ```bash
