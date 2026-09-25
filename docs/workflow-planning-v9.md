@@ -23,6 +23,10 @@ Task, group and choice declarations share one case-sensitive global namespace. I
 
 The model response schema expresses literal-only choice alternatives, minimum branch/alternative counts, nonblank objectives/questions, predicate arity, typed array items and existing iteration/concurrency ceilings. Deterministic semantic validation remains authoritative for uniqueness, contracts, visibility and recovered plans. Follow the required [planning skill](../.agents/skills/gnougo-planning/SKILL.md) through [AGENTS.md](../AGENTS.md) for changes to this architecture.
 
+Planning identity patterns avoid lookaround because structured-output providers can reject it before generation. Explicit alternatives exclude the reserved prefix, and an absolute end anchor rejects trailing line breaks. The compiler's character-by-character identity checks remain authoritative for generated, authored-in-code and recovered TaskPlans.
+
+A typed permanent provider rejection stops with `MODEL_REQUEST_REJECTED`, its redacted classification, HTTP status and safe provider code. Designer and the retry command refuse to resend that unchanged request. Correct the request or provider configuration, then create a new planning session; original reservations and historical evidence remain intact. Transport/timeout uncertainty retains the existing explicit retry and conservative accounting rules. See the [HTTP 400 diagnosis](planning-http400-fix-2026-09-25.md).
+
 ## Package boundaries
 
 - **Flow.Core** owns the authored YAML runtime, TaskPlan, graph and requirement contracts,

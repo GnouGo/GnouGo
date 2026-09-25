@@ -8,6 +8,7 @@ public sealed class LLMProviderFailureTests
     [Theory]
     [InlineData(429, "rate_limit_exceeded", LLMProviderFailureKind.RateLimited, true)]
     [InlineData(429, "credit_balance_exhausted", LLMProviderFailureKind.QuotaOrBilling, false)]
+    [InlineData(400, "invalid_json_schema", LLMProviderFailureKind.InvalidRequest, false)]
     [InlineData(400, "insufficient_quota", LLMProviderFailureKind.QuotaOrBilling, false)]
     [InlineData(401, "unauthorized", LLMProviderFailureKind.Authentication, false)]
     [InlineData(403, "forbidden", LLMProviderFailureKind.Authorization, false)]
@@ -35,6 +36,26 @@ public sealed class LLMProviderFailureTests
         Assert.Equal(status, failure.StatusCode);
         Assert.DoesNotContain(secret, failure.Message, StringComparison.Ordinal);
         Assert.Null(failure.InnerException);
+    }
+
+    [Fact]
+    public async Task SchemaRejectionRetainsAllowlistedCodeWithoutRawBody()
+    {
+        using var http = new HttpClient(new StubHttpMessageHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest)
+        {
+            Content = new StringContent("""{"error":{"message":"Invalid JSON schema: regex lookaround is not supported. PRIVATE_BODY","type":"invalid_request_error","param":"response_format","code":"invalid_json_schema"}}""")
+        })));
+        var client = new RoutingLLMClient(http, new LLMOptions
+        {
+            DefaultProvider = "configured", DefaultModel = "gpt-4o-mini",
+            Models = new() { ["configured"] = new() { Type = "openai", Url = "https://test.invalid/v1", ApiKey = "PRIVATE_KEY" } }
+        });
+        var failure = await Assert.ThrowsAsync<LLMProviderException>(() => client.CallAsync(
+            new LLMClientRequest { Prompt = "PRIVATE_PROMPT", DisableTransportRetries = true }, TestContext.Current.CancellationToken));
+        Assert.Equal(LLMProviderFailureKind.InvalidRequest, failure.Kind); Assert.False(failure.Retryable);
+        Assert.Equal(400, failure.StatusCode); Assert.Equal("invalid_json_schema", failure.SafeProviderCode);
+        Assert.Equal(1, failure.AttemptCount); Assert.Null(failure.InnerException);
+        Assert.DoesNotContain("PRIVATE", failure.Message); Assert.DoesNotContain("lookaround", failure.Message);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Planning.Examples;
 
@@ -7,6 +8,40 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class TaskPlanContractAlignmentTests
 {
+    [Fact]
+    public void GeneratedSchemaPatternsDoNotRequireLookaroundOrBacktracking()
+    {
+        // Retained HTTP 400: invalid_json_schema at $defs.identities.items.pattern:
+        // "Invalid JSON schema: regex lookaround is not supported."
+        var schema = PlanningSchemas.Proposal(PlannerFixture.Session());
+        var patterns = Patterns(schema).ToArray();
+        Assert.NotEmpty(patterns);
+        foreach (var pattern in patterns)
+            _ = new Regex(pattern, RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1));
+        static IEnumerable<string> Patterns(JsonNode? node)
+        {
+            if (node is JsonObject obj)
+                foreach (var field in obj)
+                {
+                    if (field.Key == "pattern") yield return field.Value!.GetValue<string>();
+                    else foreach (var pattern in Patterns(field.Value)) yield return pattern;
+                }
+            else if (node is JsonArray array)
+                foreach (var child in array) foreach (var pattern in Patterns(child)) yield return pattern;
+        }
+    }
+
+    [Fact]
+    public void IdentityPatternPreservesExactLexicalRulesWithoutLookaround()
+    {
+        var pattern = PlanningSchemas.Proposal(PlannerFixture.Session())["$defs"]!["identities"]!["items"]!["pattern"]!.GetValue<string>();
+        var regex = new Regex(pattern, RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1));
+        foreach (var id in new[] { "_", "-", "0", "A", "z", "_a", "_-", "_0", "a__", "A-Z_09" })
+            Assert.True(regex.IsMatch(id), id);
+        foreach (var id in new[] { "", "__", "__reserved", "a\n", "_\n", "a\r\n", "a\0", "a/b", "é", "a.b", "a b" })
+            Assert.False(regex.IsMatch(id), id);
+    }
+
     [Theory]
     [InlineData("input")]
     [InlineData("output")]

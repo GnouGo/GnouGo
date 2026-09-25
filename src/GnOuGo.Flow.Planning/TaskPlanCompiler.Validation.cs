@@ -7,9 +7,10 @@ public sealed partial class TaskPlanCompiler
 {
     private sealed class UnavailableValue : Exception;
 
-    // The final lookahead is an absolute end check in both JSON Schema/ECMAScript
-    // and .NET; '$' alone would also accept a trailing newline.
-    internal const string IdentityPattern = @"^(?!__)[A-Za-z0-9_-]+(?![\s\S])";
+    // Structured-output regex engines can reject lookaround. Explicit alternatives
+    // exclude the reserved prefix; RE2/.NET's absolute end anchor also rejects a
+    // trailing newline. ValidIdentity remains authoritative for all entry points.
+    internal const string IdentityPattern = @"^([A-Za-z0-9-][A-Za-z0-9_-]*|_[A-Za-z0-9-][A-Za-z0-9_-]*|_)\z";
     internal static bool ValidIdentity(string? id) => !string.IsNullOrEmpty(id) && !id.StartsWith("__", StringComparison.Ordinal)
         && id.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-');
 
