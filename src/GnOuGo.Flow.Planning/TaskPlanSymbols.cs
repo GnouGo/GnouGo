@@ -11,6 +11,7 @@ internal sealed class TaskPlanSymbols
     internal Dictionary<string, (PlanTask Task, Scope Scope)> Tasks { get; } = new(StringComparer.Ordinal);
     internal Dictionary<string, Site> Values { get; } = new(StringComparer.Ordinal);
     internal HashSet<string> AmbiguousTasks { get; } = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _ambiguousValues = new(StringComparer.Ordinal);
 
     internal TaskPlanSymbols(TaskPlan plan)
     {
@@ -21,19 +22,28 @@ internal sealed class TaskPlanSymbols
     private void Add(TaskScope source, string path, Scope? parent, PlanTask? owner)
     {
         var scope = new Scope(source, path, parent, owner); Scopes.Add(scope);
-        foreach (var output in source.Outputs) Values.TryAdd(path + "/outputs/" + output.Name, new(output.Value, scope, path + "/outputs/" + output.Name));
+        foreach (var output in source.Outputs) AddValue(output.Value, scope, path + "/outputs/" + output.Name);
         foreach (var task in source.Tasks.Concat(source.Always))
         {
             if (!Tasks.TryAdd(task.Id, (task, scope))) AmbiguousTasks.Add(task.Id);
             var location = "/tasks/" + task.Id;
-            foreach (var input in task.Inputs) Values.TryAdd(location + "/inputs/" + input.Name, new(input.Value, scope, location + "/inputs/" + input.Name));
-            foreach (var output in task.Outputs) Values.TryAdd(location + "/outputs/" + output.Name, new(output.Value, scope, location + "/outputs/" + output.Name));
-            if (task.Condition is not null) Values.TryAdd(location + "/condition", new(task.Condition, scope, location + "/condition"));
-            if (task.Items is not null) Values.TryAdd(location + "/items", new(task.Items, scope, location + "/items"));
+            foreach (var input in task.Inputs) AddValue(input.Value, scope, location + "/inputs/" + input.Name);
+            foreach (var output in task.Outputs) AddValue(output.Value, scope, location + "/outputs/" + output.Name);
+            if (task.Condition is not null) AddValue(task.Condition, scope, location + "/condition");
+            if (task.Items is not null) AddValue(task.Items, scope, location + "/items");
             if (task.Body is not null) Add(task.Body, location + "/body", scope, task);
             if (task.Otherwise is not null) Add(task.Otherwise, location + "/otherwise", scope, task);
             for (var i = 0; i < task.Branches.Count; i++) Add(task.Branches[i], location + "/branches/" + i, scope, task);
         }
+    }
+
+    private void AddValue(TaskValue value, Scope scope, string path)
+    {
+        if (_ambiguousValues.Contains(path)) return;
+        if (Values.TryAdd(path, new(value, scope, path))) return;
+        // Identities may contain path delimiters. An ambiguous display location must
+        // never become authority to edit more than one semantic slot.
+        Values.Remove(path); _ambiguousValues.Add(path);
     }
 
     // Only a descendant-to-ancestor export chain is repairable through declarations.

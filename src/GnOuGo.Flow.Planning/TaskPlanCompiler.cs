@@ -492,8 +492,6 @@ public sealed partial class TaskPlanCompiler
             }
         }
     }
-    private static IEnumerable<TaskScope> Scopes(TaskScope scope) => new[] { scope }.Concat(scope.Tasks.Concat(scope.Always).SelectMany(t =>
-        (t.Body is null ? [] : Scopes(t.Body)).Concat(t.Otherwise is null ? [] : Scopes(t.Otherwise)).Concat(t.Branches.SelectMany(Scopes))));
     internal static IEnumerable<TaskValue> Values(PlanTask task) => task.Inputs.Concat(task.Outputs).SelectMany(o => Values(o.Value))
         .Concat(task.Condition is null ? [] : Values(task.Condition)).Concat(task.Items is null ? [] : Values(task.Items));
     internal static IEnumerable<TaskValue> Values(TaskValue value) => new[] { value }.Concat(value.Members.SelectMany(m => Values(m.Value))).Concat(value.Items.SelectMany(Values));

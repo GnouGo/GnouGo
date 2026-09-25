@@ -156,7 +156,7 @@ public sealed class TaskPlanSemanticRepairTests
     }
 
     [Fact]
-    public async Task RecoveredRepairKeepsBaselineChoicesAndBudgetsAfterARejectedRewrite()
+    public async Task RecoveredRepairKeepsBaselineAndBudgetsAfterARejectedRewrite()
     {
         var runtime = new TestRuntime { Proposal = new() { Requirements = PlannerFixture.Requirements(), Plan = NestedFailure() } };
         var planner = new HybridWorkflowPlanner();
@@ -175,6 +175,18 @@ public sealed class TaskPlanSemanticRepairTests
         state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(3, state.ModelCalls); Assert.Equal(2, state.ReplanAttempts);
         Assert.Equal(1, runtime.Discoveries); Assert.NotNull(state.Yaml);
+    }
+
+    [Fact]
+    public void AmbiguousBusinessLocationsCannotAuthorizeTwoDifferentSlots()
+    {
+        var plan = new TaskPlan { Root = new() { Tasks = [
+            new() { Id = "worker", Kind = "value", Objective = "First slot", Outputs = [new("part/outputs/value", PlanningCorpus.Number(1))] },
+            new() { Id = "worker/outputs/part", Kind = "value", Objective = "Second slot", Outputs = [new("value", PlanningCorpus.Number(2))] }] } };
+        var scope = TaskPlanRevisions.Scope(plan, [new("INVALID", "/tasks/worker/outputs/part/outputs/value", "Ambiguous location")]);
+        Assert.Empty(scope);
+        var revised = Clone(plan); revised.Root.Tasks[1].Outputs[0].Value.Number = 9;
+        Assert.NotEmpty(TaskPlanRevisions.Validate(plan, revised, scope));
     }
 
     [Fact]
