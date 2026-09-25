@@ -818,6 +818,7 @@ public static partial class ModelMetadataCatalog
             target.Pricing.InputPer1MTokens = source.Pricing.InputPer1MTokens ?? target.Pricing.InputPer1MTokens;
             target.Pricing.OutputPer1MTokens = source.Pricing.OutputPer1MTokens ?? target.Pricing.OutputPer1MTokens;
             target.Pricing.CachedInputPer1MTokens = source.Pricing.CachedInputPer1MTokens ?? target.Pricing.CachedInputPer1MTokens;
+            target.Pricing.CacheWriteInputPer1MTokens = source.Pricing.CacheWriteInputPer1MTokens ?? target.Pricing.CacheWriteInputPer1MTokens;
             target.Pricing.ReasoningOutputPer1MTokens = source.Pricing.ReasoningOutputPer1MTokens ?? target.Pricing.ReasoningOutputPer1MTokens;
         }
 
@@ -861,6 +862,7 @@ public static partial class ModelMetadataCatalog
                 InputPer1MTokens = source.Pricing.InputPer1MTokens,
                 OutputPer1MTokens = source.Pricing.OutputPer1MTokens,
                 CachedInputPer1MTokens = source.Pricing.CachedInputPer1MTokens,
+                CacheWriteInputPer1MTokens = source.Pricing.CacheWriteInputPer1MTokens,
                 ReasoningOutputPer1MTokens = source.Pricing.ReasoningOutputPer1MTokens
             },
             Capabilities = source.Capabilities == null ? new ModelCapabilityMetadata() : new ModelCapabilityMetadata
@@ -955,6 +957,7 @@ public static partial class ModelMetadataCatalog
                 InputPer1MTokens = GetDecimal(pricing, "inputPer1MTokens"),
                 OutputPer1MTokens = GetDecimal(pricing, "outputPer1MTokens"),
                 CachedInputPer1MTokens = GetDecimal(pricing, "cachedInputPer1MTokens"),
+                CacheWriteInputPer1MTokens = GetDecimal(pricing, "cacheWriteInputPer1MTokens"),
                 ReasoningOutputPer1MTokens = GetDecimal(pricing, "reasoningOutputPer1MTokens")
             };
         }

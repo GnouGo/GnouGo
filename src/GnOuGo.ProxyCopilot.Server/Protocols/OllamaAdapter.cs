@@ -129,5 +129,5 @@ public sealed class OllamaAdapter : IProxyAdapter
     }
     private static string Finish(JsonObject response, bool tools) => tools ? "tool_calls"
         : ChatContract.OptionalText(response["done_reason"]) switch { "length" => "length", null or "stop" => "stop", _ => throw WireReader.Invalid("Unsupported Ollama stop reason.") };
-    private static JsonObject Usage(JsonObject response) => ChatContract.Usage(ChatContract.Count(response["prompt_eval_count"]), ChatContract.Count(response["eval_count"]));
+    private static JsonObject Usage(JsonObject response) => ChatContract.ReportedUsage(response["prompt_eval_count"], response["eval_count"]);
 }

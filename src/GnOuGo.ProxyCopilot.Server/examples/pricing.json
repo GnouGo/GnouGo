@@ -1,0 +1,47 @@
+{
+  "ProxyCopilot": {
+    "Providers": {
+      "example": {
+        "Authentication": "ApiKey",
+        "Connection": {
+          "Type": "openai",
+          "Url": "https://llm.example.com/v1"
+        },
+        "Models": {
+          "code": {
+            "UpstreamId": "replace-with-model-id",
+            "DefaultReasoningEffort": "none",
+            "Metadata": {
+              "DisplayName": "Example coding model",
+              "MaxInputTokens": 400000,
+              "MaxOutputTokens": 16000,
+              "Capabilities": {
+                "SupportsTools": true,
+                "SupportsReasoningEffort": true,
+                "SupportedReasoningEfforts": ["none", "low", "medium", "high"]
+              },
+              "Pricing": {
+                "Currency": "EUR",
+                "InputPer1MTokens": 2,
+                "CachedInputPer1MTokens": 0.2,
+                "CacheWriteInputPer1MTokens": 2.5,
+                "OutputPer1MTokens": 10
+              },
+              "Extra": { "PricingNote": "Illustrative rates only; replace with your provider prices." }
+            },
+            "PricingTiers": [{
+              "InputTokensAbove": 200000,
+              "Pricing": {
+                "Currency": "EUR",
+                "InputPer1MTokens": 4,
+                "CachedInputPer1MTokens": 0.4,
+                "CacheWriteInputPer1MTokens": 5,
+                "OutputPer1MTokens": 15
+              }
+            }]
+          }
+        }
+      }
+    }
+  }
+}

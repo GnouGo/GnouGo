@@ -145,6 +145,7 @@ public static class ProxyApplication
             {
                 model["supportsReasoningEffort"] = new JsonArray(levels.Select(level => (JsonNode?)JsonValue.Create(level)).ToArray());
                 model["reasoningEffortFormat"] = "chat-completions";
+                if (route.Model.DefaultReasoningEffort is { } effort) model["defaultReasoningEffort"] = effort;
             }
         }
         return model;

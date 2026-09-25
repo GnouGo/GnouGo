@@ -7,10 +7,10 @@ namespace GnOuGo.ProxyCopilot.Server.Traffic;
 
 public sealed record TrafficSummary(string Id, string TenantId, string Provider, string Model, string Protocol,
     DateTimeOffset StartedAt, string Status, int? StatusCode, double DurationMs, double? FirstTokenMs,
-    JsonObject? Usage, string? Error, bool Truncated);
+    JsonObject? Usage, string? Error, bool Truncated, CostEstimate Cost);
 public sealed record CapturedBody(string Text, bool Truncated);
 public sealed record TrafficDetail(TrafficSummary Summary, Dictionary<string, CapturedBody> Bodies);
-public sealed record TrafficSnapshot(long Version, TrafficSummary[] Calls);
+public sealed record TrafficSnapshot(long Version, TrafficSummary[] Calls, TrafficCostTotal[] CostTotals, int UnknownCostCalls);
 
 public interface ITrafficStore
 {
@@ -91,8 +91,7 @@ public sealed class TrafficStore(ProxyOptions options, CredentialRedactor redact
         lock (_gate)
         {
             if (!_entries.TryGetValue(id, out var entry)) return;
-            if (chunk["usage"] is JsonObject usage) entry.Usage = Protocols.ChatContract.Usage(
-                Protocols.ChatContract.Count(usage["prompt_tokens"]), Protocols.ChatContract.Count(usage["completion_tokens"]));
+            if (chunk["usage"] is JsonObject usage) entry.Usage = TrafficCost.CaptureUsage(usage);
             if (entry.FirstTokenMs is null && chunk["choices"] is JsonArray choices && choices.Any(c =>
                 c?["delta"]?["tool_calls"] is JsonArray { Count: > 0 }
                 || c?["delta"]?["content"] is JsonValue text && text.TryGetValue<string>(out var value) && value.Length > 0
@@ -113,7 +112,15 @@ public sealed class TrafficStore(ProxyOptions options, CredentialRedactor redact
 
     public TrafficSnapshot Snapshot()
     {
-        lock (_gate) return new(_version, _order.Reverse().Select(id => Summary(_entries[id])).ToArray());
+        lock (_gate)
+        {
+            var calls = _order.Reverse().Select(id => Summary(_entries[id])).ToArray();
+            var totals = calls.Where(call => call.Cost.Amount is not null).GroupBy(call => call.Cost.Currency!, StringComparer.Ordinal)
+                .OrderBy(group => group.Key, StringComparer.Ordinal)
+                .Select(group => new TrafficCostTotal(group.Key, group.Sum(call => call.Cost.Amount!.Value), group.Count(),
+                    group.Count(call => call.Cost.Status == "partial"))).ToArray();
+            return new(_version, calls, totals, calls.Count(call => call.Cost.Amount is null));
+        }
     }
 
     public TrafficDetail? Detail(string id)
@@ -144,7 +151,8 @@ public sealed class TrafficStore(ProxyOptions options, CredentialRedactor redact
 
     private TrafficSummary Summary(Entry entry) => new(entry.Id, entry.TenantId, entry.Route.Provider, entry.Route.Id, entry.Route.Type,
         entry.StartedAt, entry.Status, entry.StatusCode, entry.Duration ?? entry.Elapsed, entry.FirstTokenMs,
-        entry.Usage?.DeepClone().AsObject(), entry.Error is null ? null : redactor.Redact(entry.Error, entry.Credentials), entry.Bodies.Values.Any(b => b.Truncated));
+        entry.Usage?.DeepClone().AsObject(), entry.Error is null ? null : redactor.Redact(entry.Error, entry.Credentials), entry.Bodies.Values.Any(b => b.Truncated),
+        TrafficCost.Estimate(entry.Route.Model, entry.Usage, entry.Status));
     private void Changed() { _version++; foreach (var subscriber in _subscribers) subscriber.Writer.TryWrite(_version); }
     private void EnforceBudget() { while (_bytes > options.Capture.MaxTotalBytes && _order.Count > 0) EvictOldest(); }
     private void EvictOldest()

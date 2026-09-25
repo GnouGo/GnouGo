@@ -117,6 +117,7 @@ public sealed class AnthropicAdapter : IProxyAdapter
         var activeBlocks = new HashSet<int>();
         var nextToolIndex = 0;
         JsonObject? usage = null;
+        var nativeUsage = new JsonObject();
         await foreach (var data in WireReader.Sse(stream, ct))
         {
             var evt = WireReader.Object(data);
@@ -129,8 +130,12 @@ public sealed class AnthropicAdapter : IProxyAdapter
                 case "message_start":
                     if (id.Length > 0) throw WireReader.Invalid("Duplicate Anthropic message_start.");
                     id = ChatContract.Text(evt["message"]?["id"], "id");
-                    usage = Usage(evt["message"]?["usage"]);
+                    nativeUsage = evt["message"]?["usage"] is JsonObject initialUsage ? (JsonObject)initialUsage.DeepClone() : new();
+                    usage = Usage(nativeUsage);
                     yield return ChatContract.Chunk(id, route.Id, new JsonObject { ["role"] = "assistant", ["content"] = "" });
+                    var initialUsageChunk = ChatContract.Chunk(id, route.Id, new JsonObject());
+                    initialUsageChunk["choices"] = new JsonArray(); initialUsageChunk["usage"] = usage.DeepClone();
+                    yield return initialUsageChunk;
                     break;
                 case "content_block_start":
                 {
@@ -194,8 +199,13 @@ public sealed class AnthropicAdapter : IProxyAdapter
                     if (activeBlocks.Count != 0 || finished) throw WireReader.Invalid("Anthropic ended with incomplete content blocks.");
                     if (evt["usage"] is JsonObject updates)
                     {
-                        var input = updates["input_tokens"] is not null ? InputTokens(updates) : ChatContract.Count(usage?["prompt_tokens"]);
-                        usage = ChatContract.Usage(input, ChatContract.Count(updates["output_tokens"]));
+                        // message_delta usage is cumulative but may omit the input/cache
+                        // counts reported at message_start. Preserve those subsets.
+                        foreach (var field in updates) nativeUsage[field.Key] = field.Value?.DeepClone();
+                        usage = Usage(nativeUsage);
+                        var usageUpdate = ChatContract.Chunk(id, route.Id, new JsonObject());
+                        usageUpdate["choices"] = new JsonArray(); usageUpdate["usage"] = usage.DeepClone();
+                        yield return usageUpdate;
                     }
                     yield return ChatContract.Chunk(id, route.Id, new JsonObject(), Finish(ChatContract.OptionalText(evt["delta"]?["stop_reason"])));
                     finished = true;
@@ -219,9 +229,20 @@ public sealed class AnthropicAdapter : IProxyAdapter
         "tool_use" => "tool_calls", "max_tokens" => "length", "end_turn" or "stop_sequence" => "stop",
         "refusal" => "content_filter", _ => throw WireReader.Invalid("Unsupported Anthropic stop reason.")
     };
-    private static long InputTokens(JsonNode? usage) => ChatContract.Count(usage?["input_tokens"])
-        + ChatContract.Count(usage?["cache_creation_input_tokens"]) + ChatContract.Count(usage?["cache_read_input_tokens"]);
-    private static JsonObject Usage(JsonNode? usage) => ChatContract.Usage(InputTokens(usage), ChatContract.Count(usage?["output_tokens"]));
+    private static JsonObject Usage(JsonNode? usage)
+    {
+        long? Count(string key, bool optional = false) => usage is JsonObject obj && obj[key] is JsonValue value
+            && value.TryGetValue<long>(out var count) && count >= 0 ? count
+            : optional && (usage is not JsonObject source || !source.ContainsKey(key)) ? 0 : null;
+        var cached = Count("cache_read_input_tokens", true);
+        var written = Count("cache_creation_input_tokens", true);
+        long? input = null;
+        try { input = checked(Count("input_tokens") + cached + written); } catch (OverflowException) { }
+        var result = ChatContract.ReportedUsage(JsonValue.Create(input), JsonValue.Create(Count("output_tokens")));
+        result["prompt_tokens_details"] = new JsonObject {
+            ["cached_tokens"] = cached, ["cache_write_tokens"] = written };
+        return result;
+    }
     private sealed class ToolBlock(int index)
     {
         public int Index { get; } = index;

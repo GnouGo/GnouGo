@@ -7,6 +7,23 @@ namespace GnOuGo.ProxyCopilot.Server.Tests;
 
 public sealed class ReasoningSetupTests
 {
+    [Fact]
+    public void ConfiguredDefaultIsExportedAndMustBeAnAdvertisedLevel()
+    {
+        var options = ConfigurationAndTrafficTests.Options();
+        var model = options.Providers["test"].Models["model"];
+        model.Metadata.Capabilities.SupportsReasoningEffort = true;
+        model.Metadata.Capabilities.SupportedReasoningEfforts = ["none", "low", "high"];
+        model.DefaultReasoningEffort = "none";
+        var setup = ProxyApplication.Setup(new ModelRegistry(options), new("localhost:5087"));
+        Assert.Equal("none", setup["configuration"]![0]!["models"]![0]!["defaultReasoningEffort"]!.GetValue<string>());
+        model.DefaultReasoningEffort = "max";
+        Assert.Throws<InvalidOperationException>(() => new ModelRegistry(options));
+        model.DefaultReasoningEffort = "none";
+        model.Metadata.Capabilities.SupportsReasoningEffort = false;
+        Assert.Throws<InvalidOperationException>(() => new ModelRegistry(options));
+    }
+
     [Theory]
     [InlineData("openai", "\"high\"")]
     [InlineData("copilot", "\"max\"")]
