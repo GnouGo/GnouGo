@@ -1,7 +1,17 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { output, upstreamError } from './traffic.ts'
+import { costLabel, money, output, upstreamError } from './traffic.ts'
 import type { Detail } from './traffic.ts'
+
+test('costs retain small amounts, distinguish currencies, unknown and partial usage', () => {
+  assert.match(money(.000042, 'EUR'), /0[.,]000042/)
+  assert.match(money(.000000005, 'EUR'), /0[.,]000000005/)
+  assert.match(money(0, 'USD'), /USD/)
+  assert.equal(costLabel(undefined), 'Cost unknown')
+  assert.equal(costLabel({ status: 'unknown', currency: 'EUR', amount: null, breakdown: null, inputTokensAbove: null }), 'Cost unknown')
+  assert.match(costLabel({ status: 'partial', currency: 'EUR', amount: .01, breakdown: null, inputTokensAbove: null }), /^Partial estimate/)
+  assert.match(costLabel({ status: 'estimated', currency: 'EUR', amount: 0, breakdown: null, inputTokensAbove: null }), /^Estimated EUR/)
+})
 
 test('live output reconstructs parallel tool arguments and withholds incomplete frames', () => {
   const frame = (delta: unknown) => `data: ${JSON.stringify({ choices: [{ delta }] })}\n\n`

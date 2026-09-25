@@ -2,8 +2,14 @@ export interface Summary {
   id: string; tenantId: string; provider: string; model: string; protocol: string; startedAt: string
   status: string; statusCode: number | null; durationMs: number; firstTokenMs: number | null
   usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null
-  error: string | null; truncated: boolean
+  error: string | null; truncated: boolean; cost: CostEstimate
 }
+export interface CostEstimate {
+  status: 'unknown' | 'partial' | 'estimated'; currency: string | null; amount: number | null; inputTokensAbove: number | null
+  breakdown: { input: number; cachedInput: number; cacheWriteInput: number; output: number; reasoningOutput: number } | null
+}
+export interface CostTotal { currency: string; amount: number; calls: number; partialCalls: number }
+export interface Snapshot { calls: Summary[]; costTotals: CostTotal[]; unknownCostCalls: number }
 export interface Detail { summary: Summary; bodies: Record<string, { text: string; truncated: boolean }> }
 export interface Tool { id: string; name: string; arguments: string }
 export interface Output { content: string; tools: Tool[] }
@@ -64,4 +70,15 @@ export function output(text: string): Output {
 
 export function duration(milliseconds: number | null): string {
   return milliseconds === null ? '—' : milliseconds < 1000 ? `${Math.round(milliseconds)} ms` : `${(milliseconds / 1000).toFixed(2)} s`
+}
+
+export function money(amount: number, currency: string): string {
+  // Keep tiny calls visible, and distinguish currencies with ambiguous symbols.
+  const digits = amount > 0 && amount < 0.000001 ? 12 : 6
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency, currencyDisplay: 'code', minimumFractionDigits: 2, maximumFractionDigits: digits }).format(amount)
+}
+
+export function costLabel(cost: CostEstimate | undefined): string {
+  if (cost?.amount == null || !cost.currency) return 'Cost unknown'
+  return `${cost.status === 'partial' ? 'Partial estimate' : 'Estimated'} ${money(cost.amount, cost.currency)}`
 }

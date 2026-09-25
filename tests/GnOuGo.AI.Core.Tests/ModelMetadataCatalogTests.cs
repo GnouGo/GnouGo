@@ -82,6 +82,7 @@ public sealed class ModelMetadataCatalogTests
         {
             Id = "o4-mini",
             MaxOutputTokens = 1234,
+            Pricing = new ModelPricingMetadata { CacheWriteInputPer1MTokens = 3.125m },
             Capabilities = new ModelCapabilityMetadata
             {
                 SupportsTemperature = true,
@@ -92,6 +93,8 @@ public sealed class ModelMetadataCatalogTests
         var metadata = new LLMModelMetadataResolver(options).Resolve("openai", "o4-mini");
 
         Assert.Equal(1234, metadata.MaxOutputTokens);
+        Assert.Equal(3.125m, metadata.Pricing!.CacheWriteInputPer1MTokens);
+        Assert.NotNull(metadata.Pricing.InputPer1MTokens);
         Assert.True(metadata.Capabilities.SupportsTemperature);
     }
 
@@ -141,7 +144,7 @@ public sealed class ModelMetadataCatalogTests
               "providerType": "openai",
               "contextWindowTokens": 999,
               "maxOutputTokens": 111,
-              "pricing": { "inputPer1MTokens": 0.5, "outputPer1MTokens": 1.5 },
+              "pricing": { "inputPer1MTokens": 0.5, "outputPer1MTokens": 1.5, "cacheWriteInputPer1MTokens": 0.625 },
               "capabilities": { "supportsTemperature": false, "supportsReasoningEffort": false }
             }
           },
@@ -160,6 +163,9 @@ public sealed class ModelMetadataCatalogTests
             Assert.Equal(999, metadata.ContextWindowTokens);
             Assert.Equal(111, metadata.MaxOutputTokens);
             Assert.Equal(0.5m, metadata.Pricing!.InputPer1MTokens);
+            Assert.Equal(0.625m, metadata.Pricing.CacheWriteInputPer1MTokens);
+            metadata.Pricing.CacheWriteInputPer1MTokens = 99;
+            Assert.Equal(0.625m, resolver.Resolve("openai", "mine").Pricing!.CacheWriteInputPer1MTokens);
             Assert.False(metadata.Capabilities.SupportsTemperature);
             Assert.False(metadata.Capabilities.SupportsReasoningEffort);
             Assert.Equal(LLMModelMetadataMatchKind.Alias, details.MatchKind);

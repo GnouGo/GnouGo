@@ -40,6 +40,7 @@ stop capability proof, while the editor's suggestion-oriented resolution remains
 - `LLMModelMetadataResolver.ResolveWithDetails(...)` exposes whether resolution was exact, alias-based, fuzzy, or heuristic-only, together with the matched model and similarity score. Fuzzy results retain the requested model identity.
 - `RoutingLLMClient` removes unsupported optional fields (for example `temperature` on reasoning models) before calling the provider.
 - Builtin metadata is authored in `Telemetry/model-metadata.json`; pricing is stored under each model's `pricing` object.
+- `ModelPricingMetadata` includes currency and nullable input, output, cached-input, cache-write-input (`CacheWriteInputPer1MTokens`), and reasoning-output rates per million tokens. Cache-write rates survive external metadata loading, overrides, and cloning; consumers decide how to normalize usage and apply rates.
 - Builtin and external metadata can use provider-qualified keys such as `openai/gpt-4o`, `copilot/gpt-4o`, `claude/claude-sonnet-4-20250514`, or `ollama/llama3.1` when the same model id exists on multiple providers with different limits or pricing.
 - `scripts/update-model-metadata.ps1 -DownloadLatest` and `scripts/update-model-metadata.sh --download-latest` synchronize the builtin catalog from LiteLLM for the supported providers (`openai`, `anthropic`/`claude`, `copilot`/GitHub Models, and `ollama`) and regenerate `ModelMetadataCatalog.Generated.cs`.
 

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { duration, object, output, pretty, upstreamError } from './traffic'
-import type { Detail, Summary } from './traffic'
+import { costLabel, duration, money, object, output, pretty, upstreamError } from './traffic'
+import type { CostEstimate, CostTotal, Detail, Snapshot, Summary } from './traffic'
 import './styles.scss'
 
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
@@ -12,6 +12,8 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
 
 function App() {
   const [calls, setCalls] = useState<Summary[]>([])
+  const [costTotals, setCostTotals] = useState<CostTotal[]>([])
+  const [unknownCostCalls, setUnknownCostCalls] = useState(0)
   const [selected, setSelected] = useState<string | null>(null)
   const selectedRef = useRef(selected)
   const [detail, setDetail] = useState<Detail | null>(null)
@@ -34,8 +36,10 @@ function App() {
     try {
       do {
         dirty.current = false
-        const snapshot = await get<{ calls: Summary[] }>('/api/traffic')
+        const snapshot = await get<Snapshot>('/api/traffic')
         setCalls(snapshot.calls)
+        setCostTotals(snapshot.costTotals ?? [])
+        setUnknownCostCalls(snapshot.unknownCostCalls ?? snapshot.calls.length)
         if (!snapshot.calls.some(call => call.id === selectedRef.current)) select(snapshot.calls[0]?.id ?? null)
         const id = selectedRef.current
         if (id) {
@@ -89,18 +93,20 @@ function App() {
       </header>
       <section className="intro"><div><h2>Your models. Every exchange.</h2><p>Follow the conversation between Copilot and your LLM providers.</p></div><button className="button button--dark" onClick={() => setTab('setup')}>Connect VS Code <span>↗</span></button></section>
       <section className="metrics" aria-label="Traffic statistics">{[['Captured calls', calls.length], ['In progress', running], ['Failed', failed], ['Total tokens', tokens.toLocaleString()]].map(([label, value], index) => <div className="metric" key={label}><span>{label}</span><strong className={index === 1 && running > 0 ? 'active' : ''}>{value}</strong><small>{['Current session', 'Streaming now', 'Upstream or request errors', 'Reported by providers'][index]}</small></div>)}</section>
+      <section className="cost-totals" aria-label="Estimated costs for retained history"><div><strong>Estimated cost · Retained history</strong><small>Configured rates · All captured calls, including calls outside the current filters</small></div><div className="cost-totals__amounts">{costTotals.map(total => <span key={total.currency}>{money(total.amount, total.currency)}<small>{total.calls} priced calls{total.partialCalls > 0 ? ` · ${total.partialCalls} partial` : ''}</small></span>)}{costTotals.length === 0 && <span>No priced calls</span>}<span className="cost-unknown">{unknownCostCalls} calls with unknown cost</span></div></section>
       {error && <div className="error" role="alert">{error}</div>}
       <section className="workspace">
         <aside className="requests"><div className="panel-heading"><h3>Traffic <span>{visible.length}</span></h3><button className="icon-button" onClick={() => setPaused(!paused)} aria-label={paused ? 'Resume live view' : 'Pause live view'}>{paused ? '▶' : 'Ⅱ'}</button><button className="text-button" onClick={() => void clear()}>Clear</button></div>
           <div className="filters"><input aria-label="Search requests" placeholder="Search model or request ID…" value={query} onChange={event => setQuery(event.target.value)} /><div><select aria-label="Filter provider" value={provider} onChange={event => setProvider(event.target.value)}><option value="">All providers</option>{[...new Set(calls.map(call => call.provider))].map(name => <option key={name}>{name}</option>)}</select><select aria-label="Filter status" value={status} onChange={event => setStatus(event.target.value)}><option value="">All statuses</option>{['running', 'completed', 'failed', 'cancelled'].map(value => <option key={value}>{value}</option>)}</select></div></div>
           <div className="request-list">{visible.map(call => <button className={`call ${selected === call.id ? 'call--selected' : ''}`} key={call.id} onClick={() => { select(call.id); if (tab === 'setup') setTab('conversation') }} aria-pressed={selected === call.id}>
-            <div className="call__top"><span className={`status-dot status-dot--${call.status}`} /><strong>{call.model}</strong><span>↗</span></div><div className="call__meta"><span>{new Date(call.startedAt).toLocaleTimeString()}</span><span>{duration(call.durationMs)}</span></div><div className="call__bottom"><span>{call.protocol}</span><span>{call.status}</span>{call.truncated && <span>truncated</span>}</div>
+            <div className="call__top"><span className={`status-dot status-dot--${call.status}`} /><strong>{call.model}</strong><span>↗</span></div><div className="call__meta"><span>{new Date(call.startedAt).toLocaleTimeString()}</span><span>{duration(call.durationMs)}</span></div><div className="call__cost">{costLabel(call.cost)}</div><div className="call__bottom"><span>{call.protocol}</span><span>{call.status}</span>{call.truncated && <span>truncated</span>}</div>
           </button>)}{visible.length === 0 && <div className="empty-list">{calls.length ? 'No matching requests.' : 'Your next LLM call will appear here.'}</div>}</div>
           <div className="requests__footer"><span className="status-dot" /> History is kept in memory</div>
         </aside>
         <div className="inspector"><nav className="tabs" aria-label="Inspector view">{(['conversation', 'raw', 'setup'] as const).map(value => <button key={value} className={tab === value ? 'selected' : ''} onClick={() => setTab(value)}>{value === 'raw' ? 'Raw payloads' : value === 'setup' ? 'VS Code setup' : 'Conversation'}</button>)}</nav>
           {tab === 'setup' ? <div className="setup"><div className="eyebrow">GET CONNECTED</div><h2>Bring your models into Copilot.</h2><ol><li>For local development, configure providers and models in the ignored <code>appsettings.Development.json</code> and run the Development profile. Supply credentials through environment overrides, then restart. Keep <code>appsettings.json</code> free of local settings.</li><li>In VS Code, run <strong>Chat: Manage Language Models</strong>, choose <strong>Add Models → Custom Endpoint</strong>, and select <strong>Chat Completions</strong>.</li><li>Use the configuration below in <code>chatLanguageModels.json</code>, then select <strong>Agent</strong>, <strong>Local</strong>, and your model in Chat. This loopback proxy does not require a client API key; leave it empty, or use a placeholder if the editor requires one.</li></ol><div className="code-heading"><strong>chatLanguageModels.json</strong><button className="text-button" onClick={async () => { try { await navigator.clipboard.writeText(setup); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch { setError('Copy failed. Select and copy the configuration below.') } }}>{copied ? 'Copied' : 'Copy configuration'}</button></div><pre>{setup || 'Loading configuration…'}</pre><p className="note">Agent mode requires tool calling and enabled built-in tools. VS Code executes file and terminal actions; approve its prompts in the editor. An empty models list means no providers have been configured yet.</p></div>
           : detail && detail.summary.id === selected ? <><div className="detail-heading"><div className="eyebrow">{detail.summary.provider} / {detail.summary.protocol}</div><h2>{detail.summary.model}</h2><div className="detail-meta"><span className={`badge badge--${detail.summary.status}`}>{detail.summary.status}</span><span>{duration(detail.summary.durationMs)}</span><span>First token {duration(detail.summary.firstTokenMs)}</span><span>{detail.summary.usage?.total_tokens ?? '—'} tokens</span></div><code className="request-id">{detail.summary.id}</code>{detail.summary.error && <div className="error">{detail.summary.error}</div>}{detail.summary.truncated && <p className="note">Capture limit reached. Displayed content is truncated; forwarding continues in full.</p>}</div>
+            <CostDetails cost={detail.summary.cost} />
             {providerError && <div className="error" role="alert"><strong>Provider detail: </strong>{providerError}</div>}
             <div className="detail-content">{tab === 'raw' ? Object.entries(detail.bodies).map(([name, body]) => <section className="raw" key={name}><div className="code-heading"><strong>{{ clientRequest: 'Client → Proxy', upstreamRequest: 'Proxy → Provider', upstreamResponse: 'Provider → Proxy', clientResponse: 'Proxy → Client' }[name] ?? name}</strong>{body.truncated && <span>Truncated</span>}</div><pre>{pretty(body.text)}</pre></section>) : <Conversation detail={detail} />}</div></>
           : <div className="empty"><div className="empty__symbol">↔</div><div className="eyebrow">A CLEAR VIEW OF EVERY CALL</div><h2>Waiting for a conversation.</h2><p>Select a request to inspect its messages, tool calls, and live response.</p><button className="button" onClick={() => setTab('setup')}>Set up your connection ↗</button></div>}
@@ -108,6 +114,10 @@ function App() {
       </section><footer className="footer"><span>GnOuGo ProxyCopilot</span><span>Local workspace · Text + tools · Chat Completions</span></footer>
     </main>
   </div>
+}
+
+function CostDetails({ cost }: { cost: CostEstimate }) {
+  return <section className="cost-detail" aria-label="Request cost"><strong>{costLabel(cost)}</strong>{cost?.breakdown && cost.currency ? <><div className="cost-breakdown">{Object.entries(cost.breakdown).map(([key, amount]) => <span key={key}><small>{{ input: 'Uncached input', cachedInput: 'Cached input', cacheWriteInput: 'Cache writes', output: 'Visible output', reasoningOutput: 'Reasoning output' }[key]}</small>{money(amount, cost.currency!)}</span>)}</div><p>{cost.inputTokensAbove === null ? 'Base rates' : `Tier: more than ${cost.inputTokensAbove.toLocaleString()} input tokens`}. Estimates use configured prices and reported usage.{cost.status === 'partial' ? ' Usage may be incomplete.' : ''}</p></> : <p>Prices or reported usage are missing or incomplete.</p>}</section>
 }
 
 function Conversation({ detail }: { detail: Detail }) {
