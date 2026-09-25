@@ -15,9 +15,11 @@ internal static class TaskPlanRevisions
         var symbols = new TaskPlanSymbols(plan);
         var inputs = plan.Inputs.Select(i => "/inputs/" + i.Name).Concat(plan.Groups.SelectMany(g => g.Inputs.Select(i => "/groups/" + g.Id + "/inputs/" + i.Name))).ToHashSet(StringComparer.Ordinal);
         var scope = new HashSet<string>(StringComparer.Ordinal);
+        var resultSlots = TransformResultSlots(plan);
         foreach (var finding in findings.Where(d => d.Required && d.Code != "REVISION_SCOPE_CHANGED"))
         {
             var path = finding.Location;
+            if (finding.Code == "TASK_TRANSFORM_TYPE" && resultSlots.Contains(path)) { scope.Add(path); continue; }
             if (symbols.Values.ContainsKey(path) || inputs.Contains(path) || plan.Choices.Any(c => path == "/choices/" + c.Id)) scope.Add(path);
             else if (finding.Code == "TASK_EXPORT_REQUIRED" && symbols.Scopes.Any(s => s.Path + "/outputs" == path)) scope.Add(path);
             else if (finding.Code == "TASK_BRANCH_OUTPUTS" && symbols.Scopes.Any(s => s.Owner?.Kind == "conditional" && path.StartsWith(s.Path + "/outputs/", StringComparison.Ordinal))) scope.Add(path);
@@ -42,6 +44,7 @@ internal static class TaskPlanRevisions
         var before = JsonSerializer.SerializeToNode(previous, PlanningJsonContext.Default.TaskPlan)!;
         var after = JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskPlan)!;
         var additions = new HashSet<string>(StringComparer.Ordinal);
+        var resultSlots = TransformResultSlots(previous);
         var permittedValues = new HashSet<string>(StringComparer.Ordinal);
         foreach (var path in scope)
         {
@@ -127,9 +130,34 @@ internal static class TaskPlanRevisions
             foreach (var (key, child) in obj.ToArray())
             {
                 var location = path + "/" + key;
-                if (scope.Contains(location) && (permittedValues.Contains(location) || location.Split('/') is ["", "tasks", _, var field] &&
+                if (scope.Contains(location) && (resultSlots.Contains(location) || permittedValues.Contains(location) || location.Split('/') is ["", "tasks", _, var field] &&
                     field is "objective" or "operation" or "group" or "dependsOn" or "maxItems" or "maxConcurrency")) obj[key] = null;
                 else Mask(child, location, updated);
+            }
+        }
+    }
+    // Only exact, unambiguous type slots grant permission. Existing field names and
+    // order are immutable; a missing subtype may be supplied explicitly by repair.
+    private static HashSet<string> TransformResultSlots(TaskPlan plan)
+    {
+        var paths = new List<string>();
+        foreach (var task in Tasks(plan).Where(t => t.Kind == "transform")) Add(task.ResultType, "/tasks/" + task.Id + "/resultType");
+        return paths.GroupBy(p => p, StringComparer.Ordinal).Where(g => g.Count() == 1).Select(g => g.Key).ToHashSet(StringComparer.Ordinal);
+        void Add(TaskType? type, string path)
+        {
+            if (type is null) { paths.Add(path); return; }
+            paths.Add(path + "/kind"); paths.Add(path + "/nullable");
+            Add(type.Items, path + "/items");
+            // Adding fields is legal only when no existing declaration can be changed.
+            if (type.Fields.Count == 0) paths.Add(path + "/fields");
+            foreach (var field in type.Fields)
+            {
+                // Business names need not be path-safe. Do not interpret ambiguous
+                // display locations as authority for nested type edits.
+                if (field.Name.Contains('/') || type.Fields.Count(f => f.Name == field.Name) != 1) continue;
+                var location = path + "/fields/" + field.Name;
+                paths.Add(location + "/required"); paths.Add(location + "/default");
+                Add(field.Type, location + "/type");
             }
         }
     }

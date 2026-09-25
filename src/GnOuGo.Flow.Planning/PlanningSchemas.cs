@@ -41,6 +41,12 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("string", "number", "integer", "boolean", "object", "any")),
                     ("nullable", Type("boolean")), ("items", Nullable(Ref("businessType"))), ("fields", Array(Ref("field"))))) },
             ["field"] = Object(("name", String()), ("type", Ref("businessType")), ("required", Type("boolean")), ("default", Nullable(Ref("literal")))),
+            ["resultType"] = new JsonObject { ["anyOf"] = new JsonArray(
+                Object(("kind", Enum("array")), ("nullable", Type("boolean")), ("items", Ref("resultType")), ("fields", Array(Ref("resultField"), 0, 0))),
+                Object(("kind", Enum("object")), ("nullable", Type("boolean")), ("items", Type("null")), ("fields", Array(Ref("resultField")))),
+                Object(("kind", Enum("string", "number", "integer", "boolean")), ("nullable", Type("boolean")), ("items", Type("null")), ("fields", Array(Ref("resultField"), 0, 0)))) },
+            ["resultField"] = Object(("name", Nonblank()), ("type", Ref("resultType")),
+                ("required", new() { ["type"] = "boolean", ["enum"] = new JsonArray(true) }), ("default", Type("null"))),
             ["input"] = new JsonObject { ["anyOf"] = new JsonArray(
                 Object(("name", String()), ("type", Ref("businessType")), ("required", new() { ["type"] = "boolean", ["enum"] = new JsonArray(true) }), ("default", Nullable(Ref("literal")))),
                 Object(("name", String()), ("type", Ref("businessType")), ("required", new() { ["type"] = "boolean", ["enum"] = new JsonArray(false) }), ("default", Ref("literal")))) },
@@ -62,13 +68,18 @@ internal static class PlanningSchemas
         { ("id", Identity()), ("kind", Enum(kind)), ("objective", Nonblank()), ("dependsOn", Ref("identities")) }.Concat(fields).ToArray());
         return new() { ["anyOf"] = new JsonArray(
             Task("operation", ("operation", String()), ("inputs", Array(Ref("output")))),
-            Task("value", ("outputs", Array(Ref("output")))),
+            Described(Task("value", ("outputs", Array(Ref("output")))), "Copies or assembles supplied values; its objective does not execute a computation."),
+            Described(Task("transform", ("inputs", NonEmptyArray(Ref("output"))),
+                ("resultType", Object(("kind", Enum("object")), ("nullable", new() { ["type"] = "boolean", ["enum"] = new JsonArray(false) }),
+                    ("items", Type("null")), ("fields", NonEmptyArray(Ref("resultField")))))),
+                "Interprets bound business data using the objective as instruction. Declare required typed result fields; use nullable fields for missing values. No defaults or opaque result types."),
             Task("sequence", ("body", Ref("scope"))),
             Task("conditional", ("condition", Ref("value")), ("body", Ref("scope")), ("otherwise", Ref("scope"))),
             Task("parallel", ("branches", Array(Ref("scope"), 2)), ("maxConcurrency", Integer(1, 100))),
             Task("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Integer(1, 10000)), ("maxConcurrency", Integer(1, 100))),
             Task("call", ("group", Identity()), ("inputs", Array(Ref("output"))))) };
     }
+    private static JsonObject Described(JsonObject schema, string description) { schema["description"] = description; return schema; }
     private static JsonObject Identity() => new() { ["type"] = "string", ["pattern"] = TaskPlanCompiler.IdentityPattern };
     private static JsonObject Nonblank() => new() { ["type"] = "string", ["pattern"] = @"\S" };
     private static JsonObject Integer(int minimum, int maximum) => new() { ["type"] = "integer", ["minimum"] = minimum, ["maximum"] = maximum };

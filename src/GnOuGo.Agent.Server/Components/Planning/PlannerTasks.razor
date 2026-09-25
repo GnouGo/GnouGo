@@ -4,6 +4,11 @@
     {
         <li><strong>@task.Id</strong>: @task.Objective <small>(@task.Kind@(Scope.Always.Contains(task) ? ", always" : ""))</small>
             @if (task.DependsOn.Count > 0) { <p>After: @string.Join(", ", task.DependsOn)</p> }
+            @if (task.Kind == "transform" && task.ResultType is { } result)
+            {
+                <p>Transforms: @string.Join(", ", task.Inputs.Select(i => i.Name))</p>
+                <p>Typed results: @Describe(result)</p>
+            }
             @if (task.Body is { } body) { <PlannerTasks Scope="body" /> }
             @if (task.Otherwise is { } otherwise) { <p>Otherwise</p><PlannerTasks Scope="otherwise" /> }
             @foreach (var branch in task.Branches) { <PlannerTasks Scope="branch" /> }
@@ -11,4 +16,12 @@
     }
 </ul>
 @if (Scope.Outputs.Count > 0) { <p>Business outputs: @string.Join(", ", Scope.Outputs.Select(o => o.Name))</p> }
-@code { [Parameter, EditorRequired] public TaskScope Scope { get; set; } = default!; }
+@code {
+    [Parameter, EditorRequired] public TaskScope Scope { get; set; } = default!;
+    private static string Describe(TaskType type) => (type.Kind switch
+    {
+        "object" => "{ " + string.Join(", ", type.Fields.Select(f => f.Name + ": " + Describe(f.Type))) + " }",
+        "array" => (type.Items is null ? "unknown" : Describe(type.Items)) + "[]",
+        _ => type.Kind
+    }) + (type.Nullable ? " or null" : "");
+}

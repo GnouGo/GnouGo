@@ -18,7 +18,8 @@ public static class PlanningReviewFormatter
             foreach (var task in scope.Tasks.Concat(scope.Always))
             {
                 var id = "t" + PlanningGraphCompiler.Fingerprint(task.Id)[..12];
-                result.AppendLine(id + "[\"" + Label(task.Id + ": " + task.Objective + " (" + task.Kind + (scope.Always.Contains(task) ? ", always" : "") + ")") + "\"]");
+                var businessResult = task.ResultType is null ? "" : " → " + string.Join(", ", task.ResultType.Fields.Select(f => f.Name + ": " + f.Type.Kind));
+                result.AppendLine(id + "[\"" + Label(task.Id + ": " + task.Objective + " (" + task.Kind + (scope.Always.Contains(task) ? ", always" : "") + ")" + businessResult) + "\"]");
                 if (previous is not null) result.AppendLine(previous + " --> " + id);
                 previous = id;
                 if (task.Body is not null) Draw(task.Body, task.Id + " body");

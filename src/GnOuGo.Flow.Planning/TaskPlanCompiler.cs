@@ -199,6 +199,7 @@ public sealed partial class TaskPlanCompiler
         switch (task.Kind)
         {
             case "operation": outputs = Operation(task, scope, target, key); break;
+            case "transform": outputs = Transform(task, scope, target, key); break;
             case "value":
                 Unique(task.Outputs.Select(o => o.Name));
                 var values = task.Outputs.Select(o => (o.Name, Bound: Value(o.Value, scope))).ToArray();

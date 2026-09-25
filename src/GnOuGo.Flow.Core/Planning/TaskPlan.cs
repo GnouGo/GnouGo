@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 namespace GnOuGo.Flow.Core.Planning;
 
@@ -27,6 +28,9 @@ public sealed class PlanTask
     public string? Operation { get; set; }
     public List<TaskOutput> Inputs { get; set; } = [];
     public List<TaskOutput> Outputs { get; set; } = [];
+    /// <summary>Transform results: a closed object of required, fully typed business fields.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TaskType? ResultType { get; set; }
     public TaskValue? Condition { get; set; }
     public TaskScope? Body { get; set; }
     public TaskScope? Otherwise { get; set; }

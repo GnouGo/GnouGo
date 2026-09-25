@@ -207,6 +207,23 @@ public sealed partial class TaskPlanCompiler
             }
             switch (task.Kind)
             {
+                case "transform":
+                    Check(path + "/kind", () =>
+                    {
+                        if (!_catalog.AllowedStepTypes.Contains("llm.call") || !_catalog.AllowedStepTypes.Contains("template.render"))
+                            Fail("TASK_TRANSFORM_DENIED", "Transform tasks require inference and prompt assembly permitted by host policy.");
+                    });
+                    Check(path + "/inputs", () =>
+                    {
+                        Unique(task.Inputs.Select(i => i.Name));
+                        if (task.Inputs.Count == 0) Fail("TASK_TRANSFORM_INPUT", "A transform interprets supplied business data; bind at least one input.");
+                    });
+                    foreach (var input in task.Inputs) Read(input.Value, scope, path + "/inputs/" + input.Name);
+                    var typeFindings = TransformTypeFindings(task.ResultType, path + "/resultType").ToArray();
+                    findings.AddRange(typeFindings);
+                    if (typeFindings.Length == 0) ports = StructuredResult(task.Id, TypeSchema(task.ResultType!));
+                    else scope.Blocked.Add(("output", task.Id, "*"));
+                    break;
                 case "operation":
                     var matches = _catalog.Capabilities.Where(c => TaskOperations.Describe(c).Id == task.Operation).ToArray();
                     if (matches.Length != 1) { findings.Add(new("TASK_OPERATION_UNKNOWN", path + "/operation", "Select one issued, unambiguous operation.")); scope.Blocked.Add(("output", task.Id, "*")); break; }

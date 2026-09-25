@@ -365,6 +365,11 @@ public static class PlanningGraphValidation
                             schema = target is null ? null : ObjectSchema(target.Outputs.Select(o => (o.Name, PlanningGraphCompiler.ToJsonSchema(o.Schema, catalog))));
                         }
                         else if (producer.Type is "set" or "value.validate" or "array.project" or "value.project") schema = producer.OutputSchema is not null ? PlanningGraphCompiler.ToJsonSchema(producer.OutputSchema, catalog) : ValueSchema(producer.Input, visiting);
+                        else if (producer.Type == "template.render")
+                        {
+                            var mode = Member(producer.Input, "mode");
+                            schema = TemplateRenderContract.OutputSchema(mode is null ? "text" : mode.Kind == "string" ? mode.Text : null);
+                        }
                         else if (producer.Type == "sequence") schema = ChildSchema(producer.Steps, visiting);
                         else if (producer.Type == "parallel")
                         {

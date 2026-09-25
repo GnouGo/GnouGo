@@ -111,14 +111,8 @@ internal static class StepOutputTypeResolver
 
     private static FlowTypeDescriptor ResolveTemplateRender(StepDef step)
     {
-        var mode = TryGetInputString(step, "mode") ?? "text";
-        return string.Equals(mode, "json", StringComparison.OrdinalIgnoreCase)
-            ? Object(
-                ("json", FlowTypeDescriptor.Any),
-                ("meta", Object(("engine", FlowTypeDescriptor.String))))
-            : Object(
-                ("text", FlowTypeDescriptor.String),
-                ("meta", Object(("engine", FlowTypeDescriptor.String))));
+        var mode = step.Input?["mode"] is null ? "text" : TryGetInputString(step, "mode");
+        return FlowTypeDescriptorConverter.FromJsonSchema(TemplateRenderContract.OutputSchema(mode));
     }
 
     private static FlowTypeDescriptor ResolveLlmCall(StepDef step)

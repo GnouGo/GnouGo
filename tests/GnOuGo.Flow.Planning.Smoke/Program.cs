@@ -27,3 +27,23 @@ foreach (var name in PlanningCorpus.Names)
     if (!environment.Verify(result)) throw new InvalidOperationException("Independent result assertion failed: " + result.Error?.Message);
     Console.WriteLine(name + ": passed, calls=" + state.ModelCalls + ", replans=" + state.ReplanAttempts + ", validations=" + state.ValidationResults.Count);
 }
+
+// Typed semantic transformations must survive source-generated serialization and AOT.
+var products = new ProductTransformationFixture();
+var productEngine = new WorkflowEngine { McpClientFactory = products.Factory(), LLMClient = products, LlmDefaults = new() { Model = "mock" }, HumanInputProvider = new PlanningCorpus.Human() };
+var productRuntime = new WorkflowPlanningRuntime(productEngine, (_, _) => Task.CompletedTask);
+var productCatalog = await productRuntime.DiscoverAsync(new(), CancellationToken.None);
+foreach (var source in await productRuntime.Capabilities.ListSourcesAsync(CancellationToken.None))
+{
+    var page = await productRuntime.Capabilities.ListAsync(source.Id, null, CancellationToken.None);
+    foreach (var summary in page.Capabilities) productCatalog.Capabilities.Add(await productRuntime.Capabilities.ResolveAsync(summary, CancellationToken.None));
+}
+var productPlan = ProductTransformationPlan.Create(productCatalog, products);
+productPlan = JsonSerializer.Deserialize(JsonSerializer.Serialize(productPlan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
+var productCompilation = new TaskPlanCompiler().Compile(productPlan, productCatalog);
+if (productCompilation.Graph is null || productCompilation.Diagnostics.Count != 0) throw new InvalidOperationException("Transform compilation failed");
+PlanningConfirmationGuards.Apply(productCompilation.Graph, productCatalog);
+var productDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(productCompilation.Graph, productCatalog)));
+var productResult = await productEngine.ExecuteAsync(productDocument.Workflows[productDocument.Entrypoint!], new JsonObject { ["search"] = ProductTransformationFixture.SearchUrl }, CancellationToken.None);
+if (!productResult.Success || !products.VerifyText() || products.Effects.Last() != "close") throw new InvalidOperationException("Transform oracle failed: " + productResult.Error?.Message);
+Console.WriteLine("typed transforms: passed; mocked inference; ordered products and cleanup verified");
