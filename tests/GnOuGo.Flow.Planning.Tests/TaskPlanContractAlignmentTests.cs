@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using Jint;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Planning.Examples;
 
@@ -8,6 +9,26 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class TaskPlanContractAlignmentTests
 {
+    [Fact]
+    public void GeneratedSchemaPatternsCompileWithJavaScriptUnicodeSyntax()
+    {
+        // Retained HTTP 400: the replacement identity pattern ending in \z
+        // was rejected as "not a 'regex'" even though .NET and RE2 accept it.
+        var schema = PlanningSchemas.Proposal(PlannerFixture.Session());
+        var engine = new Jint.Engine().SetValue("schemaJson", schema.ToJsonString());
+        Assert.True(engine.Evaluate("""
+            function check(node) {
+                if (node === null || typeof node !== 'object') return;
+                for (const [key, value] of Object.entries(node)) {
+                    if (key === 'pattern') new RegExp(value, 'u');
+                    else check(value);
+                }
+            }
+            check(JSON.parse(schemaJson));
+            true;
+            """).AsBoolean());
+    }
+
     [Fact]
     public void GeneratedSchemaPatternsDoNotRequireLookaroundOrBacktracking()
     {
@@ -32,14 +53,21 @@ public sealed class TaskPlanContractAlignmentTests
     }
 
     [Fact]
-    public void IdentityPatternPreservesExactLexicalRulesWithoutLookaround()
+    public void PortableIdentityPatternAndCompilerPreserveExactLexicalRules()
     {
         var pattern = PlanningSchemas.Proposal(PlannerFixture.Session())["$defs"]!["identities"]!["items"]!["pattern"]!.GetValue<string>();
         var regex = new Regex(pattern, RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1));
         foreach (var id in new[] { "_", "-", "0", "A", "z", "_a", "_-", "_0", "a__", "A-Z_09" })
+        {
             Assert.True(regex.IsMatch(id), id);
-        foreach (var id in new[] { "", "__", "__reserved", "a\n", "_\n", "a\r\n", "a\0", "a/b", "é", "a.b", "a b" })
-            Assert.False(regex.IsMatch(id), id);
+            Assert.True(WireIdentityMatches(id), id);
+            Assert.True(TaskPlanCompiler.ValidIdentity(id), id);
+        }
+        foreach (var id in new[] { "", "__", "__reserved", "a\n", "_\n", "a\r\n", "a\r", "a\u2028", "a\u2029", "a\0", "a/b", "é", "a.b", "a b" })
+        {
+            Assert.False(WireIdentityMatches(id), id);
+            Assert.False(TaskPlanCompiler.ValidIdentity(id), id);
+        }
     }
 
     [Theory]
@@ -131,7 +159,7 @@ public sealed class TaskPlanContractAlignmentTests
     [InlineData("a b")]
     [InlineData("é")]
     [InlineData("__reserved")]
-    public void UnsafeIdentitiesFailInSchemaCompilerAndRepair(string id)
+    public void UnsafeIdentitiesFailInWireSchemaCompilerAndRepair(string id)
     {
         foreach (var kind in new[] { "task", "group", "choice" })
         {
@@ -144,11 +172,9 @@ public sealed class TaskPlanContractAlignmentTests
             Assert.Contains(compiled.Diagnostics, d => d.Code == "TASK_IDENTITY_INVALID");
             Assert.Empty(TaskPlanRevisions.Scope(plan, compiled.Diagnostics));
             Assert.NotEmpty(TaskPlanRevisions.Validate(null, plan, []));
-            JsonNode value = kind == "choice" ? Choice() : kind == "group"
-                ? JsonNode.Parse("""{"id":"group","inputs":[],"body":{"tasks":[],"always":[],"outputs":[]}}""")!
-                : JsonNode.Parse("""{"id":"task","kind":"value","objective":"Value","dependsOn":[],"outputs":[]}""")!;
-            value["id"] = id;
-            Assert.NotEmpty(Errors(value, kind));
+            // Exercise the wire regex with JavaScript rather than treating .NET's
+            // permissive '$' behavior for a final newline as a provider contract.
+            Assert.False(WireIdentityMatches(id));
         }
     }
 
@@ -207,8 +233,10 @@ public sealed class TaskPlanContractAlignmentTests
         Assert.NotEmpty(TaskPlanRevisions.Validate(plan, plan, scope));
     }
 
-    [Fact]
-    public async Task RecoveredMalformedRepairPreservesBaselineSelectionsReceiptsAndBudgets()
+    [Theory]
+    [InlineData("tone")]
+    [InlineData("group\n")]
+    public async Task RecoveredMalformedRepairPreservesBaselineSelectionsReceiptsAndBudgets(string invalidGroupId)
     {
         var runtime = new TestRuntime { Proposal = new() { Requirements = PlannerFixture.Requirements(), Plan = PlanningCorpus.Decision() } };
         runtime.Proposal.Plan.Root.Outputs.Add(new("bad", PlanningCorpus.Business("output", "absent", "value")));
@@ -217,7 +245,7 @@ public sealed class TaskPlanContractAlignmentTests
         state.Plan!.Choices[0].Selected = "formal";
         var original = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
         var receipts = JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
-        runtime.Proposal.Plan.Groups.Add(new() { Id = "tone" });
+        runtime.Proposal.Plan.Groups.Add(new() { Id = invalidGroupId });
         state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Contains(state.Diagnostics, d => d.Code == "TASK_IDENTITY_INVALID");
         Assert.Equal(original, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
@@ -227,11 +255,13 @@ public sealed class TaskPlanContractAlignmentTests
         Assert.NotEqual(runtime.Calls[0].ClientRequestId, runtime.Calls[1].ClientRequestId);
     }
 
-    [Fact]
-    public async Task RecoveredApprovalRejectsNewIdentityCollision()
+    [Theory]
+    [InlineData("greet")]
+    [InlineData("group\n")]
+    public async Task RecoveredApprovalRejectsInvalidDeclarationIdentity(string invalidGroupId)
     {
         var state = PlannerFixture.Clone(await PlannerFixture.RunAsync(new TestRuntime()));
-        var before = state.ComputeArtifactHash(); state.Plan!.Groups.Add(new() { Id = "greet" });
+        var before = state.ComputeArtifactHash(); state.Plan!.Groups.Add(new() { Id = invalidGroupId });
         Assert.NotEqual(before, state.ComputeArtifactHash());
         Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
     }
@@ -267,6 +297,12 @@ public sealed class TaskPlanContractAlignmentTests
     }
 
     private static JsonNode Choice() => JsonNode.Parse("""{"id":"decision","question":"Choose a value","type":{"kind":"any","nullable":false,"items":null,"fields":[]},"alternatives":[{"id":"one","description":"First","value":{"kind":"string","text":"one"}},{"id":"two","description":"Second","value":{"kind":"null"}}],"recommended":"one","selected":null}""")!;
+    private static bool WireIdentityMatches(string id)
+    {
+        var pattern = PlanningSchemas.Proposal(PlannerFixture.Session())["$defs"]!["identities"]!["items"]!["pattern"]!.GetValue<string>();
+        return new Engine().SetValue("pattern", pattern).SetValue("id", id)
+            .Evaluate("new RegExp(pattern, 'u').test(id)").AsBoolean();
+    }
     private static IReadOnlyList<string> Errors(JsonNode value, string definition)
     {
         var schema = PlanningSchemas.Proposal(PlannerFixture.Session());

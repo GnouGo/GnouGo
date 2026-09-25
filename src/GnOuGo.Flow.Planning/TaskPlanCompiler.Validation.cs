@@ -7,10 +7,10 @@ public sealed partial class TaskPlanCompiler
 {
     private sealed class UnavailableValue : Exception;
 
-    // Structured-output regex engines can reject lookaround. Explicit alternatives
-    // exclude the reserved prefix; RE2/.NET's absolute end anchor also rejects a
-    // trailing newline. ValidIdentity remains authoritative for all entry points.
-    internal const string IdentityPattern = @"^([A-Za-z0-9-][A-Za-z0-9_-]*|_[A-Za-z0-9-][A-Za-z0-9_-]*|_)\z";
+    // Use portable wire-schema syntax: neither lookaround nor .NET/RE2's \z.
+    // '$' differs across regex engines for a final newline, so ValidIdentity's
+    // exact character checks remain authoritative at every compiler entry point.
+    internal const string IdentityPattern = @"^([A-Za-z0-9-][A-Za-z0-9_-]*|_[A-Za-z0-9-][A-Za-z0-9_-]*|_)$";
     internal static bool ValidIdentity(string? id) => !string.IsNullOrEmpty(id) && !id.StartsWith("__", StringComparison.Ordinal)
         && id.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-');
 

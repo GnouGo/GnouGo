@@ -59,6 +59,34 @@ public sealed class LLMProviderFailureTests
     }
 
     [Fact]
+    public async Task SchemaRejectionWithoutProviderCodeRemainsTerminalAndRedacted()
+    {
+        // Sanitized retained rejection: the provider returned no error.code.
+        // Do not invent one or expose its echoed schema in the typed failure.
+        var calls = 0;
+        using var http = new HttpClient(new StubHttpMessageHandler(_ =>
+        {
+            calls++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = new StringContent("""{"error":{"message":"Invalid schema for response_format 'output': '^([A-Za-z0-9-][A-Za-z0-9_-]*|_[A-Za-z0-9-][A-Za-z0-9_-]*|_)\\\\z' is not a 'regex'.","type":"invalid_request_error","param":"response_format","code":null}}""")
+            });
+        }));
+        var client = new RoutingLLMClient(http, new LLMOptions
+        {
+            DefaultProvider = "configured", DefaultModel = "gpt-4o-mini",
+            Models = new() { ["configured"] = new() { Type = "openai", Url = "https://test.invalid/v1", ApiKey = "PRIVATE_KEY", RetryPolicy = new() { MaxAttempts = 3 } } }
+        });
+        var failure = await Assert.ThrowsAsync<LLMProviderException>(() => client.CallAsync(
+            new LLMClientRequest { Prompt = "PRIVATE_PROMPT", DisableTransportRetries = true }, TestContext.Current.CancellationToken));
+        Assert.Equal(LLMProviderFailureKind.InvalidRequest, failure.Kind); Assert.False(failure.Retryable);
+        Assert.Equal(400, failure.StatusCode); Assert.Null(failure.SafeProviderCode);
+        Assert.Equal(1, calls); Assert.Equal(1, failure.AttemptCount); Assert.Null(failure.InnerException);
+        Assert.DoesNotContain("PRIVATE", failure.Message); Assert.DoesNotContain("regex", failure.Message);
+        Assert.DoesNotContain("response_format", failure.Message); Assert.DoesNotContain("A-Za-z", failure.Message);
+    }
+
+    [Fact]
     public async Task RoutingClient_ClassifiesTransportFailureAsRetryable()
     {
         var client = CreateClient(new ThrowingProvider(new HttpRequestException("connection reset")));
