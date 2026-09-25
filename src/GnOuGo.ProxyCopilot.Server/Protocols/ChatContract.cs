@@ -19,16 +19,17 @@ public static class ChatContract
     {
         Validate(request, route);
         var capabilities = route.Model.Metadata.Capabilities;
-        if (request.ContainsKey("temperature") && (capabilities.SupportsTemperature == false
-            || capabilities.UnsupportedRequestParameters?.Contains("temperature", StringComparer.Ordinal) == true))
+        JsonObject? prepared = null;
+        foreach (var field in new[] { "temperature", "top_p" })
         {
-            // Temperature is an optional sampling hint. Keep the original capture
-            // intact while allowing the upstream model to use its own default.
-            var prepared = (JsonObject)request.DeepClone();
-            prepared.Remove("temperature");
-            return prepared;
+            if (!request.ContainsKey(field) || !(field == "temperature" && capabilities.SupportsTemperature == false
+                || capabilities.UnsupportedRequestParameters?.Contains(field, StringComparer.Ordinal) == true)) continue;
+            // Clients can add optional sampling hints automatically. Keep the original
+            // capture intact and let models that reject those hints use their defaults.
+            prepared ??= (JsonObject)request.DeepClone();
+            prepared.Remove(field);
         }
-        return request;
+        return prepared ?? request;
     }
 
     public static void Validate(JsonObject request, ModelRoute route)
@@ -87,8 +88,8 @@ public static class ChatContract
         }
         foreach (var name in route.Model.Metadata.Capabilities.UnsupportedRequestParameters ?? [])
         {
-            // PrepareRequest omits unsupported temperature after validating its value.
-            if (name == "temperature") continue;
+            // PrepareRequest omits unsupported sampling hints after validating values.
+            if (name is "temperature" or "top_p") continue;
             // The OpenAI-compatible adapter translates these two client aliases and
             // validates the emitted field against upstream capabilities itself.
             if (route.Type is "openai" or "copilot" && name is "max_tokens" or "max_completion_tokens") continue;

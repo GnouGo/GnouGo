@@ -15,6 +15,8 @@ public sealed class AnthropicThinkingTests
         {
             var body = (await JsonNode.ParseAsync(context.Request.Body))!.AsObject();
             requests.Add(body);
+            Assert.False(body.ContainsKey("temperature"));
+            Assert.False(body.ContainsKey("top_p"));
             var type = streaming ? "text/event-stream" : "application/json";
             if (body["thinking"]?["type"]?.GetValue<string>() != "disabled")
             {
@@ -28,8 +30,14 @@ public sealed class AnthropicThinkingTests
             }
             await ProtocolRoundTripTests.Write(context, ProtocolRoundTripTests.Fixture("anthropic", streaming, requests.Count == 1), type);
         });
-        await using var proxy = await TestHost.Proxy(upstream.Url, "anthropic");
+        await using var proxy = await TestHost.Proxy(upstream.Url, "anthropic", new()
+        {
+            ["ProxyCopilot:Providers:test:Models:model:Metadata:Capabilities:SupportsTemperature"] = "false",
+            ["ProxyCopilot:Providers:test:Models:model:Metadata:Capabilities:UnsupportedRequestParameters:0"] = "top_p"
+        });
         var request = ProtocolRoundTripTests.Request(streaming);
+        request["temperature"] = 0;
+        request["top_p"] = 1;
         using var first = await proxy.Client.PostAsync("/v1/chat/completions", TestHost.Json(request.ToJsonString()), TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
         var calls = ProtocolRoundTripTests.ExtractCalls(await first.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), streaming);
