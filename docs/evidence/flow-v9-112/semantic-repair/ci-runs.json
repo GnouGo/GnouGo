@@ -1,0 +1,4598 @@
+[
+  {
+    "conclusion": "success",
+    "createdAt": "2026-09-25T09:24:28Z",
+    "databaseId": 36118254418,
+    "headSha": "1e1d2ee4c6c97a46b6645cc1dc4bc364ee850615",
+    "jobs": [
+      {
+        "completedAt": "2026-09-25T09:26:03Z",
+        "conclusion": "success",
+        "databaseId": 108017338598,
+        "name": "KeyVault MCP / KeyVault MCP (win-x64)",
+        "startedAt": "2026-09-25T09:24:34Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:24:36Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:24:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:43Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:24:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:45Z",
+            "conclusion": "success",
+            "name": "Setup .NET 10",
+            "number": 3,
+            "startedAt": "2026-09-25T09:24:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:58Z",
+            "conclusion": "success",
+            "name": "Publish GnOuGo.KeyVault.Mcp (self-contained trimmed)",
+            "number": 4,
+            "startedAt": "2026-09-25T09:24:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:59Z",
+            "conclusion": "success",
+            "name": "Post Setup .NET 10",
+            "number": 7,
+            "startedAt": "2026-09-25T09:25:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:01Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 8,
+            "startedAt": "2026-09-25T09:25:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:01Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 9,
+            "startedAt": "2026-09-25T09:26:01Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108017338598"
+      },
+      {
+        "completedAt": "2026-09-25T09:25:00Z",
+        "conclusion": "success",
+        "databaseId": 108017338792,
+        "name": "Stable Unit Tests / Python Unit Tests",
+        "startedAt": "2026-09-25T09:24:32Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:24:35Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:24:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:36Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:24:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:36Z",
+            "conclusion": "success",
+            "name": "Setup Python",
+            "number": 3,
+            "startedAt": "2026-09-25T09:24:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:40Z",
+            "conclusion": "success",
+            "name": "Setup uv",
+            "number": 4,
+            "startedAt": "2026-09-25T09:24:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:50Z",
+            "conclusion": "success",
+            "name": "Run gnougo-flow-core unit tests",
+            "number": 5,
+            "startedAt": "2026-09-25T09:24:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:57Z",
+            "conclusion": "success",
+            "name": "Run gnougo-flow-cli unit tests",
+            "number": 6,
+            "startedAt": "2026-09-25T09:24:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:57Z",
+            "conclusion": "success",
+            "name": "Test protocol acquisition recovery",
+            "number": 7,
+            "startedAt": "2026-09-25T09:24:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:57Z",
+            "conclusion": "success",
+            "name": "Post Setup uv",
+            "number": 12,
+            "startedAt": "2026-09-25T09:24:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:57Z",
+            "conclusion": "success",
+            "name": "Post Setup Python",
+            "number": 13,
+            "startedAt": "2026-09-25T09:24:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:57Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 14,
+            "startedAt": "2026-09-25T09:24:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:57Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 15,
+            "startedAt": "2026-09-25T09:24:57Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108017338792"
+      },
+      {
+        "completedAt": "2026-09-25T09:30:18Z",
+        "conclusion": "success",
+        "databaseId": 108017338797,
+        "name": "Stable Unit Tests / Stable .NET Unit Tests",
+        "startedAt": "2026-09-25T09:24:32Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:24:33Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:24:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:35Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:24:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:35Z",
+            "conclusion": "success",
+            "name": "Setup .NET 10",
+            "number": 3,
+            "startedAt": "2026-09-25T09:24:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:46Z",
+            "conclusion": "success",
+            "name": "Ensure OTLP proto files",
+            "number": 4,
+            "startedAt": "2026-09-25T09:24:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:29:29Z",
+            "conclusion": "success",
+            "name": "Run stable .NET unit tests",
+            "number": 5,
+            "startedAt": "2026-09-25T09:24:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:17Z",
+            "conclusion": "success",
+            "name": "Publish typed planner Native AOT smoke",
+            "number": 6,
+            "startedAt": "2026-09-25T09:29:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:17Z",
+            "conclusion": "success",
+            "name": "Post Setup .NET 10",
+            "number": 11,
+            "startedAt": "2026-09-25T09:30:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:17Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 12,
+            "startedAt": "2026-09-25T09:30:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:17Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 13,
+            "startedAt": "2026-09-25T09:30:17Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108017338797"
+      },
+      {
+        "completedAt": "2026-09-25T09:27:38Z",
+        "conclusion": "success",
+        "databaseId": 108017338901,
+        "name": "Agent Server Tests (non-blocking) / Agent Server Tests",
+        "startedAt": "2026-09-25T09:24:32Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:24:35Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:24:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:38Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:24:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:39Z",
+            "conclusion": "success",
+            "name": "Setup .NET 10",
+            "number": 3,
+            "startedAt": "2026-09-25T09:24:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:55Z",
+            "conclusion": "success",
+            "name": "Ensure OTLP proto files",
+            "number": 4,
+            "startedAt": "2026-09-25T09:24:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:34Z",
+            "conclusion": "success",
+            "name": "Run stable Agent Server tests",
+            "number": 5,
+            "startedAt": "2026-09-25T09:24:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:35Z",
+            "conclusion": "success",
+            "name": "Mounted MCP HTTP tests are opt-in",
+            "number": 6,
+            "startedAt": "2026-09-25T09:27:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:35Z",
+            "conclusion": "success",
+            "name": "Post Setup .NET 10",
+            "number": 11,
+            "startedAt": "2026-09-25T09:27:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:35Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 12,
+            "startedAt": "2026-09-25T09:27:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:35Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 13,
+            "startedAt": "2026-09-25T09:27:35Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108017338901"
+      },
+      {
+        "completedAt": "2026-09-25T09:27:58Z",
+        "conclusion": "success",
+        "databaseId": 108017339081,
+        "name": "Server (linux-x64) / Server (linux-x64)",
+        "startedAt": "2026-09-25T09:24:32Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:24:34Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:24:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:35Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:24:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:36Z",
+            "conclusion": "success",
+            "name": "Setup .NET 10",
+            "number": 3,
+            "startedAt": "2026-09-25T09:24:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:41Z",
+            "conclusion": "success",
+            "name": "Ensure OTLP proto files",
+            "number": 4,
+            "startedAt": "2026-09-25T09:24:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:44Z",
+            "conclusion": "success",
+            "name": "Setup pnpm",
+            "number": 5,
+            "startedAt": "2026-09-25T09:24:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:46Z",
+            "conclusion": "success",
+            "name": "Setup Node",
+            "number": 6,
+            "startedAt": "2026-09-25T09:24:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:48Z",
+            "conclusion": "success",
+            "name": "Build UI (Vite)",
+            "number": 7,
+            "startedAt": "2026-09-25T09:24:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:49Z",
+            "conclusion": "success",
+            "name": "Compute Version",
+            "number": 8,
+            "startedAt": "2026-09-25T09:24:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:16Z",
+            "conclusion": "success",
+            "name": "Publish Server",
+            "number": 9,
+            "startedAt": "2026-09-25T09:24:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:18Z",
+            "conclusion": "success",
+            "name": "Validate published planning persistence",
+            "number": 10,
+            "startedAt": "2026-09-25T09:27:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:19Z",
+            "conclusion": "success",
+            "name": "Validate bundled server tools",
+            "number": 11,
+            "startedAt": "2026-09-25T09:27:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:41Z",
+            "conclusion": "success",
+            "name": "Zip Server output",
+            "number": 12,
+            "startedAt": "2026-09-25T09:27:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:56Z",
+            "conclusion": "success",
+            "name": "Upload Server artifact",
+            "number": 13,
+            "startedAt": "2026-09-25T09:27:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:56Z",
+            "conclusion": "success",
+            "name": "Post Setup Node",
+            "number": 23,
+            "startedAt": "2026-09-25T09:27:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:56Z",
+            "conclusion": "success",
+            "name": "Post Setup pnpm",
+            "number": 24,
+            "startedAt": "2026-09-25T09:27:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:56Z",
+            "conclusion": "success",
+            "name": "Post Setup .NET 10",
+            "number": 25,
+            "startedAt": "2026-09-25T09:27:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:56Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 26,
+            "startedAt": "2026-09-25T09:27:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:56Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 27,
+            "startedAt": "2026-09-25T09:27:56Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108017339081"
+      },
+      {
+        "completedAt": "2026-09-25T09:30:36Z",
+        "conclusion": "success",
+        "databaseId": 108019105965,
+        "name": "Compute Version Tag / Compute Version Tag",
+        "startedAt": "2026-09-25T09:30:22Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:30:29Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:30:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:32Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7.0.1",
+            "number": 2,
+            "startedAt": "2026-09-25T09:30:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:33Z",
+            "conclusion": "success",
+            "name": "Determine Alpha, Beta or Release",
+            "number": 3,
+            "startedAt": "2026-09-25T09:30:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:34Z",
+            "conclusion": "success",
+            "name": "Bump version and compute tag (dry-run)",
+            "number": 4,
+            "startedAt": "2026-09-25T09:30:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:34Z",
+            "conclusion": "success",
+            "name": "Compute new version number to publish",
+            "number": 5,
+            "startedAt": "2026-09-25T09:30:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:34Z",
+            "conclusion": "skipped",
+            "name": "Generate changelog file",
+            "number": 6,
+            "startedAt": "2026-09-25T09:30:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:34Z",
+            "conclusion": "skipped",
+            "name": "Publish changelog update to main",
+            "number": 7,
+            "startedAt": "2026-09-25T09:30:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:34Z",
+            "conclusion": "skipped",
+            "name": "Push release tag",
+            "number": 8,
+            "startedAt": "2026-09-25T09:30:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:34Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7.0.1",
+            "number": 16,
+            "startedAt": "2026-09-25T09:30:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:34Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 17,
+            "startedAt": "2026-09-25T09:30:34Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019105965"
+      },
+      {
+        "completedAt": "2026-09-25T09:31:24Z",
+        "conclusion": "success",
+        "databaseId": 108019106005,
+        "name": "Docker Builds / Docker Build (GnOuGo.Diff.Server)",
+        "startedAt": "2026-09-25T09:30:22Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:30:27Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:30:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:30Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:30:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:45Z",
+            "conclusion": "success",
+            "name": "Set up QEMU",
+            "number": 3,
+            "startedAt": "2026-09-25T09:30:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:50Z",
+            "conclusion": "success",
+            "name": "Set up Docker Buildx",
+            "number": 4,
+            "startedAt": "2026-09-25T09:30:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:51Z",
+            "conclusion": "success",
+            "name": "Docker metadata",
+            "number": 5,
+            "startedAt": "2026-09-25T09:30:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:51Z",
+            "conclusion": "skipped",
+            "name": "Login to registry",
+            "number": 6,
+            "startedAt": "2026-09-25T09:30:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:15Z",
+            "conclusion": "success",
+            "name": "Build image",
+            "number": 7,
+            "startedAt": "2026-09-25T09:30:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:17Z",
+            "conclusion": "success",
+            "name": "Post Build image",
+            "number": 11,
+            "startedAt": "2026-09-25T09:31:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:20Z",
+            "conclusion": "success",
+            "name": "Post Set up Docker Buildx",
+            "number": 12,
+            "startedAt": "2026-09-25T09:31:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:21Z",
+            "conclusion": "success",
+            "name": "Post Set up QEMU",
+            "number": 13,
+            "startedAt": "2026-09-25T09:31:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:21Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 14,
+            "startedAt": "2026-09-25T09:31:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:21Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 15,
+            "startedAt": "2026-09-25T09:31:21Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019106005"
+      },
+      {
+        "completedAt": "2026-09-25T09:31:02Z",
+        "conclusion": "success",
+        "databaseId": 108019106013,
+        "name": "Docker Builds / Docker Build (GnOuGo.KeyVault.Server)",
+        "startedAt": "2026-09-25T09:30:21Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:30:24Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:30:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:25Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:30:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:29Z",
+            "conclusion": "success",
+            "name": "Set up QEMU",
+            "number": 3,
+            "startedAt": "2026-09-25T09:30:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:32Z",
+            "conclusion": "success",
+            "name": "Set up Docker Buildx",
+            "number": 4,
+            "startedAt": "2026-09-25T09:30:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:34Z",
+            "conclusion": "success",
+            "name": "Docker metadata",
+            "number": 5,
+            "startedAt": "2026-09-25T09:30:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:34Z",
+            "conclusion": "skipped",
+            "name": "Login to registry",
+            "number": 6,
+            "startedAt": "2026-09-25T09:30:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:56Z",
+            "conclusion": "success",
+            "name": "Build image",
+            "number": 7,
+            "startedAt": "2026-09-25T09:30:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:57Z",
+            "conclusion": "success",
+            "name": "Post Build image",
+            "number": 11,
+            "startedAt": "2026-09-25T09:30:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:00Z",
+            "conclusion": "success",
+            "name": "Post Set up Docker Buildx",
+            "number": 12,
+            "startedAt": "2026-09-25T09:30:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:01Z",
+            "conclusion": "success",
+            "name": "Post Set up QEMU",
+            "number": 13,
+            "startedAt": "2026-09-25T09:31:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:01Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 14,
+            "startedAt": "2026-09-25T09:31:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:01Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 15,
+            "startedAt": "2026-09-25T09:31:01Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019106013"
+      },
+      {
+        "completedAt": "2026-09-25T09:32:02Z",
+        "conclusion": "success",
+        "databaseId": 108019106025,
+        "name": "OTLP Collector / OTLP Collector (osx-arm64)",
+        "startedAt": "2026-09-25T09:30:27Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:30:30Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:30:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:33Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:30:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:45Z",
+            "conclusion": "success",
+            "name": "Setup .NET 10",
+            "number": 3,
+            "startedAt": "2026-09-25T09:30:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:45Z",
+            "conclusion": "skipped",
+            "name": "Install build toolchain (Linux)",
+            "number": 4,
+            "startedAt": "2026-09-25T09:30:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:53Z",
+            "conclusion": "success",
+            "name": "Ensure OTLP proto files",
+            "number": 5,
+            "startedAt": "2026-09-25T09:30:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:57Z",
+            "conclusion": "success",
+            "name": "Setup pnpm",
+            "number": 6,
+            "startedAt": "2026-09-25T09:30:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:04Z",
+            "conclusion": "success",
+            "name": "Setup Node",
+            "number": 7,
+            "startedAt": "2026-09-25T09:30:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:09Z",
+            "conclusion": "success",
+            "name": "Build UI (Vite)",
+            "number": 8,
+            "startedAt": "2026-09-25T09:31:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:50Z",
+            "conclusion": "success",
+            "name": "Publish OTLP Collector (self-contained)",
+            "number": 9,
+            "startedAt": "2026-09-25T09:31:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:51Z",
+            "conclusion": "success",
+            "name": "Validate OTLP Collector output",
+            "number": 10,
+            "startedAt": "2026-09-25T09:31:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:53Z",
+            "conclusion": "success",
+            "name": "Zip OTLP Collector output",
+            "number": 11,
+            "startedAt": "2026-09-25T09:31:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:55Z",
+            "conclusion": "success",
+            "name": "Upload OTLP Collector artifact",
+            "number": 12,
+            "startedAt": "2026-09-25T09:31:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:56Z",
+            "conclusion": "success",
+            "name": "Post Setup Node",
+            "number": 21,
+            "startedAt": "2026-09-25T09:31:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:56Z",
+            "conclusion": "success",
+            "name": "Post Setup pnpm",
+            "number": 22,
+            "startedAt": "2026-09-25T09:31:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:56Z",
+            "conclusion": "success",
+            "name": "Post Setup .NET 10",
+            "number": 23,
+            "startedAt": "2026-09-25T09:31:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:57Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 24,
+            "startedAt": "2026-09-25T09:31:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:00Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 25,
+            "startedAt": "2026-09-25T09:31:57Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019106025"
+      },
+      {
+        "completedAt": "2026-09-25T09:32:59Z",
+        "conclusion": "success",
+        "databaseId": 108019106049,
+        "name": "OTLP Collector / OTLP Collector (win-x64)",
+        "startedAt": "2026-09-25T09:30:22Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:30:24Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:30:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:32Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:30:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:07Z",
+            "conclusion": "success",
+            "name": "Setup .NET 10",
+            "number": 3,
+            "startedAt": "2026-09-25T09:30:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:07Z",
+            "conclusion": "skipped",
+            "name": "Install build toolchain (Linux)",
+            "number": 4,
+            "startedAt": "2026-09-25T09:31:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:27Z",
+            "conclusion": "success",
+            "name": "Ensure OTLP proto files",
+            "number": 5,
+            "startedAt": "2026-09-25T09:31:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:47Z",
+            "conclusion": "success",
+            "name": "Setup pnpm",
+            "number": 6,
+            "startedAt": "2026-09-25T09:31:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:59Z",
+            "conclusion": "success",
+            "name": "Setup Node",
+            "number": 7,
+            "startedAt": "2026-09-25T09:31:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:06Z",
+            "conclusion": "success",
+            "name": "Build UI (Vite)",
+            "number": 8,
+            "startedAt": "2026-09-25T09:31:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:50Z",
+            "conclusion": "success",
+            "name": "Publish OTLP Collector (self-contained)",
+            "number": 9,
+            "startedAt": "2026-09-25T09:32:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:50Z",
+            "conclusion": "success",
+            "name": "Validate OTLP Collector output",
+            "number": 10,
+            "startedAt": "2026-09-25T09:32:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:52Z",
+            "conclusion": "success",
+            "name": "Zip OTLP Collector output",
+            "number": 11,
+            "startedAt": "2026-09-25T09:32:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:54Z",
+            "conclusion": "success",
+            "name": "Upload OTLP Collector artifact",
+            "number": 12,
+            "startedAt": "2026-09-25T09:32:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:54Z",
+            "conclusion": "success",
+            "name": "Post Setup Node",
+            "number": 21,
+            "startedAt": "2026-09-25T09:32:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:55Z",
+            "conclusion": "success",
+            "name": "Post Setup pnpm",
+            "number": 22,
+            "startedAt": "2026-09-25T09:32:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:55Z",
+            "conclusion": "success",
+            "name": "Post Setup .NET 10",
+            "number": 23,
+            "startedAt": "2026-09-25T09:32:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:57Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 24,
+            "startedAt": "2026-09-25T09:32:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:58Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 25,
+            "startedAt": "2026-09-25T09:32:57Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019106049"
+      },
+      {
+        "completedAt": "2026-09-25T09:32:00Z",
+        "conclusion": "success",
+        "databaseId": 108019106061,
+        "name": "Docker Builds / Docker Build (GnOuGo.Flow.Server)",
+        "startedAt": "2026-09-25T09:30:22Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:30:26Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:30:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:27Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:30:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:38Z",
+            "conclusion": "success",
+            "name": "Set up QEMU",
+            "number": 3,
+            "startedAt": "2026-09-25T09:30:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:43Z",
+            "conclusion": "success",
+            "name": "Set up Docker Buildx",
+            "number": 4,
+            "startedAt": "2026-09-25T09:30:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:44Z",
+            "conclusion": "success",
+            "name": "Docker metadata",
+            "number": 5,
+            "startedAt": "2026-09-25T09:30:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:44Z",
+            "conclusion": "skipped",
+            "name": "Login to registry",
+            "number": 6,
+            "startedAt": "2026-09-25T09:30:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:52Z",
+            "conclusion": "success",
+            "name": "Build image",
+            "number": 7,
+            "startedAt": "2026-09-25T09:30:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:54Z",
+            "conclusion": "success",
+            "name": "Post Build image",
+            "number": 11,
+            "startedAt": "2026-09-25T09:31:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:57Z",
+            "conclusion": "success",
+            "name": "Post Set up Docker Buildx",
+            "number": 12,
+            "startedAt": "2026-09-25T09:31:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:58Z",
+            "conclusion": "success",
+            "name": "Post Set up QEMU",
+            "number": 13,
+            "startedAt": "2026-09-25T09:31:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:58Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 14,
+            "startedAt": "2026-09-25T09:31:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:58Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 15,
+            "startedAt": "2026-09-25T09:31:58Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019106061"
+      },
+      {
+        "completedAt": "2026-09-25T09:34:51Z",
+        "conclusion": "success",
+        "databaseId": 108019106077,
+        "name": "Docker Builds / Docker Build (GnOuGo.Agent.Server)",
+        "startedAt": "2026-09-25T09:30:23Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:30:28Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:30:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:30Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:30:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:37Z",
+            "conclusion": "success",
+            "name": "Set up QEMU",
+            "number": 3,
+            "startedAt": "2026-09-25T09:30:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:42Z",
+            "conclusion": "success",
+            "name": "Set up Docker Buildx",
+            "number": 4,
+            "startedAt": "2026-09-25T09:30:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:43Z",
+            "conclusion": "success",
+            "name": "Docker metadata",
+            "number": 5,
+            "startedAt": "2026-09-25T09:30:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:43Z",
+            "conclusion": "skipped",
+            "name": "Login to registry",
+            "number": 6,
+            "startedAt": "2026-09-25T09:30:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:34:40Z",
+            "conclusion": "success",
+            "name": "Build image",
+            "number": 7,
+            "startedAt": "2026-09-25T09:30:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:34:42Z",
+            "conclusion": "success",
+            "name": "Post Build image",
+            "number": 11,
+            "startedAt": "2026-09-25T09:34:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:34:48Z",
+            "conclusion": "success",
+            "name": "Post Set up Docker Buildx",
+            "number": 12,
+            "startedAt": "2026-09-25T09:34:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:34:49Z",
+            "conclusion": "success",
+            "name": "Post Set up QEMU",
+            "number": 13,
+            "startedAt": "2026-09-25T09:34:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:34:49Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 14,
+            "startedAt": "2026-09-25T09:34:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:34:49Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 15,
+            "startedAt": "2026-09-25T09:34:49Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019106077"
+      },
+      {
+        "completedAt": "2026-09-25T09:32:44Z",
+        "conclusion": "success",
+        "databaseId": 108019106107,
+        "name": "Docker Builds / Docker Build (GnOuGo.OtlpCollector.Server)",
+        "startedAt": "2026-09-25T09:30:21Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:30:25Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:30:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:26Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:30:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:31Z",
+            "conclusion": "success",
+            "name": "Set up QEMU",
+            "number": 3,
+            "startedAt": "2026-09-25T09:30:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:35Z",
+            "conclusion": "success",
+            "name": "Set up Docker Buildx",
+            "number": 4,
+            "startedAt": "2026-09-25T09:30:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:36Z",
+            "conclusion": "success",
+            "name": "Docker metadata",
+            "number": 5,
+            "startedAt": "2026-09-25T09:30:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:36Z",
+            "conclusion": "skipped",
+            "name": "Login to registry",
+            "number": 6,
+            "startedAt": "2026-09-25T09:30:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:37Z",
+            "conclusion": "success",
+            "name": "Build image",
+            "number": 7,
+            "startedAt": "2026-09-25T09:30:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:38Z",
+            "conclusion": "success",
+            "name": "Post Build image",
+            "number": 11,
+            "startedAt": "2026-09-25T09:32:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:41Z",
+            "conclusion": "success",
+            "name": "Post Set up Docker Buildx",
+            "number": 12,
+            "startedAt": "2026-09-25T09:32:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:42Z",
+            "conclusion": "success",
+            "name": "Post Set up QEMU",
+            "number": 13,
+            "startedAt": "2026-09-25T09:32:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:42Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 14,
+            "startedAt": "2026-09-25T09:32:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:42Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 15,
+            "startedAt": "2026-09-25T09:32:42Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019106107"
+      },
+      {
+        "completedAt": "2026-09-25T09:32:15Z",
+        "conclusion": "success",
+        "databaseId": 108019106115,
+        "name": "OTLP Collector / OTLP Collector (linux-x64)",
+        "startedAt": "2026-09-25T09:30:22Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:30:26Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:30:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:28Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:30:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:29Z",
+            "conclusion": "success",
+            "name": "Setup .NET 10",
+            "number": 3,
+            "startedAt": "2026-09-25T09:30:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:46Z",
+            "conclusion": "success",
+            "name": "Install build toolchain (Linux)",
+            "number": 4,
+            "startedAt": "2026-09-25T09:30:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:00Z",
+            "conclusion": "success",
+            "name": "Ensure OTLP proto files",
+            "number": 5,
+            "startedAt": "2026-09-25T09:30:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:05Z",
+            "conclusion": "success",
+            "name": "Setup pnpm",
+            "number": 6,
+            "startedAt": "2026-09-25T09:31:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:09Z",
+            "conclusion": "success",
+            "name": "Setup Node",
+            "number": 7,
+            "startedAt": "2026-09-25T09:31:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:12Z",
+            "conclusion": "success",
+            "name": "Build UI (Vite)",
+            "number": 8,
+            "startedAt": "2026-09-25T09:31:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:05Z",
+            "conclusion": "success",
+            "name": "Publish OTLP Collector (self-contained)",
+            "number": 9,
+            "startedAt": "2026-09-25T09:31:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:06Z",
+            "conclusion": "success",
+            "name": "Validate OTLP Collector output",
+            "number": 10,
+            "startedAt": "2026-09-25T09:32:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:09Z",
+            "conclusion": "success",
+            "name": "Zip OTLP Collector output",
+            "number": 11,
+            "startedAt": "2026-09-25T09:32:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:11Z",
+            "conclusion": "success",
+            "name": "Upload OTLP Collector artifact",
+            "number": 12,
+            "startedAt": "2026-09-25T09:32:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:11Z",
+            "conclusion": "success",
+            "name": "Post Setup Node",
+            "number": 21,
+            "startedAt": "2026-09-25T09:32:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:11Z",
+            "conclusion": "success",
+            "name": "Post Setup pnpm",
+            "number": 22,
+            "startedAt": "2026-09-25T09:32:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:11Z",
+            "conclusion": "success",
+            "name": "Post Setup .NET 10",
+            "number": 23,
+            "startedAt": "2026-09-25T09:32:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:12Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 24,
+            "startedAt": "2026-09-25T09:32:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:12Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 25,
+            "startedAt": "2026-09-25T09:32:12Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019106115"
+      },
+      {
+        "completedAt": "2026-09-25T09:32:05Z",
+        "conclusion": "success",
+        "databaseId": 108019106225,
+        "name": "Docker Builds / Docker Build (GnOuGo.DocIngestor.Server)",
+        "startedAt": "2026-09-25T09:30:22Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:30:28Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:30:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:30Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:30:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:37Z",
+            "conclusion": "success",
+            "name": "Set up QEMU",
+            "number": 3,
+            "startedAt": "2026-09-25T09:30:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:42Z",
+            "conclusion": "success",
+            "name": "Set up Docker Buildx",
+            "number": 4,
+            "startedAt": "2026-09-25T09:30:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:43Z",
+            "conclusion": "success",
+            "name": "Docker metadata",
+            "number": 5,
+            "startedAt": "2026-09-25T09:30:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:43Z",
+            "conclusion": "skipped",
+            "name": "Login to registry",
+            "number": 6,
+            "startedAt": "2026-09-25T09:30:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:57Z",
+            "conclusion": "success",
+            "name": "Build image",
+            "number": 7,
+            "startedAt": "2026-09-25T09:30:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:59Z",
+            "conclusion": "success",
+            "name": "Post Build image",
+            "number": 11,
+            "startedAt": "2026-09-25T09:31:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:02Z",
+            "conclusion": "success",
+            "name": "Post Set up Docker Buildx",
+            "number": 12,
+            "startedAt": "2026-09-25T09:31:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:02Z",
+            "conclusion": "success",
+            "name": "Post Set up QEMU",
+            "number": 13,
+            "startedAt": "2026-09-25T09:32:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:03Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 14,
+            "startedAt": "2026-09-25T09:32:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:03Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 15,
+            "startedAt": "2026-09-25T09:32:03Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019106225"
+      },
+      {
+        "completedAt": "2026-09-25T09:56:28Z",
+        "conclusion": "success",
+        "databaseId": 108019205336,
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (linux-arm64)",
+        "startedAt": "2026-09-25T09:30:40Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:30:43Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:30:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:44Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:30:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:45Z",
+            "conclusion": "success",
+            "name": "Setup .NET 10",
+            "number": 3,
+            "startedAt": "2026-09-25T09:30:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:57Z",
+            "conclusion": "success",
+            "name": "Ensure OTLP proto files",
+            "number": 4,
+            "startedAt": "2026-09-25T09:30:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:00Z",
+            "conclusion": "success",
+            "name": "Setup pnpm",
+            "number": 5,
+            "startedAt": "2026-09-25T09:30:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:04Z",
+            "conclusion": "success",
+            "name": "Setup Node",
+            "number": 6,
+            "startedAt": "2026-09-25T09:31:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:24Z",
+            "conclusion": "success",
+            "name": "Install Linux Native Toolchains",
+            "number": 7,
+            "startedAt": "2026-09-25T09:31:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:02Z",
+            "conclusion": "success",
+            "name": "Validate Browser MCP (self-contained, non-AOT)",
+            "number": 8,
+            "startedAt": "2026-09-25T09:31:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:53Z",
+            "conclusion": "success",
+            "name": "Validate Git MCP (Native AOT)",
+            "number": 9,
+            "startedAt": "2026-09-25T09:32:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:37:01Z",
+            "conclusion": "success",
+            "name": "Validate GitHub Copilot MCP (Native AOT)",
+            "number": 10,
+            "startedAt": "2026-09-25T09:32:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:37:39Z",
+            "conclusion": "success",
+            "name": "Validate Cmd MCP (Native AOT)",
+            "number": 11,
+            "startedAt": "2026-09-25T09:37:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:39:16Z",
+            "conclusion": "success",
+            "name": "Validate Document MCP (Native AOT)",
+            "number": 12,
+            "startedAt": "2026-09-25T09:37:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:41:21Z",
+            "conclusion": "success",
+            "name": "Validate DocIngestor MCP (Native AOT)",
+            "number": 13,
+            "startedAt": "2026-09-25T09:39:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:41:21Z",
+            "conclusion": "skipped",
+            "name": "Validate Darwin native cryptography and planner",
+            "number": 14,
+            "startedAt": "2026-09-25T09:41:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:41:24Z",
+            "conclusion": "success",
+            "name": "Build UI (Vite)",
+            "number": 15,
+            "startedAt": "2026-09-25T09:41:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:41:25Z",
+            "conclusion": "success",
+            "name": "Compute Version",
+            "number": 16,
+            "startedAt": "2026-09-25T09:41:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:49:30Z",
+            "conclusion": "success",
+            "name": "Publish Desktop (Trimmed Managed)",
+            "number": 17,
+            "startedAt": "2026-09-25T09:41:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:49:30Z",
+            "conclusion": "success",
+            "name": "Validate Bundled Desktop Tools",
+            "number": 18,
+            "startedAt": "2026-09-25T09:49:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:49:30Z",
+            "conclusion": "skipped",
+            "name": "Cache pinned Qwen3 smoke-test model",
+            "number": 19,
+            "startedAt": "2026-09-25T09:49:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:49:30Z",
+            "conclusion": "skipped",
+            "name": "Acquire and verify pinned Qwen3 smoke-test model",
+            "number": 20,
+            "startedAt": "2026-09-25T09:49:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:49:30Z",
+            "conclusion": "skipped",
+            "name": "Run embedded Qwen3 structured-output smoke test",
+            "number": 21,
+            "startedAt": "2026-09-25T09:49:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:48Z",
+            "conclusion": "success",
+            "name": "Package Desktop Artifact",
+            "number": 22,
+            "startedAt": "2026-09-25T09:49:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:56:24Z",
+            "conclusion": "success",
+            "name": "Upload Desktop Artifact",
+            "number": 23,
+            "startedAt": "2026-09-25T09:55:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:56:24Z",
+            "conclusion": "success",
+            "name": "Post Setup Node",
+            "number": 43,
+            "startedAt": "2026-09-25T09:56:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:56:24Z",
+            "conclusion": "success",
+            "name": "Post Setup pnpm",
+            "number": 44,
+            "startedAt": "2026-09-25T09:56:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:56:24Z",
+            "conclusion": "success",
+            "name": "Post Setup .NET 10",
+            "number": 45,
+            "startedAt": "2026-09-25T09:56:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:56:25Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 46,
+            "startedAt": "2026-09-25T09:56:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:56:25Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 47,
+            "startedAt": "2026-09-25T09:56:25Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019205336"
+      },
+      {
+        "completedAt": "2026-09-25T09:55:24Z",
+        "conclusion": "success",
+        "databaseId": 108019205353,
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-arm64)",
+        "startedAt": "2026-09-25T09:30:46Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:30:49Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:30:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:52Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:30:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:00Z",
+            "conclusion": "success",
+            "name": "Setup .NET 10",
+            "number": 3,
+            "startedAt": "2026-09-25T09:30:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:06Z",
+            "conclusion": "success",
+            "name": "Ensure OTLP proto files",
+            "number": 4,
+            "startedAt": "2026-09-25T09:31:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:09Z",
+            "conclusion": "success",
+            "name": "Setup pnpm",
+            "number": 5,
+            "startedAt": "2026-09-25T09:31:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:16Z",
+            "conclusion": "success",
+            "name": "Setup Node",
+            "number": 6,
+            "startedAt": "2026-09-25T09:31:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:16Z",
+            "conclusion": "skipped",
+            "name": "Install Linux Native Toolchains",
+            "number": 7,
+            "startedAt": "2026-09-25T09:31:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:41Z",
+            "conclusion": "success",
+            "name": "Validate Browser MCP (self-contained, non-AOT)",
+            "number": 8,
+            "startedAt": "2026-09-25T09:31:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:25Z",
+            "conclusion": "success",
+            "name": "Validate Git MCP (Native AOT)",
+            "number": 9,
+            "startedAt": "2026-09-25T09:31:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:37:56Z",
+            "conclusion": "success",
+            "name": "Validate GitHub Copilot MCP (Native AOT)",
+            "number": 10,
+            "startedAt": "2026-09-25T09:32:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:38:34Z",
+            "conclusion": "success",
+            "name": "Validate Cmd MCP (Native AOT)",
+            "number": 11,
+            "startedAt": "2026-09-25T09:37:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:40:23Z",
+            "conclusion": "success",
+            "name": "Validate Document MCP (Native AOT)",
+            "number": 12,
+            "startedAt": "2026-09-25T09:38:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:43:29Z",
+            "conclusion": "success",
+            "name": "Validate DocIngestor MCP (Native AOT)",
+            "number": 13,
+            "startedAt": "2026-09-25T09:40:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:44:14Z",
+            "conclusion": "success",
+            "name": "Validate Darwin native cryptography and planner",
+            "number": 14,
+            "startedAt": "2026-09-25T09:43:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:44:22Z",
+            "conclusion": "success",
+            "name": "Build UI (Vite)",
+            "number": 15,
+            "startedAt": "2026-09-25T09:44:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:44:23Z",
+            "conclusion": "success",
+            "name": "Compute Version",
+            "number": 16,
+            "startedAt": "2026-09-25T09:44:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:52:57Z",
+            "conclusion": "success",
+            "name": "Publish Desktop (Trimmed Managed)",
+            "number": 17,
+            "startedAt": "2026-09-25T09:44:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:52:58Z",
+            "conclusion": "success",
+            "name": "Validate Bundled Desktop Tools",
+            "number": 18,
+            "startedAt": "2026-09-25T09:52:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:53:06Z",
+            "conclusion": "success",
+            "name": "Cache pinned Qwen3 smoke-test model",
+            "number": 19,
+            "startedAt": "2026-09-25T09:52:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:53:06Z",
+            "conclusion": "success",
+            "name": "Acquire and verify pinned Qwen3 smoke-test model",
+            "number": 20,
+            "startedAt": "2026-09-25T09:53:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:53:34Z",
+            "conclusion": "success",
+            "name": "Run embedded Qwen3 structured-output smoke test",
+            "number": 21,
+            "startedAt": "2026-09-25T09:53:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:54:44Z",
+            "conclusion": "success",
+            "name": "Package Desktop Artifact",
+            "number": 22,
+            "startedAt": "2026-09-25T09:53:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:12Z",
+            "conclusion": "success",
+            "name": "Upload Desktop Artifact",
+            "number": 23,
+            "startedAt": "2026-09-25T09:54:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:12Z",
+            "conclusion": "success",
+            "name": "Post Cache pinned Qwen3 smoke-test model",
+            "number": 42,
+            "startedAt": "2026-09-25T09:55:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:12Z",
+            "conclusion": "success",
+            "name": "Post Setup Node",
+            "number": 43,
+            "startedAt": "2026-09-25T09:55:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:12Z",
+            "conclusion": "success",
+            "name": "Post Setup pnpm",
+            "number": 44,
+            "startedAt": "2026-09-25T09:55:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:12Z",
+            "conclusion": "success",
+            "name": "Post Setup .NET 10",
+            "number": 45,
+            "startedAt": "2026-09-25T09:55:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:13Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 46,
+            "startedAt": "2026-09-25T09:55:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:22Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 47,
+            "startedAt": "2026-09-25T09:55:13Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019205353"
+      },
+      {
+        "completedAt": "2026-09-25T09:52:04Z",
+        "conclusion": "success",
+        "databaseId": 108019205402,
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (linux-x64)",
+        "startedAt": "2026-09-25T09:30:40Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:30:43Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:30:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:45Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:30:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:46Z",
+            "conclusion": "success",
+            "name": "Setup .NET 10",
+            "number": 3,
+            "startedAt": "2026-09-25T09:30:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:59Z",
+            "conclusion": "success",
+            "name": "Ensure OTLP proto files",
+            "number": 4,
+            "startedAt": "2026-09-25T09:30:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:04Z",
+            "conclusion": "success",
+            "name": "Setup pnpm",
+            "number": 5,
+            "startedAt": "2026-09-25T09:30:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:08Z",
+            "conclusion": "success",
+            "name": "Setup Node",
+            "number": 6,
+            "startedAt": "2026-09-25T09:31:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:26Z",
+            "conclusion": "success",
+            "name": "Install Linux Native Toolchains",
+            "number": 7,
+            "startedAt": "2026-09-25T09:31:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:17Z",
+            "conclusion": "success",
+            "name": "Validate Browser MCP (self-contained, non-AOT)",
+            "number": 8,
+            "startedAt": "2026-09-25T09:31:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:33:04Z",
+            "conclusion": "success",
+            "name": "Validate Git MCP (Native AOT)",
+            "number": 9,
+            "startedAt": "2026-09-25T09:32:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:36:02Z",
+            "conclusion": "success",
+            "name": "Validate GitHub Copilot MCP (Native AOT)",
+            "number": 10,
+            "startedAt": "2026-09-25T09:33:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:36:31Z",
+            "conclusion": "success",
+            "name": "Validate Cmd MCP (Native AOT)",
+            "number": 11,
+            "startedAt": "2026-09-25T09:36:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:37:42Z",
+            "conclusion": "success",
+            "name": "Validate Document MCP (Native AOT)",
+            "number": 12,
+            "startedAt": "2026-09-25T09:36:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:39:16Z",
+            "conclusion": "success",
+            "name": "Validate DocIngestor MCP (Native AOT)",
+            "number": 13,
+            "startedAt": "2026-09-25T09:37:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:39:16Z",
+            "conclusion": "skipped",
+            "name": "Validate Darwin native cryptography and planner",
+            "number": 14,
+            "startedAt": "2026-09-25T09:39:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:39:20Z",
+            "conclusion": "success",
+            "name": "Build UI (Vite)",
+            "number": 15,
+            "startedAt": "2026-09-25T09:39:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:39:21Z",
+            "conclusion": "success",
+            "name": "Compute Version",
+            "number": 16,
+            "startedAt": "2026-09-25T09:39:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:45:40Z",
+            "conclusion": "success",
+            "name": "Publish Desktop (Trimmed Managed)",
+            "number": 17,
+            "startedAt": "2026-09-25T09:39:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:45:41Z",
+            "conclusion": "success",
+            "name": "Validate Bundled Desktop Tools",
+            "number": 18,
+            "startedAt": "2026-09-25T09:45:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:45:47Z",
+            "conclusion": "success",
+            "name": "Cache pinned Qwen3 smoke-test model",
+            "number": 19,
+            "startedAt": "2026-09-25T09:45:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:45:47Z",
+            "conclusion": "success",
+            "name": "Acquire and verify pinned Qwen3 smoke-test model",
+            "number": 20,
+            "startedAt": "2026-09-25T09:45:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:45:58Z",
+            "conclusion": "success",
+            "name": "Run embedded Qwen3 structured-output smoke test",
+            "number": 21,
+            "startedAt": "2026-09-25T09:45:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:51:29Z",
+            "conclusion": "success",
+            "name": "Package Desktop Artifact",
+            "number": 22,
+            "startedAt": "2026-09-25T09:45:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:52:00Z",
+            "conclusion": "success",
+            "name": "Upload Desktop Artifact",
+            "number": 23,
+            "startedAt": "2026-09-25T09:51:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:52:01Z",
+            "conclusion": "success",
+            "name": "Post Cache pinned Qwen3 smoke-test model",
+            "number": 42,
+            "startedAt": "2026-09-25T09:52:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:52:01Z",
+            "conclusion": "success",
+            "name": "Post Setup Node",
+            "number": 43,
+            "startedAt": "2026-09-25T09:52:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:52:01Z",
+            "conclusion": "success",
+            "name": "Post Setup pnpm",
+            "number": 44,
+            "startedAt": "2026-09-25T09:52:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:52:01Z",
+            "conclusion": "success",
+            "name": "Post Setup .NET 10",
+            "number": 45,
+            "startedAt": "2026-09-25T09:52:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:52:01Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 46,
+            "startedAt": "2026-09-25T09:52:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:52:02Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 47,
+            "startedAt": "2026-09-25T09:52:01Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019205402"
+      },
+      {
+        "completedAt": "2026-09-25T09:58:03Z",
+        "conclusion": "success",
+        "databaseId": 108019205457,
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-x64)",
+        "startedAt": "2026-09-25T09:30:45Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:30:48Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:30:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:50Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:30:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:58Z",
+            "conclusion": "success",
+            "name": "Setup .NET 10",
+            "number": 3,
+            "startedAt": "2026-09-25T09:30:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:05Z",
+            "conclusion": "success",
+            "name": "Ensure OTLP proto files",
+            "number": 4,
+            "startedAt": "2026-09-25T09:30:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:08Z",
+            "conclusion": "success",
+            "name": "Setup pnpm",
+            "number": 5,
+            "startedAt": "2026-09-25T09:31:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:13Z",
+            "conclusion": "success",
+            "name": "Setup Node",
+            "number": 6,
+            "startedAt": "2026-09-25T09:31:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:13Z",
+            "conclusion": "skipped",
+            "name": "Install Linux Native Toolchains",
+            "number": 7,
+            "startedAt": "2026-09-25T09:31:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:40Z",
+            "conclusion": "success",
+            "name": "Validate Browser MCP (self-contained, non-AOT)",
+            "number": 8,
+            "startedAt": "2026-09-25T09:31:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:28Z",
+            "conclusion": "success",
+            "name": "Validate Git MCP (Native AOT)",
+            "number": 9,
+            "startedAt": "2026-09-25T09:31:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:40:02Z",
+            "conclusion": "success",
+            "name": "Validate GitHub Copilot MCP (Native AOT)",
+            "number": 10,
+            "startedAt": "2026-09-25T09:32:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:40:49Z",
+            "conclusion": "success",
+            "name": "Validate Cmd MCP (Native AOT)",
+            "number": 11,
+            "startedAt": "2026-09-25T09:40:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:42:56Z",
+            "conclusion": "success",
+            "name": "Validate Document MCP (Native AOT)",
+            "number": 12,
+            "startedAt": "2026-09-25T09:40:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:45:41Z",
+            "conclusion": "success",
+            "name": "Validate DocIngestor MCP (Native AOT)",
+            "number": 13,
+            "startedAt": "2026-09-25T09:42:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:46:32Z",
+            "conclusion": "success",
+            "name": "Validate Darwin native cryptography and planner",
+            "number": 14,
+            "startedAt": "2026-09-25T09:45:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:46:40Z",
+            "conclusion": "success",
+            "name": "Build UI (Vite)",
+            "number": 15,
+            "startedAt": "2026-09-25T09:46:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:46:41Z",
+            "conclusion": "success",
+            "name": "Compute Version",
+            "number": 16,
+            "startedAt": "2026-09-25T09:46:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:56:40Z",
+            "conclusion": "success",
+            "name": "Publish Desktop (Trimmed Managed)",
+            "number": 17,
+            "startedAt": "2026-09-25T09:46:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:56:41Z",
+            "conclusion": "success",
+            "name": "Validate Bundled Desktop Tools",
+            "number": 18,
+            "startedAt": "2026-09-25T09:56:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:56:41Z",
+            "conclusion": "skipped",
+            "name": "Cache pinned Qwen3 smoke-test model",
+            "number": 19,
+            "startedAt": "2026-09-25T09:56:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:56:41Z",
+            "conclusion": "skipped",
+            "name": "Acquire and verify pinned Qwen3 smoke-test model",
+            "number": 20,
+            "startedAt": "2026-09-25T09:56:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:56:41Z",
+            "conclusion": "skipped",
+            "name": "Run embedded Qwen3 structured-output smoke test",
+            "number": 21,
+            "startedAt": "2026-09-25T09:56:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:57:39Z",
+            "conclusion": "success",
+            "name": "Package Desktop Artifact",
+            "number": 22,
+            "startedAt": "2026-09-25T09:56:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:57:57Z",
+            "conclusion": "success",
+            "name": "Upload Desktop Artifact",
+            "number": 23,
+            "startedAt": "2026-09-25T09:57:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:57:58Z",
+            "conclusion": "success",
+            "name": "Post Setup Node",
+            "number": 43,
+            "startedAt": "2026-09-25T09:57:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:57:58Z",
+            "conclusion": "success",
+            "name": "Post Setup pnpm",
+            "number": 44,
+            "startedAt": "2026-09-25T09:57:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:57:58Z",
+            "conclusion": "success",
+            "name": "Post Setup .NET 10",
+            "number": 45,
+            "startedAt": "2026-09-25T09:57:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:57:59Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 46,
+            "startedAt": "2026-09-25T09:57:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:58:01Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 47,
+            "startedAt": "2026-09-25T09:57:59Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019205457"
+      },
+      {
+        "completedAt": "2026-09-25T09:55:48Z",
+        "conclusion": "success",
+        "databaseId": 108019205475,
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (win-arm64)",
+        "startedAt": "2026-09-25T09:30:42Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:30:47Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:30:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:00Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:30:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:04Z",
+            "conclusion": "success",
+            "name": "Setup .NET 10",
+            "number": 3,
+            "startedAt": "2026-09-25T09:31:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:28Z",
+            "conclusion": "success",
+            "name": "Ensure OTLP proto files",
+            "number": 4,
+            "startedAt": "2026-09-25T09:31:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:45Z",
+            "conclusion": "success",
+            "name": "Setup pnpm",
+            "number": 5,
+            "startedAt": "2026-09-25T09:31:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:56Z",
+            "conclusion": "success",
+            "name": "Setup Node",
+            "number": 6,
+            "startedAt": "2026-09-25T09:31:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:56Z",
+            "conclusion": "skipped",
+            "name": "Install Linux Native Toolchains",
+            "number": 7,
+            "startedAt": "2026-09-25T09:31:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:59Z",
+            "conclusion": "success",
+            "name": "Validate Browser MCP (self-contained, non-AOT)",
+            "number": 8,
+            "startedAt": "2026-09-25T09:31:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:33:59Z",
+            "conclusion": "success",
+            "name": "Validate Git MCP (Native AOT)",
+            "number": 9,
+            "startedAt": "2026-09-25T09:32:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:38:34Z",
+            "conclusion": "success",
+            "name": "Validate GitHub Copilot MCP (Native AOT)",
+            "number": 10,
+            "startedAt": "2026-09-25T09:33:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:39:21Z",
+            "conclusion": "success",
+            "name": "Validate Cmd MCP (Native AOT)",
+            "number": 11,
+            "startedAt": "2026-09-25T09:38:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:41:33Z",
+            "conclusion": "success",
+            "name": "Validate Document MCP (Native AOT)",
+            "number": 12,
+            "startedAt": "2026-09-25T09:39:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:44:11Z",
+            "conclusion": "success",
+            "name": "Validate DocIngestor MCP (Native AOT)",
+            "number": 13,
+            "startedAt": "2026-09-25T09:41:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:44:11Z",
+            "conclusion": "skipped",
+            "name": "Validate Darwin native cryptography and planner",
+            "number": 14,
+            "startedAt": "2026-09-25T09:44:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:44:24Z",
+            "conclusion": "success",
+            "name": "Build UI (Vite)",
+            "number": 15,
+            "startedAt": "2026-09-25T09:44:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:44:24Z",
+            "conclusion": "success",
+            "name": "Compute Version",
+            "number": 16,
+            "startedAt": "2026-09-25T09:44:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:54:26Z",
+            "conclusion": "success",
+            "name": "Publish Desktop (Trimmed Managed)",
+            "number": 17,
+            "startedAt": "2026-09-25T09:44:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:54:27Z",
+            "conclusion": "success",
+            "name": "Validate Bundled Desktop Tools",
+            "number": 18,
+            "startedAt": "2026-09-25T09:54:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:54:27Z",
+            "conclusion": "skipped",
+            "name": "Cache pinned Qwen3 smoke-test model",
+            "number": 19,
+            "startedAt": "2026-09-25T09:54:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:54:27Z",
+            "conclusion": "skipped",
+            "name": "Acquire and verify pinned Qwen3 smoke-test model",
+            "number": 20,
+            "startedAt": "2026-09-25T09:54:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:54:27Z",
+            "conclusion": "skipped",
+            "name": "Run embedded Qwen3 structured-output smoke test",
+            "number": 21,
+            "startedAt": "2026-09-25T09:54:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:14Z",
+            "conclusion": "success",
+            "name": "Package Desktop Artifact",
+            "number": 22,
+            "startedAt": "2026-09-25T09:54:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:42Z",
+            "conclusion": "success",
+            "name": "Upload Desktop Artifact",
+            "number": 23,
+            "startedAt": "2026-09-25T09:55:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:42Z",
+            "conclusion": "success",
+            "name": "Post Setup Node",
+            "number": 43,
+            "startedAt": "2026-09-25T09:55:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:43Z",
+            "conclusion": "success",
+            "name": "Post Setup pnpm",
+            "number": 44,
+            "startedAt": "2026-09-25T09:55:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:43Z",
+            "conclusion": "success",
+            "name": "Post Setup .NET 10",
+            "number": 45,
+            "startedAt": "2026-09-25T09:55:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:46Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 46,
+            "startedAt": "2026-09-25T09:55:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:46Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 47,
+            "startedAt": "2026-09-25T09:55:46Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019205475"
+      },
+      {
+        "completedAt": "2026-09-25T09:58:10Z",
+        "conclusion": "success",
+        "databaseId": 108019205481,
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (win-x64)",
+        "startedAt": "2026-09-25T09:30:40Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:30:44Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:30:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:52Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-09-25T09:30:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:30:54Z",
+            "conclusion": "success",
+            "name": "Setup .NET 10",
+            "number": 3,
+            "startedAt": "2026-09-25T09:30:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:18Z",
+            "conclusion": "success",
+            "name": "Ensure OTLP proto files",
+            "number": 4,
+            "startedAt": "2026-09-25T09:30:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:39Z",
+            "conclusion": "success",
+            "name": "Setup pnpm",
+            "number": 5,
+            "startedAt": "2026-09-25T09:31:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:52Z",
+            "conclusion": "success",
+            "name": "Setup Node",
+            "number": 6,
+            "startedAt": "2026-09-25T09:31:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:31:52Z",
+            "conclusion": "skipped",
+            "name": "Install Linux Native Toolchains",
+            "number": 7,
+            "startedAt": "2026-09-25T09:31:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:32:51Z",
+            "conclusion": "success",
+            "name": "Validate Browser MCP (self-contained, non-AOT)",
+            "number": 8,
+            "startedAt": "2026-09-25T09:31:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:33:56Z",
+            "conclusion": "success",
+            "name": "Validate Git MCP (Native AOT)",
+            "number": 9,
+            "startedAt": "2026-09-25T09:32:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:38:57Z",
+            "conclusion": "success",
+            "name": "Validate GitHub Copilot MCP (Native AOT)",
+            "number": 10,
+            "startedAt": "2026-09-25T09:33:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:39:44Z",
+            "conclusion": "success",
+            "name": "Validate Cmd MCP (Native AOT)",
+            "number": 11,
+            "startedAt": "2026-09-25T09:38:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:41:55Z",
+            "conclusion": "success",
+            "name": "Validate Document MCP (Native AOT)",
+            "number": 12,
+            "startedAt": "2026-09-25T09:39:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:44:33Z",
+            "conclusion": "success",
+            "name": "Validate DocIngestor MCP (Native AOT)",
+            "number": 13,
+            "startedAt": "2026-09-25T09:41:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:44:33Z",
+            "conclusion": "skipped",
+            "name": "Validate Darwin native cryptography and planner",
+            "number": 14,
+            "startedAt": "2026-09-25T09:44:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:44:41Z",
+            "conclusion": "success",
+            "name": "Build UI (Vite)",
+            "number": 15,
+            "startedAt": "2026-09-25T09:44:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:44:42Z",
+            "conclusion": "success",
+            "name": "Compute Version",
+            "number": 16,
+            "startedAt": "2026-09-25T09:44:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:35Z",
+            "conclusion": "success",
+            "name": "Publish Desktop (Trimmed Managed)",
+            "number": 17,
+            "startedAt": "2026-09-25T09:44:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:38Z",
+            "conclusion": "success",
+            "name": "Validate Bundled Desktop Tools",
+            "number": 18,
+            "startedAt": "2026-09-25T09:55:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:49Z",
+            "conclusion": "success",
+            "name": "Cache pinned Qwen3 smoke-test model",
+            "number": 19,
+            "startedAt": "2026-09-25T09:55:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:55:50Z",
+            "conclusion": "success",
+            "name": "Acquire and verify pinned Qwen3 smoke-test model",
+            "number": 20,
+            "startedAt": "2026-09-25T09:55:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:56:17Z",
+            "conclusion": "success",
+            "name": "Run embedded Qwen3 structured-output smoke test",
+            "number": 21,
+            "startedAt": "2026-09-25T09:55:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:57:31Z",
+            "conclusion": "success",
+            "name": "Package Desktop Artifact",
+            "number": 22,
+            "startedAt": "2026-09-25T09:56:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:58:04Z",
+            "conclusion": "success",
+            "name": "Upload Desktop Artifact",
+            "number": 23,
+            "startedAt": "2026-09-25T09:57:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:58:05Z",
+            "conclusion": "success",
+            "name": "Post Cache pinned Qwen3 smoke-test model",
+            "number": 42,
+            "startedAt": "2026-09-25T09:58:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:58:05Z",
+            "conclusion": "success",
+            "name": "Post Setup Node",
+            "number": 43,
+            "startedAt": "2026-09-25T09:58:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:58:05Z",
+            "conclusion": "success",
+            "name": "Post Setup pnpm",
+            "number": 44,
+            "startedAt": "2026-09-25T09:58:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:58:05Z",
+            "conclusion": "success",
+            "name": "Post Setup .NET 10",
+            "number": 45,
+            "startedAt": "2026-09-25T09:58:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:58:08Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 46,
+            "startedAt": "2026-09-25T09:58:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:58:09Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 47,
+            "startedAt": "2026-09-25T09:58:08Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019205481"
+      },
+      {
+        "completedAt": "2026-09-25T09:30:37Z",
+        "conclusion": "skipped",
+        "databaseId": 108019206674,
+        "name": "Publish .NET packages to NuGet",
+        "startedAt": "2026-09-25T09:30:37Z",
+        "status": "completed",
+        "steps": [],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019206674"
+      },
+      {
+        "completedAt": "2026-09-25T09:30:37Z",
+        "conclusion": "skipped",
+        "databaseId": 108019206807,
+        "name": "Publish gnougo-flow-core to PyPI",
+        "startedAt": "2026-09-25T09:30:37Z",
+        "status": "completed",
+        "steps": [],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019206807"
+      },
+      {
+        "completedAt": "2026-09-25T09:30:37Z",
+        "conclusion": "skipped",
+        "databaseId": 108019206819,
+        "name": "ProxyCopilot (Native AOT)",
+        "startedAt": "2026-09-25T09:30:37Z",
+        "status": "completed",
+        "steps": [],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108019206819"
+      },
+      {
+        "completedAt": "2026-09-25T09:58:10Z",
+        "conclusion": "skipped",
+        "databaseId": 108027442238,
+        "name": "Publish Release (v0.20.0-pr.113.780)",
+        "startedAt": "2026-09-25T09:58:10Z",
+        "status": "completed",
+        "steps": [],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418/job/108027442238"
+      }
+    ],
+    "name": "Build (GnOuGo.Agent)",
+    "status": "completed",
+    "updatedAt": "2026-09-25T09:58:11Z",
+    "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118254418"
+  },
+  {
+    "conclusion": "success",
+    "createdAt": "2026-09-25T09:24:28Z",
+    "databaseId": 36118253724,
+    "headSha": "1e1d2ee4c6c97a46b6645cc1dc4bc364ee850615",
+    "jobs": [
+      {
+        "completedAt": "2026-09-25T09:29:18Z",
+        "conclusion": "success",
+        "databaseId": 108017335294,
+        "name": "validate",
+        "startedAt": "2026-09-25T09:24:33Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:24:35Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:24:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:37Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7.0.1",
+            "number": 2,
+            "startedAt": "2026-09-25T09:24:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:38Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-dotnet@v6.0.0",
+            "number": 3,
+            "startedAt": "2026-09-25T09:24:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:49Z",
+            "conclusion": "success",
+            "name": "Run ./.github/actions/ensure-otlp-protos",
+            "number": 4,
+            "startedAt": "2026-09-25T09:24:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:28:03Z",
+            "conclusion": "success",
+            "name": "Test planner, runtime and host integration",
+            "number": 5,
+            "startedAt": "2026-09-25T09:24:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:28:28Z",
+            "conclusion": "success",
+            "name": "Pack independently publishable Flow libraries",
+            "number": 6,
+            "startedAt": "2026-09-25T09:28:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:28:39Z",
+            "conclusion": "success",
+            "name": "Build isolated live benchmark host",
+            "number": 7,
+            "startedAt": "2026-09-25T09:28:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:29:15Z",
+            "conclusion": "success",
+            "name": "Publish and run Native AOT smoke",
+            "number": 8,
+            "startedAt": "2026-09-25T09:28:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:29:15Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-dotnet@v6.0.0",
+            "number": 15,
+            "startedAt": "2026-09-25T09:29:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:29:16Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7.0.1",
+            "number": 16,
+            "startedAt": "2026-09-25T09:29:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:29:16Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 17,
+            "startedAt": "2026-09-25T09:29:16Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118253724/job/108017335294"
+      }
+    ],
+    "name": "Deterministic planner validation",
+    "status": "completed",
+    "updatedAt": "2026-09-25T09:29:19Z",
+    "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118253724"
+  },
+  {
+    "conclusion": "success",
+    "createdAt": "2026-09-25T09:24:28Z",
+    "databaseId": 36118253780,
+    "headSha": "1e1d2ee4c6c97a46b6645cc1dc4bc364ee850615",
+    "jobs": [
+      {
+        "completedAt": "2026-09-25T09:24:54Z",
+        "conclusion": "success",
+        "databaseId": 108017334914,
+        "name": "Build all nine frontends",
+        "startedAt": "2026-09-25T09:24:31Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:24:33Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:24:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:34Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7.0.1",
+            "number": 2,
+            "startedAt": "2026-09-25T09:24:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:38Z",
+            "conclusion": "success",
+            "name": "Run pnpm/action-setup@v6.1.0",
+            "number": 3,
+            "startedAt": "2026-09-25T09:24:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:43Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@v7.0.0",
+            "number": 4,
+            "startedAt": "2026-09-25T09:24:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:44Z",
+            "conclusion": "success",
+            "name": "Run pnpm install --frozen-lockfile --strict-peer-dependencies",
+            "number": 5,
+            "startedAt": "2026-09-25T09:24:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:50Z",
+            "conclusion": "success",
+            "name": "Run pnpm --recursive --workspace-concurrency=2 run build",
+            "number": 6,
+            "startedAt": "2026-09-25T09:24:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:51Z",
+            "conclusion": "success",
+            "name": "Run pnpm --recursive --if-present test",
+            "number": 7,
+            "startedAt": "2026-09-25T09:24:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:51Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@v7.0.0",
+            "number": 12,
+            "startedAt": "2026-09-25T09:24:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:51Z",
+            "conclusion": "success",
+            "name": "Post Run pnpm/action-setup@v6.1.0",
+            "number": 13,
+            "startedAt": "2026-09-25T09:24:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:52Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7.0.1",
+            "number": 14,
+            "startedAt": "2026-09-25T09:24:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:52Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 15,
+            "startedAt": "2026-09-25T09:24:52Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118253780/job/108017334914"
+      },
+      {
+        "completedAt": "2026-09-25T09:24:58Z",
+        "conclusion": "success",
+        "databaseId": 108017335198,
+        "name": "Python 3.14 tests, lint and packages",
+        "startedAt": "2026-09-25T09:24:30Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:24:32Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:24:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:33Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7.0.1",
+            "number": 2,
+            "startedAt": "2026-09-25T09:24:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:34Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@v7.0.0",
+            "number": 3,
+            "startedAt": "2026-09-25T09:24:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:36Z",
+            "conclusion": "success",
+            "name": "Run astral-sh/setup-uv@v10.2.0",
+            "number": 4,
+            "startedAt": "2026-09-25T09:24:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:56Z",
+            "conclusion": "success",
+            "name": "Validate both locked Python packages",
+            "number": 5,
+            "startedAt": "2026-09-25T09:24:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:56Z",
+            "conclusion": "success",
+            "name": "Post Run astral-sh/setup-uv@v10.2.0",
+            "number": 8,
+            "startedAt": "2026-09-25T09:24:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:56Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@v7.0.0",
+            "number": 9,
+            "startedAt": "2026-09-25T09:24:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:56Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7.0.1",
+            "number": 10,
+            "startedAt": "2026-09-25T09:24:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:56Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-09-25T09:24:56Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118253780/job/108017335198"
+      },
+      {
+        "completedAt": "2026-09-25T09:25:01Z",
+        "conclusion": "success",
+        "databaseId": 108017335348,
+        "name": "Python 3.10 tests, lint and packages",
+        "startedAt": "2026-09-25T09:24:32Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:24:34Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:24:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:35Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7.0.1",
+            "number": 2,
+            "startedAt": "2026-09-25T09:24:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:36Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@v7.0.0",
+            "number": 3,
+            "startedAt": "2026-09-25T09:24:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:39Z",
+            "conclusion": "success",
+            "name": "Run astral-sh/setup-uv@v10.2.0",
+            "number": 4,
+            "startedAt": "2026-09-25T09:24:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:58Z",
+            "conclusion": "success",
+            "name": "Validate both locked Python packages",
+            "number": 5,
+            "startedAt": "2026-09-25T09:24:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:58Z",
+            "conclusion": "success",
+            "name": "Post Run astral-sh/setup-uv@v10.2.0",
+            "number": 8,
+            "startedAt": "2026-09-25T09:24:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:58Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@v7.0.0",
+            "number": 9,
+            "startedAt": "2026-09-25T09:24:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:58Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7.0.1",
+            "number": 10,
+            "startedAt": "2026-09-25T09:24:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:58Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-09-25T09:24:58Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118253780/job/108017335348"
+      }
+    ],
+    "name": "Frontend and Python dependency validation",
+    "status": "completed",
+    "updatedAt": "2026-09-25T09:25:02Z",
+    "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118253780"
+  },
+  {
+    "conclusion": "success",
+    "createdAt": "2026-09-25T09:24:28Z",
+    "databaseId": 36118253728,
+    "headSha": "1e1d2ee4c6c97a46b6645cc1dc4bc364ee850615",
+    "jobs": [
+      {
+        "completedAt": "2026-09-25T09:26:03Z",
+        "conclusion": "success",
+        "databaseId": 108017335349,
+        "name": "ProxyCopilot AOT (linux-x64)",
+        "startedAt": "2026-09-25T09:24:31Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:24:33Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:24:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:35Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7.0.1",
+            "number": 2,
+            "startedAt": "2026-09-25T09:24:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:35Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-dotnet@v6.0.0",
+            "number": 3,
+            "startedAt": "2026-09-25T09:24:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:36Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@v7.0.0",
+            "number": 4,
+            "startedAt": "2026-09-25T09:24:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:39Z",
+            "conclusion": "success",
+            "name": "Run pnpm/action-setup@v6.1.0",
+            "number": 5,
+            "startedAt": "2026-09-25T09:24:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:42Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@v7.0.0",
+            "number": 6,
+            "startedAt": "2026-09-25T09:24:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:51Z",
+            "conclusion": "success",
+            "name": "Install Linux native toolchain",
+            "number": 7,
+            "startedAt": "2026-09-25T09:24:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:55Z",
+            "conclusion": "success",
+            "name": "Build frontend",
+            "number": 8,
+            "startedAt": "2026-09-25T09:24:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:56Z",
+            "conclusion": "success",
+            "name": "Check public defaults and create a publish-exclusion sentinel",
+            "number": 9,
+            "startedAt": "2026-09-25T09:24:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:56Z",
+            "conclusion": "success",
+            "name": "Publish Native AOT",
+            "number": 10,
+            "startedAt": "2026-09-25T09:24:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:00Z",
+            "conclusion": "success",
+            "name": "Package and smoke-test the extracted release archive",
+            "number": 11,
+            "startedAt": "2026-09-25T09:25:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:01Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@v7.0.1",
+            "number": 12,
+            "startedAt": "2026-09-25T09:26:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:01Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@v7.0.0",
+            "number": 20,
+            "startedAt": "2026-09-25T09:26:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:01Z",
+            "conclusion": "success",
+            "name": "Post Run pnpm/action-setup@v6.1.0",
+            "number": 21,
+            "startedAt": "2026-09-25T09:26:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:01Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@v7.0.0",
+            "number": 22,
+            "startedAt": "2026-09-25T09:26:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:01Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-dotnet@v6.0.0",
+            "number": 23,
+            "startedAt": "2026-09-25T09:26:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:02Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7.0.1",
+            "number": 24,
+            "startedAt": "2026-09-25T09:26:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:02Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 25,
+            "startedAt": "2026-09-25T09:26:02Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118253728/job/108017335349"
+      },
+      {
+        "completedAt": "2026-09-25T09:29:54Z",
+        "conclusion": "success",
+        "databaseId": 108017335488,
+        "name": "ProxyCopilot AOT (osx-x64)",
+        "startedAt": "2026-09-25T09:24:34Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:24:38Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:24:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:42Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7.0.1",
+            "number": 2,
+            "startedAt": "2026-09-25T09:24:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:21Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-dotnet@v6.0.0",
+            "number": 3,
+            "startedAt": "2026-09-25T09:24:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:21Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@v7.0.0",
+            "number": 4,
+            "startedAt": "2026-09-25T09:25:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:34Z",
+            "conclusion": "success",
+            "name": "Run pnpm/action-setup@v6.1.0",
+            "number": 5,
+            "startedAt": "2026-09-25T09:25:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:50Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@v7.0.0",
+            "number": 6,
+            "startedAt": "2026-09-25T09:25:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:50Z",
+            "conclusion": "skipped",
+            "name": "Install Linux native toolchain",
+            "number": 7,
+            "startedAt": "2026-09-25T09:25:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:20Z",
+            "conclusion": "success",
+            "name": "Build frontend",
+            "number": 8,
+            "startedAt": "2026-09-25T09:25:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:21Z",
+            "conclusion": "success",
+            "name": "Check public defaults and create a publish-exclusion sentinel",
+            "number": 9,
+            "startedAt": "2026-09-25T09:26:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:29:05Z",
+            "conclusion": "success",
+            "name": "Publish Native AOT",
+            "number": 10,
+            "startedAt": "2026-09-25T09:26:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:29:45Z",
+            "conclusion": "success",
+            "name": "Package and smoke-test the extracted release archive",
+            "number": 11,
+            "startedAt": "2026-09-25T09:29:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:29:48Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@v7.0.1",
+            "number": 12,
+            "startedAt": "2026-09-25T09:29:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:29:48Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@v7.0.0",
+            "number": 20,
+            "startedAt": "2026-09-25T09:29:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:29:49Z",
+            "conclusion": "success",
+            "name": "Post Run pnpm/action-setup@v6.1.0",
+            "number": 21,
+            "startedAt": "2026-09-25T09:29:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:29:49Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@v7.0.0",
+            "number": 22,
+            "startedAt": "2026-09-25T09:29:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:29:49Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-dotnet@v6.0.0",
+            "number": 23,
+            "startedAt": "2026-09-25T09:29:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:29:50Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7.0.1",
+            "number": 24,
+            "startedAt": "2026-09-25T09:29:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:29:51Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 25,
+            "startedAt": "2026-09-25T09:29:50Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118253728/job/108017335488"
+      },
+      {
+        "completedAt": "2026-09-25T09:26:45Z",
+        "conclusion": "success",
+        "databaseId": 108017335527,
+        "name": "ProxyCopilot AOT (osx-arm64)",
+        "startedAt": "2026-09-25T09:24:35Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:24:39Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:24:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:41Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7.0.1",
+            "number": 2,
+            "startedAt": "2026-09-25T09:24:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:56Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-dotnet@v6.0.0",
+            "number": 3,
+            "startedAt": "2026-09-25T09:24:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:56Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@v7.0.0",
+            "number": 4,
+            "startedAt": "2026-09-25T09:24:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:00Z",
+            "conclusion": "success",
+            "name": "Run pnpm/action-setup@v6.1.0",
+            "number": 5,
+            "startedAt": "2026-09-25T09:24:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:05Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@v7.0.0",
+            "number": 6,
+            "startedAt": "2026-09-25T09:25:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:05Z",
+            "conclusion": "skipped",
+            "name": "Install Linux native toolchain",
+            "number": 7,
+            "startedAt": "2026-09-25T09:25:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:09Z",
+            "conclusion": "success",
+            "name": "Build frontend",
+            "number": 8,
+            "startedAt": "2026-09-25T09:25:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:10Z",
+            "conclusion": "success",
+            "name": "Check public defaults and create a publish-exclusion sentinel",
+            "number": 9,
+            "startedAt": "2026-09-25T09:25:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:59Z",
+            "conclusion": "success",
+            "name": "Publish Native AOT",
+            "number": 10,
+            "startedAt": "2026-09-25T09:25:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:38Z",
+            "conclusion": "success",
+            "name": "Package and smoke-test the extracted release archive",
+            "number": 11,
+            "startedAt": "2026-09-25T09:25:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:40Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@v7.0.1",
+            "number": 12,
+            "startedAt": "2026-09-25T09:26:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:40Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@v7.0.0",
+            "number": 20,
+            "startedAt": "2026-09-25T09:26:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:40Z",
+            "conclusion": "success",
+            "name": "Post Run pnpm/action-setup@v6.1.0",
+            "number": 21,
+            "startedAt": "2026-09-25T09:26:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:41Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@v7.0.0",
+            "number": 22,
+            "startedAt": "2026-09-25T09:26:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:41Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-dotnet@v6.0.0",
+            "number": 23,
+            "startedAt": "2026-09-25T09:26:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:41Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7.0.1",
+            "number": 24,
+            "startedAt": "2026-09-25T09:26:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:42Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 25,
+            "startedAt": "2026-09-25T09:26:41Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118253728/job/108017335527"
+      },
+      {
+        "completedAt": "2026-09-25T09:28:04Z",
+        "conclusion": "success",
+        "databaseId": 108017335601,
+        "name": "ProxyCopilot AOT (win-arm64)",
+        "startedAt": "2026-09-25T09:24:32Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:24:36Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:24:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:47Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7.0.1",
+            "number": 2,
+            "startedAt": "2026-09-25T09:24:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:50Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-dotnet@v6.0.0",
+            "number": 3,
+            "startedAt": "2026-09-25T09:24:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:51Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@v7.0.0",
+            "number": 4,
+            "startedAt": "2026-09-25T09:24:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:11Z",
+            "conclusion": "success",
+            "name": "Run pnpm/action-setup@v6.1.0",
+            "number": 5,
+            "startedAt": "2026-09-25T09:24:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:46Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@v7.0.0",
+            "number": 6,
+            "startedAt": "2026-09-25T09:25:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:46Z",
+            "conclusion": "skipped",
+            "name": "Install Linux native toolchain",
+            "number": 7,
+            "startedAt": "2026-09-25T09:25:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:12Z",
+            "conclusion": "success",
+            "name": "Build frontend",
+            "number": 8,
+            "startedAt": "2026-09-25T09:25:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:14Z",
+            "conclusion": "success",
+            "name": "Check public defaults and create a publish-exclusion sentinel",
+            "number": 9,
+            "startedAt": "2026-09-25T09:26:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:50Z",
+            "conclusion": "success",
+            "name": "Publish Native AOT",
+            "number": 10,
+            "startedAt": "2026-09-25T09:26:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:54Z",
+            "conclusion": "success",
+            "name": "Package and smoke-test the extracted release archive",
+            "number": 11,
+            "startedAt": "2026-09-25T09:27:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:56Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@v7.0.1",
+            "number": 12,
+            "startedAt": "2026-09-25T09:27:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:56Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@v7.0.0",
+            "number": 20,
+            "startedAt": "2026-09-25T09:27:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:56Z",
+            "conclusion": "success",
+            "name": "Post Run pnpm/action-setup@v6.1.0",
+            "number": 21,
+            "startedAt": "2026-09-25T09:27:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:57Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@v7.0.0",
+            "number": 22,
+            "startedAt": "2026-09-25T09:27:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:57Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-dotnet@v6.0.0",
+            "number": 23,
+            "startedAt": "2026-09-25T09:27:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:28:03Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7.0.1",
+            "number": 24,
+            "startedAt": "2026-09-25T09:27:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:28:03Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 25,
+            "startedAt": "2026-09-25T09:28:03Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118253728/job/108017335601"
+      },
+      {
+        "completedAt": "2026-09-25T09:26:01Z",
+        "conclusion": "success",
+        "databaseId": 108017335670,
+        "name": "ProxyCopilot AOT (linux-arm64)",
+        "startedAt": "2026-09-25T09:24:33Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:24:35Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:24:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:37Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7.0.1",
+            "number": 2,
+            "startedAt": "2026-09-25T09:24:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:37Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-dotnet@v6.0.0",
+            "number": 3,
+            "startedAt": "2026-09-25T09:24:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:37Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@v7.0.0",
+            "number": 4,
+            "startedAt": "2026-09-25T09:24:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:40Z",
+            "conclusion": "success",
+            "name": "Run pnpm/action-setup@v6.1.0",
+            "number": 5,
+            "startedAt": "2026-09-25T09:24:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:42Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@v7.0.0",
+            "number": 6,
+            "startedAt": "2026-09-25T09:24:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:58Z",
+            "conclusion": "success",
+            "name": "Install Linux native toolchain",
+            "number": 7,
+            "startedAt": "2026-09-25T09:24:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:01Z",
+            "conclusion": "success",
+            "name": "Build frontend",
+            "number": 8,
+            "startedAt": "2026-09-25T09:24:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:02Z",
+            "conclusion": "success",
+            "name": "Check public defaults and create a publish-exclusion sentinel",
+            "number": 9,
+            "startedAt": "2026-09-25T09:25:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:55Z",
+            "conclusion": "success",
+            "name": "Publish Native AOT",
+            "number": 10,
+            "startedAt": "2026-09-25T09:25:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:58Z",
+            "conclusion": "success",
+            "name": "Package and smoke-test the extracted release archive",
+            "number": 11,
+            "startedAt": "2026-09-25T09:25:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:59Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@v7.0.1",
+            "number": 12,
+            "startedAt": "2026-09-25T09:25:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:59Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@v7.0.0",
+            "number": 20,
+            "startedAt": "2026-09-25T09:25:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:59Z",
+            "conclusion": "success",
+            "name": "Post Run pnpm/action-setup@v6.1.0",
+            "number": 21,
+            "startedAt": "2026-09-25T09:25:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:59Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@v7.0.0",
+            "number": 22,
+            "startedAt": "2026-09-25T09:25:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:59Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-dotnet@v6.0.0",
+            "number": 23,
+            "startedAt": "2026-09-25T09:25:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:59Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7.0.1",
+            "number": 24,
+            "startedAt": "2026-09-25T09:25:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:00Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 25,
+            "startedAt": "2026-09-25T09:25:59Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118253728/job/108017335670"
+      },
+      {
+        "completedAt": "2026-09-25T09:27:13Z",
+        "conclusion": "success",
+        "databaseId": 108017335734,
+        "name": "ProxyCopilot AOT (win-x64)",
+        "startedAt": "2026-09-25T09:24:31Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:24:35Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:24:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:41Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7.0.1",
+            "number": 2,
+            "startedAt": "2026-09-25T09:24:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:13Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-dotnet@v6.0.0",
+            "number": 3,
+            "startedAt": "2026-09-25T09:24:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:13Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@v7.0.0",
+            "number": 4,
+            "startedAt": "2026-09-25T09:25:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:31Z",
+            "conclusion": "success",
+            "name": "Run pnpm/action-setup@v6.1.0",
+            "number": 5,
+            "startedAt": "2026-09-25T09:25:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:43Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@v7.0.0",
+            "number": 6,
+            "startedAt": "2026-09-25T09:25:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:43Z",
+            "conclusion": "skipped",
+            "name": "Install Linux native toolchain",
+            "number": 7,
+            "startedAt": "2026-09-25T09:25:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:48Z",
+            "conclusion": "success",
+            "name": "Build frontend",
+            "number": 8,
+            "startedAt": "2026-09-25T09:25:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:50Z",
+            "conclusion": "success",
+            "name": "Check public defaults and create a publish-exclusion sentinel",
+            "number": 9,
+            "startedAt": "2026-09-25T09:25:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:02Z",
+            "conclusion": "success",
+            "name": "Publish Native AOT",
+            "number": 10,
+            "startedAt": "2026-09-25T09:25:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:07Z",
+            "conclusion": "success",
+            "name": "Package and smoke-test the extracted release archive",
+            "number": 11,
+            "startedAt": "2026-09-25T09:27:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:09Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@v7.0.1",
+            "number": 12,
+            "startedAt": "2026-09-25T09:27:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:09Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@v7.0.0",
+            "number": 20,
+            "startedAt": "2026-09-25T09:27:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:09Z",
+            "conclusion": "success",
+            "name": "Post Run pnpm/action-setup@v6.1.0",
+            "number": 21,
+            "startedAt": "2026-09-25T09:27:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:09Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@v7.0.0",
+            "number": 22,
+            "startedAt": "2026-09-25T09:27:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:09Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-dotnet@v6.0.0",
+            "number": 23,
+            "startedAt": "2026-09-25T09:27:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:12Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7.0.1",
+            "number": 24,
+            "startedAt": "2026-09-25T09:27:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:27:12Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 25,
+            "startedAt": "2026-09-25T09:27:12Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118253728/job/108017335734"
+      }
+    ],
+    "name": "Build ProxyCopilot Native AOT",
+    "status": "completed",
+    "updatedAt": "2026-09-25T09:29:55Z",
+    "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118253728"
+  },
+  {
+    "conclusion": "success",
+    "createdAt": "2026-09-25T09:24:28Z",
+    "databaseId": 36118253769,
+    "headSha": "1e1d2ee4c6c97a46b6645cc1dc4bc364ee850615",
+    "jobs": [
+      {
+        "completedAt": "2026-09-25T09:26:31Z",
+        "conclusion": "success",
+        "databaseId": 108017335489,
+        "name": "standalone",
+        "startedAt": "2026-09-25T09:24:32Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-09-25T09:24:35Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-09-25T09:24:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:36Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7.0.1",
+            "number": 2,
+            "startedAt": "2026-09-25T09:24:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:37Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-dotnet@v6.0.0",
+            "number": 3,
+            "startedAt": "2026-09-25T09:24:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:24:42Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@v7.0.0",
+            "number": 4,
+            "startedAt": "2026-09-25T09:24:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:25:22Z",
+            "conclusion": "success",
+            "name": "Build UI and test components",
+            "number": 5,
+            "startedAt": "2026-09-25T09:24:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:00Z",
+            "conclusion": "success",
+            "name": "Publish Native AOT",
+            "number": 6,
+            "startedAt": "2026-09-25T09:25:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:26Z",
+            "conclusion": "success",
+            "name": "Published binary and browser smoke",
+            "number": 7,
+            "startedAt": "2026-09-25T09:26:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:27Z",
+            "conclusion": "success",
+            "name": "Run actions/upload-artifact@v7.0.1",
+            "number": 8,
+            "startedAt": "2026-09-25T09:26:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:28Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@v7.0.0",
+            "number": 14,
+            "startedAt": "2026-09-25T09:26:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:28Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-dotnet@v6.0.0",
+            "number": 15,
+            "startedAt": "2026-09-25T09:26:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:28Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7.0.1",
+            "number": 16,
+            "startedAt": "2026-09-25T09:26:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-09-25T09:26:28Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 17,
+            "startedAt": "2026-09-25T09:26:28Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118253769/job/108017335489"
+      }
+    ],
+    "name": "ProxyCopilot standalone validation",
+    "status": "completed",
+    "updatedAt": "2026-09-25T09:26:31Z",
+    "url": "https://github.com/GnouGo/GnouGo/actions/runs/36118253769"
+  }
+]

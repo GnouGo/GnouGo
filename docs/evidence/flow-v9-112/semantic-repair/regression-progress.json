@@ -1,0 +1,47 @@
+{
+  "before": {
+    "total": 7,
+    "passed": 4,
+    "failed": 3
+  },
+  "preflight": {
+    "total": 7,
+    "passed": 5,
+    "failed": 2
+  },
+  "preflight-all": {
+    "total": 160,
+    "passed": 158,
+    "failed": 2
+  },
+  "repair-all": {
+    "total": 160,
+    "passed": 153,
+    "failed": 7
+  },
+  "iteration-3": {
+    "total": 164,
+    "passed": 164,
+    "failed": 0
+  },
+  "duplicate-choice-before": {
+    "total": 1,
+    "passed": 0,
+    "failed": 1
+  },
+  "boundaries": {
+    "total": 169,
+    "passed": 169,
+    "failed": 0
+  },
+  "ambiguous-location-before": {
+    "total": 1,
+    "passed": 0,
+    "failed": 1
+  },
+  "final-boundaries": {
+    "total": 170,
+    "passed": 170,
+    "failed": 0
+  }
+}

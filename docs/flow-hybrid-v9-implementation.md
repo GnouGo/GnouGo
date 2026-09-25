@@ -84,6 +84,8 @@ The reports below describe their pinned revisions, not the current implementatio
 
 The latest live source remains `d636c99`; its failed parallel-export repair, accounting and all previous evidence remain unchanged. Semantic preflight/repair follow-up uses deterministic tests only and makes no new live-performance claim.
 
+The [semantic diagnostics and repair report](evidence/flow-v9-112/semantic-repair/README.md) records deterministic validation at `1e1d2ee`: 2,877 .NET tests, 314 Python package tests, four script tests, eight Native AOT planner scenarios and all applicable CI workflows passed. It preserves failed regression attempts and hashes of the unchanged historical evidence.
+
 Real Copilot command edit/test execution remains unverified. This Mac lacks mandatory administrator-managed sandbox policy. The prior isolated non-root Linux container recognized that policy but failed its enforcement probe on the available host. No command-task prompt was dispatched. The adapter fails closed; controlled file editing, Native AOT publication and simulated workflow success do not establish command execution. Keep the PR draft and do not bypass enforcement.
 
 ## Published persistence and framework exceptions

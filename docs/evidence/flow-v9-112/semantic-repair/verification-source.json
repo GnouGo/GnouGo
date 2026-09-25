@@ -1,0 +1,12 @@
+{
+  "source_commit": "1e1d2ee4c6c97a46b6645cc1dc4bc364ee850615",
+  "base_commit": "c0c3c03590811ccb3b7244bb4ff8f2167b610d00",
+  "live_dispatches": 0,
+  "prior_evidence_files_unchanged": 57,
+  "oracle_sha256": {
+    "tests/Shared/PlanningBenchmarkCases.cs": "a25de6fc75d94a06c5dc8fce96d04eb09ba4132caec76f35e7f644912433f998",
+    "tests/Shared/PlanningCorpus.cs": "c560e212c4c60b56210caa71d0cbe6b8f04d15def07ec71c4c7efdaef9d06ad7",
+    "tests/Shared/PlanningBenchmarkMeasurements.cs": "3416e9e95a7a062003b8a8cddbb305a99fc681c95b933cb10c0e176fe8156450",
+    "tests/GnOuGo.Agent.Planning.Benchmark/Program.cs": "41688b458e923a31c6301a7bf81a6180b0266d890fc632a9f6b961268ecdd9b9"
+  }
+}
