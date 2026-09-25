@@ -7,8 +7,16 @@ internal static class PlanningSchemas
 {
     internal static JsonObject Proposal(PlanningSession state)
     {
-        var root = Object(("requirements", Ref("requirements")), ("sourceId", Nullable(String())), ("cursor", Nullable(String())),
-            ("plan", Nullable(Ref("plan"))), ("explanation", String()));
+        var pages = state.Discovery.Sources.SelectMany(source =>
+            (state.Discovery.Pages.Any(p => p.SourceId == source.Id && p.Cursor is null) ? Enumerable.Empty<string?>() : [null])
+            .Concat(state.Discovery.Pages.Where(p => p.SourceId == source.Id).Select(p => p.NextCursor).OfType<string>())
+            .Where(cursor => !state.Discovery.Pages.Any(p => p.SourceId == source.Id && p.Cursor == cursor))
+            .Select(cursor => (Source: source.Id, Cursor: cursor))).Distinct().ToArray();
+        var cursors = pages.Select(p => p.Cursor).OfType<string>().Distinct(StringComparer.Ordinal).ToArray();
+        var root = Object(("requirements", Ref("requirements")),
+            ("sourceId", pages.Length == 0 ? Type("null") : Nullable(Enum(pages.Select(p => p.Source).Distinct(StringComparer.Ordinal).ToArray()))),
+            ("cursor", cursors.Length == 0 ? Type("null") : Nullable(Enum(cursors))),
+            ("plan", pages.Length == 0 ? Ref("plan") : Nullable(Ref("plan"))), ("explanation", String()));
         root["$defs"] = new JsonObject
         {
             ["strings"] = Array(String()),
@@ -21,9 +29,17 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("output")), ("source", String()), ("port", Nullable(String()))),
                 Object(("kind", Enum("item", "index"))),
                 Object(("kind", Enum("predicate")), ("predicate", Enum("not", "and", "or", "equal", "not_equal", "less", "less_equal", "greater", "greater_equal")), ("items", Array(Ref("value"))))) },
+            ["literal"] = new JsonObject { ["anyOf"] = new JsonArray(
+                Object(("kind", Enum("null"))), Object(("kind", Enum("string")), ("text", String())),
+                Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
+                Object(("kind", Enum("object")), ("members", Array(Object(("name", String()), ("value", Ref("literal")))))),
+                Object(("kind", Enum("array")), ("items", Array(Ref("literal"))))) },
             ["businessType"] = Object(("kind", Enum("string", "number", "integer", "boolean", "array", "object", "any")),
-                ("nullable", Type("boolean")), ("items", Nullable(Ref("businessType"))), ("fields", Array(Ref("input")))),
-            ["input"] = Object(("name", String()), ("type", Ref("businessType")), ("required", Type("boolean")), ("default", Nullable(Ref("value")))),
+                ("nullable", Type("boolean")), ("items", Nullable(Ref("businessType"))), ("fields", Array(Ref("field")))),
+            ["field"] = Object(("name", String()), ("type", Ref("businessType")), ("required", Type("boolean")), ("default", Nullable(Ref("literal")))),
+            ["input"] = new JsonObject { ["anyOf"] = new JsonArray(
+                Object(("name", String()), ("type", Ref("businessType")), ("required", new() { ["type"] = "boolean", ["enum"] = new JsonArray(true) }), ("default", Nullable(Ref("literal")))),
+                Object(("name", String()), ("type", Ref("businessType")), ("required", new() { ["type"] = "boolean", ["enum"] = new JsonArray(false) }), ("default", Ref("literal")))) },
             ["output"] = Object(("name", String()), ("value", Ref("value"))),
             ["requirements"] = Object(("summary", String()), ("outcomes", NonEmptyArray(Object(("id", String()), ("description", String()))))),
             ["plan"] = Object(("inputs", Array(Ref("input"))), ("root", Ref("scope")), ("groups", Array(Ref("group"))), ("choices", Array(Ref("choice")))),

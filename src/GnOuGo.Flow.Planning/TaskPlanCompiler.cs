@@ -14,15 +14,27 @@ public sealed record TaskCompilation(PlanningGraph? Graph, IReadOnlyList<Plannin
         if (Graph is not null && location.StartsWith("/workflows/", StringComparison.Ordinal))
         {
             var parts = location.Split('/');
-            if (parts.Length > 2 && int.TryParse(parts[2], out var wi) && wi < Graph.Workflows.Count)
+            if (parts.Length > 2 && int.TryParse(parts[2], out var wi) && wi >= 0 && wi < Graph.Workflows.Count)
             {
                 var workflow = Graph.Workflows[wi];
-                if (parts.Length > 4 && parts[3] is "steps" or "finally" && int.TryParse(parts[4], out var ni))
+                var workflowKey = workflow.Key == PlanningConfirmationGuards.Body ? Graph.Entrypoint : workflow.Key;
+                var workflowPath = "/workflows/" + wi;
+                foreach (var (node, path) in PlanningGraphValidation.Located(workflow.Steps, workflowPath + "/steps")
+                    .Concat(PlanningGraphValidation.Located(workflow.Finally, workflowPath + "/finally")).OrderByDescending(p => p.Path.Length))
                 {
-                    var nodes = parts[3] == "steps" ? workflow.Steps : workflow.Finally;
-                    if (ni < nodes.Count && Sources.TryGetValue(nodes[ni].Key, out var task)) location = task;
+                    if (location != path && !location.StartsWith(path + "/", StringComparison.Ordinal)) continue;
+                    var address = node.Key + location[path.Length..];
+                    var source = Sources.Where(p => address == p.Key || address.StartsWith(p.Key + "/", StringComparison.Ordinal))
+                        .OrderByDescending(p => p.Key.Length).FirstOrDefault();
+                    if (source.Key is not null) { location = source.Value; break; }
                 }
-                if (location == diagnostic.Location && Sources.TryGetValue(workflow.Key, out var scope)) location = scope;
+                if (location == diagnostic.Location)
+                {
+                    var address = workflowKey + location[workflowPath.Length..];
+                    var source = Sources.Where(p => address == p.Key || address.StartsWith(p.Key + "/", StringComparison.Ordinal))
+                        .OrderByDescending(p => p.Key.Length).FirstOrDefault();
+                    if (source.Key is not null) location = source.Value;
+                }
             }
         }
         foreach (var (key, task) in Sources)
@@ -62,6 +74,9 @@ public sealed class TaskPlanCompiler
         {
             Unique(plan.Groups.Select(g => g.Id)); Unique(plan.Choices.Select(c => c.Id));
             Unique(TaskPlanRevisions.Tasks(plan).Select(t => t.Id));
+            var inputFindings = InputFindings(plan.Inputs, "/inputs")
+                .Concat(plan.Groups.SelectMany(g => InputFindings(g.Inputs, "/groups/" + g.Id + "/inputs"))).ToArray();
+            if (inputFindings.Length > 0) return new(null, inputFindings, new Dictionary<string, string>(_sources));
             foreach (var choice in plan.Choices) ValidateChoice(choice);
             foreach (var capability in catalog.Capabilities)
                 if (TaskOperations.Validate(capability).FirstOrDefault() is { } invalid)
@@ -72,7 +87,7 @@ public sealed class TaskPlanCompiler
                 if (allValues.Count(v => v.Kind == "choice" && v.Source == choice.Id) != 1)
                     throw new InvalidTask("CHOICE_SLOT_INVALID", "/choices/" + choice.Id, "A choice must target exactly one business value slot.");
             var main = new PlanningWorkflow(); _graph.Workflows.Add(main); _sources["main"] = "/root";
-            var scope = new Scope(main, null); AddInputs(scope, plan.Inputs);
+            var scope = new Scope(main, null); AddInputs(scope, plan.Inputs, "/inputs");
             CompileScope(plan.Root, scope, "main");
             return new(_graph, [], new Dictionary<string, string>(_sources));
         }
@@ -113,24 +128,44 @@ public sealed class TaskPlanCompiler
         }
     }
 
-    private void AddInputs(Scope scope, List<TaskInput> inputs)
+    private IEnumerable<PlanningDiagnostic> InputFindings(List<TaskInput> inputs, string path)
     {
+        _location = path;
         Unique(inputs.Select(i => i.Name));
         foreach (var input in inputs)
         {
-            _location = "/inputs/" + input.Name;
-            var schema = Schema(input.Type);
-            PlanningValue? fallback = null;
-            if (input.Default is { } supplied)
-            {
-                if (!Literal(supplied)) Fail("TASK_DEFAULT_INVALID", "Business input defaults must be literal.");
-                fallback = Value(supplied, scope).Value;
-                if (PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(fallback), schema).Count > 0)
-                    Fail("TASK_DEFAULT_INVALID", "A default violates its business type.");
-            }
-            if (!input.Required && fallback is null) Fail("TASK_DEFAULT_REQUIRED", "Optional business inputs require a literal default.");
-            scope.Workflow.Inputs.Add(new() { Name = input.Name, Schema = Contract(schema), Required = input.Required, Default = fallback });
-            scope.Inputs.Add(input.Name, Input(input.Name, schema));
+            _location = path + "/" + input.Name;
+            PlanningDiagnostic? finding = null;
+            try { InputPort(input); }
+            catch (InvalidTask error) { finding = error.Diagnostic; }
+            if (finding is not null) yield return finding;
+        }
+    }
+
+    private PlanningPort InputPort(TaskInput input)
+    {
+        var schema = Schema(input.Type);
+        PlanningValue? fallback = null;
+        if (input.Default is { } supplied)
+        {
+            if (!Literal(supplied)) Fail("TASK_DEFAULT_INVALID", "Business input defaults must be literal.");
+            fallback = Value(supplied, new(new(), null)).Value;
+            if (PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(fallback), schema).Count > 0)
+                Fail("TASK_DEFAULT_INVALID", "A default violates its business type.");
+        }
+        if (!input.Required && fallback is null) Fail("TASK_DEFAULT_REQUIRED", "Optional business inputs require a literal default.");
+        return new() { Name = input.Name, Schema = Contract(schema), Required = input.Required, Default = fallback };
+    }
+
+    private void AddInputs(Scope scope, List<TaskInput> inputs, string path)
+    {
+        foreach (var input in inputs)
+        {
+            _location = path + "/" + input.Name;
+            var port = InputPort(input);
+            _sources[scope.Workflow.Key + "/inputs/" + scope.Workflow.Inputs.Count] = _location;
+            scope.Workflow.Inputs.Add(port);
+            scope.Inputs.Add(input.Name, Input(input.Name, port.Schema.Contract!));
         }
     }
 
@@ -148,7 +183,19 @@ public sealed class TaskPlanCompiler
         foreach (var output in source.Outputs)
         {
             _location = (_sources.GetValueOrDefault(key) ?? "/root") + "/outputs/" + output.Name;
+            _sources[key + "/outputs/" + scope.Workflow.Outputs.Count] = _location;
             var bound = Value(output.Value, scope);
+            if (bound.Value.Kind is "object" or "array")
+            {
+                // Outputs are evaluated after cleanup. Materialize structured values there,
+                // using the existing typed primitive rather than opaque object expressions.
+                var export = Key(key, "export:" + output.Name); _sources[export] = _location;
+                var node = new PlanningNode { Key = export, Type = "set", Input = Object([new("value", bound.Value)]),
+                    OutputSchema = Contract(ObjectSchema([("value", bound.Schema)])) };
+                GuardCleanup(node);
+                scope.Workflow.Finally.Add(node);
+                bound = Output(export, "set", ["value"], bound.Schema);
+            }
             scope.Workflow.Outputs.Add(new() { Name = output.Name, Value = bound.Value, Schema = Contract(bound.Schema) });
         }
     }
@@ -254,8 +301,7 @@ public sealed class TaskPlanCompiler
         {
             foreach (var node in target.Skip(start))
             {
-                var producers = PlanningGraphTopology.ReferencedStages(node.Input).Distinct(StringComparer.Ordinal).ToArray();
-                if (producers.Length > 0) node.If = new() { Kind = "expression", Text = string.Join(" && ", producers.Select(p => "data.steps[" + Quote(p) + "] != null")) };
+                GuardCleanup(node);
             }
         }
         foreach (var node in target.Skip(start))
@@ -263,6 +309,12 @@ public sealed class TaskPlanCompiler
             _sources.TryAdd(node.Key, "/tasks/" + task.Id);
             node.Dependencies = task.DependsOn.SelectMany(id => scope.Tasks[id].Values.Select(b => b.Value.Source)).OfType<string>().Distinct().ToList();
         }
+    }
+
+    private static void GuardCleanup(PlanningNode node)
+    {
+        var producers = PlanningGraphTopology.ReferencedStages(node.Input).Distinct(StringComparer.Ordinal).ToArray();
+        if (producers.Length > 0) node.If = new() { Kind = "expression", Text = string.Join(" && ", producers.Select(p => "data.steps[" + Quote(p) + "] != null")) };
     }
 
     private Dictionary<string, Bound> Operation(PlanTask task, Scope scope, List<PlanningNode> target, string key)
@@ -275,6 +327,7 @@ public sealed class TaskPlanCompiler
         var input = Object([]);
         foreach (var argument in task.Inputs)
         {
+            _location = "/tasks/" + task.Id + "/inputs/" + argument.Name;
             var port = operation.Inputs.SingleOrDefault(p => p.Name == argument.Name);
             if (port is null) Fail("TASK_INPUT_UNKNOWN", "Choose a declared business input port: " + argument.Name);
             if (capability.StepType == "agent.run" && port!.Path[0] is "objective" or "workspace" or "capabilities" or "budget" or "verification" or "output_schema" && !Literal(argument.Value))
@@ -284,7 +337,19 @@ public sealed class TaskPlanCompiler
             Bind(input, port.Path, bound.Value);
         }
         foreach (var port in operation.Inputs.Where(p => p.Required))
-            if (!task.Inputs.Any(i => i.Name == port.Name)) Fail("TASK_INPUT_REQUIRED", "Required business input: " + port.Name);
+            if (!task.Inputs.Any(i => i.Name == port.Name))
+            { _location = "/tasks/" + task.Id + "/inputs/" + port.Name; Fail("TASK_INPUT_REQUIRED", "Required business input: " + port.Name); }
+        foreach (var argument in task.Inputs)
+        {
+            var value = input; var path = key + "/input" + (capability.StepType == "mcp.call" ? "/members/0/value" : "");
+            foreach (var segment in operation.Inputs.Single(p => p.Name == argument.Name).Path)
+            {
+                var index = value.Members.FindIndex(m => m.Name == segment);
+                path += "/members/" + index + "/value"; value = value.Members[index].Value;
+            }
+            _sources[path] = "/tasks/" + task.Id + "/inputs/" + argument.Name;
+        }
+        _location = "/tasks/" + task.Id;
         target.Add(new() { Key = key, Purpose = task.Objective, Type = capability.StepType, CapabilityId = capability.Id,
             Input = capability.StepType == "mcp.call" ? Object([new("request", input)]) : input });
         var outputs = new Dictionary<string, Bound>(StringComparer.Ordinal) { [""] = Output(key, capability.StepType, [], capability.OutputSchema) };
@@ -295,7 +360,8 @@ public sealed class TaskPlanCompiler
     private (PlanningWorkflow Workflow, PlanningNode Call) Child(TaskScope source, Scope parent, string key, string role)
     {
         var childKey = Key(key, role); var workflow = new PlanningWorkflow { Key = childKey };
-        _graph.Workflows.Add(workflow); _sources[childKey] = _location;
+        _graph.Workflows.Add(workflow); _sources[childKey] = _location + "/" + (role switch
+        { "yes" or "iteration" => "body", "no" => "otherwise", _ => role.Replace("branch:", "branches/", StringComparison.Ordinal) });
         var location = _location; var child = new Scope(workflow, parent); CompileScope(source, child, childKey); _location = location;
         return (workflow, Call(Key(childKey, "call"), childKey, Object(child.Captures)));
     }
@@ -305,8 +371,8 @@ public sealed class TaskPlanCompiler
         if (_compilingGroups.Contains(group.Id)) Fail("TASK_GROUP_CYCLE", "Reusable groups cannot recurse.");
         if (_groups.TryGetValue(group.Id, out var existing)) return existing;
         var workflow = new PlanningWorkflow { Key = Key("group", group.Id) };
-        _graph.Workflows.Add(workflow); _sources[workflow.Key] = "/groups/" + group.Id; _groups.Add(group.Id, workflow); _compilingGroups.Add(group.Id);
-        var location = _location; var scope = new Scope(workflow, null); AddInputs(scope, group.Inputs); CompileScope(group.Body, scope, workflow.Key); _location = location;
+        _graph.Workflows.Add(workflow); _sources[workflow.Key] = "/groups/" + group.Id + "/body"; _groups.Add(group.Id, workflow); _compilingGroups.Add(group.Id);
+        var location = _location; var scope = new Scope(workflow, null); AddInputs(scope, group.Inputs, "/groups/" + group.Id + "/inputs"); CompileScope(group.Body, scope, workflow.Key); _location = location;
         _compilingGroups.Remove(group.Id); return workflow;
     }
 
