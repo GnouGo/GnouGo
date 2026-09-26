@@ -300,7 +300,9 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         Plan business tasks that satisfy every requested outcome. Preserve accepted outcome IDs and descriptions.
         Return one next action: browse one to four issued source pages, or propose a complete TaskPlan using declared operations.
         Select relevant sources progressively. Cached pages remain available; an incomplete search does not prove an operation is absent.
+        Batch up to four relevant uncached source pages when their relevance is already clear from the request and source summaries.
         Connect named business inputs and outputs. A null output port means the whole business result; opaque results have no typed fields.
+        Runtime inputs must feed the operations that need them. A value task only copies or assembles values; use a typed transform to interpret supplied data or convert its representation.
         Execution is sequential unless a parallel scope or parallel iteration is explicit. Both conditional alternatives declare matching outputs.
         Use always scopes for cleanup, reusable groups for repeated work, and finite iteration ceilings.
         Scope-changing agent fields must be literals. Business choices supply typed literal alternatives and a recommendation; the host selects them.

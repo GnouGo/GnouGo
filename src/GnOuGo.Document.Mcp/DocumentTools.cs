@@ -72,7 +72,7 @@ public sealed class DocumentTools
     [McpServerTool(Name = "document_write", UseStructuredContent = true, OutputSchemaType = typeof(DocumentWriteResult)), Description(
         "Writes text content to a file, creating missing parent directories within the allowed workspace. For .docx, automatically detects Markdown and maps headings, lists, emphasis, code, links, blockquotes, and tables to Word structures. " +
         "For .pdf, generates a readable A4 PDF and automatically renders Markdown headings, lists, emphasis, code, links, blockquotes, tables, and separators. " +
-        "For .xlsx, generates a spreadsheet from tab/comma-separated text. " +
+        "For .xlsx, generates a spreadsheet from tab/comma-separated text: each nonblank line is a row; tabs separate cells when present, otherwise commas do. Cells are trimmed. Quotes are literal, not CSV escaping. Prefer TSV for values containing commas; normalize embedded tabs and line breaks inside cell values before writing. " +
         "For other allowed extensions, writes plain text. " +
         "Allowed targets come from document_get_policy: paths must be relative to the workspace root, resolve inside AllowedRoots, and use an extension from AllowedExtensions. " +
         "Use relative paths only; only workspace paths are authorized. " +
@@ -80,7 +80,7 @@ public sealed class DocumentTools
         "This avoids sending one very large final save payload that can exceed the model context window.")]
     public DocumentWriteResult Write(
         [Description("Relative file path only inside the workspace root, for example 'output/result.md'. The target must match document_get_policy.AllowedRoots and document_get_policy.AllowedExtensions.")] string filePath,
-        [Description("Text content to write or append. For .xlsx, use tab or comma separated values.")] string content,
+        [Description("Text content to write or append. For .xlsx, use rows of tab-separated cells, normalizing embedded tabs/newlines inside values. Quotes are literal; CSV quote escaping is not parsed.")] string content,
         [Description("Text encoding: 'utf-8' (default), 'utf-8-bom', 'ascii', 'latin1'.")] string? encoding = null,
         [Description("When false (default), overwrite/create the target file. When true, append content to an existing document; initialize the file first with append=false, then append incrementally to avoid oversized LLM context payloads.")] bool append = false)
     {

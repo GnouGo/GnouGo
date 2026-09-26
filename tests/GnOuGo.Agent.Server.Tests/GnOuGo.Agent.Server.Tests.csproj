@@ -28,6 +28,7 @@
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
+  <ItemGroup><None Update="Fixtures/**/*.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 
   <Import Project="..\..\build\GnOuGo.BundledMcpTools.targets" />
 
@@ -40,8 +41,6 @@
     <Compile Include="../Shared/PlanningBenchmarkMeasurements.cs" Link="PlanningBenchmarkMeasurements.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="../Shared/ProductTransformationFixture.cs" Link="ProductTransformationFixture.cs" />
-    <Compile Include="../Shared/ProductTransformationPlan.cs" Link="ProductTransformationPlan.cs" />
     <Compile Include="../Shared/RealProductContracts.cs" Link="RealProductContracts.cs" />
   </ItemGroup>
 </Project>

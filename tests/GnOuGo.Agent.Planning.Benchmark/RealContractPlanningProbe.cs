@@ -18,7 +18,7 @@ internal static class RealContractPlanningProbe
     public static async Task RunAsync(string[] args)
     {
         var phase = args.ElementAtOrDefault(1) ?? "inspect";
-        if (phase is not ("capture" or "inspect" or "candidate-before" or "main" or "candidate-after")) throw new ArgumentException("Unknown diagnosis phase.");
+        if (phase is not ("capture" or "capture-after" or "inspect" or "candidate-before" or "main" or "candidate-after")) throw new ArgumentException("Unknown diagnosis phase.");
         var root = GnOuGoWorkspace.ResolveDefaultWorkingDirectory();
         var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, root);
         var campaign = new BenchmarkCampaign(records, "flow-v9-112");
@@ -31,14 +31,15 @@ internal static class RealContractPlanningProbe
         var leasePath = GnOuGoWorkspace.ResolveDatabasePath(null, root, ".GnOuGo/data/planning-evaluation/flow-v9-112.lock");
         Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
         await using var lease = new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        var frozen = await campaign.LoadAsync(Collection, Cohort + ":metadata");
-        if (phase == "capture")
+        var metadataKey = Cohort + (phase is "capture-after" or "candidate-after" ? ":metadata-after" : ":metadata");
+        var frozen = await campaign.LoadAsync(Collection, metadataKey);
+        if (phase is "capture" or "capture-after")
         {
             if (frozen is null)
             {
                 var metadata = RealProductContracts.Capture(new DocumentPolicy(new DocumentServerSettings(), root));
                 frozen = new() { ["metadata"] = metadata, ["hash"] = PlanningGraphCompiler.Fingerprint(metadata.ToJsonString()), ["prompt"] = RealProductContracts.Prompt };
-                await campaign.SaveAsync(Collection, Cohort + ":metadata", frozen);
+                await campaign.SaveAsync(Collection, metadataKey, frozen);
             }
             Console.WriteLine("Frozen metadata " + frozen["hash"]); return;
         }
