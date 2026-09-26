@@ -46,7 +46,8 @@ public sealed record TaskCompilation(PlanningGraph? Graph, IReadOnlyList<Plannin
 /// <summary>One deterministic lowering pass. Symbols and source locations are transient compiler bookkeeping.</summary>
 public sealed partial class TaskPlanCompiler
 {
-    private sealed record Bound(PlanningValue Value, JsonObject Schema, string Expression);
+    private sealed record Bound(PlanningValue Value, JsonObject Schema, string Expression,
+        Bound? SelectionSource = null, List<string>? SelectionPath = null);
     private sealed class Scope(PlanningWorkflow workflow, Scope? parent)
     {
         public PlanningWorkflow Workflow { get; } = workflow;
@@ -57,6 +58,8 @@ public sealed partial class TaskPlanCompiler
         public HashSet<(string Kind, string Source, string Port)> Blocked { get; } = [];
         public Bound? Item { get; set; }
         public Bound? Index { get; set; }
+        public List<PlanningNode>? Target { get; set; }
+        public bool Cleanup { get; set; }
     }
     private sealed class InvalidTask(string code, string location, string message) : Exception(message)
     { public PlanningDiagnostic Diagnostic { get; } = new(code, location, message); }
@@ -157,6 +160,7 @@ public sealed partial class TaskPlanCompiler
         Unique(source.Outputs.Select(o => o.Name));
         foreach (var output in source.Outputs)
         {
+            scope.Target = scope.Workflow.Finally; scope.Cleanup = true;
             _location = (_sources.GetValueOrDefault(key) ?? "/root") + "/outputs/" + output.Name;
             _sources[key + "/outputs/" + scope.Workflow.Outputs.Count] = _location;
             var bound = Value(output.Value, scope);
@@ -190,6 +194,7 @@ public sealed partial class TaskPlanCompiler
 
     private void CompileTask(PlanTask task, Scope scope, List<PlanningNode> target, string parent, bool cleanup)
     {
+        scope.Target = target; scope.Cleanup = cleanup;
         _location = "/tasks/" + task.Id;
         if (string.IsNullOrWhiteSpace(task.Objective)) Fail("TASK_OBJECTIVE_REQUIRED", "Each task requires an objective.");
         if (task.DependsOn.Any(d => !scope.Tasks.ContainsKey(d))) Fail("TASK_DEPENDENCY_UNKNOWN", "A dependency must name a preceding task in this scope.");
@@ -329,7 +334,7 @@ public sealed partial class TaskPlanCompiler
         target.Add(new() { Key = key, Purpose = task.Objective, Type = capability.StepType, CapabilityId = capability.Id,
             Input = capability.StepType == "mcp.call" ? Object([new("request", input)]) : input });
         var outputs = new Dictionary<string, Bound>(StringComparer.Ordinal) { [""] = Output(key, capability.StepType, [], capability.OutputSchema) };
-        foreach (var port in operation.Outputs) outputs.Add(port.Name, Output(key, capability.StepType, port.Path, port.Schema));
+        foreach (var port in operation.Outputs) outputs.Add(port.Name, OperationOutput(key, capability, port));
         return outputs;
     }
 
@@ -365,7 +370,7 @@ public sealed partial class TaskPlanCompiler
         }));
     }
 
-    private Bound Value(TaskValue value, Scope scope)
+    private Bound Value(TaskValue value, Scope scope, bool consume = true)
     {
         if (scope.Blocked.Contains((value.Kind, value.Source ?? "", value.Port ?? "")) ||
             scope.Blocked.Contains((value.Kind, value.Source ?? "", "*"))) throw new UnavailableValue();
@@ -400,7 +405,7 @@ public sealed partial class TaskPlanCompiler
             case "output":
                 if (value.Source is not null && scope.Tasks.TryGetValue(value.Source, out var ports))
                 {
-                    if (ports.TryGetValue(value.Port ?? "", out var output)) return output;
+                    if (ports.TryGetValue(value.Port ?? "", out var output)) return consume ? Consume(output, scope) : output;
                     Fail("TASK_OUTPUT_UNKNOWN", "This task has no declared business output '" + value.Port + "'. Opaque results cannot supply typed fields.");
                 }
                 break;
@@ -414,12 +419,49 @@ public sealed partial class TaskPlanCompiler
             default: Fail("TASK_VALUE_INVALID", "Values allow literals, business references and typed predicates only."); break;
         }
         if (scope.Parent is null) Fail("TASK_REFERENCE_UNKNOWN", "Business reference '" + value.Source + "' is unavailable in this scope.");
-        var captured = Value(value, scope.Parent!);
+        // Capture the authoritative container, not an unchecked optional field.
+        // Its check belongs inside the consuming branch/iteration/finalizer.
+        var captured = Value(value, scope.Parent!, consume: false);
+        // The iteration scope owns loop variables, but is not another workflow boundary.
+        if (ReferenceEquals(scope.Workflow, scope.Parent!.Workflow)) return consume ? Consume(captured, scope) : captured;
         var name = Key(value.Kind, (value.Source ?? "") + ":" + value.Port);
-        if (scope.Inputs.TryGetValue(name, out var already)) return already;
-        scope.Workflow.Inputs.Add(new() { Name = name, Schema = Contract(captured.Schema) });
-        scope.Captures.Add(new(name, captured.Value));
-        return scope.Inputs[name] = Input(name, captured.Schema);
+        if (!scope.Inputs.TryGetValue(name, out var already))
+        {
+            var transfer = captured.SelectionSource ?? captured;
+            scope.Workflow.Inputs.Add(new() { Name = name, Schema = Contract(transfer.Schema) });
+            scope.Captures.Add(new(name, transfer.Value));
+            var input = Input(name, transfer.Schema);
+            already = captured.SelectionSource is null ? input : captured with { SelectionSource = input };
+            scope.Inputs[name] = already;
+        }
+        return consume ? Consume(already, scope) : already;
+    }
+
+    private static Bound OperationOutput(string key, PlanningCapability capability, OperationPort port)
+    {
+        var result = Output(key, capability.StepType, port.Path, port.Schema);
+        return TaskOperations.OutputNeedsCheck(capability.OutputSchema, port.Path)
+            ? result with { SelectionSource = Output(key, capability.StepType, [], capability.OutputSchema), SelectionPath = port.Path }
+            : result;
+    }
+
+    private Bound Consume(Bound value, Scope scope)
+    {
+        if (value.SelectionSource is not { } source) return value;
+        if (!_catalog.AllowedStepTypes.Contains("value.project")) Fail("TASK_OUTPUT_POLICY", "Consuming this optional business field requires an allowed deterministic presence check.");
+        if (value.Schema.Count == 0 || value.Schema["x-gnougo-opaque"]?.ToString() == "true")
+            Fail("TASK_OUTPUT_CONTRACT", "An opaque optional result cannot establish a typed business field.");
+        if (scope.Target is null) return value; // Semantic preflight: no graph emission.
+        var key = Key(scope.Workflow.Key, "select:" + _location + ":" + source.Expression + ":" + new JsonArray(value.SelectionPath!.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()).ToJsonString());
+        if (!scope.Target.Any(n => n.Key == key))
+        {
+            var node = new PlanningNode { Key = key, Type = "value.project",
+                Input = Object([new("value", source.Value), new("paths", Array([Strings(value.SelectionPath!)]))]),
+                OutputSchema = Contract(ObjectSchema([("value", value.Schema)])) };
+            if (scope.Cleanup) GuardCleanup(node);
+            scope.Target.Add(node); _sources[key] = _location;
+        }
+        return Output(key, "value.project", ["value"], value.Schema);
     }
 
     private Bound Predicate(TaskValue value, Scope scope)

@@ -6,6 +6,20 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Schema-derived ordinary ports, or exact producer-declared mappings. No semantic name inference.</summary>
 public static class TaskOperations
 {
+    // Requiredness belongs to every containing object, not just the leaf port.
+    internal static bool OutputNeedsCheck(JsonObject schema, IReadOnlyList<string> path)
+    {
+        var current = schema;
+        foreach (var segment in path)
+        {
+            if (current["type"]?.ToString() != "object" || current["anyOf"] is not null || current["oneOf"] is not null ||
+                current["required"] is not JsonArray required || !required.Any(n => n?.ToString() == segment)) return true;
+            if (current["properties"]?[segment] is not JsonObject child) return true;
+            current = child;
+        }
+        return false;
+    }
+
     public static PlanningOperation Describe(PlanningCapability capability) => capability.Operation ?? new()
     {
         Id = capability.Id, Version = capability.Version, Description = capability.Description,

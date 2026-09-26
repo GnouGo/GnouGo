@@ -19,7 +19,7 @@ public sealed class TaskOptionalOutputTests
     {
         var (plan, catalog, engine) = await Setup(response);
         var graph = Compile(plan, catalog);
-        Assert.Single(graph.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)).Where(n => n.Type == "value.project"));
+        Assert.Single(graph.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)), n => n.Type == "value.project");
         var first = JsonSerializer.Serialize(graph, PlanningJsonContext.Default.PlanningGraph);
         Assert.Equal(first, JsonSerializer.Serialize(Compile(plan, catalog), PlanningJsonContext.Default.PlanningGraph));
         var result = await Run(graph, catalog, engine, new());
@@ -64,6 +64,52 @@ public sealed class TaskOptionalOutputTests
         catalog.Capabilities.Single(c => c.Kind == "tool").OutputSchema["required"] = new JsonArray("selected");
         var graph = Compile(plan, catalog);
         Assert.DoesNotContain(graph.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)), n => n.Type == "value.project");
+    }
+
+    [Fact]
+    public async Task ProjectionPolicyDenialAndOpaqueFieldsAreSemanticConsumerErrors()
+    {
+        var (plan, catalog, _) = await Setup("value");
+        catalog.AllowedStepTypes.Remove("value.project");
+        var result = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Null(result.Graph);
+        Assert.Contains(result.Diagnostics, d => d.Code == "TASK_OUTPUT_POLICY" && d.Location == "/root/outputs/result");
+        catalog.AllowedStepTypes.Add("value.project");
+        catalog.Capabilities.Single(c => c.Kind == "tool").OutputSchema["properties"]!["selected"] = new JsonObject();
+        result = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Null(result.Graph);
+        Assert.Contains(result.Diagnostics, d => d.Code == "TASK_OUTPUT_CONTRACT" && d.Location == "/root/outputs/result");
+    }
+
+    [Fact]
+    public async Task RequiredLeafBehindOptionalParentStillNeedsACheck()
+    {
+        var (plan, catalog, _) = await Setup("value");
+        var capability = catalog.Capabilities.Single(c => c.Kind == "tool");
+        var field = capability.OutputSchema["properties"]!["selected"]!.DeepClone();
+        capability.OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject { ["container"] = new JsonObject
+            { ["type"] = "object", ["properties"] = new JsonObject { ["leaf"] = field }, ["required"] = new JsonArray("leaf") } } };
+        capability.Operation = new() { Id = capability.Id, Version = capability.Version, Outputs = [new()
+            { Name = "selected", Path = ["container", "leaf"], Schema = field.DeepClone().AsObject(), Required = false }] };
+        Assert.Empty(TaskOperations.Validate(capability));
+        var graph = Compile(plan, catalog);
+        var projection = Assert.Single(graph.Workflows.SelectMany(w => w.Finally), n => n.Type == "value.project");
+        Assert.Equal(new[] { "container", "leaf" }, projection.Input.Members.Single(m => m.Name == "paths").Value.Items[0].Items.Select(p => p.Text));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task IterationCaptureDoesNotRequireAnUnusedAbsentPort(bool populated)
+    {
+        var (plan, catalog, engine) = await Setup("missing");
+        plan.Inputs.Add(new() { Name = "items", Type = new() { Kind = "array", Items = new() { Kind = "integer" } } });
+        plan.Root.Tasks.Add(new() { Id = "loop", Kind = "foreach", Objective = "Consume in each iteration", Items = new() { Kind = "input", Source = "items" },
+            Body = new() { Outputs = [new("results", Ref())] } });
+        plan.Root.Outputs = [new("result", new() { Kind = "output", Source = "loop", Port = "results" })];
+        var result = await Run(Compile(plan, catalog), catalog, engine, new() { ["items"] = populated ? new JsonArray(1) : new JsonArray() });
+        Assert.Equal(!populated, result.Success);
+        if (!populated) Assert.Empty(result.Outputs!["result"]!.AsArray());
     }
 
     private static TaskValue Ref() => new() { Kind = "output", Source = "read", Port = "selected" };

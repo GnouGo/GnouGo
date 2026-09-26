@@ -248,7 +248,7 @@ public sealed partial class TaskPlanCompiler
                     foreach (var port in operation.Inputs.Where(p => p.Required && task.Inputs.All(i => i.Name != p.Name)))
                         findings.Add(new("TASK_INPUT_REQUIRED", path + "/inputs/" + port.Name, "Required business input: " + port.Name));
                     ports[""] = Output(task.Id, capability.StepType, [], capability.OutputSchema);
-                    foreach (var port in operation.Outputs) ports[port.Name] = Output(task.Id, capability.StepType, port.Path, port.Schema);
+                        foreach (var port in operation.Outputs) ports[port.Name] = OperationOutput(task.Id, capability, port);
                     break;
                 case "value":
                     Check(path + "/outputs", () => Unique(task.Outputs.Select(o => o.Name)));
