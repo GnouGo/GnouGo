@@ -8,6 +8,7 @@ description: Develop or review GnOuGo TaskPlan planning, deterministic compilati
 ## Architecture and ownership
 
 - Preserve Requirements → Discovery → LLM TaskPlan → deterministic compiler → PlanningGraph → YAML → validation → approval.
+- Requirements become host-owned after first acceptance; omit them in later model responses. Only explicit user revision resets them. Validate recovered responses against their original request schemas and preserve pending identities.
 - TaskPlan holds explicit semantic intent. PlanningGraph is the sole executable representation. Semantic preflight runs inside compilation, before lowering; symbols and source maps are transient bookkeeping.
 - Do not add a planning IR, binding session, model phase or parallel planner implementation. Flow.Core owns provider-neutral contracts and must not depend on another GnOuGo package. Integrations own provider-specific mappings and transports.
 - Planning storage is format 10; execution journals are schema 9. Preserve runtime, tenant isolation, encrypted persistence and recovery boundaries unless the task explicitly changes them.
@@ -16,6 +17,8 @@ description: Develop or review GnOuGo TaskPlan planning, deterministic compilati
 
 - The model may select declared operations and generate tasks, dependencies, business inputs/outputs, structured scopes, literal values, named references, typed predicates and typed business choices.
 - `value` copies or assembles values. `transform` interprets named inputs using its objective and an explicit `resultType`: a nonempty closed object of required, fully typed fields (nullable for missing values; no opaque types or defaults). The compiler owns fixed prompt assembly and strict structured `llm.call` lowering. Transform results are runtime-validated interpretations, never authoritative replacements for source contracts or evidence of external success.
+- Request the smallest sufficient plan: concise objectives, necessary inputs/outputs and directly consumable business bindings. Add optional inputs, policy-query tasks or extra outputs only when required; preserve cleanup, scope exports and runtime safety. Do not use transforms for simple wiring or rewrite submitted tasks to optimize them.
+- Compact wire schemas may omit irrelevant fields and fixed representation constants, never business values, variable nullability or required typing. Choice selections remain host-owned. Saved DTOs and semantic intent are unchanged. Designer defaults are 24,000 input / 32,768 output tokens; preserve explicit overrides, saved settings and cumulative budgets. Serialization headroom does not prove model generation will fit.
 - The model must explicitly declare branch exports and alternative values. It must not generate executor types, wire paths, schema pointers, projection recipes, JavaScript or unverified contracts.
 - Derive bindings only from authoritative schemas or validated injected metadata. Never infer semantics from provider/tool names, descriptions, examples or benchmark names.
 - Validate identities, scope visibility, dependencies and business contracts before lowering. Collect independent errors at task/port locations; suppress dependent errors whose prerequisite contract is unavailable.

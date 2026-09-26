@@ -10,7 +10,7 @@ using GnOuGo.KeyVault.Core.Services;
 using GnOuGo.Planning.Examples;
 using GnOuGo.Workspace;
 
-/// <summary>Explicitly invoked, three-identity diagnosis. Never approves or executes an artifact.</summary>
+/// <summary>Explicitly invoked historical diagnosis and one compact-generation verification. Never approves or executes an artifact.</summary>
 internal static class RealContractPlanningProbe
 {
     private const string Collection = "planning-product-diagnosis";
@@ -18,20 +18,20 @@ internal static class RealContractPlanningProbe
     public static async Task RunAsync(string[] args)
     {
         var phase = args.ElementAtOrDefault(1) ?? "inspect";
-        if (phase is not ("capture" or "capture-after" or "inspect" or "candidate-before" or "main" or "candidate-after")) throw new ArgumentException("Unknown diagnosis phase.");
+        if (phase is not ("capture" or "capture-after" or "inspect" or "candidate-before" or "main" or "candidate-after" or "compact-candidate")) throw new ArgumentException("Unknown diagnosis phase.");
         var root = GnOuGoWorkspace.ResolveDefaultWorkingDirectory();
         var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, root);
         var campaign = new BenchmarkCampaign(records, "flow-v9-112");
         if (phase == "inspect")
         {
-            foreach (var label in new[] { "candidate-before", "main", "candidate-after" })
+            foreach (var label in new[] { "candidate-before", "main", "candidate-after", "compact-candidate" })
                 Console.WriteLine((await campaign.LoadAsync(Collection, Cohort + ":" + label))?["result"]?.ToJsonString() ?? label + ": absent");
             Console.WriteLine((await BenchmarkHttpJournal.AccountingAsync(campaign)).ToJsonString()); return;
         }
         var leasePath = GnOuGoWorkspace.ResolveDatabasePath(null, root, ".GnOuGo/data/planning-evaluation/flow-v9-112.lock");
         Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
         await using var lease = new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        var metadataKey = Cohort + (phase is "capture-after" or "candidate-after" ? ":metadata-after" : ":metadata");
+        var metadataKey = Cohort + (phase is "capture-after" or "candidate-after" or "compact-candidate" ? ":metadata-after" : ":metadata");
         var frozen = await campaign.LoadAsync(Collection, metadataKey);
         if (phase is "capture" or "capture-after")
         {
@@ -67,7 +67,9 @@ internal static class RealContractPlanningProbe
         }
         await campaign.SaveAsync(Collection, key, run);
         var clock = Stopwatch.StartNew();
-        var measured = new MeasuredModel(model, run);
+        var outputLimit = phase == "compact-candidate" ? 32_768 : 8_192;
+        run["limits"] = new JsonObject { ["input_tokens"] = 24_000, ["output_tokens"] = outputLimit, ["max_attempts"] = 8, ["max_repairs"] = 2, ["reasoning"] = "medium" };
+        var measured = new MeasuredModel(model, run, outputLimit);
         try
         {
             if (phase == "main")
@@ -81,7 +83,7 @@ internal static class RealContractPlanningProbe
                 var engine = new WorkflowEngine { McpClientFactory = factory, LLMClient = measured, LlmDefaults = new() { Model = model.Model, Provider = model.Provider } };
                 var runtime = new WorkflowPlanningRuntime(engine, (s, _) => CheckpointRaw(JsonSerializer.SerializeToNode(s, PlanningJsonContext.Default.PlanningSession)!.AsObject()));
                 var state = new PlanningSession { Request = new() { TenantId = "benchmark", SessionId = id, Mode = PlanningMode.Auto,
-                    Name = "product-query", Prompt = RealProductContracts.Prompt, Generation = new() { MaxInputTokensPerRequest = 24_000, MaxOutputTokens = 8_192, Reasoning = "medium" } } };
+                    Name = "product-query", Prompt = RealProductContracts.Prompt, Generation = new() { MaxInputTokensPerRequest = 24_000, MaxOutputTokens = outputLimit, Reasoning = "medium" } } };
                 for (var advance = 0; advance < 40 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); advance++)
                 {
                     state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, CancellationToken.None);
@@ -102,6 +104,7 @@ internal static class RealContractPlanningProbe
         run["result"] = new JsonObject { ["phase"] = phase, ["source"] = source, ["status"] = s?["status"]?.DeepClone(),
             ["calls"] = s?["modelCalls"]?.DeepClone(), ["repairs"] = s?["replanAttempts"]?.DeepClone(),
             ["diagnostics"] = s?["diagnostics"]?.DeepClone(), ["elapsed_ms"] = clock.ElapsedMilliseconds,
+            ["limits"] = run["limits"]!.DeepClone(),
             ["failure"] = run["failure"] is not null, ["termination_reason"] = campaign.StopReason,
             ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign, id + ":", ct: CancellationToken.None) };
         await campaign.SaveAsync(Collection, key, run);
@@ -116,11 +119,11 @@ internal static class RealContractPlanningProbe
         }
     }
 
-    private sealed class MeasuredModel(KeyVaultBenchmarkModel inner, JsonObject run) : ILLMClient
+    private sealed class MeasuredModel(KeyVaultBenchmarkModel inner, JsonObject run, int outputLimit) : ILLMClient
     {
         public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
-            if (request.MaxTokens is null or <= 0 or > 8192 || request.Tools is { Count: > 0 }) throw new InvalidOperationException("Unexpected diagnosis request scope.");
+            if (request.MaxTokens is null or <= 0 || request.MaxTokens > outputLimit || request.Tools is { Count: > 0 }) throw new InvalidOperationException("Unexpected diagnosis request scope.");
             run["requests"]!.AsArray().Add(new JsonObject { ["id"] = request.ClientRequestId,
                 ["prompt_bytes"] = Encoding.UTF8.GetByteCount(request.Prompt ?? ""), ["schema_bytes"] = Encoding.UTF8.GetByteCount(request.StructuredOutputSchema?.ToJsonString() ?? "") });
             return await inner.CallAsync(request, ct);

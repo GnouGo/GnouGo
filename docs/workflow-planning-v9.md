@@ -61,7 +61,7 @@ requests with the superseded singular `sourceId`/`cursor` contract stop with
 `PLANNING_REQUEST_INCOMPATIBLE`: regenerate in a new session. Their encrypted records,
 reservations and accounting are preserved. Planning storage remains format 10.
 
-Requirements are reviewable intent, not another executable program. Outcome descriptions remain stable throughout technical repairs. New generated glue permits literals, typed references,
+Requirements are reviewable intent, not another executable program. They are generated once and then owned by the host: subsequent discovery, TaskPlan and repair responses omit them. Only explicit user revision resets them. Recovery validates responses against their original persisted request schemas; identical historical requirements are accepted without replacing the saved intent, while changes are rejected. New generated glue permits literals, typed references,
 simple conditions and registered typed transformations. Authored YAML retains its
 existing expression runtime. Opaque output needs whole-value validation before
 field access; assistant descriptions and sample values cannot establish a contract.
@@ -79,6 +79,10 @@ Only validated structured fields become business ports; schema validity alone
 does not prove factual accuracy or external success. Transform result types do not
 change the source MCP contract. Text-mode template output is guaranteed by a shared
 mode-aware graph/runtime contract; unresolved modes remain conservative.
+
+Generation requests the smallest sufficient semantic plan: concise objectives, necessary inputs/outputs and direct business bindings, with required scope exports and cleanup retained. Prefer data shapes consumable downstream, including scalar iteration items when records are unnecessary. Optional user inputs, policy-query tasks and extra outputs need a request or contract justification. Runtime permissions remain mandatory. The compiler does not optimize or rewrite submitted tasks.
+
+The strict response schema is a compact wire representation of the unchanged TaskPlan contracts. Types expose only their kind-specific fields; nested nullability and array item types stay explicit. Transform result fields omit fixed `required: true` and `default: null`; the nonnullable root object omits its fixed nullability. Existing DTO initializers supply these representation constants, never business values. Choice selections remain host-owned and are absent from generation. New schemas omit `explanation`. Historical responses still deserialize, and pending requests keep their original schemas and identities without redispatch.
 
 Optional operation outputs retain the producer's presence and nullability rules.
 When a task consumes such a field, the compiler emits an existing checked
@@ -99,9 +103,9 @@ Compiler preflight checks semantic identities, scope visibility, dependencies an
 A semantic failure opens a bounded revision scope over diagnosed business slots and the explicit export declarations required by their consumers. Conditional alternatives must explicitly provide matching outputs; the compiler invents neither exports nor fallback values. Added exports must belong to the diagnosed connection, with unrelated declarations and ordering preserved. Revalidation of a dependent task grants no edit permission. Unknown or ambiguous locations never authorize whole-plan repair. Rejected revisions identify unauthorized changed slots and retain the last accepted baseline. Optional workflow/group inputs require literal defaults, while optional object fields may remain absent. Composite outputs use the existing typed `set` primitive after cleanup; opaque payloads remain opaque. Generated executor validation failures stop with compiler diagnostics. Dependent findings are
 invalidated; unaffected validated stages and interfaces remain unchanged. Repairs,
 retries and restarts share the original planning budget. Defaults remain eight
-model calls, two repairs and 8,192 output tokens per request. Standalone Flow defaults
-to 12,000 input tokens per request; new Agent.Server Designer sessions default to
-24,000 through `TypedWorkflowPlanning.MaxInputTokensPerRequest`. Explicit host
+model calls and two repairs. Standalone Flow defaults to 12,000 input / 8,192 output
+tokens per request; new Agent.Server Designer sessions default to 24,000 input /
+32,768 output through `TypedWorkflowPlanning`. Explicit host
 configuration takes precedence, and existing sessions retain their saved limits.
 
 `MODEL_INPUT_LIMIT` is a local admission stop: the conservative estimate of the full
@@ -113,7 +117,7 @@ increase the **Input token limit**, then select **Apply settings and resume plan
 This continues the same session with its discovery receipts and cumulative usage;
 subsequent calls may incur model costs. It does not reset call, repair, spending or
 elapsed-time limits, approve an artifact, or guarantee that later requests will fit.
-Opening the page and restarting the host never raise saved limits automatically.
+Opening the page and restarting the host never raise saved limits automatically. Designer displays the saved effective settings. The output allowance can include reasoning as well as returned JSON; deterministic serialization headroom is not a guarantee that model generation finishes. `MODEL_OUTPUT_LIMIT` never triggers an automatic increase or retry.
 
 Approval recompiles the TaskPlan and requires the reviewed artifact to match exactly. It identifies the exact requirements, TaskPlan, choices, operation mappings, graph, compiled artifact, selected
 contracts, task scopes, verification requirements and budget ceilings. A change to

@@ -28,7 +28,7 @@ Chat sessions open at `/planning/{sessionId}?source=workflow` as read-only diagn
 
 Trace lookup requires an exact planning-session attribute and the current tenant. It combines local capture with the embedded collector's retained records, so persisted traces remain inspectable after restart. Missing or expired telemetry is shown explicitly; lookup is bounded to 500 collector candidates and reports when that limit is reached. Trace availability is independent of model receipt retention. Trace usage totals cover recorded attributes only and are not a complete billing ledger; absent telemetry does not establish zero provider usage or cost. Designer planning activities are captured locally even when OTLP export is disabled.
 
-`TypedWorkflowPlanning` configures `MaxReplanAttempts` (2), `MaxModelCalls` (8), `Reasoning` (`medium`), request token ceilings (24,000 input / 8,192 output), cumulative token/active-time limits and `DatabasePath`. These defaults apply to new Designer sessions, including the Desktop host. Explicit configuration overrides take precedence; existing sessions retain their saved generation settings. Standalone Flow and authored `workflow.plan` defaults remain 12,000 input tokens. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
+`TypedWorkflowPlanning` configures `MaxReplanAttempts` (2), `MaxModelCalls` (8), `Reasoning` (`medium`), request token ceilings (24,000 input / 32,768 output), cumulative token/active-time limits and `DatabasePath`. These defaults apply to new Designer sessions, including the Desktop host. Explicit configuration overrides take precedence; existing sessions retain their saved generation settings. Standalone Flow and authored `workflow.plan` defaults remain 12,000 input / 8,192 output tokens. Designer shows saved effective settings, without a separate UI default. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
 
 `MODEL_INPUT_LIMIT` means the conservative estimate for the complete prompt and response schema exceeds the saved per-request input allowance. Discovery can grow this request even for a short user prompt. The stop occurs before dispatch, without consuming another call or repair. With no pending request, **Generation settings** opens automatically: increase **Input token limit** and explicitly select **Apply settings and resume planning** to continue the same session. Discovery receipts, request history and cumulative budgets are retained. The resumed request may incur model usage; later requests must still fit their allowance and cumulative limits. No limit is raised and no session is resumed merely by viewing the page or restarting the host.
 
@@ -644,8 +644,8 @@ request identity or reset its accounting.
 A provider's completion-token limit can include reasoning tokens as well as returned JSON.
 An `output_limit` receipt with empty text can therefore reflect exhausted reasoning allowance,
 not an oversized plan. Check the stored usage and original request ceiling. The generic
-bootstrap sets `generator.max_output_tokens: 8192`; the accepted live benchmark explicitly
-used 32768. An agreed change to that setting applies to a new request, preserves medium
+bootstrap sets `generator.max_output_tokens: 8192`; new Designer sessions instead use
+`TypedWorkflowPlanning.MaxOutputTokens` (32768 by default, with explicit overrides authoritative). Historical live runs used both allowances; report the actual saved limit when comparing them. An agreed change to that setting applies to a new request, preserves medium
 reasoning and the call/replanning budgets, and does not change earlier reservations or receipts.
 The planner never raises the ceiling or retries a truncated response automatically.
 
