@@ -140,6 +140,17 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
                 await DiscoverPageAsync(state, runtime, state.Discovery.Sources[0].Id, null, ct);
         }
         var repair = state.Diagnostics.Any(d => d.Required);
+        if (repair && state.PendingCall is null && state.Plan is { } baseline && state.RevisionScope.Count > 0 &&
+            state.Diagnostics.Any(d => d.Code == "TASK_INPUT_TYPE"))
+        {
+            // Re-derive precise producer constraint locations from the immutable
+            // saved baseline. Pending requests always retain their issued scope.
+            var candidate = JsonSerializer.Deserialize(JsonSerializer.Serialize(baseline, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
+            foreach (var choice in candidate.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
+            var baselineFindings = new TaskPlanCompiler().Compile(candidate, state.Catalog!).Diagnostics;
+            state.Diagnostics = state.Diagnostics.Concat(baselineFindings.Where(d => d.Code == "TASK_TRANSFORM_CONSTRAINT")).Distinct().ToList();
+            state.RevisionScope = TaskPlanRevisions.Scope(baseline, state.Diagnostics).ToList();
+        }
         if (repair && state.PendingCall is null && state.ReplanAttempts >= state.Request.MaxReplanAttempts) { Stop(state); return; }
         state.Phase = repair ? PlanningPhase.Replanning : state.Requirements is null ? PlanningPhase.Requirements : PlanningPhase.Tasks;
         var response = await PlanningModelCalls.CallAsync(state, runtime, state.PendingCall?.Purpose ?? (repair ? "replan" : "tasks"), Prompt(state), PlanningSchemas.Proposal(state), ct);
@@ -297,7 +308,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             Reject("REQUIREMENTS_CHANGED", "/requirements", "Preserve accepted requirements. Only an explicit user revision may change their scope.");
     }
 
-    private static string Prompt(PlanningSession state) => """
+    internal static string Prompt(PlanningSession state) => """
         Return the smallest sufficient TaskPlan satisfying every requested outcome, with concise objectives. Accepted requirements are host-owned; do not repeat them.
         Return one next action: browse one to four issued source pages, or propose a complete TaskPlan using declared operations.
         Select relevant sources progressively. Cached pages remain available; an incomplete search does not prove an operation is absent.
@@ -319,10 +330,12 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             ["pages"] = new JsonArray(state.Discovery.Pages.Select(p => (JsonNode)new JsonObject
             {
                 ["sourceId"] = p.SourceId, ["cursor"] = p.Cursor, ["nextCursor"] = p.NextCursor, ["unavailable"] = p.UnavailableReason,
-                ["operations"] = new JsonArray(p.Capabilities.Where(c => c.Operation is not null).Select(c => (JsonNode)OperationPrompt(c.Operation!)).ToArray())
+                ["operations"] = new JsonArray(p.Capabilities.Where(c => c.Operation is not null &&
+                    (!TaskPlanRevisions.FixedOperations(state) || TaskPlanRevisions.Tasks(state.Plan!).Any(t => t.Operation == c.Operation.Id)))
+                    .Select(c => (JsonNode)OperationPrompt(c.Operation!)).ToArray())
             }).ToArray()),
             ["registeredOperations"] = new JsonArray(state.Catalog!.Capabilities.Where(c => c.Kind == "registered").Select(c => (JsonNode)OperationPrompt(TaskOperations.Describe(c))).ToArray()),
-            ["taskPlan"] = JsonSerializer.SerializeToNode(state.Plan ?? state.Request.Baseline, PlanningJsonContext.Default.TaskPlan),
+            ["taskPlan"] = PlanningJsonTransport.TaskPlanPrompt(state.Plan ?? state.Request.Baseline),
             ["revisionScope"] = new JsonArray(state.RevisionScope.Select(s => (JsonNode?)JsonValue.Create(s)).ToArray()),
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics), ["revisionContext"] = state.Request.RevisionContext
         });
