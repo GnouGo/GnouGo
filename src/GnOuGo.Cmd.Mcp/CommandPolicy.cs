@@ -325,6 +325,7 @@ public sealed class CommandPolicy
                 $"Working directory '{candidate}' is outside the allowed roots: {string.Join(", ", allowedRoots)}.");
 
         EnsureOutsideReservedWorkspace(candidate, "Working directory");
+        EnsureNoWorkspaceLinks(candidate, allowedRoots, "Working directory");
 
         // Ensure the directory exists (creates it if possible).
         if (!Directory.Exists(candidate))
@@ -587,11 +588,34 @@ public sealed class CommandPolicy
         }
 
         EnsureOutsideReservedWorkspace(candidatePath, $"Parameter '{parameterName}'");
+        EnsureNoWorkspaceLinks(candidatePath, allowedRoots, $"Parameter '{parameterName}'");
 
         if (parameterSettings.MustExist)
             EnsureWorkspacePathExists(parameterName, candidatePath, parameterSettings.PathKind);
 
         return candidatePath;
+    }
+
+    // A lexical root check alone permits paths through a workspace symlink or
+    // junction to reach an unauthorized target. Configured roots are trusted;
+    // links below those roots are rejected before any shell is dispatched.
+    private static void EnsureNoWorkspaceLinks(string path, IReadOnlyList<string> roots, string subject)
+    {
+        var root = roots.Where(r => IsPathWithinRoot(path, r)).OrderBy(r => r.Length).First();
+        var relative = Path.GetRelativePath(root, path);
+        if (relative == ".") return;
+        var current = root;
+        foreach (var segment in relative.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            FileAttributes attributes;
+            try { attributes = File.GetAttributes(current); }
+            catch (FileNotFoundException) { break; }
+            catch (DirectoryNotFoundException) { break; }
+            catch (UnauthorizedAccessException ex) { throw new InvalidOperationException($"{subject} cannot be inspected within the workspace.", ex); }
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException($"{subject} must not traverse workspace symbolic links or reparse points.");
+        }
     }
 
     private static void EnsureWorkspacePathExists(string parameterName, string candidatePath, WorkspacePathKind pathKind)
