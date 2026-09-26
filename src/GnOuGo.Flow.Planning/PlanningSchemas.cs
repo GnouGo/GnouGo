@@ -33,6 +33,7 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("object")), ("members", Array(Ref("output")))),
                 Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
                 Described(Object(("kind", Enum("json")), ("items", Array(Ref("value"), 1, 1))), "Deterministically encode the single business value as JSON text; no inference or string interpolation."),
+                Described(Object(("kind", Enum("field")), ("items", Array(Ref("value"), 1, 1)), ("port", Nonblank())), "Select one declared field of the single typed business object, including a loop item. The port is a literal field name, not a path. Nest selections for nested fields; no transform is needed."),
                 Object(("kind", Enum("input")), ("source", String())),
                 Object(("kind", Enum("choice", "present")), ("source", Identity())),
                 Object(("kind", Enum("output")), ("source", Identity()), ("port", Nullable(String()))),

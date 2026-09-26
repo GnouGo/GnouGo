@@ -40,7 +40,7 @@ internal static class PlanningJsonTransport
                 {
                     "null" or "item" or "index" => [], "string" => ["text"], "number" => ["number"], "boolean" => ["boolean"],
                     "object" => ["members"], "array" or "json" => ["items"], "input" or "choice" or "present" => ["source"],
-                    "output" => ["source", "port"], "predicate" => ["predicate", "items"], _ => null
+                    "output" => ["source", "port"], "field" => ["items", "port"], "predicate" => ["predicate", "items"], _ => null
                 };
                 if (fields is not null) fields = ["kind", ..fields];
                 defaults = JsonSerializer.SerializeToNode(new TaskValue(), PlanningJsonContext.Default.TaskValue)!.AsObject();

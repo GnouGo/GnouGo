@@ -267,7 +267,7 @@ public sealed partial class TaskPlanCompiler
                 var bounded = items.Schema.DeepClone().AsObject(); bounded["maxItems"] = task.MaxItems;
                 var checkedKey = Key(key, "bound"); _sources[checkedKey] = _location;
                 target.Add(new() { Key = checkedKey, Type = "value.validate", Input = Object([new("value", items.Value)]), OutputSchema = Contract(ObjectSchema([("value", bounded)])) });
-                var iteration = new Scope(scope.Workflow, scope) { Item = new(new() { Kind = "loop_item", Source = key }, itemSchema, "data.item"), Index = new(new() { Kind = "loop_index", Source = key }, new() { ["type"] = "integer" }, "data.index") };
+                var iteration = new Scope(scope.Workflow, scope) { Item = new(new() { Kind = "loop_item", Source = key }, itemSchema, "data.item", TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null), Index = new(new() { Kind = "loop_index", Source = key }, new() { ["type"] = "integer" }, "data.index") };
                 var body = Child(task.Body ?? MissingScope(), iteration, key, "iteration");
                 target.Add(new() { Key = key, Purpose = task.Objective, Type = task.Parallel ? "loop.parallel" : "loop.sequential", ItemVar = "item", IndexVar = "index",
                     Input = Object(task.Parallel ? [new("items", Reference(checkedKey, "value")), new("max_concurrency", Number(task.MaxConcurrency))] : [new("items", Reference(checkedKey, "value"))]), Steps = [body.Call] });
@@ -423,7 +423,8 @@ public sealed partial class TaskPlanCompiler
                 return new(new() { Kind = "present", Source = result.Value.Source }, new() { ["type"] = "boolean" }, "data.steps[" + Quote(result.Value.Source!) + "] != null");
             case "predicate": return Predicate(value, scope);
             case "json": return EncodeJson(value, scope);
-            default: Fail("TASK_VALUE_INVALID", "Values allow literals, business references, JSON encoding and typed predicates only."); break;
+            case "field": return SelectField(value, scope, consume);
+            default: Fail("TASK_VALUE_INVALID", "Values allow literals, business references, declared fields, JSON encoding and typed predicates only."); break;
         }
         if (scope.Parent is null) Fail("TASK_REFERENCE_UNKNOWN", "Business reference '" + value.Source + "' is unavailable in this scope.");
         // Capture the authoritative container, not an unchecked optional field.
@@ -455,7 +456,7 @@ public sealed partial class TaskPlanCompiler
     private Bound Consume(Bound value, Scope scope)
     {
         if (value.SelectionSource is not { } source) return value;
-        if (!_catalog.AllowedStepTypes.Contains("value.project")) Fail("TASK_OUTPUT_POLICY", "Consuming this optional business field requires an allowed deterministic presence check.");
+        if (!_catalog.AllowedStepTypes.Contains("value.project")) Fail("TASK_OUTPUT_POLICY", "Consuming this business field requires an allowed deterministic presence check.");
         if (value.Schema.Count == 0 || value.Schema["x-gnougo-opaque"]?.ToString() == "true")
             Fail("TASK_OUTPUT_CONTRACT", "An opaque optional result cannot establish a typed business field.");
         if (scope.Target is null) return value; // Semantic preflight: no graph emission.
@@ -468,7 +469,7 @@ public sealed partial class TaskPlanCompiler
             if (scope.Cleanup) GuardCleanup(node);
             scope.Target.Add(node); _sources[key] = _location;
         }
-        return Output(key, "value.project", ["value"], value.Schema);
+        return Output(key, "value.project", ["value"], value.Schema) with { TypeLocation = value.TypeLocation };
     }
 
     private Bound Predicate(TaskValue value, Scope scope)

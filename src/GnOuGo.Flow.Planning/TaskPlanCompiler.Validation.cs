@@ -200,7 +200,7 @@ public sealed partial class TaskPlanCompiler
                 {
                     var items = task.Items is null ? null : Read(task.Items, scope, path + "/items");
                     if (items?.Schema["type"]?.ToString() == "array" && items.Schema["items"] is JsonObject itemSchema)
-                    { child.Item = new(new() { Kind = "loop_item" }, itemSchema, "data.item"); child.Index = new(Number(0), new() { ["type"] = "integer" }, "data.index"); }
+                    { child.Item = new(new() { Kind = "loop_item" }, itemSchema, "data.item", TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null); child.Index = new(Number(0), new() { ["type"] = "integer" }, "data.index"); }
                     else { if (items is not null) findings.Add(new("TASK_ITEMS_INVALID", path + "/items", "Iteration needs an authoritative array contract.")); child.Blocked.Add(("item", "", "")); child.Blocked.Add(("index", "", "")); }
                 }
                 InspectScope(body, child, path + "/" + role); return child;

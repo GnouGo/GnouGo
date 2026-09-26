@@ -72,3 +72,21 @@ foreach (var selected in new[] { "allow", "deny" })
         throw new InvalidOperationException("Encoding changed the business value");
 }
 Console.WriteLine("enum contracts and JSON encoding: passed; no inference");
+
+// Typed record fields remain semantic values through serialization and AOT;
+// the runtime performs checked projection without an inference client.
+var fieldPlan = new TaskPlan { Inputs = [new() { Name = "records", Type = new() { Kind = "array", Items = new() { Kind = "object", Fields =
+    [new() { Name = "state", Type = new() { Kind = "string", Enum = ["allow", "deny"] } }] } } }],
+    Root = new() { Tasks = [new() { Id = "records", Kind = "foreach", Objective = "Read states in order", Items = new() { Kind = "input", Source = "records" },
+        Body = new() { Outputs = [new("states", new() { Kind = "field", Port = "state", Items = [new() { Kind = "item" }] })] } }],
+        Outputs = [new("states", new() { Kind = "output", Source = "records", Port = "states" })] } };
+fieldPlan = JsonSerializer.Deserialize(JsonSerializer.Serialize(fieldPlan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
+var fieldGraph = new TaskPlanCompiler().Compile(fieldPlan, encodingCatalog);
+if (fieldGraph.Graph is null || fieldGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Field compilation failed");
+var fieldYaml = new PlanningGraphCompiler().Compile(fieldGraph.Graph, encodingCatalog);
+if ((await encodingRuntime.ValidateAsync(new(fieldYaml, new(), encodingCatalog, []), CancellationToken.None)).Count != 0) throw new InvalidOperationException("Field validation failed");
+var fieldDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(fieldYaml));
+var fieldRun = await encodingEngine.ExecuteAsync(fieldDocument.Workflows["main"], new JsonObject { ["records"] = new JsonArray(new JsonObject { ["state"] = "deny" }, new JsonObject { ["state"] = "allow" }) }, CancellationToken.None);
+if (!fieldRun.Success || !fieldRun.Outputs!["states"]!.AsArray().Select(n => n!.GetValue<string>()).SequenceEqual(new[] { "deny", "allow" }))
+    throw new InvalidOperationException("Field binding changed order or value");
+Console.WriteLine("typed field bindings: passed; ordered records; no inference");
