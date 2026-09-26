@@ -812,7 +812,6 @@ Output: `{ selected: [...], results: [...], answer?, text? }`.
         child.template_engine = ctx.engine.template_engine
         child.mcp_client_factory = ctx.engine.mcp_client_factory
         child.human_input_provider = ctx.engine.human_input_provider
-        child.checkpointer = None
         child.telemetry = ctx.engine.telemetry
         child.lm_defaults = copy.deepcopy(ctx.engine.lm_defaults)
         child.llm_options = ctx.engine.llm_options

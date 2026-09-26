@@ -10,6 +10,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// </summary>
 public sealed class DecisionEvaluateExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.ReplaySafe;
     public string StepType => "decision.evaluate";
 
     public IReadOnlyList<StepExceptionDoc>? DocumentedExceptions => new StepExceptionDoc[]

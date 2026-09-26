@@ -12,18 +12,58 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class PlanningSessionLifecycleTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    [Theory]
+    [InlineData(null, null, 24_000, 32_768)]
+    [InlineData(12_000, 8192, 12_000, 8192)]
+    public async Task DesignerDefaultAndOverrideApplyOnlyToNewSessions(int? configured, int? configuredOutput, int expected, int expectedOutput)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var settings = new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false };
+        if (configured is { } limit) settings.MaxInputTokensPerRequest = limit;
+        if (configuredOutput is { } output) settings.MaxOutputTokens = output;
+        using var service = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog(), settings: settings);
+        var saved = new PlanningSession { Request = new() { TenantId = "planning-tests", Prompt = "Saved intent" },
+            Status = PlanningStatus.Stopped, Revision = 5, ModelCalls = 2,
+            Discovery = new() { Sources = [new("source", "Declared metadata")], Pages = [new("source", null, [], null)] },
+            Usage = new() { Calls = 2, TotalTokens = 10000, EstimatedCost = 0.07m, EstimatedCostCurrency = "EUR" },
+            Diagnostics = [new("MODEL_INPUT_LIMIT", "/phases/tasks", "Input allowance exhausted")] };
+        Assert.True(await fixture.Store.TrySaveAsync(saved, null, Ct));
+        var created = await service.StartAsync("new-budget", "Return a greeting", false, Ct);
+        Assert.Equal(expected, created.Request.Generation.MaxInputTokensPerRequest);
+        Assert.Equal(expectedOutput, created.Request.Generation.MaxOutputTokens);
+        Assert.Equal("medium", created.Request.Generation.Reasoning);
+        Assert.Equal(8, created.Request.MaxModelCalls); Assert.Equal(2, created.Request.MaxReplanAttempts);
+        Assert.Equal(12_000, new PlanningGenerationOptions().MaxInputTokensPerRequest);
+
+        using var reopened = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog(), settings: settings);
+        var restored = (await reopened.GetAsync(saved.Request.SessionId, Ct))!;
+        Assert.Equal(12_000, restored.Request.Generation.MaxInputTokensPerRequest);
+        Assert.Equal(8192, restored.Request.Generation.MaxOutputTokens);
+        Assert.Equal(saved.Revision, restored.Revision); Assert.Equal(PlanningStatus.Stopped, restored.Status);
+        var continued = await reopened.SubmitAsync(restored.Request.SessionId, new()
+        {
+            Kind = "configure_generation", ExpectedRevision = restored.Revision,
+            Generation = new() { MaxInputTokensPerRequest = 24_000 }
+        }, Ct);
+        Assert.Equal(PlanningStatus.Generating, continued.Status); Assert.Empty(continued.Diagnostics);
+        Assert.Equal(24_000, continued.Request.Generation.MaxInputTokensPerRequest);
+        Assert.Equal(2, continued.ModelCalls); Assert.Equal(0, continued.ReplanAttempts);
+        Assert.Equal(saved.Usage!.TotalTokens, continued.Usage!.TotalTokens);
+        Assert.Equal(saved.Usage.EstimatedCost, continued.Usage.EstimatedCost);
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(saved.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState),
+            System.Text.Json.JsonSerializer.Serialize(continued.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
+        Assert.Equal(saved.Request.Options.ToJsonString(), continued.Request.Options.ToJsonString());
+    }
+
     [Fact]
     public async Task SaveRequiresApprovalAndReconcilesCommittedWriteAfterRestart()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask);
         var state = new PlanningSession { Request = new() { TenantId = "planning-tests", Name = "test", Prompt = "Return value", Policy = AgentPlanningPolicy.Create() }, Status = PlanningStatus.FinalReview,
-            GroundedPlan = new() { Operations = [new CalculateGroundedOperation { Id = "value", Value = new() { Kind = "string", Text = "hello" } }] }, Scenarios = [new("nominal", "passed", "Executed", [])] };
-        state.Catalog = await runtime.DiscoverAsync(state.Request, Ct); state.Graph = PlanningGraphBuilder.Build(GroundedPlanValidator.RequireValid(state.GroundedPlan, state.Catalog));
-        state.SemanticPlan = new() { Actions = [new() { Id = "value", Kind = "calculate", Purpose = "Return the supplied value" }] };
-        state.GroundedPlan.Operations[0].SemanticAction = "value";
-        state.Grounding = new() { Selections = [new("value", [], "Native implementation")], Pages = [new("page", ["value"], [])], Results = [new("page", [new("value", "none_of_the_above", [], "Native implementation")])], CatalogHash = PlanningGraphCompiler.Fingerprint(System.Text.Json.JsonSerializer.Serialize(state.Catalog, PlanningJsonContext.Default.PlanningCatalog)),
-            SemanticHash = PlanningGraphCompiler.Fingerprint(System.Text.Json.JsonSerializer.Serialize(state.SemanticPlan, PlanningJsonContext.Default.SemanticPlan)) };
+            Requirements = GnOuGo.Planning.Examples.PlanningCorpus.Requirements("local"), Plan = GnOuGo.Planning.Examples.PlanningCorpus.LiteralResult() };
+        state.Catalog = await runtime.DiscoverAsync(state.Request, Ct);
+        state.Graph = new TaskPlanCompiler().Compile(state.Plan!, state.Catalog).Graph!;
         state.Yaml = new PlanningGraphCompiler().Compile(state.Graph, state.Catalog, state.Request.Name);
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var writes = 0; string? saved = null;
@@ -31,7 +71,7 @@ public sealed class PlanningSessionLifecycleTests
             .OnTool("agent_get_by_name", (_, _) => Task.FromResult(new McpCallResult { Content = saved is null ? new JsonObject { ["success"] = false, ["error_code"] = "NOT_FOUND" }
                 : new JsonObject { ["success"] = true, ["agent"] = new JsonObject { ["id"] = "saved", ["workflow"] = saved } } }))
             .OnTool("agent_add", (input, _) => { writes++; saved = input!["workflow"]!.GetValue<string>(); return Task.FromResult(new McpCallResult { Content = new JsonObject { ["success"] = true, ["agent"] = new JsonObject { ["id"] = "saved" } } }); });
-        using var service = Create(fixture, new TypedWorkflowPlanner(), agents, settings: new() { BackgroundProcessingEnabled = false });
+        using var service = Create(fixture, new HybridWorkflowPlanner(), agents, settings: new() { BackgroundProcessingEnabled = false });
         await Assert.ThrowsAsync<PlanningConflictException>(() => service.SubmitAsync(state.Request.SessionId, new() { Kind = "save", ExpectedRevision = state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(state) }, Ct));
         state = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(state) }, Ct);
         Assert.True(state.Status == PlanningStatus.Approved, string.Join("; ", state.Diagnostics.Select(d => d.Code + ":" + d.Message)));
@@ -39,7 +79,7 @@ public sealed class PlanningSessionLifecycleTests
         Assert.Equal(PlanningStatus.Saved, state.Status); Assert.Equal(1, writes);
         var previous = state.Revision++; state.Status = PlanningStatus.Saving;
         Assert.True(await fixture.Store.TrySaveAsync(state, previous, Ct));
-        using var reopened = Create(fixture, new TypedWorkflowPlanner(), agents, settings: new() { BackgroundProcessingEnabled = false });
+        using var reopened = Create(fixture, new HybridWorkflowPlanner(), agents, settings: new() { BackgroundProcessingEnabled = false });
         state = await reopened.SubmitAsync(state.Request.SessionId, new() { Kind = "save", ExpectedRevision = state.Revision, ArtifactHash = state.ApprovedHash }, Ct);
         Assert.Equal(PlanningStatus.Saved, state.Status); Assert.Equal(1, writes);
     }
@@ -76,10 +116,10 @@ public sealed class PlanningSessionLifecycleTests
             Status = PlanningStatus.Stopped, ModelCalls = 1, ReplanAttempts = 0, Revision = 3,
             PendingCall = new() { Id = "reserved", Purpose = "intent", Request = new() { Prompt = "private" } } };
         var payload = System.Text.Json.JsonSerializer.Serialize(workflow, PlanningJsonContext.Default.PlanningSession);
-        await fixture.Records.UpsertAsync("flow-planning-sessions-v8", "planning-tests", "shared", payload, "test", Ct);
-        await fixture.Records.UpsertAsync("flow-planning-sessions-v8", "other", "foreign", payload, "test", Ct);
-        var before = await fixture.Records.GetAsync("flow-planning-sessions-v8", "planning-tests", "shared", "test", Ct);
-        using (var service = Create(fixture, new TypedWorkflowPlanner(), AgentCatalog()))
+        await fixture.Records.UpsertAsync("flow-planning-sessions-v10", "planning-tests", "shared", payload, "test", Ct);
+        await fixture.Records.UpsertAsync("flow-planning-sessions-v10", "other", "foreign", payload, "test", Ct);
+        var before = await fixture.Records.GetAsync("flow-planning-sessions-v10", "planning-tests", "shared", "test", Ct);
+        using (var service = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog()))
         {
             Assert.Equal("designer", (await service.GetAsync("shared", Ct))!.Request.Name);
             Assert.Equal("designer", Assert.Single(await service.ListAsync(Ct)).Request.Name);
@@ -90,32 +130,31 @@ public sealed class PlanningSessionLifecycleTests
             Assert.Equal("reserved", inspected.PendingCall!.Id);
             Assert.Null(await service.GetWorkflowSessionAsync("foreign", Ct));
         }
-        using var reopened = Create(fixture, new TypedWorkflowPlanner(), AgentCatalog());
+        using var reopened = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog());
         Assert.Equal(3, (await reopened.GetWorkflowSessionAsync("shared", Ct))!.Revision);
-        var after = await fixture.Records.GetAsync("flow-planning-sessions-v8", "planning-tests", "shared", "test", Ct);
+        var after = await fixture.Records.GetAsync("flow-planning-sessions-v10", "planning-tests", "shared", "test", Ct);
         Assert.Equal(before!.Value, after!.Value);
         Assert.Equal(before.UpdatedAt, after.UpdatedAt);
         workflow.Request.TenantId = "other";
-        await fixture.Records.UpsertAsync("flow-planning-sessions-v8", "planning-tests", "shared",
+        await fixture.Records.UpsertAsync("flow-planning-sessions-v10", "planning-tests", "shared",
             System.Text.Json.JsonSerializer.Serialize(workflow, PlanningJsonContext.Default.PlanningSession), "test", Ct);
         await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.GetWorkflowSessionAsync("shared", Ct));
     }
 
     [Theory]
-    [InlineData(PlanningPhase.Semantic)]
-    [InlineData(PlanningPhase.Grounding)]
-    [InlineData(PlanningPhase.Binding)]
+    [InlineData(PlanningPhase.Requirements)]
+    [InlineData(PlanningPhase.Discovery)]
+    [InlineData(PlanningPhase.Tasks)]
     [InlineData(PlanningPhase.Validation)]
-    [InlineData(PlanningPhase.Scenarios)]
+    [InlineData(PlanningPhase.Review)]
     [InlineData(PlanningPhase.Replanning)]
-    public async Task EveryPhaseRestoresSemanticGroundingAndCumulativeAccounting(string phase)
+    public async Task EveryPhaseRestoresRequirementsDiscoveryAndCumulativeAccounting(string phase)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = new PlanningSession { Request = new() { TenantId = "phase-tests", Prompt = "PRIVATE_PHASE_REQUIREMENT" }, Phase = phase,
-            SemanticPlan = new() { Actions = [new() { Id = "action", Purpose = "Required business outcome" }] },
-            Grounding = new() { CatalogHash = "catalog", SemanticHash = "semantic", Pages = [new("page", ["action"], ["cap"])],
-                Results = [new("page", [new("action", "matched", [new("cap", "Declared behavior")], "Covered")])], Selections = [new("action", ["cap"], "Sufficient implementation")] },
-            GroundedPlan = new(), ModelCalls = 5, ReplanAttempts = 1, Revision = 7 };
+            Requirements = new() { Outcomes = [new("action", "Required business outcome")] },
+            Discovery = new() { Sources = [new("source", "Declared metadata")], Pages = [new("source", null, [], null)] },
+            Graph = new(), ModelCalls = 5, ReplanAttempts = 1, Revision = 7 };
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var restored = await fixture.Store.LoadAsync("phase-tests", state.Request.SessionId, Ct);
         Assert.Equal(System.Text.Json.JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), System.Text.Json.JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession));

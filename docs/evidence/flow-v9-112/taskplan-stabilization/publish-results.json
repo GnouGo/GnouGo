@@ -1,0 +1,278 @@
+[
+  {
+    "check": "pack-Core",
+    "exit_code": 0,
+    "unexpected_warnings": [],
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/packages"
+    ]
+  },
+  {
+    "check": "pack-Planning",
+    "exit_code": 0,
+    "unexpected_warnings": [],
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/packages"
+    ]
+  },
+  {
+    "check": "pack-Integrations",
+    "exit_code": 0,
+    "unexpected_warnings": [],
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/packages"
+    ]
+  },
+  {
+    "check": "pack-Copilot",
+    "exit_code": 0,
+    "unexpected_warnings": [],
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Copilot/GnOuGo.Flow.Copilot.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/packages"
+    ]
+  },
+  {
+    "check": "pack-Persistence",
+    "exit_code": 0,
+    "unexpected_warnings": [],
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/packages"
+    ]
+  },
+  {
+    "check": "publish-PlanningSmoke",
+    "exit_code": 0,
+    "unexpected_warnings": [],
+    "command": [
+      "dotnet",
+      "publish",
+      "tests/GnOuGo.Flow.Planning.Smoke/GnOuGo.Flow.Planning.Smoke.csproj",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-warnaserror",
+      "-p:PublishAot=true",
+      "-p:PublishTrimmed=true",
+      "-p:PublishSingleFile=true",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "-o",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/publish/PlanningSmoke"
+    ]
+  },
+  {
+    "check": "smoke-planning",
+    "exit_code": 0,
+    "unexpected_warnings": [],
+    "command": [
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/publish/PlanningSmoke/GnOuGo.Flow.Planning.Smoke"
+    ]
+  },
+  {
+    "check": "publish-FlowCli",
+    "exit_code": 1,
+    "unexpected_warnings": [],
+    "command": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-warnaserror",
+      "-p:PublishAot=true",
+      "-p:PublishTrimmed=true",
+      "-p:PublishSingleFile=true",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "-o",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/publish/FlowCli"
+    ]
+  },
+  {
+    "check": "publish-FlowCli",
+    "exit_code": 0,
+    "unexpected_warnings": [],
+    "command": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-p:PublishAot=true",
+      "-p:PublishTrimmed=true",
+      "-p:PublishSingleFile=true",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "-o",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/publish/FlowCli"
+    ]
+  },
+  {
+    "check": "publish-FlowServer",
+    "exit_code": 0,
+    "unexpected_warnings": [],
+    "command": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.Flow.Server/GnOuGo.Flow.Server.csproj",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-p:PublishAot=true",
+      "-p:PublishTrimmed=true",
+      "-p:PublishSingleFile=true",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "-o",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/publish/FlowServer"
+    ]
+  },
+  {
+    "check": "publish-CopilotMcp",
+    "exit_code": 0,
+    "unexpected_warnings": [],
+    "command": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp.csproj",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-p:PublishAot=true",
+      "-p:PublishTrimmed=true",
+      "-p:PublishSingleFile=true",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "-o",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/publish/CopilotMcp"
+    ]
+  },
+  {
+    "check": "publish-AgentServer",
+    "exit_code": 0,
+    "unexpected_warnings": [],
+    "command": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-p:PublishAot=false",
+      "-p:PublishTrimmed=true",
+      "-p:PublishSingleFile=true",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "-o",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/publish/AgentServer"
+    ]
+  },
+  {
+    "check": "smoke-encrypted-execution",
+    "exit_code": 0,
+    "unexpected_warnings": [],
+    "command": [
+      "python3",
+      "scripts/verify-flow-v9-published.py",
+      "--cli",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/publish/FlowCli/GnOuGo.Flow.Cli",
+      "--server",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/publish/FlowServer/GnOuGo.Flow.Server",
+      "--copilot",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/publish/CopilotMcp/GnOuGo.GithubCopilot.Mcp"
+    ]
+  },
+  {
+    "check": "smoke-encrypted-planning",
+    "exit_code": 0,
+    "unexpected_warnings": [],
+    "command": [
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/publish/AgentServer/GnOuGo.Agent.Server",
+      "--planning-persistence-smoke",
+      "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/taskplan-stabilization-validation/planning-smoke-data"
+    ]
+  },
+  {
+    "check": "build-benchmark",
+    "exit_code": 0,
+    "unexpected_warnings": [
+      "    0 Avertissement(s)"
+    ],
+    "command": [
+      "dotnet",
+      "build",
+      "tests/GnOuGo.Agent.Planning.Benchmark/GnOuGo.Agent.Planning.Benchmark.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipClientBuild=true"
+    ]
+  }
+]

@@ -11,6 +11,9 @@ internal static class PlanningModelCalls
     internal static async Task<JsonNode> CallAsync(PlanningSession state, IPlanningRuntime runtime, string purpose, string prompt, JsonObject schema, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
+        if (state.PendingCall?.Request.StructuredOutputSchema?["properties"] is JsonObject previous &&
+            (previous.ContainsKey("sourceId") || previous.ContainsKey("cursor")))
+            throw new WorkflowRuntimeException("PLANNING_REQUEST_INCOMPATIBLE", "The pending request uses a superseded discovery response contract. Start a new planning session and regenerate the workflow. Its original request, reservation and accounting are retained.");
         if (state.PendingCall is null)
         {
             if (state.ModelCalls >= state.Request.MaxModelCalls) throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetExceeded, "The session model-call budget was exhausted.");
@@ -25,7 +28,7 @@ internal static class PlanningModelCalls
             var inputTokens = PlanningJsonTransport.EstimateInputTokens(prompt, schema);
             var inputLimit = state.Request.Generation.MaxInputTokensPerRequest;
             if (inputTokens > inputLimit)
-                throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", $"The complete {purpose} request needs approximately {inputTokens} input tokens; the configured limit is {inputLimit}. The action/subgraph cannot proceed within its current request budget.",
+                throw new WorkflowRuntimeException("MODEL_INPUT_LIMIT", $"The conservative input estimate for the complete {purpose} request (prompt and response schema) is {inputTokens} tokens; the configured limit is {inputLimit}. Planning stopped before dispatch without consuming another model call or repair. Increase the input token limit in generation settings and explicitly resume planning; cumulative session budgets remain unchanged.",
                     details: new JsonObject { ["location"] = "/phases/" + purpose });
             var hash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
             request.ClientRequestId = state.Request.SessionId + ":" + (++state.ModelCalls) + ":" + hash;
@@ -42,28 +45,14 @@ internal static class PlanningModelCalls
         var findings = PlanningContractValidation.ValidateInstanceFindings(json, call.Request.StructuredOutputSchema!);
         if (findings.Count != 0)
         {
-            var rejectedHash = PlanningGraphCompiler.Fingerprint((call.Request.StructuredOutputSchema!["properties"]?["decision"] is not null && json["decision"] is null ? json["result"] ?? json : json).ToJsonString());
+            var rejectedHash = PlanningGraphCompiler.Fingerprint(json.ToJsonString());
             if (state.RejectedProposalHash == rejectedHash) throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The model repeated an unchanged invalid proposal.");
             state.RejectedProposalHash = rejectedHash;
             throw new PlanningResponseException(findings.Select(f => new PlanningDiagnostic("PLANNING_RESPONSE_INVALID",
-                f.InstancePointer.Replace("/implementation/", "/", StringComparison.Ordinal), f.Message, ValidationStage: purpose)).ToList());
+                f.InstancePointer, f.Message, ValidationStage: purpose)).ToList());
         }
         state.RejectedProposalHash = null;
-        return call.Request.StructuredOutputSchema!["properties"]?["decision"] is not null ? json : ReadResult(state, json, call.Request.StructuredOutputSchema!);
-    }
-
-    internal static JsonNode ReadResult(PlanningSession state, JsonNode json, JsonNode schema)
-    {
-        if (json["blockedActions"] is JsonArray { Count: > 0 } blockers)
-        {
-            var actions = SemanticPlanning.Actions(state.SemanticPlan!).Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
-            if (blockers.Any(b => !actions.Contains(b!["actionId"]!.ToString()) || string.IsNullOrWhiteSpace(b["reason"]!.ToString())) ||
-                blockers.Select(b => b!["actionId"]!.ToString()).Distinct().Count() != blockers.Count ||
-                new[] { "inputs", "operations", "outputs", "subflows" }.Any(field => json[field] is JsonArray { Count: > 0 }))
-                throw new PlanningResponseException([new("BINDING_BLOCKER_INVALID", "/blockedActions", "A blocked binding must name distinct existing semantic actions, explain each missing prerequisite, and contain no executable proposal.")]);
-            throw new PlanningResponseException(PlanningPrerequisites.Read(state, blockers));
-        }
-        return PlanningJsonTransport.ModelGrounded(json, schema, unpack: true);
+        return json;
     }
 
 }

@@ -1,0 +1,69 @@
+Workflow 36046222243
+Agent Server Tests (non-blocking) / Agent Server Tests	UNKNOWN STEP	2026-09-24T19:13:17.0615824Z Passed!  - Failed:     0, Passed:   402, Skipped:     0, Total:   402, Duration: 1 m 20 s - GnOuGo.Agent.Server.Tests.dll (net10.0)
+Server (linux-x64) / Server (linux-x64)	UNKNOWN STEP	2026-09-24T19:14:49.3921661Z Format-10 planning persistence smoke passed; execution journal schema 9 is unchanged.
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:13:11.2521130Z Passed!  - Failed:     0, Passed:   103, Skipped:     0, Total:   103, Duration: 8 s - GnOuGo.Agent.Mcp.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:13:16.0651316Z Passed!  - Failed:     0, Passed:   222, Skipped:     0, Total:   222, Duration: 1 s - GnOuGo.AI.Core.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:13:20.3951153Z Passed!  - Failed:     0, Passed:    14, Skipped:     0, Total:    14, Duration: 171 ms - GnOuGo.AI.Local.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:13:30.4217146Z Passed!  - Failed:     0, Passed:    13, Skipped:     0, Total:    13, Duration: 5 s - GnOuGo.Assets.Animation.Server.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:13:32.9323522Z Passed!  - Failed:     0, Passed:    38, Skipped:     0, Total:    38, Duration: 222 ms - GnOuGo.Assets.Animation.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:13:36.0945308Z Passed!  - Failed:     0, Passed:    28, Skipped:     0, Total:    28, Duration: 308 ms - GnOuGo.Assets.Bears.Server.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:13:48.9676111Z Passed!  - Failed:     0, Passed:    91, Skipped:     0, Total:    91, Duration: 10 s - GnOuGo.Assets.Bears.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:13:51.4998096Z Passed!  - Failed:     0, Passed:     8, Skipped:     0, Total:     8, Duration: 425 ms - GnOuGo.Auth.Core.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:14:06.2640694Z Passed!  - Failed:     0, Passed:    43, Skipped:     0, Total:    43, Duration: 170 ms - GnOuGo.Browser.Mcp.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:14:20.5107446Z Passed!  - Failed:     0, Passed:    41, Skipped:     0, Total:    41, Duration: 11 s - GnOuGo.Cmd.Mcp.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:14:24.2879800Z Passed!  - Failed:     0, Passed:    52, Skipped:     0, Total:    52, Duration: 1 s - GnOuGo.Diff.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:14:34.9924807Z Passed!  - Failed:     0, Passed:     7, Skipped:     0, Total:     7, Duration: 954 ms - GnOuGo.DocIngestor.Mcp.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:14:41.9810948Z Passed!  - Failed:     0, Passed:    89, Skipped:     0, Total:    89, Duration: 3 s - GnOuGo.DocIngestor.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:14:47.0220625Z Passed!  - Failed:     0, Passed:    63, Skipped:     0, Total:    63, Duration: 905 ms - GnOuGo.Document.Mcp.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:14:51.5644621Z Passed!  - Failed:     0, Passed:    10, Skipped:     0, Total:    10, Duration: 976 ms - GnOuGo.Files.Server.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:14:53.9555693Z Passed!  - Failed:     0, Passed:     5, Skipped:     0, Total:     5, Duration: 108 ms - GnOuGo.Flow.Copilot.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:14:59.9024559Z Passed!  - Failed:     0, Passed:    80, Skipped:     0, Total:    80, Duration: 2 s - GnOuGo.Flow.Integrations.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:15:02.3180874Z Passed!  - Failed:     0, Passed:    12, Skipped:     0, Total:    12, Duration: 106 ms - GnOuGo.Flow.Mermaid.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:15:06.6667038Z Passed!  - Failed:     0, Passed:     3, Skipped:     0, Total:     3, Duration: 1 s - GnOuGo.Flow.Persistence.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:15:11.2784946Z Passed!  - Failed:     0, Passed:   141, Skipped:     0, Total:   141, Duration: 1 s - GnOuGo.Flow.Planning.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:15:18.2187239Z Passed!  - Failed:     0, Passed:   874, Skipped:     0, Total:   874, Duration: 3 s - GnOuGo.Flow.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:15:22.2577064Z Passed!  - Failed:     0, Passed:    48, Skipped:     0, Total:    48, Duration: 492 ms - GnOuGo.Git.Mcp.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:15:30.8842438Z Passed!  - Failed:     0, Passed:   107, Skipped:     0, Total:   107, Duration: 623 ms - GnOuGo.GithubCopilot.Core.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:15:39.3223925Z Passed!  - Failed:     0, Passed:     7, Skipped:     5, Total:    12, Duration: 55 ms - GnOuGo.GithubCopilot.E2E.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:15:50.9513489Z Passed!  - Failed:     0, Passed:   120, Skipped:     0, Total:   120, Duration: 6 s - GnOuGo.GithubCopilot.Mcp.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:15:55.8323995Z Passed!  - Failed:     0, Passed:    12, Skipped:     0, Total:    12, Duration: 2 s - GnOuGo.KeyVault.Core.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:16:02.1232056Z Passed!  - Failed:     0, Passed:     9, Skipped:     0, Total:     9, Duration: 2 s - GnOuGo.KeyVault.Mcp.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:16:04.2847141Z Passed!  - Failed:     0, Passed:    31, Skipped:     0, Total:    31, Duration: 75 ms - GnOuGo.Mcp.Core.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:16:06.4573482Z Passed!  - Failed:     0, Passed:     3, Skipped:     0, Total:     3, Duration: 42 ms - GnOuGo.Observability.Core.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:16:12.7840057Z Passed!  - Failed:     0, Passed:     7, Skipped:     0, Total:     7, Duration: 1 s - GnOuGo.OtlpCollector.Server.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:16:22.1205743Z Passed!  - Failed:     0, Passed:   135, Skipped:     0, Total:   135, Duration: 5 s - GnOuGo.ProxyCopilot.Server.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:16:24.2634258Z Passed!  - Failed:     0, Passed:    30, Skipped:     0, Total:    30, Duration: 59 ms - GnOuGo.Workspace.Tests.dll (net10.0)
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:17:08.2990223Z local: passed, calls=1, replans=0, validations=1
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:17:08.4128668Z review_french: passed, calls=1, replans=0, validations=1
+Stable Unit Tests / Stable .NET Unit Tests	UNKNOWN STEP	2026-09-24T19:17:08.4772965Z review_distractors: passed, calls=4, replans=0, validations=1
+Stable Unit Tests / Python Unit Tests	UNKNOWN STEP	2026-09-24T19:11:06.8422274Z 287 passed in 8.79s
+Stable Unit Tests / Python Unit Tests	UNKNOWN STEP	2026-09-24T19:11:13.5737426Z 27 passed in 5.37s
+Desktop (Trimmed + Native AOT tools) / Desktop Build (win-x64)	UNKNOWN STEP	2026-09-24T19:44:31.1392561Z Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 6 s - GnOuGo.AI.Local.Tests.dll (net10.0)
+Desktop (Trimmed + Native AOT tools) / Desktop Build (linux-x64)	UNKNOWN STEP	2026-09-24T19:38:34.8257712Z Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 3 s - GnOuGo.AI.Local.Tests.dll (net10.0)
+Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-arm64)	UNKNOWN STEP	2026-09-24T19:37:17.0532560Z local: passed, calls=1, replans=0, validations=1
+Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-arm64)	UNKNOWN STEP	2026-09-24T19:37:17.1464180Z review_french: passed, calls=1, replans=0, validations=1
+Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-arm64)	UNKNOWN STEP	2026-09-24T19:37:17.1961250Z review_distractors: passed, calls=4, replans=0, validations=1
+Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-arm64)	UNKNOWN STEP	2026-09-24T19:49:16.2561870Z Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 24 s - GnOuGo.AI.Local.Tests.dll (net10.0)
+Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-x64)	UNKNOWN STEP	2026-09-24T19:40:40.8050830Z local: passed, calls=1, replans=0, validations=1
+Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-x64)	UNKNOWN STEP	2026-09-24T19:40:40.9681550Z review_french: passed, calls=1, replans=0, validations=1
+Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-x64)	UNKNOWN STEP	2026-09-24T19:40:41.0614460Z review_distractors: passed, calls=4, replans=0, validations=1
+
+Workflow 36046221977
+validate	Test planner, runtime and host integration	2026-09-24T19:12:01.8583381Z Passed!  - Failed:     0, Passed:   141, Skipped:     0, Total:   141, Duration: 2 s - GnOuGo.Flow.Planning.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-09-24T19:12:15.8506001Z Passed!  - Failed:     0, Passed:    80, Skipped:     0, Total:    80, Duration: 4 s - GnOuGo.Flow.Integrations.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-09-24T19:12:19.6454248Z Passed!  - Failed:     0, Passed:     5, Skipped:     0, Total:     5, Duration: 132 ms - GnOuGo.Flow.Copilot.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-09-24T19:12:27.7416684Z Passed!  - Failed:     0, Passed:     3, Skipped:     0, Total:     3, Duration: 2 s - GnOuGo.Flow.Persistence.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-09-24T19:12:39.1642127Z Passed!  - Failed:     0, Passed:   107, Skipped:     0, Total:   107, Duration: 684 ms - GnOuGo.GithubCopilot.Core.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-09-24T19:12:58.7594730Z Passed!  - Failed:     0, Passed:   120, Skipped:     0, Total:   120, Duration: 6 s - GnOuGo.GithubCopilot.Mcp.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-09-24T19:13:08.2462771Z Passed!  - Failed:     0, Passed:   874, Skipped:     0, Total:   874, Duration: 3 s - GnOuGo.Flow.Tests.dll (net10.0)
+validate	Test planner, runtime and host integration	2026-09-24T19:14:50.1456921Z Passed!  - Failed:     0, Passed:   402, Skipped:     0, Total:   402, Duration: 46 s - GnOuGo.Agent.Server.Tests.dll (net10.0)
+validate	Build isolated live benchmark host	2026-09-24T19:15:27.9592520Z     0 Warning(s)
+validate	Publish and run Native AOT smoke	2026-09-24T19:16:05.0264494Z local: passed, calls=1, replans=0, validations=1
+validate	Publish and run Native AOT smoke	2026-09-24T19:16:05.1419715Z review_french: passed, calls=1, replans=0, validations=1
+validate	Publish and run Native AOT smoke	2026-09-24T19:16:05.2132084Z review_distractors: passed, calls=4, replans=0, validations=1
+
+Workflow 36046221842
+Python 3.14 tests, lint and packages	UNKNOWN STEP	2026-09-24T19:11:17.3963555Z 287 passed in 9.22s
+Python 3.14 tests, lint and packages	UNKNOWN STEP	2026-09-24T19:11:26.3333990Z 27 passed in 6.21s
+Python 3.10 tests, lint and packages	UNKNOWN STEP	2026-09-24T19:12:00.5548316Z 287 passed in 9.08s
+Python 3.10 tests, lint and packages	UNKNOWN STEP	2026-09-24T19:12:08.2177398Z 27 passed in 5.56s

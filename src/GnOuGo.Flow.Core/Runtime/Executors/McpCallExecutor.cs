@@ -382,6 +382,7 @@ public sealed class McpCallExecutor : IStepExecutor
                     ["status"] = hasError ? "error" : "ok",
                     ["results"] = resultsArr
                 };
+                await ctx.RecordExternalCompletionAsync(batchResult, CancellationToken.None);
                 if (errorPolicy.RaiseOnError && hasError)
                     ThrowMcpBatchError(kind, serverName, batchMethods!, batchResult);
                 return await ApplyDirectStructuredOutputAsync(
@@ -399,6 +400,7 @@ public sealed class McpCallExecutor : IStepExecutor
                 // ── Single mode (backward compatible) ──
                 var singleCorrelation = correlation with { MethodName = singleMethod };
                 var singleResult = await CallSingleAsync(session, kind, singleMethod!, requestArgs, singleCorrelation, errorPolicy.DetectResultErrors, runtimeToolCatalog, GetBoolProperty(input, "preserve_optional_nulls") ?? false, ctx, realtimeProgressFingerprints, linkedCts.Token);
+                await ctx.RecordExternalCompletionAsync(singleResult, CancellationToken.None);
                 var statusStr = (singleResult as JsonObject)?["status"]?.GetValue<string>();
                 ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", statusStr == "error" ? "error" : "stop");
                 if (errorPolicy.RaiseOnError && statusStr == "error")
@@ -1528,7 +1530,7 @@ Produce the final answer strictly from the executed MCP results.
             TraceId = traceId,
             SpanId = spanId,
             TraceParent = activity != null ? $"00-{activity.TraceId}-{activity.SpanId}-{(activity.ActivityTraceFlags.HasFlag(ActivityTraceFlags.Recorded) ? "01" : "00")}" : null,
-            StepId = ctx.Step.Id,
+            StepId = ctx.InvocationId,
             StepType = ctx.Step.Type,
             ServerName = serverName,
             MethodName = method,

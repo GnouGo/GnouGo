@@ -1,6 +1,6 @@
 ﻿// ── useWorkflowStream — manages workflow execution state & SSE streaming ──
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import type {
   LiveStep,
   PendingHumanInput,
@@ -19,6 +19,7 @@ import type {
 import { makeStepKey, parseInputsYamlToJsonString, readNdjsonLines } from '../utils'
 
 export interface WorkflowStreamState {
+  tenantId: string
   result: WorkflowResult | null
   error: string | null
   loading: boolean
@@ -33,6 +34,7 @@ export interface WorkflowStreamState {
 }
 
 export function useWorkflowStream(): WorkflowStreamState {
+  const tenantRef = useRef('default')
   const [result, setResult] = useState<WorkflowResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -256,6 +258,7 @@ export function useWorkflowStream(): WorkflowStreamState {
           body: JSON.stringify({ workflow, inputs: normalizedInputs }),
         })
 
+        tenantRef.current = response.headers.get('X-Workflow-Tenant-Id') ?? 'default'
         if (!response.ok) {
           const err = await response.json().catch(() => ({ error: response.statusText }))
           setError(err.error || err.detail || `HTTP ${response.status}`)
@@ -307,19 +310,26 @@ export function useWorkflowStream(): WorkflowStreamState {
       // that may arrive on the SSE stream before the fetch response returns.
       setPendingHumanInput(null)
       try {
-        await fetch(`/api/workflow/human-input/${runId}/${stepId}`, {
+        const base = `/api/tenants/${encodeURIComponent(tenantRef.current)}/runs/${encodeURIComponent(runId)}`
+        const inspection = await fetch(base)
+        if (!inspection.ok) throw new Error('The execution journal could not be inspected.')
+        const journal = await inspection.json() as { revision: number }
+        const reply = await fetch(`${base}/human-input`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
+          body: JSON.stringify({ expectedRevision: journal.revision, invocationId: stepId, response: data }),
         })
+        if (!reply.ok) throw new Error(`Answer was not accepted (HTTP ${reply.status}).`)
       } catch (e) {
-        console.error('Failed to submit human input', e)
+        setError(e instanceof Error ? e.message : 'Failed to save human input')
+        setPendingHumanInput(pendingHumanInput)
       }
     },
     [pendingHumanInput],
   )
 
   return {
+    tenantId: tenantRef.current || 'default',
     result,
     error,
     loading,

@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\GnOuGo.Agent.Server\GnOuGo.Agent.Server.csproj" />
+    <ProjectReference Include="../../src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj" />
+    <ProjectReference Include="../../src/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp.csproj" />
     <ProjectReference Include="..\..\src\GnOuGo.Flow.Integrations\GnOuGo.Flow.Integrations.csproj" />
   </ItemGroup>
 
@@ -26,10 +28,19 @@
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
+  <ItemGroup><None Update="Fixtures/**/*.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 
   <Import Project="..\..\build\GnOuGo.BundledMcpTools.targets" />
 
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs" Link="BenchmarkCampaign.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs" Link="BenchmarkHttpJournal.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs" Link="KeyVaultBenchmarkModel.cs" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" />
+    <Compile Include="../Shared/PlanningBenchmarkCases.cs" Link="PlanningBenchmarkCases.cs" />
+    <Compile Include="../Shared/PlanningBenchmarkMeasurements.cs" Link="PlanningBenchmarkMeasurements.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Shared/RealProductContracts.cs" Link="RealProductContracts.cs" />
+  </ItemGroup>
 </Project>

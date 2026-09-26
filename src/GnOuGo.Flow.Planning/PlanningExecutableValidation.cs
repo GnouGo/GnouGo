@@ -16,7 +16,6 @@ public static class PlanningExecutableValidation
         // Only broken identities or cycles prevent safe traversal. Report independent
         // contract errors together so one scope error does not consume an entire replan.
         if (errors.Any(d => d.Code is "WORKFLOW_IDENTITIES_INVALID" or "NODE_IDENTITIES_INVALID" or "PORT_IDENTITIES_INVALID" or "ENTRYPOINT_INVALID" or "DEPENDENCY_CYCLE")) return errors;
-        errors.AddRange(PlanningComputationContracts.Findings(graph, catalog));
         errors.AddRange(PlanningArtifactBindings.PrerequisiteFindings(graph, catalog));
         errors.AddRange(PlanningDataflow.Validate(graph, catalog));
         errors.AddRange(PlanningConfirmationGuards.Validate(graph, catalog));
@@ -72,7 +71,7 @@ public static class PlanningExecutableValidation
                 {
                     var preview = Preview(node.Input);
                     // set resolves its entire input value at runtime and can assert the result schema.
-                    if (node.Type == "set" && node.Input.Kind is "expression" or "compute" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection") continue;
+                    if (node.Type == "set" && node.Input.Kind is "expression" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection") continue;
                     var input = preview as JsonObject ?? throw new InvalidOperationException("This step requires an object input. For set, put computations in input values or supply an object-producing expression.");
                     var capability = catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
                     if (capability is not null)
@@ -80,15 +79,25 @@ public static class PlanningExecutableValidation
                         foreach (var (key, value) in capability.FixedInput) input[key] ??= value?.DeepClone();
                         if (node.Type == "mcp.call") { input["server"] ??= capability.Server; input["method"] ??= capability.Method; input["kind"] ??= capability.Kind; }
                     }
-                    if (BuiltInStepContracts.Get(node.Type) is { } contract)
+                    var registered = catalog.StepContracts[node.Type] as JsonObject;
+                    var declaredContract = registered?["input"] is JsonObject inputSchema && registered["output"] is JsonObject outputSchema
+                        ? new StepContract(inputSchema, outputSchema, InputRequired: true) : BuiltInStepContracts.Get(node.Type);
+                    if (declaredContract is { } contract)
                         errors.AddRange(PlanningContractValidation.ValidateStepInput(input, contract).Select(d => new PlanningDiagnostic("NATIVE_INPUT_INVALID", location + "/" + d.Field.Replace('.', '/'), d.Message)));
+                    if (node.Type == "agent.run")
+                    {
+                        _ = AgentTaskContracts.Parse(input);
+                        if (capability is not null)
+                            errors.AddRange(PlanningContractValidation.ValidateStepInput(input, new StepContract(capability.InputSchema, capability.OutputSchema, InputRequired: true))
+                                .Select(d => new PlanningDiagnostic("AGENT_SCOPE_INVALID", location + "/" + d.Field.Replace('.', '/'), d.Message)));
+                    }
                     if (node.Type == "human.input")
                     {
                         var doc = new WorkflowDocument { Skill = new() { Description = "Validate expression contract", Inputs = new(), Outputs = new() }, Workflows = new() { ["main"] = new() { Steps = [new() { Id = "question", Type = node.Type, Input = input }] } } };
                         errors.AddRange(new WorkflowValidator().Validate(doc).Select(d => new PlanningDiagnostic(d.Code, location + "/" + d.Field?.Replace('.', '/'), d.Message)));
                     }
                 }
-                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { errors.Add(new("NATIVE_INPUT_INVALID", location + "/input", ex.Message)); }
+                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException or WorkflowRuntimeException) { errors.Add(new("NATIVE_INPUT_INVALID", location + "/input", ex.Message)); }
             }
             for (var i = 0; i < workflow.Outputs.Count; i++) Values(workflow.Outputs[i].Value, path + "/outputs/" + i + "/value");
         }
@@ -104,9 +113,6 @@ public static class PlanningExecutableValidation
         }
         void Values(PlanningValue value, string location)
         {
-            if (value.Kind == "compute")
-                try { PlanningComputations.Validate(value); }
-                catch (Exception ex) when (ex is InvalidOperationException or Acornima.ParseErrorException) { errors.Add(new("COMPUTATION_BINDING_INVALID", location, ex.Message)); }
             if (value.Kind == "expression")
             {
                 try
@@ -142,8 +148,7 @@ public static class PlanningExecutableValidation
         void Condition(PlanningValue value, string location)
         {
             Values(value, location);
-            if (value.Kind is "string" or "number" or "null" or "object" or "array" or "template" ||
-                value.Kind == "compute" && PlanningComputations.HasNonBooleanResult(value.Text))
+            if (value.Kind is "string" or "number" or "null" or "object" or "array" or "template")
                 errors.Add(new("BOOLEAN_CONDITION_INVALID", location,
                     "A condition must return a boolean. Outcome labels and catch-all labels are not conditions. Omit an error-handler condition for an unconditional handler; preserve its error action and fallback."));
         }
@@ -189,7 +194,7 @@ public static class PlanningExecutableValidation
         var workflow = graph.Workflows[wi]; var path = "/workflows/" + wi;
         var field = parts.FirstOrDefault(p => p.StartsWith("field:", StringComparison.Ordinal))?["field:".Length..];
         var step = parts.FirstOrDefault(p => p.StartsWith("step:", StringComparison.Ordinal))?["step:".Length..];
-        if (step is not null)
+        if (!string.IsNullOrEmpty(step))
         {
             var locations = PlanningGraphValidation.Located(workflow.Steps, path + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, path + "/finally"))
                 .Where(n => "n_" + PlanningGraphCompiler.Fingerprint(n.Node.Key)[..16] == step).ToArray();
@@ -216,7 +221,7 @@ public static class PlanningExecutableValidation
         "object" => new JsonObject(value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted).Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Preview(m.Value)))),
         "array" => new JsonArray(value.Items.Select(Preview).ToArray()),
         "workflow" => new JsonObject { ["kind"] = "local", ["name"] = value.Source },
-        "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "expression" or "compute" or "template" => JsonValue.Create("${data.value}"),
+        "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "template" => JsonValue.Create("${data.value}"),
         _ => PlanningGraphValidation.Literal(value)
     };
 }

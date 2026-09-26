@@ -6,6 +6,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <PackageId>GnOuGo.Flow.Planning</PackageId>
+    <PackageReleaseNotes>Breaking planning format 10: semantic TaskPlan compilation and local business choices; regenerate and approve previous planning sessions. Execution journals remain schema 9.</PackageReleaseNotes>
     <Authors>GnOuGo</Authors>
     <Description>Provider-neutral, resumable typed workflow planning and deterministic YAML generation.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

@@ -16,4 +16,9 @@
   <ItemGroup><Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Shared/PlanningBenchmarkCases.cs" Link="PlanningBenchmarkCases.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Shared/PlanningBenchmarkMeasurements.cs" Link="PlanningBenchmarkMeasurements.cs" /></ItemGroup>
+  <ItemGroup><None Update="Fixtures/**/*.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Shared/ProductTransformationFixture.cs" Link="ProductTransformationFixture.cs" />
+    <Compile Include="../Shared/ProductTransformationPlan.cs" Link="ProductTransformationPlan.cs" />
+  </ItemGroup>
 </Project>

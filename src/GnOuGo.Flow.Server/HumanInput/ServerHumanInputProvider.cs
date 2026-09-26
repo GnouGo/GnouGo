@@ -10,9 +10,13 @@ namespace GnOuGo.Flow.Server.HumanInput;
 /// keyed by "{runId}:{stepId}". The matching HTTP endpoint resolves
 /// the TCS when the user submits a response.
 /// </summary>
-public sealed class ServerHumanInputProvider : IHumanInputProvider
+public sealed class ServerHumanInputProvider(IWorkflowRunStore? store = null, Microsoft.Extensions.Options.IOptions<GnOuGo.Flow.Server.Configuration.OpenTelemetrySettings>? options = null) : IHumanInputProvider
 {
     private readonly ConcurrentDictionary<string, TaskCompletionSource<JsonNode?>> _pending = new();
+
+    public Task PrepareAsync(HumanInputRequest request, CancellationToken ct)
+        => store is null ? Task.CompletedTask : WorkflowRunHumanResponses.PrepareAsync(store,
+            string.IsNullOrWhiteSpace(options?.Value.TenantId) ? "default" : options.Value.TenantId.Trim(), request, ct);
 
     public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
     {

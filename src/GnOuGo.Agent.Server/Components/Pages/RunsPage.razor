@@ -1,0 +1,100 @@
+@page "/runs"
+@page "/runs/{RunId}"
+@using GnOuGo.Flow.Core.Runtime
+@using System.Text.Json.Nodes
+@inject WorkflowRunService Runs
+@inject NavigationManager Navigation
+
+<PageTitle>Workflow executions</PageTitle>
+<main class="container py-4" style="max-width:1200px;margin:auto;padding:1.5rem">
+    <nav><a href="/">Chat</a> · <a href="/planning">Workflow designer</a> · <a href="/runs">Executions</a></nav>
+    <h1>Workflow executions</h1>
+    <p>Tenant <code>@Runs.TenantId</code> <button type="button" @onclick="LoadAsync">Refresh</button></p>
+    @if (_error is not null) { <p role="alert">@_error</p> }
+    @if (_run is { } run)
+    {
+        <h2>@run.WorkflowName</h2>
+        <p><code>@run.RunId</code> · <strong>@run.Status</strong> · Revision @run.Revision</p>
+        <p>@run.StepsStarted / @run.Limits.MaxTotalStepsExecuted steps · @run.FinalizationStepsStarted / @run.Limits.MaxFinalizationSteps cleanup steps</p>
+        <p>Cleanup: @(run.FinalizationCompleted ? "completed" : run.FinalizationStarted ? "in progress" : "pending") · Cancellation: @(run.CancelRequested ? "requested" : "not requested")</p>
+        @if (run.ModelUsage is { } usage) { <p>Model usage: @usage.Calls calls · @usage.InputTokens input tokens · @usage.OutputTokens output tokens</p> }
+        <button type="button" disabled="@_busy" @onclick='() => CommandAsync("resume")'>Resume this revision</button>
+        <button type="button" disabled="@run.CancelRequested" @onclick='() => CommandAsync("cancel")'>Cancel this revision</button>
+        @if (_busy) { <p role="status">Execution command is running. Refresh to inspect its journal or pending human input.</p> }
+        @foreach (var invocation in run.Invocations.Values.OrderBy(i => i.PreparedAt).ThenBy(i => i.Id))
+        {
+            <section class="card my-3 p-3" @key="invocation.Id">
+                <h3>@invocation.StepType · @invocation.Status</h3>
+                <code>@invocation.Id</code>
+                @if (invocation.IsFinalization) { <p>Cleanup invocation</p> }
+                @if (invocation.StepType == "agent.run")
+                {
+                    <p>@invocation.ResolvedInput?["objective"]</p>
+                    <p>Workspace: <code>@invocation.ResolvedInput?["workspace"]</code></p>
+                    <details><summary>Approved permissions, budgets and verification</summary><pre>@Scope(invocation.ResolvedInput)</pre></details>
+                    <details open><summary>Observed evidence and verification findings</summary><pre>@Evidence(invocation.Output ?? invocation.Observation)</pre></details>
+                }
+                @if (invocation.Error is { } error) { <p role="status">@error.Code: @error.Message</p> }
+                @if (invocation.Recovery == StepRecovery.External && invocation.DispatchedAt is not null && invocation.CompletedAt is null)
+                {
+                    <p>The external outcome is unresolved. Execution and cleanup wait for reconciliation.</p>
+                    @if (invocation.StepType == "agent.run")
+                    { <button type="button" disabled="@_busy" @onclick='() => CommandAsync("reconcile", invocation.Id)'>Inspect agent receipt</button> }
+                    <label>Confirmation that external work has stopped, with an audit reason
+                        <input class="form-control" @bind="_stoppedReason" placeholder="Describe how you confirmed the operation stopped" />
+                    </label>
+                    <button type="button" disabled="@(_busy || string.IsNullOrWhiteSpace(_stoppedReason))" @onclick='() => CommandAsync("reconcile", invocation.Id, _stoppedReason)'>Record confirmed stop as failure</button>
+                }
+                @if (invocation.Recovery == StepRecovery.HumanInput && invocation.Status == "waiting_for_human")
+                {
+                    <p>Human input is pending.</p><pre>@invocation.ResolvedInput?.ToJsonString()</pre>
+                    <label>Response as JSON <textarea class="form-control" @bind="_answer" placeholder="true, a quoted string, or a form object"></textarea></label>
+                    <button type="button" @onclick="() => AnswerAsync(invocation.Id)">Save response</button>
+                }
+                <details><summary>Completed output</summary><pre>@invocation.Output?.ToJsonString()</pre></details>
+            </section>
+        }
+    }
+    else if (RunId is not null) { <p>No execution was found for this tenant.</p> }
+    else
+    {
+        <table class="table"><thead><tr><th>Workflow</th><th>Status</th><th>Revision</th><th>Updated</th></tr></thead>
+            <tbody>@foreach (var entry in _runs)
+            { <tr><td><a href="@("/runs/" + Uri.EscapeDataString(entry.RunId))">@entry.WorkflowName</a><br /><code>@entry.RunId</code></td><td>@entry.Status</td><td>@entry.Revision</td><td>@entry.UpdatedAt.ToString("u")</td></tr> }</tbody>
+        </table>
+    }
+</main>
+
+@code {
+    [Parameter] public string? RunId { get; set; }
+    private IReadOnlyList<WorkflowRun> _runs = [];
+    private WorkflowRun? _run;
+    private string? _error;
+    private string _stoppedReason = "";
+    private string _answer = "";
+    private bool _busy;
+    protected override Task OnParametersSetAsync() => LoadAsync();
+    private async Task LoadAsync()
+    {
+        try { _error = null; if (RunId is null) { _run = null; _runs = await Runs.ListAsync(CancellationToken.None); } else _run = await Runs.ReadAsync(RunId, CancellationToken.None); }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+    private async Task CommandAsync(string command, string? invocation = null, string? reason = null)
+    {
+        if (_run is null) return;
+        var inspected = _run; _busy = true; _error = null;
+        try { _run = await Runs.CommandAsync(inspected.RunId, command, new(inspected.Revision, invocation, reason), CancellationToken.None); }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+    private async Task AnswerAsync(string invocation)
+    {
+        if (_run is null) return;
+        try { _error = null; _run = await Runs.CommandAsync(_run.RunId, "answer", new(_run.Revision, invocation, Response: JsonNode.Parse(_answer)), CancellationToken.None); }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+    private static string Scope(JsonNode? input) => new JsonObject
+    { ["capabilities"] = input?["capabilities"]?.DeepClone(), ["budget"] = input?["budget"]?.DeepClone(), ["verification"] = input?["verification"]?.DeepClone() }.ToJsonString();
+    private static string Evidence(JsonNode? result) => new JsonObject
+    { ["status"] = result?["status"]?.DeepClone(), ["evidence"] = result?["evidence"]?.DeepClone(), ["verification"] = result?["verification"]?.DeepClone(), ["artifacts"] = result?["artifacts"]?.DeepClone(), ["usage"] = result?["usage"]?.DeepClone() }.ToJsonString();
+}

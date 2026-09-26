@@ -28,6 +28,8 @@ internal static class PlanningDataflow
             : new[] { new PlanningValue { Kind = "output", Source = n.Key }, new PlanningValue { Kind = "output", Source = n.Key, ResultChannel = "structured" } }))
             .Concat(nodes.Take(Math.Max(0, consumerIndex)).Where(n => n.Type == "mcp.call" && n.OnError.Any(h => h.Action == "continue") && Available(n.Key))
                 .Select(n => new PlanningValue { Kind = "output", Source = n.Key, ResultChannel = "envelope" }));
+        sources = sources.Concat(nodes.Take(Math.Max(0, consumerIndex)).Where(n => Available(n.Key, presence: true))
+            .Select(n => new PlanningValue { Kind = "present", Source = n.Key }));
         foreach (var source in sources)
         {
             JsonObject schema;
@@ -76,15 +78,15 @@ internal static class PlanningDataflow
                 }
         return result;
 
-        bool Available(string key)
+        bool Available(string key, bool presence = false)
         {
             if (consumer is null) return true;
-            foreach (var condition in Guards(key))
+            foreach (var condition in presence ? Enumerable.Empty<PlanningValue>() : Guards(key))
             {
                 if (consumer == WorkflowOutputs && workflow.Finally.Any(n => n.Key == key) &&
-                    PlanningGraphBuilder.FinalizerAvailableOnSuccess(nodes.Single(n => n.Key == key), workflow)) continue;
+                    PlanningGraphTopology.FinalizerAvailableOnSuccess(nodes.Single(n => n.Key == key), workflow)) continue;
                 if (consumer != WorkflowOutputs && locations[consumer].StartsWith("/finally/", StringComparison.Ordinal) &&
-                    PlanningGraphBuilder.GuardsFinalizerSource(nodes.Single(n => n.Key == consumer), key)) continue;
+                    Guards(consumer).Any(guard => PlanningGraphTopology.GuardsFinalizerSource(guard, key))) continue;
                 if (consumer == WorkflowOutputs || !Guards(consumer).Any(guard => JsonNode.DeepEquals(
                     JsonSerializer.SerializeToNode(condition, PlanningJsonContext.Default.PlanningValue),
                     JsonSerializer.SerializeToNode(guard, PlanningJsonContext.Default.PlanningValue)))) return false;
@@ -93,8 +95,8 @@ internal static class PlanningDataflow
             // container outside that body. A direct producer is available only in the same body.
             var path = locations[key]; var target = consumer == WorkflowOutputs ? "/outputs" : locations[consumer];
             // Main execution can stop before any producer; finalizers cannot assume those results exist.
-            if (target.StartsWith("/finally/", StringComparison.Ordinal) && path.StartsWith("/steps/", StringComparison.Ordinal) &&
-                !PlanningGraphBuilder.GuardsFinalizerSource(nodes.Single(n => n.Key == consumer), key)) return false;
+            if (!presence && target.StartsWith("/finally/", StringComparison.Ordinal) && path.StartsWith("/steps/", StringComparison.Ordinal) &&
+                !Guards(consumer).Any(guard => PlanningGraphTopology.GuardsFinalizerSource(guard, key))) return false;
             if (target.StartsWith(path + "/", StringComparison.Ordinal)) return false; // An executing ancestor has no completed result yet.
             foreach (var marker in new[] { "/cases/", "/default/", "/branches/" })
             {
@@ -111,8 +113,26 @@ internal static class PlanningDataflow
             return true;
         }
 
-        IEnumerable<PlanningValue> Guards(string key) => nodes.Where(n => n.If is not null &&
-            (n.Key == key || locations[key].StartsWith(locations[n.Key] + "/", StringComparison.Ordinal))).Select(n => n.If!);
+        IEnumerable<PlanningValue> Guards(string key)
+        {
+            foreach (var node in nodes)
+            {
+                var path = locations[node.Key]; var target = locations[key];
+                if (node.If is not null && (node.Key == key || target.StartsWith(path + "/", StringComparison.Ordinal))) yield return node.If;
+                if (node.Type != "switch") continue;
+                for (var i = 0; i < node.Cases.Count; i++)
+                {
+                    if (!target.StartsWith(path + "/cases/" + i + "/steps/", StringComparison.Ordinal)) continue;
+                    var branch = node.Cases[i];
+                    // Match the runtime precedence: expr/value selects a case; otherwise when does.
+                    if (node.Expr is not null && branch.Value is not null)
+                    {
+                        if (branch.Value == "true") yield return node.Expr;
+                    }
+                    else if (branch.When is { } guard) yield return guard;
+                }
+            }
+        }
     }
 
     internal static IEnumerable<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningCatalog catalog)
@@ -122,7 +142,7 @@ internal static class PlanningDataflow
             var workflow = graph.Workflows[wi];
             foreach (var (node, path) in PlanningGraphValidation.Located(workflow.Steps, $"/workflows/{wi}/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, $"/workflows/{wi}/finally")))
             {
-                foreach (var finding in Check(PlanningGraphBuilder.References(node), node.Key, path)) yield return finding;
+                foreach (var finding in Check(PlanningGraphTopology.References(node), node.Key, path)) yield return finding;
                 var capability = catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId);
                 var request = PlanningGraphValidation.Member(node.Input, "request");
                 foreach (var artifact in capability?.ArtifactContract?.Consumes ?? [])
@@ -151,10 +171,15 @@ internal static class PlanningDataflow
                         {
                             unresolved ??= Index(workflow, catalog, graph, consumer, includeUnresolved: true);
                             var id = PlanningBindingIdentity.Id(new() { Kind = reference.Kind, Source = reference.Source, ResultChannel = reference.ResultChannel });
-                            rule = (unresolved.TryGetValue(id, out var source) && source.Availability == "opaque" ? "producer:" : "availability:") + reference.Source;
+                            rule = (unresolved.TryGetValue(id, out var source) && source.Availability == "opaque" ? "producer:" :
+                                path.Contains("/finally/", StringComparison.Ordinal) ? "finalizer:" : "availability:") + reference.Source;
                         }
-                        yield return new("BINDING_UNAVAILABLE", path, "The binding is not available in this scope: " + reference.Kind + ":" + reference.Source + "/" + string.Join("/", reference.Path),
-                            Rule: rule);
+                        else if (reference.Kind == "input") rule = "input:" + reference.Source;
+                        var message = "The binding is not available in this scope: " + reference.Kind + ":" + reference.Source + "/" + string.Join("/", reference.Path);
+                        if (rule?.StartsWith("finalizer:", StringComparison.Ordinal) == true)
+                            message += ". Cleanup may run before this producer completes. Guard this step or its branch with data.steps[" +
+                                JsonSerializer.Serialize(reference.Source, PlanningJsonContext.Default.String) + "] != null.";
+                        yield return new("BINDING_UNAVAILABLE", path, message, Rule: rule);
                     }
             }
         }
@@ -162,15 +187,8 @@ internal static class PlanningDataflow
 
     internal static IEnumerable<PlanningValue> References(PlanningValue value)
     {
-        if (value.Kind is "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection") yield return value;
+        if (value.Kind is "present" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection") yield return value;
         var members = value.Members.AsEnumerable();
-        if (value.Kind == "compute")
-        {
-            HashSet<string> used;
-            try { used = PlanningComputationScopes.Used(new Acornima.Parser().ParseExpression(PlanningComputations.Expression(value.Text)), value.Members.Select(m => m.Name).ToArray()); }
-            catch (Exception ex) when (ex is InvalidOperationException or Acornima.ParseErrorException) { yield break; }
-            members = members.Where(m => used.Contains(m.Name));
-        }
         foreach (var child in members.Select(m => m.Value).Concat(value.Items)) foreach (var reference in References(child)) yield return reference;
     }
 

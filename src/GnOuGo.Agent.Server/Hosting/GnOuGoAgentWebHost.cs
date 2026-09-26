@@ -312,6 +312,7 @@ public static class GnOuGoAgentWebHost
         builder.Services.ConfigureHttpJsonOptions(static o =>
         {
             o.SerializerOptions.TypeInfoResolverChain.Insert(0, ChatJsonContext.Default);
+            o.SerializerOptions.TypeInfoResolverChain.Insert(0, WorkflowRunJsonContext.Default);
         });
         builder.Services.Configure<ModelCatalogCacheSettings>(
             builder.Configuration.GetSection(ModelCatalogCacheSettings.SectionName));
@@ -417,7 +418,8 @@ public static class GnOuGoAgentWebHost
             llmCapabilityResolver: sp.GetService<ILLMCapabilityResolver>(),
             humanInputProvider: sp.GetRequiredService<AgentHumanInputProvider>(),
             localRuntime: sp.GetRequiredService<ILocalLLMRuntime>(),
-            capture: sp.GetRequiredService<LlmTraceCapture>()));
+            capture: sp.GetRequiredService<LlmTraceCapture>(),
+            copilotRunners: builder.Configuration.GetSection("Flow:CopilotRunners").GetChildren().ToDictionary(c => c.Key, c => c.Value ?? throw new InvalidOperationException("A Copilot runner requires an MCP server name."), StringComparer.Ordinal)));
         builder.Services.AddSingleton<CollectorTracePersistence>();
         builder.Services.AddSingleton<ILoggerProvider, CollectorLoggerProvider>();
 
@@ -481,12 +483,19 @@ public static class GnOuGoAgentWebHost
             .Get<GnOuGo.Agent.Server.Configuration.TypedWorkflowPlanningSettings>() ?? new();
         if (planningSettings.MaxReplanAttempts is < 0 or > 10 || planningSettings.MaxModelCalls < 1)
             throw new InvalidOperationException("Invalid typed workflow planning configuration.");
-        var planningDbPath = GnOuGoWorkspace.ResolveDatabasePath(planningSettings.DatabasePath, applicationBasePath, ".GnOuGo/data/gnougo-planning-v8.db");
-        builder.Services.AddDbContextFactory<GnOuGo.Agent.Server.Planning.PlanningDbContext>(options => options.UseSqlite($"Data Source={planningDbPath}"));
+        var planningDbPath = GnOuGoWorkspace.ResolveDatabasePath(planningSettings.DatabasePath, applicationBasePath, ".GnOuGo/data/gnougo-planning-v9.db");
+        builder.Services.AddDbContextFactory<GnOuGo.Agent.Server.Planning.PlanningDbContext>(options => options.UseSqlite($"Data Source={planningDbPath}")
+            .UseModel(GnOuGo.Agent.Server.Planning.CompiledModels.PlanningDbContextModel.Instance));
         builder.Services.AddSingleton<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>(_ =>
             GnOuGo.KeyVault.Core.Services.KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultDbPath, applicationBasePath));
+        builder.Services.AddSingleton<IWorkflowRunStore>(sp => new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(
+            sp.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>(),
+            GnOuGoWorkspace.ResolveDatabasePath(builder.Configuration["Flow:Execution:IndexPath"], applicationBasePath, ".GnOuGo/data/flow-execution-v9.db"),
+            GnOuGoWorkspace.ResolveDatabasePath(builder.Configuration["Flow:Execution:OwnerPath"], applicationBasePath, ".GnOuGo/data/flow-execution-v9/owners"),
+            sp.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Flow.Persistence")));
+        builder.Services.AddSingleton<GnOuGo.Agent.Server.SmartFlow.WorkflowRunService>();
         builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IPlanningSessionStore, GnOuGo.Agent.Server.Planning.EfPlanningSessionStore>();
-        builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IWorkflowPlanner, GnOuGo.Flow.Planning.TypedWorkflowPlanner>();
+        builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IWorkflowPlanner, GnOuGo.Flow.Planning.HybridWorkflowPlanner>();
         builder.Services.AddSingleton<GnOuGo.Agent.Server.Planning.PlanningSessionService>();
         builder.Services.AddSingleton<GnOuGo.Agent.Server.Planning.ChatPlanningService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<GnOuGo.Agent.Server.Planning.PlanningSessionService>());
@@ -616,6 +625,7 @@ public static class GnOuGoAgentWebHost
         app.MapGnOuGoFilesServer(includeHealthEndpoint: false);
         app.MapGet("/api/version", (AppVersionInfo versionInfo) => versionInfo.ToDto());
         app.MapPlanningEndpoints();
+        app.MapWorkflowRunEndpoints();
         app.MapGet("/api/llm/providers", LlmProviderEndpoints.ListProviders);
         app.MapGet("/api/llm/providers/{provider}/models", LlmProviderEndpoints.ListModelsAsync);
 

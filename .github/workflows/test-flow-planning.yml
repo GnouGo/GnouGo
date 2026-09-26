@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - 'src/GnOuGo.Flow.*/**'
+      - 'src/GnOuGo.GithubCopilot.Core/**'
+      - 'src/GnOuGo.GithubCopilot.Mcp/**'
+      - 'tests/GnOuGo.GithubCopilot.Core.Tests/**'
+      - 'tests/GnOuGo.GithubCopilot.Mcp.Tests/**'
       - 'src/GnOuGo.Agent.Server/**'
       - 'src/GnOuGo.Agent.Shared/**'
       - 'tests/GnOuGo.Flow.*/**'
@@ -11,7 +15,7 @@ on:
       - 'tests/GnOuGo.Agent.Planning.Benchmark/**'
       - '.github/workflows/test-flow-planning.yml'
       - 'GnOuGo.Agent.sln'
-      - 'docs/workflow-planning-v2.md'
+      - 'docs/workflow-planning-v9.md'
   workflow_dispatch:
 
 permissions:
@@ -30,10 +34,17 @@ jobs:
         run: |
           dotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror
           dotnet test tests/GnOuGo.Flow.Integrations.Tests -m:1 -warnaserror
+          dotnet test tests/GnOuGo.Flow.Copilot.Tests -m:1 -warnaserror
+          dotnet test tests/GnOuGo.Flow.Persistence.Tests -m:1 -warnaserror
+          dotnet test tests/GnOuGo.GithubCopilot.Core.Tests -m:1 -warnaserror
+          dotnet test tests/GnOuGo.GithubCopilot.Mcp.Tests -m:1 -warnaserror
           dotnet test tests/GnOuGo.Flow.Tests/GnOuGo.Flow.Tests.csproj -m:1 -warnaserror
           dotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj -m:1 -warnaserror /p:SkipClientBuild=true
-      - name: Pack planning library
-        run: dotnet pack src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj -c Release -warnaserror
+      - name: Pack independently publishable Flow libraries
+        run: |
+          for component in Core Planning Integrations Copilot Persistence; do
+            dotnet pack "src/GnOuGo.Flow.$component/GnOuGo.Flow.$component.csproj" -c Release -warnaserror
+          done
       - name: Build isolated live benchmark host
         run: dotnet build tests/GnOuGo.Agent.Planning.Benchmark/GnOuGo.Agent.Planning.Benchmark.csproj -m:1 -warnaserror -p:SkipClientBuild=true
       - name: Publish and run Native AOT smoke

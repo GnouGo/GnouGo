@@ -1,0 +1,41 @@
+{
+  "frozen_at_utc": "2026-09-24T16:31:24.307753+00:00",
+  "source_commit": "4cb8586440d22adf02bc0496565c4f9cc6064ef0",
+  "clean_worktree": true,
+  "source_tree": "2220535be1b6d813b3779a46b0d2ff37681ed0b8",
+  "parent_commit": "46c2c77fea19c952d3258d744d886fe52ef52d33",
+  "reference_commit": "87acc5f0e41702e193795b45b4ddfab1055d2143",
+  "campaign": "flow-v9-112",
+  "phase": "fixture",
+  "mode": "live",
+  "cases": 8,
+  "repetitions": 3,
+  "provider": "OpenAi",
+  "model": "gpt-5.5-2026-04-24",
+  "reasoning": "medium",
+  "input_tokens_per_request": 96000,
+  "output_tokens_per_request": 32768,
+  "physical_http_attempts_per_session": 8,
+  "repairs": 2,
+  "campaign_limit_eur": 50,
+  "paid_candidate_requests_started": false,
+  "acceptance": [
+    "No per-case correctness regression against parent or reference",
+    "Zero unsafe or incorrectly approved executions",
+    "Median physical planning calls below parent 4",
+    "review_french correct outcomes greater than parent 0",
+    "24 complete comparable bounded outcomes"
+  ],
+  "reference_median_calls_reporting_only": 2.5,
+  "stop_after_this_cohort": true,
+  "files": {
+    "tests/Shared/PlanningBenchmarkCases.cs": "a25de6fc75d94a06c5dc8fce96d04eb09ba4132caec76f35e7f644912433f998",
+    "tests/Shared/PlanningBenchmarkMeasurements.cs": "9a359698339d9a7711ef51b9f7d7185693949562e1708bbce92932690cacc735",
+    "tests/Shared/PlanningCorpus.cs": "65f993c54250b1cf332b274da7c3cedcc1d9cc151ddf4797e664f74b0d7200f2",
+    "tests/GnOuGo.Agent.Planning.Benchmark/Program.cs": "f683a682d29b9afee9ea3cef94b28b0eccdd98b6fd89bb48f2c8779eff61da48",
+    "tests/GnOuGo.Agent.Planning.Benchmark/README.md": "2788c65c8ef6cefa3eebb7be2ea11cac426c7a37df1d2878a576601c9ffdedcc",
+    "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs": "acdf55c4966f2953da80629eef401d76df74be7655814dee9ccbfd91365d4a9c",
+    "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs": "7a90c3052d5105e86c7101cbeec35bca4696cfd1d6a4f376e8efbca8219fcf03",
+    "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs": "c7cc80678bdb97fb2187bc7597aa327152f5c84def9b73fd19e36d23643e0690"
+  }
+}

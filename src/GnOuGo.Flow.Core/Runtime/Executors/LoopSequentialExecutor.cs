@@ -9,6 +9,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// </summary>
 public sealed class LoopSequentialExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.Composite;
     public string StepType => "loop.sequential";
 
     public IReadOnlyList<StepExceptionDoc>? DocumentedExceptions => new StepExceptionDoc[]
@@ -136,7 +137,8 @@ public sealed class LoopSequentialExecutor : IStepExecutor
                 if (inputObj?.TryGetPropertyValue("while", out var whileExpr) == true && whileExpr != null)
                 {
                     var whileStr = ExpressionEvaluator.GetString(whileExpr);
-                    var condResult = ctx.Interpolator.Interpolate(whileStr, ctx.Data);
+                    var condResult = await ctx.RecordControlAsync("while/" + i.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        () => JsonValue.Create(ExpressionEvaluator.GetBool(ctx.Interpolator.Interpolate(whileStr, ctx.Data))), ct);
                     if (!ExpressionEvaluator.GetBool(condResult))
                         break;
                 }
@@ -149,7 +151,7 @@ public sealed class LoopSequentialExecutor : IStepExecutor
                     ctx.Limits,
                     ctx.CallDepth,
                     ctx.CallStack,
-                    ctx.EffectiveExecutionScope,
+                    ctx.EffectiveExecutionScope.Child("iteration", i.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                     ct,
                     ctx.TelemetrySpan);
 
@@ -198,7 +200,8 @@ public sealed class LoopSequentialExecutor : IStepExecutor
             if (inputObj?.TryGetPropertyValue("while", out var whileExpr2) == true && whileExpr2 != null)
             {
                 var whileStr = ExpressionEvaluator.GetString(whileExpr2);
-                var condResult = ctx.Interpolator.Interpolate(whileStr, ctx.Data);
+                var condResult = await ctx.RecordControlAsync("while/" + iteration.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    () => JsonValue.Create(ExpressionEvaluator.GetBool(ctx.Interpolator.Interpolate(whileStr, ctx.Data))), ct);
                 if (!ExpressionEvaluator.GetBool(condResult))
                     break;
             }
@@ -212,7 +215,7 @@ public sealed class LoopSequentialExecutor : IStepExecutor
                 ctx.Limits,
                 ctx.CallDepth,
                 ctx.CallStack,
-                ctx.EffectiveExecutionScope,
+                ctx.EffectiveExecutionScope.Child("iteration", iteration.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                 ct,
                 ctx.TelemetrySpan);
 

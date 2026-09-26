@@ -4,9 +4,7 @@ import asyncio
 
 import pytest
 
-from gnougo_flow_core.checkpointing import InMemoryWorkflowCheckpointer
 from gnougo_flow_core.compilation import WorkflowCompiler
-from gnougo_flow_core.models import WorkflowCheckpoint
 from gnougo_flow_core.parsing import WorkflowParser
 from gnougo_flow_core.runtime import StepExecutionContext, WorkflowEngine
 
@@ -213,46 +211,3 @@ async def test_finally_timeout_is_classified_and_nested_outputs_see_child_finali
 
     assert nested_result.success
     assert nested_result.outputs == {"cleaned": "lease-2"}
-
-
-@pytest.mark.asyncio
-async def test_finally_runs_when_checkpointed_workflow_resumes() -> None:
-    yaml_text = """
-    version: 1
-    workflows:
-      main:
-        steps:
-          - id: allocate
-            type: set
-            input: {resource: lease-3}
-          - id: use
-            type: set
-            input: {resource: "${data.steps.allocate.resource}"}
-        finally:
-          - id: cleanup
-            type: set
-            input: {resource: "${data.steps.allocate.resource}"}
-    """
-    workflow = _compile(yaml_text)
-    checkpointer = InMemoryWorkflowCheckpointer()
-    await checkpointer.save_async(
-        WorkflowCheckpoint(
-            run_id="finalization-resume",
-            workflow_name="main",
-            workflow_yaml=yaml_text,
-            next_step_index=1,
-            step_outputs={"allocate": {"resource": "lease-3"}},
-            inputs={},
-            status="paused",
-        )
-    )
-    engine = WorkflowEngine()
-    engine.checkpointer = checkpointer
-
-    result = await engine.resume_async("finalization-resume", workflow)
-
-    assert result.success
-    checkpoint = await checkpointer.load_async("finalization-resume")
-    assert checkpoint is not None
-    assert checkpoint.status == "completed"
-    assert checkpoint.step_outputs["cleanup"] == {"resource": "lease-3"}

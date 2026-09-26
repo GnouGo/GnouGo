@@ -7,6 +7,12 @@ using GnOuGo.Flow.Core.Planning;
 internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string requestId, long inputCeiling, long outputCeiling, decimal costCeiling) : ILLMHttpRetryJournal
 {
     internal const string Collection = "planning-evaluation-http-attempts";
+    internal static JsonObject UndispatchedUsage() => new()
+    {
+        ["input_tokens"] = 0L, ["output_tokens"] = 0L, ["benchmark_cost_eur"] = 0m,
+        ["transport_attempts"] = 0, ["uncertain_attempts"] = 0, ["reserved_input_tokens"] = 0L,
+        ["reserved_output_tokens"] = 0L, ["reserved_cost_eur"] = 0m, ["benchmark_usage_bounded"] = true
+    };
     internal async Task PrepareAsync(CancellationToken ct)
     {
         if (await LoadAsync(ct) is null) await SaveAsync(new(), ct);
@@ -31,7 +37,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
                 throw new InvalidOperationException("Each new dispatch must have one reserved identity.");
             var totals = await AccountingAsync(campaign, requestId, record, ct);
             if (totals["cost_upper_bound_eur"]!.GetValue<decimal>() > 50m || totals["session_calls"]!.GetValue<long>() > 8)
-            { campaign.BudgetExceeded(); throw new InvalidOperationException("The campaign or session cannot cover another HTTP attempt."); }
+            { campaign.BudgetExceeded(totals["session_calls"]!.GetValue<long>() > 8); throw new InvalidOperationException("The campaign or session cannot cover another HTTP attempt."); }
         }
         await campaign.SaveAsync(Collection, requestId, record, ct);
     }

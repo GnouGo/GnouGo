@@ -16,6 +16,8 @@ public sealed record StepExceptionCatalog(string StepType, IReadOnlyList<StepExc
 public interface IStepExecutor
 {
     string StepType { get; }
+    StepRecovery Recovery => StepRecovery.External;
+    bool RunsNestedWorkflows => false;
     Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct);
 
     /// <summary>
@@ -56,6 +58,19 @@ public sealed class StepExecutionContext
     internal WorkflowExecutionScope? ExecutionScope { get; init; }
     internal WorkflowExecutionScope EffectiveExecutionScope =>
         ExecutionScope ?? new WorkflowExecutionScope(null, Engine.Evaluator, Engine.Interpolator);
+
+    public string? StageInvocationId { get; init; }
+    public string InvocationId => ExecutionScope?.Path ?? "/workflow/main/step/" + Uri.EscapeDataString(Step.Id);
+
+    public bool HasRecordedControl(string key) => Engine.Journal?.Run.Invocations.GetValueOrDefault(InvocationId)?.Control.ContainsKey(key) == true;
+
+    public JsonNode? ReadRecordedControl(string key) => Engine.Journal?.Run.Invocations.GetValueOrDefault(InvocationId)?.Control.GetValueOrDefault(key)?.DeepClone();
+
+    public Task<JsonNode?> RecordControlAsync(string key, Func<JsonNode?> resolve, CancellationToken ct)
+        => Engine.Journal?.ControlAsync(InvocationId, key, resolve, ct) ?? Task.FromResult(resolve());
+
+    public Task RecordExternalCompletionAsync(JsonNode? observation, CancellationToken ct)
+        => Engine.Journal?.ObserveAsync(InvocationId, observation, ct) ?? Task.CompletedTask;
 
     public ExpressionEvaluator Evaluator => ExecutionScope?.Evaluator ?? Engine.Evaluator;
     public StringInterpolator Interpolator => ExecutionScope?.Interpolator ?? Engine.Interpolator;
@@ -283,18 +298,23 @@ internal sealed class WorkflowExecutionScope
         CompiledWorkflow? workflow,
         ExpressionEvaluator evaluator,
         StringInterpolator interpolator,
-        bool isFinalization = false)
+        bool isFinalization = false,
+        string path = "/workflow/main")
     {
         Workflow = workflow;
         Evaluator = evaluator;
         Interpolator = interpolator;
         IsFinalization = isFinalization;
+        Path = path;
     }
 
     public CompiledWorkflow? Workflow { get; }
     public ExpressionEvaluator Evaluator { get; }
     public StringInterpolator Interpolator { get; }
     public bool IsFinalization { get; }
+    public string Path { get; }
+    public WorkflowExecutionScope Child(string kind, string value) => new(Workflow, Evaluator, Interpolator, IsFinalization,
+        Path + "/" + kind + "/" + Uri.EscapeDataString(value));
 }
 
 /// <summary>

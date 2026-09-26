@@ -12,7 +12,7 @@
 
 <PageTitle>Workflow designer</PageTitle>
 <main id="planningReview" class="container py-4" style="max-width:1100px;margin:auto;padding:1.5rem">
-    <a href="/">← Back to chat</a>
+    <a href="/">← Back to chat</a> · <a href="/runs">Workflow executions</a>
     <h1>Workflow designer</h1>
     @if (_error is not null) { <p role="alert" class="text-danger">@_error</p> }
     @if (_entry is { Available: false })
@@ -56,32 +56,17 @@
         <p aria-live="polite"><strong>@Phase(_state.Status)</strong> · @_state.Phase · Revision @_state.Revision</p>
         <p>@_state.ModelCalls model calls · @_state.ReplanAttempts replans · @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") active</p>
         @if (_state.Usage is { } usage) { <p>Estimated cost @usage.EstimatedCost.ToString("0.00") @usage.EstimatedCostCurrency</p> }
-        <p>@_state.SemanticPlan?.Summary</p>
+        <p>@_state.Requirements?.Summary</p>
         @if (_state.Graph is { } graph)
         {
             <MarkdownContent Content="@("```mermaid\n" + PlanningReviewFormatter.Diagram(graph) + "\n```")" />
 
         }
-        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification && _state.PendingRepair is not null)
+        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification)
         {
-            <PlannerScopeRevisionCard Question="@(_state.GetQuestions().Single().Question)" Busy="_busy" Answer="AnswerScopeAsync" Cancel='() => SubmitAsync("cancel")' />
+            <PlannerChoiceCard Choices="PlanningEndpoints.ToDto(_state).Choices" Busy="_busy" Select='selections => SubmitAsync("choose", selections: selections)' Cancel='() => SubmitAsync("cancel")' />
         }
-        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification && _state.PendingRepair is null && _state.SemanticPlan is not null)
-        {
-            @foreach (var question in _state.GetQuestions())
-            {
-                <label for="@question.Id">@question.Question</label>
-                <input id="@question.Id" class="form-control" value="@_answers.GetValueOrDefault(question.Id)" @oninput="e => _answers[question.Id] = e.Value?.ToString() ?? string.Empty" />
-                <small>Expected value: @PlanningGraphBuilder.Schema(question.AnswerType).Type @(PlanningGraphBuilder.Schema(question.AnswerType).Enum.Count > 0 ? "(" + string.Join(", ", PlanningGraphBuilder.Schema(question.AnswerType).Enum) + ")" : "")</small>
-            }
-            <button class="btn btn-primary" disabled="@_busy" @onclick="AnswerAsync">Submit answers</button>
-        }
-        @if (!IsWorkflowSession && _state.Status == PlanningStatus.WaitingForDecision && _state.PendingDecision is { } decision)
-        {
-            <PlannerDecisionCard Decision="PlanningEndpoints.ToDto(decision)" Busy="_busy" Answer="AnswerDecisionAsync" Cancel='() => SubmitAsync("cancel")' />
-        }
-        <PlannerDecisionHistory Decisions="PlanningEndpoints.ToDto(_state).Decisions" />
-        <PlannerRepairDetails Session="PlanningEndpoints.ToDto(_state)" ShowFindings="false" />
+        <PlannerStageDetails Session="PlanningEndpoints.ToDto(_state)" ShowFindings="false" />
         @if (_state.Diagnostics.Count > 0)
         {
             <h3>Findings</h3><ul>@foreach (var diagnostic in _state.Diagnostics)
@@ -93,25 +78,14 @@
                         @if (prerequisite.RootActionId is { } root) { <p>Blocked by action: <code>@root</code></p> }
                         @if (prerequisite.ContractPath is { } path) { <p>Required consumer input: <code>@path</code></p> }
                     }
-                    @if (diagnostic.Computation is { } computation)
-                    {
-                        <details class="planning-computation-finding">
-                            <summary>Computation details</summary>
-                            <p>Expression: <code>@computation.Expression</code></p>
-                            @if (computation.OriginExpression is { } origin) { <p>Value comes from: <code>@origin</code></p> }
-                            @if (computation.ProducerLocation is { } producer) { <p>@(producer == diagnostic.Location ? "Failing producer:" : "Blocked by producer:") <code>@producer</code></p> }
-                            <p>@(computation.Limitation switch { "inference_unsupported" => "The result type could not be inferred.", "producer_contract_missing" => "The producer contract is unavailable.", _ => "The member is not declared by the known contract." })</p>
-                            <p>Known receiver contract:</p><pre>@computation.ReceiverContract.ToJsonString()</pre>
-                            <p>Known argument contracts:</p><pre>@computation.ParameterContracts.ToJsonString()</pre>
-                        </details>
-                    }
+
                 </li>
             }</ul>
         }
-        @if (_state.Scenarios.Count > 0)
+        @if (_state.ValidationResults.Count > 0)
         {
-            <h3>Validation scenarios</h3><ul>@foreach (var scenario in _state.Scenarios) { <li>@scenario.Id — @scenario.Outcome</li> }</ul>
-            <p>Scenarios use simulated integrations.</p>
+            <h3>Validation results</h3><ul>@foreach (var scenario in _state.ValidationResults) { <li>@scenario.Id — @scenario.Outcome: @scenario.Description</li> }</ul>
+            <p>Static or simulated validation does not establish external execution success.</p>
         }
         @if (_state.Yaml is { } yaml) { <details open><summary>Workflow YAML</summary><pre><code>@yaml</code></pre></details> }
         @if (!IsWorkflowSession && _state.Status == PlanningStatus.FinalReview)
@@ -120,8 +94,15 @@
         { <button class="btn btn-primary" disabled="@_busy" @onclick='() => SubmitAsync("save")'>Save approved workflow</button> }
         @if (!IsWorkflowSession && _state.Status == PlanningStatus.Stopped && _state.PendingCall is not null)
         {
-            <p>The previous request has no confirmed result. Retrying retains its call count and adds a conservative token and cost estimate before using another call. Session limits remain unchanged.</p>
-            <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("retry_model")'>Retry with retained usage</button>
+            @if (_state.Diagnostics.Any(d => d.Code == GnOuGo.Flow.Core.Models.ErrorCodes.ModelRequestRejected))
+            {
+                <p>The provider rejected this request. Correct the request or provider configuration, then start a new planning session. The original request and its accounting are retained.</p>
+            }
+            else
+            {
+                <p>The previous request has no confirmed result. Retrying retains its call count and adds a conservative token and cost estimate before using another call. Session limits remain unchanged.</p>
+                <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("retry_model")'>Retry with retained usage</button>
+            }
         }
         @if (!IsWorkflowSession && _state.Status is not (PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled))
         {
@@ -132,11 +113,11 @@
             {
                 <label>Planning mode<select @bind="_mode"><option value="interactive">Interactive</option><option value="auto">Auto</option></select></label>
                 <button disabled="@_busy" @onclick='() => SubmitAsync("configure_mode", mode: _mode)'>Apply planning mode</button>
-                <details><summary>Generation settings</summary>
+                <details open="@IsInputBudgetStop"><summary>Generation settings</summary>
                     <label>Reasoning<select class="form-select" @bind="_reasoning"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
                     <label>Input token limit<input type="number" @bind="_inputLimit" /></label>
                     <label>Output token limit<input type="number" @bind="_outputLimit" /></label>
-                    <button disabled="@_busy" @onclick="ConfigureAsync">Apply settings</button>
+                    <button disabled="@_busy" @onclick="ConfigureAsync">@(IsInputBudgetStop ? "Apply settings and resume planning" : "Apply settings")</button>
                 </details>
             }
         }
@@ -149,14 +130,15 @@
     private bool IsWorkflowSession => Source == "workflow";
     [SupplyParameterFromQuery(Name = "agent")] public string? AgentName { get; set; }
     private PlanningSession? _state;
+    private bool IsInputBudgetStop => _state is { Status: PlanningStatus.Stopped, PendingCall: null }
+        && _state.Diagnostics.Any(d => d.Code == "MODEL_INPUT_LIMIT");
     private PlanningSessionListEntry? _entry;
     private IReadOnlyList<PlanningSessionListEntry> _sessions = [];
-    private readonly Dictionary<string, string> _answers = new();
     private readonly CancellationTokenSource _lifetime = new();
     private Task? _polling;
     private string _name = "", _prompt = "", _revision = "", _reasoning = "medium";
     private string _mode = PlanningMode.Interactive;
-    private int _inputLimit = 12_000, _outputLimit = 8_192;
+    private int _inputLimit, _outputLimit;
     private string? _error;
     private bool _busy, _reviseExisting, _loading, _tracesOpen, _traceWorkflow;
     private string? _traceSessionId;
@@ -166,7 +148,7 @@
     {
         _viewVersion++;
         CloseTraces(); _traceSessionId = null;
-        _state = null; _entry = null; _answers.Clear(); _renderedRevision = -1; _error = null;
+        _state = null; _entry = null; _renderedRevision = -1; _error = null;
         if (Source is not (null or "workflow")) { _error = "Unknown planning session source."; return; }
         if (SessionId is null && !string.IsNullOrWhiteSpace(AgentName)) { _name = AgentName; _reviseExisting = true; }
         try { await RefreshAsync(); } catch (Exception ex) { _error = ex.Message; }
@@ -219,33 +201,20 @@
         catch (Exception ex) { _error = ex.Message; }
         finally { _busy = false; }
     }
-    private async Task SubmitAsync(string kind, string? text = null, JsonObject? answers = null, PlanningGenerationOptions? generation = null, string? mode = null, PlanningDecisionAnswer? decisionAnswer = null)
+    private async Task SubmitAsync(string kind, string? text = null, JsonObject? selections = null, PlanningGenerationOptions? generation = null, string? mode = null)
     {
         if (_state is null || IsWorkflowSession) return;
         _busy = true; _error = null;
-        try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Answers = answers, Generation = generation, Mode = mode, DecisionAnswer = decisionAnswer }, _lifetime.Token); }
+        try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Selections = selections, Generation = generation, Mode = mode }, _lifetime.Token); }
         catch (Exception ex) { _error = ex.Message; await RefreshAsync(); }
         finally { _busy = false; }
     }
-    private Task AnswerDecisionAsync(PlanningDecisionAnswerDto answer) => SubmitAsync("answer_decision", decisionAnswer: new(answer.DecisionId, answer.OptionId, answer.Text));
-    private Task AnswerScopeAsync(bool accepted) => SubmitAsync("answer", answers: new() { ["accept_scope_revision"] = accepted });
     private async Task ApproveAndSaveAsync() { await SubmitAsync("approve"); if (_state?.Status == PlanningStatus.Approved) await SubmitAsync("save"); }
     private Task ConfigureAsync() => SubmitAsync("configure_generation", generation: new() { Reasoning = _reasoning, MaxInputTokensPerRequest = _inputLimit, MaxOutputTokens = _outputLimit });
-    private Task AnswerAsync()
-    {
-        var answers = new JsonObject();
-        foreach (var question in _state!.GetQuestions())
-        {
-            var text = _answers.GetValueOrDefault(question.Id) ?? "";
-            if (PlanningGraphBuilder.Schema(question.AnswerType).Type == "string") answers[question.Id] = text;
-            else { try { answers[question.Id] = JsonNode.Parse(text); } catch (System.Text.Json.JsonException) { _error = "Enter a valid " + PlanningGraphBuilder.Schema(question.AnswerType).Type + " value."; return Task.CompletedTask; } }
-        }
-        return SubmitAsync("answer", answers: answers);
-    }
     private static string Phase(string status) => status switch
     {
         PlanningStatus.Created => "Discovering capabilities", PlanningStatus.Generating => "Building and validating workflow",
-        PlanningStatus.WaitingForDecision => "Your planning decision is needed", PlanningStatus.Clarification => "Your answers are needed", PlanningStatus.FinalReview => "Ready for your review",
+        PlanningStatus.Clarification => "Choose a business alternative", PlanningStatus.FinalReview => "Ready for your review",
         PlanningStatus.Approved => "Approved", PlanningStatus.Saving => "Saving", PlanningStatus.Saved => "Saved",
         PlanningStatus.Stopped or PlanningStatus.Failed => "Planning stopped", PlanningStatus.Cancelled => "Cancelled", _ => status
     };

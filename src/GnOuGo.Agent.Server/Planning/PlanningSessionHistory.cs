@@ -8,7 +8,7 @@ internal sealed record PlanningSessionListEntry(string SessionId, bool Workflow,
 
 internal sealed record PlanningSessionInspection(PlanningSessionListEntry Entry, PlanningSession? Session)
 {
-    internal const string UnavailableMessage = "This saved planning session cannot be loaded by the current version. Start a new plan.";
+    internal const string UnavailableMessage = "This saved planning session is incompatible with planning format 10. Regenerate and approve the workflow. The original record is unchanged.";
     internal PlanningSession RequireSession() => Session ?? throw new PlanningConflictException(UnavailableMessage);
 }
 
@@ -31,10 +31,10 @@ internal static class PlanningSessionHistory
             entry = entry with { Name = Text(request, "name") is { Length: > 0 } name ? name : id };
             if (root.TryGetProperty("updatedAtUtc", out var date) && date.ValueKind == JsonValueKind.String && date.TryGetDateTimeOffset(out var timestamp))
                 entry = entry with { UpdatedAtUtc = timestamp };
-            if (Number(root, "schemaVersion") != 8) return new(entry, null);
+            if (Number(root, "schemaVersion") != 10) return new(entry, null);
             // Use the strict executable contract unchanged. Legacy fields are not removed or ignored.
             var state = JsonSerializer.Deserialize(payload, PlanningJsonContext.Default.PlanningSession);
-            if (state?.Request is null || state.Request.TenantId != tenant || state.Request.SessionId != id || state.SchemaVersion != 8 ||
+            if (state?.Request is null || state.Request.TenantId != tenant || state.Request.SessionId != id || state.SchemaVersion != 10 ||
                 revision is { } indexed && state.Revision != indexed)
                 return new(entry, null);
             return new(entry with { Status = state.Status, Available = true }, state);

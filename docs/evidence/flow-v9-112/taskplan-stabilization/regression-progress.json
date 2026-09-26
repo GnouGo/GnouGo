@@ -1,0 +1,150 @@
+[
+  {
+    "stage": "before",
+    "counters": {
+      "total": "7",
+      "executed": "7",
+      "passed": "1",
+      "failed": "6",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "failures": [
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.TaskPlanStabilizationTests.GroupInputRepairCannotAlterRootOrAnotherGroupsSameNamedInput",
+        "message": "Assert.Equal() Failure: Strings differ\n            \u2193 (pos 1)\nExpected: \"/groups/group/inputs/value\"\nActual:   \"/inputs/value\"\n            \u2191 (pos 1)"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.TaskPlanStabilizationTests.InputSchemaRequiresDefaultsWithoutRequiringDefaultsForOptionalObjectFields",
+        "message": "Assert.NotEmpty() Failure: Collection was empty"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.TaskPlanStabilizationTests.RetainedCompositeOutputPreservesEveryIndependentExecutionVariant",
+        "message": "Assert.Empty() Failure: Collection was not empty\nCollection: [PlanningDiagnostic { Code = EXPR_TYPE_MISMATCH, Location = workflow:w_81be22d7f1c8baf9/step:/field:outputs.review_result, Message = Expression assigned to 'outputs.review_result' has an incompatible nested contract: 'outputs.review_result.draftId' resolves to missing property, but the contract requires string., Required = True, ValidationStage = , Rule = , Prerequisite =  }]"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.TaskPlanStabilizationTests.ReportsIndependentInputFailuresTogetherAndAllowsOnlyTheirRepair(name: \"review_french-2\")",
+        "message": "Assert.Equal() Failure: Collections differ\n                                                                             \u2193 (pos 1)\nExpected: string[]                                        [\"/inputs/pr_url\", \"/inputs/review_text\"]\nActual:   IListSelectIterator<PlanningDiagnostic, string> [\"/inputs/pr_url\"]"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.TaskPlanStabilizationTests.ReportsIndependentInputFailuresTogetherAndAllowsOnlyTheirRepair(name: \"review_french-1\")",
+        "message": "Assert.Equal() Failure: Collections differ\n                                                                             \u2193 (pos 1)\nExpected: string[]                                        [\"/inputs/pr_url\", \"/inputs/review_text\"]\nActual:   IListSelectIterator<PlanningDiagnostic, string> [\"/inputs/pr_url\"]"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.TaskPlanStabilizationTests.ExhaustedDiscoverySchemaForbidsRetainedMixedActions",
+        "message": "System.NullReferenceException : Object reference not set to an instance of an object."
+      }
+    ]
+  },
+  {
+    "stage": "contracts",
+    "counters": {
+      "total": "7",
+      "executed": "7",
+      "passed": "4",
+      "failed": "3",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "failures": [
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.TaskPlanStabilizationTests.ReportsIndependentInputFailuresTogetherAndAllowsOnlyTheirRepair(name: \"review_french-1\")",
+        "message": "Assert.Contains() Failure: Filter not matched in collection\nCollection: [PlanningDiagnostic { Code = REVISION_SCOPE_CHANGED, Location = /tasks, Message = Preserve all unaffected tasks, business interfaces, choices and ordering. Repair only the permitted tasks or their dependent output bindings., Required = True, ValidationStage = , Rule = , Prerequisite =  }]"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.TaskPlanStabilizationTests.ReportsIndependentInputFailuresTogetherAndAllowsOnlyTheirRepair(name: \"review_french-2\")",
+        "message": "Assert.Contains() Failure: Filter not matched in collection\nCollection: [PlanningDiagnostic { Code = REVISION_SCOPE_CHANGED, Location = /tasks, Message = Preserve all unaffected tasks, business interfaces, choices and ordering. Repair only the permitted tasks or their dependent output bindings., Required = True, ValidationStage = , Rule = , Prerequisite =  }]"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.TaskPlanStabilizationTests.GroupInputRepairCannotAlterRootOrAnotherGroupsSameNamedInput",
+        "message": "Assert.Empty() Failure: Collection was not empty\nCollection: [PlanningDiagnostic { Code = REVISION_SCOPE_CHANGED, Location = /tasks, Message = Preserve all unaffected tasks, business interfaces, choices and ordering. Repair only the permitted tasks or their dependent output bindings., Required = True, ValidationStage = , Rule = , Prerequisite =  }]"
+      }
+    ]
+  },
+  {
+    "stage": "iteration-1",
+    "counters": {
+      "total": "148",
+      "executed": "148",
+      "passed": "148",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "failures": []
+  },
+  {
+    "stage": "iteration-2",
+    "counters": {
+      "total": "153",
+      "executed": "153",
+      "passed": "153",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "failures": []
+  },
+  {
+    "stage": "iteration-3",
+    "counters": {
+      "total": "12",
+      "executed": "12",
+      "passed": "12",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "failures": []
+  }
+]

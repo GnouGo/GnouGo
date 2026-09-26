@@ -1,0 +1,300 @@
+{
+  "run": "d636c998acd08b17cd21cb4a9b85c0911b3290ba:fixture:review_distractors:2",
+  "diagnostics": [
+    {
+      "code": "TASK_REFERENCE_UNKNOWN",
+      "location": "/root/outputs/lint_evidence",
+      "message": "Business reference is unavailable in this scope.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/inputs",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/root/tasks",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/root/outputs",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/root/always",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/run_verification_checks/branches/0/outputs",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/run_verification_checks/branches/1/outputs",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/run_verification_checks/branches/2/outputs",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/root/outputs/lint_status/value/source",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/root/outputs/lint_status/value/port",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/root/outputs/unit_evidence/value/source",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/root/outputs/unit_evidence/value/port",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/root/outputs/unit_status/value/source",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/root/outputs/unit_status/value/port",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/root/outputs/integration_evidence/value/source",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/root/outputs/integration_evidence/value/port",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/root/outputs/integration_status/value/source",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/root/outputs/integration_status/value/port",
+      "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "revision_scope": [
+    "/root/outputs/lint_evidence"
+  ],
+  "parallel_branches": [
+    {
+      "task": "run_verification_checks",
+      "branches": [
+        {
+          "tasks": [
+            "run_lint"
+          ],
+          "outputs": []
+        },
+        {
+          "tasks": [
+            "run_unit_tests"
+          ],
+          "outputs": []
+        },
+        {
+          "tasks": [
+            "run_integration_tests"
+          ],
+          "outputs": []
+        }
+      ]
+    }
+  ],
+  "root_output_references": [
+    {
+      "name": "clone_directory",
+      "kind": "output",
+      "source": "clone_pr_once",
+      "port": "directory"
+    },
+    {
+      "name": "dependencies_evidence",
+      "kind": "output",
+      "source": "install_dependencies",
+      "port": "evidence"
+    },
+    {
+      "name": "dependencies_status",
+      "kind": "output",
+      "source": "install_dependencies",
+      "port": "status"
+    },
+    {
+      "name": "lint_evidence",
+      "kind": "output",
+      "source": "run_lint",
+      "port": "evidence"
+    },
+    {
+      "name": "lint_status",
+      "kind": "output",
+      "source": "run_lint",
+      "port": "status"
+    },
+    {
+      "name": "unit_evidence",
+      "kind": "output",
+      "source": "run_unit_tests",
+      "port": "evidence"
+    },
+    {
+      "name": "unit_status",
+      "kind": "output",
+      "source": "run_unit_tests",
+      "port": "status"
+    },
+    {
+      "name": "integration_evidence",
+      "kind": "output",
+      "source": "run_integration_tests",
+      "port": "evidence"
+    },
+    {
+      "name": "integration_status",
+      "kind": "output",
+      "source": "run_integration_tests",
+      "port": "status"
+    },
+    {
+      "name": "instruction_review_complete",
+      "kind": "output",
+      "source": "review_requested_instructions",
+      "port": "complete"
+    },
+    {
+      "name": "instruction_review_findings",
+      "kind": "output",
+      "source": "review_requested_instructions",
+      "port": "findings"
+    },
+    {
+      "name": "review_draft_id",
+      "kind": "output",
+      "source": "evaluate_review_draft",
+      "port": "draftId"
+    },
+    {
+      "name": "review_event",
+      "kind": "output",
+      "source": "evaluate_review_draft",
+      "port": "event"
+    },
+    {
+      "name": "published",
+      "kind": "output",
+      "source": "publish_after_gate",
+      "port": "published"
+    }
+  ],
+  "responses": [
+    {
+      "request": "7e1cbdb4d20f8cdec6fccec89e9823f441f9c08d41ea0ab7285a06251aae6265:4:7763a6c22d15ddb240652f70c4ed27c0f171991fdc9ca881a607b93f07bd20b7",
+      "changes_from_baseline": []
+    },
+    {
+      "request": "7e1cbdb4d20f8cdec6fccec89e9823f441f9c08d41ea0ab7285a06251aae6265:5:b4c70cc6da8eadac325c012f1fd4c79490c7b82393686c28f42ad6974195ae3e",
+      "changes_from_baseline": [
+        "/inputs:length",
+        "/root/always:length",
+        "/root/outputs:length",
+        "/root/tasks:length"
+      ]
+    },
+    {
+      "request": "7e1cbdb4d20f8cdec6fccec89e9823f441f9c08d41ea0ab7285a06251aae6265:6:4412f97562289ac1428a1b1597b07de8534355ee76d25574e442fd4c4c68fb03",
+      "changes_from_baseline": [
+        "/root/outputs/3/value/port",
+        "/root/outputs/3/value/source",
+        "/root/outputs/4/value/port",
+        "/root/outputs/4/value/source",
+        "/root/outputs/5/value/port",
+        "/root/outputs/5/value/source",
+        "/root/outputs/6/value/port",
+        "/root/outputs/6/value/source",
+        "/root/outputs/7/value/port",
+        "/root/outputs/7/value/source",
+        "/root/outputs/8/value/port",
+        "/root/outputs/8/value/source",
+        "/root/tasks/2/branches/0/outputs:length",
+        "/root/tasks/2/branches/1/outputs:length",
+        "/root/tasks/2/branches/2/outputs:length"
+      ]
+    }
+  ],
+  "classification": "Invalid cross-branch references; the issued repair scope covered only the first root output. First repair rewrote unrelated structure. Second repair added branch exports and changed all affected root bindings outside that narrow scope. Neither repair replaced the baseline; no artifact reached approval.",
+  "original_evidence": "Complete plans, request schemas, responses and usage receipts remain in the encrypted campaign journal; no original record was changed."
+}

@@ -10,8 +10,10 @@ using GnOuGo.Planning.Examples;
 foreach (var name in PlanningCorpus.Names)
 {
     var environment = new PlanningBenchmarkCases.Environment(name); var engine = new WorkflowEngine { McpClientFactory = environment.Factory(), HumanInputProvider = new PlanningCorpus.Human() };
-    var runtime = new PlanningCorpus.Runtime(name, engine); var planner = new TypedWorkflowPlanner();
-    var state = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = PlanningCorpus.Prompt(name) } };
+    var runtime = new PlanningCorpus.Runtime(name, engine); var planner = new HybridWorkflowPlanner();
+    // The frozen stress corpus uses the same existing request limits as its live campaign.
+    var state = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = PlanningCorpus.Prompt(name),
+        Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } };
     for (var i = 0; i < 20 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); i++)
     {
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, CancellationToken.None);
@@ -23,58 +25,50 @@ foreach (var name in PlanningCorpus.Names)
     var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
     var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], PlanningBenchmarkCases.Inputs(name, "nominal"), CancellationToken.None);
     if (!environment.Verify(result)) throw new InvalidOperationException("Independent result assertion failed: " + result.Error?.Message);
-    Console.WriteLine(name + ": passed, calls=" + state.ModelCalls + ", replans=" + state.ReplanAttempts + ", scenarios=" + state.Scenarios.Count);
+    Console.WriteLine(name + ": passed, calls=" + state.ModelCalls + ", replans=" + state.ReplanAttempts + ", validations=" + state.ValidationResults.Count);
 }
-foreach (var mode in new[] { PlanningMode.Auto, PlanningMode.Interactive })
-{
-    var planner = new TypedWorkflowPlanner(); var runtime = new DecisionRuntime();
-    var state = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = "Return 42", Mode = mode } };
-    state = await planner.AdvanceAsync(state, new(), runtime, CancellationToken.None);
-    state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-    if (mode == PlanningMode.Interactive)
-    {
-        if (state.Status != PlanningStatus.WaitingForDecision) throw new InvalidOperationException("Interactive decision did not pause.");
-        state = await planner.AdvanceAsync(state, new() { Kind = "answer_decision", ExpectedRevision = state.Revision, DecisionAnswer = new(state.PendingDecision!.Id, "brief") }, runtime, CancellationToken.None);
-    }
-    if (state.Decisions.Count != 1 || state.Decisions[0].Answer.OptionId != "brief") throw new InvalidOperationException("Decision receipt was not retained.");
-    state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-    state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, CancellationToken.None);
-    if (state.SemanticPlan is null || state.DecisionContinuation is not null || runtime.Calls != 1) throw new InvalidOperationException("Decision continuation repeated or lost work.");
-    Console.WriteLine("planner decision " + mode + ": passed");
-}
-var scalar = ExpressionContractInference.Infer("String(decodeURIComponent(text)).replace(/ /g, '-')", new Dictionary<string, JsonObject> { ["text"] = new() { ["type"] = "string" } });
-if (scalar?["type"]?.ToString() != "string") throw new InvalidOperationException("Scalar conversion inference failed.");
-var diagnostic = new PlanningDiagnostic("GROUNDED_CONTRACT_INVALID", "/scopes/main/operations/consumer", "Blocked computation")
-{
-    Computation = new("alias.name", "inference_unsupported", new() { ["x-gnougo-opaque"] = true },
-        new() { ["text"] = new JsonObject { ["type"] = "string" } }, "JSON.parse(text)", "/scopes/main/operations/parse")
-};
-var restoredDiagnostic = JsonSerializer.Deserialize(JsonSerializer.Serialize(diagnostic, PlanningJsonContext.Default.PlanningDiagnostic), PlanningJsonContext.Default.PlanningDiagnostic);
-if (restoredDiagnostic?.Computation is not { OriginExpression: "JSON.parse(text)", ProducerLocation: "/scopes/main/operations/parse" })
-    throw new InvalidOperationException("Computation diagnostic serialization failed.");
-Console.WriteLine("Scalar inference and computation diagnostic smoke passed.");
-Console.WriteLine("Planner Native AOT smoke passed.");
 
-sealed class DecisionRuntime : IPlanningRuntime
+// Typed semantic transformations must survive source-generated serialization and AOT.
+var products = new ProductTransformationFixture();
+var productEngine = new WorkflowEngine { McpClientFactory = products.Factory(), LLMClient = products, LlmDefaults = new() { Model = "mock" }, HumanInputProvider = new PlanningCorpus.Human() };
+var productRuntime = new WorkflowPlanningRuntime(productEngine, (_, _) => Task.CompletedTask);
+var productCatalog = await productRuntime.DiscoverAsync(new(), CancellationToken.None);
+foreach (var source in await productRuntime.Capabilities.ListSourcesAsync(CancellationToken.None))
 {
-    private readonly PlanningCorpus.Runtime _runtime = new("local", new WorkflowEngine());
-    public int Calls;
-    public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
-    {
-        Calls++;
-        var plan = PlanningCorpus.Semantic(PlanningCorpus.Intent("local", new()));
-        JsonObject Option(string id, bool preferred)
-        {
-            var candidate = SemanticPlanning.Json(plan); candidate["summary"] = id; candidate["actions"]![0]!["purpose"] = "Return 42 with " + id + " presentation";
-            return new() { ["id"] = id, ["label"] = id, ["reason"] = "Business preference", ["preferred"] = preferred, ["result"] = candidate };
-        }
-        return Task.FromResult(new LLMResponse { Json = new JsonObject { ["result"] = null, ["decision"] = new JsonObject
-        { ["question"] = "Which presentation?", ["context"] = "Choose the report presentation.", ["evidence"] = "Return 42", ["allowCustomAnswer"] = true,
-            ["options"] = new JsonArray(Option("brief", true), Option("detailed", false)) } } });
-    }
-    public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => _runtime.DiscoverAsync(request, ct);
-    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => _runtime.ValidateAsync(request, ct);
-    public Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct) => _runtime.ValidateScenariosAsync(request, ct);
-    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => _runtime.ValidateCatalogAsync(catalog, ct);
-    public Task CheckpointAsync(PlanningSession session, CancellationToken ct) => Task.CompletedTask;
+    var page = await productRuntime.Capabilities.ListAsync(source.Id, null, CancellationToken.None);
+    foreach (var summary in page.Capabilities) productCatalog.Capabilities.Add(await productRuntime.Capabilities.ResolveAsync(summary, CancellationToken.None));
 }
+var productPlan = ProductTransformationPlan.Create(productCatalog, products);
+productPlan = JsonSerializer.Deserialize(JsonSerializer.Serialize(productPlan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
+var productCompilation = new TaskPlanCompiler().Compile(productPlan, productCatalog);
+if (productCompilation.Graph is null || productCompilation.Diagnostics.Count != 0) throw new InvalidOperationException("Transform compilation failed");
+PlanningConfirmationGuards.Apply(productCompilation.Graph, productCatalog);
+var productDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(productCompilation.Graph, productCatalog)));
+var productResult = await productEngine.ExecuteAsync(productDocument.Workflows[productDocument.Entrypoint!], new JsonObject { ["search"] = ProductTransformationFixture.SearchUrl }, CancellationToken.None);
+if (!productResult.Success || !products.VerifyText() || products.Effects.Last() != "close") throw new InvalidOperationException("Transform oracle failed: " + productResult.Error?.Message);
+var proposal = new PlanningProposal { DiscoveryRequests = [new("browser"), new("document")] };
+if (JsonSerializer.Deserialize(JsonSerializer.Serialize(proposal, PlanningJsonContext.Default.PlanningProposal), PlanningJsonContext.Default.PlanningProposal)!.DiscoveryRequests!.Count != 2) throw new InvalidOperationException("Discovery batch serialization failed");
+Console.WriteLine("typed transforms: passed; mocked inference; ordered products and cleanup verified");
+
+// Explicit finite domains and deterministic encoding use the existing runtime,
+// including source-generated serialization. No model or MCP client is supplied.
+var encodingPlan = new TaskPlan { Inputs = [new() { Name = "decision", Type = new() { Kind = "string", Enum = ["allow", "deny"] } }],
+    Root = new() { Outputs = [new("encoded", new() { Kind = "json", Items = [new() { Kind = "object", Members =
+        [new("decision", new() { Kind = "input", Source = "decision" })] }] })] } };
+encodingPlan = JsonSerializer.Deserialize(JsonSerializer.Serialize(encodingPlan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
+if (!encodingPlan.Inputs[0].Type.Enum!.SequenceEqual(new[] { "allow", "deny" })) throw new InvalidOperationException("Enum serialization failed");
+var encodingEngine = new WorkflowEngine();
+var encodingRuntime = new WorkflowPlanningRuntime(encodingEngine, (_, _) => Task.CompletedTask);
+var encodingCatalog = await encodingRuntime.DiscoverAsync(new(), CancellationToken.None);
+var encodingGraph = new TaskPlanCompiler().Compile(encodingPlan, encodingCatalog);
+if (encodingGraph.Graph is null || encodingGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Encoding compilation failed");
+var encodingYaml = new PlanningGraphCompiler().Compile(encodingGraph.Graph, encodingCatalog);
+if ((await encodingRuntime.ValidateAsync(new(encodingYaml, new(), encodingCatalog, []), CancellationToken.None)).Count != 0) throw new InvalidOperationException("Encoding validation failed");
+var encodingDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(encodingYaml));
+foreach (var selected in new[] { "allow", "deny" })
+{
+    var result = await encodingEngine.ExecuteAsync(encodingDocument.Workflows["main"], new JsonObject { ["decision"] = selected }, CancellationToken.None);
+    if (!result.Success || JsonNode.Parse(result.Outputs!["encoded"]!.GetValue<string>())!["decision"]!.GetValue<string>() != selected)
+        throw new InvalidOperationException("Encoding changed the business value");
+}
+Console.WriteLine("enum contracts and JSON encoding: passed; no inference");

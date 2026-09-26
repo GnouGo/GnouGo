@@ -21,13 +21,15 @@ public sealed class GitHubCopilotSdkClientFactory : ICopilotSdkClientFactory
 
     public ICopilotSdkClient Create(CopilotRuntimeConfiguration configuration)
     {
+        if (configuration.ExecutionBounds is not null && _requestHandler is not null and not CopilotInferenceProxyHandler)
+            throw new InvalidOperationException("The configured inference handler does not support bounded dispatch.");
         var options = new CopilotClientOptions
         {
             WorkingDirectory = configuration.WorkingDirectory,
             GitHubToken = string.IsNullOrWhiteSpace(configuration.GitHubToken) ? null : configuration.GitHubToken,
             UseLoggedInUser = configuration.UseLoggedInUser,
             Environment = configuration.Environment,
-            RequestHandler = _requestHandler,
+            RequestHandler = configuration.ExecutionBounds is { } bounds ? new CopilotBoundedInferenceHandler(bounds, _requestHandler as CopilotInferenceProxyHandler) : _requestHandler,
             LogLevel = ParseLogLevel(configuration.LogLevel),
             Telemetry = configuration.Telemetry is { } telemetry ? new TelemetryConfig
             {
@@ -126,14 +128,60 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
 
     public async Task<ICopilotSdkSession> CreateSessionAsync(CopilotSdkSessionConfiguration configuration, CancellationToken cancellationToken)
     {
-        var session = await _client.CreateSessionAsync(BuildCreateConfig(configuration), cancellationToken);
-        return new GitHubCopilotSdkSession(session, _configuration, configuration.FileSystem);
+        var config = BuildCreateConfig(configuration);
+        await ReadManagedPolicyAsync(cancellationToken);
+        var session = await _client.CreateSessionAsync(config, cancellationToken);
+        return await ConfigureBoundedSessionAsync(session, configuration, cancellationToken);
+    }
+
+    private async Task ReadManagedPolicyAsync(CancellationToken cancellationToken)
+    {
+        if (_configuration.ExecutionBounds?.RequiresSandbox != true) return;
+        var policy = await _client.Rpc.ManagedSettings.ReadAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(policy.ErrorMessage))
+            throw new CopilotSandboxRequiredException("Device-managed sandbox policy could not be validated.");
+    }
+
+    private async Task<ICopilotSdkSession> ConfigureBoundedSessionAsync(CopilotSession session, CopilotSdkSessionConfiguration configuration, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (_configuration.ExecutionBounds is { } bounds)
+            {
+                await session.Rpc.Options.UpdateAsync(
+                    availableTools: bounds.Tools.ToList(), enableHostGitOperations: false,
+                    enableSkills: false, enableSessionStore: false, enableOnDemandInstructionDiscovery: false,
+                    includedBuiltinAgents: [], skipCustomInstructions: true,
+                    sandboxConfig: new SandboxConfig
+                    {
+                        Enabled = true, AddCurrentWorkingDirectory = true, AllowBypass = false,
+                        Auth = new() { Gh = false, Git = false },
+                        UserPolicy = new()
+                        {
+                            Filesystem = new() { ReadwritePaths = [_configuration.WorkingDirectory], DeniedPaths = bounds.DeniedPaths.ToList() },
+                            Network = new() { AllowOutbound = false, AllowLocalNetwork = false }
+                        }
+                    }, cancellationToken: cancellationToken);
+                if (bounds.RequiresSandbox)
+                {
+                    var enforcement = await session.Rpc.Sandbox.GetEnforcementStatusAsync(cancellationToken);
+                    if (!enforcement.Required || enforcement.Blocked)
+                        throw new CopilotSandboxRequiredException(enforcement.Required
+                            ? "Mandatory sandbox policy is active, but the host enforcement probe failed. Verify the host sandbox dependencies and platform support."
+                            : null);
+                }
+            }
+            return new GitHubCopilotSdkSession(session, _configuration, configuration.FileSystem);
+        }
+        catch { await session.DisposeAsync(); throw; }
     }
 
     public async Task<ICopilotSdkSession> ResumeSessionAsync(string sessionId, CopilotSdkSessionConfiguration configuration, CancellationToken cancellationToken)
     {
-        var session = await _client.ResumeSessionAsync(sessionId, BuildResumeConfig(configuration), cancellationToken);
-        return new GitHubCopilotSdkSession(session, _configuration, configuration.FileSystem);
+        var config = BuildResumeConfig(configuration);
+        await ReadManagedPolicyAsync(cancellationToken);
+        var session = await _client.ResumeSessionAsync(sessionId, config, cancellationToken);
+        return await ConfigureBoundedSessionAsync(session, configuration, cancellationToken);
     }
 
     public Task DeleteSessionAsync(string sessionId, CancellationToken cancellationToken)
@@ -157,6 +205,11 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         {
             SessionId = string.IsNullOrWhiteSpace(request.RequestedSessionId) ? null : request.RequestedSessionId,
             ClientName = "GnOuGo.GithubCopilot.Core",
+            EnableManagedSettings = configuration.ExecutionBounds?.RequiresSandbox == true ? true : null,
+            // Runtime 1.0.88 resolves device policy with this flag after ManagedSettings.ReadAsync.
+            // Keep authentication on the client: a per-session token conflicts with BYOK providers.
+            ManagedSettings = configuration.ExecutionBounds?.RequiresSandbox == true
+                ? new() { Permissions = new() { DisableBypassPermissionsMode = DisableBypassPermissionsModes.Disable } } : null,
             Model = source.Provider?.Model ?? configuration.Model,
             ReasoningEffort = NormalizeNullable(configuration.ReasoningEffort),
             Provider = source.Provider?.Provider,
@@ -175,7 +228,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             SkipEmbeddingRetrieval = true,
             CreateSessionFsProvider = configuration.UseSessionFileSystem
                 ? _ => new GitHubCopilotSessionFsAdapter(source.FileSystem ?? throw new InvalidOperationException("A session filesystem is required."), source.SessionState ?? throw new InvalidOperationException("Session state is required.")) : null,
-            Hooks = BuildAuditHooks(_logger, source.FileSystem),
+            Hooks = BuildAuditHooks(_logger, source.FileSystem, configuration.ExecutionBounds),
             OnPermissionRequest = BuildPermissionHandler(source),
             OnUserInputRequest = BuildUserInputHandler(source),
             OnElicitationRequest = BuildElicitationHandler(source)
@@ -188,6 +241,8 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         return new ResumeSessionConfig
         {
             ClientName = create.ClientName,
+            EnableManagedSettings = create.EnableManagedSettings,
+            ManagedSettings = create.ManagedSettings,
             Model = create.Model,
             ReasoningEffort = create.ReasoningEffort,
             Provider = create.Provider,
@@ -216,12 +271,14 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             ? null
             : new SystemMessageConfig { Mode = SystemMessageMode.Append, Content = content.Trim() };
 
-    private static SessionHooks BuildAuditHooks(ILogger logger, ICopilotFileAccessPolicy? filePolicy)
+    private static SessionHooks BuildAuditHooks(ILogger logger, ICopilotFileAccessPolicy? filePolicy, CopilotExecutionBounds? bounds = null)
         => new()
         {
             OnPreToolUse = (input, _) =>
             {
                 logger.LogDebug("Copilot hook pre-tool-use: {ToolName}", input.ToolName);
+                if (bounds is not null && (bounds.Stopped || DateTimeOffset.UtcNow >= bounds.Deadline || !bounds.Tools.Contains(input.ToolName)))
+                    return Task.FromResult<PreToolUseHookOutput?>(new() { PermissionDecision = "deny", PermissionDecisionReason = "The operation exceeds the approved task scope or deadline." });
                 return Task.FromResult(ValidateFileTool(input, filePolicy));
             },
             OnPostToolUse = (input, _) =>
@@ -267,7 +324,9 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             CopilotPermissionMode.Interactive => BuildInteractivePermissionHandler(source),
             _ => static (_, _) => Task.FromResult(PermissionDecision.UserNotAvailable())
         };
-        return (request, invocation) => ValidateFilePermission(request, source.FileSystem) is { } rejection
+        return (request, invocation) => source.Request.Configuration.ExecutionBounds is not null && RequestsSandboxBypass(request)
+            ? Task.FromResult(PermissionDecision.Reject("Bounded tasks cannot expand their approved sandbox scope."))
+            : ValidateFilePermission(request, source.FileSystem) is { } rejection
             ? Task.FromResult(rejection) : handler(request, invocation);
     }
 

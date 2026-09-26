@@ -28,11 +28,11 @@ public sealed class SecureWorkflowRuntimeFactoryTests
 
         await using var runtime = await factory.CreateAsync(TestContext.Current.CancellationToken);
         var planning = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory }, (_, _) => Task.CompletedTask);
-        var catalog = await planning.DiscoverAsync(new PlanningRequest(), TestContext.Current.CancellationToken);
+        var catalog = await ResolveAllAsync(planning);
 
         Assert.Equal([server], runtime.McpClientFactory.ServerMetadata.Select(item => item.Name));
-        Assert.Equal(3, catalog.Capabilities.Count);
-        Assert.All(catalog.Capabilities, capability => Assert.Equal(server, capability.Server));
+        Assert.Equal(3, catalog.Capabilities.Count(c => c.Kind != "registered"));
+        Assert.All(catalog.Capabilities.Where(c => c.Kind != "registered"), capability => Assert.Equal(server, capability.Server));
         foreach (var tool in configuration.Tools)
             Assert.Equal(tool.EffectKind, catalog.Capabilities.Single(capability => capability.Method == tool.Name).EffectKind);
     }
@@ -46,7 +46,7 @@ public sealed class SecureWorkflowRuntimeFactoryTests
             Tools = [new() { Name = "review_evaluate", EffectKind = "none" }, new() { Name = "review_publish", EffectKind = "write" }]
         });
         var previous = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = oldFactory }, (_, _) => Task.CompletedTask);
-        var savedCatalog = await previous.DiscoverAsync(new PlanningRequest(), TestContext.Current.CancellationToken);
+        var savedCatalog = await ResolveAllAsync(previous);
         var options = new LLMOptions();
         var factory = new SecureWorkflowRuntimeFactory(
             new LLMRuntimeOptionsStore(Options.Create(options), NullLogger<LLMRuntimeOptionsStore>.Instance),
@@ -58,8 +58,8 @@ public sealed class SecureWorkflowRuntimeFactoryTests
 
         Assert.Equal(2, diagnostics.Count);
         Assert.All(diagnostics, diagnostic => Assert.Equal("CATALOG_CHANGED", diagnostic.Code));
-        Assert.Equal(savedCatalog.Capabilities.Select(capability => capability.Id), diagnostics.Select(diagnostic => diagnostic.Location));
-        Assert.Equal(2, savedCatalog.Capabilities.Count);
+        Assert.Equal(savedCatalog.Capabilities.Where(c => c.Kind != "registered").Select(capability => capability.Id), diagnostics.Select(diagnostic => diagnostic.Location));
+        Assert.Equal(2, savedCatalog.Capabilities.Count(c => c.Kind != "registered"));
     }
 
     [Fact]
@@ -83,6 +83,16 @@ public sealed class SecureWorkflowRuntimeFactoryTests
         Assert.Equal(
             "next-workflow-model",
             nextSession.Options.McpServers["GnOuGo.GithubCopilot.Mcp"].EnvironmentVariables?["TEST_WORKFLOW_VALUE"]);
+    }
+
+    private static async Task<PlanningCatalog> ResolveAllAsync(IPlanningRuntime runtime)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var catalog = await runtime.DiscoverAsync(new(), ct);
+        foreach (var source in await runtime.Capabilities.ListSourcesAsync(ct))
+            foreach (var capability in (await runtime.Capabilities.ListAsync(source.Id, null, ct)).Capabilities)
+                catalog.Capabilities.Add(await runtime.Capabilities.ResolveAsync(capability, ct));
+        return catalog;
     }
 
     private static LLMOptions CopilotOptions(string fallbackModel)

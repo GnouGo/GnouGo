@@ -1,0 +1,199 @@
+{
+  "source_commit": "4cb8586440d22adf02bc0496565c4f9cc6064ef0",
+  "dotnet": {
+    "passed": 2814,
+    "failed": 0,
+    "skipped_opt_in_live": 5,
+    "projects": 33,
+    "build_warnings": 0,
+    "command": "DOTNET_CLI_UI_LANGUAGE=en dotnet test GnOuGo.Agent.sln --no-restore -m:1 -p:SkipModelMetadataGeneration=true -p:TreatWarningsAsErrors=true"
+  },
+  "python": {
+    "core_passed": 287,
+    "cli_passed": 27,
+    "ruff": "passed for both packages",
+    "wheels_and_sdists": "passed for both packages",
+    "ci_versions": [
+      "3.10",
+      "3.12",
+      "3.14"
+    ],
+    "cli_refusal": "Both local and CI terminal settings; ANSI removed only in diagnostic assertion; dispatch spy remains zero."
+  },
+  "frontends": {
+    "local": [
+      "Agent.Server",
+      "Flow.Server"
+    ],
+    "ci_completed_frontend_jobs": 9
+  },
+  "packages": [
+    "Flow.Core",
+    "Flow.Planning",
+    "Flow.Integrations",
+    "Flow.Copilot",
+    "Flow.Persistence"
+  ],
+  "published_binary_checks": [
+    {
+      "name": "pack-Core",
+      "exit_code": 0,
+      "warnings": 0,
+      "log": "pack-Core.log",
+      "framework_notices": 0,
+      "sha256": "be987f7050b5f594d68cd0fb9f35ea536f48ad97eab91d3d2961fc80853bb4d7"
+    },
+    {
+      "name": "pack-Planning",
+      "exit_code": 0,
+      "warnings": 0,
+      "log": "pack-Planning.log",
+      "framework_notices": 0,
+      "sha256": "4be185ba3bdd25829a73e32cb3196b26b8fdfe6339fa6b9238063e21464547a1"
+    },
+    {
+      "name": "pack-Integrations",
+      "exit_code": 0,
+      "warnings": 0,
+      "log": "pack-Integrations.log",
+      "framework_notices": 0,
+      "sha256": "823af045881af09137f9a5f539e6abcb9c82327ff095f46711d75148aa9fc36d"
+    },
+    {
+      "name": "pack-Copilot",
+      "exit_code": 0,
+      "warnings": 0,
+      "log": "pack-Copilot.log",
+      "framework_notices": 0,
+      "sha256": "1324176c79b0b7ccc5ca012a5c6f13d25e3aacb310179f324d82cd3bc7f02807"
+    },
+    {
+      "name": "pack-Persistence",
+      "exit_code": 0,
+      "warnings": 0,
+      "log": "pack-Persistence.log",
+      "framework_notices": 0,
+      "sha256": "93781ed915ac804d79bf054d6140966764e4b1587b65b05a2eb8506757bb2bee"
+    },
+    {
+      "name": "publish-cli",
+      "exit_code": 1,
+      "warnings": 0,
+      "log": "publish-cli.log",
+      "sha256": "f60ecb19464670bb384717d090834cfd2e0c4ea93dbabad1ccf6abb9dd4013c4",
+      "reason": "The local runner initially promoted the two existing documented EF Core experimental notices to errors. Republish used the repository publish policy; no source or suppression changed."
+    },
+    {
+      "name": "publish-cli",
+      "exit_code": 0,
+      "warnings": 0,
+      "log": "publish-cli-attempt2.log",
+      "framework_notices": 2,
+      "sha256": "0fc6ac8d7c79a56b65baae1ac303efc9a6a8c71b97c23288a23775ba3f4389c5"
+    },
+    {
+      "name": "publish-server",
+      "exit_code": 0,
+      "warnings": 0,
+      "framework_notices": 2,
+      "log": "publish-server.log",
+      "sha256": "7b0c97bf1b9098a37b19b593f1f2fce871c18d30322cfa6bd766c218cdd7d1f6"
+    },
+    {
+      "name": "publish-planning",
+      "exit_code": 0,
+      "warnings": 0,
+      "framework_notices": 0,
+      "log": "publish-planning.log",
+      "sha256": "730f71d6b4f478a50f43f61786fbc12d9b881e4aeb8bed7fa42a52020c70f751"
+    },
+    {
+      "name": "publish-copilot",
+      "exit_code": 0,
+      "warnings": 0,
+      "framework_notices": 0,
+      "log": "publish-copilot.log",
+      "sha256": "46bb6f25abba6809dde8ac1dbd143d5a48d1252395f2816a7bab22b03c130e0f"
+    },
+    {
+      "name": "publish-agent",
+      "exit_code": 0,
+      "warnings": 0,
+      "framework_notices": 0,
+      "log": "publish-agent.log",
+      "sha256": "334425ec9051d807d99cd1c2b41243f7df8d0a80c8f9e7de19611645d3325bf6"
+    },
+    {
+      "name": "planning-smoke",
+      "exit_code": 0,
+      "warnings": 0,
+      "framework_notices": 0,
+      "log": "planning-smoke.log",
+      "sha256": "1a5bfec5eb7f459ef5b005418480f497c1d0fdd6d981172bd24e2239bd529abe"
+    },
+    {
+      "name": "encrypted-journals",
+      "exit_code": 1,
+      "warnings": 0,
+      "framework_notices": 0,
+      "log": "encrypted-journals.log",
+      "sha256": "cc7d621c069ff596bc09cfd68b82e0db4b556addd1c41784f56fee4fc9b968a1",
+      "reason": "The initial local runner used a Python interpreter without the client package. The complete smoke passed with the project virtual environment and a new isolated data directory."
+    },
+    {
+      "name": "encrypted-journals",
+      "exit_code": 0,
+      "warnings": 0,
+      "framework_notices": 0,
+      "log": "encrypted-journals-attempt2.log",
+      "sha256": "57f32435dc7c91aaf949512f5170bb3635f23a79a9599f22802845dd0f1d5f3e"
+    },
+    {
+      "name": "agent-planning-persistence",
+      "exit_code": 0,
+      "warnings": 0,
+      "framework_notices": 0,
+      "log": "agent-planning-persistence.log",
+      "sha256": "6cc4a0fe5da1774197af9257399c0640f5d69e116e930f90cb3e3ece69d87a72"
+    }
+  ],
+  "ci": {
+    "conclusion": "success",
+    "created_at": "2026-09-24T16:11:42Z",
+    "head_sha": "4cb8586440d22adf02bc0496565c4f9cc6064ef0",
+    "html_url": "https://github.com/GnouGo/GnouGo/actions/runs/36025641506",
+    "id": 36025641506,
+    "status": "completed",
+    "updated_at": "2026-09-24T16:48:27Z"
+  },
+  "ci_check_counts": {
+    "passed": 32,
+    "skipped_release_only": 4,
+    "failed": 0
+  },
+  "regressions_before_changes": {
+    "tests": 15,
+    "failed": 13,
+    "passed": 2,
+    "sha256": "f61c563a3277be36f91e1f7db9947fe543fb98e5f8c39980ec9650581c2dfc22"
+  },
+  "planning_source_inventory": {
+    "parent": {
+      "files": 55,
+      "lines": 7190
+    },
+    "reference": {
+      "files": 40,
+      "lines": 4400
+    },
+    "candidate": {
+      "files": 40,
+      "lines": 4435
+    }
+  },
+  "remaining_limitations": [
+    "Native validation can reject presence guards on conditional producers with STEP_REFERENCE_NOT_AVAILABLE. The stabilization preserves fail-closed availability checks.",
+    "The real Copilot command edit/test cycle remains unverified because host sandbox enforcement cannot be established. Mocked workflow benchmarks do not resolve this."
+  ],
+  "publish_warning_policy": "No new application/compiler/trim warnings. Existing exact-origin framework exceptions remain documented in the repository. Flow CLI/server each emitted the two EF Core 10.0.12 experimental query-precompilation/Native AOT notices; these were retained and classified separately."
+}

@@ -14,6 +14,7 @@ public sealed class ApprovedExecutionTests
     [Theory]
     [InlineData(false, "interactive")]
     [InlineData(true, "interactive")]
+    [InlineData(false, "auto")]
     [InlineData(true, "auto")]
     public async Task PlanExecuteAndRestartUseStoredApprovalWithoutAnotherModelCall(bool businessDecision, string mode)
     {
@@ -23,7 +24,7 @@ public sealed class ApprovedExecutionTests
         {
             var model = new Model { BusinessDecision = businessDecision }; var human = new Human(); var decisions = new Decisions();
             var factory = new WorkflowPlanningRuntimeFactory(new KeyVaultRecordStore(Path.Combine(directory, "vault.db")), Path.Combine(directory, "leases"));
-            var engine = new WorkflowEngine { WorkflowPlanner = new TypedWorkflowPlanner(), PlanningRuntimeFactory = factory, LLMClient = model, HumanInputProvider = human, PlanningDecisionProvider = decisions, DefaultPlanningMode = mode,
+            var engine = new WorkflowEngine { WorkflowPlanner = new HybridWorkflowPlanner(), PlanningRuntimeFactory = factory, LLMClient = model, HumanInputProvider = human, PlanningInteraction = decisions, DefaultPlanningMode = mode,
                 Limits = new() { RunId = "stable-run", TenantId = "one" } };
             var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
                 version: 1
@@ -46,7 +47,7 @@ public sealed class ApprovedExecutionTests
                 var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
                 Assert.True(result.Success, result.Error?.Message); Assert.Equal("42", result.Outputs!["result"]!.ToJsonString());
             }
-            Assert.Equal(2, model.Calls); Assert.Equal(1, human.Reviews); Assert.Equal(businessDecision && mode == "interactive" ? 1 : 0, decisions.Questions);
+            Assert.Equal(1, model.Calls); Assert.Equal(1, human.Reviews); Assert.Equal(businessDecision && mode == "interactive" ? 1 : 0, decisions.Questions);
             await Assert.ThrowsAsync<PlanningConflictException>(() => factory.ReadApprovedYamlAsync(new() { Engine = engine, Limits = new() { TenantId = "other" }, Step = new(), Data = new() }, "unknown", "forged", TestContext.Current.CancellationToken));
         }
         finally { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); Directory.Delete(directory, true); }
@@ -58,24 +59,22 @@ public sealed class ApprovedExecutionTests
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Calls++;
-            var semantic = (request.StructuredOutputSchema?["$defs"]?["decisionResult"] ?? request.StructuredOutputSchema)?["properties"]?["actions"] is not null;
-            var response = PlanningCorpus.FixtureResponse(request, semantic ? "semantic" : "binding", PlanningCorpus.Intent("local", new()));
-            if (BusinessDecision && semantic)
+            var proposal = new PlanningProposal { Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult() };
+            if (BusinessDecision && Calls == 1)
             {
-                var result = response.Json!["result"]!;
-                JsonObject Option(string id, bool preferred) { var candidate = result.DeepClone(); candidate["summary"] = id; candidate["actions"]![0]!["purpose"] = "Return 42 with " + id + " presentation"; return new() { ["id"] = id, ["label"] = id, ["reason"] = "Business preference", ["preferred"] = preferred, ["result"] = candidate }; }
-                response.Json = new JsonObject { ["result"] = null, ["decision"] = new JsonObject { ["question"] = "Which presentation?", ["context"] = "Presentation preference", ["evidence"] = "Return 42", ["allowCustomAnswer"] = true,
-                    ["options"] = new JsonArray(Option("brief", true), Option("detailed", false)) } };
+                proposal.Plan.Choices = [new() { Id = "style", Question = "Which presentation?", Recommended = "brief", Alternatives = [new("brief", "Brief", PlanningCorpus.String("brief")), new("detailed", "Detailed", PlanningCorpus.String("detailed"))] }];
+                proposal.Plan.Root.Outputs.Add(new("style", PlanningCorpus.Business("choice", "style")));
             }
+            var response = new LLMResponse { Json = PlanningCorpus.Transport(System.Text.Json.JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal), request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
             response.Usage = new JsonObject { ["total_tokens"] = 15 }; return Task.FromResult(response);
         }
 
     }
-    private sealed class Decisions : IPlanningDecisionProvider
+    private sealed class Decisions : IPlanningInteraction
     {
         internal int Questions;
         public Task<PlanningCommand> RequestAsync(PlanningSession session, CancellationToken ct)
-        { Questions++; return Task.FromResult(new PlanningCommand { Kind = "answer_decision", ExpectedRevision = session.Revision, DecisionAnswer = new(session.PendingDecision!.Id, "brief") }); }
+        { Questions++; return Task.FromResult(new PlanningCommand { Kind = "choose", ExpectedRevision = session.Revision, Selections = new() { ["style"] = "brief" } }); }
         public Task CheckpointedAsync(PlanningSession session, CancellationToken ct) => Task.CompletedTask;
     }
     private sealed class Human : IHumanInputProvider

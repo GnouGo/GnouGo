@@ -1,3 +1,4 @@
+using GnOuGo.Flow.Copilot;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
@@ -11,16 +12,19 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Logs;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Integrations;
+using GnOuGo.Flow.Persistence;
 using GnOuGo.Flow.Server.Configuration;
 using GnOuGo.Flow.Server.HumanInput;
 using GnOuGo.Flow.Server.Telemetry;
 
 var builder = WebApplication.CreateSlimBuilder(args);
+builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Insert(0, FlowServerJsonContext.Default));
 
 var runtimeAppSettingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 if (File.Exists(runtimeAppSettingsPath))
@@ -146,21 +150,27 @@ builder.Services.AddSingleton<IMcpClientFactory>(sp =>
     return new InMemoryMcpClientFactory();
 });
 
+builder.Services.AddSingleton<IPlanningRuntimeFactory>(_ => GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(
+    builder.Configuration["KeyVault:DatabasePath"], builder.Configuration["Flow:Planning:OwnerPath"]));
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ServerHumanInputProvider>();
 builder.Services.AddSingleton<IHumanInputProvider>(sp => sp.GetRequiredService<ServerHumanInputProvider>());
-builder.Services.AddSingleton<IWorkflowCheckpointer, InMemoryWorkflowCheckpointer>();
+builder.Services.AddSingleton<IWorkflowRunStore>(sp => EncryptedWorkflowRunStore.CreateWorkspace(
+    builder.Configuration["KeyVault:DatabasePath"], builder.Configuration["Flow:Execution:IndexPath"],
+    logger: sp.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Flow.Persistence"), ownerPath: builder.Configuration["Flow:Execution:OwnerPath"]));
 
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
 
+var copilotRunners = builder.Configuration.GetSection("Flow:CopilotRunners").GetChildren()
+    .ToDictionary(c => c.Key, c => c.Value ?? throw new InvalidOperationException("A Copilot runner requires an MCP server name."), StringComparer.Ordinal);
 var app = builder.Build();
 
 app.UseCors();
 
 // ── API Endpoints ──
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTimeOffset.UtcNow }));
+app.MapGet("/health", () => Results.Ok(new ServerHealth("ok", DateTimeOffset.UtcNow)));
 
 app.MapPost("/api/workflow/run", async (
     HttpContext httpContext,
@@ -170,7 +180,8 @@ app.MapPost("/api/workflow/run", async (
     IMcpClientFactory mcpFactory,
     IMemoryCache mcpCache,
     IHumanInputProvider hitlProvider,
-    IWorkflowCheckpointer checkpointer,
+    IWorkflowRunStore runStore,
+    IPlanningRuntimeFactory planningFactory,
     ILoggerFactory loggerFactory) =>
 {
     try
@@ -180,125 +191,68 @@ app.MapPost("/api/workflow/run", async (
         var logger = loggerFactory.CreateLogger("GnOuGo.Flow.WorkflowEngine");
         var runId = request.RunId ?? Guid.NewGuid().ToString("N");
         httpContext.Response.Headers["X-Workflow-Run-Id"] = runId;
-        var result = await ExecuteWorkflowAsync(prepared.Workflow, prepared.Inputs, telemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, cts.Token, checkpointer, otelSettings.TenantId);
+        httpContext.Response.Headers["X-Workflow-Tenant-Id"] = string.IsNullOrWhiteSpace(otelSettings.TenantId) ? "default" : otelSettings.TenantId.Trim();
+        var result = await ExecuteWorkflowAsync(prepared.Workflow, prepared.Inputs, telemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, cts.Token, runStore, otelSettings.TenantId, copilotRunners, planningFactory);
         return Results.Ok(ToWorkflowRunResponse(result));
     }
     catch (WorkflowParseException ex)
     {
-        return Results.BadRequest(new { error = ex.Message });
+        return Results.BadRequest(new ServerError(ex.Message));
     }
     catch (WorkflowCompilationException ex)
     {
-        return Results.BadRequest(new { error = ex.Message });
+        return Results.BadRequest(new ServerError(ex.Message));
     }
+    catch (WorkflowRunConflictException ex) { return Results.Conflict(ex.Message); }
     catch (Exception ex)
     {
         return Results.Problem(ex.Message);
     }
 });
 
-// ── Human-in-the-Loop endpoint ──
-app.MapPost("/api/workflow/human-input/{runId}/{stepId}", async (
-    string runId,
-    string stepId,
-    HttpContext httpContext,
-    ServerHumanInputProvider hitlProvider,
-    IOptions<JsonOptions> jsonOptions) =>
-{
-    JsonNode? body;
-    try
-    {
-        var raw = await new StreamReader(httpContext.Request.Body).ReadToEndAsync();
-        body = string.IsNullOrWhiteSpace(raw) ? null : JsonNode.Parse(raw);
-    }
-    catch
-    {
-        return Results.BadRequest(new { error = "Invalid JSON body" });
-    }
-
-    if (hitlProvider.TrySubmitResponse(runId, stepId, body))
-        return Results.Ok(new { status = "accepted", runId, stepId });
-    return Results.NotFound(new { error = "No pending human input request", runId, stepId });
-});
-
-// ── List pending human-input requests ──
-app.MapGet("/api/workflow/human-input/pending", (ServerHumanInputProvider hitlProvider) =>
-{
-    var pending = hitlProvider.PendingKeys
-        .Select(k =>
-        {
-            var parts = k.Split(':', 2);
-            return new { runId = parts[0], stepId = parts.Length > 1 ? parts[1] : "" };
-        })
-        .ToList();
-    return Results.Ok(pending);
-});
-
-// ── Resume a workflow from checkpoint ──
-app.MapPost("/api/workflow/resume/{runId}", async (
-    string runId,
-    IWorkflowTelemetry telemetry,
-    ILLMClient llm,
-    IMcpClientFactory mcpFactory,
-    IMemoryCache mcpCache,
-    IHumanInputProvider hitlProvider,
-    IWorkflowCheckpointer checkpointer,
-    ILoggerFactory loggerFactory) =>
+// Commands use the configured host tenant; a caller cannot select another tenant's records.
+var executionTenant = string.IsNullOrWhiteSpace(otelSettings.TenantId) ? "default" : otelSettings.TenantId.Trim();
+var runs = app.MapGroup("/api/tenants/{tenantId}/runs");
+runs.AddEndpointFilter(async (context, next) =>
+    context.HttpContext.Request.RouteValues["tenantId"]?.ToString() == executionTenant
+        ? await next(context) : Results.NotFound());
+runs.MapGet("", async (string tenantId, IWorkflowRunStore store, CancellationToken ct) =>
+    Results.Json((await store.ListAsync(tenantId, ct)).ToList(), WorkflowRunJsonContext.Default.ListWorkflowRun));
+runs.MapGet("/{runId}", async (string tenantId, string runId, IWorkflowRunStore store, CancellationToken ct) =>
+    await store.ReadAsync(tenantId, runId, ct) is { } run ? Results.Json(run, WorkflowRunJsonContext.Default.WorkflowRun) : Results.NotFound());
+runs.MapPost("/{runId}/human-input", async (string tenantId, string runId, WorkflowHumanAnswer request,
+    IWorkflowRunStore store, ServerHumanInputProvider human, CancellationToken ct) =>
 {
     try
     {
-        var checkpoint = await checkpointer.LoadAsync(runId, CancellationToken.None);
-        if (checkpoint == null)
-            return Results.NotFound(new { error = "No checkpoint found", runId });
-
-        if (string.IsNullOrWhiteSpace(checkpoint.WorkflowYaml))
-            return Results.BadRequest(new { error = "Checkpoint does not contain workflow YAML; cannot resume", runId });
-
-        var doc = WorkflowParser.Parse(checkpoint.WorkflowYaml);
-        var compiler = new WorkflowCompiler();
-        var compiled = compiler.Compile(doc);
-        var entrypoint = compiled.Entrypoint;
-        if (entrypoint == null || !compiled.Workflows.ContainsKey(entrypoint))
-            return Results.BadRequest(new { error = "No entrypoint workflow found in checkpoint" });
-
-        var workflow = compiled.Workflows[entrypoint];
-        var logger = loggerFactory.CreateLogger("GnOuGo.Flow.WorkflowEngine");
-
-        var engine = new WorkflowEngine
-        {
-            WorkflowPlanner = new GnOuGo.Flow.Planning.TypedWorkflowPlanner(),
-            PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
-            LLMClient = llm,
-            ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
-            McpClientFactory = mcpFactory,
-            McpCache = mcpCache,
-            HumanInputProvider = hitlProvider,
-            Checkpointer = checkpointer,
-            Telemetry = telemetry,
-            Logger = logger,
-            Limits = new ExecutionLimits { LogStepContent = true, RunId = runId, TenantId = string.IsNullOrWhiteSpace(otelSettings.TenantId) ? "default" : otelSettings.TenantId.Trim() }
-        };
-
-        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
-        var result = await engine.ResumeAsync(runId, workflow, cts.Token);
-        return Results.Ok(ToWorkflowRunResponse(result));
+        await store.AnswerAsync(tenantId, runId, request.ExpectedRevision, request.InvocationId, request.Response, ct);
+        human.TrySubmitResponse(runId, request.InvocationId, request.Response);
+        return Results.Ok();
     }
-    catch (WorkflowParseException ex)
+    catch (WorkflowRunConflictException ex) { return Results.Conflict(ex.Message); }
+});
+runs.MapPost("/{runId}/{command}", async (string tenantId, string runId, string command, WorkflowRunCommand request,
+    IWorkflowRunStore store, IWorkflowTelemetry telemetry, ILLMClient llm, IMcpClientFactory mcpFactory,
+    IMemoryCache cache, IHumanInputProvider human, ILoggerFactory loggers, IPlanningRuntimeFactory planningFactory, CancellationToken ct) =>
+{
+    try
     {
-        return Results.BadRequest(new { error = ex.Message });
+        if (command == "cancel")
+            return Results.Json(await store.CancelAsync(tenantId, runId, request.ExpectedRevision, ct), WorkflowRunJsonContext.Default.WorkflowRun);
+        var run = await store.ReadAsync(tenantId, runId, ct);
+        if (run is null) return Results.NotFound();
+        var engine = CreateWorkflowEngine(telemetry, llm, mcpFactory, cache, human,
+            loggers.CreateLogger("GnOuGo.Flow.WorkflowEngine"), runId, store, tenantId, copilotRunners, planningFactory);
+        if (command == "reconcile")
+            return Results.Json(await engine.ReconcileAsync(tenantId, runId, request.ExpectedRevision,
+                request.InvocationId ?? "", request.ConfirmedStoppedReason, ct), WorkflowRunJsonContext.Default.WorkflowRun);
+        if (command != "resume") return Results.BadRequest("Unknown execution command.");
+        if (string.IsNullOrWhiteSpace(run.WorkflowYaml)) return Results.Conflict("The stored execution source is unavailable.");
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(run.WorkflowYaml));
+        await engine.ResumeAsync(tenantId, runId, request.ExpectedRevision, document.Workflows[run.WorkflowName], ct);
+        return Results.Json(await store.ReadAsync(tenantId, runId, ct), WorkflowRunJsonContext.Default.WorkflowRun);
     }
-    catch (WorkflowCompilationException ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-    catch (WorkflowRuntimeException ex)
-    {
-        return Results.Problem(ex.Message);
-    }
-    catch (Exception ex)
-    {
-        return Results.Problem(ex.Message);
-    }
+    catch (WorkflowRunConflictException ex) { return Results.Conflict(ex.Message); }
 });
 
 app.MapPost("/api/workflow/run/stream", async (
@@ -309,7 +263,8 @@ app.MapPost("/api/workflow/run/stream", async (
     IMcpClientFactory mcpFactory,
     IMemoryCache mcpCache,
     IHumanInputProvider hitlProvider,
-    IWorkflowCheckpointer checkpointer,
+    IWorkflowRunStore runStore,
+    IPlanningRuntimeFactory planningFactory,
     ILoggerFactory loggerFactory,
     IOptions<JsonOptions> jsonOptions) =>
 {
@@ -321,19 +276,19 @@ app.MapPost("/api/workflow/run/stream", async (
     catch (WorkflowParseException ex)
     {
         httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
-        await httpContext.Response.WriteAsJsonAsync(new { error = ex.Message }, jsonOptions.Value.SerializerOptions, httpContext.RequestAborted);
+        await httpContext.Response.WriteAsJsonAsync(new ServerError(ex.Message), FlowServerJsonContext.Default.ServerError, cancellationToken: httpContext.RequestAborted);
         return;
     }
     catch (WorkflowCompilationException ex)
     {
         httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
-        await httpContext.Response.WriteAsJsonAsync(new { error = ex.Message }, jsonOptions.Value.SerializerOptions, httpContext.RequestAborted);
+        await httpContext.Response.WriteAsJsonAsync(new ServerError(ex.Message), FlowServerJsonContext.Default.ServerError, cancellationToken: httpContext.RequestAborted);
         return;
     }
     catch (InvalidWorkflowRunRequestException ex)
     {
         httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
-        await httpContext.Response.WriteAsJsonAsync(new { error = ex.Message }, jsonOptions.Value.SerializerOptions, httpContext.RequestAborted);
+        await httpContext.Response.WriteAsJsonAsync(new ServerError(ex.Message), FlowServerJsonContext.Default.ServerError, cancellationToken: httpContext.RequestAborted);
         return;
     }
 
@@ -353,6 +308,7 @@ app.MapPost("/api/workflow/run/stream", async (
     var logger = loggerFactory.CreateLogger("GnOuGo.Flow.WorkflowEngine");
     var runId = request.RunId ?? Guid.NewGuid().ToString("N");
     httpContext.Response.Headers["X-Workflow-Run-Id"] = runId;
+        httpContext.Response.Headers["X-Workflow-Tenant-Id"] = string.IsNullOrWhiteSpace(otelSettings.TenantId) ? "default" : otelSettings.TenantId.Trim();
     using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
     using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(httpContext.RequestAborted, timeoutCts.Token);
 
@@ -363,7 +319,7 @@ app.MapPost("/api/workflow/run/stream", async (
     {
         try
         {
-            runResult = await ExecuteWorkflowAsync(prepared.Workflow, prepared.Inputs, streamingTelemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, linkedCts.Token, checkpointer, otelSettings.TenantId);
+            runResult = await ExecuteWorkflowAsync(prepared.Workflow, prepared.Inputs, streamingTelemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, linkedCts.Token, runStore, otelSettings.TenantId, copilotRunners, planningFactory);
         }
         catch (Exception ex)
         {
@@ -385,9 +341,8 @@ app.MapPost("/api/workflow/run/stream", async (
         if (executionError != null)
         {
             await WriteStreamEventAsync(httpContext.Response,
-                new WorkflowStreamEvent("workflow.result", new
-                {
-                    response = new WorkflowRunResponse
+                new WorkflowStreamEvent("workflow.result", new WorkflowResultStreamData(
+                    new WorkflowRunResponse
                     {
                         Success = false,
                         Error = new WorkflowErrorDto
@@ -397,8 +352,7 @@ app.MapPost("/api/workflow/run/stream", async (
                             Retryable = false
                         }
                     },
-                    summary = streamingTelemetry.GetSummarySnapshot()
-                }),
+                    streamingTelemetry.GetSummarySnapshot())),
                 jsonOptions.Value.SerializerOptions,
                 httpContext.RequestAborted);
             return;
@@ -407,11 +361,9 @@ app.MapPost("/api/workflow/run/stream", async (
         if (runResult != null)
         {
             await WriteStreamEventAsync(httpContext.Response,
-                new WorkflowStreamEvent("workflow.result", new
-                {
-                    response = ToWorkflowRunResponse(runResult),
-                    summary = streamingTelemetry.GetSummarySnapshot()
-                }),
+                new WorkflowStreamEvent("workflow.result", new WorkflowResultStreamData(
+                    ToWorkflowRunResponse(runResult),
+                    streamingTelemetry.GetSummarySnapshot())),
                 jsonOptions.Value.SerializerOptions,
                 httpContext.RequestAborted);
         }
@@ -469,25 +421,28 @@ static Task<RunResult> ExecuteWorkflowAsync(
     ILogger logger,
     string? runId,
     CancellationToken ct,
-    IWorkflowCheckpointer? checkpointer = null, string? tenantId = null)
+    IWorkflowRunStore? runStore, string? tenantId, IReadOnlyDictionary<string, string>? copilotRunners, IPlanningRuntimeFactory planningFactory)
 {
-    var engine = new WorkflowEngine
+    return CreateWorkflowEngine(telemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, runStore, tenantId, copilotRunners, planningFactory)
+        .ExecuteAsync(workflow, inputs, ct);
+}
+
+static WorkflowEngine CreateWorkflowEngine(IWorkflowTelemetry telemetry, ILLMClient llm, IMcpClientFactory mcpFactory,
+    IMemoryCache mcpCache, IHumanInputProvider hitlProvider, ILogger logger, string? runId, IWorkflowRunStore? runStore, string? tenantId, IReadOnlyDictionary<string, string>? copilotRunners, IPlanningRuntimeFactory planningFactory)
+    => new WorkflowEngine
     {
-        WorkflowPlanner = new GnOuGo.Flow.Planning.TypedWorkflowPlanner(),
-        PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
+        WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
+        PlanningRuntimeFactory = planningFactory,
         LLMClient = llm,
         ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
         McpClientFactory = mcpFactory,
         McpCache = mcpCache,
         HumanInputProvider = hitlProvider,
-        Checkpointer = checkpointer,
+        RunStore = runStore,
         Telemetry = telemetry,
         Logger = logger,
         Limits = new ExecutionLimits { LogStepContent = true, RunId = runId, TenantId = string.IsNullOrWhiteSpace(tenantId) ? "default" : tenantId.Trim() }
-    };
-
-    return engine.ExecuteAsync(workflow, inputs, ct);
-}
+    }.WithCopilotRunners(copilotRunners ?? new Dictionary<string, string>());
 
 static WorkflowRunResponse ToWorkflowRunResponse(RunResult result) => new()
 {
@@ -511,7 +466,7 @@ static WorkflowRunResponse ToWorkflowRunResponse(RunResult result) => new()
 
 static async Task WriteStreamEventAsync(HttpResponse response, WorkflowStreamEvent evt, JsonSerializerOptions serializerOptions, CancellationToken ct)
 {
-    await response.WriteAsync(JsonSerializer.Serialize(evt, serializerOptions), ct);
+    await response.WriteAsync(JsonSerializer.Serialize(evt, FlowServerJsonContext.Default.WorkflowStreamEvent), ct);
     await response.WriteAsync("\n", ct);
     await response.Body.FlushAsync(ct);
 }
@@ -519,6 +474,8 @@ static async Task WriteStreamEventAsync(HttpResponse response, WorkflowStreamEve
 file sealed record PreparedWorkflowRun(CompiledWorkflow Workflow, JsonNode? Inputs);
 
 file sealed class InvalidWorkflowRunRequestException(string message) : Exception(message);
+
+public sealed record WorkflowHumanAnswer(long ExpectedRevision, string InvocationId, JsonNode? Response);
 
 public sealed class WorkflowRunRequest
 {

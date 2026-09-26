@@ -133,15 +133,8 @@ public sealed class StreamingWorkflowTelemetry : IWorkflowTelemetry
 			_ => parentSpan
 		};
 		var innerSpan = _inner.SpanStart(innerParentSpan, info);
-		Emit("workflow.phase.started", new
-		{
-			info.Name,
-			info.Phase,
-			info.StepId,
-			info.StepType,
-			info.CallDepth,
-			Attributes = info.Attributes?.ToDictionary(kv => kv.Key, kv => kv.Value)
-		});
+		Emit("workflow.phase.started", new WorkflowPhaseStartedStreamData(info.Name, info.Phase, info.StepId, info.StepType, info.CallDepth,
+            info.Attributes?.ToDictionary(kv => kv.Key, kv => kv.Value)));
 		return new StreamingTelemetrySpan(innerSpan);
 	}
 
@@ -150,13 +143,7 @@ public sealed class StreamingWorkflowTelemetry : IWorkflowTelemetry
 		var streamingSpan = span as StreamingTelemetrySpan;
 		var innerSpan = streamingSpan?.Inner ?? span;
 		_inner.SpanEnd(innerSpan, result);
-		Emit("workflow.phase.completed", new
-		{
-			result.Success,
-			DurationMs = result.Duration.TotalMilliseconds,
-			result.ErrorType,
-			result.ErrorMessage
-		});
+		Emit("workflow.phase.completed", new WorkflowPhaseCompletedStreamData(result.Success, result.Duration.TotalMilliseconds, result.ErrorType, result.ErrorMessage));
 	}
 
 	public WorkflowUsageSummary GetSummarySnapshot()

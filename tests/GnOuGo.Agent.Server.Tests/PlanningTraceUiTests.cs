@@ -24,52 +24,18 @@ public sealed class PlanningTraceUiTests : BunitContext
         var state = Session("repair", "repair failure", PlanningStatus.Stopped);
         state.Diagnostics = [new("SEMANTIC_BINDING_BLOCKED", "/actions/consumer", "Waiting for original evidence")
         { Prerequisite = new("blocked_dependency", "PRIVATE_PREREQUISITE_CONTEXT", ConsumerCapability: "issued", ContractPath: "/source", RootActionId: "producer") }];
-        state.PendingRepair = new() { InputHash = "input", CandidateHash = "candidate", ActionIds = ["producer", "consumer"], Candidate = new() { Summary = "Proposed replacement" } };
-        state.Answers = [new("Accept revised business outcome?", new() { ["accept_scope_revision"] = true })];
+        state.RevisionScope = ["producer", "consumer"];
+        state.Plan = GnOuGo.Planning.Examples.PlanningCorpus.Decision(); state.Plan.Choices[0].Selected = "formal";
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var restored = (await fixture.Store.LoadAsync("planning-tests", "repair", Ct))!;
         var dto = PlanningEndpoints.ToDto(restored);
         Assert.Equal("producer", Assert.Single(dto.Diagnostics).Prerequisite!.RootActionId);
-        Assert.Equal(new[] { "producer", "consumer" }, dto.PendingRepair!.ActionIds); Assert.Single(dto.Clarifications);
+        Assert.Equal(new[] { "producer", "consumer" }, dto.RevisionScope); Assert.Single(dto.Choices);
         Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/repair");
         var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "repair"));
-        cut.WaitForAssertion(() => { Assert.Contains("Proposed repair", cut.Markup); Assert.Contains("Blocked by action:", cut.Markup); Assert.Contains("Answered business clarification", cut.Markup); });
+        cut.WaitForAssertion(() => { Assert.Contains("Tasks open for revision", cut.Markup); Assert.Contains("Blocked by action:", cut.Markup); Assert.Contains("Selected: formal", cut.Markup); });
         foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
             Assert.DoesNotContain("PRIVATE_PREREQUISITE_CONTEXT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
-        await DisposeComponentsAsync();
-    }
-
-    [Fact]
-    public async Task ComputationCauseSurvivesEncryptedPersistenceDtoAndDesignerRendering()
-    {
-        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        Configure(fixture);
-        var state = Session("computation", "computation failure", PlanningStatus.Stopped);
-        state.Diagnostics = [new("GROUNDED_CONTRACT_INVALID", "/scopes/main/operations/consumer", "Blocked by computation", Rule: "alias/name", ValidationStage: "grounded")
-        {
-            Computation = new("alias.name", "inference_unsupported", new() { ["x-gnougo-opaque"] = true },
-                new() { ["text"] = new System.Text.Json.Nodes.JsonObject { ["type"] = "string" } }, "JSON.parse(text)", "/scopes/main/operations/parse")
-        }];
-        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
-        var reopened = new EfPlanningSessionStore(fixture, fixture.Records);
-        var restored = await reopened.LoadAsync("planning-tests", "computation", Ct);
-        Assert.NotNull(restored);
-        var dto = Assert.Single(PlanningEndpoints.ToDto(restored).Diagnostics);
-        Assert.Equal("grounded", dto.ValidationStage); Assert.Equal("alias/name", dto.Rule);
-        Assert.Equal("JSON.parse(text)", dto.Computation!.OriginExpression);
-        Assert.Equal("/scopes/main/operations/parse", dto.Computation.ProducerLocation);
-        Assert.Null(await reopened.LoadAsync("other-tenant", "computation", Ct));
-        Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/computation");
-        var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "computation"));
-        cut.WaitForAssertion(() =>
-        {
-            var details = cut.Find(".planning-computation-finding").TextContent;
-            Assert.Contains("alias.name", details); Assert.Contains("JSON.parse(text)", details);
-            Assert.Contains("Blocked by producer:", details); Assert.Contains("/scopes/main/operations/parse", details);
-            Assert.Contains("Known argument contracts:", details);
-        });
-        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
-            Assert.DoesNotContain("JSON.parse(text)", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
         await DisposeComponentsAsync();
     }
 
@@ -98,7 +64,7 @@ public sealed class PlanningTraceUiTests : BunitContext
         var source = workflow ? "?source=workflow" : "";
         Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/legacy" + source);
         cut.Render(p => p.Add(c => c.SessionId, "legacy"));
-        cut.WaitForAssertion(() => Assert.Contains("This saved planning session cannot be loaded by the current version. Start a new plan.", cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains(PlanningSessionInspection.UnavailableMessage, cut.Markup));
         Assert.DoesNotContain("Approve this revision", cut.Markup);
         Assert.DoesNotContain("Retry with retained usage", cut.Markup);
         Assert.DoesNotContain("Revise workflow", cut.Markup);
@@ -107,7 +73,7 @@ public sealed class PlanningTraceUiTests : BunitContext
         cut.WaitForAssertion(() => Assert.Contains(traceId, cut.Markup));
         // A second load must remain read-only, including the uncertain reservation.
         cut.Render(p => p.Add(c => c.SessionId, "legacy"));
-        cut.WaitForAssertion(() => Assert.Contains("cannot be loaded by the current version", cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains("incompatible with planning format 10", cut.Markup));
         var after = await fixture.Records.GetAsync(legacy.Collection, legacy.TenantId, legacy.Key, "test", Ct);
         Assert.Equal(legacy, after);
         await DisposeComponentsAsync();
@@ -200,10 +166,63 @@ public sealed class PlanningTraceUiTests : BunitContext
         await DisposeComponentsAsync();
     }
 
+    [Theory]
+    [InlineData("MODEL_REQUEST_REJECTED", false)]
+    [InlineData("MODEL_DISPATCH_UNVERIFIABLE", true)]
+    public async Task OnlyUncertainDispatchOffersRetainedUsageRetry(string code, bool canRetry)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
+        var state = Session("rejected", "rejected request", PlanningStatus.Stopped);
+        state.PendingCall = new() { Id = "rejected:1", Purpose = "tasks", Request = new() { Prompt = "private" } };
+        state.Diagnostics = [new(code, "/", "Provider status")];
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/rejected");
+        var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "rejected"));
+        cut.WaitForAssertion(() => Assert.Contains(code, cut.Markup));
+        Assert.Equal(canRetry, cut.Markup.Contains("Retry with retained usage", StringComparison.Ordinal));
+        Assert.Equal(canRetry, cut.Markup.Contains("The previous request has no confirmed result", StringComparison.Ordinal));
+        if (!canRetry) Assert.Contains("start a new planning session", cut.Markup);
+        await DisposeComponentsAsync();
+    }
+
+    [Theory]
+    [InlineData("MODEL_INPUT_LIMIT", true)]
+    [InlineData("MODEL_OUTPUT_LIMIT", false)]
+    public async Task InputBudgetStopOffersExplicitSettingsContinuation(string code, bool inputStop)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
+        var state = Session("input-budget", "Budget stop", PlanningStatus.Stopped);
+        state.ModelCalls = 2;
+        state.Diagnostics = [new(code, "/phases/tasks", "Request allowance exhausted")];
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/input-budget");
+        var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "input-budget"));
+        cut.WaitForAssertion(() => Assert.Contains(code, cut.Markup));
+        var settings = cut.Find("details");
+        Assert.Equal(inputStop, settings.HasAttribute("open"));
+        Assert.Equal(inputStop ? "Apply settings and resume planning" : "Apply settings", settings.QuerySelector("button")!.TextContent.Trim());
+        Assert.Equal("12000", settings.QuerySelector("input[type=number]")!.GetAttribute("value"));
+        var before = (await fixture.Store.LoadAsync("planning-tests", "input-budget", Ct))!;
+        Assert.Equal(state.Revision, before.Revision); Assert.Equal(PlanningStatus.Stopped, before.Status);
+        Assert.Equal(2, before.ModelCalls);
+        if (inputStop)
+        {
+            cut.Find("details input[type=number]").Change("24000");
+            cut.Find("details button").Click();
+            cut.WaitForAssertion(() => Assert.DoesNotContain("Apply settings and resume planning", cut.Markup));
+            var resumed = (await fixture.Store.LoadAsync("planning-tests", "input-budget", Ct))!;
+            Assert.Equal(PlanningStatus.Generating, resumed.Status);
+            Assert.Equal(24_000, resumed.Request.Generation.MaxInputTokensPerRequest);
+            Assert.Equal(2, resumed.ModelCalls); Assert.Equal(0, resumed.ReplanAttempts);
+            Assert.Empty(resumed.Diagnostics); Assert.Null(resumed.PendingCall);
+        }
+        await DisposeComponentsAsync();
+    }
+
     private void Configure(PlanningPersistenceTests.StoreFixture fixture)
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddSingleton(PlanningSessionLifecycleTests.Create(fixture, new TypedWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(),
+        Services.AddSingleton(PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(),
             settings: new() { BackgroundProcessingEnabled = false }));
         Services.AddLogging();
         Services.AddHttpClient();
@@ -230,6 +249,6 @@ public sealed class PlanningTraceUiTests : BunitContext
     };
 
     private static Task StoreWorkflow(PlanningPersistenceTests.StoreFixture fixture, PlanningSession state)
-        => fixture.Records.UpsertAsync("flow-planning-sessions-v8", "planning-tests", state.Request.SessionId,
+        => fixture.Records.UpsertAsync("flow-planning-sessions-v10", "planning-tests", state.Request.SessionId,
             JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
 }

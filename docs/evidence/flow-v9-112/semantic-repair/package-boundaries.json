@@ -1,0 +1,42 @@
+[
+  {
+    "package": "Core",
+    "dependencies": [],
+    "independent_boundary": "passed"
+  },
+  {
+    "package": "Planning",
+    "dependencies": [
+      "GnOuGo.Flow.Core"
+    ],
+    "independent_boundary": "passed"
+  },
+  {
+    "package": "Integrations",
+    "dependencies": [
+      "GnOuGo.AI.Core",
+      "GnOuGo.Flow.Core",
+      "GnOuGo.Flow.Planning",
+      "GnOuGo.KeyVault.Core",
+      "GnOuGo.Mcp.Core",
+      "GnOuGo.Workspace"
+    ],
+    "independent_boundary": "passed"
+  },
+  {
+    "package": "Copilot",
+    "dependencies": [
+      "GnOuGo.Flow.Core"
+    ],
+    "independent_boundary": "passed"
+  },
+  {
+    "package": "Persistence",
+    "dependencies": [
+      "GnOuGo.Flow.Core",
+      "GnOuGo.KeyVault.Core",
+      "GnOuGo.Workspace"
+    ],
+    "independent_boundary": "passed"
+  }
+]

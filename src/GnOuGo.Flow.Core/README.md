@@ -1,17 +1,20 @@
 # GnOuGo.Flow — YAML Workflow DSL Engine
 
-`ExpressionContractInference` models successful results without executing sample data. `ComputationInferenceProfile` documents supported scalar conversions and conservatively excludes shadowed or reassigned intrinsic names. `String` and URI encode/decode calls over one declared JSON scalar infer strings, while opaque/container inputs and unsupported forms remain uninferred. Runtime exceptions and explicit validation boundaries remain authoritative; scalar conversion is not business validation. Provider-neutral `PlanningDiagnostic.Computation` optionally carries expression, contract and producer context for consumers.
+Execution storage uses `IWorkflowRunStore` (schema 9). Hosts inject the separately publishable `GnOuGo.Flow.Persistence`; Core remains independent of persistence libraries. A run records invocation paths, inputs, control decisions, receipts, usage, pending human answers and finalization. `ResumeAsync(tenantId, runId, expectedRevision, workflow, ct)` follows the same execution path as a new run. An external operation with an unknown outcome requires reconciliation and prevents cleanup. Custom executors default to external effects; declare `StepRecovery.ReplaySafe` only when restarting the executor cannot repeat an external effect.
 
-`GeneratedFunctionDocumentation.Validate` exposes the generated-workflow JSDoc
-requirements for earlier construction checks. It validates manually authored generated-function contracts and reports missing
-typed parameters and return documentation. Business intent does not contain helper functions.
-Documentation does not establish executable output provenance or runtime success.
+
 
 Continuing `on_error` handlers on `mcp.call` and `llm.call` with
 `structured_output` must return a `json` member satisfying that schema. The
 engine validates resolved fallback values before publishing a successful step
 result. Invalid fallbacks stop downstream execution with
 `STRUCTURED_FALLBACK_INVALID`; workflow finalization still runs.
+
+The semantic validator recognizes finite selector domains from direct references
+to validated structured `llm.call` results, as it does for checked `set` outputs.
+Dynamic schemas, optional/nullable selectors and incompatible continuation outputs
+cannot establish that proof. TaskPlan string enums and deterministic JSON encoding
+are described in the separately published [planner package](../GnOuGo.Flow.Planning/README.md).
 
 <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.Flow.Core.svg" alt="NuGet version"></a>
 <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt=".NET 10.0"></a>
@@ -22,13 +25,12 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 
 ## Typed planning
 
-Core owns `PlanningSession`, `SemanticPlan` / `GroundedPlan`, `PlanningGraph`, typed contracts and provider-neutral planning interfaces. It references no other GnOuGo project. Hosts inject the separately publishable Planning implementation and Integrations persistence boundary.
+Core owns `PlanningSession`, reviewable requirements, `TaskPlan`, `PlanningGraph`, typed contracts and provider-neutral planning interfaces. It references no other GnOuGo project. Hosts inject the separately publishable Planning implementation and Integrations persistence boundary.
 
-Expression inference treats a typed string's literal-regex `match()` result as an array of nullable strings or null. Capture aliases support string methods; optional captures and missing indexes never establish presence. Dynamic patterns and opaque receivers remain uninferred, and runtime failures or `value.validate` still prevent invalid values reaching consumers.
 
-The flow is request → semantic plan → complete capability grounding → grounded plan → deterministic validation → graph → compilation → scenarios → final approval. Models interpret meaning; the engine owns executable identities, types, dataflow and policy. Runtime confirmation for protected effects is separate from final artifact approval. See [workflow planning](../../docs/workflow-planning-v2.md).
+The flow is requirements → progressive discovery → semantic TaskPlan → deterministic compilation → PlanningGraph → YAML → validation → scoped TaskPlan repair → approval. Bounded task revisions preserve unaffected generated stages. Planning format 10 records TaskPlan intent and choices; execution journal schema 9 is unchanged. Generated glue uses literals, references, simple conditions and registered typed primitives. Explicit semantic `transform` tasks declare typed business results and lower to fixed prompt assembly plus strict structured inference; `value` tasks only copy or assemble values. Authored YAML retains its expression language. Runtime confirmation for protected effects is separate from final artifact approval. See [workflow planning](../../docs/workflow-planning-v9.md).
 
-Workflow ports can carry an authoritative `schema` object when shorthand types cannot express a catalog contract. JSON Schema constraints and defaults survive parsing, contract export, scenario sampling and runtime input/output validation. Planning derives these ports; the model does not reproduce their schemas.
+Workflow ports can carry an authoritative `schema` object when shorthand types cannot express a catalog contract. JSON Schema constraints and defaults survive parsing, contract export and runtime input/output validation. Planning derives these ports; the model does not reproduce their schemas.
 
 ## MCP protocol compatibility
 
@@ -1315,7 +1317,7 @@ Accepts `input.value` and `input.format` (`json_value` by default, or explicit `
 
 ### `workflow.plan` — Typed workflow planning
 
-Runs the injected semantic/grounded planner to business clarification or final artifact review. Semantic generation has no capability catalog. Grounding covers every authorized capability, then binding uses authoritative contracts. Missing runtime inputs remain declared inputs. Atomic replanning replaces an action or affected scope and reruns validation. Grounding, selection, binding, fixtures and replanning share the total call budget.
+Runs the injected hybrid planner through progressive capability discovery, semantic TaskPlan generation, deterministic graph compilation and validation, and exact artifact approval. Task-scoped repair preserves unaffected stages and cumulative planning budgets.
 
 ```yaml
 - id: plan
@@ -1336,11 +1338,9 @@ Runs the injected semantic/grounded planner to business clarification or final a
       unverifiable: fail
 ```
 
-Business alternatives use a durable `PlanningDecision` with one preferred option. `planning_mode` defaults to `interactive`; `auto` records the preferred answer and continues. Hosts inject `IPlanningDecisionProvider` to collect planner commands; without it the session remains `waiting_for_decision`. This provider is separate from `IHumanInputProvider`, which retains existing review and runtime behavior.
+Interactive planning presents typed `PlanningChoice` alternatives with a recommendation through `IPlanningInteraction`; Auto selects validated recommendations without another model call. Choices cannot expand execution permissions or budgets. Runtime `human.input` and final approval remain separate. Planning format 10 rejects earlier saved approvals with instructions to regenerate and approve; old encrypted records are untouched and execution journals remain schema 9.
 
-Optional schema-8 prerequisite diagnostics and repair checkpoints preserve exact scopes, root/dependent causes, candidate fingerprints and explicit business revision answers. Technical prerequisites never request human decisions. An unavailable mandatory outcome stops Auto; Interactive uses a scoped business clarification through the separate planner provider. Runtime `human.input`, FinalReview and workflow approval remain unchanged.
-
-Results include status, session ID and revision. Approved results also include artifact hash and YAML obtained from trusted storage. Without a human provider, planning pauses for the host to collect review or clarification. [Architecture and persistence](../../docs/workflow-planning-v2.md).
+Results include status, session ID and revision. Approved results also include artifact hash and YAML obtained from trusted storage. Without a human provider, planning pauses for the host to collect review or clarification. [Architecture and persistence](../../docs/workflow-planning-v9.md).
 
 ### `workflow.execute` — Execute an approved workflow
 

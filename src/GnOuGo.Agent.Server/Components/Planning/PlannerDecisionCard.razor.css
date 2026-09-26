@@ -1,9 +1,0 @@
-.planner-decision { border: 1px solid var(--gnougo-border, #889); border-radius: .75rem; padding: 1.25rem; margin: 1rem 0; }
-fieldset { border: 0; padding: 0; margin-top: 1rem; }
-legend { font-size: 1rem; }
-.planner-option { display: grid; grid-template-columns: auto 1fr auto; gap: .5rem; padding: .8rem; margin: .5rem 0; border: 1px solid #9996; border-radius: .5rem; cursor: pointer; }
-.planner-option > span:last-child { grid-column: 2 / -1; }
-.planner-option--preferred { border: 2px solid #6687dc; }
-.planner-preferred { font-size: .8rem; font-weight: 600; }
-textarea { display: block; width: 100%; margin: .5rem 0; color: inherit; background: transparent; border: 1px solid #999; border-radius: .4rem; padding: .5rem; }
-.planner-actions { display: flex; gap: .75rem; margin-top: 1rem; }

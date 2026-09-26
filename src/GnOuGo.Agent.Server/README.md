@@ -6,7 +6,7 @@ Diagrams explicitly retain the existing Dagre layout, classic look, and custom
 theme. The lazy ELK engine is an upstream prebuilt module with a separate 1,500 kB
 bundle limit; all other Agent chunks retain an enforced 700 kB limit.
 
-Workflow planning uses `User request → SemanticPlan → capability grounding → GroundedPlan → deterministic validation → PlanningGraph → compile → scenarios → approval`; see [the planning architecture](../../docs/workflow-planning-v2.md). The planning page offers **Retry with retained usage** after an uncertain model dispatch. This explicit action preserves the failed call, conservatively accounts for missing usage, and reserves a new call within existing session limits. A stored completion is reused instead. Restart never silently redispatches an uncertain request. Workflow approval and generic runtime effect confirmation remain separate.
+Workflow planning uses `Requirements → progressive capability discovery → LLM TaskPlan → deterministic compiler → PlanningGraph → YAML → validation → approval`; see [the planning architecture](../../docs/workflow-planning-v9.md). The planning page offers **Retry with retained usage** after an uncertain model dispatch. This explicit action preserves the failed call, conservatively accounts for missing usage, and reserves a new call within existing session limits. A stored completion is reused instead. Restart never silently redispatches an uncertain request. Workflow approval and generic runtime effect confirmation remain separate.
 
 Workflow Designer keeps incompatible saved sessions visible as **Unavailable**, with their origin, identity and existing traces. Other sessions remain usable. These entries cannot be resumed, approved or executed; start a new plan instead. Encrypted historical payloads and uncertain reservations remain unchanged, and startup recovery skips records that cannot satisfy the current strict session format.
 
@@ -20,7 +20,7 @@ This solution contains:
 
 ### Typed workflow designer
 
-Open `/planning` to create or revise a workflow. `/gnougo add`, reprompt and failure improvement open this durable designer. It displays progress, semantic plan, grounding phase, graph, findings, usage, scenarios and final review. Approving and saving requires the current revision and artifact hash. Runtime write confirmation remains a separate gate.
+Open `/planning` to create or revise a workflow. `/gnougo add`, reprompt and failure improvement open this durable designer. It displays progress, TaskPlan tasks and choices, compiled graph, findings, usage and final review. Approving and saving requires the current revision and artifact hash. Runtime write confirmation remains a separate gate.
 
 The planning list includes **Designer** sessions and **Chat** sessions created by `workflow.plan`, including failed and stopped attempts. Select **Traces** in the list or session header to open the shared trace and log panel. Each recorded execution keeps its own trace identifier; use the timestamped selector when a session has several traces. The panel refreshes while open and stops refreshing when closed or when navigating to another session.
 
@@ -28,11 +28,13 @@ Chat sessions open at `/planning/{sessionId}?source=workflow` as read-only diagn
 
 Trace lookup requires an exact planning-session attribute and the current tenant. It combines local capture with the embedded collector's retained records, so persisted traces remain inspectable after restart. Missing or expired telemetry is shown explicitly; lookup is bounded to 500 collector candidates and reports when that limit is reached. Trace availability is independent of model receipt retention. Trace usage totals cover recorded attributes only and are not a complete billing ledger; absent telemetry does not establish zero provider usage or cost. Designer planning activities are captured locally even when OTLP export is disabled.
 
-`TypedWorkflowPlanning` configures `MaxReplanAttempts` (2), `MaxModelCalls` (8), `Reasoning` (`medium`), request token ceilings (12,000 input / 8,192 output), cumulative token/active-time limits and `DatabasePath`. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
+`TypedWorkflowPlanning` configures `MaxReplanAttempts` (2), `MaxModelCalls` (8), `Reasoning` (`medium`), request token ceilings (24,000 input / 32,768 output), cumulative token/active-time limits and `DatabasePath`. These defaults apply to new Designer sessions, including the Desktop host. Explicit configuration overrides take precedence; existing sessions retain their saved generation settings. Standalone Flow and authored `workflow.plan` defaults remain 12,000 input / 8,192 output tokens. Designer shows saved effective settings, without a separate UI default. Two host sessions may progress concurrently; workflow runtime parallelism remains independent.
 
-Schema-8 session payloads, model reservations/receipts and budgets use encrypted KeyVault records and tenant-scoped EF Core/SQLite indexes. The fresh default is `.GnOuGo/data/gnougo-planning-v8.db`; existing databases are untouched. Restart preserves resolved graphs and cumulative budgets. Completed calls replay without another charge; uncertain dispatches stop. Saving reconciles an already committed identical artifact.
+`MODEL_INPUT_LIMIT` means the conservative estimate for the complete prompt and response schema exceeds the saved per-request input allowance. Discovery can grow this request even for a short user prompt. The stop occurs before dispatch, without consuming another call or repair. With no pending request, **Generation settings** opens automatically: increase **Input token limit** and explicitly select **Apply settings and resume planning** to continue the same session. Discovery receipts, request history and cumulative budgets are retained. The resumed request may incur model usage; later requests must still fit their allowance and cumulative limits. No limit is raised and no session is resumed merely by viewing the page or restarting the host.
 
-See [the planning architecture](../../docs/workflow-planning-v2.md) for public contracts, policy boundaries, diagnostics and validation commands.
+Planning-format-10 session payloads, model reservations/receipts and budgets use encrypted KeyVault records and tenant-scoped EF Core/SQLite indexes; execution journals remain schema 9. The database default is `.GnOuGo/data/gnougo-planning-v9.db`; existing databases are untouched. Restart preserves TaskPlans, derived artifacts and cumulative budgets. Completed calls replay without another charge; uncertain dispatches stop. Saving reconciles an already committed identical artifact.
+
+See [the planning architecture](../../docs/workflow-planning-v9.md) for public contracts, policy boundaries, diagnostics and validation commands.
 
 ### Component boundaries
 
@@ -642,8 +644,8 @@ request identity or reset its accounting.
 A provider's completion-token limit can include reasoning tokens as well as returned JSON.
 An `output_limit` receipt with empty text can therefore reflect exhausted reasoning allowance,
 not an oversized plan. Check the stored usage and original request ceiling. The generic
-bootstrap sets `generator.max_output_tokens: 8192`; the accepted live benchmark explicitly
-used 32768. An agreed change to that setting applies to a new request, preserves medium
+bootstrap sets `generator.max_output_tokens: 8192`; new Designer sessions instead use
+`TypedWorkflowPlanning.MaxOutputTokens` (32768 by default, with explicit overrides authoritative). Historical live runs used both allowances; report the actual saved limit when comparing them. An agreed change to that setting applies to a new request, preserves medium
 reasoning and the call/replanning budgets, and does not change earlier reservations or receipts.
 The planner never raises the ceiling or retries a truncated response automatically.
 
@@ -674,24 +676,16 @@ attempts. Content loads on demand from encrypted tenant-scoped storage; missing
 usage is unknown. Historical planner requests remain available as journal history
 when trace links have expired. See [configuration, retention and limitations](../../docs/llm-protocol-and-traces.md).
 
-## Planner decisions
+## TaskPlan choices and semantic repair
 
-Planner findings expose expandable computation details: the failing expression, where its value came from, known type contracts and the root producer blocking dependent operations. The API carries the same optional context. These details remain in encrypted, tenant-scoped planning payloads; old sessions without them remain readable. See [computation inference verification](../../docs/planner-computation-inference-2026-09-23.md).
+Designer and Chat expose the semantic TaskPlan, typed business alternatives and located validation findings. Interactive mode presents a recommendation and alternatives. Auto mode validates and records the recommendation without another model call. The host owns the selection; choices never approve execution or replace runtime permissions.
 
-The workflow designer and chat offer Interactive (default) and Auto planning modes. Interactive cards show the preferred business option, alternatives, context and optional custom text. Submit resumes the saved phase; Cancel planning ends the session. Switching a pending decision to Auto records the preferred answer and continues. Decision history includes automatic reasons. FinalReview and runtime permissions remain separate.
+`POST /api/planning` accepts `mode`. Planning commands use `choose`, `expectedRevision` and `selections: { "choice_id": "alternative_id" }`; `configure_mode` changes the mode. Stale revisions conflict. Final approval requires the exact artifact hash. Chat clients use `GET /api/chat/conversations/{conversationId}/planning` and `POST /api/chat/conversations/{conversationId}/planning/{id}/commands`.
 
-`POST /api/planning` accepts `mode`. Planning commands support `answer_decision` (`expectedRevision`, `decisionAnswer: {decisionId, optionId}` or `{decisionId, text}`) and `configure_mode` (`mode`). Chat clients use `GET /api/chat/conversations/{conversationId}/planning` and `POST /api/chat/conversations/{conversationId}/planning/{id}/commands`. Chat creation accepts `planningMode`.
+Semantic preflight runs inside the deterministic compiler before lowering. It collects independent errors at business task/port locations. Repairs can change diagnosed bindings and the explicit exports needed by their consumers; invalidating dependent tasks grants no edit permission. Rejected repairs preserve the baseline, discovery receipts, choices and cumulative budgets. The model never repairs generated executor plumbing.
 
-Chat origin links and planning state are encrypted through KeyVault. Reopening a chat restores pending decisions; after a server restart, answering resumes only the saved planner through FinalReview. Prior surrounding workflow steps are never replayed, and the chat decision endpoint cannot approve or execute workflows. Workflow-owned sessions remain inspection-only in the designer.
+Planning format 10 stores TaskPlans, choices, derived artifacts and call receipts encrypted with tenant ownership. Old planning records remain untouched and cannot transfer approvals. Recovery preserves request identities and budgets; it does not replay surrounding workflow execution or blindly repeat uncertain effects. Default cumulative budgets remain eight model calls and two repairs.
 
-Unfinished planning conversations also appear in a fresh browser's chat list, even before a workflow has produced a completed chat turn. See [local Designer/Chat acceptance evidence](../../docs/planner-decisions-2026-09-23.md).
+The former `answer_decision`, free-text decisions, scope-consent cards, binding batches and computation-inference details are removed. Historical reports describe those old APIs and must not be used as current integration instructions. See [architecture and migration](../../docs/workflow-planning-v9.md) and the [planning skill](../../.agents/skills/gnougo-planning/SKILL.md).
 
-Run `dotnet test tests/GnOuGo.Agent.Server.Tests -m:1 -warnaserror -p:SkipClientBuild=true` for lifecycle, encrypted persistence and shared-card coverage.
-
-### Prerequisite repair and capability gaps
-
-Designer and originating Chat display structured prerequisite findings, root/dependent links and unapplied repair summaries. Supported business scope revisions use a shared explicit Accept / Keep original and stop / Cancel planning card. Previously answered revisions appear in the history. `answer` submits `answers: {"accept_scope_revision": true|false}` with the current `expectedRevision`; this changes only the proposed planning scope and cannot approve or execute a workflow. Workflow-owned sessions remain inspection-only in Designer.
-
-Capabilities and limitations derive from the configured MCP catalog and declared contracts. The planner does not recognize publisher names or silently reduce requested outcomes. Interactive requires explicit scope consent; Auto stops if a mandatory outcome cannot be supported. Generic runtime confirmation and artifact approval remain enforced. GitHub publication has no additional host-specific confirmation or replay subsystem.
-
-Default cumulative budgets remain eight model calls and two replans. Before a repair is installed, the host accounts for reusable coverage, known selection work, binding batches and known outstanding scenario requests. The estimate is a lower bound, not a guarantee of completion. A budget stop retains the coherent accepted state and its encrypted unapplied proposal. [Verification and limitations](../../docs/planner-prerequisite-repair-2026-09-23.md).
+Run `dotnet test tests/GnOuGo.Agent.Server.Tests -m:1 -warnaserror -p:SkipClientBuild=true` for deterministic host integration and encrypted persistence coverage. Real Copilot command edit/test execution remains unverified under the available sandbox enforcement; simulated workflow results do not establish that capability.

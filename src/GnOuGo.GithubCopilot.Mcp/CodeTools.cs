@@ -266,6 +266,7 @@ internal static class CodeMcpJson
     }
 }
 
+[JsonSerializable(typeof(System.Text.Json.Nodes.JsonObject))]
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(IReadOnlyList<string>))]
 [JsonSerializable(typeof(Dictionary<string, JsonElement>))]

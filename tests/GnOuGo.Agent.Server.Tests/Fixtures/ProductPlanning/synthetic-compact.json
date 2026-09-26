@@ -1,0 +1,381 @@
+{
+  "provenance": "Synthetic compact response authored for deterministic serialization and business-behavior tests; not model evidence. Never supplied to live planning.",
+  "prompt": "Input: a product to search, e.g. ‘chaussure geox homme 45’. Go to Amazon, search for it, list products, visit each product page, extract name/description/price, and save the results as an XLSX file on disk.",
+  "responses": [
+    {
+      "requirements": {
+        "summary": "Search for a product and save extracted product details as XLSX.",
+        "outcomes": [
+          {
+            "id": "products",
+            "description": "Search using the input query, list products and visit each listed product to extract name, description and price."
+          },
+          {
+            "id": "file",
+            "description": "Save ordered results as XLSX on disk and close browser resources."
+          }
+        ]
+      },
+      "discoveryRequests": [
+        {
+          "sourceId": "source_d4c3e8a11256ab82a4fc7256",
+          "cursor": null
+        },
+        {
+          "sourceId": "source_43cc23fa52b87b4cc1d02b5b",
+          "cursor": null
+        }
+      ],
+      "plan": null
+    },
+    {
+      "discoveryRequests": null,
+      "plan": {
+        "inputs": [
+          {
+            "name": "product",
+            "type": {
+              "kind": "string",
+              "nullable": false
+            },
+            "required": true,
+            "default": null
+          }
+        ],
+        "groups": [],
+        "choices": [],
+        "root": {
+          "tasks": [
+            {
+              "id": "home",
+              "kind": "operation",
+              "objective": "Read search form",
+              "dependsOn": [],
+              "operation": "cap_11c6eb14efdf077ab59eea82",
+              "inputs": [
+                {
+                  "name": "url",
+                  "value": {
+                    "kind": "string",
+                    "text": "https://www.amazon.fr/"
+                  }
+                },
+                {
+                  "name": "format",
+                  "value": {
+                    "kind": "string",
+                    "text": "html"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "form",
+              "kind": "transform",
+              "objective": "Identify the product search input selector from the HTML.",
+              "dependsOn": [
+                "home"
+              ],
+              "inputs": [
+                {
+                  "name": "html",
+                  "value": {
+                    "kind": "output",
+                    "source": "home",
+                    "port": "content"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "selector",
+                    "type": {
+                      "kind": "string",
+                      "nullable": false
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "search",
+              "kind": "operation",
+              "objective": "Search for the supplied product",
+              "dependsOn": [
+                "form"
+              ],
+              "operation": "cap_b4b2c07b874c1b11d2e03f02",
+              "inputs": [
+                {
+                  "name": "selector",
+                  "value": {
+                    "kind": "output",
+                    "source": "form",
+                    "port": "selector"
+                  }
+                },
+                {
+                  "name": "value",
+                  "value": {
+                    "kind": "input",
+                    "source": "product"
+                  }
+                },
+                {
+                  "name": "submit",
+                  "value": {
+                    "kind": "boolean",
+                    "boolean": true
+                  }
+                }
+              ]
+            },
+            {
+              "id": "results",
+              "kind": "operation",
+              "objective": "Read product search results",
+              "dependsOn": [
+                "search"
+              ],
+              "operation": "cap_11c6eb14efdf077ab59eea82",
+              "inputs": [
+                {
+                  "name": "format",
+                  "value": {
+                    "kind": "string",
+                    "text": "html"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "list",
+              "kind": "transform",
+              "objective": "Extract up to 20 distinct absolute product URLs from search results, in order. No invented URLs.",
+              "dependsOn": [
+                "results"
+              ],
+              "inputs": [
+                {
+                  "name": "html",
+                  "value": {
+                    "kind": "output",
+                    "source": "results",
+                    "port": "content"
+                  }
+                },
+                {
+                  "name": "pageUrl",
+                  "value": {
+                    "kind": "output",
+                    "source": "results",
+                    "port": "url"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "urls",
+                    "type": {
+                      "kind": "array",
+                      "nullable": false,
+                      "items": {
+                        "kind": "string",
+                        "nullable": false
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "visit",
+              "kind": "foreach",
+              "objective": "Visit listed products",
+              "dependsOn": [
+                "list"
+              ],
+              "items": {
+                "kind": "output",
+                "source": "list",
+                "port": "urls"
+              },
+              "parallel": false,
+              "maxItems": 20,
+              "maxConcurrency": 1,
+              "body": {
+                "tasks": [
+                  {
+                    "id": "page",
+                    "kind": "operation",
+                    "objective": "Read current product",
+                    "dependsOn": [],
+                    "operation": "cap_11c6eb14efdf077ab59eea82",
+                    "inputs": [
+                      {
+                        "name": "url",
+                        "value": {
+                          "kind": "item"
+                        }
+                      },
+                      {
+                        "name": "format",
+                        "value": {
+                          "kind": "string",
+                          "text": "html"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "extract",
+                    "kind": "transform",
+                    "objective": "Extract name, description and price from HTML. Use null for missing fields.",
+                    "dependsOn": [
+                      "page"
+                    ],
+                    "inputs": [
+                      {
+                        "name": "html",
+                        "value": {
+                          "kind": "output",
+                          "source": "page",
+                          "port": "content"
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "name",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        },
+                        {
+                          "name": "description",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        },
+                        {
+                          "name": "price",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "products",
+                    "value": {
+                      "kind": "output",
+                      "source": "extract",
+                      "port": null
+                    }
+                  }
+                ],
+                "always": []
+              }
+            },
+            {
+              "id": "table",
+              "kind": "transform",
+              "objective": "Produce TSV with header name, description, price and ordered rows. Replace embedded tabs/newlines with spaces; preserve commas and literal quotes. Missing fields become empty cells.",
+              "dependsOn": [
+                "visit"
+              ],
+              "inputs": [
+                {
+                  "name": "products",
+                  "value": {
+                    "kind": "output",
+                    "source": "visit",
+                    "port": "products"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "tsv",
+                    "type": {
+                      "kind": "string",
+                      "nullable": false
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "save",
+              "kind": "operation",
+              "objective": "Save XLSX",
+              "dependsOn": [
+                "table"
+              ],
+              "operation": "cap_9e3b22c88e81b232338b7ab5",
+              "inputs": [
+                {
+                  "name": "filePath",
+                  "value": {
+                    "kind": "string",
+                    "text": "workflows/product-search/products.xlsx"
+                  }
+                },
+                {
+                  "name": "content",
+                  "value": {
+                    "kind": "output",
+                    "source": "table",
+                    "port": "tsv"
+                  }
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "name": "products",
+              "value": {
+                "kind": "output",
+                "source": "visit",
+                "port": "products"
+              }
+            },
+            {
+              "name": "file",
+              "value": {
+                "kind": "output",
+                "source": "save",
+                "port": "relativePath"
+              }
+            }
+          ],
+          "always": [
+            {
+              "id": "close",
+              "kind": "operation",
+              "objective": "Close browser resources",
+              "dependsOn": [],
+              "operation": "cap_c2cac389cb9fc4a1e3158a1e",
+              "inputs": []
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

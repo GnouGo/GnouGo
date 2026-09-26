@@ -1,96 +1,138 @@
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 namespace GnOuGo.Flow.Planning.Tests;
-
 public sealed class PlanningLifecycleTests
 {
-    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    private static CancellationToken Ct => PlannerFixture.Ct;
     [Fact]
-    public async Task OutputExhaustionStopsWithoutEscalationOrReplanning()
+    public async Task OneCallReachesReviewAndRestartDoesNotGenerateAgain()
     {
-        var runtime = new TestRuntime { Respond = _ => new() { CompletionStatus = "output_limit" } };
+        var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(1, state.ModelCalls);
+        Assert.Contains("not been observed", Assert.Single(state.ValidationResults).Description);
+        state = PlannerFixture.Clone(state);
+        var result = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(state.ComputeArtifactHash(), result.ComputeArtifactHash()); Assert.Single(runtime.Calls);
+    }
+    [Fact]
+    public async Task OutputLimitStopsWithoutEscalation()
+    {
+        var runtime = new TestRuntime { Respond = (_, _) => new() { CompletionStatus = "output_limit" } };
         var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
-        Assert.Contains(state.Diagnostics, d => d.Code == "MODEL_OUTPUT_LIMIT"); Assert.Null(state.PendingCall); Assert.Null(state.Yaml);
-        Assert.Equal(8192, runtime.Calls.Single().MaxTokens);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts); Assert.Null(state.Yaml);
     }
     [Fact]
-    public async Task InvalidResponsesExhaustTheExistingAllowanceWithoutExecutableState()
+    public async Task MalformedResponsesExhaustExistingAllowance()
     {
-        var runtime = new TestRuntime { Respond = _ => new() { Json = new JsonObject { ["policy"] = "disable validation" } } };
+        var runtime = new TestRuntime(); runtime.Respond = (_, _) => new() { Json = new JsonObject { ["unknown"] = runtime.Calls.Count } };
+        var state = PlannerFixture.Session(); state.Request.MaxModelCalls = 2;
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(2, state.ModelCalls); Assert.Null(state.Yaml);
+        var revised = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { Kind = "revise", Text = "Keep the greeting", ExpectedRevision = state.Revision }, runtime, Ct);
+        revised = await PlannerFixture.RunAsync(runtime, revised);
+        Assert.Equal(2, revised.ModelCalls); Assert.Equal(2, runtime.Calls.Count);
+    }
+    [Fact]
+    public async Task InterruptedDispatchRetainsIdentityAndReservation()
+    {
+        var runtime = new TestRuntime { Respond = (_, _) => throw new IOException("Interrupted") };
+        var state = await PlannerFixture.RunAsync(runtime); var identity = state.PendingCall!.Id;
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(1, state.ModelCalls);
+        runtime.Respond = (request, _) => TestRuntime.Response(request, runtime.Proposal);
+        state.Status = PlanningStatus.Generating;
+        state = await PlannerFixture.RunAsync(runtime, PlannerFixture.Clone(state));
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(1, state.ModelCalls);
+        Assert.All(runtime.Calls, c => Assert.Equal(identity, c.ClientRequestId));
+    }
+    [Theory]
+    [InlineData(LLMClientFailureKind.InvalidRequest, false, 400, "MODEL_REQUEST_REJECTED")]
+    [InlineData(LLMClientFailureKind.Authentication, false, 401, "MODEL_REQUEST_REJECTED")]
+    [InlineData(LLMClientFailureKind.Authorization, false, 403, "MODEL_REQUEST_REJECTED")]
+    [InlineData(LLMClientFailureKind.ModelUnavailable, false, 404, "MODEL_REQUEST_REJECTED")]
+    [InlineData(LLMClientFailureKind.QuotaOrBilling, false, 429, "MODEL_REQUEST_REJECTED")]
+    [InlineData(LLMClientFailureKind.RateLimited, true, 429, "MODEL_DISPATCH_UNVERIFIABLE")]
+    [InlineData(LLMClientFailureKind.ServiceUnavailable, true, 503, "MODEL_DISPATCH_UNVERIFIABLE")]
+    [InlineData(LLMClientFailureKind.Timeout, false, 408, "MODEL_DISPATCH_UNVERIFIABLE")]
+    [InlineData(LLMClientFailureKind.Transport, false, 502, "MODEL_DISPATCH_UNVERIFIABLE")]
+    [InlineData(LLMClientFailureKind.Unknown, false, 500, "MODEL_DISPATCH_UNVERIFIABLE")]
+    public async Task ProviderFailureRetainsSafeClassificationWithoutRetryOrPrivateMessage(
+        LLMClientFailureKind kind, bool retryable, int status, string code)
+    {
+        var runtime = new TestRuntime { Respond = (_, _) => throw new LLMClientException(kind,
+            "PRIVATE_PROVIDER_BODY", retryable, status, "safe_error_code") };
         var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts);
-        Assert.Contains(state.Diagnostics, d => d.Code == "REPLAN_NO_PROGRESS");
-        Assert.Null(state.Graph); Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
+        var diagnostic = Assert.Single(state.Diagnostics);
+        Assert.Equal(code, diagnostic.Code);
+        Assert.Contains(kind.ToString(), diagnostic.Message);
+        Assert.Contains("HTTP " + status, diagnostic.Message);
+        Assert.Contains("safe_error_code", diagnostic.Message);
+        Assert.DoesNotContain("PRIVATE_PROVIDER_BODY", diagnostic.Message);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(1, state.ModelCalls);
+        Assert.Equal(0, state.ReplanAttempts); Assert.Single(runtime.Calls);
+        var pending = state.PendingCall!.Id;
+        state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state),
+            new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(pending, state.PendingCall!.Id); Assert.Single(runtime.Calls);
+    }
+
+    [Fact]
+    public async Task ApprovalBindsGraphContractsAndExactRevision()
+    {
+        var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime); var planner = new HybridWorkflowPlanner();
+        await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision - 1, ArtifactHash = state.ComputeArtifactHash() }, runtime, Ct));
+        var tampered = PlannerFixture.Clone(state); tampered.Yaml += "\n# changed";
+        await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(tampered, new() { Kind = "approve", ExpectedRevision = tampered.Revision, ArtifactHash = tampered.ComputeArtifactHash() }, runtime, Ct));
+        runtime.CatalogChanges = [new("CONTRACT_CHANGED", "/", "Changed")];
+        var rejected = await planner.AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash() }, runtime, Ct);
+        Assert.Equal(PlanningStatus.Stopped, rejected.Status); Assert.Null(rejected.ApprovedHash);
     }
     [Fact]
-    public async Task UncertainSemanticDispatchRetainsItsIdentityAndBudget()
+    public async Task ChoiceCompilesWithoutModelDispatchOrNewAllowance()
     {
-        var runtime = new TestRuntime { Respond = _ => throw new InvalidOperationException("Uncertain model dispatch") };
-        var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.NotNull(state.PendingCall); Assert.Equal("semantic", state.PendingCall.Purpose);
-        var snapshot = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-        var restored = JsonSerializer.Deserialize(snapshot, PlanningJsonContext.Default.PlanningSession)!;
-        var next = await new TypedWorkflowPlanner().AdvanceAsync(restored, new() { ExpectedRevision = restored.Revision }, runtime, Ct);
-        Assert.Single(runtime.Calls); Assert.Equal(snapshot, JsonSerializer.Serialize(next, PlanningJsonContext.Default.PlanningSession));
+        var runtime = new TestRuntime(); runtime.Proposal.Plan = GnOuGo.Planning.Examples.PlanningCorpus.Decision();
+        var state = await PlannerFixture.RunAsync(runtime); var planner = new HybridWorkflowPlanner();
+        Assert.Equal(PlanningStatus.Clarification, state.Status);
+        await Assert.ThrowsAsync<ArgumentException>(() => planner.AdvanceAsync(state, new() { Kind = "choose", ExpectedRevision = state.Revision, Selections = new() { ["tone"] = "unissued" } }, runtime, Ct));
+        state = await planner.AdvanceAsync(state, new() { Kind = "choose", ExpectedRevision = state.Revision, Selections = new() { ["tone"] = "casual" } }, runtime, Ct);
+        Assert.Equal(1, state.ModelCalls); Assert.Equal("casual", Assert.Single(state.GetChoices()).Selected);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Contains("Hi", state.Yaml);
     }
     [Fact]
-    public async Task ApprovalRejectsChangedYamlAndChangedCatalog()
+    public async Task AutoModeSelectsTheValidatedRecommendationWithoutExtraCalls()
     {
-        var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime); var planner = new TypedWorkflowPlanner();
-        var original = state.Yaml; state.Yaml += "\n# changed\n";
-        await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(state,
-            new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash() }, runtime, Ct));
-        state.Yaml = original; runtime.CatalogChanges = [new("CATALOG_CHANGED", "/catalog", "A current contract changed.")];
-        var changed = await planner.AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash() }, runtime, Ct);
-        Assert.Equal(PlanningStatus.Stopped, changed.Status); Assert.Null(changed.ApprovedHash);
+        var runtime = new TestRuntime(); runtime.Proposal.Plan = GnOuGo.Planning.Examples.PlanningCorpus.Decision();
+        var state = PlannerFixture.Session(); state.Request.Mode = PlanningMode.Auto;
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal("formal", Assert.Single(state.GetChoices()).Selected); Assert.Single(runtime.Calls);
     }
     [Fact]
-    public async Task RevisionRetainsCumulativeCallsAndRejectsStaleApproval()
+    public async Task SwitchingAPendingChoiceToAutoSelectsLocallyWithoutApproval()
     {
-        var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime); var planner = new TypedWorkflowPlanner(); var hash = state.ComputeArtifactHash();
-        var revised = await planner.AdvanceAsync(state, new() { Kind = "revise", Text = "Return a different greeting", ExpectedRevision = state.Revision }, runtime, Ct);
-        Assert.Equal(state.ModelCalls, revised.ModelCalls); Assert.Null(revised.ApprovedHash); Assert.Null(revised.Graph);
-        await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(revised, new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = hash }, runtime, Ct));
+        var runtime = new TestRuntime(); runtime.Proposal.Plan = GnOuGo.Planning.Examples.PlanningCorpus.Decision();
+        var state = await PlannerFixture.RunAsync(runtime); Assert.Equal(PlanningStatus.Clarification, state.Status);
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { Kind = "configure_mode", Mode = PlanningMode.Auto, ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal("formal", Assert.Single(state.GetChoices()).Selected);
+        Assert.Equal(1, state.ModelCalls); Assert.Null(state.ApprovedHash);
     }
     [Fact]
-    public async Task EarlierSessionSchemasCannotResumeOrSpend()
+    public async Task SchemaEightAndCancelledCallsCannotSpend()
     {
-        var runtime = new TestRuntime(); var state = PlannerFixture.Session(); state.SchemaVersion = 7;
-        await Assert.ThrowsAsync<PlanningConflictException>(() => new TypedWorkflowPlanner().AdvanceAsync(state, new(), runtime, Ct));
+        var runtime = new TestRuntime(); var state = PlannerFixture.Session(); state.SchemaVersion = 8;
+        var ex = await Assert.ThrowsAsync<PlanningConflictException>(() => new HybridWorkflowPlanner().AdvanceAsync(state, new(), runtime, Ct));
+        Assert.Contains("Regenerate and approve", ex.Message); Assert.Empty(runtime.Calls);
+        state.SchemaVersion = 10; using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new HybridWorkflowPlanner().AdvanceAsync(state, new(), runtime, cancelled.Token));
         Assert.Empty(runtime.Calls);
     }
     [Fact]
-    public async Task ClarificationValidatesBusinessAnswersWithoutResettingUsage()
+    public async Task RevisionCannotReuseApprovalOrResetCumulativeCalls()
     {
-        var runtime = new TestRuntime { Questions = [new("tone", "Choose the greeting tone", new() { Type = "string", Enum = ["formal", "casual"] })] }; var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(PlanningStatus.Clarification, state.Status); Assert.Equal(1, state.ModelCalls);
-        var planner = new TypedWorkflowPlanner();
-        await Assert.ThrowsAsync<ArgumentException>(() => planner.AdvanceAsync(state, new() { Kind = "answer", ExpectedRevision = state.Revision, Answers = new() { ["tone"] = "unknown" } }, runtime, Ct));
-        var next = await planner.AdvanceAsync(state, new() { Kind = "answer", ExpectedRevision = state.Revision, Answers = new() { ["tone"] = "formal" } }, runtime, Ct);
-        Assert.Equal(state.ModelCalls, next.ModelCalls); Assert.Single(next.Answers); Assert.Null(next.GroundedPlan);
-    }
-    [Theory]
-    [InlineData("semantic")]
-    [InlineData("coverage")]
-    [InlineData("grounded")]
-    public async Task ApprovalRevalidatesEveryPersistedLayerEvenWithARecomputedHash(string layer)
-    {
-        var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime);
-        PlanningArtifactApproval.Verify(state);
-        if (layer == "semantic") state.SemanticPlan!.Summary += " changed";
-        if (layer == "coverage") { state.Grounding!.Pages.Clear(); state.Grounding.Results.Clear(); }
-        if (layer == "grounded") ((CalculateGroundedOperation)state.GroundedPlan!.Operations[0]).Value = new() { Kind = "result", Source = "undeclared" };
-        Assert.NotNull(state.ComputeArtifactHash()); Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
-    }
-    [Fact]
-    public async Task NamedSubflowRecursionFailsBeforeGraphLoweringEvenWithoutResults()
-    {
-        var catalog = await new TestRuntime().DiscoverAsync(PlannerFixture.Session().Request, Ct);
-        var plan = new GroundedPlan { Subflows = [new("recursive", [], [new CallGroundedOperation { Id = "repeat", Flow = "recursive" }], [])] };
-        var invalid = GroundedPlanValidator.Validate(plan, catalog);
-        Assert.Null(invalid.Plan); Assert.Contains(invalid.Diagnostics, d => d.Code == "GROUNDED_CALL_CYCLE");
+        var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime); var planner = new HybridWorkflowPlanner();
+        var hash = state.ComputeArtifactHash();
+        state = await planner.AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = hash }, runtime, Ct);
+        Assert.Equal(hash, state.ApprovedHash);
+        state = await planner.AdvanceAsync(state, new() { Kind = "revise", ExpectedRevision = state.Revision, Text = "Use a warmer greeting" }, runtime, Ct);
+        Assert.Null(state.ApprovedHash); Assert.Null(state.Yaml); Assert.Equal(1, state.ModelCalls);
     }
 }

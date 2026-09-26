@@ -12,7 +12,7 @@ namespace GnOuGo.Flow.Core.Runtime;
 /// <summary>
 /// Main workflow execution engine.
 /// </summary>
-public sealed class WorkflowEngine : IWorkflowRuntime
+public sealed partial class WorkflowEngine : IWorkflowRuntime
 {
     private readonly StepExecutorRegistry _registry;
     private ExpressionEvaluator _evaluator;
@@ -28,9 +28,12 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     public ITemplateEngine? TemplateEngine { get; set; }
     public IMcpClientFactory? McpClientFactory { get; set; }
     public IHumanInputProvider? HumanInputProvider { get; set; }
-    public IWorkflowCheckpointer? Checkpointer { get; set; }
-    /// <summary>Optional separately injected version-2 planner; Flow.Core does not reference its implementation.</summary>
-    public Planning.IPlanningDecisionProvider? PlanningDecisionProvider { get; set; }
+    public IDictionary<string, IAgentTaskRunner> AgentTaskRunners { get; } = new Dictionary<string, IAgentTaskRunner>(StringComparer.Ordinal);
+    public IAgentTaskVerifier AgentTaskVerifier { get; set; } = new EvidenceAgentTaskVerifier();
+    public IWorkflowRunStore? RunStore { get; set; }
+    internal WorkflowRunJournal? Journal { get; set; }
+    /// <summary>Optional separately injected TaskPlan planner; Flow.Core does not reference its implementation.</summary>
+    public Planning.IPlanningInteraction? PlanningInteraction { get; set; }
     public string DefaultPlanningMode { get; set; } = Planning.PlanningMode.Interactive;
     public Planning.IWorkflowPlanner? WorkflowPlanner { get; set; }
     public Planning.PlanningPolicy? PlanningPolicy { get; set; }
@@ -62,9 +65,12 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         _interpolator = new StringInterpolator(_evaluator);
     }
 
-    public async Task<RunResult> ExecuteAsync(CompiledWorkflow workflow, JsonNode? inputs, CancellationToken ct)
+    public Task<RunResult> ExecuteAsync(CompiledWorkflow workflow, JsonNode? inputs, CancellationToken ct)
+        => RunStore is null ? ExecuteCoreAsync(workflow, inputs, ct) : ExecuteDurableAsync(workflow, inputs, null, ct);
+
+    private async Task<RunResult> ExecuteCoreAsync(CompiledWorkflow workflow, JsonNode? inputs, CancellationToken ct)
     {
-        _totalStepsExecuted = 0;
+        _totalStepsExecuted = Journal?.Run.StepsStarted ?? 0;
         CompiledDocument = workflow.Document;
 
         var executionScope = PrepareEvaluator(workflow);
@@ -168,110 +174,6 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     }
 
     /// <summary>
-    /// Resume a workflow from a previously saved checkpoint.
-    /// Requires <see cref="Checkpointer"/> to be configured.
-    /// </summary>
-    public async Task<RunResult> ResumeAsync(string runId, CompiledWorkflow workflow, CancellationToken ct)
-    {
-        if (Checkpointer == null)
-            throw new InvalidOperationException("ResumeAsync requires a configured IWorkflowCheckpointer.");
-
-        var checkpoint = await Checkpointer.LoadAsync(runId, ct)
-            ?? throw new WorkflowRuntimeException("CHECKPOINT_NOT_FOUND",
-                $"No checkpoint found for run '{runId}'.");
-
-        _totalStepsExecuted = 0;
-        CompiledDocument = workflow.Document;
-        Limits.RunId = runId;
-
-        var executionScope = PrepareEvaluator(workflow);
-
-        // Restore data from checkpoint
-        var data = new JsonObject
-        {
-            ["inputs"] = checkpoint.Inputs?.DeepClone() ?? new JsonObject(),
-            ["steps"] = checkpoint.StepOutputs.DeepClone(),
-            ["env"] = new JsonObject()
-        };
-
-        var result = new RunResult { Success = true };
-
-        var workflowSpan = Telemetry.WorkflowStart(new WorkflowTelemetryInfo
-        {
-            WorkflowName = workflow.Name,
-            DocumentName = workflow.Document?.Source?.Name,
-            Inputs = checkpoint.Inputs?.DeepClone(),
-            SourceText = workflow.Document?.Source?.RawYaml,
-            SourceFormat = "yaml"
-        });
-        WorkflowTelemetryInputAttributes.Apply(workflowSpan, data["inputs"]);
-
-        var workflowSw = Stopwatch.StartNew();
-        Logger.LogInformation("Workflow '{WorkflowName}' resuming from step index {StartIndex} (runId: {RunId})",
-            workflow.Name, checkpoint.NextStepIndex, runId);
-
-        try
-        {
-            await ExecuteStepsAsync(workflow.Steps, data, result, Limits, 0, new HashSet<string>(), executionScope, ct, workflowSpan, checkpoint.NextStepIndex);
-
-            checkpoint.Status = "completed";
-
-            Logger.LogInformation("Workflow '{WorkflowName}' resumed and completed in {DurationMs:F1}ms",
-                workflow.Name, workflowSw.Elapsed.TotalMilliseconds);
-        }
-        catch (WorkflowRuntimeException ex)
-        {
-            result.Success = false;
-            result.Error = ex.ToWorkflowError();
-            checkpoint.Status = "failed";
-        }
-        catch (OperationCanceledException)
-        {
-            result.Success = false;
-            result.Error = new WorkflowError { Code = "CANCELLED", Message = "Workflow execution cancelled", Retryable = true };
-            checkpoint.Status = "paused";
-        }
-        catch (Exception ex)
-        {
-            result.Success = false;
-            result.Error = new WorkflowError { Code = "INTERNAL_ERROR", Message = ex.Message, Retryable = false };
-            checkpoint.Status = "failed";
-        }
-        finally
-        {
-            await ExecuteWorkflowFinalizationAsync(
-                workflow,
-                data,
-                result,
-                Limits,
-                0,
-                new HashSet<string>(),
-                executionScope,
-                workflowSpan);
-            EvaluateWorkflowOutputsIntoResult(workflow, data, result, executionScope);
-            if (!result.Success && string.Equals(checkpoint.Status, "completed", StringComparison.Ordinal))
-                checkpoint.Status = "failed";
-            if (string.Equals(checkpoint.Status, "completed", StringComparison.Ordinal))
-                checkpoint.NextStepIndex = workflow.Steps.Count;
-            checkpoint.StepOutputs = (data["steps"] as JsonObject)?.DeepClone() as JsonObject ?? new JsonObject();
-            checkpoint.Timestamp = DateTimeOffset.UtcNow;
-            await Checkpointer.SaveAsync(checkpoint, CancellationToken.None);
-            workflowSw.Stop();
-            Telemetry.WorkflowEnd(workflowSpan, new WorkflowResultInfo
-            {
-                Success = result.Success,
-                StepsExecuted = _totalStepsExecuted,
-                Duration = workflowSw.Elapsed,
-                ErrorCode = result.Error?.Code,
-                ErrorMessage = result.Error?.Message
-            });
-            workflowSpan.Dispose();
-        }
-
-        return result;
-    }
-
-    /// <summary>
     /// Executes a sub-workflow under an existing telemetry span without creating a detached trace.
     /// Intended for executors that need isolated engine state, such as parallel workflow routing.
     /// </summary>
@@ -282,11 +184,13 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         int callDepth,
         HashSet<string> callStack,
         ITelemetrySpan? parentSpan,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? invocationPath = null)
     {
         _totalStepsExecuted = 0;
         CompiledDocument = workflow.Document;
         var executionScope = PrepareEvaluator(workflow);
+        if (invocationPath is not null) executionScope = CreateExecutionScopeForWorkflow(workflow, path: invocationPath);
 
         var data = new JsonObject
         {
@@ -427,11 +331,10 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         int callDepth,
         HashSet<string> callStack,
         CancellationToken ct,
-        ITelemetrySpan? parentSpan = null,
-        int startFromIndex = 0)
+        ITelemetrySpan? parentSpan = null)
     {
         var executionScope = new WorkflowExecutionScope(null, _evaluator, _interpolator);
-        await ExecuteStepsAsync(steps, data, result, limits, callDepth, callStack, executionScope, ct, parentSpan, startFromIndex);
+        await ExecuteStepsAsync(steps, data, result, limits, callDepth, callStack, executionScope, ct, parentSpan);
     }
 
     internal async Task ExecuteStepsAsync(
@@ -443,18 +346,17 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         HashSet<string> callStack,
         WorkflowExecutionScope executionScope,
         CancellationToken ct,
-        ITelemetrySpan? parentSpan = null,
-        int startFromIndex = 0)
+        ITelemetrySpan? parentSpan = null)
     {
         parentSpan ??= NullWorkflowTelemetry.Instance.WorkflowStart(new WorkflowTelemetryInfo());
 
-        for (var stepIndex = startFromIndex; stepIndex < steps.Count; stepIndex++)
+        for (var stepIndex = 0; stepIndex < steps.Count; stepIndex++)
         {
             var step = steps[stepIndex];
-            ct.ThrowIfCancellationRequested();
+            if (Journal is null) ct.ThrowIfCancellationRequested();
 
-            var stepCount = Interlocked.Increment(ref _totalStepsExecuted);
-            if (stepCount > limits.MaxTotalStepsExecuted)
+            var stepCount = Journal is null ? Interlocked.Increment(ref _totalStepsExecuted) : Journal.Run.StepsStarted;
+            if (Journal is null && stepCount > limits.MaxTotalStepsExecuted)
                 throw new WorkflowRuntimeException(ErrorCodes.LoopLimit,
                     $"Total steps executed ({stepCount}) exceeds limit ({limits.MaxTotalStepsExecuted})");
 
@@ -469,50 +371,43 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             var sw = Stopwatch.StartNew();
             IStepSpan? stepSpan = null;
             JsonNode? resolvedInput = null;
+            var invocationScope = executionScope.Child("step", step.Id);
+            WorkflowInvocation? invocation = null;
 
             try
             {
-                // 1. Evaluate if guard
-                if (step.Source.If != null)
+                (bool Run, JsonNode? Input) Resolve()
                 {
-                    var guardResult = executionScope.Interpolator.Interpolate(step.Source.If, data);
-                    if (!ExpressionEvaluator.GetBool(guardResult))
-                    {
-                        stepSpan ??= Telemetry.StepStart(parentSpan, new StepTelemetryInfo
-                        {
-                            StepId = step.Id,
-                            StepType = step.Type,
-                            CallDepth = callDepth
-                        });
-
-                        stepResult.Status = StepStatus.Skipped;
-                        stepResult.Duration = sw.Elapsed;
-                        Telemetry.StepEnd(stepSpan, new StepResultInfo
-                        {
-                            Status = StepStatus.Skipped,
-                            Duration = sw.Elapsed
-                        });
-                        continue;
-                    }
-                }
-
-                // 2. Resolve input expressions
-                if (step.Source.Input != null)
-                {
+                    if (step.Source.If is not null && !ExpressionEvaluator.GetBool(executionScope.Interpolator.Interpolate(step.Source.If, data)))
+                        return (false, null);
+                    if (step.Source.Input is null) return (true, null);
                     if (step.Type == "loop.sequential" && step.Source.Input is JsonObject loopInput && loopInput.ContainsKey("while"))
                     {
-                        var inputClone = loopInput.DeepClone() as JsonObject ?? new JsonObject();
-                        var whileExpr = inputClone["while"]?.DeepClone();
-                        inputClone.Remove("while");
-                        var resolvedLoopInput = executionScope.Interpolator.ResolveDeep(inputClone, data) as JsonObject ?? inputClone;
-                        if (whileExpr != null)
-                            resolvedLoopInput["while"] = whileExpr;
-                        resolvedInput = resolvedLoopInput;
+                        var clone = (JsonObject)loopInput.DeepClone();
+                        var condition = clone["while"]?.DeepClone();
+                        clone.Remove("while");
+                        var resolved = executionScope.Interpolator.ResolveDeep(clone, data) as JsonObject ?? clone;
+                        resolved["while"] = condition;
+                        return (true, resolved);
                     }
-                    else
-                    {
-                        resolvedInput = executionScope.Interpolator.ResolveDeep(step.Source.Input.DeepClone(), data);
-                    }
+                    return (true, executionScope.Interpolator.ResolveDeep(step.Source.Input.DeepClone(), data));
+                }
+                bool shouldRun;
+                if (Journal is { } journal)
+                {
+                    invocation = await journal.PrepareAsync(invocationScope.Path, step,
+                        step.Source.Retry?.Max > 1 ? StepRecovery.Composite : _registry.Get(step.Type)?.Recovery ?? StepRecovery.External, executionScope.IsFinalization, data, Resolve, ct);
+                    shouldRun = invocation.Status != "skipped";
+                    resolvedInput = invocation.ResolvedInput?.DeepClone();
+                    _totalStepsExecuted = journal.Run.StepsStarted;
+                }
+                else (shouldRun, resolvedInput) = Resolve();
+                if (!shouldRun)
+                {
+                    stepSpan = Telemetry.StepStart(parentSpan, new StepTelemetryInfo { StepId = step.Id, StepType = step.Type, CallDepth = callDepth });
+                    stepResult.Status = StepStatus.Skipped;
+                    Telemetry.StepEnd(stepSpan, new StepResultInfo { Status = StepStatus.Skipped, Duration = sw.Elapsed });
+                    continue;
                 }
 
                 // Open telemetry span for this step after input resolution so the live stream can expose it.
@@ -541,7 +436,9 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                 }
 
                 // 3. Execute with retry — the executor writes telemetry attributes on stepSpan
-                var output = await ExecuteWithRetryAsync(step, data, resolvedInput, limits, callDepth, callStack, executionScope, ct, stepSpan);
+                Task<JsonNode?> Execute() => ExecuteWithRetryAsync(step, data, resolvedInput, limits, callDepth, callStack, invocationScope, ct, stepSpan);
+                var output = invocation is null ? await Execute() : await Journal!.InvokeAsync(invocation, data, Execute,
+                    invocation.Recovery == StepRecovery.External && _registry.Get(step.Type)?.RunsNestedWorkflows != true, ct);
 
                 // 4. Write output to data.steps.<id>
                 var stepsObj = data["steps"] as JsonObject ?? new JsonObject();
@@ -577,22 +474,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                     Output = output
                 });
 
-                // ── Checkpoint: save progress after each successful top-level step ──
-                if (!executionScope.IsFinalization && callDepth == 0 && Checkpointer != null && limits.RunId != null)
-                {
-                    var checkpoint = new WorkflowCheckpoint
-                    {
-                        RunId = limits.RunId,
-                        WorkflowName = CompiledDocument?.Source?.Name ?? "",
-                        WorkflowYaml = CompiledDocument?.Source?.RawYaml ?? "",
-                        NextStepIndex = stepIndex + 1,
-                        StepOutputs = (data["steps"] as JsonObject)?.DeepClone() as JsonObject ?? new JsonObject(),
-                        Inputs = data["inputs"]?.DeepClone(),
-                        Status = "running",
-                        Timestamp = DateTimeOffset.UtcNow
-                    };
-                    await Checkpointer.SaveAsync(checkpoint, ct);
-                }
+
             }
             catch (WorkflowRuntimeException ex)
             {
@@ -611,7 +493,7 @@ public sealed class WorkflowEngine : IWorkflowRuntime
 
                 var failure = ex;
                 // Apply on_error handler
-                if (step.Source.OnError != null)
+                if (step.Source.OnError != null && ex.Code != "RUN_NEEDS_RECONCILIATION")
                 {
                     var handled = HandleOnError(step.Source.OnError, ex, step, data, executionScope);
                     if (handled.action == "continue")
@@ -695,6 +577,8 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                 var executor = _registry.Get(step.Type)
                     ?? throw new WorkflowRuntimeException(ErrorCodes.StepTypeUnknown, $"Unknown step type: {step.Type}");
 
+                async Task<JsonNode?> ExecuteAttempt(WorkflowExecutionScope attemptScope)
+                {
                 // Inject resolved input into step source for executor use
                 var ctx = new StepExecutionContext
                 {
@@ -705,7 +589,8 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                     CallDepth = callDepth,
                     CallStack = callStack,
                     LLMUsageBudget = LLMUsageBudget,
-                    ExecutionScope = executionScope,
+                    ExecutionScope = attemptScope,
+                    StageInvocationId = executionScope.Path,
                     TelemetrySpan = stepSpan
                 };
 
@@ -724,8 +609,18 @@ public sealed class WorkflowEngine : IWorkflowRuntime
                     so.Remove($"__{step.Id}_input__");
 
                 return output;
+                }
+                if (Journal is not null && maxAttempts > 1)
+                {
+                    var attemptScope = executionScope.Child("attempt", attempt.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    var invocation = await Journal.PrepareAsync(attemptScope.Path, step, executor.Recovery, executionScope.IsFinalization,
+                        data, () => (true, resolvedInput), ct);
+                    return await Journal.InvokeAsync(invocation, data, () => ExecuteAttempt(attemptScope),
+                        executor.Recovery == StepRecovery.External && !executor.RunsNestedWorkflows, ct);
+                }
+                return await ExecuteAttempt(executionScope);
             }
-            catch (WorkflowRuntimeException ex) when (attempt < maxAttempts - 1 && ex.Retryable)
+            catch (WorkflowRuntimeException ex) when (attempt < maxAttempts - 1 && ex.Retryable && ex.Code != "RUN_NEEDS_RECONCILIATION")
             {
                 lastEx = ex;
                 var delay = backoffMs + (jitterMs > 0 ? Random.Shared.Next(0, jitterMs) : 0);
@@ -750,6 +645,16 @@ public sealed class WorkflowEngine : IWorkflowRuntime
     {
         if (workflow.Finally.Count == 0)
             return;
+        if (Journal is { HasPendingHumanInput: true }) return;
+        using var finalizationOwnership = Journal is not null && !executionScope.IsFinalization
+            ? await Journal.Effects.EnterFinalizationAsync(CancellationToken.None) : null;
+        if (Journal?.HasUnresolvedOutsideAncestors(executionScope.Path) == true)
+        {
+            result.Success = false;
+            result.Error = WorkflowRunJournal.Uncertain(executionScope.Path).ToWorkflowError();
+            return;
+        }
+        if (Journal is { } journal) await journal.StartFinalizationAsync(CancellationToken.None);
 
         data["workflow_error"] = ToErrorJson(result.Error);
         var finalizationLimits = inheritedFinalizationToken.HasValue
@@ -759,7 +664,8 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             workflow,
             executionScope.Evaluator,
             executionScope.Interpolator,
-            isFinalization: true);
+            isFinalization: true,
+            path: executionScope.Path + "/finally");
         using var timeout = inheritedFinalizationToken.HasValue
             ? null
             : new CancellationTokenSource(TimeSpan.FromSeconds(Math.Max(1, limits.FinalizationTimeoutSeconds)));
@@ -986,7 +892,8 @@ public sealed class WorkflowEngine : IWorkflowRuntime
 
     internal WorkflowExecutionScope CreateExecutionScopeForWorkflow(
         CompiledWorkflow workflow,
-        bool isFinalization = false)
+        bool isFinalization = false,
+        string? path = null)
     {
         var scriptFunctions = new Dictionary<string, Func<JsonNode?[], JsonNode?>>();
         var jint = new JintSandbox(
@@ -1012,7 +919,8 @@ public sealed class WorkflowEngine : IWorkflowRuntime
             scriptFunctions[kv.Key] = kv.Value;
 
         var evaluator = CreateExpressionEvaluator(scriptFunctions, Limits);
-        return new WorkflowExecutionScope(workflow, evaluator, new StringInterpolator(evaluator), isFinalization);
+        return new WorkflowExecutionScope(workflow, evaluator, new StringInterpolator(evaluator), isFinalization,
+            path ?? "/workflow/" + Uri.EscapeDataString(workflow.Name));
     }
 
     private WorkflowExecutionScope PrepareEvaluator(CompiledWorkflow workflow)
@@ -1173,9 +1081,14 @@ public sealed class WorkflowEngine : IWorkflowRuntime
         registry.Register(new Executors.DecisionEvaluateExecutor());
         registry.Register(new Executors.SetExecutor());
         registry.Register(new Executors.ValidateValueExecutor());
+        registry.Register(new Executors.ArrayProjectExecutor());
+        registry.Register(new Executors.ValueProjectExecutor());
+        foreach (var type in new[] { "number.add", "number.multiply", "number.default" })
+            registry.Register(new Executors.NumericTransformExecutor(type));
         registry.Register(new Executors.AssertNonNullExecutor());
         registry.Register(new Executors.TemplateRenderExecutor());
         registry.Register(new Executors.LlmCallExecutor());
+        registry.Register(new Executors.AgentRunExecutor());
         registry.Register(new Executors.WorkflowCallExecutor());
         registry.Register(new Executors.WorkflowRouteExecutor());
         registry.Register(new Executors.WorkflowPlanExecutor());

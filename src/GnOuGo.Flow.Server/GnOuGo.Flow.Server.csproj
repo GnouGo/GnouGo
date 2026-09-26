@@ -7,6 +7,18 @@
     <PnpmCommand Condition="'$(OS)' == 'Windows_NT'">corepack.cmd pnpm</PnpmCommand>
     <PnpmCommand Condition="'$(OS)' != 'Windows_NT'">corepack pnpm</PnpmCommand>
   </PropertyGroup>
+  <!-- Native publication only: pinned Jint 4.16.3 interop diagnostics and EF Core
+       10.0.12 SQLite package summaries/unused Spatialite discovery. Exact origins
+       are audited with AuditKnownTrimWarnings=true in verify-warning-free-publishes.ps1.
+       verify-flow-v9-published.py exercises encrypted persistence, native EF queries,
+       restart, streamed human input and tenant/revision checks against this binary. -->
+  <PropertyGroup Condition="'$(PublishAot)' == 'true' and '$(AuditKnownTrimWarnings)' != 'true'">
+    <NoWarn>$(NoWarn);IL2026;IL2104;IL3053;IL3002</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../GnOuGo.Flow.Copilot/GnOuGo.Flow.Copilot.csproj" />
+    <ProjectReference Include="../GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="OpenTelemetry" Version="1.19.1" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
@@ -38,4 +50,5 @@
   <ItemGroup>
     <ProjectReference Include="../GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj" />
   </ItemGroup>
+  <Import Project="../../build/GnOuGo.DarwinNativeCrypto.targets" />
 </Project>

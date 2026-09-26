@@ -892,7 +892,7 @@ workflows:
     }
 
     [Fact]
-    public async Task WorkflowRoute_UsesDistinctRunIdsForParallelHumanInputCandidates()
+    public async Task WorkflowRoute_UsesDistinctInvocationIdsForParallelHumanInputCandidates()
     {
         var yaml = """
 version: 1
@@ -956,9 +956,9 @@ workflows:
 
         Assert.True(result.Success, result.Error?.Message);
         Assert.Equal(2, humanInput.Requests.Count);
-        Assert.All(humanInput.Requests, static request => Assert.Equal("ask_user", request.StepId));
-        Assert.All(humanInput.Requests, static request => Assert.StartsWith("parent-run:route:", request.RunId, StringComparison.Ordinal));
-        Assert.Equal(2, humanInput.Requests.Select(static request => request.RunId).Distinct(StringComparer.Ordinal).Count());
+        Assert.All(humanInput.Requests, static request => Assert.EndsWith("/step/ask_user", request.StepId, StringComparison.Ordinal));
+        Assert.All(humanInput.Requests, static request => Assert.Equal("parent-run", request.RunId));
+        Assert.Equal(2, humanInput.Requests.Select(static request => request.StepId).Distinct(StringComparer.Ordinal).Count());
     }
 
     [Fact]

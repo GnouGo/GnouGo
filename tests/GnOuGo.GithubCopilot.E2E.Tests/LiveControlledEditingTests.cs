@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.KeyVault.Core;
 using GnOuGo.Workspace;
+using GnOuGo.Flow.Core.Runtime;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using Xunit;
@@ -22,9 +23,11 @@ public sealed class LiveControlledEditingTests(ITestOutputHelper output)
         => Assert.Equal(allowed, PermittedFixtureOperation(description, Path.GetFullPath(Path.GetTempPath())));
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task RealModel_InspectsEditsRunsTestsAndObservesResults(bool managed)
+    [InlineData(false, false, true)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, true)]
+    [InlineData(true, true, false)]
+    public async Task RealModel_InspectsEditsAndVerifiesResults(bool managed, bool bounded, bool executeTests)
     {
         Assert.SkipUnless(Environment.GetEnvironmentVariable("GNOU_GO_LIVE_COPILOT_EDIT") == "1",
             "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture.");
@@ -99,11 +102,59 @@ public sealed class LiveControlledEditingTests(ITestOutputHelper output)
                 }
             }, cancellationToken: ct);
             var provider = Environment.GetEnvironmentVariable("GNOU_GO_COPILOT_SMOKE_PROVIDER") ?? "OpenAi";
-            const string prompt = "Inspect calculator.py and test_calculator.py. Before editing, run exactly `python3 -m unittest -v` in the project root and observe the failing assertion. Fix only calculator.py, using a file-edit tool (not shell redirection), then run exactly `python3 -m unittest -v` again and observe the passing result. Do not install anything, use the network, or modify tests or refused.py. Finish only after observing the passing test.";
+            var prompt = !executeTests ? "Inspect calculator.py and test_calculator.py with project_read. Fix the addition bug in calculator.py using project_write. Do not run commands or modify any other file. Return the required JSON summary after observing the file change." : "Inspect calculator.py and test_calculator.py. Before editing, run exactly `python3 -m unittest -v` in the project root and observe the failing assertion. Fix only calculator.py, using a file-edit tool (not shell redirection), then run exactly `python3 -m unittest -v` again and observe the passing result. Do not install anything, use the network, or modify tests or refused.py. Finish only after observing the passing test.";
             string? handle = null;
             JsonObject result;
             try
             {
+                if (bounded)
+                {
+                    var task = new AgentTaskDefinition
+                    {
+                        Runner = "coding", Objective = prompt, Workspace = relative,
+                        Capabilities = executeTests ? ["project.read", "project.write", "command.execute"] : ["project.read", "project.write"],
+                        Budget = new() { MaxModelCalls = 8, MaxTotalTokens = 512000, MaxElapsedMilliseconds = 600000 },
+                        OutputSchema = JsonNode.Parse("""{"type":"object","required":["summary"],"properties":{"summary":{"type":"string"}},"additionalProperties":false}""")!.AsObject(),
+                        Verification = [
+                            new("tests", "command.exit", "python3 -m unittest -v", JsonNode.Parse("""{"type":"object","required":["exit_code","tool_success"],"properties":{"exit_code":{"const":0},"tool_success":{"const":true}}}""")!.AsObject()),
+                            new("edit", "file.content", "calculator.py", JsonNode.Parse("""{"type":"object","required":["exists","changed"],"properties":{"exists":{"const":true},"changed":{"const":true}}}""")!.AsObject())]
+                    };
+                    if (!executeTests) task.Verification.RemoveAll(v => v.Kind == "command.exit");
+                    var context = new AgentTaskContext("copilot-live-smoke", Guid.NewGuid().ToString("N"), "main/repair", task);
+                    Dictionary<string, object?> Arguments(AgentTaskContext value) => new() { ["contextJson"] = JsonSerializer.Serialize(value, AgentTaskJsonContext.Default.AgentTaskContext) };
+                    Assert.Empty((await Call(client, "copilot_task_validate", Arguments(context), ct))["errors"]!.AsArray());
+                    var receipt = await Call(client, "copilot_task_run", Arguments(context), ct);
+                    var observed = JsonSerializer.Deserialize(receipt["result"], AgentTaskJsonContext.Default.AgentTaskResult)!;
+                    Assert.True(observed.Status == "completed", observed.Status + ": " + observed.Message);
+                    Assert.All(await new EvidenceAgentTaskVerifier().VerifyAsync(context, observed, ct), f => Assert.True(f.Passed, f.Message));
+                    Assert.Contains("return a + b", await File.ReadAllTextAsync(fixture, ct));
+                    if (executeTests)
+                    {
+                        var attempts = observed.Evidence.Single(e => e.Kind == "command.exit").Facts["attempts"]!.AsArray();
+                        Assert.Contains(attempts, a => a!["exit_code"]!.GetValue<int>() != 0);
+                        Assert.Equal(0, attempts[^1]!["exit_code"]!.GetValue<int>());
+                    }
+                    else Assert.DoesNotContain(observed.Evidence, e => e.Kind == "command.exit");
+                    Assert.InRange(observed.Usage.ModelCalls, 1, task.Budget.MaxModelCalls);
+                    Assert.InRange(observed.Usage.TotalTokens, 1, task.Budget.MaxTotalTokens);
+                    Assert.True(JsonNode.DeepEquals(receipt, await Call(client, "copilot_task_inspect", Arguments(context), ct)));
+                    Assert.True(JsonNode.DeepEquals(receipt, await Call(client, "copilot_task_run", Arguments(context), ct)));
+                    var expanded = context with { Task = task with { Objective = prompt + " Also modify refused.py." } };
+                    Assert.True((await client.CallToolAsync("copilot_task_run", Arguments(expanded), cancellationToken: ct)).IsError);
+                    refuseEverything = true;
+                    var refusedContext = context with { InvocationId = "main/refusal", Task = task with
+                    {
+                        Objective = "Append '# requested change' to refused.py using a file edit tool. Stop if permission is refused.",
+                        Capabilities = ["project.read", "project.write"],
+                        Verification = [task.Verification.Single(v => v.Kind == "file.content") with { Subject = "refused.py" }]
+                    } };
+                    var refused = JsonSerializer.Deserialize((await Call(client, "copilot_task_run", Arguments(refusedContext), ct))["result"], AgentTaskJsonContext.Default.AgentTaskResult)!;
+                    Assert.Contains(await new EvidenceAgentTaskVerifier().VerifyAsync(refusedContext, refused, ct), f => !f.Passed);
+                    Assert.Equal("# unchanged\n", await File.ReadAllTextAsync(Path.Combine(project, "refused.py"), ct));
+                    Assert.True(approvals > 0 && refusals > 0);
+                    output.WriteLine("PASS bounded task: verified file change, receipt reuse, rejected scope expansion and permission refusal; observed test cycle={0}", executeTests);
+                    return;
+                }
                 if (managed)
                 {
                     var created = await Call(client, "copilot_session_create", new() { ["projectRoot"] = relative, ["provider"] = provider, ["tenantId"] = "copilot-live-smoke" }, ct);

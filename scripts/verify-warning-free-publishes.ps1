@@ -486,6 +486,8 @@ function Invoke-AgentServerSmoke {
         '--OpenTelemetry:Enabled=false',
         '--TypedWorkflowPlanning:BackgroundProcessingEnabled=false',
         "--TypedWorkflowPlanning:DatabasePath=$(Join-Path $DataDirectory 'planning.db')",
+        "--Flow:Execution:IndexPath=$(Join-Path $DataDirectory 'flow-runs.db')",
+        "--Flow:Execution:OwnerPath=$(Join-Path $DataDirectory 'flow-owners')",
         "--Agent:DatabasePath=$(Join-Path $DataDirectory 'agent.db')",
         "--KeyVault:DatabasePath=$(Join-Path $DataDirectory 'keyvault.db')",
         "--DocsIngestorMcp:DatabasePath=$(Join-Path $DataDirectory 'docs-mcp.db')",
@@ -554,6 +556,7 @@ $publishProfiles = @(
     [pscustomobject]@{ Name = 'GnOuGo.GithubCopilot.Mcp'; Project = 'src/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp.csproj'; NativeAot = $true; Executable = 'GnOuGo.GithubCopilot.Mcp' },
     [pscustomobject]@{ Name = 'GnOuGo.DocIngestor.Mcp'; Project = 'src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj'; NativeAot = $true; Executable = 'GnOuGo.DocIngestor.Mcp' },
     [pscustomobject]@{ Name = 'GnOuGo.Flow.Cli'; Project = 'src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj'; NativeAot = $true; Executable = 'GnOuGo.Flow.Cli' },
+    [pscustomobject]@{ Name = 'GnOuGo.Flow.Server'; Project = 'src/GnOuGo.Flow.Server/GnOuGo.Flow.Server.csproj'; NativeAot = $true; Executable = 'GnOuGo.Flow.Server' },
     [pscustomobject]@{ Name = 'GnOuGo.Files.Server'; Project = 'src/GnOuGo.Files.Server/GnOuGo.Files.Server.csproj'; NativeAot = $true; Executable = 'GnOuGo.Files.Server' },
     [pscustomobject]@{ Name = 'GnOuGo.Assets.Animation.Server'; Project = 'src/GnOuGo.Assets.Animation.Server/GnOuGo.Assets.Animation.Server.csproj'; NativeAot = $true; Executable = 'GnOuGo.Assets.Animation.Server' },
     [pscustomobject]@{ Name = 'GnOuGo.Agent.Mcp'; Project = 'src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj'; NativeAot = $false; Executable = 'GnOuGo.Agent.Mcp' },
@@ -574,7 +577,17 @@ $knownAuditFingerprints = @{
         'IL2026|Jint.DefaultObjectConverter.ConvertSystemTextJsonValue(Engine,JsonNode)',
         'IL2026|Jint.Runtime.Interop.DefaultTypeConverter.BuildDelegate(Type,Func`3<JsValue,JsValue[],JsValue>,Expression)',
         'IL2104|Jint.dll',
-        'IL3053|Jint.dll'
+        'IL3053|Jint.dll',
+        'IL2104|Microsoft.EntityFrameworkCore.dll',
+        'IL2104|Microsoft.EntityFrameworkCore.Relational.dll',
+        'IL2104|Microsoft.EntityFrameworkCore.Sqlite.dll',
+        'IL3053|Microsoft.EntityFrameworkCore.dll',
+        'IL3053|Microsoft.EntityFrameworkCore.Relational.dll',
+        'IL3053|Microsoft.EntityFrameworkCore.Sqlite.dll',
+        'IL3002|Microsoft.EntityFrameworkCore.Infrastructure.SpatialiteLoader.FindExtension()',
+        'IL3002|Microsoft.Extensions.DependencyModel.DependencyContext..cctor()',
+        'EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:QueryPrecompilationExperimental',
+        'EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:NativeAotExperimental'
     )
     'GnOuGo.GithubCopilot.Mcp' = @(
         'IL2104|Microsoft.EntityFrameworkCore.dll',
@@ -612,8 +625,9 @@ $knownAuditFingerprints = @{
         Dependencies = 'Pinned .NET 10 ASP.NET Core partial-trim and EF Core SQLite closure.'
     }
     'GnOuGo.Agent.Server' = @{
-        FingerprintCount = 102
-        Sha256 = '4b8c1ba01af1eb67fd9513c5b7b3019e2e5be6087aafda4b5c6dde50ce2d6b0d'
+        # Re-audited against parent 46c2c77: 106 origins -> 105; the compiled planning model removes its application IL2026.
+        FingerprintCount = 105
+        Sha256 = 'e81aebe48518ed041b326e3f5d8198fa640868779687d3de64c60a324ce0e9d2'
         Dependencies = 'Pinned .NET 10 ASP.NET Core/Blazor, EF Core SQLite, Jint, YamlDotNet, ML.Tokenizers, and generated Routes component closure.'
     }
     'GnOuGo.Agent.Desktop' = @{
@@ -623,6 +637,7 @@ $knownAuditFingerprints = @{
     }
 }
 
+$knownAuditFingerprints['GnOuGo.Flow.Server'] = $knownAuditFingerprints['GnOuGo.Flow.Cli']
 $publishDirectories = @{}
 try {
     Write-Host "Runtime identifier: $RuntimeIdentifier" -ForegroundColor Green
@@ -673,6 +688,13 @@ try {
     }
 
     Invoke-FlowSmoke -PublishDirectory $publishDirectories['GnOuGo.Flow.Cli']
+    [void] (Invoke-LoggedCommand -FilePath 'python3' -Arguments @(
+        (Join-Path $repoRoot 'scripts/verify-flow-v9-published.py'),
+        '--cli', (Get-PublishedExecutable $publishDirectories['GnOuGo.Flow.Cli'] 'GnOuGo.Flow.Cli'),
+        '--server', (Get-PublishedExecutable $publishDirectories['GnOuGo.Flow.Server'] 'GnOuGo.Flow.Server'),
+        '--copilot', (Get-PublishedExecutable $publishDirectories['GnOuGo.GithubCopilot.Mcp'] 'GnOuGo.GithubCopilot.Mcp'),
+        '--data-directory', (Join-Path $temporaryRoot 'smoke/flow-v9')
+    ) -LogPath (Join-Path $temporaryRoot 'flow-v9-persistence-smoke.log'))
     Invoke-AnimationSmoke -PublishDirectory $publishDirectories['GnOuGo.Assets.Animation.Server']
     Invoke-FilesSmoke `
         -PublishDirectory $publishDirectories['GnOuGo.Files.Server'] `
