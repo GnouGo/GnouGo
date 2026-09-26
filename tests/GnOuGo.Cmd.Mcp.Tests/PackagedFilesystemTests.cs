@@ -156,7 +156,7 @@ public sealed class PackagedFilesystemTests : IDisposable
     public async Task CannotCopyOrMoveDirectoryIntoItselfOrItsDescendants(string command)
     {
         FileAt("source/data.txt", "unchanged");
-        foreach (var target in new[] { "source", "source/child" })
+        foreach (var target in new[] { "source", "source/child", "SOURCE/child" })
         {
             Assert.False((await Run(command, new() { ["source"] = "source", ["destination"] = target })).Success);
             Assert.Equal("unchanged", File.ReadAllText(At("source/data.txt")));
