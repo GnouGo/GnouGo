@@ -11,6 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\GnOuGo.Agent.Server\GnOuGo.Agent.Server.csproj" />
     <ProjectReference Include="../../src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj" />
+    <ProjectReference Include="../../src/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp.csproj" />
     <ProjectReference Include="..\..\src\GnOuGo.Flow.Integrations\GnOuGo.Flow.Integrations.csproj" />
   </ItemGroup>
 
@@ -41,5 +42,6 @@
   <ItemGroup>
     <Compile Include="../Shared/ProductTransformationFixture.cs" Link="ProductTransformationFixture.cs" />
     <Compile Include="../Shared/ProductTransformationPlan.cs" Link="ProductTransformationPlan.cs" />
+    <Compile Include="../Shared/RealProductContracts.cs" Link="RealProductContracts.cs" />
   </ItemGroup>
 </Project>
