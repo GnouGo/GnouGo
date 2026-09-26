@@ -86,5 +86,39 @@ public sealed class McpProtocolNegotiationTests : IDisposable
         Assert.False(Directory.Exists(Path.Combine(_root, "renamed")));
     }
 
+    [Fact]
+    public async Task AllowlistedCommandsCannotReadTheMcpTransport()
+    {
+        var executable = Environment.GetEnvironmentVariable("GNOU_GO_CMD_MCP_TEST_EXECUTABLE") ?? Path.Combine(
+            AppContext.BaseDirectory, "GnOuGo.Cmd.Mcp" + (OperatingSystem.IsWindows() ? ".exe" : string.Empty));
+        var transport = new StdioClientTransport(new StdioClientTransportOptions
+        {
+            Command = executable,
+            WorkingDirectory = Path.GetDirectoryName(executable),
+            EnvironmentVariables = new Dictionary<string, string?>
+            {
+                ["Cmd__DefaultWorkingDirectory"] = _root,
+                ["OpenTelemetry__Enabled"] = "false",
+                ["Cmd__AllowedCommands__stdin_fixture__Shell"] = OperatingSystem.IsWindows() ? "powershell" : "sh",
+                ["Cmd__AllowedCommands__stdin_fixture__Script"] = OperatingSystem.IsWindows()
+                    ? "if ([Console]::ReadLine() -ne $null) { throw 'Unexpected inherited input.' }; Write-Output 'stdin closed'"
+                    : "if IFS= read -r inherited; then printf '%s' 'Unexpected inherited input' >&2; exit 1; fi; printf '%s' 'stdin closed'"
+            }
+        });
+        await using var client = await McpClient.CreateAsync(transport, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await client.CallToolAsync("cmd_run", new Dictionary<string, object?>
+        {
+            ["commandName"] = "stdin_fixture", ["timeoutMs"] = 5000
+        }, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.NotNull(result.StructuredContent);
+        var value = JsonNode.Parse(result.StructuredContent.ToString()!)!;
+        Assert.True(result.IsError != true, value.ToJsonString());
+        Assert.True(value["success"]!.GetValue<bool>());
+        Assert.False(value["timedOut"]!.GetValue<bool>());
+        Assert.Equal("stdin closed", value["stdout"]!.GetValue<string>().Trim());
+        // The MCP input stream is still usable after the child process exits.
+        Assert.NotEmpty(await client.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken));
+    }
+
     public void Dispose() => Directory.Delete(_root, recursive: true);
 }

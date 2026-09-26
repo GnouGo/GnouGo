@@ -57,7 +57,7 @@ public sealed class CommandExecutionHost
                         UseShellExecute = false,
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
-                        RedirectStandardInput = false,
+                        RedirectStandardInput = true,
                         CreateNoWindow = true
                     }
                 };
@@ -84,6 +84,10 @@ public sealed class CommandExecutionHost
                         return CmdRunResult.FromError(commandName, "PROCESS_START_FAILED",
                             $"Failed to start process for command '{commandName}' using shell '{shell.LogicalName}'.");
                     }
+
+                    // Commands receive declared parameters, never the MCP transport
+                    // or the host's console input. Give noninteractive shells EOF.
+                    process.StandardInput.Close();
                 }
                 catch (System.ComponentModel.Win32Exception ex)
                 {

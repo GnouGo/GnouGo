@@ -286,6 +286,8 @@ dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuG
 
 - The traversal guardrails apply to the effective working directory and to user-supplied parameters marked with `IsWorkspacePath`; allowlisted scripts themselves should still avoid hardcoded paths outside the intended workspace
 
+Command subprocesses receive declared parameters and a closed standard-input stream. They cannot read the MCP transport or prompt through the host console. Timeouts and cancellation still apply.
+
 ## Validation
 
 ```bash
