@@ -44,14 +44,26 @@ internal static class RealContractPlanningProbe
         }
         if (frozen is null || frozen["prompt"]?.ToString() != RealProductContracts.Prompt) throw new InvalidOperationException("Freeze the exact prompt and producer metadata first.");
         var key = Cohort + ":" + phase;
-        if (await campaign.LoadAsync(Collection, key) is not null) throw new InvalidOperationException("This identity already exists. Inspect its evidence; do not restart it.");
+        var retained = await campaign.LoadAsync(Collection, key);
+        var resumeUndispatched = args.Contains("--resume-undispatched-main", StringComparer.Ordinal);
+        if (retained is not null && !resumeUndispatched) throw new InvalidOperationException("This identity already exists. Inspect its evidence; do not restart it.");
+        if (resumeUndispatched && (phase != "main" || retained is null || retained["resume_count"] is not null ||
+            retained["requests"]!.AsArray().Count != 0 || retained["failure"]?.ToString().StartsWith("System.InvalidOperationException: The node already has a parent.", StringComparison.Ordinal) != true ||
+            (await BenchmarkHttpJournal.AccountingAsync(campaign, retained["session_id"] + ":"))["session_calls"]!.GetValue<long>() != 0))
+            throw new InvalidOperationException("Only the verified undispatched checkpoint-copy failure can resume.");
         var harnessSource = Git("rev-parse", "HEAD");
         var source = phase == "main" ? "bf90eb6d5048bd80ba83cb70df69b841007d4d59" : harnessSource;
         if (Git("status", "--porcelain").Length != 0) throw new InvalidOperationException("Commit the harness before dispatch.");
         using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", "gpt-5.5-2026-04-24", campaign, root, CancellationToken.None);
         var id = PlanningGraphCompiler.Fingerprint("flow-v9-112:" + key);
-        var run = new JsonObject { ["source"] = source, ["harness_source"] = harnessSource, ["phase"] = phase, ["metadata_hash"] = frozen["hash"]!.DeepClone(),
+        var run = retained ?? new JsonObject { ["source"] = source, ["harness_source"] = harnessSource, ["phase"] = phase, ["metadata_hash"] = frozen["hash"]!.DeepClone(),
             ["session_id"] = id, ["requests"] = new JsonArray(), ["history"] = new JsonArray(), ["prompt"] = RealProductContracts.Prompt };
+        if (resumeUndispatched)
+        {
+            await campaign.SaveAsync(Collection, key + ":undispatched-harness-failure", run.DeepClone().AsObject());
+            run["resume_count"] = 1; run["resume_harness_source"] = harnessSource;
+            run.Remove("failure"); run.Remove("result");
+        }
         await campaign.SaveAsync(Collection, key, run);
         var clock = Stopwatch.StartNew();
         var measured = new MeasuredModel(model, run);
@@ -60,7 +72,7 @@ internal static class RealContractPlanningProbe
             if (phase == "main")
             {
                 var executable = args.ElementAtOrDefault(2) ?? throw new ArgumentException("Supply the isolated main harness assembly.");
-                await Parent(executable, frozen["metadata"]!.AsObject(), id, measured, CheckpointRaw);
+                await Parent(executable, frozen["metadata"]!.AsObject(), id, measured, CheckpointRaw, retained?["session"] as JsonObject);
             }
             else
             {
@@ -96,7 +108,7 @@ internal static class RealContractPlanningProbe
 
         async Task CheckpointRaw(JsonObject state)
         {
-            run["session"] = state;
+            run["session"] = state.DeepClone();
             run["history"]!.AsArray().Add(new JsonObject { ["revision"] = state["revision"]?.DeepClone(), ["status"] = state["status"]?.DeepClone(), ["diagnostics"] = state["diagnostics"]?.DeepClone() });
             await campaign.SaveAsync(Collection, key, run);
             Console.WriteLine("checkpoint " + phase + " " + state["revision"] + " " + state["status"]);
@@ -113,7 +125,7 @@ internal static class RealContractPlanningProbe
             return await inner.CallAsync(request, ct);
         }
     }
-    private static async Task Parent(string assembly, JsonObject metadata, string id, ILLMClient model, Func<JsonObject, Task> checkpoint)
+    private static async Task Parent(string assembly, JsonObject metadata, string id, ILLMClient model, Func<JsonObject, Task> checkpoint, JsonObject? retained)
     {
         var start = new ProcessStartInfo("dotnet") { RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
         start.ArgumentList.Add(assembly);
@@ -121,7 +133,7 @@ internal static class RealContractPlanningProbe
         var errors = process.StandardError.ReadToEndAsync();
         try
         {
-            await process.StandardInput.WriteLineAsync(new JsonObject { ["metadata"] = metadata.DeepClone(), ["sessionId"] = id, ["prompt"] = RealProductContracts.Prompt }.ToJsonString());
+            await process.StandardInput.WriteLineAsync(new JsonObject { ["metadata"] = metadata.DeepClone(), ["sessionId"] = id, ["prompt"] = RealProductContracts.Prompt, ["session"] = retained?.DeepClone() }.ToJsonString());
             await process.StandardInput.FlushAsync();
             while (await process.StandardOutput.ReadLineAsync() is { } line)
             {
