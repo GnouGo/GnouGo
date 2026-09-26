@@ -62,7 +62,7 @@ requests with the superseded singular `sourceId`/`cursor` contract stop with
 reservations and accounting are preserved. Planning storage remains format 10.
 
 Requirements are reviewable intent, not another executable program. They are generated once and then owned by the host: subsequent discovery, TaskPlan and repair responses omit them. Only explicit user revision resets them. Recovery validates responses against their original persisted request schemas; identical historical requirements are accepted without replacing the saved intent, while changes are rejected. New generated glue permits literals, typed references,
-simple conditions and registered typed transformations. Authored YAML retains its
+simple conditions, deterministic JSON encoding and registered typed transformations. Authored YAML retains its
 existing expression runtime. Opaque output needs whole-value validation before
 field access; assistant descriptions and sample values cannot establish a contract.
 
@@ -80,9 +80,17 @@ does not prove factual accuracy or external success. Transform result types do n
 change the source MCP contract. Text-mode template output is guaranteed by a shared
 mode-aware graph/runtime contract; unresolved modes remain conservative.
 
+String types may explicitly declare an `enum` of 1–256 distinct strings. The compiler
+preserves that domain in strict structured outputs and business interfaces; nullability
+is separate. The final YAML validator accepts direct references to runtime-checked
+structured enum results, never unchecked results or unsafe fallback envelopes.
+`{ "kind": "json", "items": [<business value>] }` serializes one value using existing
+typed `set` stages and the existing `json` runtime function. It performs no inference,
+does not expose arbitrary expressions and does not grant typed access to opaque fields.
+
 Generation requests the smallest sufficient semantic plan: concise objectives, necessary inputs/outputs and direct business bindings, with required scope exports and cleanup retained. Prefer data shapes consumable downstream, including scalar iteration items when records are unnecessary. Optional user inputs, policy-query tasks and extra outputs need a request or contract justification. Runtime permissions remain mandatory. The compiler does not optimize or rewrite submitted tasks.
 
-The strict response schema is a compact wire representation of the unchanged TaskPlan contracts. Types expose only their kind-specific fields; nested nullability and array item types stay explicit. Transform result fields omit fixed `required: true` and `default: null`; the nonnullable root object omits its fixed nullability. Existing DTO initializers supply these representation constants, never business values. Choice selections remain host-owned and are absent from generation. New schemas omit `explanation`. Historical responses still deserialize, and pending requests keep their original schemas and identities without redispatch.
+The strict response schema is a compact wire representation of TaskPlan. Types expose only their kind-specific fields; nested nullability and array item types stay explicit. Transform result fields omit fixed `required: true` and `default: null`; the nonnullable root object omits its fixed nullability. Existing DTO initializers supply these representation constants, never business values. Choice selections remain host-owned and are absent from generation. New schemas omit `explanation`. Historical responses still deserialize, and pending requests keep their original schemas and identities without redispatch. Optional string enum declarations and the JSON encoding value are additive format-10 contracts; existing records are not rewritten.
 
 Optional operation outputs retain the producer's presence and nullability rules.
 When a task consumes such a field, the compiler emits an existing checked
@@ -98,6 +106,11 @@ requires an explicit semantic revision or regeneration. Existing sessions are no
 rewritten. Review shows transformation inputs and typed results; approval covers
 them and deterministic recompilation must reproduce the artifact.
 
+When a consumer requires a finite string domain, diagnostics can include its exact
+transform producer's enum slot. Repairs may change that slot and the diagnosed binding,
+not unrelated result fields or task objectives. Recovery derives these locations from
+the immutable baseline before a new request; pending requests retain their issued scope.
+
 Compiler preflight checks semantic identities, scope visibility, dependencies and business contracts before emitting graph nodes. It reports independent input/output errors together, including invalid cross-scope consumers and required export boundaries, while suppressing errors caused solely by unavailable prerequisite contracts. Children may capture available ancestor values; parent consumers require explicit exports and parallel siblings cannot directly consume each other. Group inputs and business output bindings retain semantic locations through compilation and confirmation wrapping.
 
 A semantic failure opens a bounded revision scope over diagnosed business slots and the explicit export declarations required by their consumers. Conditional alternatives must explicitly provide matching outputs; the compiler invents neither exports nor fallback values. Added exports must belong to the diagnosed connection, with unrelated declarations and ordering preserved. Revalidation of a dependent task grants no edit permission. Unknown or ambiguous locations never authorize whole-plan repair. Rejected revisions identify unauthorized changed slots and retain the last accepted baseline. Optional workflow/group inputs require literal defaults, while optional object fields may remain absent. Composite outputs use the existing typed `set` primitive after cleanup; opaque payloads remain opaque. Generated executor validation failures stop with compiler diagnostics. Dependent findings are
@@ -110,10 +123,13 @@ configuration takes precedence, and existing sessions retain their saved limits.
 
 `MODEL_INPUT_LIMIT` is a local admission stop: the conservative estimate of the full
 prompt plus response schema exceeds the saved per-request input allowance. Discovery
-metadata remains in the request; the estimator does not discard contracts or descriptions
-to fit. The blocked request has not been dispatched or charged another model call or
+receipts remain in host state. When repair permissions fix operation selections, the
+request contains full selected contracts and a lossless compact baseline, without
+irrelevant discovery actions. Operation-selection repairs retain catalog alternatives.
+This selection follows edit permissions, not the ceiling; the estimator never trims
+retained contracts or descriptions to fit. The blocked request has not been dispatched or charged another model call or
 repair. With no pending request, open Designer **Generation settings**, explicitly
-increase the **Input token limit**, then select **Apply settings and resume planning**.
+adjust the **Input token limit** if needed, then select **Apply settings and resume planning**.
 This continues the same session with its discovery receipts and cumulative usage;
 subsequent calls may incur model costs. It does not reset call, repair, spending or
 elapsed-time limits, approve an artifact, or guarantee that later requests will fit.

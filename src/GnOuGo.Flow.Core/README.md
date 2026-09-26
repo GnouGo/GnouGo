@@ -10,6 +10,12 @@ engine validates resolved fallback values before publishing a successful step
 result. Invalid fallbacks stop downstream execution with
 `STRUCTURED_FALLBACK_INVALID`; workflow finalization still runs.
 
+The semantic validator recognizes finite selector domains from direct references
+to validated structured `llm.call` results, as it does for checked `set` outputs.
+Dynamic schemas, optional/nullable selectors and incompatible continuation outputs
+cannot establish that proof. TaskPlan string enums and deterministic JSON encoding
+are described in the separately published [planner package](../GnOuGo.Flow.Planning/README.md).
+
 <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.Flow.Core.svg" alt="NuGet version"></a>
 <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt=".NET 10.0"></a>
 <a href="https://nugettrends.com/packages?ids=GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.Flow.Core.svg" alt="NuGet downloads"></a>
