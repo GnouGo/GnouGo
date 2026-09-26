@@ -161,6 +161,15 @@ jobs:
           }
           dotnet @publishArgs
 
+      - name: Test Cmd filesystem commands and published protocol
+        if: matrix.rid == 'linux-x64' || matrix.rid == 'win-x64' || matrix.rid == 'osx-arm64'
+        shell: pwsh
+        run: |
+          $extension = if ('${{ matrix.rid }}' -eq 'win-x64') { '.exe' } else { '' }
+          $env:GNOU_GO_CMD_MCP_TEST_EXECUTABLE = (Resolve-Path "artifacts/publish/cmd-mcp-aot/${{ matrix.rid }}/GnOuGo.Cmd.Mcp$extension").Path
+          dotnet test tests/GnOuGo.Cmd.Mcp.Tests/GnOuGo.Cmd.Mcp.Tests.csproj -m:1 -warnaserror
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Validate Document MCP (Native AOT)
         shell: pwsh
         run: |
