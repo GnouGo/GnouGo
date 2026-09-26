@@ -38,6 +38,8 @@ Optional workflow and group inputs require literal defaults; optional fields ins
 
 Planning storage format **10** rejects prior planning sessions and approvals without modifying their encrypted records. Execution journal schema **9** is unchanged. AI revision requires a saved TaskPlan or fresh requirements and renewed approval; YAML import into the planner has been removed.
 
+Consuming an optional operation port emits a checked `value.project` at the consumer. The full authoritative container crosses scope boundaries; the check stays inside the consuming branch, iteration or cleanup. Missing fields fail, nullable values remain nullable, and unused ports need no projection. No fallback, model call or new semantic syntax is introduced.
+
 ```bash
 dotnet build src/GnOuGo.Flow.Planning -c Release -warnaserror
 dotnet test tests/GnOuGo.Flow.Planning.Tests -c Release -warnaserror
@@ -45,6 +47,6 @@ dotnet run --project tests/GnOuGo.Flow.Planning.Smoke -c Release
 dotnet pack src/GnOuGo.Flow.Planning -c Release
 ```
 
-The eight frozen business requests and independent execution oracles remain in `tests/Shared/PlanningBenchmarkCases.cs`. Scripted responses now produce TaskPlans. The last completed live cohort remains 8/9 correct; it is historical evidence, not authorization for further evaluation. The typed transformation regression uses deterministic planning and runtime model mocks, including real XLSX writing in host tests and a pinned parent comparison. It makes no new live-performance claim. Real Copilot command edit/test execution remains unverified under the available sandbox policy; do not bypass that policy. See [architecture and migration](../../docs/workflow-planning-v9.md).
+The eight frozen business requests and independent execution oracles remain in `tests/Shared/PlanningBenchmarkCases.cs`. Small synthetic fixtures keep planner/AOT tests independent. Host product-query tests replay recorded model responses with actual Browser/Document registrations and real XLSX writing; they do not construct a TaskPlan or supply a search URL. See the [contract diagnosis and replay limitations](../../docs/planning-product-contract-diagnosis-2026-09-26.md). Historical cohort evidence remains 8/9, without a new reliability claim. Real Copilot command edit/test execution remains unverified under the available sandbox policy; do not bypass it. See [architecture and migration](../../docs/workflow-planning-v9.md).
 
 Repository agents must use `$gnougo-planning`, the portable [planning skill](../../.agents/skills/gnougo-planning/SKILL.md), as required by the root [AGENTS.md](../../AGENTS.md).

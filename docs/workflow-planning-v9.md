@@ -80,6 +80,14 @@ does not prove factual accuracy or external success. Transform result types do n
 change the source MCP contract. Text-mode template output is guaranteed by a shared
 mode-aware graph/runtime contract; unresolved modes remain conservative.
 
+Optional operation outputs retain the producer's presence and nullability rules.
+When a task consumes such a field, the compiler emits an existing checked
+`value.project` stage at that consumer, inside its branch, iteration or cleanup
+scope. Missing fields fail; explicit null is accepted only by nullable contracts.
+Unused ports need no check. Captures carry the authoritative container so a check
+does not run outside the selected consumer. This adds no model call or TaskPlan
+syntax and never turns an assistant claim into evidence of file creation.
+
 Transform repairs target diagnosed inputs or exact result-type slots, preserving
 existing names and unrelated fields. Replacing an old `value` task with a transform
 requires an explicit semantic revision or regeneration. Existing sessions are not
