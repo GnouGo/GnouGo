@@ -52,7 +52,7 @@ internal static class PlanningGeneratedGraph
             var valid = false;
             try { valid = Simple(new Acornima.Parser().ParseExpression(value.Text ?? "")); }
             catch (Acornima.ParseErrorException) { }
-            if (!valid) yield return new("GENERATED_EXPRESSION_DENIED", location, "Generated expressions allow only references and simple boolean conditions.");
+            if (!valid) yield return new("GENERATED_EXPRESSION_DENIED", location, "Generated expressions allow references, simple boolean conditions and JSON encoding of a direct value reference.");
         }
         foreach (var child in value.Members.Select(m => m.Value).Concat(value.Items))
             foreach (var diagnostic in Value(child, location)) yield return diagnostic;
@@ -62,6 +62,7 @@ internal static class PlanningGeneratedGraph
         Literal => true,
         ConditionalExpression conditional => Simple(conditional.Test) && Simple(conditional.Consequent) && Simple(conditional.Alternate),
         Identifier { Name: "data" } => true,
+        CallExpression { Callee: Identifier { Name: "json" }, Arguments.Count: 1 } call when call.Arguments[0] is MemberExpression member => Simple(member),
         MemberExpression member => Simple(member.Object) && (member.Computed ? member.Property is StringLiteral or NumericLiteral : member.Property is Identifier),
         UnaryExpression { Operator: Acornima.Operator.LogicalNot } unary => Simple(unary.Argument),
         BinaryExpression binary when binary.Operator is Acornima.Operator.Equality or Acornima.Operator.Inequality or

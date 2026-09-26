@@ -22,6 +22,6 @@
     {
         "object" => "{ " + string.Join(", ", type.Fields.Select(f => f.Name + ": " + Describe(f.Type))) + " }",
         "array" => (type.Items is null ? "unknown" : Describe(type.Items)) + "[]",
-        _ => type.Kind
+        _ => type.Enum is null ? type.Kind : type.Kind + " enum " + System.Text.Json.JsonSerializer.Serialize(type.Enum.ToArray(), PlanningJsonContext.Default.StringArray)
     }) + (type.Nullable ? " or null" : "");
 }

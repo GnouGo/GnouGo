@@ -5,6 +5,9 @@ namespace GnOuGo.Flow.Planning;
 
 public sealed partial class TaskPlanCompiler
 {
+    private static bool ValidEnum(TaskType type) => type.Enum is null || type.Kind == "string" &&
+        type.Enum.Count is >= 1 and <= 256 && type.Enum.All(v => v is not null) && type.Enum.Distinct(StringComparer.Ordinal).Count() == type.Enum.Count;
+
     private static IEnumerable<PlanningDiagnostic> TransformTypeFindings(TaskType? type, string path, bool root = true)
     {
         if (type is null)
@@ -12,6 +15,7 @@ public sealed partial class TaskPlanCompiler
         if (root && type.Kind != "object") yield return new("TASK_TRANSFORM_TYPE", path + "/kind", "A transform returns an object of named business fields.");
         if (root && type.Nullable) yield return new("TASK_TRANSFORM_TYPE", path + "/nullable", "The transform's root result cannot be null.");
         if (root && type.Fields.Count == 0) yield return new("TASK_TRANSFORM_TYPE", path + "/fields", "Declare at least one named business field.");
+        if (!ValidEnum(type)) yield return new("TASK_TRANSFORM_TYPE", path + "/enum", "A string enum requires 1–256 distinct non-null strings; declare nullability separately.");
         if (type.Kind is not ("string" or "number" or "integer" or "boolean" or "array" or "object"))
             yield return new("TASK_TRANSFORM_TYPE", path + "/kind", "Transform results require fully specified types; opaque results are not supported.");
         if (type.Kind == "array")
@@ -60,14 +64,40 @@ public sealed partial class TaskPlanCompiler
     }
 
     private static PlanningValue Text(string text) => new() { Kind = "string", Text = text };
-    private static Dictionary<string, Bound> StructuredResult(string key, JsonObject schema)
+    private static Dictionary<string, Bound> StructuredResult(string key, JsonObject schema, string? typeLocation = null)
     {
         var results = Result(key, "llm.call", schema);
         foreach (var name in results.Keys.ToArray())
         {
             var bound = results[name]; bound.Value.ResultChannel = "structured";
-            results[name] = bound with { Expression = "data.steps[" + Quote(key) + "].json" + string.Concat(bound.Value.Path.Select(p => "[" + Quote(p) + "]")) };
+            results[name] = bound with { Expression = "data.steps[" + Quote(key) + "].json" + string.Concat(bound.Value.Path.Select(p => "[" + Quote(p) + "]")),
+                TypeLocation = typeLocation is null || name.Contains('/') ? null : name == "" ? typeLocation : typeLocation + "/fields/" + name + "/type" };
         }
         return results;
+    }
+
+    private Bound EncodeJson(TaskValue value, Scope scope)
+    {
+        if (value.Items.Count != 1) Fail("TASK_JSON_ARITY", "JSON encoding requires exactly one business value.");
+        if (!_catalog.AllowedStepTypes.Contains("set")) Fail("TASK_JSON_POLICY", "JSON encoding requires permitted deterministic value assembly.");
+        var source = Value(value.Items[0], scope);
+        var schema = new JsonObject { ["type"] = "string" };
+        if (scope.Target is null) return new(new() { Kind = "expression" }, schema, ""); // Preflight never emits executor nodes.
+        var key = Key(scope.Workflow.Key, "json:" + _location + ":" + source.Expression);
+        var assembled = Key(key, "source");
+        if (!scope.Target.Any(n => n.Key == key))
+        {
+            // Materialize once so the only generated call is json(<declared value
+            // reference>), never model-supplied code or runtime template evaluation.
+            var input = new PlanningNode { Key = assembled, Type = "set", Input = Object([new("value", source.Value)]),
+                OutputSchema = Contract(ObjectSchema([("value", source.Schema)])) };
+            var encoded = new PlanningNode { Key = key, Type = "set", Input = Object([new("value", new()
+                { Kind = "expression", Text = "json(data.steps[" + Quote(assembled) + "].value)" })]),
+                OutputSchema = Contract(ObjectSchema([("value", schema)])) };
+            if (scope.Cleanup) { GuardCleanup(input); GuardCleanup(encoded); }
+            scope.Target.Add(input); scope.Target.Add(encoded);
+            _sources[assembled] = _location; _sources[key] = _location;
+        }
+        return Output(key, "set", ["value"], schema);
     }
 }

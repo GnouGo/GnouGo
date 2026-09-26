@@ -221,7 +221,7 @@ public sealed partial class TaskPlanCompiler
                     foreach (var input in task.Inputs) Read(input.Value, scope, path + "/inputs/" + input.Name);
                     var typeFindings = TransformTypeFindings(task.ResultType, path + "/resultType").ToArray();
                     findings.AddRange(typeFindings);
-                    if (typeFindings.Length == 0) ports = StructuredResult(task.Id, TypeSchema(task.ResultType!));
+                    if (typeFindings.Length == 0) ports = StructuredResult(task.Id, TypeSchema(task.ResultType!), path + "/resultType");
                     else scope.Blocked.Add(("output", task.Id, "*"));
                     break;
                 case "operation":
@@ -242,7 +242,11 @@ public sealed partial class TaskPlanCompiler
                         {
                             if (capability.StepType == "agent.run" && port.Path[0] is "objective" or "workspace" or "capabilities" or "budget" or "verification" or "output_schema" && !Literal(input.Value))
                                 Fail("AGENT_SCOPE_DYNAMIC", "Agent scope fields must be literal before approval; choices and runtime references cannot change them.");
-                            if (value is not null) { Fits(value, port.Schema, "TASK_INPUT_TYPE"); Bind(mapped, port.Path, value.Value); }
+                            if (value is not null)
+                            {
+                                findings.AddRange(ConstraintFindings(value, port.Schema, location));
+                                Fits(value, port.Schema, "TASK_INPUT_TYPE"); Bind(mapped, port.Path, value.Value);
+                            }
                         });
                     }
                     foreach (var port in operation.Inputs.Where(p => p.Required && task.Inputs.All(i => i.Name != p.Name)))
@@ -278,7 +282,7 @@ public sealed partial class TaskPlanCompiler
                     var body = Child(task.Body, "body");
                     if (body is not null) ports = Exports(body);
                     declared.AddRange(task.Body?.Outputs.Select(o => o.Name) ?? []);
-                    if (task.Kind == "foreach") foreach (var name in ports.Keys.ToArray()) ports[name] = ports[name] with { Schema = new() { ["type"] = "array", ["items"] = ports[name].Schema.DeepClone() } };
+                    if (task.Kind == "foreach") foreach (var name in ports.Keys.ToArray()) ports[name] = ports[name] with { Schema = new() { ["type"] = "array", ["items"] = ports[name].Schema.DeepClone() }, TypeLocation = null };
                     break;
                 case "conditional":
                     if (task.Condition is null) findings.Add(new("TASK_VALUE_REQUIRED", path + "/condition", "A conditional requires a predicate."));
@@ -291,7 +295,7 @@ public sealed partial class TaskPlanCompiler
                     declared.AddRange(yesNames.Union(noNames));
                     if (yes is not null && no is not null)
                         foreach (var (name, value) in Exports(yes))
-                            if (Exports(no).TryGetValue(name, out var alternative)) ports[name] = value with { Schema = JsonNode.DeepEquals(value.Schema, alternative.Schema) ? value.Schema : new() { ["anyOf"] = new JsonArray(value.Schema.DeepClone(), alternative.Schema.DeepClone()) } };
+                            if (Exports(no).TryGetValue(name, out var alternative)) ports[name] = value with { Schema = JsonNode.DeepEquals(value.Schema, alternative.Schema) ? value.Schema : new() { ["anyOf"] = new JsonArray(value.Schema.DeepClone(), alternative.Schema.DeepClone()) }, TypeLocation = null };
                     break;
                 case "parallel":
                     Check(path + "/branches", () => { if (task.Branches.Count < 2) Fail("TASK_PARALLEL_INVALID", "Parallel tasks need at least two branches."); });
@@ -324,6 +328,28 @@ public sealed partial class TaskPlanCompiler
         if (PlanningGraphValidation.IsLiteral(value.Value)
             ? PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(value.Value), schema).Count > 0
             : !PlanningGraphValidation.TypesFit(value.Schema, schema, allowUnresolved: false))
-            Fail(code, "The business value does not satisfy its authoritative contract.");
+            Fail(code, "Produced " + Describe(value.Schema) + (value.TypeLocation is null ? "" : " from " + value.TypeLocation) +
+                "; expected " + Describe(schema) + ". The business value does not satisfy its authoritative contract.");
+    }
+
+    private static string Describe(JsonObject schema) => (schema["type"]?.ToJsonString() ?? "opaque") +
+        (schema["enum"] is { } values ? " enum " + values.ToJsonString() : "");
+
+    private static IEnumerable<PlanningDiagnostic> ConstraintFindings(Bound value, JsonObject expected, string consumer)
+    {
+        if (value.TypeLocation is null) yield break;
+        foreach (var finding in Inspect(value.Schema, expected, value.TypeLocation)) yield return finding;
+        IEnumerable<PlanningDiagnostic> Inspect(JsonObject actual, JsonObject target, string path)
+        {
+            if (actual["type"]?.ToString() == "string" && target["enum"] is JsonArray { Count: > 0 } domain &&
+                domain.All(v => v is JsonValue j && j.TryGetValue<string>(out _)) && !PlanningGraphValidation.TypesFit(actual, target))
+                yield return new("TASK_TRANSFORM_CONSTRAINT", path + "/enum", "Declare a compatible finite string domain for " + consumer + "; expected " + Describe(target) + ".");
+            if (actual["type"]?.ToString() == "object" && actual["properties"] is JsonObject fields && target["properties"] is JsonObject wanted)
+                foreach (var (name, child) in fields)
+                    if (!name.Contains('/') && child is JsonObject produced && wanted[name] is JsonObject required)
+                        foreach (var finding in Inspect(produced, required, path + "/fields/" + name + "/type")) yield return finding;
+            if (actual["type"]?.ToString() == "array" && actual["items"] is JsonObject items && target["items"] is JsonObject expectedItems)
+                foreach (var finding in Inspect(items, expectedItems, path + "/items")) yield return finding;
+        }
     }
 }

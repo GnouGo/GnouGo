@@ -12,6 +12,9 @@ internal static class PlanningSchemas
             .Concat(state.Discovery.Pages.Where(p => p.SourceId == source.Id).Select(p => p.NextCursor).OfType<string>())
             .Where(cursor => !state.Discovery.Pages.Any(p => p.SourceId == source.Id && p.Cursor == cursor))
             .Select(cursor => (Source: source.Id, Cursor: cursor))).Distinct().ToArray();
+        // A binding/type repair cannot select another operation. Receipts stay in
+        // host state, but new discovery cannot help this authorized repair.
+        if (TaskPlanRevisions.FixedOperations(state)) pages = [];
         var root = Object(
             ("discoveryRequests", pages.Length == 0 ? Type("null") : Nullable(Array(new JsonObject { ["anyOf"] = new JsonArray(pages.Select(p => (JsonNode?)Object(
                 ("sourceId", Enum(p.Source)), ("cursor", p.Cursor is null ? Type("null") : Enum(p.Cursor)))).ToArray()) }, 1, 4))),
@@ -29,6 +32,7 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
                 Object(("kind", Enum("object")), ("members", Array(Ref("output")))),
                 Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
+                Described(Object(("kind", Enum("json")), ("items", Array(Ref("value"), 1, 1))), "Deterministically encode the single business value as JSON text; no inference or string interpolation."),
                 Object(("kind", Enum("input")), ("source", String())),
                 Object(("kind", Enum("choice", "present")), ("source", Identity())),
                 Object(("kind", Enum("output")), ("source", Identity()), ("port", Nullable(String()))),
@@ -43,11 +47,13 @@ internal static class PlanningSchemas
             ["businessType"] = new JsonObject { ["anyOf"] = new JsonArray(
                 Object(("kind", Enum("array")), ("nullable", Type("boolean")), ("items", Ref("businessType"))),
                 Object(("kind", Enum("object")), ("nullable", Type("boolean")), ("fields", Array(Ref("field")))),
+                Object(("kind", Enum("string")), ("nullable", Type("boolean")), ("enum", Array(String(), 1, 256))),
                 Object(("kind", Enum("string", "number", "integer", "boolean", "any")), ("nullable", Type("boolean")))) },
             ["field"] = Object(("name", String()), ("type", Ref("businessType")), ("required", Type("boolean")), ("default", Nullable(Ref("literal")))),
             ["resultType"] = new JsonObject { ["anyOf"] = new JsonArray(
                 Object(("kind", Enum("array")), ("nullable", Type("boolean")), ("items", Ref("resultType"))),
                 Object(("kind", Enum("object")), ("nullable", Type("boolean")), ("fields", Array(Ref("resultField")))),
+                Object(("kind", Enum("string")), ("nullable", Type("boolean")), ("enum", Array(String(), 1, 256))),
                 Object(("kind", Enum("string", "number", "integer", "boolean")), ("nullable", Type("boolean")))) },
             ["resultField"] = Object(("name", Nonblank()), ("type", Ref("resultType"))),
             ["input"] = new JsonObject { ["anyOf"] = new JsonArray(

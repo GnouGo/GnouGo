@@ -6,6 +6,9 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Only diagnosed semantic slots are editable. Revalidation never grants edit permission.</summary>
 internal static class TaskPlanRevisions
 {
+    internal static bool FixedOperations(PlanningSession state) => state.Plan is not null && state.RevisionScope.Count > 0 &&
+        state.Diagnostics.Any(d => d.Required) && !state.RevisionScope.Any(p => p.EndsWith("/operation", StringComparison.Ordinal));
+
     internal static IEnumerable<PlanTask> Tasks(TaskScope scope) => scope.Tasks.Concat(scope.Always).SelectMany(t => new[] { t }.Concat(
         (t.Body is null ? [] : Tasks(t.Body)).Concat(t.Otherwise is null ? [] : Tasks(t.Otherwise)).Concat(t.Branches.SelectMany(Tasks))));
     internal static IEnumerable<PlanTask> Tasks(TaskPlan plan) => Tasks(plan.Root).Concat(plan.Groups.SelectMany(g => Tasks(g.Body)));
@@ -19,7 +22,7 @@ internal static class TaskPlanRevisions
         foreach (var finding in findings.Where(d => d.Required && d.Code != "REVISION_SCOPE_CHANGED"))
         {
             var path = finding.Location;
-            if (finding.Code == "TASK_TRANSFORM_TYPE" && resultSlots.Contains(path)) { scope.Add(path); continue; }
+            if (finding.Code is "TASK_TRANSFORM_TYPE" or "TASK_TRANSFORM_CONSTRAINT" && resultSlots.Contains(path)) { scope.Add(path); continue; }
             if (symbols.Values.ContainsKey(path) || inputs.Contains(path) || plan.Choices.Any(c => path == "/choices/" + c.Id)) scope.Add(path);
             else if (finding.Code == "TASK_EXPORT_REQUIRED" && symbols.Scopes.Any(s => s.Path + "/outputs" == path)) scope.Add(path);
             else if (finding.Code == "TASK_BRANCH_OUTPUTS" && symbols.Scopes.Any(s => s.Owner?.Kind == "conditional" && path.StartsWith(s.Path + "/outputs/", StringComparison.Ordinal))) scope.Add(path);
@@ -147,6 +150,7 @@ internal static class TaskPlanRevisions
         {
             if (type is null) { paths.Add(path); return; }
             paths.Add(path + "/kind"); paths.Add(path + "/nullable");
+            paths.Add(path + "/enum");
             Add(type.Items, path + "/items");
             // Adding fields is legal only when no existing declaration can be changed.
             if (type.Fields.Count == 0) paths.Add(path + "/fields");

@@ -1062,9 +1062,19 @@ public static class WorkflowPlanSemanticValidator
             var outputSchema = FlowTypeDescriptorConverter.ToRuntimeJsonSchema(outputType);
             knownContracts[step.Id] = outputSchema;
             symbols.SetStepOutput(step.Id, outputType);
-            // set enforces output_schema before downstream execution. A continuation
-            // may bypass that assertion, so it must itself satisfy the same contract.
-            if (step.Type == "set" && step.OutputSchema is { } checkedSchema && JsonSchemaContractValidator.ValidateSchema(checkedSchema, strictProfile: false).Count == 0 &&
+            // Only executor-enforced contracts establish a finite selector domain.
+            // llm.call validates its structured json before returning the envelope.
+            // A continuation must itself satisfy that contract; assistant claims,
+            // dynamic schemas and unvalidated output declarations are insufficient.
+            JsonNode? checkedSchema = step.Type == "set" ? step.OutputSchema : null;
+            if (step.Type == "llm.call" && step.Input?["structured_output"] is JsonObject structured)
+            {
+                var contract = JsonSchemaContractValidator.ValidateStructuredOutput(structured, allowDynamicSchemaReference: true);
+                if (!contract.IsDynamic && contract.Errors.Count == 0 && contract.Schema is { } resultSchema)
+                    checkedSchema = new JsonObject { ["type"] = "object", ["required"] = new JsonArray("json"),
+                        ["properties"] = new JsonObject { ["json"] = resultSchema.DeepClone() } };
+            }
+            if (checkedSchema is not null && JsonSchemaContractValidator.ValidateSchema(checkedSchema, strictProfile: false).Count == 0 &&
                 (step.OnError?.Cases.All(h => h.Action == "stop" || h.Action == "continue" &&
                     JsonSchemaContractValidator.ValidateInstance(h.SetOutput, checkedSchema).Count == 0) ?? true))
                 symbols.SetCheckedStepOutput(step.Id, FlowTypeDescriptorConverter.FromJsonSchema(checkedSchema));

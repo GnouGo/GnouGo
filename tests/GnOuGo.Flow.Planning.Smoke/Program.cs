@@ -49,3 +49,26 @@ if (!productResult.Success || !products.VerifyText() || products.Effects.Last() 
 var proposal = new PlanningProposal { DiscoveryRequests = [new("browser"), new("document")] };
 if (JsonSerializer.Deserialize(JsonSerializer.Serialize(proposal, PlanningJsonContext.Default.PlanningProposal), PlanningJsonContext.Default.PlanningProposal)!.DiscoveryRequests!.Count != 2) throw new InvalidOperationException("Discovery batch serialization failed");
 Console.WriteLine("typed transforms: passed; mocked inference; ordered products and cleanup verified");
+
+// Explicit finite domains and deterministic encoding use the existing runtime,
+// including source-generated serialization. No model or MCP client is supplied.
+var encodingPlan = new TaskPlan { Inputs = [new() { Name = "decision", Type = new() { Kind = "string", Enum = ["allow", "deny"] } }],
+    Root = new() { Outputs = [new("encoded", new() { Kind = "json", Items = [new() { Kind = "object", Members =
+        [new("decision", new() { Kind = "input", Source = "decision" })] }] })] } };
+encodingPlan = JsonSerializer.Deserialize(JsonSerializer.Serialize(encodingPlan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
+if (!encodingPlan.Inputs[0].Type.Enum!.SequenceEqual(new[] { "allow", "deny" })) throw new InvalidOperationException("Enum serialization failed");
+var encodingEngine = new WorkflowEngine();
+var encodingRuntime = new WorkflowPlanningRuntime(encodingEngine, (_, _) => Task.CompletedTask);
+var encodingCatalog = await encodingRuntime.DiscoverAsync(new(), CancellationToken.None);
+var encodingGraph = new TaskPlanCompiler().Compile(encodingPlan, encodingCatalog);
+if (encodingGraph.Graph is null || encodingGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Encoding compilation failed");
+var encodingYaml = new PlanningGraphCompiler().Compile(encodingGraph.Graph, encodingCatalog);
+if ((await encodingRuntime.ValidateAsync(new(encodingYaml, new(), encodingCatalog, []), CancellationToken.None)).Count != 0) throw new InvalidOperationException("Encoding validation failed");
+var encodingDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(encodingYaml));
+foreach (var selected in new[] { "allow", "deny" })
+{
+    var result = await encodingEngine.ExecuteAsync(encodingDocument.Workflows["main"], new JsonObject { ["decision"] = selected }, CancellationToken.None);
+    if (!result.Success || JsonNode.Parse(result.Outputs!["encoded"]!.GetValue<string>())!["decision"]!.GetValue<string>() != selected)
+        throw new InvalidOperationException("Encoding changed the business value");
+}
+Console.WriteLine("enum contracts and JSON encoding: passed; no inference");

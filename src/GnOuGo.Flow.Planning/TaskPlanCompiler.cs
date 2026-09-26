@@ -47,7 +47,7 @@ public sealed record TaskCompilation(PlanningGraph? Graph, IReadOnlyList<Plannin
 public sealed partial class TaskPlanCompiler
 {
     private sealed record Bound(PlanningValue Value, JsonObject Schema, string Expression,
-        Bound? SelectionSource = null, List<string>? SelectionPath = null);
+        Bound? SelectionSource = null, List<string>? SelectionPath = null, string? TypeLocation = null);
     private sealed class Scope(PlanningWorkflow workflow, Scope? parent)
     {
         public PlanningWorkflow Workflow { get; } = workflow;
@@ -88,10 +88,16 @@ public sealed partial class TaskPlanCompiler
 
     public static JsonObject TypeSchema(TaskType type)
     {
+        if (!ValidEnum(type)) throw new ArgumentException("A string enum requires 1–256 distinct non-null strings; declare nullability separately.");
         if (type.Kind is not ("string" or "number" or "integer" or "boolean" or "object" or "array" or "any"))
             throw new ArgumentException("Unknown business type.");
         if (type.Kind == "any") return new();
         var schema = new JsonObject { ["type"] = type.Nullable ? new JsonArray(type.Kind, "null") : JsonValue.Create(type.Kind) };
+        if (type.Enum is { } values)
+        {
+            schema["enum"] = new JsonArray(values.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray());
+            if (type.Nullable) schema["enum"]!.AsArray().Add((JsonNode?)null);
+        }
         if (type.Kind == "array") schema["items"] = TypeSchema(type.Items ?? throw new ArgumentException("Array items require a business type."));
         if (type.Kind == "object")
         {
@@ -416,7 +422,8 @@ public sealed partial class TaskPlanCompiler
                 var result = scope.Tasks[value.Source!][""];
                 return new(new() { Kind = "present", Source = result.Value.Source }, new() { ["type"] = "boolean" }, "data.steps[" + Quote(result.Value.Source!) + "] != null");
             case "predicate": return Predicate(value, scope);
-            default: Fail("TASK_VALUE_INVALID", "Values allow literals, business references and typed predicates only."); break;
+            case "json": return EncodeJson(value, scope);
+            default: Fail("TASK_VALUE_INVALID", "Values allow literals, business references, JSON encoding and typed predicates only."); break;
         }
         if (scope.Parent is null) Fail("TASK_REFERENCE_UNKNOWN", "Business reference '" + value.Source + "' is unavailable in this scope.");
         // Capture the authoritative container, not an unchecked optional field.
@@ -430,7 +437,7 @@ public sealed partial class TaskPlanCompiler
             var transfer = captured.SelectionSource ?? captured;
             scope.Workflow.Inputs.Add(new() { Name = name, Schema = Contract(transfer.Schema) });
             scope.Captures.Add(new(name, transfer.Value));
-            var input = Input(name, transfer.Schema);
+            var input = Input(name, transfer.Schema) with { TypeLocation = captured.TypeLocation };
             already = captured.SelectionSource is null ? input : captured with { SelectionSource = input };
             scope.Inputs[name] = already;
         }
