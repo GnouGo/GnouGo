@@ -12,10 +12,15 @@ internal static class PlanningSchemas
             .Concat(state.Discovery.Pages.Where(p => p.SourceId == source.Id).Select(p => p.NextCursor).OfType<string>())
             .Where(cursor => !state.Discovery.Pages.Any(p => p.SourceId == source.Id && p.Cursor == cursor))
             .Select(cursor => (Source: source.Id, Cursor: cursor))).Distinct().ToArray();
-        var root = Object(("requirements", Ref("requirements")),
+        var root = Object(
             ("discoveryRequests", pages.Length == 0 ? Type("null") : Nullable(Array(new JsonObject { ["anyOf"] = new JsonArray(pages.Select(p => (JsonNode?)Object(
                 ("sourceId", Enum(p.Source)), ("cursor", p.Cursor is null ? Type("null") : Enum(p.Cursor)))).ToArray()) }, 1, 4))),
-            ("plan", pages.Length == 0 ? Ref("plan") : Nullable(Ref("plan"))), ("explanation", String()));
+            ("plan", pages.Length == 0 ? Ref("plan") : Nullable(Ref("plan"))));
+        if (state.Requirements is null)
+        {
+            root["properties"]!["requirements"] = Ref("requirements");
+            root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("requirements"));
+        }
         root["$defs"] = new JsonObject
         {
             ["identities"] = Array(Identity()),
@@ -36,16 +41,15 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("object")), ("members", Array(Object(("name", String()), ("value", Ref("literal")))))),
                 Object(("kind", Enum("array")), ("items", Array(Ref("literal"))))) },
             ["businessType"] = new JsonObject { ["anyOf"] = new JsonArray(
-                Object(("kind", Enum("array")), ("nullable", Type("boolean")), ("items", Ref("businessType")), ("fields", Array(Ref("field")))),
-                Object(("kind", Enum("string", "number", "integer", "boolean", "object", "any")),
-                    ("nullable", Type("boolean")), ("items", Nullable(Ref("businessType"))), ("fields", Array(Ref("field"))))) },
+                Object(("kind", Enum("array")), ("nullable", Type("boolean")), ("items", Ref("businessType"))),
+                Object(("kind", Enum("object")), ("nullable", Type("boolean")), ("fields", Array(Ref("field")))),
+                Object(("kind", Enum("string", "number", "integer", "boolean", "any")), ("nullable", Type("boolean")))) },
             ["field"] = Object(("name", String()), ("type", Ref("businessType")), ("required", Type("boolean")), ("default", Nullable(Ref("literal")))),
             ["resultType"] = new JsonObject { ["anyOf"] = new JsonArray(
-                Object(("kind", Enum("array")), ("nullable", Type("boolean")), ("items", Ref("resultType")), ("fields", Array(Ref("resultField"), 0, 0))),
-                Object(("kind", Enum("object")), ("nullable", Type("boolean")), ("items", Type("null")), ("fields", Array(Ref("resultField")))),
-                Object(("kind", Enum("string", "number", "integer", "boolean")), ("nullable", Type("boolean")), ("items", Type("null")), ("fields", Array(Ref("resultField"), 0, 0)))) },
-            ["resultField"] = Object(("name", Nonblank()), ("type", Ref("resultType")),
-                ("required", new() { ["type"] = "boolean", ["enum"] = new JsonArray(true) }), ("default", Type("null"))),
+                Object(("kind", Enum("array")), ("nullable", Type("boolean")), ("items", Ref("resultType"))),
+                Object(("kind", Enum("object")), ("nullable", Type("boolean")), ("fields", Array(Ref("resultField")))),
+                Object(("kind", Enum("string", "number", "integer", "boolean")), ("nullable", Type("boolean")))) },
+            ["resultField"] = Object(("name", Nonblank()), ("type", Ref("resultType"))),
             ["input"] = new JsonObject { ["anyOf"] = new JsonArray(
                 Object(("name", String()), ("type", Ref("businessType")), ("required", new() { ["type"] = "boolean", ["enum"] = new JsonArray(true) }), ("default", Nullable(Ref("literal")))),
                 Object(("name", String()), ("type", Ref("businessType")), ("required", new() { ["type"] = "boolean", ["enum"] = new JsonArray(false) }), ("default", Ref("literal")))) },
@@ -56,9 +60,10 @@ internal static class PlanningSchemas
             ["group"] = Object(("id", Identity()), ("inputs", Array(Ref("input"))), ("body", Ref("scope"))),
             ["choice"] = Object(("id", Identity()), ("question", Nonblank()), ("type", Ref("businessType")),
                 ("alternatives", Array(Object(("id", Nonblank()), ("description", String()), ("value", Ref("literal"))), 2)),
-                ("recommended", String()), ("selected", Type("null"))),
+                ("recommended", String())),
             ["task"] = Tasks()
         };
+        if (state.Requirements is not null) root["$defs"]!.AsObject().Remove("requirements");
         return root;
     }
     private static JsonObject Tasks()
@@ -69,8 +74,7 @@ internal static class PlanningSchemas
             Task("operation", ("operation", String()), ("inputs", Array(Ref("output")))),
             Described(Task("value", ("outputs", Array(Ref("output")))), "Copies or assembles supplied values; its objective does not execute a computation."),
             Described(Task("transform", ("inputs", NonEmptyArray(Ref("output"))),
-                ("resultType", Object(("kind", Enum("object")), ("nullable", new() { ["type"] = "boolean", ["enum"] = new JsonArray(false) }),
-                    ("items", Type("null")), ("fields", NonEmptyArray(Ref("resultField")))))),
+                ("resultType", Object(("kind", Enum("object")), ("fields", NonEmptyArray(Ref("resultField")))))),
                 "Interprets bound business data using the objective as instruction. Declare required typed result fields; use nullable fields for missing values. No defaults or opaque result types."),
             Task("sequence", ("body", Ref("scope"))),
             Task("conditional", ("condition", Ref("value")), ("body", Ref("scope")), ("otherwise", Ref("scope"))),

@@ -138,7 +138,7 @@
     private Task? _polling;
     private string _name = "", _prompt = "", _revision = "", _reasoning = "medium";
     private string _mode = PlanningMode.Interactive;
-    private int _inputLimit = 12_000, _outputLimit = 8_192;
+    private int _inputLimit, _outputLimit;
     private string? _error;
     private bool _busy, _reviseExisting, _loading, _tracesOpen, _traceWorkflow;
     private string? _traceSessionId;

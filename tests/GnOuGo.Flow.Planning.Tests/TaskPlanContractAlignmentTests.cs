@@ -94,7 +94,7 @@ public sealed class TaskPlanContractAlignmentTests
         var choice = Choice();
         choice["alternatives"]![0]!["value"] = JsonNode.Parse("""{"kind":"object","members":[{"name":"nested","value":{"kind":"array","items":[{"kind":"null"},{"kind":"number","number":1},{"kind":"boolean","boolean":true}]}}]}""");
         Assert.Empty(Errors(choice, "choice"));
-        var type = JsonNode.Parse("""{"kind":"object","nullable":false,"items":null,"fields":[{"name":"optional","type":{"kind":"string","nullable":false,"items":null,"fields":[]},"required":false,"default":null}]}""")!;
+        var type = JsonNode.Parse("""{"kind":"object","nullable":false,"fields":[{"name":"optional","type":{"kind":"string","nullable":false},"required":false,"default":null}]}""")!;
         Assert.Empty(Errors(type, "businessType"));
     }
 
@@ -119,7 +119,7 @@ public sealed class TaskPlanContractAlignmentTests
             if (fault == "choice_count") value["alternatives"]!.AsArray().RemoveAt(1); else value["question"] = " \n\t";
         }
         else if (fault == "array_type")
-        { definition = "businessType"; value = JsonNode.Parse("""{"kind":"array","nullable":false,"items":null,"fields":[]}""")!; }
+        { definition = "businessType"; value = JsonNode.Parse("""{"kind":"array","nullable":false}""")!; }
         else if (fault is "not_arity" or "binary_arity")
         {
             definition = "value";
@@ -296,7 +296,7 @@ public sealed class TaskPlanContractAlignmentTests
         Assert.Contains(state.Diagnostics, d => d.Code == "TASK_IDENTITY_INVALID");
     }
 
-    private static JsonNode Choice() => JsonNode.Parse("""{"id":"decision","question":"Choose a value","type":{"kind":"any","nullable":false,"items":null,"fields":[]},"alternatives":[{"id":"one","description":"First","value":{"kind":"string","text":"one"}},{"id":"two","description":"Second","value":{"kind":"null"}}],"recommended":"one","selected":null}""")!;
+    private static JsonNode Choice() => JsonNode.Parse("""{"id":"decision","question":"Choose a value","type":{"kind":"any","nullable":false},"alternatives":[{"id":"one","description":"First","value":{"kind":"string","text":"one"}},{"id":"two","description":"Second","value":{"kind":"null"}}],"recommended":"one"}""")!;
     private static bool WireIdentityMatches(string id)
     {
         var pattern = PlanningSchemas.Proposal(PlannerFixture.Session())["$defs"]!["identities"]!["items"]!["pattern"]!.GetValue<string>();

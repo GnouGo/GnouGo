@@ -13,13 +13,14 @@ public sealed class PlanningSessionLifecycleTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     [Theory]
-    [InlineData(null, 24_000)]
-    [InlineData(12_000, 12_000)]
-    public async Task DesignerDefaultAndOverrideApplyOnlyToNewSessions(int? configured, int expected)
+    [InlineData(null, null, 24_000, 32_768)]
+    [InlineData(12_000, 8192, 12_000, 8192)]
+    public async Task DesignerDefaultAndOverrideApplyOnlyToNewSessions(int? configured, int? configuredOutput, int expected, int expectedOutput)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var settings = new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false };
         if (configured is { } limit) settings.MaxInputTokensPerRequest = limit;
+        if (configuredOutput is { } output) settings.MaxOutputTokens = output;
         using var service = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog(), settings: settings);
         var saved = new PlanningSession { Request = new() { TenantId = "planning-tests", Prompt = "Saved intent" },
             Status = PlanningStatus.Stopped, Revision = 5, ModelCalls = 2,
@@ -29,7 +30,7 @@ public sealed class PlanningSessionLifecycleTests
         Assert.True(await fixture.Store.TrySaveAsync(saved, null, Ct));
         var created = await service.StartAsync("new-budget", "Return a greeting", false, Ct);
         Assert.Equal(expected, created.Request.Generation.MaxInputTokensPerRequest);
-        Assert.Equal(8192, created.Request.Generation.MaxOutputTokens);
+        Assert.Equal(expectedOutput, created.Request.Generation.MaxOutputTokens);
         Assert.Equal("medium", created.Request.Generation.Reasoning);
         Assert.Equal(8, created.Request.MaxModelCalls); Assert.Equal(2, created.Request.MaxReplanAttempts);
         Assert.Equal(12_000, new PlanningGenerationOptions().MaxInputTokensPerRequest);
@@ -37,6 +38,7 @@ public sealed class PlanningSessionLifecycleTests
         using var reopened = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog(), settings: settings);
         var restored = (await reopened.GetAsync(saved.Request.SessionId, Ct))!;
         Assert.Equal(12_000, restored.Request.Generation.MaxInputTokensPerRequest);
+        Assert.Equal(8192, restored.Request.Generation.MaxOutputTokens);
         Assert.Equal(saved.Revision, restored.Revision); Assert.Equal(PlanningStatus.Stopped, restored.Status);
         var continued = await reopened.SubmitAsync(restored.Request.SessionId, new()
         {

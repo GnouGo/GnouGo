@@ -146,7 +146,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         var proposal = JsonSerializer.Deserialize(response, PlanningJsonContext.Default.PlanningProposal)!;
         ValidateRequirements(state, proposal);
         if ((proposal.DiscoveryRequests is null) == (proposal.Plan is null)) Reject("PROPOSAL_ACTION_INVALID", "/", "Return one discovery batch or a complete TaskPlan.");
-        state.Requirements = proposal.Requirements;
+        state.Requirements ??= proposal.Requirements;
         if (proposal.DiscoveryRequests is { } requests)
         {
             if (requests.Count is < 1 or > 4 || requests.Distinct().Count() != requests.Count)
@@ -287,22 +287,25 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
     private static void ValidateRequirements(PlanningSession state, PlanningProposal proposal)
     {
         var requirements = proposal.Requirements;
-        if (string.IsNullOrWhiteSpace(requirements.Summary) || requirements.Outcomes.Count == 0 ||
+        if (requirements is null && state.Requirements is not null) return;
+        if (requirements is null || string.IsNullOrWhiteSpace(requirements.Summary) || requirements.Outcomes.Count == 0 ||
             requirements.Outcomes.Any(o => string.IsNullOrWhiteSpace(o.Id) || string.IsNullOrWhiteSpace(o.Description)) ||
             requirements.Outcomes.Select(o => o.Id).Distinct().Count() != requirements.Outcomes.Count)
             Reject("REQUIREMENTS_INVALID", "/requirements", "Declare distinct concrete business outcomes.");
-        if (state.Requirements is { } accepted && !accepted.Outcomes.Select(o => (o.Id, o.Description)).Order()
-                .SequenceEqual(requirements.Outcomes.Select(o => (o.Id, o.Description)).Order()))
-            Reject("REQUIREMENTS_CHANGED", "/requirements", "Preserve accepted outcomes. Only an explicit user revision may change their scope.");
+        if (state.Requirements is { } accepted && (accepted.Summary != requirements!.Summary || !accepted.Outcomes.Select(o => (o.Id, o.Description)).Order()
+                .SequenceEqual(requirements.Outcomes.Select(o => (o.Id, o.Description)).Order())))
+            Reject("REQUIREMENTS_CHANGED", "/requirements", "Preserve accepted requirements. Only an explicit user revision may change their scope.");
     }
 
     private static string Prompt(PlanningSession state) => """
-        Plan business tasks that satisfy every requested outcome. Preserve accepted outcome IDs and descriptions.
+        Return the smallest sufficient TaskPlan satisfying every requested outcome, with concise objectives. Accepted requirements are host-owned; do not repeat them.
         Return one next action: browse one to four issued source pages, or propose a complete TaskPlan using declared operations.
         Select relevant sources progressively. Cached pages remain available; an incomplete search does not prove an operation is absent.
         Batch up to four relevant uncached source pages when their relevance is already clear from the request and source summaries.
         Connect named business inputs and outputs. A null output port means the whole business result; opaque results have no typed fields.
-        Runtime inputs must feed the operations that need them. A value task only copies or assembles values; use a typed transform to interpret supplied data or convert its representation.
+        Runtime inputs must feed operations directly when their contracts permit. A value task only copies or assembles values; use transform only for semantic interpretation or representation conversion, never simple wiring.
+        Prefer data shapes directly consumable downstream, including scalar iteration items when records are unnecessary. Preserve required scope exports, cleanup and safety conditions.
+        Include only necessary inputs and outputs. Do not add optional user inputs, policy-query tasks or redundant transforms unless the request or an unresolved contract requires them; runtime policy enforcement remains mandatory.
         Execution is sequential unless a parallel scope or parallel iteration is explicit. Both conditional alternatives declare matching outputs.
         Use always scopes for cleanup, reusable groups for repeated work, and finite iteration ceilings.
         Scope-changing agent fields must be literals. Business choices supply typed literal alternatives and a recommendation; the host selects them.

@@ -37,7 +37,8 @@ public sealed record PlanningRequirement(string Id, string Description);
 /// <summary>A bounded discovery request or complete semantic task proposal; the host validates exclusivity.</summary>
 public sealed class PlanningProposal
 {
-    public PlanningRequirements Requirements { get; set; } = new();
+    /// <summary>Issued once; omitted after the host accepts the requirements.</summary>
+    public PlanningRequirements? Requirements { get; set; }
     public List<PlanningDiscoveryRequest>? DiscoveryRequests { get; set; }
     public TaskPlan? Plan { get; set; }
     public string Explanation { get; set; } = "";
