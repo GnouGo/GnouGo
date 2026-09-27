@@ -19,7 +19,7 @@ public sealed class RecordedCloneExecutionTests
 {
     [Theory]
     [InlineData("lifecycle_success")]
-    [InlineData("retained_progress_contract_failure")]
+    [InlineData("full_review_success")]
     [InlineData("partial")]
     [InlineData("cancelled")]
     [InlineData("absent")]
@@ -38,13 +38,13 @@ public sealed class RecordedCloneExecutionTests
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
         var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject
         { ["pullRequestUrl"] = "https://example.test/example/project/pull/17", ["reviewInstructions"] = "Inspect the local test fixture." }, execution.Cancellation.Token);
-        Assert.True(result.Success == (mode == "lifecycle_success"), JsonSerializer.Serialize(result, RealProductContracts.Json));
+        Assert.True(result.Success == (mode is "lifecycle_success" or "full_review_success"), JsonSerializer.Serialize(result, RealProductContracts.Json));
         Assert.Equal(mode == "human_refused" ? 0 : 1, execution.CleanupCalls);
         Assert.Equal(mode is "human_refused" or "absent" ? 0 : 1, execution.CloneCalls);
         Assert.False(Directory.Exists(execution.Target));
         Assert.Equal("unrelated", File.ReadAllText(Path.Combine(execution.Root, "unrelated", "keep.txt")));
         Assert.Equal("fixture\n", File.ReadAllText(Path.Combine(execution.Source, "README.md")));
-        Assert.Equal(mode == "human_refused" ? 0 : mode == "absent" ? 1 : 2, execution.Calls);
+        Assert.Equal(mode == "human_refused" ? 0 : mode == "absent" ? 1 : mode == "full_review_success" ? 3 : 2, execution.Calls);
         var expectedFailure = mode switch
         {
             "partial" => "Injected interruption after partial creation",
@@ -57,17 +57,17 @@ public sealed class RecordedCloneExecutionTests
         };
         if (expectedFailure is not null)
             Assert.Contains(expectedFailure, JsonSerializer.Serialize(result, RealProductContracts.Json), StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(0, execution.MockSubmissions);
+        Assert.Equal(mode == "full_review_success" ? 1 : 0, execution.MockSubmissions);
         if (mode == "lifecycle_success")
         {
             Assert.Equal(Execution.Location, result.Outputs!["repositoryPath"]!.ToString());
             Assert.Equal(3, execution.RepositoryConsumers);
         }
-        if (mode == "retained_progress_contract_failure")
+        if (mode == "full_review_success")
         {
-            // Known independent runtime defect: MCP telemetry strips a schema-required response field.
-            // Preserve the full recorded workflow and exact failure instead of relaxing its contracts.
-            Assert.Contains("$.value.checks.progressEvents: missing required property", JsonSerializer.Serialize(result, RealProductContracts.Json));
+            // The formerly failing full replay must now complete; historical logs/fixtures remain intact.
+            Assert.Equal("APPROVE", result.Outputs!["reviewDecision"]!.ToString());
+            Assert.Equal("Scripted test decision, not verified real review success", result.Outputs["reviewBody"]!.ToString());
             Assert.Equal(3, execution.RepositoryConsumers);
         }
     }
@@ -175,7 +175,17 @@ public sealed class RecordedCloneExecutionTests
                     return JsonNode.Parse("""{"handle":"fixture","copilotSessionId":"mock","content":"Mocked checks","model":"mock","progressEvents":[],"completed":true,"modifiedFiles":[],"toolExecutions":[]}""")!.AsObject();
                 case "copilot_review": return new() { ["baseSha"] = sha, ["headSha"] = sha, ["findings"] = new JsonArray(), ["rejectedFindings"] = new JsonArray(),
                     ["summary"] = "Mocked review", ["complete"] = true, ["blockingFindingCount"] = 0, ["coverage"] = JsonNode.Parse("""{"totalFiles":0,"reviewedFiles":0,"skippedFiles":0,"truncatedFiles":0,"skippedPaths":[],"truncatedPaths":[]}""") };
-                case "pull_request_review_write": if (input["method"]!.ToString() == "submit_pending") MockSubmissions++; return new() { ["id"] = 17 };
+                case "pull_request_review_write":
+                    Assert.Equal("example", input["owner"]!.ToString());
+                    Assert.Equal("project", input["repo"]!.ToString());
+                    Assert.Equal(17, input["pullNumber"]!.GetValue<int>());
+                    if (input["method"]!.ToString() == "submit_pending")
+                    {
+                        Assert.Equal("APPROVE", input["event"]!.ToString());
+                        Assert.Equal("Scripted test decision, not verified real review success", input["body"]!.ToString());
+                        MockSubmissions++;
+                    }
+                    return new() { ["id"] = 17 };
                 default: throw new InvalidOperationException("Unexpected operation: " + method);
             }
         }
