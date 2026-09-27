@@ -11,7 +11,9 @@ result. Invalid fallbacks stop downstream execution with
 `STRUCTURED_FALLBACK_INVALID`; workflow finalization still runs.
 
 The semantic validator recognizes finite selector domains from direct references
-to validated structured `llm.call` results, as it does for checked `set` outputs.
+to validated structured `llm.call` results and checked `set`, `value.project`,
+`value.validate` and `array.project` outputs. A consumed selector must be a required,
+non-null string enum whose values are a subset of the consumer contract.
 Dynamic schemas, optional/nullable selectors and incompatible continuation outputs
 cannot establish that proof. TaskPlan string enums and deterministic JSON encoding
 are described in the separately published [planner package](../GnOuGo.Flow.Planning/README.md).
@@ -660,11 +662,13 @@ Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best to
 
 Resolved request properties whose discovered input schema marks them optional are omitted when their value is JSON `null`. This lets one typed request represent optional scalar fields without sending schema-invalid nulls. A null value for a required property is never omitted and still fails before transport.
 
-Documented action selectors (`method`, `action`, `operation`, `command`, `mode`, `event`, `kind`, JSON Schema `const`, and explicit discriminators) must resolve to documented scalars. Validation accepts literals, proven finite expressions, and direct required enum references from runtime-checked `set` outputs. Optional, nullable, opaque, conditional, or unchecked fallback values cannot prove a selector. Generated expressions cannot hide or replace the logical MCP operation selected during planning.
+Documented action selectors (`method`, `action`, `operation`, `command`, `mode`, `event`, `kind`, JSON Schema `const`, and explicit discriminators) must resolve to documented scalars. Validation accepts literals, proven finite expressions, and direct required enum references from runtime-checked `set`, `llm.call`, `value.project`, `value.validate` and `array.project` outputs. Array indexing itself does not prove item presence; select and check the scalar before consuming it. Optional, nullable, opaque, conditional, or unchecked fallback values cannot prove a selector. Generated expressions cannot hide or replace the logical MCP operation selected during planning.
 
 #### MCP progress events → thinking telemetry
 
 For stdio MCP servers, `mcp.call` also listens to structured JSONL progress messages written on stderr while the tool is still running. Matching events are forwarded immediately as `gnougo-flow.step.thinking` telemetry events. As a fallback/history mechanism, when the final tool result contains a `progressEvents` array (also accepted: `progress_events`, `progress`, or `events`), `mcp.call` forwards each item the same way. Agent Server can stream these as `thinking:<level>` UI events.
+
+`mcp.call.response` retains a deep copy of the complete producer content, including progress arrays and ordinary business fields named `events`. Telemetry extraction never deletes or synthesizes payload fields. Real-time/final progress deduplication affects telemetry only; error classification and response envelopes are unchanged.
 
 `progressEvents` is the stable GnOuGo-facing contract. MCP servers may map provider-specific or SDK-specific events into this schema, but `GnOuGo.Flow.Core` does not depend on those native event types.
 

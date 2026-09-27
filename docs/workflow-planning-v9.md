@@ -83,7 +83,7 @@ mode-aware graph/runtime contract; unresolved modes remain conservative.
 String types may explicitly declare an `enum` of 1–256 distinct strings. The compiler
 preserves that domain in strict structured outputs and business interfaces; nullability
 is separate. The final YAML validator accepts direct references to runtime-checked
-structured enum results, never unchecked results or unsafe fallback envelopes.
+structured enum results, including fields checked by `value.project`, `value.validate` and `array.project`, never unchecked results or unsafe fallback envelopes. Selector values must be required, non-null and a subset of the consumer enum. MCP telemetry preserves complete response content; progress arrays remain available to downstream contract validation. See [checked-output regression evidence](checked-output-contracts.md).
 `{ "kind": "field", "items": [{ "kind": "item" }], "port": "message" }` explicitly selects one declared business field. Its single source may be a typed input, output or loop item; nested selections compose. Field names are literal names, not executor paths. The compiler uses the existing checked `value.project` only where consumed, preserving branch/loop/cleanup availability. Missing fields fail and nullable fields stay nullable. There is no cast, default, inferred field mapping or inference call; opaque objects remain inaccessible. Producer type locations survive iteration and field selection, allowing exact nested enum repairs without opening unrelated tasks. This is an additive format-10 value, not a new planning representation or phase.
 
 `{ "kind": "json", "items": [<business value>] }` serializes one value using existing

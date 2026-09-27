@@ -29,6 +29,7 @@ description: Develop or review GnOuGo TaskPlan planning, deterministic compilati
 - Task, group and choice declarations share one case-sensitive namespace across the entire TaskPlan. IDs and their references contain only nonempty ASCII letters, digits, underscores or hyphens and must not start with `__`. Alternative IDs remain local to their choice; business ports and catalog operation IDs are not part of this namespace. Never normalize or rename invalid declarations automatically.
 - Keep the model JSON schema aligned with existing semantic rules, including recursive literal choice alternatives, predicate arity and bounded iteration/concurrency. Retain deterministic semantic checks for recovered and programmatically constructed plans.
 - The compiler owns stable generated IDs, executor envelopes, projections, declared branch merges, bounded collection mechanics and cleanup guards. Apply only declared literal defaults; never invent exports, fallback values or requiredness.
+- Runtime-enforced projection/validation contracts preserve required non-null finite enums for selector validation; retain subset, availability and safe-continuation checks. MCP telemetry must preserve complete producer payloads, including schema-required progress fields.
 - Retain shared graph/runtime validators. Invalid executor plumbing after successful semantic validation is a compiler defect; do not ask the model to repair it.
 
 ## Scoped repair and safety
