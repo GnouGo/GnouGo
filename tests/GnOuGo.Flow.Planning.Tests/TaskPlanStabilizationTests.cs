@@ -101,15 +101,15 @@ public sealed class TaskPlanStabilizationTests
     {
         var schema = PlanningSchemas.Proposal(PlannerFixture.Session());
         var inputSchema = PlanningSchemas.Ref("input"); inputSchema["$defs"] = schema["$defs"]!.DeepClone();
-        var input = JsonNode.Parse("""{"name":"value","type":{"kind":"string","nullable":false},"required":false,"default":null}""")!;
+        var input = JsonNode.Parse("""{"name":"value","type":{"kind":"string"},"required":false,"default":null}""")!;
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(input, inputSchema));
         input["default"] = new JsonObject { ["kind"] = "string", ["text"] = "fallback" };
         Assert.Empty(PlanningContractValidation.ValidateInstance(input, inputSchema));
         input["default"] = new JsonObject { ["kind"] = "input", ["source"] = "another" };
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(input, inputSchema));
         var typeSchema = PlanningSchemas.Ref("businessType"); typeSchema["$defs"] = schema["$defs"]!.DeepClone();
-        input["default"] = null;
-        var businessType = new JsonObject { ["kind"] = "object", ["nullable"] = false, ["fields"] = new JsonArray(input.DeepClone()) };
+        input.AsObject().Remove("default");
+        var businessType = new JsonObject { ["kind"] = "object", ["fields"] = new JsonArray(input.DeepClone()) };
         Assert.Empty(PlanningContractValidation.ValidateInstance(businessType, typeSchema));
     }
 

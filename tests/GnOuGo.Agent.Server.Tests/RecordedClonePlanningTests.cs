@@ -5,6 +5,7 @@ using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 using GnOuGo.Flow.Integrations;
 using GnOuGo.AI.Core;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -121,14 +122,16 @@ public sealed class RecordedClonePlanningTests
         public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
         {
             RequestIds.Add(request.ClientRequestId!);
-            if (Calls++ >= 3) return Task.FromResult(new LLMResponse { Json = NextResponse ?? throw new InvalidOperationException("No further response or inference authorized.") });
+            if (Calls++ >= 3) return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(
+                NextResponse ?? throw new InvalidOperationException("No further response or inference authorized."), request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) });
             var entry = Recording["responses"]![Calls - 1]!;
             if (current is null)
             {
                 Assert.Equal(entry["id"]!.ToString(), request.ClientRequestId);
                 Assert.True(JsonNode.DeepEquals(entry["schema"], request.StructuredOutputSchema));
             }
-            return Task.FromResult(corrected && Calls == 3 ? new() { Json = Read(correctedFixture)["proposal"]!.DeepClone() } : entry["response"]!.Deserialize(PlanningJsonContext.Default.LLMResponse)!);
+            return Task.FromResult(corrected && Calls == 3 ? new() { Json = PlanningCorpus.Transport(Read(correctedFixture)["proposal"],
+                request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) } : entry["response"]!.Deserialize(PlanningJsonContext.Default.LLMResponse)!);
         }
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => actual.ValidateAsync(request, ct);
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => throw new InvalidOperationException("No execution approval in this replay.");
@@ -140,8 +143,9 @@ public sealed class RecordedClonePlanningTests
             state.Request.Generation = responses[2]!["generation"]!.Deserialize(PlanningJsonContext.Default.PlanningGenerationOptions)!;
             for (var i = 0; i < 3; i++)
             {
-                // Replay discovery under its issued schema; only the corrected TaskPlan is new.
-                if (current is null || i < 2)
+                // Every historical response keeps its issued schema, even when testing a changed producer contract.
+                // Only separately labelled synthetic corrections use the newly issued representation.
+                if (!corrected || i < 2)
                 {
                     var entry = responses[i]!; state.ModelCalls++;
                     state.PendingCall = new() { Id = entry["id"]!.ToString(), Purpose = entry["purpose"]!.ToString(),

@@ -346,7 +346,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
     }
 
     internal static string BuildPrompt(PlanningSession state, IReadOnlyList<CapabilitySummary> optional) => """
-        Return the smallest sufficient TaskPlan satisfying every requested outcome, with concise objectives. Accepted requirements are host-owned; do not repeat them.
+        Return the smallest sufficient TaskPlan satisfying every requested outcome. Use concise business objectives without restating contracts; preserve executable transform instructions. Accepted requirements are host-owned; do not repeat them.
         Return one next action: browse one to four issued source pages, or propose a complete TaskPlan using declared operations.
         Select relevant sources progressively. The compact index is ranked metadata, not a contract. Only detailed operations have resolved contracts. An incomplete search never proves absence; request a continuation or refine query text through discovery when needed. Use query null for the request-derived ranking or an issued continuation.
         Batch up to four relevant uncached source pages when their relevance is already clear from the request and source summaries.

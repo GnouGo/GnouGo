@@ -50,6 +50,12 @@ internal static class PlanningJsonTransport
                 fields = kind switch { "array" => ["kind", "nullable", "items"], "object" => ["kind", "nullable", "fields"],
                     "string" => ["kind", "nullable", "enum"], "number" or "integer" or "boolean" or "any" => ["kind", "nullable"], _ => null };
                 defaults = JsonSerializer.SerializeToNode(new TaskType(), PlanningJsonContext.Default.TaskType)!.AsObject();
+                if (JsonNode.DeepEquals(obj["nullable"], defaults["nullable"])) obj.Remove("nullable");
+            }
+            else if (obj.ContainsKey("name") && obj["type"] is JsonObject)
+            {
+                if (obj["required"] is JsonValue flag && flag.TryGetValue<bool>(out var required) && required) obj.Remove("required");
+                if (obj["default"] is null) obj.Remove("default");
             }
             if (fields is not null && defaults is not null)
                 foreach (var (key, value) in obj.ToArray())

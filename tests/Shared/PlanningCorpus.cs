@@ -99,10 +99,21 @@ public static class PlanningCorpus
     private static bool Matches(JsonNode? value, JsonObject schema, JsonObject root)
     {
         if (schema["$ref"] is { } reference) return Matches(value, root["$defs"]![reference.ToString().Split('/')[^1]]!.AsObject(), root);
+        if (schema["anyOf"] is JsonArray alternatives) return alternatives.OfType<JsonObject>().Any(s => Matches(value, s, root));
         if (schema["type"]?.ToString() == "null") return value is null;
         if (value is null) return false;
-        if (schema["properties"]?["nullable"] is not null && schema["properties"]?["kind"]?["enum"] is JsonArray typeKinds &&
+        var properties = schema["properties"] as JsonObject;
+        if (value is JsonObject obj && obj.ContainsKey("nullable") && properties?["kind"] is not null &&
+            (properties.ContainsKey("nullable") ? !Matches(obj["nullable"], properties["nullable"]!.AsObject(), root) : obj["nullable"]?.ToString() == "true")) return false;
+        if (properties?["text"] is null && properties?["kind"]?["enum"] is JsonArray typeKinds &&
             typeKinds.Any(k => k?.ToString() == "string") && (schema["properties"]?["enum"] is not null) != (value["enum"] is not null)) return false;
+        if (properties?["name"] is not null && properties["type"] is not null)
+        {
+            if (!properties.ContainsKey("required") && value["required"]?.ToString() == "false") return false;
+            if (!properties.ContainsKey("default") && value["default"] is not null) return false;
+        }
+        if (schema["enum"] is JsonArray allowed) return allowed.Any(v => JsonNode.DeepEquals(value, v));
+        if (properties is not null && properties.Any(p => p.Value?["enum"] is JsonArray && !Matches(value[p.Key], p.Value.AsObject(), root))) return false;
         if (schema["properties"]?["schemaPointer"] is not null) return value["capabilityId"] is not null;
         if (schema["properties"]?["kind"]?["enum"] is JsonArray kinds) return kinds.Any(k => k?.ToString() == value["kind"]?.ToString());
         if (schema["properties"]?["type"]?["enum"] is JsonArray types) return types.Any(t => t?.ToString() == value["type"]?.ToString());

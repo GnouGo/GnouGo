@@ -50,6 +50,8 @@ var proposal = new PlanningProposal { DiscoveryRequests = [new("browser", Query:
 if (JsonSerializer.Deserialize(JsonSerializer.Serialize(proposal, PlanningJsonContext.Default.PlanningProposal), PlanningJsonContext.Default.PlanningProposal)!.DiscoveryRequests!.Count != 2) throw new InvalidOperationException("Discovery batch serialization failed");
 if (JsonSerializer.Deserialize(JsonSerializer.Serialize(proposal, PlanningJsonContext.Default.PlanningProposal), PlanningJsonContext.Default.PlanningProposal)!.DiscoveryRequests![0].Query != "inspect pages") throw new InvalidOperationException("Discovery query serialization failed");
 var discoveryReceipt = new CapabilityPage("source", null, [], "rank:snapshot:8", Query: "inspect pages");
+var focusedDiscovery = new CapabilityDiscoveryState { PresentationQuery = "inspect pages", Pages = [discoveryReceipt] };
+if (JsonSerializer.Deserialize(JsonSerializer.Serialize(focusedDiscovery, PlanningJsonContext.Default.CapabilityDiscoveryState), PlanningJsonContext.Default.CapabilityDiscoveryState)!.PresentationQuery != "inspect pages") throw new InvalidOperationException("Discovery focus serialization failed");
 if (JsonSerializer.Deserialize(JsonSerializer.Serialize(discoveryReceipt, PlanningJsonContext.Default.CapabilityPage), PlanningJsonContext.Default.CapabilityPage)!.Query != "inspect pages") throw new InvalidOperationException("Discovery receipt serialization failed");
 Console.WriteLine("typed transforms: passed; mocked inference; ordered products and cleanup verified");
 

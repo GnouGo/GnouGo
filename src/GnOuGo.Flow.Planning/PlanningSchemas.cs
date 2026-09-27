@@ -57,21 +57,11 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
                 Object(("kind", Enum("object")), ("members", Array(Object(("name", String()), ("value", Ref("literal")))))),
                 Object(("kind", Enum("array")), ("items", Array(Ref("literal"))))) },
-            ["businessType"] = new JsonObject { ["anyOf"] = new JsonArray(
-                Object(("kind", Enum("array")), ("nullable", Type("boolean")), ("items", Ref("businessType"))),
-                Object(("kind", Enum("object")), ("nullable", Type("boolean")), ("fields", Array(Ref("field")))),
-                Object(("kind", Enum("string")), ("nullable", Type("boolean")), ("enum", Array(String(), 1, 256))),
-                Object(("kind", Enum("string", "number", "integer", "boolean", "any")), ("nullable", Type("boolean")))) },
-            ["field"] = Object(("name", String()), ("type", Ref("businessType")), ("required", Type("boolean")), ("default", Nullable(Ref("literal")))),
-            ["resultType"] = new JsonObject { ["anyOf"] = new JsonArray(
-                Object(("kind", Enum("array")), ("nullable", Type("boolean")), ("items", Ref("resultType"))),
-                Object(("kind", Enum("object")), ("nullable", Type("boolean")), ("fields", Array(Ref("resultField")))),
-                Object(("kind", Enum("string")), ("nullable", Type("boolean")), ("enum", Array(String(), 1, 256))),
-                Object(("kind", Enum("string", "number", "integer", "boolean")), ("nullable", Type("boolean")))) },
+            ["businessType"] = BusinessTypes(transform: false),
+            ["field"] = Input(objectField: true),
+            ["resultType"] = BusinessTypes(transform: true),
             ["resultField"] = Object(("name", Nonblank()), ("type", Ref("resultType"))),
-            ["input"] = new JsonObject { ["anyOf"] = new JsonArray(
-                Object(("name", String()), ("type", Ref("businessType")), ("required", new() { ["type"] = "boolean", ["enum"] = new JsonArray(true) }), ("default", Nullable(Ref("literal")))),
-                Object(("name", String()), ("type", Ref("businessType")), ("required", new() { ["type"] = "boolean", ["enum"] = new JsonArray(false) }), ("default", Ref("literal")))) },
+            ["input"] = Input(objectField: false),
             ["output"] = Object(("name", String()), ("value", Ref("value"))),
             ["requirements"] = Object(("summary", String()), ("outcomes", NonEmptyArray(Object(("id", String()), ("description", String()))))),
             ["plan"] = Object(("inputs", Array(Ref("input"))), ("root", Ref("scope")), ("groups", Array(Ref("group"))), ("choices", Array(Ref("choice")))),
@@ -85,6 +75,38 @@ internal static class PlanningSchemas
         if (state.Requirements is not null) root["$defs"]!.AsObject().Remove("requirements");
         return root;
     }
+    // Omitted flags use the existing DTO defaults. Every actual business value stays explicit.
+    private static JsonObject BusinessTypes(bool transform)
+    {
+        var alternatives = new List<JsonNode?>();
+        foreach (var nullable in new[] { false, true })
+        {
+            JsonObject Shape(params (string Name, JsonObject Schema)[] fields) => Object(nullable ? [..fields, ("nullable", Boolean(true))] : fields);
+            var nested = transform ? "resultType" : "businessType";
+            alternatives.Add(Shape(("kind", Enum("array")), ("items", Ref(nested))));
+            alternatives.Add(Shape(("kind", Enum("object")), ("fields", Array(Ref(transform ? "resultField" : "field")))));
+            alternatives.Add(Shape(("kind", Enum("string")), ("enum", Array(String(), 1, 256))));
+            alternatives.Add(Shape(("kind", transform ? Enum("string", "number", "integer", "boolean") : Enum("string", "number", "integer", "boolean", "any"))));
+        }
+        return new() { ["anyOf"] = new JsonArray(alternatives.ToArray()) };
+    }
+
+    private static JsonObject Input(bool objectField)
+    {
+        var alternatives = new List<JsonNode?>();
+        foreach (var required in new[] { true, false })
+            foreach (var hasDefault in new[] { false, true })
+            {
+                if (!objectField && !required && !hasDefault) continue;
+                var fields = new List<(string Name, JsonObject Schema)> { ("name", String()), ("type", Ref("businessType")) };
+                if (!required) fields.Add(("required", Boolean(false)));
+                if (hasDefault) fields.Add(("default", Ref("literal")));
+                alternatives.Add(Object(fields.ToArray()));
+            }
+        return new() { ["anyOf"] = new JsonArray(alternatives.ToArray()) };
+    }
+
+    private static JsonObject Boolean(bool value) => new() { ["type"] = "boolean", ["enum"] = new JsonArray(value) };
     private static JsonObject Tasks()
     {
         JsonObject Task(string kind, params (string Name, JsonObject Schema)[] fields) => Object(new (string Name, JsonObject Schema)[]

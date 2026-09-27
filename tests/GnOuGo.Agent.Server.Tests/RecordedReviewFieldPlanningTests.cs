@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -70,7 +71,8 @@ public sealed class RecordedReviewFieldPlanningTests
                 Assert.Equal(entry["id"]!.ToString(), request.ClientRequestId);
                 Assert.True(JsonNode.DeepEquals(entry["schema"], request.StructuredOutputSchema));
             }
-            if (!historical && Calls == 3) return Task.FromResult(new LLMResponse { Json = RecordedReviewFieldPlanningTests.Recording("synthetic-field-correction")["proposal"]!.DeepClone() });
+            if (!historical && Calls == 3) return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(
+                RecordedReviewFieldPlanningTests.Recording("synthetic-field-correction")["proposal"], request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) });
             return Task.FromResult(entry["response"]!.Deserialize(PlanningJsonContext.Default.LLMResponse)!);
         }
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => actual.ValidateAsync(request, ct);

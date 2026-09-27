@@ -20,7 +20,7 @@ public sealed class CompactProposalTests
             {"discoveryRequests":null,"plan":{"inputs":[],"groups":[],"choices":[],"root":{"tasks":[
               {"id":"interpret","kind":"transform","objective":"Interpret supplied text","dependsOn":[],
                "inputs":[{"name":"text","value":{"kind":"string","text":"one"}}],
-               "resultType":{"kind":"object","fields":[{"name":"items","type":{"kind":"array","nullable":false,"items":{"kind":"string","nullable":true}}}]}}
+               "resultType":{"kind":"object","fields":[{"name":"items","type":{"kind":"array","items":{"kind":"string","nullable":true}}}]}}
             ],"always":[],"outputs":[{"name":"items","value":{"kind":"output","source":"interpret","port":"items"}}]}}}
             """)!;
         Assert.Empty(PlanningContractValidation.ValidateInstance(wire, schema));
@@ -35,7 +35,7 @@ public sealed class CompactProposalTests
         var a = compiler.Compile(proposal.Plan, catalog); var b = compiler.Compile(old, catalog);
         Assert.Empty(a.Diagnostics); Assert.Empty(b.Diagnostics);
         Assert.Equal(new PlanningGraphCompiler().Compile(a.Graph!, catalog), new PlanningGraphCompiler().Compile(b.Graph!, catalog));
-        foreach (var mutation in new Action<JsonNode>[] { t => t["items"] = null, t => t["fields"] = new JsonArray(), t => t.AsObject().Remove("nullable") })
+        foreach (var mutation in new Action<JsonNode>[] { t => t["items"] = null, t => t["fields"] = new JsonArray(), t => t["nullable"] = "invalid" })
         {
             var bad = wire.DeepClone(); mutation(bad["plan"]!["root"]!["tasks"]![0]!["resultType"]!["fields"]![0]!["type"]!);
             Assert.NotEmpty(PlanningContractValidation.ValidateInstance(bad, schema));
