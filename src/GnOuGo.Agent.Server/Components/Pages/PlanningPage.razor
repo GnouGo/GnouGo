@@ -53,8 +53,13 @@
             <button type="button" @onclick="() => OpenTraces(_state.Request.SessionId, IsWorkflowSession)">Traces</button>
         </p>
         @if (IsWorkflowSession) { <p>This session is read-only here. Continue approvals and execution in the originating chat workflow.</p> }
-        <p aria-live="polite"><strong>@Phase(_state.Status)</strong> · @_state.Phase · Revision @_state.Revision</p>
-        <p>@_state.ModelCalls model calls · @_state.ReplanAttempts replans · @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") active</p>
+        <p aria-live="polite"><strong>@Phase(_state.Status)</strong> · @CurrentPhase · Revision @_state.Revision</p>
+        <p>@CallsUsed / @CallCeiling model calls · @_state.ReplanAttempts replans · @TimeSpan.FromMilliseconds(_state.ActiveMilliseconds).ToString(@"hh\:mm\:ss") active</p>
+        @if (_state.Status == PlanningStatus.Stopped && IsCallBudgetExhausted)
+        {
+            <p>The session model-call allowance is exhausted. Input/output token limits do not extend this cumulative budget.
+                <a href="/planning">Start a new planning session</a>. Existing requests and accounting are retained.</p>
+        }
         @if (_state.Usage is { } usage) { <p>Estimated cost @usage.EstimatedCost.ToString("0.00") @usage.EstimatedCostCurrency</p> }
         <p>@_state.Requirements?.Summary</p>
         @if (_state.Graph is { } graph)
@@ -69,7 +74,7 @@
         <PlannerStageDetails Session="PlanningEndpoints.ToDto(_state)" ShowFindings="false" />
         @if (_state.Diagnostics.Count > 0)
         {
-            <h3>Findings</h3><ul>@foreach (var diagnostic in _state.Diagnostics)
+            <h3>Findings</h3><ul>@foreach (var diagnostic in _state.Diagnostics.DistinctBy(d => (d.Code, d.Location, d.Message)))
             {
                 <li><strong>@diagnostic.Code</strong>: @diagnostic.Message <small>@diagnostic.Location</small>
                     @if (diagnostic.Prerequisite is { } prerequisite)
@@ -107,7 +112,7 @@
         @if (!IsWorkflowSession && _state.Status is not (PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled))
         {
             <label for="plan-revision">Requested changes</label><textarea id="plan-revision" class="form-control" rows="3" @bind="_revision"></textarea>
-            <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_revision))" @onclick='() => SubmitAsync("revise", _revision)'>Revise workflow</button>
+            <button class="btn btn-secondary" disabled="@(_busy || IsCallBudgetExhausted || string.IsNullOrWhiteSpace(_revision))" @onclick='() => SubmitAsync("revise", _revision)'>Revise workflow</button>
             <button class="btn btn-outline-secondary" disabled="@_busy" @onclick='() => SubmitAsync("cancel")'>Cancel planning</button>
             @if (PlanningStatus.IsWaiting(_state.Status) || _state.Status == PlanningStatus.Stopped)
             {
@@ -117,7 +122,7 @@
                     <label>Reasoning<select class="form-select" @bind="_reasoning"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
                     <label>Input token limit<input type="number" @bind="_inputLimit" /></label>
                     <label>Output token limit<input type="number" @bind="_outputLimit" /></label>
-                    <button disabled="@_busy" @onclick="ConfigureAsync">@(IsInputBudgetStop ? "Apply settings and resume planning" : "Apply settings")</button>
+                    <button disabled="@(_busy || IsCallBudgetExhausted)" @onclick="ConfigureAsync">@(IsInputBudgetStop ? "Apply settings and resume planning" : "Apply settings")</button>
                 </details>
             }
         }
@@ -130,8 +135,14 @@
     private bool IsWorkflowSession => Source == "workflow";
     [SupplyParameterFromQuery(Name = "agent")] public string? AgentName { get; set; }
     private PlanningSession? _state;
+    private int CallCeiling => _state is null ? 0 : Math.Min(_state.Request.MaxModelCalls,
+        PlanningBudgetOptions.Parse(_state.Request.Options)?.MaxCalls ?? _state.Request.MaxModelCalls);
+    private long CallsUsed => _state is null ? 0 : Math.Max(_state.ModelCalls, _state.Usage?.Calls ?? 0);
+    private bool IsCallBudgetExhausted => _state is not null && CallsUsed >= CallCeiling;
+    private string? CurrentPhase => IsCallBudgetExhausted && _state is { Plan: null, Phase: PlanningPhase.Replanning }
+        ? PlanningPhase.Tasks : _state?.Phase;
     private bool IsInputBudgetStop => _state is { Status: PlanningStatus.Stopped, PendingCall: null }
-        && _state.Diagnostics.Any(d => d.Code == "MODEL_INPUT_LIMIT");
+        && !IsCallBudgetExhausted && _state.Diagnostics.Any(d => d.Code == "MODEL_INPUT_LIMIT");
     private PlanningSessionListEntry? _entry;
     private IReadOnlyList<PlanningSessionListEntry> _sessions = [];
     private readonly CancellationTokenSource _lifetime = new();

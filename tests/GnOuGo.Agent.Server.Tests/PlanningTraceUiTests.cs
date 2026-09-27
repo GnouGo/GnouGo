@@ -219,6 +219,29 @@ public sealed class PlanningTraceUiTests : BunitContext
         await DisposeComponentsAsync();
     }
 
+    [Fact]
+    public async Task CallBudgetStopShowsTheCeilingAndDisablesIneffectiveRecovery()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
+        var state = Session("call-budget", "Retained exhaustion", PlanningStatus.Stopped);
+        state.ModelCalls = 8; state.Phase = PlanningPhase.Replanning;
+        state.Diagnostics = Enumerable.Repeat(new PlanningDiagnostic("LLM_BUDGET_EXCEEDED", "/", "The session model-call budget was exhausted."), 3).ToList();
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/call-budget");
+        var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "call-budget"));
+        cut.WaitForAssertion(() => Assert.Contains("8 / 8 model calls", cut.Markup));
+        Assert.Contains("token limits do not extend", cut.Markup);
+        Assert.Single(cut.FindAll("li"), li => li.TextContent.Contains("LLM_BUDGET_EXCEEDED", StringComparison.Ordinal));
+        Assert.True(cut.Find("details button").HasAttribute("disabled"));
+        cut.Find("#plan-revision").Change("Different requirements");
+        Assert.True(cut.FindAll("button").Single(b => b.TextContent == "Revise workflow").HasAttribute("disabled"));
+        Assert.DoesNotContain("· replanning ·", cut.Markup);
+        var retained = (await fixture.Store.LoadAsync("planning-tests", "call-budget", Ct))!;
+        Assert.Equal(state.Revision, retained.Revision); Assert.Equal(3, retained.Diagnostics.Count);
+        Assert.Equal(8, retained.ModelCalls); Assert.Equal(PlanningStatus.Stopped, retained.Status);
+        await DisposeComponentsAsync();
+    }
+
     private void Configure(PlanningPersistenceTests.StoreFixture fixture)
     {
         JSInterop.Mode = JSRuntimeMode.Loose;

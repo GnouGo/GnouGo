@@ -13,6 +13,28 @@ public sealed class PlanningSessionLifecycleTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     [Theory]
+    [InlineData("configure_generation")]
+    [InlineData("revise")]
+    public async Task ExhaustedRecoveryCommandsDoNotWriteAnotherRevision(string command)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = new PlanningSession { Request = new() { TenantId = "planning-tests", Prompt = "Retained intent" },
+            Status = PlanningStatus.Stopped, ModelCalls = 8, Revision = 19, ReplanAttempts = 0,
+            Diagnostics = [new("LLM_BUDGET_EXCEEDED", "/", "The session model-call budget was exhausted.")],
+            Usage = new() { Calls = 8, TotalTokens = 108394, EstimatedCost = 0.579m, EstimatedCostCurrency = "EUR" } };
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        using var service = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog(), settings: new() { BackgroundProcessingEnabled = false });
+        var before = System.Text.Json.JsonSerializer.Serialize(await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct), PlanningJsonContext.Default.PlanningSession);
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var exception = await Assert.ThrowsAsync<PlanningConflictException>(() => service.SubmitAsync(state.Request.SessionId,
+                new() { Kind = command, ExpectedRevision = 19, Text = "New request", Generation = new() { MaxInputTokensPerRequest = 84000, MaxOutputTokens = 62768 } }, Ct));
+            Assert.Contains("new planning session", exception.Message);
+            Assert.Equal(before, System.Text.Json.JsonSerializer.Serialize(await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct), PlanningJsonContext.Default.PlanningSession));
+        }
+    }
+
+    [Theory]
     [InlineData(null, null, 24_000, 32_768)]
     [InlineData(12_000, 8192, 12_000, 8192)]
     public async Task DesignerDefaultAndOverrideApplyOnlyToNewSessions(int? configured, int? configuredOutput, int expected, int expectedOutput)
