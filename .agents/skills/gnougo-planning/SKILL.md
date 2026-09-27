@@ -30,6 +30,7 @@ description: Develop or review GnOuGo TaskPlan planning, deterministic compilati
 - Keep the model JSON schema aligned with existing semantic rules, including recursive literal choice alternatives, predicate arity and bounded iteration/concurrency. Retain deterministic semantic checks for recovered and programmatically constructed plans.
 - The compiler owns stable generated IDs, executor envelopes, projections, declared branch merges, bounded collection mechanics and cleanup guards. Apply only declared literal defaults; never invent exports, fallback values or requiredness.
 - Runtime-enforced projection/validation contracts preserve required non-null finite enums for selector validation; retain subset, availability and safe-continuation checks. MCP telemetry must preserve complete producer payloads, including schema-required progress fields.
+- Successful projection envelopes may establish availability for guarded composed exports; distinguish envelope presence from payload nullability. Preserve scope, presence guards, cycle checks and rejection of unsafe continuations.
 - Retain shared graph/runtime validators. Invalid executor plumbing after successful semantic validation is a compiler defect; do not ask the model to repair it.
 
 ## Scoped repair and safety
