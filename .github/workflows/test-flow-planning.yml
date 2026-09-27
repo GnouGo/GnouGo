@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'src/GnOuGo.Flow.*/**'
+      - 'src/GnOuGo.Git.Mcp/**'
+      - 'tests/GnOuGo.Git.Mcp.Tests/**'
       - 'src/GnOuGo.GithubCopilot.Core/**'
       - 'src/GnOuGo.GithubCopilot.Mcp/**'
       - 'tests/GnOuGo.GithubCopilot.Core.Tests/**'
@@ -32,6 +34,7 @@ jobs:
       - uses: ./.github/actions/ensure-otlp-protos
       - name: Test planner, runtime and host integration
         run: |
+          dotnet test tests/GnOuGo.Git.Mcp.Tests -m:1 -warnaserror
           dotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror
           dotnet test tests/GnOuGo.Flow.Integrations.Tests -m:1 -warnaserror
           dotnet test tests/GnOuGo.Flow.Copilot.Tests -m:1 -warnaserror
@@ -51,3 +54,7 @@ jobs:
         run: |
           dotnet publish tests/GnOuGo.Flow.Planning.Smoke/GnOuGo.Flow.Planning.Smoke.csproj -c Release -r linux-x64 --self-contained true -warnaserror -o artifacts/planning-smoke
           artifacts/planning-smoke/GnOuGo.Flow.Planning.Smoke
+      - name: Verify published Git MCP path contract
+        run: |
+          dotnet publish src/GnOuGo.Git.Mcp -c Release -r linux-x64 --self-contained true -warnaserror -o artifacts/git-contract-smoke
+          GNOU_GO_GIT_MCP_TEST_EXECUTABLE="$PWD/artifacts/git-contract-smoke/GnOuGo.Git.Mcp" dotnet test tests/GnOuGo.Git.Mcp.Tests --no-build --filter FullyQualifiedName~ActualStdioDiscoveryPublishesTheSameDotNetAndJavaScriptContract

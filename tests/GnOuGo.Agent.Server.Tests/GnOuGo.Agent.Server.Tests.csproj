@@ -12,6 +12,8 @@
     <ProjectReference Include="..\..\src\GnOuGo.Agent.Server\GnOuGo.Agent.Server.csproj" />
     <ProjectReference Include="../../src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj" />
     <ProjectReference Include="../../src/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp.csproj" />
+    <ProjectReference Include="../../src/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.csproj" />
+    <ProjectReference Include="../../src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj" />
     <ProjectReference Include="..\..\src\GnOuGo.Flow.Integrations\GnOuGo.Flow.Integrations.csproj" />
   </ItemGroup>
 
@@ -29,6 +31,7 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup><None Update="Fixtures/**/*.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><None Include="../../src/GnOuGo.Cmd.Mcp/appsettings.json" Link="Fixtures/ClonePlanning/cmdsettings.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 
   <Import Project="..\..\build\GnOuGo.BundledMcpTools.targets" />
 

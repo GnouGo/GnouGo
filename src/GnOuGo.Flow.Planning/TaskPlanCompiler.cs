@@ -385,7 +385,9 @@ public sealed partial class TaskPlanCompiler
             case "null": return new(new(), new() { ["type"] = "null" }, "null");
             case "string":
                 if (value.Text is null || value.Text.Contains("${", StringComparison.Ordinal)) Fail("TASK_LITERAL_INVALID", "Literal text cannot contain runtime interpolation.");
-                return new(new() { Kind = "string", Text = value.Text }, new() { ["type"] = "string" }, Quote(value.Text!));
+                // Preserve an explicitly declared literal through named values and captures.
+                // Workflow defaults and transform results keep their declared (possibly broader) types.
+                return new(new() { Kind = "string", Text = value.Text }, new() { ["type"] = "string", ["const"] = value.Text }, Quote(value.Text!));
             case "number":
                 if (value.Number is null) Fail("TASK_LITERAL_INVALID", "Number is required.");
                 return new(Number(value.Number!.Value), new() { ["type"] = "number" }, value.Number.Value.ToString(CultureInfo.InvariantCulture));

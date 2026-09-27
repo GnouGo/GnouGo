@@ -333,7 +333,8 @@ public sealed partial class TaskPlanCompiler
     }
 
     private static string Describe(JsonObject schema) => (schema["type"]?.ToJsonString() ?? "opaque") +
-        (schema["enum"] is { } values ? " enum " + values.ToJsonString() : "");
+        string.Concat(new[] { "enum", "pattern", "minLength", "maxLength" }
+            .Where(key => schema[key] is not null).Select(key => " " + key + " " + schema[key]!.ToJsonString()));
 
     private static IEnumerable<PlanningDiagnostic> ConstraintFindings(Bound value, JsonObject expected, string consumer)
     {
