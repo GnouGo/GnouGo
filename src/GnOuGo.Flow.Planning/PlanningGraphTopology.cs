@@ -50,8 +50,10 @@ internal static class PlanningGraphTopology
                 foreach (var id in required)
                 {
                     var producer = workflow.Steps.Concat(workflow.Finally).SingleOrDefault(n => n.Key == id);
+                    // Successful projections return an object envelope even when its selected payload is null.
+                    // Keep the guard proof: failed, skipped or continued producers do not establish availability.
                     if (producer is null || producer.OnError.Any(h => h.Action == "continue") ||
-                        !(producer.Type is "mcp.call" or "llm.call" or "workflow.call" or "value.validate" || producer.Type == "set" && producer.Input.Kind == "object") ||
+                        !(producer.Type is "mcp.call" or "llm.call" or "workflow.call" or "value.validate" or "value.project" or "array.project" || producer.Type == "set" && producer.Input.Kind == "object") ||
                         (workflow.Finally.Contains(producer) ? !Available(producer, visiting) : producer.If is not null)) return false;
                 }
                 return true;

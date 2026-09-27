@@ -89,6 +89,10 @@ var fieldPlan = new TaskPlan { Inputs = [new() { Name = "records", Type = new() 
         Body = new() { Tasks = [new() { Id = "consume", Kind = "operation", Objective = "Consume the declared state", Operation = "selector",
             Inputs = [new("event", new() { Kind = "field", Port = "state", Items = [new() { Kind = "item" }] })] }], Outputs = [new("states", new() { Kind = "field", Port = "state", Items = [new() { Kind = "item" }] })] } }],
         Outputs = [new("states", new() { Kind = "output", Source = "records", Port = "states" })] } };
+// Composite scope exports must retain the selected fields after successful finalization.
+fieldPlan.Root.Tasks[0].Body!.Outputs.Add(new("details", new() { Kind = "object", Members =
+    [new("state", new() { Kind = "field", Port = "state", Items = [new() { Kind = "item" }] })] }));
+fieldPlan.Root.Outputs.Add(new("details", new() { Kind = "output", Source = "records", Port = "details" }));
 fieldPlan = JsonSerializer.Deserialize(JsonSerializer.Serialize(fieldPlan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
 var fieldGraph = new TaskPlanCompiler().Compile(fieldPlan, encodingCatalog);
 if (fieldGraph.Graph is null || fieldGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Field compilation failed");
@@ -99,4 +103,6 @@ var fieldDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(fieldYam
 var fieldRun = await encodingEngine.ExecuteAsync(fieldDocument.Workflows["main"], new JsonObject { ["records"] = new JsonArray(new JsonObject { ["state"] = "deny" }, new JsonObject { ["state"] = "allow" }) }, CancellationToken.None);
 if (!selectedStates.SequenceEqual(new[] { "deny", "allow" }) || !fieldRun.Success || !fieldRun.Outputs!["states"]!.AsArray().Select(n => n!.GetValue<string>()).SequenceEqual(new[] { "deny", "allow" }))
     throw new InvalidOperationException("Field binding changed order or value");
-Console.WriteLine("typed field bindings: passed; checked MCP selectors; ordered records; no inference");
+if (!JsonNode.DeepEquals(JsonNode.Parse("""[{"state":"deny"},{"state":"allow"}]"""), fieldRun.Outputs!["details"]))
+    throw new InvalidOperationException("Composite scope exports changed their values or order");
+Console.WriteLine("typed field bindings: passed; checked MCP selectors; ordered records and composed exports; no inference");
