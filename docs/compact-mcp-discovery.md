@@ -19,7 +19,7 @@ The largest complete estimate falls **59.3%**; its prompt bytes fall **66.0%**. 
 
 Output serialization is unchanged: the recorded final response envelope is **80,593 minified UTF-8 bytes**, the initial responses 7,557 and 2,578 bytes; the unconfirmed attempt has no response. No claim is made about reducing generated output tokens or model turns on this live scenario. Required selected contracts or a large repair baseline can still exceed a saved allowance and must stop admission.
 
-The separate two-source scripted workflow remains **two planning calls**, with complete estimates **8,169 / 9,368**, two discovery pages and nine cached exact-contract resolutions (eight shortlist candidates plus one selected operation). Only its three selected operations enter the executable catalog. This checks framework overhead, not live model selection.
+The separate two-source scripted workflow remains **two planning calls**, with complete estimates **8,197 / 9,596**, two discovery pages and eight cached exact-contract resolutions. Only its three selected operations enter the executable catalog. This uses a fresh catalog adapter for each advance, matching Designer. Resolving the shortlist before the discovery checkpoint reduces metadata-source reads from four to two; cached receipts survive the next adapter. The older greeting placeholder was replaced by product-workflow intent. These are framework-overhead checks, not live model selection.
 
 ## Validation and limitations
 

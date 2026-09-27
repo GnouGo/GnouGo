@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Planning.Capabilities;
 using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
@@ -20,7 +21,8 @@ public sealed class BatchedDiscoveryTests(ITestOutputHelper output)
         var document = sources.Single(s => s.Description.Contains("Write documents", StringComparison.Ordinal));
         runtime.Respond = (request, _) =>
         {
-            var proposal = new PlanningProposal { Requirements = PlannerFixture.Requirements() };
+            var proposal = new PlanningProposal { Requirements = new() { Summary = "Read product pages and write their details to XLSX", Outcomes =
+                [new("data", "Extract ordered product details from HTML"), new("file", "Write the XLSX document"), new("cleanup", "Close the browser after success or failure")] } };
             if (runtime.Calls.Count == 1) proposal.DiscoveryRequests = [new(browser.Id), new(document.Id)];
             else
             {
@@ -32,12 +34,21 @@ public sealed class BatchedDiscoveryTests(ITestOutputHelper output)
             return TestRuntime.Response(request, proposal);
         };
         var session = PlannerFixture.Session(); session.Request.Generation.MaxInputTokensPerRequest = 24000;
-        var state = await PlannerFixture.RunAsync(runtime, session);
+        session.Request.Prompt = "Read product pages in the browser, extract their details, write an XLSX document and preserve cleanup.";
+        var state = session;
+        var planner = new HybridWorkflowPlanner();
+        while (!PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status))
+        {
+            // Designer constructs an adapter per advance. Receipts, not a long-lived
+            // catalog instance, must retain the admitted shortlist across that boundary.
+            tracking.Restart(new CapabilityDiscovery(new() { McpClientFactory = metadata }));
+            state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        }
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(2, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(2, metadata.Reads);
-        Assert.Equal(2, tracking.Pages.Count); Assert.Equal(9, tracking.Resolutions); Assert.Equal(12, state.Discovery.Pages.Sum(p => p.Capabilities.Count));
+        Assert.Equal(2, tracking.Pages.Count); Assert.Equal(8, tracking.Resolutions); Assert.Equal(12, state.Discovery.Pages.Sum(p => p.Capabilities.Count));
         Assert.Equal(3, state.Catalog!.Capabilities.Count(c => c.Kind != "registered"));
-        Assert.Equal(9, state.Discovery.Resolved.Count);
+        Assert.Equal(8, state.Discovery.Resolved.Count);
         Assert.Equal(2, runtime.Calls.Count); Assert.Empty(fixture.Calls); Assert.Empty(fixture.Effects);
         foreach (var request in runtime.Calls)
         {
@@ -110,6 +121,7 @@ public sealed class BatchedDiscoveryTests(ITestOutputHelper output)
     private sealed class Tracking(ICapabilityCatalog inner) : ICapabilityCatalog
     {
         internal readonly List<string> Pages = []; internal int Resolutions;
+        internal void Restart(ICapabilityCatalog catalog) => inner = catalog;
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => inner.ListSourcesAsync(ct);
         public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null) { Pages.Add(sourceId); return inner.ListAsync(sourceId, cursor, ct, query); }
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) { Resolutions++; return inner.ResolveAsync(summary, ct); }

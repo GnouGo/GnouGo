@@ -154,15 +154,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         if (repair && state.PendingCall is null && state.ReplanAttempts >= state.Request.MaxReplanAttempts) { Stop(state); return; }
         state.Phase = repair ? PlanningPhase.Replanning : state.Requirements is null ? PlanningPhase.Requirements : PlanningPhase.Tasks;
         var legacyDiscovery = state.PendingCall is { } issued && !(issued.Request.StructuredOutputSchema?["properties"]?["discoveryRequests"]?.ToJsonString() ?? "").Contains("\"query\"", StringComparison.Ordinal);
-        if (state.PendingCall is null)
-            foreach (var summary in Shortlist(state))
-                try { await PlanningDiscoveryContext.ResolveAsync(state, runtime, summary, ct); }
-                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-                catch
-                {
-                    var limitation = summary.Id + ": the candidate contract could not be resolved.";
-                    if (!state.Discovery.Limitations.Contains(limitation, StringComparer.Ordinal)) state.Discovery.Limitations.Add(limitation);
-                }
+        if (state.PendingCall is null) await ResolveShortlistAsync(state, runtime, ct);
         var response = await PlanningModelCalls.CallAsync(state, runtime, state.PendingCall?.Purpose ?? (repair ? "replan" : "tasks"), Prompt(state), PlanningSchemas.Proposal(state), ct);
         var proposal = JsonSerializer.Deserialize(response, PlanningJsonContext.Default.PlanningProposal)!;
         ValidateRequirements(state, proposal);
@@ -191,6 +183,10 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
                 effective.Add(next);
             }
             foreach (var request in effective) await DiscoverPageAsync(state, runtime, request.SourceId, request.Cursor, ct, request.Query);
+            // Resolve while this adapter still owns the complete source listing.
+            // Designer recreates adapters between advances; durable receipts avoid rereading it.
+            // Historical pending responses retain their original discovery side effects.
+            if (!legacyDiscovery) await ResolveShortlistAsync(state, runtime, ct);
             state.Phase = PlanningPhase.Discovery; return;
         }
         var plan = proposal.Plan!;
@@ -290,6 +286,18 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         Invalidate(state);
         if (state.RevisionScope.Count == 0 || findings.Any(d => d.Code == "TASK_COMPILER_VALIDATION")) Stop(state);
         else state.Status = PlanningStatus.Generating;
+    }
+
+    private static async Task ResolveShortlistAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
+    {
+        foreach (var summary in Shortlist(state))
+            try { await PlanningDiscoveryContext.ResolveAsync(state, runtime, summary, ct); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch
+            {
+                var limitation = summary.Id + ": the candidate contract could not be resolved.";
+                if (!state.Discovery.Limitations.Contains(limitation, StringComparer.Ordinal)) state.Discovery.Limitations.Add(limitation);
+            }
     }
 
     private static async Task DiscoverPageAsync(PlanningSession state, IPlanningRuntime runtime, string source, string? cursor, CancellationToken ct, string? query = null)
