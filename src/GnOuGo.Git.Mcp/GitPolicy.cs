@@ -75,6 +75,8 @@ public sealed class GitPolicy
     {
         if (string.IsNullOrWhiteSpace(targetDirectory))
             throw new InvalidOperationException("targetDirectory must not be empty.");
+        if (!GitCloneTargetContract.IsValid(targetDirectory))
+            throw new InvalidOperationException("git_clone targetDirectory must be relative and a slash-separated child of the workflow workspace, workflows/<name>. Absolute paths, backslashes, empty/dot segments, parent traversal, wildcards and control characters are invalid; .GnOuGo is reserved.");
 
         var path = ResolvePath(targetDirectory, mustExist: false, expectDirectory: true, relativeBasePath: _defaultWorkingDirectory);
         EnsureOutsideReservedWorkspace(path);

@@ -27,7 +27,7 @@ public sealed class GitTools
         _logger = logger;
     }
 
-    [McpServerTool(Name = "git_get_policy", UseStructuredContent = true, OutputSchemaType = typeof(GitPolicyInfo)), Description("Returns the active Git MCP policy: allowed roots, mutation/network flags, limits, and auth source status. Call this first to discover the default workspace.")]
+    [McpServerTool(Name = "git_get_policy", UseStructuredContent = true, OutputSchemaType = typeof(GitPolicyInfo)), Description("Returns the active Git MCP policy: allowed roots, mutation/network flags, limits, and auth source status. Optional policy inspection; no preliminary call is required to use the published workspace-relative path contracts. Runtime policy is enforced on every operation.")]
     public GitPolicyInfo GetPolicy() => _policy.DescribePolicy();
 
     [McpServerTool(Name = "git_repository_info", UseStructuredContent = true, OutputSchemaType = typeof(GitRepositoryInfo)), Description("Returns basic information about an existing Git repository project root." + RequiredProjectRootToolSuffix)]
@@ -150,11 +150,11 @@ public sealed class GitTools
         [Description("Resolution strategy: ours, theirs, or stage_existing.")] string strategy)
         => Execute("git_resolve_conflict", () => _gitRepositoryService.ResolveConflict(projectRoot, relativePath, strategy));
 
-    [McpServerTool(Name = "git_clone", UseStructuredContent = true, OutputSchemaType = typeof(GitCloneResult)), Description("Clones a Git repository into a new workflow-owned directory below the visible workflows/ workspace root. Requires Git:AllowNetworkOperations=true and either Git:AllowMutations=true or Git:ReviewReadOnly=true. The reserved .GnOuGo internal directory is never a valid clone target. targetDirectory is a creation target, not an existing projectRoot before clone. The response projectRootRelative field is the materialized workspace.directory artifact for compatible downstream tools.")]
+    [McpServerTool(Name = "git_clone", UseStructuredContent = true, OutputSchemaType = typeof(GitCloneResult)), Description("Clones a Git repository into an absent or empty workflow-owned directory below workflows/. Requires Git:AllowNetworkOperations=true and either Git:AllowMutations=true or Git:ReviewReadOnly=true. Declare one workspace-relative creation target and retain it for cleanup, including partial clone failure; do not create a directory first. After success, projectRootRelative is the materialized workspace.directory artifact for downstream repository operations. The reserved .GnOuGo directory is never a valid clone target.")]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryProducerProjectRootRelativeJson)]
     public GitCloneResult GitClone(
         [Description("Remote Git URL to clone.")] string remoteUrl,
-        [Description("Clone target directory relative to the workspace root. It must be a child of workflows/, for example workflows/repository-name, and must be empty or non-existing. .GnOuGo is reserved for internal state. After success, response.projectRootRelative contains the reusable workspace.directory artifact.")] string targetDirectory,
+        [Description(GitCloneTargetContract.Description)] string targetDirectory,
         [Description("Optional plain branch name, full commit object ID, or fully qualified remote ref to checkout during clone. A full object ID or refs/... value is fetched exactly and checked out detached. When omitted and fetchAllBranches=false, Git MCP resolves the remote default branch.")] string? branch = null,
         [Description("Commit history depth to fetch. 1 fetches the latest commit only; 0 fetches full history. Defaults to 1 for minimal clones.")] int historyDepth = 1,
         [Description("When false, fetch only the selected/default branch. When true, fetch all remote branches. Defaults to false.")] bool fetchAllBranches = false,
