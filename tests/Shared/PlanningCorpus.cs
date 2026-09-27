@@ -125,14 +125,16 @@ public static class PlanningCorpus
             var proposal = new PlanningProposal { Requirements = Requirements(name) };
             var local = name is "local" or "collections";
             if (!local && discovery.Pages.Count == 0) proposal.DiscoveryRequests = [new(discovery.Sources[0].Id)];
-            else if (!local && discovery.Pages[^1].NextCursor is { } cursor)
-            { proposal.DiscoveryRequests = [new(discovery.Pages[^1].SourceId, cursor)]; }
             else
             {
                 var issued = new PlanningCatalog { Capabilities = catalog.Capabilities.Concat(discovery.Pages.SelectMany(p => p.Capabilities)
-                    .Where(c => catalog.Capabilities.All(resolved => resolved.Id != c.Id)).Select(c => new PlanningCapability
+                    .DistinctBy(c => c.Id).Where(c => catalog.Capabilities.All(resolved => resolved.Id != c.Id)).Select(c => new PlanningCapability
                     { Id = c.Id, Method = c.Name, StepType = c.StepType, Operation = c.Operation })).ToList() };
-                proposal.Plan = Tasks(name, issued);
+                // The scripted model widens only while an operation used by its unchanged
+                // business plan is missing; exhausting every distractor page is unnecessary.
+                try { proposal.Plan = Tasks(name, issued); }
+                catch (InvalidOperationException) when (!local && discovery.Pages[^1].NextCursor is not null)
+                { proposal.DiscoveryRequests = [new(discovery.Pages[^1].SourceId, discovery.Pages[^1].NextCursor)]; }
             }
             var json = JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal);
             return new() { Json = Transport(json, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };

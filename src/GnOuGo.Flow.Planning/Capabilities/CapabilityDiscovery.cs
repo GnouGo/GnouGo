@@ -40,22 +40,29 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
         return Task.FromResult<IReadOnlyList<CapabilitySource>>(sources.OrderBy(s => s.Id, StringComparer.Ordinal).ToArray());
     }
 
-    public async Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct)
+    public async Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null)
     {
-        if (cursor is not null && (!int.TryParse(cursor, out var parsed) || parsed < 0)) throw new ArgumentException("Invalid discovery cursor.");
         try
         {
             var capabilities = await ReadSourceAsync(sourceId, ct);
-            var offset = cursor is null ? 0 : int.Parse(cursor, System.Globalization.CultureInfo.InvariantCulture);
+            var summaries = capabilities.Select(c => new CapabilitySummary(c.Id, sourceId,
+                c.Method ?? c.Id, c.Description, c.StepType, c.EffectKind, c.Version, c.Composition, TaskOperations.Describe(c))).ToArray();
+            // Null queries retain the ordering and numeric cursors of already-issued requests.
+            var ordered = query is null ? summaries : CapabilityRelevance.Rank(summaries, query);
+            var prefix = query is null ? "" : "rank:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(
+                new[] { sourceId, CapabilityRelevance.Query(query) }.Concat(capabilities.Select(c => c.Id + ":" + c.Version)).ToArray(),
+                PlanningJsonContext.Default.StringArray)) + ":";
+            var offsetText = cursor is null ? "0" : cursor.StartsWith(prefix, StringComparison.Ordinal) ? cursor[prefix.Length..] : "invalid";
+            if (!int.TryParse(offsetText, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var offset))
+                throw new ArgumentException("The discovery cursor does not match this query and metadata snapshot.");
             if (offset > capabilities.Count) throw new ArgumentException("Discovery cursor is outside this source.");
-            const int pageSize = 24;
-            return new(sourceId, cursor, capabilities.Skip(offset).Take(pageSize).Select(c => new CapabilitySummary(c.Id, sourceId,
-                c.Method ?? c.Id, c.Description, c.StepType, c.EffectKind, c.Version, c.Composition, TaskOperations.Describe(c))).ToList(),
-                offset + pageSize < capabilities.Count ? (offset + pageSize).ToString(System.Globalization.CultureInfo.InvariantCulture) : null);
+            var pageSize = query is null ? 24 : 8;
+            return new(sourceId, cursor, ordered.Skip(offset).Take(pageSize).ToList(),
+                offset + pageSize < capabilities.Count ? prefix + (offset + pageSize).ToString(System.Globalization.CultureInfo.InvariantCulture) : null, Query: query);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex) when (ex is not ArgumentException)
-        { return new(sourceId, cursor, [], null, "The source could not be discovered. Its capabilities remain unavailable."); }
+        { return new(sourceId, cursor, [], null, "The source could not be discovered. Its capabilities remain unavailable.", query); }
     }
 
     public async Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct)

@@ -12,7 +12,8 @@ public sealed class BatchedDiscoveryTests(ITestOutputHelper output)
     public async Task TwoRelevantSourcesNeedOnlyDiscoveryAndTaskPlanAndReuseReceipts()
     {
         var fixture = new ProductTransformationFixture();
-        var runtime = new TestRuntime(new() { McpClientFactory = fixture.Factory(distractors: true) });
+        var metadata = new MetadataReads(fixture.Factory(distractors: true));
+        var runtime = new TestRuntime(new() { McpClientFactory = metadata });
         var tracking = new Tracking(runtime.Capabilities); runtime.Capabilities = tracking;
         var sources = await tracking.ListSourcesAsync(PlannerFixture.Ct);
         var browser = sources.Single(s => s.Description.Contains("Browse web pages", StringComparison.Ordinal));
@@ -33,7 +34,10 @@ public sealed class BatchedDiscoveryTests(ITestOutputHelper output)
         var session = PlannerFixture.Session(); session.Request.Generation.MaxInputTokensPerRequest = 24000;
         var state = await PlannerFixture.RunAsync(runtime, session);
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(2, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
-        Assert.Equal(2, tracking.Pages.Count); Assert.Equal(3, tracking.Resolutions); Assert.Equal(13, state.Discovery.Pages.Sum(p => p.Capabilities.Count));
+        Assert.Equal(2, metadata.Reads);
+        Assert.Equal(2, tracking.Pages.Count); Assert.Equal(9, tracking.Resolutions); Assert.Equal(12, state.Discovery.Pages.Sum(p => p.Capabilities.Count));
+        Assert.Equal(3, state.Catalog!.Capabilities.Count(c => c.Kind != "registered"));
+        Assert.Equal(9, state.Discovery.Resolved.Count);
         Assert.Equal(2, runtime.Calls.Count); Assert.Empty(fixture.Calls); Assert.Empty(fixture.Effects);
         foreach (var request in runtime.Calls)
         {
@@ -97,18 +101,24 @@ public sealed class BatchedDiscoveryTests(ITestOutputHelper output)
         Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_REQUEST_INCOMPATIBLE" && d.Message.Contains("new planning session", StringComparison.Ordinal));
     }
 
+    private sealed class MetadataReads(IMcpClientFactory inner) : IMcpClientFactory
+    {
+        internal int Reads;
+        public IReadOnlyList<McpServerMetadata> ServerMetadata => inner.ServerMetadata;
+        public Task<IMcpSession> GetClientAsync(string name, CancellationToken ct) { Reads++; return inner.GetClientAsync(name, ct); }
+    }
     private sealed class Tracking(ICapabilityCatalog inner) : ICapabilityCatalog
     {
         internal readonly List<string> Pages = []; internal int Resolutions;
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => inner.ListSourcesAsync(ct);
-        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct) { Pages.Add(sourceId); return inner.ListAsync(sourceId, cursor, ct); }
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null) { Pages.Add(sourceId); return inner.ListAsync(sourceId, cursor, ct, query); }
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) { Resolutions++; return inner.ResolveAsync(summary, ct); }
     }
     private sealed class TwoSources : ICapabilityCatalog
     {
         internal readonly List<string> Pages = []; internal bool Interrupt;
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<CapabilitySource>>([new("a", "First"), new("b", "Second")]);
-        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct)
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null)
         { Pages.Add(sourceId); if (Interrupt && sourceId == "b") throw new OperationCanceledException("Interrupted metadata read"); return Task.FromResult(new CapabilityPage(sourceId, cursor, [], null)); }
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) => throw new InvalidOperationException();
     }

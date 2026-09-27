@@ -11,7 +11,7 @@ public sealed class PlanningInputBudgetTests
     private static CancellationToken Ct => PlannerFixture.Ct;
 
     [Fact]
-    public async Task DiscoveryGrowthStopsBeforeThirdDispatchAndExplicitResumeRetainsAccounting()
+    public async Task MandatoryContextStopsBeforeThirdDispatchAndExplicitResumeRetainsAccounting()
     {
         // Sanitized reproduction: two discovery responses, 9 + 4 operations with
         // authoritative port descriptions. No provider names or private payloads.
@@ -23,7 +23,14 @@ public sealed class PlanningInputBudgetTests
             DiscoveryRequests = runtime.Calls.Count <= 2 ? [new("source" + runtime.Calls.Count)] : null,
             Plan = runtime.Calls.Count <= 2 ? null : PlanningCorpus.Greeting()
         });
-        var state = await PlannerFixture.RunAsync(runtime);
+        var planner = new HybridWorkflowPlanner();
+        var state = await planner.AdvanceAsync(PlannerFixture.Session(), new(), runtime, Ct);
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        // Optional discovery is now pruned. A mandatory registered contract must
+        // still stop admission rather than being silently truncated or omitted.
+        state.Catalog!.Capabilities.Add(new() { Id = "required-registration", Kind = "registered", StepType = "set",
+            Description = new string('x', 27000), InputSchema = new() { ["type"] = "object" }, OutputSchema = new() { ["type"] = "object" } });
+        state = await PlannerFixture.RunAsync(runtime, state);
         Assert.Equal(PlanningStatus.Stopped, state.Status);
         Assert.Equal(2, state.ModelCalls); Assert.Equal(2, runtime.Calls.Count);
         Assert.Equal(0, state.ReplanAttempts); Assert.Null(state.PendingCall);
@@ -39,7 +46,6 @@ public sealed class PlanningInputBudgetTests
         Assert.Contains("resume", finding.Message);
 
         // Recovery alone must not advance or reset the stopped request budget.
-        var planner = new HybridWorkflowPlanner();
         state.Usage = new() { Calls = 2, InputTokens = 9000, OutputTokens = 1000,
             TotalTokens = 10000, EstimatedCost = 0.07m, EstimatedCostCurrency = "EUR" };
         var discovery = JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
@@ -66,7 +72,10 @@ public sealed class PlanningInputBudgetTests
         Assert.Equal(3, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(identities, runtime.Calls.Take(2).Select(c => c.ClientRequestId));
         Assert.StartsWith(state.Request.SessionId + ":3:", runtime.Calls[2].ClientRequestId);
-        Assert.Equal(discovery, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
+        var retained = JsonSerializer.Deserialize(discovery, PlanningJsonContext.Default.CapabilityDiscoveryState)!;
+        Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(retained.Pages, PlanningJsonContext.Default.ListCapabilityPage),
+            JsonSerializer.SerializeToNode(state.Discovery.Pages, PlanningJsonContext.Default.ListCapabilityPage)));
+        Assert.All(retained.Limitations, limitation => Assert.Contains(limitation, state.Discovery.Limitations));
         Assert.Equal(1, runtime.Discoveries); Assert.Equal(2, catalog.Pages);
     }
 
@@ -111,7 +120,7 @@ public sealed class PlanningInputBudgetTests
         internal int Pages;
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<CapabilitySource>>([new("source1", "First declared source"), new("source2", "Second declared source")]);
-        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct)
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null)
         {
             Pages++;
             Assert.Null(cursor);

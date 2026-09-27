@@ -7,7 +7,7 @@ namespace GnOuGo.Flow.Core.Planning;
 public interface ICapabilityCatalog
 {
     Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct);
-    Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct);
+    Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null);
     Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct);
 }
 
@@ -15,7 +15,7 @@ public sealed record CapabilitySource(string Id, string Description);
 public sealed record CapabilitySummary(string Id, string SourceId, string Name, string Description,
     string StepType, string EffectKind, string Version, McpCapabilityComposition? Composition = null, PlanningOperation? Operation = null);
 public sealed record CapabilityPage(string SourceId, string? Cursor, List<CapabilitySummary> Capabilities,
-    string? NextCursor, string? UnavailableReason = null);
+    string? NextCursor, string? UnavailableReason = null, string? Query = null);
 
 public sealed class CapabilityDiscoveryState
 {
@@ -44,7 +44,7 @@ public sealed class PlanningProposal
     public string Explanation { get; set; } = "";
 }
 
-public sealed record PlanningDiscoveryRequest(string SourceId, string? Cursor = null);
+public sealed record PlanningDiscoveryRequest(string SourceId, string? Cursor = null, string? Query = null);
 
 public static class PlanningPhase
 {

@@ -37,14 +37,14 @@ public sealed class BoundedRepairContextTests
         var state = State(); var discovery = JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
         var usage = JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
         var unbounded = PlannerFixture.Clone(state); unbounded.RevisionScope.Clear();
-        Assert.True(PlanningJsonTransport.EstimateInputTokens(HybridWorkflowPlanner.Prompt(unbounded), PlanningSchemas.Proposal(unbounded)) > 60397);
+        Assert.True(PlanningJsonTransport.EstimateInputTokens(HybridWorkflowPlanner.Prompt(unbounded), PlanningSchemas.Proposal(unbounded)) < 24000);
         var runtime = new TestRuntime { Proposal = new() { Plan = ConstrainedBindingTests.Repair(state.Plan!) } };
         state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         var request = Assert.Single(runtime.Calls); var context = Context(request.Prompt);
         Assert.True(PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema!.AsObject()) < 24000);
-        Assert.Equal(3, context["pages"]![0]!["operations"]!.AsArray().Count);
-        foreach (var operation in context["pages"]![0]!["operations"]!.AsArray())
+        Assert.Equal(3, context["operations"]!.AsArray().Count);
+        foreach (var operation in context["operations"]!.AsArray())
         {
             var original = state.Discovery.Pages[0].Capabilities.Single(c => c.Id == operation!["id"]!.ToString()).Operation!;
             Assert.Equal(original.Description, operation!["description"]!.ToString());
@@ -107,7 +107,10 @@ public sealed class BoundedRepairContextTests
         Assert.Equal(1024, stopped.Request.Generation.MaxInputTokensPerRequest);
         Assert.Contains(stopped.Diagnostics, d => d.Code == "MODEL_INPUT_LIMIT");
         state.RevisionScope.Add("/tasks/submit_review_decision/operation");
-        Assert.Equal(98, Context(HybridWorkflowPlanner.Prompt(state))["pages"]![0]!["operations"]!.AsArray().Count);
+        var context = Context(HybridWorkflowPlanner.Prompt(state));
+        Assert.Equal(3, context["operations"]!.AsArray().Count); // Mandatory contracts exceed the ceiling; optional alternatives are omitted.
+        Assert.Equal(8, context["coverage"]![0]!["index"]!.AsArray().Count);
+        Assert.Equal(98, state.Discovery.Pages[0].Capabilities.Count);
         Assert.Null(PlanningSchemas.Proposal(state)["properties"]!["discoveryRequests"]!["type"]);
     }
 

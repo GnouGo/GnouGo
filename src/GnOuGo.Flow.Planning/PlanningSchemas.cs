@@ -7,18 +7,22 @@ internal static class PlanningSchemas
 {
     internal static JsonObject Proposal(PlanningSession state)
     {
-        var pages = state.Discovery.Sources.SelectMany(source =>
-            (state.Discovery.Pages.Any(p => p.SourceId == source.Id && p.Cursor is null) ? Enumerable.Empty<string?>() : [null])
-            .Concat(state.Discovery.Pages.Where(p => p.SourceId == source.Id).Select(p => p.NextCursor).OfType<string>())
-            .Where(cursor => !state.Discovery.Pages.Any(p => p.SourceId == source.Id && p.Cursor == cursor))
-            .Select(cursor => (Source: source.Id, Cursor: cursor))).Distinct().ToArray();
-        // A binding/type repair cannot select another operation. Receipts stay in
-        // host state, but new discovery cannot help this authorized repair.
-        if (TaskPlanRevisions.FixedOperations(state)) pages = [];
+        var actions = new List<JsonNode?>();
+        if (!TaskPlanRevisions.FixedOperations(state))
+            foreach (var source in state.Discovery.Sources)
+            {
+                var receipts = state.Discovery.Pages.Where(p => p.SourceId == source.Id).ToArray();
+                var canRefine = receipts.Any(p => p.UnavailableReason is null && (p.NextCursor is not null || p.Capabilities.Count > 4));
+                if (receipts.Length == 0 || canRefine)
+                    actions.Add(Object(("sourceId", Enum(source.Id)), ("cursor", Type("null")),
+                        ("query", Nullable(new JsonObject { ["type"] = "string", ["pattern"] = @"\S", ["maxLength"] = 512 }))));
+                foreach (var cursor in receipts.Select(p => p.NextCursor).OfType<string>().Distinct(StringComparer.Ordinal)
+                    .Where(cursor => !receipts.Any(p => p.Cursor == cursor)))
+                    actions.Add(Object(("sourceId", Enum(source.Id)), ("cursor", Enum(cursor)), ("query", Type("null"))));
+            }
         var root = Object(
-            ("discoveryRequests", pages.Length == 0 ? Type("null") : Nullable(Array(new JsonObject { ["anyOf"] = new JsonArray(pages.Select(p => (JsonNode?)Object(
-                ("sourceId", Enum(p.Source)), ("cursor", p.Cursor is null ? Type("null") : Enum(p.Cursor)))).ToArray()) }, 1, 4))),
-            ("plan", pages.Length == 0 ? Ref("plan") : Nullable(Ref("plan"))));
+            ("discoveryRequests", actions.Count == 0 ? Type("null") : Nullable(Array(new JsonObject { ["anyOf"] = new JsonArray(actions.ToArray()) }, 1, 4))),
+            ("plan", actions.Count == 0 ? Ref("plan") : Nullable(Ref("plan"))));
         if (state.Requirements is null)
         {
             root["properties"]!["requirements"] = Ref("requirements");

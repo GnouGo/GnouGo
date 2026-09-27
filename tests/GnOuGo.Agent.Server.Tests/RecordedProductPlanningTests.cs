@@ -199,7 +199,12 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
                 Assert.Equal(RealProductContracts.Prompt, recording["prompt"]!.ToString());
                 Assert.Equal(32768, request.MaxTokens);
                 Assert.Equal(Calls == 0, request.StructuredOutputSchema!["properties"]!.AsObject().ContainsKey("requirements"));
-                return Task.FromResult(new LLMResponse { Json = responses[Calls++]!.DeepClone() });
+                // The explicitly synthetic fixture uses today's wire representation;
+                // historical recordings below still use their original request schemas.
+                var proposal = responses[Calls++]!.Deserialize(PlanningJsonContext.Default.PlanningProposal)!;
+                var json = JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal);
+                return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(json,
+                    request.StructuredOutputSchema.AsObject(), request.StructuredOutputSchema.AsObject()) });
             }
             Assert.True(JsonNode.DeepEquals(Schemas[Calls], request.StructuredOutputSchema));
             return Task.FromResult(JsonSerializer.Deserialize(responses[Calls++], PlanningJsonContext.Default.LLMResponse)!);

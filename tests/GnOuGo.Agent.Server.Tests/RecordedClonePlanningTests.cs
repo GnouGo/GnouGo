@@ -109,7 +109,7 @@ public sealed class RecordedClonePlanningTests
         private CapabilityDiscoveryState Discovery => Recording["discovery"]!.Deserialize(PlanningJsonContext.Default.CapabilityDiscoveryState)!;
         public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => Task.FromResult(Recording["initialCatalog"]!.Deserialize(PlanningJsonContext.Default.PlanningCatalog)!);
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<CapabilitySource>>(Discovery.Sources);
-        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct)
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null)
         {
             var page = Discovery.Pages.Single(p => p.SourceId == sourceId && p.Cursor == cursor);
             if (current is not null)
@@ -140,7 +140,8 @@ public sealed class RecordedClonePlanningTests
             state.Request.Generation = responses[2]!["generation"]!.Deserialize(PlanningJsonContext.Default.PlanningGenerationOptions)!;
             for (var i = 0; i < 3; i++)
             {
-                if (current is null)
+                // Replay discovery under its issued schema; only the corrected TaskPlan is new.
+                if (current is null || i < 2)
                 {
                     var entry = responses[i]!; state.ModelCalls++;
                     state.PendingCall = new() { Id = entry["id"]!.ToString(), Purpose = entry["purpose"]!.ToString(),

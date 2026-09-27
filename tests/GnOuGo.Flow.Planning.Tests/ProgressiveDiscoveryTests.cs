@@ -27,7 +27,7 @@ public sealed class ProgressiveDiscoveryTests
         public int Pages { get; private set; }
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<CapabilitySource>>([new("source", "A declared source")]);
-        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct)
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null)
         {
             Pages++;
             Assert.Null(cursor);
@@ -75,7 +75,7 @@ public sealed class ProgressiveDiscoveryTests
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Contains(state.Discovery.Limitations, l => l.Contains("unavailable", StringComparison.Ordinal)); Assert.Equal(1, runtime.Discoveries);
     }
     [Fact]
-    public async Task EarlierPageSummariesRemainAvailableWithoutAReopenModelCall()
+    public async Task EarlierPagesStayCachedWhileOnlyTheCurrentIndexIsPresented()
     {
         var factory = new TrackingFactory(); var runtime = new TestRuntime(new() { McpClientFactory = factory });
         var source = (await runtime.Capabilities.ListSourcesAsync(Ct)).Single(s => s.Description == "Available source");
@@ -88,7 +88,9 @@ public sealed class ProgressiveDiscoveryTests
         state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.Equal(2, state.Discovery.Pages.Count);
-        Assert.All(state.Discovery.Pages.SelectMany(p => p.Capabilities), c => Assert.Contains(c.Description, runtime.Calls[^1].Prompt));
+        Assert.All(state.Discovery.Pages[^1].Capabilities, c => Assert.Contains(c.Description, runtime.Calls[^1].Prompt));
+        Assert.DoesNotContain(state.Discovery.Pages[0].Capabilities[0].Description + "\"", runtime.Calls[^1].Prompt);
+        Assert.Equal(16, state.Discovery.Pages.Sum(p => p.Capabilities.Count));
         Assert.Single(factory.Contacts);
     }
 
@@ -150,7 +152,7 @@ public sealed class ProgressiveDiscoveryTests
             InputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}""")!.AsObject(),
             OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}""")!.AsObject() };
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<CapabilitySource>>([new("source", "Declared source")]);
-        public Task<CapabilityPage> ListAsync(string id, string? cursor, CancellationToken ct) => Task.FromResult(new CapabilityPage(id, cursor,
+        public Task<CapabilityPage> ListAsync(string id, string? cursor, CancellationToken ct, string? query = null) => Task.FromResult(new CapabilityPage(id, cursor,
             [new("selected", id, "read", "Read a declared value", "mcp.call", "read", "v1", Operation: TaskOperations.Describe(Capability()))], null));
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) { Resolutions++; return Task.FromResult(Capability()); }
     }

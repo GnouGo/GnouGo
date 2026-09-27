@@ -181,7 +181,7 @@ public sealed class TaskPlanStabilizationTests
         var schema = PlanningSchemas.Proposal(state);
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, true));
         var batch = schema["properties"]!["discoveryRequests"]!.DeepClone().AsObject();
-        Assert.Empty(PlanningContractValidation.ValidateInstance(JsonNode.Parse("""[{"sourceId":"paged","cursor":"next"},{"sourceId":"unseen","cursor":null}]"""), batch));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(JsonNode.Parse("""[{"sourceId":"paged","cursor":"next","query":null},{"sourceId":"unseen","cursor":null,"query":null}]"""), batch));
         foreach (var invalid in new[] { """[{"sourceId":"complete","cursor":null}]""", """[{"sourceId":"unseen","cursor":"next"}]""", """[{"sourceId":"paged","cursor":"invented"}]""" })
             Assert.NotEmpty(PlanningContractValidation.ValidateInstance(JsonNode.Parse(invalid), batch));
     }
