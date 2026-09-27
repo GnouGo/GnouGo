@@ -11,6 +11,7 @@ Requirements → Discovery → LLM TaskPlan → deterministic compiler → Plann
 
 - TaskPlan is explicit semantic intent; PlanningGraph is the sole executable representation. Add no intermediate representation, model phase or parallel planner.
 - No MCP server/tool-specific logic in Flow.Planning or Flow.Core: never branch on names, catalog IDs, URLs, domain terms or prompt keywords. Producer behavior and provider mappings belong in producer metadata or injected integrations.
+- Generic metadata ranking is permitted only for discovery presentation: keep complete receipts, bounded query/cursor expansion and exact selected contracts; never infer behavior, types or permissions from relevance.
 - Bind through authoritative JSON Schema and validated provider-neutral metadata. Prefer machine-checkable contracts and generic compiler/validator fixes over prompt exceptions or inferred behavior.
 - The model selects operations, business bindings, bounded structured scopes and choices with literal alternatives. It must not generate executor envelopes, wire paths, JavaScript, projection recipes or invented contracts.
 - Request the smallest sufficient plan. Accepted requirements remain host-owned. `value` assembles, `field` selects declared fields, `json` serializes; `transform` interprets data with an explicit closed result type, never simple wiring.

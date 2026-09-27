@@ -53,8 +53,8 @@ summaries, paginated operation summaries and exact contracts. Cached pages and
 versions survive repairs. Unavailable and uninspected sources remain visible as
 discovery limitations; unrelated unavailable sources do not stop a valid plan.
 Selected contracts are checked again before approval and execution. A proposal uses
-`discoveryRequests` (one to four source/cursor pairs) or a TaskPlan, never both.
-The host validates every pair before sequential reads; cached pages and unissued
+`discoveryRequests` (one to four source/cursor/query requests) or a TaskPlan, never both.
+The host validates every request before sequential reads; cached query pages and unissued
 continuations are rejected. Recovery reuses the recorded model response and request
 identity; interrupted metadata reads may repeat without another inference. Pending
 requests with the superseded singular `sourceId`/`cursor` contract stop with
@@ -129,9 +129,8 @@ configuration takes precedence, and existing sessions retain their saved limits.
 prompt plus response schema exceeds the saved per-request input allowance. Discovery
 receipts remain in host state. When repair permissions fix operation selections, the
 request contains full selected contracts and a lossless compact baseline, without
-irrelevant discovery actions. Operation-selection repairs retain catalog alternatives.
-This selection follows edit permissions, not the ceiling; the estimator never trims
-retained contracts or descriptions to fit. The blocked request has not been dispatched or charged another model call or
+irrelevant discovery actions. Operation-selection repairs receive ranked alternatives.
+Generic metadata ranking precedes pagination: eight compact entries per page, at most four detailed candidates per source, with query refinement and snapshot-bound continuations. Full receipts remain in state. The complete-request estimator removes optional candidates when needed, never truncating exact selected contracts. The blocked request has not been dispatched or charged another model call or
 repair. With no pending request, open Designer **Generation settings**, explicitly
 adjust the **Input token limit** if needed, then select **Apply settings and resume planning**.
 This continues the same session with its discovery receipts and cumulative usage;
