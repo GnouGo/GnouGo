@@ -511,7 +511,11 @@ public sealed partial class PlanningGraphCompiler
     internal static JsonObject ToFlowSchema(JsonObject schema)
     {
         if (PlanningContractShapes.IsOpaque(schema)) return new() { ["type"] = "any", ["nullable"] = true, ["schema"] = schema.DeepClone() };
-        if (schema["type"] is null && (schema["anyOf"] is JsonArray || schema["oneOf"] is JsonArray))
+        // Flow shorthand has no null-only type. Keep the authoritative schema,
+        // just as for composed contracts; "any" must never discard its constraints.
+        if (schema["type"]?.ToString() == "null" ||
+            schema["type"] is JsonArray { Count: 1 } nullOnly && nullOnly[0]?.ToString() == "null" ||
+            schema["type"] is null && (schema["anyOf"] is JsonArray || schema["oneOf"] is JsonArray))
             return new() { ["type"] = "any", ["nullable"] = PlanningContractValidation.ValidateInstance(null, schema).Count == 0, ["schema"] = schema.DeepClone() };
         string[] supported = ["type", "description", "enum", "items", "properties", "required", "additionalProperties", "title", "$schema"];
         bool Extended(JsonObject contract) => contract.Any(field => !supported.Contains(field.Key, StringComparer.Ordinal))

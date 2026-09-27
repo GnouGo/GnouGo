@@ -106,3 +106,24 @@ if (!selectedStates.SequenceEqual(new[] { "deny", "allow" }) || !fieldRun.Succes
 if (!JsonNode.DeepEquals(JsonNode.Parse("""[{"state":"deny"},{"state":"allow"}]"""), fieldRun.Outputs!["details"]))
     throw new InvalidOperationException("Composite scope exports changed their values or order");
 Console.WriteLine("typed field bindings: passed; checked MCP selectors; ordered records and composed exports; no inference");
+
+// Literal null exports use authoritative schemas across conditional boundaries.
+var nullPlan = new TaskPlan { Inputs = [new() { Name = "selected", Type = new() { Kind = "boolean" } }],
+    Root = new() { Tasks = [new() { Id = "choose", Kind = "conditional", Objective = "Choose a continuation", Condition = new() { Kind = "input", Source = "selected" },
+        Body = new() { Outputs = [new("cursor", new() { Kind = "string", Text = "page-two" })] },
+        Otherwise = new() { Outputs = [new("cursor", new())] } }],
+        Outputs = [new("cursor", new() { Kind = "output", Source = "choose", Port = "cursor" })] } };
+nullPlan = JsonSerializer.Deserialize(JsonSerializer.Serialize(nullPlan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
+var nullCompilation = new TaskPlanCompiler().Compile(nullPlan, encodingCatalog);
+if (nullCompilation.Graph is null || nullCompilation.Diagnostics.Count != 0) throw new InvalidOperationException("Null-only compilation failed");
+var nullYaml = new PlanningGraphCompiler().Compile(nullCompilation.Graph, encodingCatalog);
+if ((await encodingRuntime.ValidateAsync(new(nullYaml, new(), encodingCatalog, []), CancellationToken.None)).Count != 0) throw new InvalidOperationException("Null-only validation failed");
+var nullDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(nullYaml));
+foreach (var selected in new[] { false, true })
+{
+    var result = await encodingEngine.ExecuteAsync(nullDocument.Workflows["main"], new JsonObject { ["selected"] = selected }, CancellationToken.None);
+    if (!result.Success || !result.Outputs!.AsObject().ContainsKey("cursor") ||
+        !JsonNode.DeepEquals(selected ? JsonValue.Create("page-two") : null, result.Outputs["cursor"]))
+        throw new InvalidOperationException("Conditional null output changed its value");
+}
+Console.WriteLine("null-only contracts: passed; both conditional branches; no inference");
