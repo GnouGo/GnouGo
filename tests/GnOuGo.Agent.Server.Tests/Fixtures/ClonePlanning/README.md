@@ -1,0 +1,11 @@
+# Clone-path regression recordings
+
+`retained-clone-path.json` preserves sanitized responses and their issued schemas from planning session `a4214602eec04ff89c02510afa01f972`, plus discovery contracts and selected receipts from execution `9801c30aaef8393eb4e1cb5697134cb0`. Private filesystem paths and repository URLs were redacted; task bindings, response/request identities, constraints, failure and cleanup results remain intact. Extraction used public encrypted KeyVault record APIs. Original records and accounting were not modified.
+
+The retained plan supplies a transform-produced `SmartGuide` to clone, but cleanup independently targets `workflows/github-pr-review`. Replay with its original metadata reaches review. Replay with the actual updated Git metadata rejects the clone binding before approval.
+
+`synthetic-shared-location.json` is a separately authored semantic revision, not a captured model success. It declares one literal location, removes location generation from the parsing transform and references the same value in clone and JSON-encoded cleanup arguments. Applying it as a one-slot scoped repair is correctly rejected; use a new or explicitly revised plan. The full workflow still encounters an independent runtime defect: MCP progress extraction removes schema-required `progressEvents`, and the subsequent typed assembly fails. The regression asserts that exact failure; it does not treat the full workflow as successful.
+
+`synthetic-resource-lifecycle.json` isolates the clone/fetch/checkout/compare/cleanup tasks for a successful resource-lifecycle oracle. It is intentionally a subset, not evidence of a successful review. Tests use temporary local Git repositories and actual packaged Cmd configuration/scripts; inference and external review operations are mocked. Cleanup also runs after absent creation, partial creation, cancellation, permission refusal and later failure. An unrelated directory and the local source repository must remain intact.
+
+The test project links `cmdsettings.json` from the producer's packaged `appsettings.json`; no simplified command configuration is stored here. Git metadata is read through actual stdio discovery and the normal Flow integration. No paid model, external repository, workflow approval or real Copilot execution is part of these tests.
