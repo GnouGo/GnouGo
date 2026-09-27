@@ -12,6 +12,9 @@ public sealed class FrozenReviewDiscoveryTests(ITestOutputHelper output)
     {
         var recording = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Discovery", "retained-review.json")))!;
         long beforeTotal = 0, afterTotal = 0, beforeMaximum = 0, afterMaximum = 0;
+        // Frozen f46a40d measurements, not a retained implementation of its per-source selector.
+        int[] previousTokens = [8438, 22819, 23937, 23937], previousBytes = [7610, 51243, 54598, 54598];
+        var index = 0;
         foreach (var entry in recording["responses"]!.AsArray())
         {
             var state = entry!["pendingSession"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
@@ -24,7 +27,7 @@ public sealed class FrozenReviewDiscoveryTests(ITestOutputHelper output)
             var shortlist = HybridWorkflowPlanner.Shortlist(state);
             var prompt = HybridWorkflowPlanner.BuildPrompt(state, shortlist);
             var after = PlanningJsonTransport.EstimateInputTokens(prompt, PlanningSchemas.Proposal(state));
-            Assert.InRange(after, 1, 24000);
+            Assert.InRange(after, 1, 21000);
             Assert.InRange(shortlist.Count, 0, 8);
             var context = JsonNode.Parse(prompt[(prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
             var detailed = context["operations"]!.AsArray();
@@ -39,8 +42,43 @@ public sealed class FrozenReviewDiscoveryTests(ITestOutputHelper output)
             Assert.Equal(metadata, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
             beforeTotal += before; afterTotal += after; beforeMaximum = Math.Max(beforeMaximum, before); afterMaximum = Math.Max(afterMaximum, after);
             output.WriteLine($"{entry["id"]}: before prompt bytes={Encoding.UTF8.GetByteCount(issued.Prompt)}, complete tokens={before}; after prompt bytes={Encoding.UTF8.GetByteCount(prompt)}, complete tokens={after}; detailed candidates={shortlist.Count}; recorded metadata pages={state.Discovery.Pages.Count}; response bytes={Encoding.UTF8.GetByteCount(entry["response"]?.ToJsonString() ?? "null")}");
+            output.WriteLine($"Compared with f46a40d: prompt bytes {previousBytes[index]} -> {Encoding.UTF8.GetByteCount(prompt)}; complete tokens {previousTokens[index++]} -> {after}.");
         }
         Assert.True(afterMaximum <= beforeMaximum / 2);
         output.WriteLine($"All four retained request identities (including the unconfirmed attempt): maximum {beforeMaximum} -> {afterMaximum}; cumulative {beforeTotal} -> {afterTotal}. No model dispatch or metadata read.");
+        Assert.Equal(4, index); Assert.True(afterTotal < previousTokens.Sum());
+        output.WriteLine($"f46a40d maximum {previousTokens.Max()} -> {afterMaximum}; cumulative {previousTokens.Sum()} -> {afterTotal}.");
+    }
+
+    [Fact]
+    public void RetainedResponseCompactsLosslesslyAndRepairKeepsMandatoryContext()
+    {
+        var recording = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Discovery", "retained-review.json")))!;
+        var state = recording["finalSession"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+        var original = recording["responses"]!.AsArray()[^1]!["response"]!["json"]!;
+        var compact = original.DeepClone(); compact["plan"] = PlanningJsonTransport.TaskPlanPrompt(state.Plan);
+        int Bytes(JsonNode value) => Encoding.UTF8.GetByteCount(PlanningJsonTransport.Prompt(value));
+        Assert.Equal(16784, Bytes(original["plan"]!)); Assert.Equal(16818, Bytes(original));
+        Assert.Equal(16344, Bytes(compact["plan"]!)); Assert.Equal(16378, Bytes(compact));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(compact, PlanningSchemas.Proposal(state)));
+        var restored = compact["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        Assert.Equal(JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan), JsonSerializer.Serialize(restored, PlanningJsonContext.Default.TaskPlan));
+        var compiler = new TaskPlanCompiler(); var a = compiler.Compile(state.Plan!, state.Catalog!); var b = compiler.Compile(restored, state.Catalog!);
+        Assert.Empty(a.Diagnostics); Assert.Empty(b.Diagnostics);
+        PlanningConfirmationGuards.Apply(a.Graph!, state.Catalog!); PlanningConfirmationGuards.Apply(b.Graph!, state.Catalog!);
+        Assert.Equal(new PlanningGraphCompiler().Compile(a.Graph!, state.Catalog!), new PlanningGraphCompiler().Compile(b.Graph!, state.Catalog!));
+        var hash = state.ComputeArtifactHash(); state.Plan = restored; Assert.Equal(hash, state.ComputeArtifactHash());
+        output.WriteLine($"TaskPlan bytes: {Bytes(original["plan"]!)} -> {Bytes(compact["plan"]!)}; response JSON bytes: {Bytes(original)} -> {Bytes(compact)}; serialized output estimate={(Bytes(compact) + 2) / 3}, excluding reasoning. Tasks={TaskPlanRevisions.Tasks(restored).Count()}, transforms={TaskPlanRevisions.Tasks(restored).Count(t => t.Kind == "transform")}.");
+
+        // Synthetic binding-only repair of this exact plan. No claim that the historical run needed it.
+        state.PendingCall = null; state.Request.Generation.MaxInputTokensPerRequest = 24000;
+        state.RevisionScope = ["/root/outputs/" + restored.Root.Outputs[0].Name];
+        state.Diagnostics = [new("TASK_INPUT_TYPE", state.RevisionScope[0], "Synthetic binding-only size probe")];
+        var prompt = HybridWorkflowPlanner.Prompt(state); var estimate = PlanningJsonTransport.EstimateInputTokens(prompt, PlanningSchemas.Proposal(state));
+        var context = JsonNode.Parse(prompt[(prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
+        Assert.Equal(PlanningDiscoveryContext.Required(state).Count, context["operations"]!.AsArray().Count);
+        Assert.Empty(HybridWorkflowPlanner.Shortlist(state));
+        Assert.All(context["coverage"]!.AsArray(), c => Assert.False(c!.AsObject().ContainsKey("index")));
+        output.WriteLine($"Synthetic fixed-operation repair: prompt bytes={Encoding.UTF8.GetByteCount(prompt)}, complete tokens={estimate}; original presentation probe at f46a40d=29018. Saved admission limit remains 24000; mandatory contracts are never pruned.");
     }
 }
