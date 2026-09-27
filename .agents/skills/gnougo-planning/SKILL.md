@@ -1,57 +1,33 @@
 ---
 name: gnougo-planning
-description: Develop or review GnOuGo TaskPlan planning, deterministic compilation, semantic validation and scoped repair. Use for planner changes and regression diagnosis, not unrelated runtime or persistence work.
+description: Develop or review GnOuGo workflow planning, TaskPlan compilation, semantic validation and scoped repair, including their tests and documentation.
 ---
 
-# GnOuGo planning
+# Planning
 
-## Architecture and ownership
+Requirements → Discovery → LLM TaskPlan → deterministic compiler → PlanningGraph → YAML → validation → approval.
 
-- Preserve Requirements → Discovery → LLM TaskPlan → deterministic compiler → PlanningGraph → YAML → validation → approval.
-- Requirements become host-owned after first acceptance; omit them in later model responses. Only explicit user revision resets them. Validate recovered responses against their original request schemas and preserve pending identities.
-- TaskPlan holds explicit semantic intent. PlanningGraph is the sole executable representation. Semantic preflight runs inside compilation, before lowering; symbols and source maps are transient bookkeeping.
-- Do not add a planning IR, binding session, model phase or parallel planner implementation. Flow.Core owns provider-neutral contracts and must not depend on another GnOuGo package. Integrations own provider-specific mappings and transports.
-- Planning storage is format 10; execution journals are schema 9. Preserve runtime, tenant isolation, encrypted persistence and recovery boundaries unless the task explicitly changes them.
+## Contracts and compilation
 
-## Model and deterministic responsibilities
+- TaskPlan is explicit semantic intent; PlanningGraph is the sole executable representation. Add no intermediate representation, model phase or parallel planner.
+- No MCP server/tool-specific logic in Flow.Planning or Flow.Core: never branch on names, catalog IDs, URLs, domain terms or prompt keywords. Producer behavior and provider mappings belong in producer metadata or injected integrations.
+- Bind through authoritative JSON Schema and validated provider-neutral metadata. Prefer machine-checkable contracts and generic compiler/validator fixes over prompt exceptions or inferred behavior.
+- The model selects operations, business bindings, bounded structured scopes and choices with literal alternatives. It must not generate executor envelopes, wire paths, JavaScript, projection recipes or invented contracts.
+- Request the smallest sufficient plan. Accepted requirements remain host-owned. `value` assembles, `field` selects declared fields, `json` serializes; `transform` interprets data with an explicit closed result type, never simple wiring.
+- Validate identities, scope visibility, dependencies and types before lowering; collect independent task/port diagnostics. Keep response schemas aligned with semantic checks. The compiler owns stable IDs, envelopes, projections and guards.
+- Require explicit scope exports, defaults and branch values; never invent them. Reuse declared resource locations for creation and cleanup, including partial failure.
+- Preserve optionality, nullability, enums, opaque contracts and availability checks. Fail closed on ambiguity or unavailable contracts. Envelope presence proves neither payload non-nullability nor external success.
 
-- The model may select declared operations and generate tasks, dependencies, business inputs/outputs, structured scopes, literal values, named references, typed predicates and typed business choices.
-- `value` copies or assembles values. `transform` interprets named inputs using its objective and an explicit `resultType`: a nonempty closed object of required, fully typed fields (nullable for missing values; no opaque types or defaults). The compiler owns fixed prompt assembly and strict structured `llm.call` lowering. Transform results are runtime-validated interpretations, never authoritative replacements for source contracts or evidence of external success.
-- String types may declare an explicit `enum` of 1–256 distinct strings; keep nullability separate and enforce the domain at runtime. An objective naming allowed values is not a type constraint. A `json` value encodes exactly one business value deterministically through the existing runtime; never use inference or handwritten interpolation to serialize JSON.
-- A `field` value selects its literal `port` from exactly one typed business object in `items`, including a loop item. Nest selections for nested objects; never generate wire paths or use a transform to copy fields. Validate every field against authoritative contracts and lower through the existing checked projection at consumption. Preserve nullability, absence checks and exact producer-type locations through iteration/captures; never widen repair based on ambiguous business names.
-- Producers publish machine-checkable input constraints and enforce runtime policy. Preserve declared string constants through business bindings; an overridable input default or model result is not a constant. Report incompatible patterns/bounds at their semantic consumers without inventing producer types or widening repair.
-- Declare fixed resource locations once and reuse their bindings for creation and cleanup, including partial failure. Use documented materialization outputs for operations requiring an existing resource. Do not infer resource ownership or cleanup equivalence from names, and do not add policy-query tasks when discovery already supplies the contract.
-- Request the smallest sufficient plan: concise objectives, necessary inputs/outputs and directly consumable business bindings. Add optional inputs, policy-query tasks or extra outputs only when required; preserve cleanup, scope exports and runtime safety. Do not use transforms for simple wiring or rewrite submitted tasks to optimize them.
-- Compact wire schemas may omit irrelevant fields and fixed representation constants, never business values, variable nullability or required typing. Choice selections remain host-owned. Saved DTOs and semantic intent are unchanged. Designer defaults are 24,000 input / 32,768 output tokens; preserve explicit overrides, saved settings and cumulative budgets. Serialization headroom does not prove model generation will fit.
-- The model must explicitly declare branch exports and alternative values. It must not generate executor types, wire paths, schema pointers, projection recipes, JavaScript or unverified contracts.
-- Derive bindings only from authoritative schemas or validated injected metadata. Never infer semantics from provider/tool names, descriptions, examples or benchmark names.
-- Validate identities, scope visibility, dependencies and business contracts before lowering. Collect independent errors at task/port locations; suppress dependent errors whose prerequisite contract is unavailable.
-- Task, group and choice declarations share one case-sensitive namespace across the entire TaskPlan. IDs and their references contain only nonempty ASCII letters, digits, underscores or hyphens and must not start with `__`. Alternative IDs remain local to their choice; business ports and catalog operation IDs are not part of this namespace. Never normalize or rename invalid declarations automatically.
-- Keep the model JSON schema aligned with existing semantic rules, including recursive literal choice alternatives, predicate arity and bounded iteration/concurrency. Retain deterministic semantic checks for recovered and programmatically constructed plans.
-- The compiler owns stable generated IDs, executor envelopes, projections, declared branch merges, bounded collection mechanics and cleanup guards. Apply only declared literal defaults; never invent exports, fallback values or requiredness.
-- Runtime-enforced projection/validation contracts preserve required non-null finite enums for selector validation; retain subset, availability and safe-continuation checks. MCP telemetry must preserve complete producer payloads, including schema-required progress fields.
-- Successful projection envelopes may establish availability for guarded composed exports; distinguish envelope presence from payload nullability. Preserve scope, presence guards, cycle checks and rejection of unsafe continuations.
-- Retain shared graph/runtime validators. Invalid executor plumbing after successful semantic validation is a compiler defect; do not ask the model to repair it.
+## Repair and approval
 
-## Scoped repair and safety
+- Derive minimal complete edit permissions from the immutable baseline and diagnostics. Dependent revalidation does not grant edits; unknown locations never widen scope.
+- Preserve unrelated tasks, interfaces, ordering and choices. Reject unauthorized proposals atomically; retain discovery receipts, request identities and cumulative budgets through recovery. Validate recovered responses against their saved request schemas.
+- Invalid generated plumbing is a compiler defect, not a model repair. Do not remove guards or relax validation to accept it.
+- Keep agent workspace, objective, permissions, budgets and verification requirements literal and approved. Choices grant no permissions. Recompilation must reproduce the reviewed artifact; changed intent, selections, contracts or artifacts invalidate approval.
 
-- Derive minimal complete edit permissions from the immutable baseline and diagnostics. Permit related export declarations and consumer bindings together. Revalidation of a dependent task does not grant permission to edit it.
-- Repair only diagnosed transform input bindings or exact result-type slots; preserve existing field names and unrelated fields. Never silently convert a `value` task into a transform.
-- An incompatible finite domain may diagnose the exact producer `enum` slot alongside its consumer binding. Re-derive those permissions from the saved baseline only when no model request is pending. If operation selections are fixed by repair scope, present full selected contracts and a lossless compact baseline; keep all discovery receipts in host state and issue no irrelevant discovery action. Operation-selection repairs retain catalog alternatives.
-- Preserve unrelated tasks, interfaces, ordering, choices, scopes and ceilings. Added exports must connect diagnosed producers to affected consumers; reject unrelated additions and rewrites atomically.
-- Never widen repair to every task when a location is unknown or ambiguous. Stop safely when no bounded repair can be identified. Rejected proposals must not replace the baseline or reset discovery, receipts, request identities or budgets.
-- Invalid or colliding declarations grant no repair permissions. A malformed reference can only be corrected in its already diagnosed consumer binding; it never authorizes identity rewrites or wider edits. Check candidate identities before adopting a proposal or copying selections, and enforce the same rules after recovery.
-- Discovery batches contain one to four issued source/cursor pairs, exclusive with a TaskPlan. Validate the entire batch before sequential metadata reads; retain receipts and reuse pending request identities. Superseded pending response contracts require regeneration without dispatch or accounting reset.
-- Keep opaque values opaque. Presence proves neither payload shape nor external success. Static checks, simulations and assistant claims are not observed execution evidence.
-- Keep agent workspace, objective, permissions, budgets and verification requirements literal and approved. Choices cannot grant permissions, raise ceilings or replace runtime confirmation.
-- Recompile for approval verification. Changed intent, choices, mappings, contracts or generated artifacts invalidate approval. Never bypass filesystem, sandbox or permission enforcement to make a test pass.
+## Development
 
-## Development method
+- Preserve failures; reproduce with sanitized fixtures and independent oracles. Add a deterministic regression, make the smallest generic correction, and run affected tests and CI checks. Never weaken an oracle.
+- No paid/live evaluation without explicit authorization. Never iterate paid/live benchmarks toward a passing result; retain failed and inconclusive evidence. Simulations and assistant claims are not external execution evidence.
 
-1. Preserve original evidence. Reproduce the failure with sanitized deterministic fixtures and independent behavioral assertions.
-2. Demonstrate the failing regression, make the smallest generic fix, and run affected tests plus required deterministic/CI checks. Keep package boundaries and warning-free builds.
-3. Never weaken an oracle, relax safety checks, special-case a corpus name or hide failed/inconclusive outcomes.
-4. Do not initiate paid/live evaluation as an ordinary development check. Never iterate paid/live benchmarks to tune toward a passing result. Any separately requested evaluation must freeze code, corpus, oracles, limits and stopping rules before dispatch; retain every outcome and reservation.
-5. Update current guidance, delete clearly superseded code/instructions, and preserve historical evidence. Report unverified Copilot sandbox execution as a limitation rather than bypassing it. Stop when the authorized deterministic work is complete.
-
-Read [planning architecture and migration](../../../docs/workflow-planning-v9.md) for host/approval boundaries and [package checks](../../../src/GnOuGo.Flow.Planning/README.md) for build and test commands. Historical evaluation reports are evidence, not authorization to launch another campaign.
+Read [architecture and migration](../../../docs/workflow-planning-v9.md) for storage/approval boundaries and [planner contracts and checks](../../../src/GnOuGo.Flow.Planning/README.md) for details.
