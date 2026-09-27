@@ -27,6 +27,8 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         if (command.Kind == "advance" && (PlanningStatus.IsWaiting(session.Status) || PlanningStatus.IsTerminal(session.Status))) return session;
         if (session.Status is PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled)
             throw new PlanningConflictException("This planning session is closed.");
+        if (command.Kind is "configure_generation" or "revise" && PlanningModelCalls.RemainingCalls(session) == 0)
+            throw new PlanningConflictException("The session model-call budget is exhausted. Token settings and revisions cannot extend it. Start a new planning session; retained requests and accounting remain unchanged.");
         var state = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         if (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } maximum)
@@ -101,9 +103,11 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         }
         catch (WorkflowRuntimeException ex)
         {
-            var location = ex.Code is "MODEL_INPUT_LIMIT" or "MODEL_OUTPUT_LIMIT"
+            var location = ex.Code is "MODEL_INPUT_LIMIT" or "MODEL_OUTPUT_LIMIT" or "DISCOVERY_INCOMPLETE" or "DISCOVERY_NOT_ALLOWED"
                 ? ex.Details?["location"]?.GetValue<string>() ?? "/" : "/";
-            state.Diagnostics.Add(new(ex.Code, location, ex.Message)); Stop(state);
+            if (!state.Diagnostics.Any(d => d.Code == ex.Code && d.Location == location))
+                state.Diagnostics.Add(new(ex.Code, location, ex.Message));
+            Stop(state);
         }
         catch (LLMClientException ex)
         {
@@ -132,6 +136,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
     private static async Task AdvancePlanAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
         state.Status = PlanningStatus.Generating;
+        if (state.PendingCall is null) PlanningModelCalls.EnsureCallAvailable(state);
         if (state.Catalog is null)
         {
             state.Catalog = await runtime.DiscoverAsync(state.Request, ct);
@@ -139,7 +144,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             if (state.Discovery.Sources.Count == 1)
                 await DiscoverPageAsync(state, runtime, state.Discovery.Sources[0].Id, null, ct, state.PendingCall is null ? PlanningDiscoveryContext.Query(state) : null);
         }
-        var repair = state.Diagnostics.Any(d => d.Required);
+        var repair = PlanningModelCalls.IsRepair(state);
         if (repair && state.PendingCall is null && state.Plan is { } baseline && state.RevisionScope.Count > 0 &&
             state.Diagnostics.Any(d => d.Code == "TASK_INPUT_TYPE"))
         {
@@ -153,6 +158,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         }
         if (repair && state.PendingCall is null && state.ReplanAttempts >= state.Request.MaxReplanAttempts) { Stop(state); return; }
         state.Phase = repair ? PlanningPhase.Replanning : state.Requirements is null ? PlanningPhase.Requirements : PlanningPhase.Tasks;
+        var recovering = state.PendingCall is not null;
         var legacyDiscovery = state.PendingCall is { } issued && !PlanningSchemas.HasQueryProperty(issued.Request.StructuredOutputSchema?["properties"]?["discoveryRequests"]);
         if (state.PendingCall is null) await ResolveShortlistAsync(state, runtime, ct);
         var response = await PlanningModelCalls.CallAsync(state, runtime, state.PendingCall?.Purpose ?? (repair ? "replan" : "tasks"), Prompt(state), PlanningSchemas.Proposal(state), ct);
@@ -188,7 +194,9 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             // Resolve while this adapter still owns the complete source listing.
             // Designer recreates adapters between advances; durable receipts avoid rereading it.
             // Historical pending responses retain their original discovery side effects.
-            if (!legacyDiscovery) await ResolveShortlistAsync(state, runtime, ct);
+            // A recovered request retains its receipt effects. New presentation and
+            // optional contract selection apply before the next newly issued request.
+            if (!legacyDiscovery && !recovering) await ResolveShortlistAsync(state, runtime, ct);
             state.Phase = PlanningPhase.Discovery; return;
         }
         var plan = proposal.Plan!;
@@ -214,6 +222,13 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         foreach (var operation in TaskPlanRevisions.Tasks(plan).Where(t => t.Kind == "operation").Select(t => t.Operation).Distinct(StringComparer.Ordinal))
         {
             if (state.Catalog.Capabilities.Any(c => TaskOperations.Describe(c).Id == operation)) continue;
+            if (state.Discovery.Pages.SelectMany(p => p.Capabilities).Where(c => c.Operation?.Id == operation)
+                .Select(c => (c.Id, c.Version)).Distinct().Skip(1).Any())
+            {
+                state.Diagnostics = [new("SELECTED_OPERATION_UNAVAILABLE", "/tasks/" + TaskPlanRevisions.Tasks(plan).First(t => t.Operation == operation).Id,
+                    "Discovery contains conflicting versions of the selected operation. Rediscover and review its exact contract.")];
+                Stop(state); return;
+            }
             if (state.Discovery.Resolved.SingleOrDefault(c => TaskOperations.Describe(c).Id == operation) is { } cached)
             { state.Catalog.Capabilities.Add(cached); continue; }
             var summaries = state.Discovery.Pages.SelectMany(p => p.Capabilities).Where(c => c.Operation?.Id == operation).DistinctBy(c => (c.Id, c.Version)).ToArray();
@@ -350,6 +365,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         Return one next action: browse one to four issued source pages, or propose a complete TaskPlan using declared operations.
         Select relevant sources progressively. The compact index is ranked metadata, not a contract. Only detailed operations have resolved contracts. An incomplete search never proves absence; request a continuation or refine query text through discovery when needed. Use query null for the request-derived ranking or an issued continuation.
         Batch up to four relevant uncached source pages when their relevance is already clear from the request and source summaries.
+        The budget reserves proposal and repair calls. When discoveryRequests must be null, propose a plan from inspected operations; if insufficient, return plan null to stop safely. Never invent capabilities.
         Connect named business inputs and outputs. A null output port means the whole business result; opaque results have no typed fields.
         Runtime inputs must feed operations directly when their contracts permit. A value task only copies or assembles values; use transform only for semantic interpretation or representation conversion, never simple wiring.
         Prefer data shapes directly consumable downstream, including scalar iteration items when records are unnecessary. Preserve required scope exports, cleanup and safety conditions.
@@ -364,6 +380,9 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         {
             ["request"] = state.Request.Prompt, ["instructions"] = state.Request.Policy.Instructions,
             ["requirements"] = JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements),
+            ["budget"] = new JsonObject { ["callsUsed"] = PlanningModelCalls.CallsUsed(state), ["callLimit"] = PlanningModelCalls.CallLimit(state),
+                ["remainingCalls"] = PlanningModelCalls.RemainingCalls(state), ["remainingRepairs"] = PlanningModelCalls.RemainingRepairs(state),
+                ["discoveryAllowed"] = PlanningDiscoveryContext.CanDiscover(state) },
             ["sources"] = TaskPlanRevisions.FixedOperations(state) ? null : JsonSerializer.SerializeToNode(state.Discovery.Sources, PlanningJsonContext.Default.ListCapabilitySource),
             ["coverage"] = PlanningDiscoveryContext.Coverage(state),
             ["discoveryLimitations"] = new JsonArray(state.Discovery.Limitations.Select(l => (JsonNode?)JsonValue.Create(l)).ToArray()),

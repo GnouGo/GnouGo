@@ -55,6 +55,20 @@ if (JsonSerializer.Deserialize(JsonSerializer.Serialize(focusedDiscovery, Planni
 if (JsonSerializer.Deserialize(JsonSerializer.Serialize(discoveryReceipt, PlanningJsonContext.Default.CapabilityPage), PlanningJsonContext.Default.CapabilityPage)!.Query != "inspect pages") throw new InvalidOperationException("Discovery receipt serialization failed");
 Console.WriteLine("typed transforms: passed; mocked inference; ordered products and cleanup verified");
 
+// New plan-only requests and saved request schemas retain their distinct meanings in AOT.
+var bounded = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = "Return declared data" }, ModelCalls = 5 };
+bounded.Discovery.Sources.Add(new("declared", "Declared source"));
+var boundedSchema = PlanningSchemas.Proposal(bounded);
+var noPlan = new JsonObject { ["requirements"] = new JsonObject { ["summary"] = "Return data", ["outcomes"] =
+    new JsonArray(new JsonObject { ["id"] = "data", ["description"] = "Return declared data" }) }, ["discoveryRequests"] = null, ["plan"] = null };
+if (!PlanningSchemas.AllowsNoPlan(boundedSchema) || PlanningContractValidation.ValidateInstance(noPlan, boundedSchema).Count != 0)
+    throw new InvalidOperationException("Closed discovery must permit a safe no-plan response");
+bounded.PendingCall = new() { Id = "retained", Purpose = "tasks", Request = new() { StructuredOutputSchema = boundedSchema } };
+bounded = JsonSerializer.Deserialize(JsonSerializer.Serialize(bounded, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+if (!PlanningSchemas.AllowsNoPlan(bounded.PendingCall!.Request.StructuredOutputSchema) || bounded.ModelCalls != 5)
+    throw new InvalidOperationException("Saved discovery restriction or accounting changed");
+Console.WriteLine("bounded discovery: passed; issued no-plan schema and counters survive serialization");
+
 // Explicit finite domains and deterministic encoding use the existing runtime,
 // including source-generated serialization. No model or MCP client is supplied.
 var encodingPlan = new TaskPlan { Inputs = [new() { Name = "decision", Type = new() { Kind = "string", Enum = ["allow", "deny"] } }],

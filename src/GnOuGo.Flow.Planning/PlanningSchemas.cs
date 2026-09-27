@@ -12,10 +12,15 @@ internal static class PlanningSchemas
         _ => false
     };
 
+    internal static bool AllowsNoPlan(JsonNode? schema) =>
+        schema?["properties"]?["discoveryRequests"]?["type"]?.ToString() == "null" &&
+        schema["properties"]?["plan"]?["anyOf"] is JsonArray alternatives &&
+        alternatives.Any(a => a?["type"]?.ToString() == "null");
+
     internal static JsonObject Proposal(PlanningSession state)
     {
         var actions = new List<JsonNode?>();
-        if (!TaskPlanRevisions.FixedOperations(state))
+        if (PlanningDiscoveryContext.CanDiscover(state))
             foreach (var source in state.Discovery.Sources)
             {
                 var receipts = state.Discovery.Pages.Where(p => p.SourceId == source.Id).ToArray();
@@ -30,7 +35,7 @@ internal static class PlanningSchemas
             }
         var root = Object(
             ("discoveryRequests", actions.Count == 0 ? Type("null") : Nullable(Array(new JsonObject { ["anyOf"] = new JsonArray(actions.ToArray()) }, 1, 4))),
-            ("plan", actions.Count == 0 ? Ref("plan") : Nullable(Ref("plan"))));
+            ("plan", Nullable(Ref("plan"))));
         if (state.Requirements is null)
         {
             root["properties"]!["requirements"] = Ref("requirements");

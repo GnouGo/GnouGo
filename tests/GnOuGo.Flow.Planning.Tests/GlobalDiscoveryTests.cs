@@ -9,6 +9,42 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class GlobalDiscoveryTests
 {
     [Fact]
+    public void ContinuationKeepsEarlierCandidatesEligibleWithoutRepeatingHistoricalPages()
+    {
+        var state = State();
+        state.Discovery.Pages.Add(new("a", "next-a", [new("later", "a", "unrelated", "Later metadata", "mcp.call", "read", "v1",
+            Operation: new() { Id = "later", Description = "unselected-full-contract" })], null, Query: "find needle records"));
+        Assert.All(HybridWorkflowPlanner.Shortlist(state), c => Assert.StartsWith("a", c.Id));
+        var context = Context(HybridWorkflowPlanner.Prompt(state));
+        var index = context["coverage"]!.AsArray().Single(c => c!["sourceId"]!.ToString() == "a")!["index"]!.AsArray();
+        Assert.Equal("later", Assert.Single(index)!["id"]!.ToString());
+        Assert.DoesNotContain(context["operations"]!.AsArray(), o => o!["id"]!.ToString() == "later");
+        Assert.Equal(4, state.Discovery.Pages.Count);
+    }
+
+    [Fact]
+    public void ConflictingVersionsAreNotEligibleForAutomaticShortlisting()
+    {
+        var state = State();
+        var first = state.Discovery.Pages[0].Capabilities[0];
+        state.Discovery.Pages.Add(new("a", "next-a", [first with { Version = "changed" }], null, Query: "find needle records"));
+        Assert.DoesNotContain(HybridWorkflowPlanner.Shortlist(state), c => c.Id == first.Id);
+    }
+
+    [Fact]
+    public async Task ConflictingVersionsCannotReuseAPreviouslyResolvedOperation()
+    {
+        var state = State(); var first = state.Discovery.Pages[0].Capabilities[0];
+        state.Discovery.Pages.Add(new("a", "next-a", [first with { Version = "changed" }], null, Query: "find needle records"));
+        var runtime = new TestRuntime();
+        runtime.Proposal.Plan = new() { Root = new() { Tasks = [new() { Id = "use", Objective = "Use selected operation", Operation = first.Operation!.Id }] } };
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new(), runtime, PlannerFixture.Ct);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Equal("SELECTED_OPERATION_UNAVAILABLE", Assert.Single(state.Diagnostics).Code);
+        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts); Assert.Null(state.Yaml);
+    }
+
+    [Fact]
     public void GlobalLimitHasNoSourceQuotaAndRequiredContractsDoNotConsumeOptionalSlots()
     {
         var state = State();

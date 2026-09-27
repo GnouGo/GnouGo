@@ -13,6 +13,15 @@ internal static class PlanningDiscoveryContext
 
     private static string PresentationQuery(PlanningSession state) => state.Discovery.PresentationQuery ?? Query(state);
 
+    internal static bool CanDiscover(PlanningSession state)
+    {
+        if (TaskPlanRevisions.FixedOperations(state)) return false;
+        var calls = PlanningModelCalls.RemainingCalls(state);
+        var repairs = PlanningModelCalls.RemainingRepairs(state);
+        if (PlanningModelCalls.IsRepair(state) && repairs <= 1) return false;
+        return state.Plan is null ? calls > 1 + repairs : calls > 1;
+    }
+
     internal static IEnumerable<CapabilitySummary> Index(PlanningSession state, string source)
     {
         var page = state.Discovery.Pages.LastOrDefault(p => p.SourceId == source);
@@ -23,9 +32,11 @@ internal static class PlanningDiscoveryContext
     }
 
     internal static List<CapabilitySummary> Candidates(PlanningSession state) => TaskPlanRevisions.FixedOperations(state) ? [] :
-        CapabilityRelevance.Rank(state.Discovery.Sources.SelectMany(s => Index(state, s.Id))
+        CapabilityRelevance.Rank(state.Discovery.Pages.SelectMany(p => p.Capabilities)
             .Where(c => c.Operation is not null && state.Catalog!.AllowedStepTypes.Contains(c.StepType) &&
-                !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id)).DistinctBy(c => (c.Id, c.Version)), PresentationQuery(state)).ToList();
+                !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id)).GroupBy(c => c.Id, StringComparer.Ordinal)
+            .Where(group => group.Select(c => c.Version).Distinct(StringComparer.Ordinal).Count() == 1)
+            .Select(group => group.First()), PresentationQuery(state)).ToList();
 
     internal static List<PlanningOperation> Required(PlanningSession state)
     {

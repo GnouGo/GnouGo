@@ -5,6 +5,36 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class PlanningLifecycleTests
 {
     private static CancellationToken Ct => PlannerFixture.Ct;
+    [Theory]
+    [InlineData("configure_generation")]
+    [InlineData("revise")]
+    public async Task ExhaustedSessionsRejectRestartCommandsAtomically(string command)
+    {
+        var state = PlannerFixture.Session(); state.Status = PlanningStatus.Stopped; state.ModelCalls = 8;
+        state.Diagnostics = [new("LLM_BUDGET_EXCEEDED", "/", "The session model-call budget was exhausted.")];
+        state.Discovery.Pages = [new("retained", null, [], null)];
+        state.Usage = new() { Calls = 8, TotalTokens = 10000, EstimatedCost = 0.5m };
+        var before = System.Text.Json.JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var runtime = new TestRuntime();
+        var error = await Assert.ThrowsAsync<PlanningConflictException>(() => new HybridWorkflowPlanner().AdvanceAsync(state, new()
+        { Kind = command, Text = "Requested change", Generation = new() { MaxInputTokensPerRequest = 64000 }, ExpectedRevision = state.Revision }, runtime, Ct));
+        Assert.Contains("new planning session", error.Message);
+        Assert.Equal(before, System.Text.Json.JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.Empty(runtime.Calls); Assert.Empty(runtime.Checkpoints);
+        var cancelled = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state), new() { Kind = "cancel" }, runtime, Ct);
+        Assert.Equal(PlanningStatus.Cancelled, cancelled.Status); Assert.Equal(8, cancelled.ModelCalls);
+    }
+
+    [Fact]
+    public async Task ExhaustedAdvanceDoesNotAppendBudgetFindingsOrEnterSemanticRepair()
+    {
+        var state = PlannerFixture.Session(); state.ModelCalls = 8; state.Phase = PlanningPhase.Tasks;
+        state.Diagnostics = [new("LLM_BUDGET_EXCEEDED", "/", "The session model-call budget was exhausted.")];
+        var runtime = new TestRuntime();
+        state = await PlannerFixture.RunAsync(runtime, state);
+        Assert.Single(state.Diagnostics); Assert.Empty(runtime.Calls); Assert.Equal(PlanningPhase.Tasks, state.Phase);
+    }
+
     [Fact]
     public async Task OneCallReachesReviewAndRestartDoesNotGenerateAgain()
     {
@@ -29,9 +59,9 @@ public sealed class PlanningLifecycleTests
         var state = PlannerFixture.Session(); state.Request.MaxModelCalls = 2;
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(2, state.ModelCalls); Assert.Null(state.Yaml);
-        var revised = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { Kind = "revise", Text = "Keep the greeting", ExpectedRevision = state.Revision }, runtime, Ct);
-        revised = await PlannerFixture.RunAsync(runtime, revised);
-        Assert.Equal(2, revised.ModelCalls); Assert.Equal(2, runtime.Calls.Count);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => new HybridWorkflowPlanner().AdvanceAsync(state,
+            new() { Kind = "revise", Text = "Keep the greeting", ExpectedRevision = state.Revision }, runtime, Ct));
+        Assert.Equal(2, state.ModelCalls); Assert.Equal(2, runtime.Calls.Count);
     }
     [Fact]
     public async Task InterruptedDispatchRetainsIdentityAndReservation()

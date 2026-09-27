@@ -8,6 +8,21 @@ namespace GnOuGo.Flow.Planning;
 
 internal static class PlanningModelCalls
 {
+    internal static int CallLimit(PlanningSession state) => Math.Min(state.Request.MaxModelCalls,
+        PlanningBudgetOptions.Parse(state.Request.Options)?.MaxCalls ?? state.Request.MaxModelCalls);
+    internal static long CallsUsed(PlanningSession state) => Math.Max(state.ModelCalls, state.Usage?.Calls ?? 0);
+    internal static long RemainingCalls(PlanningSession state) => Math.Max(0, CallLimit(state) - CallsUsed(state));
+    internal static int RemainingRepairs(PlanningSession state) => Math.Max(0, state.Request.MaxReplanAttempts - state.ReplanAttempts);
+    internal static bool IsRepair(PlanningSession state) => state.Diagnostics.Any(d => d.Required &&
+        d.Code is not (ErrorCodes.LlmBudgetExceeded or "DISCOVERY_INCOMPLETE" or "DISCOVERY_NOT_ALLOWED"));
+
+    internal static void EnsureCallAvailable(PlanningSession state)
+    {
+        if (RemainingCalls(state) == 0)
+            throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetExceeded,
+                $"The session model-call budget was exhausted ({CallsUsed(state)}/{CallLimit(state)} calls). Input/output token settings do not extend this cumulative allowance. Start a new planning session; retained requests and accounting remain unchanged.");
+    }
+
     internal static async Task<JsonNode> CallAsync(PlanningSession state, IPlanningRuntime runtime, string purpose, string prompt, JsonObject schema, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -16,7 +31,7 @@ internal static class PlanningModelCalls
             throw new WorkflowRuntimeException("PLANNING_REQUEST_INCOMPATIBLE", "The pending request uses a superseded discovery response contract. Start a new planning session and regenerate the workflow. Its original request, reservation and accounting are retained.");
         if (state.PendingCall is null)
         {
-            if (state.ModelCalls >= state.Request.MaxModelCalls) throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetExceeded, "The session model-call budget was exhausted.");
+            EnsureCallAvailable(state);
             var request = PlanningGenerationPolicy.Apply(new LLMRequest
             {
                 Provider = state.Request.Options["generator"]?["provider"]?.GetValue<string>(),
@@ -42,6 +57,12 @@ internal static class PlanningModelCalls
         state.PendingCall = null;
         if (response.CompletionStatus == "output_limit") throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT", "The model response was truncated; no output limit escalation is performed.", details: new JsonObject { ["location"] = "/phases/" + purpose });
         var json = response.Json?.DeepClone() ?? JsonNode.Parse(response.Text) ?? throw new JsonException("The model returned an empty response.");
+        // The issued schema, not today's counters/policy, governs recovered responses.
+        var canDecline = PlanningSchemas.AllowsNoPlan(call.Request.StructuredOutputSchema);
+        if (canDecline && json is JsonObject proposal && proposal["discoveryRequests"] is not null)
+            throw new WorkflowRuntimeException("DISCOVERY_NOT_ALLOWED",
+                "Discovery is closed for this request. No additional metadata was fetched; the remaining allowance is reserved for a proposal and repairs. Start a new planning session if more discovery is needed.",
+                details: new JsonObject { ["location"] = "/discoveryRequests" });
         var findings = PlanningContractValidation.ValidateInstanceFindings(json, call.Request.StructuredOutputSchema!);
         if (findings.Count != 0)
         {
@@ -51,6 +72,10 @@ internal static class PlanningModelCalls
             throw new PlanningResponseException(findings.Select(f => new PlanningDiagnostic("PLANNING_RESPONSE_INVALID",
                 f.InstancePointer, f.Message, ValidationStage: purpose)).ToList());
         }
+        if (canDecline && json["plan"] is null)
+            throw new WorkflowRuntimeException("DISCOVERY_INCOMPLETE",
+                "The model could not propose a TaskPlan from the inspected capabilities before discovery closed. No workflow was approved. Refine the requirements and start a new planning session; existing limits and accounting are unchanged.",
+                details: new JsonObject { ["location"] = "/discoveryRequests" });
         state.RejectedProposalHash = null;
         return json;
     }
