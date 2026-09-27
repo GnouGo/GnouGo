@@ -19,7 +19,8 @@ internal static class PlanningSchemas
             foreach (var source in state.Discovery.Sources)
             {
                 var receipts = state.Discovery.Pages.Where(p => p.SourceId == source.Id).ToArray();
-                var canRefine = receipts.Any(p => p.UnavailableReason is null && (p.NextCursor is not null || p.Capabilities.Count > 4));
+                // Even a small exhausted source may fall outside the global shortlist.
+                var canRefine = receipts.Any(p => p.UnavailableReason is null && (p.NextCursor is not null || p.Capabilities.Count > 0));
                 if (receipts.Length == 0 || canRefine)
                     actions.Add(Object(("sourceId", Enum(source.Id)), ("cursor", Type("null")),
                         ("query", Nullable(new JsonObject { ["type"] = "string", ["pattern"] = @"\S", ["maxLength"] = 512 }))));

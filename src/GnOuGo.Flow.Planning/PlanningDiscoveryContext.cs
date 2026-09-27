@@ -11,20 +11,21 @@ internal static class PlanningDiscoveryContext
     internal static string Query(PlanningSession state) => CapabilityRelevance.Query(state.Request.Prompt + " " +
         state.Requirements?.Summary + " " + string.Join(' ', state.Requirements?.Outcomes.Select(o => o.Description) ?? []));
 
+    private static string PresentationQuery(PlanningSession state) => state.Discovery.PresentationQuery ?? Query(state);
+
     internal static IEnumerable<CapabilitySummary> Index(PlanningSession state, string source)
     {
         var page = state.Discovery.Pages.LastOrDefault(p => p.SourceId == source);
         if (page is null) return [];
         return (page.Query is null
-            ? CapabilityRelevance.Rank(state.Discovery.Pages.Where(p => p.SourceId == source).SelectMany(p => p.Capabilities).DistinctBy(c => (c.Id, c.Version)), Query(state))
+            ? CapabilityRelevance.Rank(state.Discovery.Pages.Where(p => p.SourceId == source).SelectMany(p => p.Capabilities).DistinctBy(c => (c.Id, c.Version)), PresentationQuery(state))
             : page.Capabilities).Take(8);
     }
 
     internal static List<CapabilitySummary> Candidates(PlanningSession state) => TaskPlanRevisions.FixedOperations(state) ? [] :
-        state.Discovery.Sources.OrderBy(s => s.Id, StringComparer.Ordinal)
-            .SelectMany(s => Index(state, s.Id).Where(c => c.Operation is not null && state.Catalog!.AllowedStepTypes.Contains(c.StepType) &&
-                !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id)).Take(4).Select((c, rank) => (c, rank)))
-            .OrderBy(p => p.rank).ThenBy(p => p.c.SourceId, StringComparer.Ordinal).Select(p => p.c).ToList();
+        CapabilityRelevance.Rank(state.Discovery.Sources.SelectMany(s => Index(state, s.Id))
+            .Where(c => c.Operation is not null && state.Catalog!.AllowedStepTypes.Contains(c.StepType) &&
+                !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id)).DistinctBy(c => (c.Id, c.Version)), PresentationQuery(state)).ToList();
 
     internal static List<PlanningOperation> Required(PlanningSession state)
     {
@@ -38,20 +39,23 @@ internal static class PlanningDiscoveryContext
     internal static JsonArray Coverage(PlanningSession state) => new(state.Discovery.Sources.Select(source =>
     {
         var pages = state.Discovery.Pages.Where(p => p.SourceId == source.Id).ToArray();
-        return (JsonNode)new JsonObject
+        var continuations = pages.Where(p => p.NextCursor is not null && !pages.Any(seen => seen.Cursor == p.NextCursor && seen.Query == p.Query)).ToArray();
+        var summary = new JsonObject
         {
             ["sourceId"] = source.Id, ["pagesRead"] = pages.Length,
             ["indexedCount"] = pages.SelectMany(p => p.Capabilities).DistinctBy(c => (c.Id, c.Version)).Count(),
-            ["query"] = pages.LastOrDefault()?.Query, ["unavailable"] = pages.LastOrDefault()?.UnavailableReason,
-            ["continuations"] = new JsonArray(pages.Where(p => p.NextCursor is not null && !pages.Any(seen => seen.Cursor == p.NextCursor && seen.Query == p.Query))
-                .Select(p => (JsonNode?)new JsonObject { ["cursor"] = p.NextCursor, ["query"] = p.Query }).ToArray()),
-            ["index"] = new JsonArray(Index(state, source.Id).Select(c => (JsonNode)new JsonObject
+            ["unavailable"] = pages.LastOrDefault()?.UnavailableReason
+        };
+        if (TaskPlanRevisions.FixedOperations(state)) { summary["hasMore"] = continuations.Length > 0; return (JsonNode)summary; }
+        summary["query"] = pages.LastOrDefault()?.Query;
+        summary["continuations"] = new JsonArray(continuations.Select(p => (JsonNode?)new JsonObject { ["cursor"] = p.NextCursor, ["query"] = p.Query }).ToArray());
+        summary["index"] = new JsonArray(Index(state, source.Id).Select(c => (JsonNode)new JsonObject
             {
                 ["id"] = c.Operation?.Id ?? c.Id, ["name"] = c.Name,
                 ["description"] = c.Description[..Math.Min(c.Description.Length, 200)], ["descriptionTruncated"] = c.Description.Length > 200,
                 ["inputs"] = Names(c.Operation?.Inputs ?? []), ["outputs"] = Names(c.Operation?.Outputs ?? [])
-            }).ToArray())
-        };
+            }).ToArray());
+        return (JsonNode)summary;
     }).ToArray());
 
     private static JsonArray Names(IEnumerable<OperationPort> ports) => new(ports.Select(p => (JsonNode?)JsonValue.Create(p.Name)).ToArray());

@@ -19,6 +19,9 @@ public sealed record CapabilityPage(string SourceId, string? Cursor, List<Capabi
 
 public sealed class CapabilityDiscoveryState
 {
+    /// <summary>Presentation focus from the latest completed discovery batch; not a contract or selection.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? PresentationQuery { get; set; }
     public List<CapabilitySource> Sources { get; set; } = [];
     public List<CapabilityPage> Pages { get; set; } = [];
     public List<PlanningCapability> Resolved { get; set; } = [];

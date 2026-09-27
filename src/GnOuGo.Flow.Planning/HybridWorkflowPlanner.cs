@@ -183,6 +183,8 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
                 effective.Add(next);
             }
             foreach (var request in effective) await DiscoverPageAsync(state, runtime, request.SourceId, request.Cursor, ct, request.Query);
+            if (!legacyDiscovery)
+                state.Discovery.PresentationQuery = Capabilities.CapabilityRelevance.Query(string.Join(' ', effective.Select(r => r.Query).OfType<string>()));
             // Resolve while this adapter still owns the complete source listing.
             // Designer recreates adapters between advances; durable receipts avoid rereading it.
             // Historical pending responses retain their original discovery side effects.
@@ -335,8 +337,8 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
     internal static List<CapabilitySummary> Shortlist(PlanningSession state, bool resolvedOnly = false)
     {
         var required = PlanningDiscoveryContext.Required(state).Select(o => o.Id).ToHashSet(StringComparer.Ordinal);
-        var optional = PlanningDiscoveryContext.Candidates(state).Where(c => !required.Contains(c.Operation!.Id) &&
-            (!resolvedOnly || state.Discovery.Resolved.Any(r => r.Id == c.Id && r.Version == c.Version))).ToList();
+        var optional = PlanningDiscoveryContext.Candidates(state).Where(c => !required.Contains(c.Operation!.Id)).Take(8)
+            .Where(c => !resolvedOnly || state.Discovery.Resolved.Any(r => r.Id == c.Id && r.Version == c.Version)).ToList();
         var schema = PlanningSchemas.Proposal(state);
         while (optional.Count > 0 && PlanningJsonTransport.EstimateInputTokens(BuildPrompt(state, optional), schema) > state.Request.Generation.MaxInputTokensPerRequest)
             optional.RemoveAt(optional.Count - 1);
@@ -362,8 +364,9 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         {
             ["request"] = state.Request.Prompt, ["instructions"] = state.Request.Policy.Instructions,
             ["requirements"] = JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements),
-            ["sources"] = JsonSerializer.SerializeToNode(state.Discovery.Sources, PlanningJsonContext.Default.ListCapabilitySource),
+            ["sources"] = TaskPlanRevisions.FixedOperations(state) ? null : JsonSerializer.SerializeToNode(state.Discovery.Sources, PlanningJsonContext.Default.ListCapabilitySource),
             ["coverage"] = PlanningDiscoveryContext.Coverage(state),
+            ["discoveryLimitations"] = new JsonArray(state.Discovery.Limitations.Select(l => (JsonNode?)JsonValue.Create(l)).ToArray()),
             ["operations"] = new JsonArray(PlanningDiscoveryContext.Required(state).Concat(optional.Select(c => c.Operation!))
                 .DistinctBy(o => o.Id).Select(o => (JsonNode)OperationPrompt(o)).ToArray()),
             ["taskPlan"] = PlanningJsonTransport.TaskPlanPrompt(state.Plan ?? state.Request.Baseline),

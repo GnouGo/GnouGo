@@ -25,7 +25,7 @@ public sealed class FrozenReviewDiscoveryTests(ITestOutputHelper output)
             var prompt = HybridWorkflowPlanner.BuildPrompt(state, shortlist);
             var after = PlanningJsonTransport.EstimateInputTokens(prompt, PlanningSchemas.Proposal(state));
             Assert.InRange(after, 1, 24000);
-            Assert.All(shortlist.GroupBy(c => c.SourceId), source => Assert.InRange(source.Count(), 1, 4));
+            Assert.InRange(shortlist.Count, 0, 8);
             var context = JsonNode.Parse(prompt[(prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
             var detailed = context["operations"]!.AsArray();
             Assert.Equal(shortlist.Count + PlanningDiscoveryContext.Required(state).Count, detailed.Count);
