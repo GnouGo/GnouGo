@@ -1063,10 +1063,12 @@ public static class WorkflowPlanSemanticValidator
             knownContracts[step.Id] = outputSchema;
             symbols.SetStepOutput(step.Id, outputType);
             // Only executor-enforced contracts establish a finite selector domain.
+            // Projections and validation enforce their output schema before publication;
             // llm.call validates its structured json before returning the envelope.
             // A continuation must itself satisfy that contract; assistant claims,
             // dynamic schemas and unvalidated output declarations are insufficient.
-            JsonNode? checkedSchema = step.Type == "set" ? step.OutputSchema : null;
+            JsonNode? checkedSchema = step.Type is "set" or "value.project" or "value.validate" or "array.project"
+                ? step.OutputSchema : null;
             if (step.Type == "llm.call" && step.Input?["structured_output"] is JsonObject structured)
             {
                 var contract = JsonSchemaContractValidator.ValidateStructuredOutput(structured, allowDynamicSchemaReference: true);

@@ -74,19 +74,29 @@ foreach (var selected in new[] { "allow", "deny" })
 Console.WriteLine("enum contracts and JSON encoding: passed; no inference");
 
 // Typed record fields remain semantic values through serialization and AOT;
-// the runtime performs checked projection without an inference client.
+// the runtime performs checked projection into an MCP selector without inference.
+var selectedStates = new List<string>();
+var fieldFactory = new InMemoryMcpClientFactory();
+var selectorSchema = JsonNode.Parse("""{"type":"object","required":["event"],"properties":{"event":{"type":"string","enum":["allow","deny"]}}}""")!.AsObject();
+fieldFactory.RegisterServer("renamed", new() { Tools = [new() { Name = "consume", InputSchema = selectorSchema }], ToolHandlers = new()
+    { ["consume"] = input => { selectedStates.Add(input!["event"]!.GetValue<string>()); return new() { Content = new JsonObject() }; } } });
+encodingEngine.McpClientFactory = fieldFactory;
+encodingCatalog.Capabilities.Add(new() { Id = "selector", Version = "1", Kind = "tool", StepType = "mcp.call", Server = "renamed", Method = "consume",
+    InputSchema = selectorSchema, OutputSchema = new() { ["type"] = "object" }, EffectKind = "none" });
 var fieldPlan = new TaskPlan { Inputs = [new() { Name = "records", Type = new() { Kind = "array", Items = new() { Kind = "object", Fields =
     [new() { Name = "state", Type = new() { Kind = "string", Enum = ["allow", "deny"] } }] } } }],
     Root = new() { Tasks = [new() { Id = "records", Kind = "foreach", Objective = "Read states in order", Items = new() { Kind = "input", Source = "records" },
-        Body = new() { Outputs = [new("states", new() { Kind = "field", Port = "state", Items = [new() { Kind = "item" }] })] } }],
+        Body = new() { Tasks = [new() { Id = "consume", Kind = "operation", Objective = "Consume the declared state", Operation = "selector",
+            Inputs = [new("event", new() { Kind = "field", Port = "state", Items = [new() { Kind = "item" }] })] }], Outputs = [new("states", new() { Kind = "field", Port = "state", Items = [new() { Kind = "item" }] })] } }],
         Outputs = [new("states", new() { Kind = "output", Source = "records", Port = "states" })] } };
 fieldPlan = JsonSerializer.Deserialize(JsonSerializer.Serialize(fieldPlan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
 var fieldGraph = new TaskPlanCompiler().Compile(fieldPlan, encodingCatalog);
 if (fieldGraph.Graph is null || fieldGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Field compilation failed");
 var fieldYaml = new PlanningGraphCompiler().Compile(fieldGraph.Graph, encodingCatalog);
-if ((await encodingRuntime.ValidateAsync(new(fieldYaml, new(), encodingCatalog, []), CancellationToken.None)).Count != 0) throw new InvalidOperationException("Field validation failed");
+var fieldDiagnostics = await encodingRuntime.ValidateAsync(new(fieldYaml, new(), encodingCatalog, PlanningGraphCompiler.CapabilityBindings(fieldGraph.Graph)), CancellationToken.None);
+if (fieldDiagnostics.Count != 0) throw new InvalidOperationException("Field validation failed: " + string.Join("; ", fieldDiagnostics.Select(d => d.Code + ": " + d.Message)));
 var fieldDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(fieldYaml));
 var fieldRun = await encodingEngine.ExecuteAsync(fieldDocument.Workflows["main"], new JsonObject { ["records"] = new JsonArray(new JsonObject { ["state"] = "deny" }, new JsonObject { ["state"] = "allow" }) }, CancellationToken.None);
-if (!fieldRun.Success || !fieldRun.Outputs!["states"]!.AsArray().Select(n => n!.GetValue<string>()).SequenceEqual(new[] { "deny", "allow" }))
+if (!selectedStates.SequenceEqual(new[] { "deny", "allow" }) || !fieldRun.Success || !fieldRun.Outputs!["states"]!.AsArray().Select(n => n!.GetValue<string>()).SequenceEqual(new[] { "deny", "allow" }))
     throw new InvalidOperationException("Field binding changed order or value");
-Console.WriteLine("typed field bindings: passed; ordered records; no inference");
+Console.WriteLine("typed field bindings: passed; checked MCP selectors; ordered records; no inference");
