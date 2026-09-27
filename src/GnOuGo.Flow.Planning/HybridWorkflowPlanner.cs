@@ -153,7 +153,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         }
         if (repair && state.PendingCall is null && state.ReplanAttempts >= state.Request.MaxReplanAttempts) { Stop(state); return; }
         state.Phase = repair ? PlanningPhase.Replanning : state.Requirements is null ? PlanningPhase.Requirements : PlanningPhase.Tasks;
-        var legacyDiscovery = state.PendingCall is { } issued && !(issued.Request.StructuredOutputSchema?["properties"]?["discoveryRequests"]?.ToJsonString() ?? "").Contains("\"query\"", StringComparison.Ordinal);
+        var legacyDiscovery = state.PendingCall is { } issued && !PlanningSchemas.HasQueryProperty(issued.Request.StructuredOutputSchema?["properties"]?["discoveryRequests"]);
         if (state.PendingCall is null) await ResolveShortlistAsync(state, runtime, ct);
         var response = await PlanningModelCalls.CallAsync(state, runtime, state.PendingCall?.Purpose ?? (repair ? "replan" : "tasks"), Prompt(state), PlanningSchemas.Proposal(state), ct);
         var proposal = JsonSerializer.Deserialize(response, PlanningJsonContext.Default.PlanningProposal)!;

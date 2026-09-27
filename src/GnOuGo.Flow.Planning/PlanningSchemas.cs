@@ -5,6 +5,13 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>The model sees business tasks and ports, never executor graph plumbing.</summary>
 internal static class PlanningSchemas
 {
+    internal static bool HasQueryProperty(JsonNode? node) => node switch
+    {
+        JsonObject obj => obj["properties"] is JsonObject properties && properties.ContainsKey("query") || obj.Any(p => HasQueryProperty(p.Value)),
+        JsonArray array => array.Any(HasQueryProperty),
+        _ => false
+    };
+
     internal static JsonObject Proposal(PlanningSession state)
     {
         var actions = new List<JsonNode?>();

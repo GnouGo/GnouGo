@@ -112,6 +112,39 @@ public sealed class BatchedDiscoveryTests(ITestOutputHelper output)
         Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_REQUEST_INCOMPATIBLE" && d.Message.Contains("new planning session", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task HistoricalBatchWithQueryAsSourceIdentityKeepsItsOriginalCursorSemantics()
+    {
+        var state = PlannerFixture.Session(); state.Catalog = new();
+        state.Discovery.Sources = [new("query", "A source"), new("second", "Another source")];
+        var schema = PlanningSchemas.Proposal(state);
+        RemoveQueryProperty(schema);
+        state.ModelCalls = 1;
+        state.PendingCall = new() { Id = "saved-request", Purpose = "tasks", Request = new()
+            { ClientRequestId = "saved-request", Prompt = "Saved prompt", StructuredOutputSchema = schema } };
+        var catalog = new TwoSources(); var runtime = new TestRuntime { Capabilities = catalog };
+        runtime.Proposal.Plan = null; runtime.Proposal.DiscoveryRequests = [new("query")];
+        state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state), new(), runtime, PlannerFixture.Ct);
+        Assert.Empty(state.Diagnostics); Assert.Null(Assert.Single(state.Discovery.Pages).Query);
+        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal("saved-request", Assert.Single(runtime.Calls).ClientRequestId);
+        Assert.True(JsonNode.DeepEquals(schema, runtime.Calls[0].StructuredOutputSchema));
+
+        static void RemoveQueryProperty(JsonNode? node)
+        {
+            if (node is JsonObject obj)
+            {
+                if (obj["properties"] is JsonObject properties && properties.Remove("query"))
+                {
+                    var required = obj["required"]!.AsArray();
+                    required.Remove(required.Single(v => v!.ToString() == "query"));
+                }
+                foreach (var child in obj.Select(p => p.Value).ToArray()) RemoveQueryProperty(child);
+            }
+            else if (node is JsonArray array) foreach (var child in array) RemoveQueryProperty(child);
+        }
+    }
+
     private sealed class MetadataReads(IMcpClientFactory inner) : IMcpClientFactory
     {
         internal int Reads;
