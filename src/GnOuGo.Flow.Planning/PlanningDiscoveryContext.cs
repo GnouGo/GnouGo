@@ -98,11 +98,16 @@ internal static class PlanningDiscoveryContext
             summary["continuations"] = new JsonArray(continuations.Select(p => (JsonNode?)new JsonObject { ["cursor"] = p.NextCursor, ["query"] = p.Query }).ToArray());
         }
         summary["omittedFromIndex"] = 0;
-        summary["index"] = new JsonArray(candidates.Where(c => c.SourceId == source.Id && !detailed.Contains(c.Operation!.Id)).Select(c => (JsonNode)new JsonObject
-            {
-                ["id"] = c.Operation?.Id ?? c.Id, ["name"] = c.Name,
-                ["inputs"] = Names(EditableInputs(c)), ["outputs"] = Names(c.Operation?.Outputs ?? [])
-            }).ToArray());
+        summary["index"] = new JsonArray(candidates.Where(c => c.SourceId == source.Id && !detailed.Contains(c.Operation!.Id)).Select(c =>
+        {
+            var inputs = EditableInputs(c).ToArray();
+            var item = new JsonObject { ["id"] = c.Operation?.Id ?? c.Id, ["name"] = c.Name,
+                ["inputs"] = Names(inputs), ["outputs"] = Names(c.Operation?.Outputs ?? []) };
+            var constraints = new JsonObject(inputs.Select(p => (p.Name, Domain: TaskOperations.FiniteDomain(p.Schema)))
+                .Where(p => p.Domain.Count > 0).Select(p => new KeyValuePair<string, JsonNode?>(p.Name, p.Domain)));
+            if (constraints.Count > 0) item["constraints"] = constraints;
+            return (JsonNode)item;
+        }).ToArray());
         return (JsonNode)summary;
 
         IEnumerable<OperationPort> EditableInputs(CapabilitySummary capability)

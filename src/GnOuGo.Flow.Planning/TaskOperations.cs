@@ -6,6 +6,11 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Schema-derived ordinary ports, or exact producer-declared mappings. No semantic name inference.</summary>
 public static class TaskOperations
 {
+    // Compact presentation of declared constraints, never inferred from descriptions.
+    internal static JsonObject FiniteDomain(JsonObject schema) => new(schema
+        .Where(p => p.Key is "enum" or "const")
+        .Select(p => new KeyValuePair<string, JsonNode?>(p.Key, p.Value?.DeepClone())));
+
     // Requiredness belongs to every containing object, not just the leaf port.
     internal static bool OutputNeedsCheck(JsonObject schema, IReadOnlyList<string> path)
     {

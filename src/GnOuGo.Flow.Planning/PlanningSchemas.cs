@@ -79,11 +79,45 @@ internal static class PlanningSchemas
             ["group"] = Object(("id", Ref("id")), ("inputs", Array(Ref("input"))), ("body", Ref("scope"))),
             ["choice"] = Object(("id", Ref("id")), ("question", Ref("goal")), ("type", Ref("businessType")),
                 ("alternatives", Array(Object(("id", Ref("goal")), ("description", String()), ("value", Ref("literal"))), 2)),
-                ("recommended", String())),
-            ["task"] = Tasks(state)
+                ("recommended", String()))
         };
+        var definitions = root["$defs"]!.AsObject();
+        definitions["task"] = Tasks(state, definitions);
         if (state.Requirements is not null) root["$defs"]!.AsObject().Remove("requirements");
+        ShareRepeatedSchemas(root, definitions);
         return root;
+    }
+
+    // Lossless JSON Schema factoring keeps per-operation domains affordable.
+    // DTO values and contract checks do not change; only duplicate wire schemas do.
+    private static void ShareRepeatedSchemas(JsonObject root, JsonObject definitions)
+    {
+        var nodes = new List<JsonObject>();
+        void Visit(JsonNode? node)
+        {
+            if (node is JsonObject obj)
+            {
+                if ((obj["type"] is JsonValue || obj["anyOf"] is JsonArray) && obj["properties"]?["dependsOn"] is null &&
+                    !(obj.Parent is JsonObject parent && ReferenceEquals(parent["kind"], obj)))
+                    nodes.Add(obj);
+                foreach (var value in obj.Select(p => p.Value)) Visit(value);
+            }
+            else if (node is JsonArray array) foreach (var value in array) Visit(value);
+        }
+        Visit(root);
+        var groups = nodes.GroupBy(n => n.ToJsonString(), StringComparer.Ordinal).Where(g => g.Count() > 1 && g.Key.Length > 120)
+            .OrderBy(g => g.Key.Length).ThenBy(g => g.Key, StringComparer.Ordinal).ToArray();
+        foreach (var group in groups)
+        {
+            var schema = group.First(); var name = "s" + definitions.Count;
+            var referenceLength = Ref(name).ToJsonString().Length;
+            var size = schema.ToJsonString().Length;
+            if ((size - referenceLength) * group.Count() <= size + name.Length + 4) continue;
+            definitions[name] = schema.DeepClone();
+            foreach (var node in group)
+                if (node.Parent is JsonArray array) array[array.IndexOf(node)] = Ref(name);
+                else if (node.Parent is JsonObject obj) obj[obj.Single(p => ReferenceEquals(p.Value, node)).Key] = Ref(name);
+        }
     }
     // Omitted flags use the existing DTO defaults. Every actual business value stays explicit.
     private static JsonObject BusinessTypes(bool transform)
@@ -117,11 +151,11 @@ internal static class PlanningSchemas
     }
 
     private static JsonObject Boolean(bool value) => new() { ["type"] = "boolean", ["enum"] = new JsonArray(value) };
-    private static JsonObject Tasks(PlanningSession state)
+    private static JsonObject Tasks(PlanningSession state, JsonObject definitions)
     {
         JsonObject Task(string kind, params (string Name, JsonObject Schema)[] fields) => Object(new (string Name, JsonObject Schema)[]
         { ("id", Ref("id")), ("kind", Enum(kind)), ("objective", Ref("goal")), ("dependsOn", Ref("identities")) }.Concat(fields).ToArray());
-        var operations = OperationTasks(state, (ids, inputs) => Task("operation", ("operation", ids), ("inputs", inputs)));
+        var operations = OperationTasks(state, definitions, (ids, inputs) => Task("operation", ("operation", ids), ("inputs", inputs)));
         return new() { ["anyOf"] = new JsonArray(operations.Concat(new JsonNode?[] {
             Described(Task("value", ("outputs", Array(Ref("output")))), "Copies or assembles values; the objective executes no computation."),
             Described(Task("transform", ("inputs", NonEmptyArray(Ref("output"))),
@@ -133,7 +167,7 @@ internal static class PlanningSchemas
             Task("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Integer(1, 10000)), ("maxConcurrency", Integer(1, 100))),
             Task("call", ("group", Ref("id")), ("inputs", Array(Ref("output")))) }).ToArray()) };
     }
-    private static IEnumerable<JsonNode?> OperationTasks(PlanningSession state, Func<JsonObject, JsonObject, JsonObject> task)
+    private static IEnumerable<JsonNode?> OperationTasks(PlanningSession state, JsonObject definitions, Func<JsonObject, JsonObject, JsonObject> task)
     {
         var fixedOperations = TaskPlanRevisions.FixedOperations(state)
             ? TaskPlanRevisions.Tasks(state.Plan!).Where(t => t.Kind == "operation").Select(t => t.Operation).ToHashSet(StringComparer.Ordinal) : null;
@@ -141,20 +175,59 @@ internal static class PlanningSchemas
             .GroupBy(c => TaskOperations.Describe(c).Id, StringComparer.Ordinal).Where(g => g.Count() == 1 && TaskOperations.Validate(g.First()).Count == 0)
             .Select(g => PlanningCapabilityArguments.Editable(g.First()))
             .Where(o => fixedOperations is null || fixedOperations.Contains(o.Id)).OrderBy(o => o.Id, StringComparer.Ordinal).ToArray();
-        if (resolved.Length == 0 && fixedOperations is null) { yield return task(String(), Array(Ref("output"))); yield break; }
-        foreach (var group in resolved.GroupBy(o => new JsonArray(o.Inputs.Select(p => p.Name).Order(StringComparer.Ordinal).Select(n => (JsonNode?)JsonValue.Create(n)).ToArray()).ToJsonString(), StringComparer.Ordinal))
-        {
-            var names = group.First().Inputs.Select(p => p.Name).Order(StringComparer.Ordinal).ToArray();
-            yield return task(Enum(group.Select(o => o.Id).ToArray()), names.Length == 0 ? Array(Ref("output"), 0, 0) :
-                Array(Object(("name", Enum(names)), ("value", Ref("value")))));
-        }
-        // Index-only operations remain selectable. They receive the same ownership
-        // checks after exact resolution, before any graph is emitted.
+        if (resolved.Length == 0 && fixedOperations is null && !state.Discovery.Pages.SelectMany(p => p.Capabilities).Any(c => c.Operation is not null))
+        { yield return task(String(), Array(Ref("output"))); yield break; }
+        // Index-only domains are compact discovery hints, not resolved contracts.
+        // Keep these operations selectable; exact resolution validates ownership,
+        // versions and values before graph emission and before any repair request.
         var known = resolved.Select(o => o.Id).ToHashSet(StringComparer.Ordinal);
+        var operations = resolved.Select(o => (o.Id, Inputs: Inputs(o))).ToArray();
+        foreach (var group in operations.GroupBy(o => o.Inputs.ToJsonString(), StringComparer.Ordinal))
+            yield return task(Enum(group.Select(o => o.Id).ToArray()), group.First().Inputs);
         var unresolved = state.Discovery.Pages.SelectMany(p => p.Capabilities).Select(c => c.Operation?.Id)
             .OfType<string>().Where(id => !known.Contains(id) && (fixedOperations is null || fixedOperations.Contains(id)))
             .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         if (unresolved.Length > 0) yield return task(Enum(unresolved), Array(Ref("output")));
+
+        JsonObject Inputs(PlanningOperation operation)
+        {
+            var ports = operation.Inputs.OrderBy(p => p.Name, StringComparer.Ordinal)
+                .Select(p => (p.Name, Value: DomainValue(p.Schema, definitions))).ToArray();
+            if (ports.Length == 0) return Array(Ref("output"), 0, 0);
+            var bindings = ports.GroupBy(p => p.Value.ToJsonString(), StringComparer.Ordinal)
+                .Select(g => (JsonNode?)Object(("name", Enum(g.Select(p => p.Name).ToArray())), ("value", g.First().Value))).ToArray();
+            return Array(bindings.Length == 1 ? bindings[0]!.AsObject() : new JsonObject { ["anyOf"] = new JsonArray(bindings) });
+        }
+    }
+
+    private static JsonObject DomainValue(JsonObject schema, JsonObject definitions)
+    {
+        var declared = TaskOperations.FiniteDomain(schema);
+        var values = declared.ContainsKey("const") ? new JsonArray([declared["const"]?.DeepClone()]) : declared["enum"]?.DeepClone() as JsonArray;
+        if (values is null || values.Any(v => v is JsonObject or JsonArray)) return Ref("value");
+        if (declared.ContainsKey("const") && declared["enum"] is JsonArray allowed && !allowed.Any(v => JsonNode.DeepEquals(v, declared["const"]))) values.Clear();
+        if (!definitions.ContainsKey("binding"))
+        {
+            var all = definitions["value"]!["anyOf"]!.AsArray();
+            var bindings = all.Where(v => v!["properties"]!["kind"]!["enum"]![0]!.ToString() is not ("null" or "string" or "number" or "boolean" or "object" or "array")).ToArray();
+            definitions["binding"] = new JsonObject { ["anyOf"] = new JsonArray(bindings.Select(v => v!.DeepClone()).ToArray()) };
+            foreach (var binding in bindings) all.Remove(binding);
+            all.Add((JsonNode)Ref("binding"));
+        }
+        var alternatives = new JsonArray(Ref("binding"));
+        foreach (var group in values.GroupBy(v => v?.GetValueKind() ?? System.Text.Json.JsonValueKind.Null).OrderBy(g => g.Key))
+        {
+            var type = group.Key switch { System.Text.Json.JsonValueKind.String => "string", System.Text.Json.JsonValueKind.Number => "number",
+                System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False => "boolean", _ => "null" };
+            if (type == "null") alternatives.Add((JsonNode)Object(("kind", Enum("null"))));
+            else alternatives.Add((JsonNode)Object(("kind", Enum(type)), (type == "string" ? "text" : type,
+                new JsonObject { ["type"] = type, ["enum"] = new JsonArray(group.OrderBy(v => v!.ToJsonString(), StringComparer.Ordinal)
+                    .DistinctBy(v => v!.ToJsonString()).Select(v => v!.DeepClone()).ToArray()) })));
+        }
+        var domain = new JsonObject { ["anyOf"] = alternatives };
+        var existing = definitions.FirstOrDefault(d => d.Key.StartsWith("domain", StringComparison.Ordinal) && JsonNode.DeepEquals(d.Value, domain));
+        if (existing.Key is not null) return Ref(existing.Key);
+        var name = "domain" + definitions.Count; definitions[name] = domain; return Ref(name);
     }
 
     private static JsonObject Described(JsonObject schema, string description) { schema["description"] = description; return schema; }
