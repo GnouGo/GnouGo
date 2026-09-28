@@ -79,6 +79,7 @@ public sealed partial class TaskPlanCompiler
     {
         var findings = IdentityDiagnostics(_plan).ToList();
         var symbols = new TaskPlanSymbols(_plan);
+        var artifacts = new TaskArtifactBindings(_plan, _catalog, symbols);
         var groups = new Dictionary<string, Scope>(StringComparer.Ordinal);
         var activeGroups = new HashSet<string>(StringComparer.Ordinal);
         var invalidChoices = _plan.Choices.Where(c => symbols.InvalidIds.Contains(c.Id)).Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
@@ -253,6 +254,15 @@ public sealed partial class TaskPlanCompiler
                             if (value is not null)
                             {
                                 findings.AddRange(ConstraintFindings(value, port.Schema, location));
+                                foreach (var artifact in capability.ArtifactContract?.Consumes ?? [])
+                                {
+                                    var consumedPath = TaskArtifactBindings.Decode(artifact.Pointer);
+                                    var relativePath = consumedPath.Skip(port.Path.Count).ToArray();
+                                    if (!artifact.Required && TaskArtifactBindings.ExplicitlyAbsent(input.Value, relativePath)) continue;
+                                    if (consumedPath.Take(port.Path.Count).SequenceEqual(port.Path, StringComparer.Ordinal) &&
+                                        !artifacts.Proves(input.Value, symbols.Tasks[task.Id].Scope, relativePath, artifact.Kind))
+                                        findings.Add(new("TASK_ARTIFACT_BINDING", location, "Bind a declared producer business port of artifact kind '" + artifact.Kind + "'. A matching type or literal does not establish provenance."));
+                                }
                                 Fits(value, port.Schema, "TASK_INPUT_TYPE", optional: !port.Required); Bind(mapped, port.Path, value.Value);
                             }
                         });

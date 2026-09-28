@@ -435,6 +435,8 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         {
             var capability = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).FirstOrDefault(c => TaskOperations.Describe(c).Id == operation.Id && c.Version == operation.Version);
             var item = OperationPrompt(capability is null ? operation : PlanningCapabilityArguments.Editable(capability));
+            if (capability is not null && TaskOperations.ArtifactPorts(capability) is { Count: > 0 } artifacts)
+                item["artifacts"] = artifacts;
             // Removing duplicate index entries must not hide which source owns an
             // operation the model may request explicitly on its next turn.
             if (identities.TryGetValue(operation.Id, out var identity))

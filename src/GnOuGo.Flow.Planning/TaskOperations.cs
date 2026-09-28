@@ -31,6 +31,33 @@ public static class TaskOperations
         Inputs = Ports(capability.InputSchema), Outputs = Ports(capability.OutputSchema)
     };
 
+    internal static JsonObject ArtifactPorts(PlanningCapability capability)
+    {
+        var result = new JsonObject();
+        if (capability.ArtifactContract is not { } contract) return result;
+        var operation = PlanningCapabilityArguments.Editable(capability);
+        var produced = new JsonArray(); var consumed = new JsonArray();
+        foreach (var artifact in contract.Produces)
+            if (Port(operation.Outputs, artifact.Pointer, artifact.Kind) is { } port) produced.Add((JsonNode)port);
+        foreach (var artifact in contract.Consumes)
+            if (Port(operation.Inputs, artifact.Pointer, artifact.Kind) is { } port)
+            { port["required"] = artifact.Required; consumed.Add((JsonNode)port); }
+        if (produced.Count > 0) result["produces"] = produced;
+        if (consumed.Count > 0) result["consumes"] = consumed;
+        return result;
+
+        static JsonObject? Port(List<OperationPort> ports, string pointer, string kind)
+        {
+            var path = TaskArtifactBindings.Decode(pointer);
+            var matches = ports.Where(p => path.Take(p.Path.Count).SequenceEqual(p.Path, StringComparer.Ordinal)).OrderByDescending(p => p.Path.Count).ToArray();
+            if (matches.Length == 0) return null;
+            var port = matches[0];
+            var item = new JsonObject { ["port"] = port.Name, ["kind"] = kind };
+            if (path.Length > port.Path.Count) item["fields"] = new JsonArray(path.Skip(port.Path.Count).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray());
+            return item;
+        }
+    }
+
     private static List<OperationPort> Ports(JsonObject schema) => schema["properties"] is not JsonObject properties ? [] :
         properties.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => new OperationPort
         {

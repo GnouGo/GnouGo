@@ -503,7 +503,8 @@ public sealed partial class TaskPlanCompiler
             foreach (var (name, field) in properties) outputs.Add(name, Output(key, type, [name], field!.AsObject()));
         return outputs;
     }
-    private static Bound Output(string key, string type, List<string> path, JsonObject schema) => new(Reference(key, path.ToArray()), schema,
+    private static Bound Output(string key, string type, List<string> path, JsonObject schema) => new(Reference(key, path.ToArray()),
+        type == "mcp.call" && schema.Count == 0 ? PlanningContractShapes.Opaque() : schema,
         "data.steps[" + Quote(key) + "]" + (type == "mcp.call" ? ".response" : type == "workflow.call" ? ".outputs" : "") + string.Concat(path.Select(p => "[" + Quote(p) + "]")));
     private static Bound Input(string name, JsonObject schema) => new(new() { Kind = "input", Source = name }, schema, "data.inputs[" + Quote(name) + "]");
     private static PlanningNode Call(string key, string workflow, PlanningValue args) => new() { Key = key, Type = "workflow.call", Input = Object([new("ref", new() { Kind = "workflow", Source = workflow }), new("args", args)]) };
@@ -516,7 +517,7 @@ public sealed partial class TaskPlanCompiler
     {
         var ports = fields.ToArray(); return new() { ["type"] = "object", ["properties"] = new JsonObject(ports.Select(f => new KeyValuePair<string, JsonNode?>(f.Name, f.Schema.DeepClone()))), ["required"] = new JsonArray(ports.Select(f => (JsonNode?)JsonValue.Create(f.Name)).ToArray()), ["additionalProperties"] = false };
     }
-    private static PlanningSchema Contract(JsonObject schema) => new() { Contract = schema.DeepClone().AsObject() };
+    private static PlanningSchema Contract(JsonObject schema) => new() { Contract = schema.Count == 0 ? PlanningContractShapes.Opaque() : schema.DeepClone().AsObject() };
     private static string Key(string parent, string role) => "task_" + PlanningGraphCompiler.Fingerprint(parent + "/" + role)[..24];
     private static string Quote(string value) => JsonSerializer.Serialize(value, PlanningJsonContext.Default.String);
     private static bool Literal(TaskValue value) => value.Kind is "null" or "string" or "number" or "boolean" || value.Kind == "object" && value.Members.All(m => Literal(m.Value)) || value.Kind == "array" && value.Items.All(Literal);
