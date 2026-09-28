@@ -1,0 +1,94 @@
+@using GnOuGo.Agent.Server.Planning
+@using GnOuGo.Flow.Core.Planning
+@inject PlanningSessionService Planning
+@inject IJSRuntime Js
+@implements IDisposable
+
+<section class="my-3" aria-label="Capability discovery">
+    <button type="button" class="btn btn-outline-secondary" aria-expanded="@_open" @onclick="ToggleAsync">@(_open ? "Hide discovery details" : "Inspect discovered tools")</button>
+    @if (_open)
+    {
+        <h3>Capability discovery</h3>
+        <p>Inspection selects context for planning. It does not authorize execution.</p>
+        @if (_loading) { <p role="status">Loading retained discovery requests…</p> }
+        @if (_error is not null) { <p role="alert">@_error</p> }
+        @if (_report is { } report)
+        {
+            <p>@report.Calls / @report.CallLimit calls used; @Math.Max(0, report.CallLimit - report.Calls) remaining.</p>
+            <p>Current inspection selection: @(report.RequestedOperationIds.Count == 0 ? "none" : string.Join(", ", report.RequestedOperationIds)). The request history below shows what was actually sent.</p>
+            <button type="button" class="btn btn-secondary" @onclick="CopyAsync">Copy discovery report</button>
+            <span role="status">@_copyStatus</span>
+            @if (report.Requests.Count == 0) { <p>No issued request snapshot is available. No discovery or inference was dispatched to build this view.</p> }
+            else
+            {
+                <label for="discovery-request">Issued request</label>
+                <select id="discovery-request" class="form-select" @bind="_selected">
+                    @for (var i = 0; i < report.Requests.Count; i++)
+                    { <option value="@i">Request @(i + 1) · revision @report.Requests[i].Revision</option> }
+                </select>
+                var request = report.Requests[_selected];
+                <p><code>@request.Id</code></p>
+                <p>Complete input estimate: <strong>@request.InputTokens / @request.InputLimit tokens</strong> · prompt @request.PromptBytes bytes.</p>
+                <p>@request.Sources.Count(s => s.Pages > 0) / @request.Sources.Count sources inspected · @request.Sources.Sum(s => s.Pages) pages · @request.Tools.Count tools retained · @request.Tools.Count(t => t.Status == "Full contract") MCP contracts shown.</p>
+                <p>@request.Sources.Count(s => s.Pages == 0) sources uninspected · @request.Sources.Count(s => s.HasMore) sources with remaining pages · @request.Sources.Count(s => s.Unavailable) unavailable.</p>
+                <details><summary>Sources</summary><ul>@foreach (var source in request.Sources)
+                { <li>@source.Name <small>@source.Id</small> · @source.Pages pages · @source.Tools tools @(source.Unavailable ? "· unavailable" : "") @(source.HasMore ? "· more pages available" : "")</li> }</ul></details>
+                <details><summary>Contract changes since the previous request</summary>
+                    <p>Added: @string.Join(", ", request.Added)</p><p>Removed: @string.Join(", ", request.Removed)</p>
+                </details>
+                <label for="discovery-filter">Filter tools by name or source</label>
+                <input id="discovery-filter" class="form-control" @bind="_filter" @bind:event="oninput" />
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <caption>Recorded presentation; contract sizes include complete business schemas. Historical exclusion scores were not recorded.</caption>
+                        <thead><tr><th scope="col">Tool / source</th><th scope="col">Shown to model</th><th scope="col">Selection</th><th scope="col">Contract bytes</th></tr></thead>
+                        <tbody>
+                        @foreach (var tool in request.Tools.Where(t => string.IsNullOrWhiteSpace(_filter) || t.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase) || t.Source.Contains(_filter, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            <tr><th scope="row">@tool.Name <small class="d-block">@tool.Source</small><small class="d-block">@tool.Id</small></th>
+                                <td>@tool.Status <small class="d-block">@tool.Reason</small></td>
+                                <td>@(tool.Requested ? "Requested for inspection" : "Not explicitly requested")<br />@(tool.Used ? "Used by current TaskPlan" : "Not used by a TaskPlan")</td>
+                                <td>@tool.ContractBytes</td></tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public PlanningSession Session { get; set; } = default!;
+    [Parameter] public bool Workflow { get; set; }
+    private readonly CancellationTokenSource _lifetime = new();
+    private PlanningDiscoveryReport? _report;
+    private bool _open, _loading;
+    private string? _error, _copyStatus;
+    private string _filter = "";
+    private int _selected;
+    private long _loadedRevision = -1;
+    protected override async Task OnParametersSetAsync() { if (_open && _loadedRevision != Session.Revision) await LoadAsync(); }
+    private async Task ToggleAsync() { _open = !_open; if (_open && _loadedRevision != Session.Revision) await LoadAsync(); }
+    private async Task LoadAsync()
+    {
+        if (_loading) return;
+        _loading = true; _error = null;
+        try
+        {
+            _report = await Planning.InspectDiscoveryAsync(Session.Request.SessionId, Workflow, _lifetime.Token);
+            _selected = Math.Max(0, (_report?.Requests.Count ?? 0) - 1);
+            _loadedRevision = _report?.Revision ?? Session.Revision;
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch { _error = "The retained discovery report could not be read. No planning request was dispatched."; }
+        finally { _loading = false; }
+    }
+    private async Task CopyAsync()
+    {
+        if (_report is null) return;
+        try { await Js.InvokeVoidAsync("navigator.clipboard.writeText", PlanningDiscoveryInspection.CopyText(_report)); _copyStatus = "Copied sanitized report"; }
+        catch (JSException) { _copyStatus = "Copy unavailable"; }
+    }
+    public void Dispose() { _lifetime.Cancel(); _lifetime.Dispose(); }
+}

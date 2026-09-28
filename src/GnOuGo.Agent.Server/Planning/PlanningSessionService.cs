@@ -46,6 +46,13 @@ public sealed class PlanningSessionService(
     public Task<PlanningSession?> GetAsync(string id, CancellationToken ct) => store.LoadAsync(Tenant, id, ct);
     public Task<IReadOnlyList<PlanningSession>> ListAsync(CancellationToken ct) => store.ListAsync(Tenant, ct);
 
+    internal async Task<PlanningDiscoveryReport?> InspectDiscoveryAsync(string id, bool workflow, CancellationToken ct)
+    {
+        var inspection = await InspectAsync(id, workflow, ct);
+        return inspection?.Session is { } session
+            ? await PlanningDiscoveryInspection.ReadAsync(records, Tenant, session, workflow, ct) : null;
+    }
+
     // Workflow-owned sessions are inspection-only here. Their original runtime owns all commands.
     private const string WorkflowSessions = "flow-planning-sessions-v10";
     public async Task<PlanningSession?> GetWorkflowSessionAsync(string id, CancellationToken ct)

@@ -62,6 +62,7 @@
         }
         @if (_state.Usage is { } usage) { <p>Estimated cost @usage.EstimatedCost.ToString("0.00") @usage.EstimatedCostCurrency</p> }
         <p>@_state.Requirements?.Summary</p>
+        <PlannerDiscovery @key="(_state.Request.SessionId, IsWorkflowSession)" Session="_state" Workflow="IsWorkflowSession" />
         @if (_state.Graph is { } graph)
         {
             <MarkdownContent Content="@("```mermaid\n" + PlanningReviewFormatter.Diagram(graph) + "\n```")" />
