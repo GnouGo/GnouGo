@@ -232,14 +232,17 @@ public sealed partial class TaskPlanCompiler
                 case "operation":
                     var matches = _catalog.Capabilities.Where(c => TaskOperations.Describe(c).Id == task.Operation).ToArray();
                     if (matches.Length != 1) { findings.Add(new("TASK_OPERATION_UNKNOWN", path + "/operation", "Select one issued, unambiguous operation.")); scope.Blocked.Add(("output", task.Id, "*")); break; }
-                    var capability = matches[0]; var operation = TaskOperations.Describe(capability);
+                    var capability = matches[0];
                     if (TaskOperations.Validate(capability).Count > 0) { scope.Blocked.Add(("output", task.Id, "*")); break; }
+                    var operation = PlanningCapabilityArguments.Editable(capability);
                     Check(path + "/operation", () => { if (_catalog.Policy.DeniedCapabilityIds.Contains(capability.Id) || !_catalog.AllowedStepTypes.Contains(capability.StepType)) Fail("TASK_OPERATION_DENIED", "The operation is outside the approved host policy."); });
                     Check(path + "/inputs", () => Unique(task.Inputs.Select(i => i.Name)));
                     var mapped = Object([]);
                     foreach (var input in task.Inputs)
                     {
                         var location = path + "/inputs/" + input.Name;
+                        if (PlanningCapabilityArguments.Assignment(capability, input.Name, input.Value))
+                        { findings.Add(new("TASK_INPUT_HOST_OWNED", location, "This binding is supplied by the catalog. Omit it; build partial objects only from editable business fields.")); continue; }
                         var port = operation.Inputs.SingleOrDefault(p => p.Name == input.Name);
                         var value = Read(input.Value, scope, location);
                         if (port is null) { findings.Add(new("TASK_INPUT_UNKNOWN", location, "Choose a declared business input port.")); continue; }

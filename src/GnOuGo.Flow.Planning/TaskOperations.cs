@@ -36,7 +36,7 @@ public static class TaskOperations
     public static IReadOnlyList<PlanningDiagnostic> Validate(PlanningCapability capability)
     {
         var operation = Describe(capability);
-        var errors = new List<PlanningDiagnostic>();
+        var errors = PlanningCapabilityArguments.Validate(capability).ToList();
         if (string.IsNullOrWhiteSpace(operation.Id) || operation.Version != capability.Version)
             errors.Add(new("OPERATION_MAPPING_INVALID", "/operations", "Operation identity and exact contract version must be declared together."));
         Check(operation.Inputs, capability.InputSchema); Check(operation.Outputs, capability.OutputSchema);

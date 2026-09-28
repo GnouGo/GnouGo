@@ -149,3 +149,23 @@ foreach (var selected in new[] { false, true })
         throw new InvalidOperationException("Conditional null output changed its value");
 }
 Console.WriteLine("null-only contracts: passed; both conditional branches; no inference");
+
+// Catalog-owned fields stay out of semantic intent through serialization and AOT.
+var ownedCatalog = await productRuntime.DiscoverAsync(new(), CancellationToken.None);
+ownedCatalog.Capabilities.Add(new() { Id = "owned_operation", Version = "v1", Kind = "registered", StepType = "set", EffectKind = "none",
+    InputSchema = JsonNode.Parse("""{"type":"object","properties":{"selector":{"type":"string"},"text":{"type":"string"}},"required":["selector","text"],"additionalProperties":false}""")!.AsObject(),
+    OutputSchema = new() { ["type"] = "object" }, FixedInput = new() { ["selector"] = "host" } });
+var ownedPlan = new TaskPlan { Root = new() { Tasks = [new() { Id = "work", Kind = "operation", Objective = "Use the business text", Operation = "owned_operation",
+    Inputs = [new("text", new() { Kind = "string", Text = "business" })] }] } };
+ownedPlan = JsonSerializer.Deserialize(JsonSerializer.Serialize(ownedPlan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
+var ownedCompilation = new TaskPlanCompiler().Compile(ownedPlan, ownedCatalog);
+if (ownedCompilation.Graph is null || ownedCompilation.Diagnostics.Count != 0) throw new InvalidOperationException("Owned input compilation failed");
+var ownedYaml = new PlanningGraphCompiler().Compile(ownedCompilation.Graph, ownedCatalog);
+var ownedWorkflow = WorkflowParser.Parse(ownedYaml);
+if (ownedWorkflow.Workflows.Values.SelectMany(w => w.Steps).Single().Input!["selector"]!.ToString() != "host")
+    throw new InvalidOperationException("Catalog input was not injected");
+ownedPlan.Root.Tasks[0].Inputs.Add(new("selector", new() { Kind = "string", Text = "host" }));
+var ownedRejection = new TaskPlanCompiler().Compile(ownedPlan, ownedCatalog);
+if (ownedRejection.Graph is not null || !ownedRejection.Diagnostics.Any(d => d.Code == "TASK_INPUT_HOST_OWNED"))
+    throw new InvalidOperationException("Catalog override was accepted");
+Console.WriteLine("catalog-owned bindings: passed; host injection and explicit override rejection verified");

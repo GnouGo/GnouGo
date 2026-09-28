@@ -38,7 +38,7 @@ internal static class PlanningDiscoveryContext
         var used = plan is null ? [] : TaskPlanRevisions.Tasks(plan).Select(t => t.Operation).ToHashSet(StringComparer.Ordinal);
         var operations = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).DistinctBy(c => (c.Id, c.Version))
             .Where(c => c.Kind == "registered" || used.Contains(TaskOperations.Describe(c).Id))
-            .Select(TaskOperations.Describe);
+            .Select(PlanningCapabilityArguments.Editable);
         return operations.Concat(Inspected(state).Select(c => c.Operation!)).DistinctBy(o => o.Id)
             .OrderBy(o => o.Id, StringComparer.Ordinal).ToList();
     }
@@ -101,9 +101,16 @@ internal static class PlanningDiscoveryContext
         summary["index"] = new JsonArray(candidates.Where(c => c.SourceId == source.Id && !detailed.Contains(c.Operation!.Id)).Select(c => (JsonNode)new JsonObject
             {
                 ["id"] = c.Operation?.Id ?? c.Id, ["name"] = c.Name,
-                ["inputs"] = Names(c.Operation?.Inputs ?? []), ["outputs"] = Names(c.Operation?.Outputs ?? [])
+                ["inputs"] = Names(EditableInputs(c)), ["outputs"] = Names(c.Operation?.Outputs ?? [])
             }).ToArray());
         return (JsonNode)summary;
+
+        IEnumerable<OperationPort> EditableInputs(CapabilitySummary capability)
+        {
+            var exact = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved)
+                .FirstOrDefault(c => c.Id == capability.Id && c.Version == capability.Version);
+            return exact is null ? capability.Operation?.Inputs ?? [] : PlanningCapabilityArguments.Editable(exact).Inputs;
+        }
     }).ToArray());
 
     private static JsonArray Names(IEnumerable<OperationPort> ports) => new(ports.Select(p => (JsonNode?)JsonValue.Create(p.Name)).ToArray());
@@ -116,6 +123,8 @@ internal static class PlanningDiscoveryContext
             PlanningContractValidation.ValidateSchema(resolved.InputSchema).Count > 0 ||
             resolved.OutputSchema.Count > 0 && PlanningContractValidation.ValidateSchema(resolved.OutputSchema).Count > 0 ||
             !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(TaskOperations.Describe(resolved), PlanningJsonContext.Default.PlanningOperation),
+                JsonSerializer.SerializeToNode(summary.Operation, PlanningJsonContext.Default.PlanningOperation)) &&
+            !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(PlanningCapabilityArguments.Editable(resolved), PlanningJsonContext.Default.PlanningOperation),
                 JsonSerializer.SerializeToNode(summary.Operation, PlanningJsonContext.Default.PlanningOperation)))
             throw new PlanningConflictException("The operation contract changed after discovery.");
         state.Discovery.Resolved.Add(resolved);

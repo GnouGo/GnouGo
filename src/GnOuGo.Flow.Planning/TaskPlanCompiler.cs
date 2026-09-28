@@ -308,7 +308,7 @@ public sealed partial class TaskPlanCompiler
     {
         var matches = _catalog.Capabilities.Where(c => TaskOperations.Describe(c).Id == task.Operation).ToArray();
         if (matches.Length != 1) Fail("TASK_OPERATION_UNKNOWN", "Select one issued, unambiguous operation.");
-        var capability = matches[0]; var operation = TaskOperations.Describe(capability);
+        var capability = matches[0]; var operation = PlanningCapabilityArguments.Editable(capability);
         if (_catalog.Policy.DeniedCapabilityIds.Contains(capability.Id) || !_catalog.AllowedStepTypes.Contains(capability.StepType)) Fail("TASK_OPERATION_DENIED", "The operation is outside the approved host policy.");
         Unique(task.Inputs.Select(i => i.Name));
         var input = Object([]);
@@ -336,6 +336,7 @@ public sealed partial class TaskPlanCompiler
             }
             _sources[path] = "/tasks/" + task.Id + "/inputs/" + argument.Name;
         }
+        input = PlanningCapabilityArguments.Apply(input, capability);
         _location = "/tasks/" + task.Id;
         target.Add(new() { Key = key, Purpose = task.Objective, Type = capability.StepType, CapabilityId = capability.Id,
             Input = capability.StepType == "mcp.call" ? Object([new("request", input)]) : input });

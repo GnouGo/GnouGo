@@ -435,7 +435,8 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         JsonObject Describe(PlanningOperation operation)
         {
-            var item = OperationPrompt(operation);
+            var capability = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).FirstOrDefault(c => TaskOperations.Describe(c).Id == operation.Id && c.Version == operation.Version);
+            var item = OperationPrompt(capability is null ? operation : PlanningCapabilityArguments.Editable(capability));
             // Removing duplicate index entries must not hide which source owns an
             // operation the model may request explicitly on its next turn.
             if (identities.TryGetValue(operation.Id, out var identity))

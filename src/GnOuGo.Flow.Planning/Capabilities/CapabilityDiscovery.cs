@@ -46,7 +46,7 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
         {
             var capabilities = await ReadSourceAsync(sourceId, ct);
             var summaries = capabilities.Select(c => new CapabilitySummary(c.Id, sourceId,
-                c.Method ?? c.Id, c.Description, c.StepType, c.EffectKind, c.Version, c.Composition, TaskOperations.Describe(c))).ToArray();
+                c.Method ?? c.Id, c.Description, c.StepType, c.EffectKind, c.Version, c.Composition, PlanningCapabilityArguments.Editable(c))).ToArray();
             // Null queries retain the ordering and numeric cursors of already-issued requests.
             var ordered = query is null ? summaries : CapabilityRelevance.Rank(summaries, query);
             var prefix = query is null ? "" : "rank:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(
