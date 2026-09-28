@@ -64,3 +64,6 @@ h1 { font-size: 23px; letter-spacing: -.8px; margin: 8px 0 0; font-weight: 650; 
 .footer { display: flex; justify-content: space-between; margin-top: 17px; font-size: 9px; color: #a6afa0; }
 @media (max-width: 1050px) { main { padding: 22px; } .workspace { grid-template-columns: 255px minmax(0, 1fr); } .intro h2 { font-size: 22px; } .detail-meta { gap: 9px; } }
 @media (max-width: 760px) { .rail { width: 48px; } main { margin-left: 48px; width: calc(100% - 48px); padding: 18px 12px; } .intro { align-items: flex-start; flex-direction: column; } .metrics { grid-template-columns: repeat(2, 1fr); .metric { border-bottom: 1px solid $line; padding: 13px; } } .workspace { display: flex; flex-direction: column; height: auto; max-height: none; } .requests { max-height: 300px; border-right: 0; border-bottom: 1px solid $line; } .inspector { min-height: 500px; } .detail-content { max-height: 700px; } .connection { font-size: 9px; } .footer { gap: 15px; line-height: 1.5; } .tabs { padding: 0 18px; gap: 17px; } }
+.retry-progress { margin: .5rem 0; font-size: .75rem; line-height: 1.5; color: #5c6470; overflow-wrap: anywhere; }
+.retry-progress--waiting { color: #785315; background: #fff3d8; border-radius: .4rem; padding: .5rem .65rem; }
+.inspector > .retry-progress { margin: .75rem 1.5rem; }

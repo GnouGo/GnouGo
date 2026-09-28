@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { costLabel, money, output, upstreamError } from './traffic.ts'
+import { costLabel, money, output, retryLabel, upstreamError } from './traffic.ts'
 import type { Detail } from './traffic.ts'
 
 test('costs retain small amounts, distinguish currencies, unknown and partial usage', () => {
@@ -22,6 +22,16 @@ test('live output reconstructs parallel tool arguments and withholds incomplete 
 test('completed JSON and usage-only SSE records are supported', () => {
   assert.equal(output('{"choices":[{"message":{"content":"Ready"}}]}').content, 'Ready')
   assert.deepEqual(output('data: {"choices":[],"usage":{"total_tokens":3}}\n\ndata: [DONE]\n\n'), { content: '', tools: [] })
+})
+
+test('retry countdown is client-side, clamps to zero and stops after completion', () => {
+  const now = Date.parse('2026-09-28T12:00:00Z')
+  const call = { status: 'running', retry: { attempt: 1, maxAttempts: 10, lastStatusCode: 429, nextAttemptAt: '2026-09-28T12:02:30Z', waitedMs: 0 } }
+  assert.match(retryLabel(call, now)!, /Attempt 2\/10 in 2m 30s.*HTTP 429/)
+  assert.match(retryLabel(call, now + 151000)!, /in 0m 0s/)
+  assert.doesNotMatch(retryLabel({ ...call, status: 'completed' }, now)!, /Waiting/)
+  assert.equal(retryLabel({ status: 'running' }), null)
+  assert.deepEqual(output(': keep-alive\n\ndata: {"error":{"message":"Retry limit reached"}}\n\n'), { content: '', tools: [] })
 })
 
 test('failed calls expose the already-redacted provider message without parsing HTML', () => {
