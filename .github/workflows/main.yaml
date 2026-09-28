@@ -35,8 +35,8 @@ jobs:
       - uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: "10.0.x"
-      - name: Compare isolated PowerShell startup
-        run: dotnet test tests/GnOuGo.Cmd.Mcp.Tests -m:1 -warnaserror --filter FullyQualifiedName~PowerShellLaunchDiagnosticsTests --logger "console;verbosity=normal"
+      - name: Validate Windows Cmd execution
+        run: dotnet test tests/GnOuGo.Cmd.Mcp.Tests -m:1 -warnaserror --logger "console;verbosity=normal"
 
   stable_unit_tests:
     name: Stable Unit Tests

@@ -43,6 +43,11 @@ public sealed class CommandExecutionHost
             var effectiveTimeoutMs = _policy.ResolveTimeoutMs(command, timeoutMs);
             var outputLimit = _policy.ResolveOutputLimit(command);
             var environment = _policy.BuildEnvironment();
+            // Windows PowerShell can spin while rebuilding an absent PSModulePath
+            // in a filtered environment. Supply only the selected shell's built-in
+            // modules; never inherit user module paths unless explicitly allowlisted.
+            if (OperatingSystem.IsWindows() && shell.LogicalName == "powershell" && !environment.ContainsKey("PSModulePath"))
+                environment["PSModulePath"] = Path.Combine(Path.GetDirectoryName(shell.ExecutablePath)!, "Modules");
 
             Process process;
             try
