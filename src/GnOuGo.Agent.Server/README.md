@@ -691,3 +691,9 @@ Planning format 10 stores TaskPlans, choices, derived artifacts and call receipt
 The former `answer_decision`, free-text decisions, scope-consent cards, binding batches and computation-inference details are removed. Historical reports describe those old APIs and must not be used as current integration instructions. See [architecture and migration](../../docs/workflow-planning-v9.md) and the [planning skill](../../.agents/skills/gnougo-planning/SKILL.md).
 
 Run `dotnet test tests/GnOuGo.Agent.Server.Tests -m:1 -warnaserror -p:SkipClientBuild=true` for deterministic host integration and encrypted persistence coverage. Real Copilot command edit/test execution remains unverified under the available sandbox enforcement; simulated workflow results do not establish that capability.
+
+### Inspect planning discovery
+
+In Designer, **Inspect discovered tools** shows original request history, complete input estimates, source/page coverage, detailed versus index-only tools, retained omissions, unavailable/policy-excluded contracts, and explicit inspection selections separately from TaskPlan use. **Copy discovery report** exports identifiers, tool names and counts without raw prompts, arguments, schemas, descriptions or diagnostic message bodies. Historical exclusion reasons that were not recorded remain unavailable. Inspection and copying read tenant-owned encrypted records only; they dispatch no inference or MCP operation. Chat-owned sessions may lack historical request snapshots.
+
+Discovery can request exact contracts for known operation IDs within its existing call allowance. Selections survive paging; they never grant permissions or reset limits. See [evidence and limits](../../docs/controllable-discovery.md). Existing stopped sessions are not resumed automatically.
