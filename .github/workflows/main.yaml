@@ -24,6 +24,20 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
 
 jobs:
+  cmd_windows_diagnosis:
+    name: Cmd Windows launch diagnosis
+    runs-on: windows-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.0.0
+        with:
+          dotnet-version: "10.0.x"
+      - name: Compare isolated PowerShell startup
+        run: dotnet test tests/GnOuGo.Cmd.Mcp.Tests -m:1 -warnaserror --filter FullyQualifiedName~PowerShellLaunchDiagnosticsTests --logger "console;verbosity=normal"
+
   stable_unit_tests:
     name: Stable Unit Tests
     uses: ./.github/workflows/test-stable-unit.yml
