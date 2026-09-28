@@ -109,6 +109,14 @@ jobs:
           }
           dotnet @publishArgs
 
+      - name: Diagnose isolated Windows PowerShell launch
+        if: matrix.rid == 'win-x64'
+        timeout-minutes: 3
+        shell: pwsh
+        run: |
+          dotnet test tests/GnOuGo.Cmd.Mcp.Tests/GnOuGo.Cmd.Mcp.Tests.csproj -m:1 -warnaserror --filter FullyQualifiedName~PowerShellLaunchDiagnosticsTests --logger "console;verbosity=normal"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Test Cmd filesystem commands and published protocol
         timeout-minutes: 10
         if: matrix.rid == 'linux-x64' || matrix.rid == 'win-x64' || matrix.rid == 'osx-arm64'
