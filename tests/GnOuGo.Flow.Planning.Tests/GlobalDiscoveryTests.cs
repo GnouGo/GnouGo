@@ -14,7 +14,7 @@ public sealed class GlobalDiscoveryTests
         var state = State();
         state.Discovery.Pages.Add(new("a", "next-a", [new("later", "a", "unrelated", "Later metadata", "mcp.call", "read", "v1",
             Operation: new() { Id = "later", Description = "unselected-full-contract" })], null, Query: "find needle records"));
-        Assert.All(HybridWorkflowPlanner.Shortlist(state), c => Assert.StartsWith("a", c.Id));
+        Assert.All(HybridWorkflowPlanner.Shortlist(state).Take(8), c => Assert.StartsWith("a", c.Id));
         var context = Context(HybridWorkflowPlanner.Prompt(state));
         var index = context["coverage"]!.AsArray().Single(c => c!["sourceId"]!.ToString() == "a")!["index"]!.AsArray();
         Assert.Equal("later", Assert.Single(index)!["id"]!.ToString());
@@ -45,21 +45,21 @@ public sealed class GlobalDiscoveryTests
     }
 
     [Fact]
-    public void GlobalLimitHasNoSourceQuotaAndRequiredContractsDoNotConsumeOptionalSlots()
+    public void TokenBudgetHasNoSourceQuotaAndRequiredContractsAppearExactlyOnce()
     {
         var state = State();
         var selected = HybridWorkflowPlanner.Shortlist(state);
-        Assert.Equal(8, selected.Count);
-        Assert.All(selected, c => Assert.Equal("a", c.SourceId));
+        Assert.Equal(24, selected.Count);
+        Assert.All(selected.Take(8), c => Assert.Equal("a", c.SourceId));
         var identities = selected.Select(c => c.Id).ToArray();
         state.Discovery.Sources.Reverse(); state.Discovery.Pages.Reverse();
         Assert.Equal(identities, HybridWorkflowPlanner.Shortlist(state).Select(c => c.Id));
         state.Plan = new() { Root = new() { Tasks = [new() { Id = "use", Objective = "Use the selected operation", Operation = "a0" }] } };
         var prompt = HybridWorkflowPlanner.BuildPrompt(state, HybridWorkflowPlanner.Shortlist(state));
         var context = Context(prompt);
-        Assert.Equal(9, context["operations"]!.AsArray().Count);
+        Assert.Equal(24, context["operations"]!.AsArray().Count);
         Assert.Single(context["operations"]!.AsArray(), o => o!["id"]!.ToString() == "a0");
-        Assert.DoesNotContain("schema-only-b7", prompt);
+        Assert.Contains("schema-only-b7", prompt);
         state.Catalog!.Policy.DeniedCapabilityIds.Add("a1");
         Assert.DoesNotContain(HybridWorkflowPlanner.Shortlist(state), c => c.Id == "a1");
     }
@@ -95,7 +95,7 @@ public sealed class GlobalDiscoveryTests
         foreach (var source in state.Discovery.Sources)
             state.Discovery.Pages.Add(await catalog.ListAsync(source.Id, null, PlannerFixture.Ct, "RESUME entries"));
         var selected = HybridWorkflowPlanner.Shortlist(state);
-        Assert.Equal(8, selected.Count);
+        Assert.Equal(24, selected.Count);
         Assert.Equal(match == "name" ? "ReadRésuméEntries" : "utility_999", selected[0].Name);
         Assert.Equal(CapabilityDiscovery.SourceId("arbitrary_2"), selected[0].SourceId);
         Assert.All(state.Discovery.Pages, p => { Assert.Equal(8, p.Capabilities.Count); Assert.NotNull(p.NextCursor); });
@@ -120,7 +120,7 @@ public sealed class GlobalDiscoveryTests
     }
 
     [Fact]
-    public async Task CompletedRefinementChangesGlobalFocusAndSurvivesRecovery()
+    public async Task CompletedRefinementIsSourceScopedAndSurvivesRecovery()
     {
         var state = State(); state.ModelCalls = 2;
         state.Usage = new() { Calls = 2, TotalTokens = 123, EstimatedCost = 0.1m };
@@ -128,12 +128,13 @@ public sealed class GlobalDiscoveryTests
         var runtime = new TestRuntime { Capabilities = catalog };
         runtime.Proposal.Plan = null; runtime.Proposal.DiscoveryRequests = [new("b", Query: "OTHER")];
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new(), runtime, PlannerFixture.Ct);
-        Assert.Empty(state.Diagnostics); Assert.Equal("other", state.Discovery.PresentationQuery);
+        Assert.Empty(state.Diagnostics); Assert.Equal("other", state.Discovery.Pages[^1].Query);
         Assert.Equal(3, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts); Assert.Equal(123, state.Usage!.TotalTokens);
         Assert.Equal(0.1m, state.Usage.EstimatedCost);
         var recovered = PlannerFixture.Clone(state);
-        Assert.Equal("other", recovered.Discovery.PresentationQuery);
-        Assert.All(HybridWorkflowPlanner.Shortlist(recovered), c => Assert.NotEqual("a", c.SourceId));
+        Assert.Equal("other", recovered.Discovery.Pages[^1].Query);
+        Assert.All(PlanningDiscoveryContext.Candidates(recovered).Take(8), c => Assert.Equal("a", c.SourceId));
+        Assert.True(PlanningDiscoveryContext.Candidates(recovered).FindIndex(c => c.Id == "b0") < PlanningDiscoveryContext.Candidates(recovered).FindIndex(c => c.Id == "c0"));
         Assert.Equal(4, recovered.Discovery.Pages.Count);
         var query = recovered.Discovery.PresentationQuery;
         runtime.Proposal.DiscoveryRequests = [new("b", Query: " other ")];

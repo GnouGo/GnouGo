@@ -11,6 +11,31 @@ public sealed class RecordedDiscoveryBudgetTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task SixHistoricalResponsesKeepTheirOriginalNullPlanStopAndAccounting()
+    {
+        var runtime = new Replay("retained-discovery-incomplete.json"); var planner = new HybridWorkflowPlanner();
+        PlanningSession? state = null;
+        foreach (var entry in runtime.Recording["responses"]!.AsArray())
+        {
+            runtime.Expected = entry!.AsObject(); state = runtime.State(entry["pendingSession"]!);
+            var usage = JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+            var id = state.PendingCall!.Id; var calls = state.ModelCalls;
+            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+            Assert.Equal(calls, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+            Assert.Equal(usage, JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+            Assert.Equal(id, runtime.Identities[^1]); Assert.Null(state.PendingCall);
+            if (calls < 6) Assert.Empty(state.Diagnostics);
+        }
+        Assert.Equal(PlanningStatus.Stopped, state!.Status);
+        Assert.Equal("DISCOVERY_INCOMPLETE", Assert.Single(state.Diagnostics).Code);
+        Assert.Equal(6, runtime.Identities.Count); Assert.Equal(17, runtime.MetadataReads);
+        Assert.Equal(90, state.Discovery.Pages.SelectMany(p => p.Capabilities).Select(c => c.Id).Distinct().Count());
+        Assert.Null(state.Plan); Assert.Null(state.ApprovedHash);
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(6, runtime.Identities.Count); Assert.Equal(6, state.ModelCalls);
+    }
+
+    [Fact]
     public async Task EightPreviouslyIssuedDiscoveryResponsesRecoverWithoutChangingTheirSchemasOrAccounting()
     {
         var runtime = new Replay(); var planner = new HybridWorkflowPlanner();
@@ -38,28 +63,28 @@ public sealed class RecordedDiscoveryBudgetTests
     }
 
     [Fact]
-    public async Task NewlyIssuedSixthRequestRejectsTheOriginalDiscoveryResponseWithoutAnotherTurn()
+    public async Task NewlyIssuedSeventhRequestRejectsTheOriginalDiscoveryResponseWithoutAnotherTurn()
     {
         var runtime = new Replay { VerifyOriginalRequest = false };
-        var entry = runtime.Recording["responses"]!.AsArray()[5]!;
+        var entry = runtime.Recording["responses"]!.AsArray()[6]!;
         runtime.Expected = entry.AsObject();
         var state = runtime.State(entry["pendingSession"]!);
-        state.PendingCall = null; state.ModelCalls = 5;
+        state.PendingCall = null; state.ModelCalls = 6;
         var planner = new HybridWorkflowPlanner();
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.Equal(PlanningStatus.Stopped, state.Status);
         Assert.Equal("DISCOVERY_NOT_ALLOWED", Assert.Single(state.Diagnostics).Code);
-        Assert.Equal(6, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(7, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(0, runtime.MetadataReads); Assert.Single(runtime.Identities); Assert.Null(state.Plan);
         var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         restored = await planner.AdvanceAsync(restored, new() { ExpectedRevision = restored.Revision }, runtime, Ct);
-        Assert.Equal(6, restored.ModelCalls); Assert.Single(runtime.Identities);
+        Assert.Equal(7, restored.ModelCalls); Assert.Single(runtime.Identities);
     }
 
-    private sealed class Replay : IPlanningRuntime, ICapabilityCatalog
+    private sealed class Replay(string fileName = "retained-discovery-exhaustion.json") : IPlanningRuntime, ICapabilityCatalog
     {
         internal readonly JsonObject Recording = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
-            "Fixtures", "DiscoveryBudget", "retained-discovery-exhaustion.json")))!.AsObject();
+            "Fixtures", "DiscoveryBudget", fileName)))!.AsObject();
         internal JsonObject Expected = null!;
         internal bool VerifyOriginalRequest = true;
         internal int MetadataReads;

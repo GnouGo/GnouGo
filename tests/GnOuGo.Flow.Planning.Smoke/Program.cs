@@ -56,7 +56,7 @@ if (JsonSerializer.Deserialize(JsonSerializer.Serialize(discoveryReceipt, Planni
 Console.WriteLine("typed transforms: passed; mocked inference; ordered products and cleanup verified");
 
 // New plan-only requests and saved request schemas retain their distinct meanings in AOT.
-var bounded = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = "Return declared data" }, ModelCalls = 5 };
+var bounded = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = "Return declared data" }, ModelCalls = 6 };
 bounded.Discovery.Sources.Add(new("declared", "Declared source"));
 var boundedSchema = PlanningSchemas.Proposal(bounded);
 var noPlan = new JsonObject { ["requirements"] = new JsonObject { ["summary"] = "Return data", ["outcomes"] =
@@ -65,7 +65,7 @@ if (!PlanningSchemas.AllowsNoPlan(boundedSchema) || PlanningContractValidation.V
     throw new InvalidOperationException("Closed discovery must permit a safe no-plan response");
 bounded.PendingCall = new() { Id = "retained", Purpose = "tasks", Request = new() { StructuredOutputSchema = boundedSchema } };
 bounded = JsonSerializer.Deserialize(JsonSerializer.Serialize(bounded, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-if (!PlanningSchemas.AllowsNoPlan(bounded.PendingCall!.Request.StructuredOutputSchema) || bounded.ModelCalls != 5)
+if (!PlanningSchemas.AllowsNoPlan(bounded.PendingCall!.Request.StructuredOutputSchema) || bounded.ModelCalls != 6)
     throw new InvalidOperationException("Saved discovery restriction or accounting changed");
 Console.WriteLine("bounded discovery: passed; issued no-plan schema and counters survive serialization");
 

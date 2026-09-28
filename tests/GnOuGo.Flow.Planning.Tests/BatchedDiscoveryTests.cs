@@ -46,14 +46,14 @@ public sealed class BatchedDiscoveryTests(ITestOutputHelper output)
         }
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(2, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(2, metadata.Reads);
-        Assert.Equal(2, tracking.Pages.Count); Assert.Equal(8, tracking.Resolutions); Assert.Equal(12, state.Discovery.Pages.Sum(p => p.Capabilities.Count));
+        Assert.Equal(2, tracking.Pages.Count); Assert.Equal(12, tracking.Resolutions); Assert.Equal(12, state.Discovery.Pages.Sum(p => p.Capabilities.Count));
         Assert.Equal(3, state.Catalog!.Capabilities.Count(c => c.Kind != "registered"));
-        Assert.Equal(8, state.Discovery.Resolved.Count);
+        Assert.Equal(12, state.Discovery.Resolved.Count);
         Assert.Equal(2, runtime.Calls.Count); Assert.Empty(fixture.Calls); Assert.Empty(fixture.Effects);
         foreach (var request in runtime.Calls)
         {
             var estimate = PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema!.AsObject());
-            Assert.InRange(estimate, 1, 24000);
+            Assert.InRange(estimate, 1, 21600);
             output.WriteLine($"request {request.ClientRequestId}: prompt chars={request.Prompt.Length}, schema chars={request.StructuredOutputSchema.ToJsonString().Length}, conservative input tokens={estimate}");
         }
         var recovered = PlannerFixture.Clone(state);

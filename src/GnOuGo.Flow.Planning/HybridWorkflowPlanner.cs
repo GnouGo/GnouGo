@@ -307,14 +307,20 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
 
     private static async Task ResolveShortlistAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
-        foreach (var summary in Shortlist(state))
+        var admitted = new List<CapabilitySummary>();
+        var schema = PlanningSchemas.Proposal(state);
+        foreach (var summary in OptionalCandidates(state))
+        {
+            if (!TryAdmitOptional(state, admitted, summary, schema)) continue;
             try { await PlanningDiscoveryContext.ResolveAsync(state, runtime, summary, ct); }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch
             {
+                admitted.Remove(summary);
                 var limitation = summary.Id + ": the candidate contract could not be resolved.";
                 if (!state.Discovery.Limitations.Contains(limitation, StringComparer.Ordinal)) state.Discovery.Limitations.Add(limitation);
             }
+        }
     }
 
     private static async Task DiscoverPageAsync(PlanningSession state, IPlanningRuntime runtime, string source, string? cursor, CancellationToken ct, string? query = null)
@@ -351,13 +357,26 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
 
     internal static List<CapabilitySummary> Shortlist(PlanningSession state, bool resolvedOnly = false)
     {
-        var required = PlanningDiscoveryContext.Required(state).Select(o => o.Id).ToHashSet(StringComparer.Ordinal);
-        var optional = PlanningDiscoveryContext.Candidates(state).Where(c => !required.Contains(c.Operation!.Id)).Take(8)
-            .Where(c => !resolvedOnly || state.Discovery.Resolved.Any(r => r.Id == c.Id && r.Version == c.Version)).ToList();
+        var optional = new List<CapabilitySummary>();
         var schema = PlanningSchemas.Proposal(state);
-        while (optional.Count > 0 && PlanningJsonTransport.EstimateInputTokens(BuildPrompt(state, optional), schema) > state.Request.Generation.MaxInputTokensPerRequest)
-            optional.RemoveAt(optional.Count - 1);
+        foreach (var candidate in OptionalCandidates(state).Where(c => !resolvedOnly || state.Discovery.Resolved.Any(r => r.Id == c.Id && r.Version == c.Version)))
+            TryAdmitOptional(state, optional, candidate, schema);
         return optional;
+    }
+
+    private static IEnumerable<CapabilitySummary> OptionalCandidates(PlanningSession state)
+    {
+        var required = PlanningDiscoveryContext.Required(state).Select(o => o.Id).ToHashSet(StringComparer.Ordinal);
+        return PlanningDiscoveryContext.Candidates(state).Where(c => !required.Contains(c.Operation!.Id));
+    }
+
+    private static bool TryAdmitOptional(PlanningSession state, List<CapabilitySummary> admitted, CapabilitySummary candidate, JsonObject schema)
+    {
+        admitted.Add(candidate);
+        if (PlanningJsonTransport.EstimateInputTokens(BuildPrompt(state, admitted), schema) <= (long)state.Request.Generation.MaxInputTokensPerRequest * 9 / 10)
+            return true;
+        admitted.RemoveAt(admitted.Count - 1);
+        return false;
     }
 
     internal static string BuildPrompt(PlanningSession state, IReadOnlyList<CapabilitySummary> optional) => """
@@ -365,7 +384,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         Return one next action: browse one to four issued source pages, or propose a complete TaskPlan using declared operations.
         Select relevant sources progressively. The compact index is ranked metadata, not a contract. Only detailed operations have resolved contracts. An incomplete search never proves absence; request a continuation or refine query text through discovery when needed. Use query null for the request-derived ranking or an issued continuation.
         Batch up to four relevant uncached source pages when their relevance is already clear from the request and source summaries.
-        The budget reserves proposal and repair calls. When discoveryRequests must be null, propose a plan from inspected operations; if insufficient, return plan null to stop safely. Never invent capabilities.
+        Before a plan, reserve one proposal and one repair when allowed. Remaining repairs are a maximum, not reserved calls. When discoveryRequests must be null, propose a plan from inspected operations; if insufficient, return plan null to stop safely. Never invent capabilities.
         Connect named business inputs and outputs. A null output port means the whole business result; opaque results have no typed fields.
         Runtime inputs must feed operations directly when their contracts permit. A value task only copies or assembles values; use transform only for semantic interpretation or representation conversion, never simple wiring.
         Prefer data shapes directly consumable downstream, including scalar iteration items when records are unnecessary. Preserve required scope exports, cleanup and safety conditions.

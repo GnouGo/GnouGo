@@ -22,4 +22,5 @@
     <Compile Include="../Shared/ProductTransformationPlan.cs" Link="ProductTransformationPlan.cs" />
   </ItemGroup>
   <ItemGroup><None Include="../GnOuGo.Agent.Server.Tests/Fixtures/NullOnlyPlanning/retained-null-outputs.json" Link="Fixtures/Discovery/retained-review.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><None Include="../GnOuGo.Agent.Server.Tests/Fixtures/DiscoveryBudget/retained-discovery-incomplete.json" Link="Fixtures/Discovery/retained-discovery-incomplete.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

@@ -11,7 +11,10 @@ internal static class PlanningDiscoveryContext
     internal static string Query(PlanningSession state) => CapabilityRelevance.Query(state.Request.Prompt + " " +
         state.Requirements?.Summary + " " + string.Join(' ', state.Requirements?.Outcomes.Select(o => o.Description) ?? []));
 
-    private static string PresentationQuery(PlanningSession state) => state.Discovery.PresentationQuery ?? Query(state);
+    // Source queries refine presentation without replacing accepted intent or
+    // transferring one source's focus to unrelated sources. Receipt cursors stay unchanged.
+    private static string SourceQuery(PlanningSession state, string source) => Query(state) + " " +
+        state.Discovery.Pages.LastOrDefault(p => p.SourceId == source)?.Query;
 
     internal static bool CanDiscover(PlanningSession state)
     {
@@ -19,7 +22,7 @@ internal static class PlanningDiscoveryContext
         var calls = PlanningModelCalls.RemainingCalls(state);
         var repairs = PlanningModelCalls.RemainingRepairs(state);
         if (PlanningModelCalls.IsRepair(state) && repairs <= 1) return false;
-        return state.Plan is null ? calls > 1 + repairs : calls > 1;
+        return state.Plan is null ? calls > 1 + Math.Min(1, repairs) : calls > 1;
     }
 
     internal static IEnumerable<CapabilitySummary> Index(PlanningSession state, string source)
@@ -27,7 +30,7 @@ internal static class PlanningDiscoveryContext
         var page = state.Discovery.Pages.LastOrDefault(p => p.SourceId == source);
         if (page is null) return [];
         return (page.Query is null
-            ? CapabilityRelevance.Rank(state.Discovery.Pages.Where(p => p.SourceId == source).SelectMany(p => p.Capabilities).DistinctBy(c => (c.Id, c.Version)), PresentationQuery(state))
+            ? CapabilityRelevance.Rank(state.Discovery.Pages.Where(p => p.SourceId == source).SelectMany(p => p.Capabilities).DistinctBy(c => (c.Id, c.Version)), SourceQuery(state, source))
             : page.Capabilities).Take(8);
     }
 
@@ -36,7 +39,7 @@ internal static class PlanningDiscoveryContext
             .Where(c => c.Operation is not null && state.Catalog!.AllowedStepTypes.Contains(c.StepType) &&
                 !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id)).GroupBy(c => c.Id, StringComparer.Ordinal)
             .Where(group => group.Select(c => c.Version).Distinct(StringComparer.Ordinal).Count() == 1)
-            .Select(group => group.First()), PresentationQuery(state)).ToList();
+            .Select(group => group.First()), c => SourceQuery(state, c.SourceId)).ToList();
 
     internal static List<PlanningOperation> Required(PlanningSession state)
     {

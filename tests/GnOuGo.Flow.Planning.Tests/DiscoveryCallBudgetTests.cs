@@ -10,7 +10,25 @@ public sealed class DiscoveryCallBudgetTests
     private static CancellationToken Ct => PlannerFixture.Ct;
 
     [Fact]
-    public async Task FiveDiscoveryCallsLeaveAProposalAndTwoRepairs()
+    public async Task SixDiscoveryCallsLeaveAProposalAndOneRepair()
+    {
+        var catalog = new Pages(); var runtime = new TestRuntime { Capabilities = catalog };
+        runtime.Respond = (request, _) => runtime.Calls.Count switch
+        {
+            <= 6 => TestRuntime.Response(request, Discovery(runtime.Calls.Count)),
+            7 => new() { Json = new JsonObject { ["malformed"] = true } },
+            _ => TestRuntime.Response(request, runtime.Proposal)
+        };
+        var state = await PlannerFixture.RunAsync(runtime);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        Assert.Equal(8, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts); Assert.Equal(6, catalog.Reads);
+        Assert.All(runtime.Calls.Take(6), c => Assert.NotEqual("null", c.StructuredOutputSchema!["properties"]!["discoveryRequests"]!["type"]?.ToString()));
+        Assert.All(runtime.Calls.Skip(6), c => Assert.Equal("null", c.StructuredOutputSchema!["properties"]!["discoveryRequests"]!["type"]?.ToString()));
+        Assert.Null(state.ApprovedHash);
+    }
+
+    [Fact]
+    public async Task EarlierProposalStillAllowsTwoRepairs()
     {
         var catalog = new Pages();
         var runtime = new TestRuntime { Capabilities = catalog };
@@ -25,10 +43,10 @@ public sealed class DiscoveryCallBudgetTests
         Assert.Equal(8, state.ModelCalls); Assert.Equal(2, state.ReplanAttempts);
         Assert.Equal(5, catalog.Reads); Assert.Null(state.ApprovedHash);
         Assert.All(runtime.Calls.Take(5), c => Assert.NotEqual("null", c.StructuredOutputSchema!["properties"]!["discoveryRequests"]!["type"]?.ToString()));
-        Assert.All(runtime.Calls.Skip(5), c => Assert.Equal("null", c.StructuredOutputSchema!["properties"]!["discoveryRequests"]!["type"]?.ToString()));
+        Assert.All(runtime.Calls.Skip(6), c => Assert.Equal("null", c.StructuredOutputSchema!["properties"]!["discoveryRequests"]!["type"]?.ToString()));
         var context = Context(runtime.Calls[5].Prompt);
         Assert.Equal(3, context["budget"]!["remainingCalls"]!.GetValue<int>());
-        Assert.False(context["budget"]!["discoveryAllowed"]!.GetValue<bool>());
+        Assert.True(context["budget"]!["discoveryAllowed"]!.GetValue<bool>());
     }
 
     [Theory]
@@ -38,18 +56,19 @@ public sealed class DiscoveryCallBudgetTests
     {
         var catalog = new Pages(); var runtime = new TestRuntime { Capabilities = catalog };
         runtime.Respond = (request, _) => TestRuntime.Response(request, forbiddenDiscovery ? Discovery(6) : new() { Requirements = PlannerFixture.Requirements() });
-        var state = PlannerFixture.Session(); state.ModelCalls = 5;
+        var state = PlannerFixture.Session(); state.ModelCalls = 6;
         state = await PlannerFixture.RunAsync(runtime, state);
         Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(code, Assert.Single(state.Diagnostics).Code);
-        Assert.Single(runtime.Calls); Assert.Equal(6, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Single(runtime.Calls); Assert.Equal(7, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(0, catalog.Reads); Assert.Null(state.PendingCall); Assert.Null(state.Yaml);
         var recovered = await PlannerFixture.RunAsync(runtime, PlannerFixture.Clone(state));
-        Assert.Equal(6, recovered.ModelCalls); Assert.Single(runtime.Calls);
+        Assert.Equal(7, recovered.ModelCalls); Assert.Single(runtime.Calls);
     }
 
     [Theory]
     [InlineData(1, 2, 0, false)]
     [InlineData(2, 2, 0, false)]
+    [InlineData(3, 2, 0, true)]
     [InlineData(4, 2, 0, true)]
     [InlineData(8, 0, 6, true)]
     [InlineData(8, 0, 7, false)]

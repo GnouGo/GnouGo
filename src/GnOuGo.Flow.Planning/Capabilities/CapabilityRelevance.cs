@@ -10,17 +10,18 @@ internal static class CapabilityRelevance
 {
     internal static string Query(string text) => string.Join(' ', Tokens(text).Order(StringComparer.Ordinal));
 
-    internal static IReadOnlyList<CapabilitySummary> Rank(IEnumerable<CapabilitySummary> capabilities, string query)
+    internal static IReadOnlyList<CapabilitySummary> Rank(IEnumerable<CapabilitySummary> capabilities, string query) => Rank(capabilities, _ => query);
+
+    internal static IReadOnlyList<CapabilitySummary> Rank(IEnumerable<CapabilitySummary> capabilities, Func<CapabilitySummary, string> query)
     {
-        var terms = Tokens(query);
-        var entries = capabilities.Select(c => (Capability: c, Name: Tokens(c.Name), Description: Tokens(c.Description),
+        var entries = capabilities.Select(c => (Capability: c, Terms: Tokens(query(c)), Name: Tokens(c.Name), Description: Tokens(c.Description),
             Fields: Tokens(string.Join(' ', (c.Operation?.Inputs ?? []).Concat(c.Operation?.Outputs ?? [])
                 .SelectMany(p => new[] { p.Name }.Concat(FieldNames(p.Schema))))))).ToArray();
         var frequency = entries.SelectMany(e => e.Name.Union(e.Fields).Union(e.Description)).GroupBy(t => t, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
-        double Score(HashSet<string> words) => words.Intersect(terms).Order(StringComparer.Ordinal)
+        double Score(HashSet<string> words, HashSet<string> terms) => words.Intersect(terms).Order(StringComparer.Ordinal)
             .Sum(t => Math.Log(1d + entries.Length / (double)frequency[t]));
-        return entries.OrderByDescending(e => 3 * Score(e.Name) + 2 * Score(e.Fields) + Score(e.Description))
+        return entries.OrderByDescending(e => 3 * Score(e.Name, e.Terms) + 2 * Score(e.Fields, e.Terms) + Score(e.Description, e.Terms))
             .ThenBy(e => e.Capability.Id, StringComparer.Ordinal).Select(e => e.Capability).ToArray();
     }
 

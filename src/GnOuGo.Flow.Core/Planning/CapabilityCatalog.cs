@@ -19,7 +19,7 @@ public sealed record CapabilityPage(string SourceId, string? Cursor, List<Capabi
 
 public sealed class CapabilityDiscoveryState
 {
-    /// <summary>Presentation focus from the latest completed discovery batch; not a contract or selection.</summary>
+    /// <summary>Retained batch query for historical receipts. Ranking derives source focus from pages and accepted intent.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? PresentationQuery { get; set; }
     public List<CapabilitySource> Sources { get; set; } = [];
