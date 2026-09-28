@@ -149,7 +149,7 @@ public sealed class GlobalDiscoveryTests
         var state = State();
         state.Discovery.Pages[1] = new("b", null, state.Discovery.Pages[1].Capabilities.Take(1).ToList(), null, Query: "find needle records");
         var wire = new JsonObject { ["requirements"] = JsonSerializer.SerializeToNode(PlannerFixture.Requirements(), PlanningJsonContext.Default.PlanningRequirements),
-            ["discoveryRequests"] = new JsonArray(new JsonObject { ["sourceId"] = "b", ["cursor"] = null, ["query"] = "other" }), ["plan"] = null };
+            ["discoveryRequests"] = new JsonArray(new JsonObject { ["sourceId"] = "b", ["cursor"] = null, ["query"] = "other", ["operationIds"] = null }), ["plan"] = null };
         Assert.Empty(PlanningContractValidation.ValidateInstance(wire, PlanningSchemas.Proposal(state)));
     }
 

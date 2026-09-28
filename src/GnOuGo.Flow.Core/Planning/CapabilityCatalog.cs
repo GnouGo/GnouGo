@@ -26,6 +26,9 @@ public sealed class CapabilityDiscoveryState
     public List<CapabilityPage> Pages { get; set; } = [];
     public List<PlanningCapability> Resolved { get; set; } = [];
     public List<string> Limitations { get; set; } = [];
+    /// <summary>Per-source contract inspection selections, not execution authorization.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningDiscoveryRequest>? Inspections { get; set; }
 }
 
 /// <summary>Reviewable goals, not a second executable program.</summary>
@@ -47,7 +50,8 @@ public sealed class PlanningProposal
     public string Explanation { get; set; } = "";
 }
 
-public sealed record PlanningDiscoveryRequest(string SourceId, string? Cursor = null, string? Query = null);
+public sealed record PlanningDiscoveryRequest(string SourceId, string? Cursor = null, string? Query = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] List<string>? OperationIds = null);
 
 public static class PlanningPhase
 {

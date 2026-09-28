@@ -11,6 +11,29 @@ public sealed class RecordedDiscoveryBudgetTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task SevenDisplacementResponsesRetainTheirNullPlanStopAndOriginalRequests()
+    {
+        var runtime = new Replay("retained-discovery-displacement.json"); var planner = new HybridWorkflowPlanner();
+        PlanningSession? state = null;
+        foreach (var entry in runtime.Recording["responses"]!.AsArray())
+        {
+            runtime.Expected = entry!.AsObject(); state = runtime.State(entry["pendingSession"]!);
+            var usage = JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+            var id = state.PendingCall!.Id; var calls = state.ModelCalls;
+            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+            Assert.Equal(calls, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+            Assert.Equal(usage, JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+            Assert.Equal(id, runtime.Identities[^1]); Assert.Null(state.PendingCall);
+            if (calls < 7) Assert.Empty(state.Diagnostics);
+        }
+        Assert.Equal(PlanningStatus.Stopped, state!.Status);
+        Assert.Equal("DISCOVERY_INCOMPLETE", Assert.Single(state.Diagnostics).Code);
+        Assert.Equal(7, runtime.Identities.Count); Assert.Equal(20, runtime.MetadataReads);
+        Assert.Equal(74, state.Discovery.Pages.SelectMany(p => p.Capabilities).Select(c => c.Id).Distinct().Count());
+        Assert.Null(state.Plan); Assert.Null(state.ApprovedHash);
+    }
+
+    [Fact]
     public async Task SixHistoricalResponsesKeepTheirOriginalNullPlanStopAndAccounting()
     {
         var runtime = new Replay("retained-discovery-incomplete.json"); var planner = new HybridWorkflowPlanner();

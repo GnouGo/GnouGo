@@ -50,9 +50,12 @@ var proposal = new PlanningProposal { DiscoveryRequests = [new("browser", Query:
 if (JsonSerializer.Deserialize(JsonSerializer.Serialize(proposal, PlanningJsonContext.Default.PlanningProposal), PlanningJsonContext.Default.PlanningProposal)!.DiscoveryRequests!.Count != 2) throw new InvalidOperationException("Discovery batch serialization failed");
 if (JsonSerializer.Deserialize(JsonSerializer.Serialize(proposal, PlanningJsonContext.Default.PlanningProposal), PlanningJsonContext.Default.PlanningProposal)!.DiscoveryRequests![0].Query != "inspect pages") throw new InvalidOperationException("Discovery query serialization failed");
 var discoveryReceipt = new CapabilityPage("source", null, [], "rank:snapshot:8", Query: "inspect pages");
-var focusedDiscovery = new CapabilityDiscoveryState { PresentationQuery = "inspect pages", Pages = [discoveryReceipt] };
+var focusedDiscovery = new CapabilityDiscoveryState { PresentationQuery = "inspect pages", Pages = [discoveryReceipt],
+    Inspections = [new("source", OperationIds: ["selected_operation"])] };
 if (JsonSerializer.Deserialize(JsonSerializer.Serialize(focusedDiscovery, PlanningJsonContext.Default.CapabilityDiscoveryState), PlanningJsonContext.Default.CapabilityDiscoveryState)!.PresentationQuery != "inspect pages") throw new InvalidOperationException("Discovery focus serialization failed");
 if (JsonSerializer.Deserialize(JsonSerializer.Serialize(discoveryReceipt, PlanningJsonContext.Default.CapabilityPage), PlanningJsonContext.Default.CapabilityPage)!.Query != "inspect pages") throw new InvalidOperationException("Discovery receipt serialization failed");
+if (JsonSerializer.Deserialize(JsonSerializer.Serialize(focusedDiscovery, PlanningJsonContext.Default.CapabilityDiscoveryState), PlanningJsonContext.Default.CapabilityDiscoveryState)!.Inspections![0].OperationIds![0] != "selected_operation")
+    throw new InvalidOperationException("Contract inspection selection serialization failed");
 Console.WriteLine("typed transforms: passed; mocked inference; ordered products and cleanup verified");
 
 // New plan-only requests and saved request schemas retain their distinct meanings in AOT.

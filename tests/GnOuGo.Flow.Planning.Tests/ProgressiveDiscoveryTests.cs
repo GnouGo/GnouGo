@@ -75,7 +75,7 @@ public sealed class ProgressiveDiscoveryTests
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Contains(state.Discovery.Limitations, l => l.Contains("unavailable", StringComparison.Ordinal)); Assert.Equal(1, runtime.Discoveries);
     }
     [Fact]
-    public async Task EarlierPagesRemainEligibleWhileOnlyTheCurrentPageIndexIsPresented()
+    public async Task EarlierPagesRemainVisibleWithoutDuplicatingDetailedOperationsInTheIndex()
     {
         var factory = new TrackingFactory(); var runtime = new TestRuntime(new() { McpClientFactory = factory });
         var source = (await runtime.Capabilities.ListSourcesAsync(Ct)).Single(s => s.Description == "Available source");
@@ -92,8 +92,10 @@ public sealed class ProgressiveDiscoveryTests
         var prompt = runtime.Calls[^1].Prompt;
         var context = JsonNode.Parse(prompt[(prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
         var index = context["coverage"]!.AsArray().Single(c => c!["sourceId"]!.ToString() == source.Id)!["index"]!.AsArray();
-        Assert.Equal(state.Discovery.Pages[^1].Capabilities.Select(c => c.Operation!.Id), index.Select(c => c!["id"]!.ToString()));
         var detailedIds = context["operations"]!.AsArray().Select(c => c!["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
+        var indexIds = index.Select(c => c!["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
+        Assert.Empty(indexIds.Intersect(detailedIds));
+        Assert.All(state.Discovery.Pages.SelectMany(p => p.Capabilities), c => Assert.True(indexIds.Contains(c.Operation!.Id) || detailedIds.Contains(c.Operation.Id)));
         Assert.Contains(state.Discovery.Pages[0].Capabilities, c => detailedIds.Contains(c.Operation!.Id));
         foreach (var unselected in state.Discovery.Pages[0].Capabilities.Where(c => !detailedIds.Contains(c.Operation!.Id)))
             Assert.DoesNotContain(unselected.Description + "\"", prompt);

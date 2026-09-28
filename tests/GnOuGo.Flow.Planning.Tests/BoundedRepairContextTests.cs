@@ -109,7 +109,8 @@ public sealed class BoundedRepairContextTests
         state.RevisionScope.Add("/tasks/submit_review_decision/operation");
         var context = Context(HybridWorkflowPlanner.Prompt(state));
         Assert.Equal(3, context["operations"]!.AsArray().Count); // Mandatory contracts exceed the ceiling; optional alternatives are omitted.
-        Assert.Equal(8, context["coverage"]![0]!["index"]!.AsArray().Count);
+        Assert.Empty(context["coverage"]![0]!["index"]!.AsArray());
+        Assert.True(context["coverage"]![0]!["omittedFromIndex"]!.GetValue<int>() > 0);
         Assert.Equal(98, state.Discovery.Pages[0].Capabilities.Count);
         Assert.Null(PlanningSchemas.Proposal(state)["properties"]!["discoveryRequests"]!["type"]);
     }

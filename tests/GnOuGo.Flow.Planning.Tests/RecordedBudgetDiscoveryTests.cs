@@ -84,13 +84,13 @@ public sealed class RecordedBudgetDiscoveryTests(ITestOutputHelper output)
         Assert.Equal(state.ComputeArtifactHash(), restored.ComputeArtifactHash());
         var counts = runtime.Calls.Select(c => Context(c.Prompt)["operations"]!.AsArray().Count).ToArray();
         var issuedState = PlannerFixture.Clone(runtime.Checkpoints.Last(s => s.PendingCall is not null)); issuedState.PendingCall = null; issuedState.ModelCalls--;
-        // All ten simultaneous details exceed the soft target; the last omitted
-        // operation stays selectable by identity and is resolved without inference.
+        // Removing duplicate summaries and closed navigation now fits all ten
+        // exact contracts, without changing this retained proposal or its oracle.
         var allDetails = PlanningJsonTransport.EstimateInputTokens(HybridWorkflowPlanner.BuildPrompt(issuedState, PlanningDiscoveryContext.Candidates(issuedState)), PlanningSchemas.Proposal(issuedState));
-        Assert.True(allDetails > 21600);
-        Assert.Equal(9 + state.Catalog!.Capabilities.Count(c => c.Kind == "registered"), counts[^1]);
+        Assert.InRange(allDetails, 1, 21600);
+        Assert.Equal(10 + state.Catalog!.Capabilities.Count(c => c.Kind == "registered"), counts[^1]);
         var presented = Context(runtime.Calls[^1].Prompt)["operations"]!.AsArray().Select(o => o!["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
-        Assert.Equal(9, original.Discovery.Resolved.Count(c => presented.Contains(TaskOperations.Describe(c).Id)));
+        Assert.Equal(10, original.Discovery.Resolved.Count(c => presented.Contains(TaskOperations.Describe(c).Id)));
         Assert.All(original.Discovery.Resolved, c => Assert.Equal(JsonSerializer.Serialize(c, PlanningJsonContext.Default.PlanningCapability),
             JsonSerializer.Serialize(state.Catalog.Capabilities.Single(selected => selected.Id == c.Id), PlanningJsonContext.Default.PlanningCapability)));
         var tokens = runtime.Calls.Select(c => PlanningJsonTransport.EstimateInputTokens(c.Prompt, c.StructuredOutputSchema!.AsObject())).ToArray();

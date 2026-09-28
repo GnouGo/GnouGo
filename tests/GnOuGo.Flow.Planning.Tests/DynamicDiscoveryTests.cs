@@ -35,6 +35,8 @@ public sealed class DynamicDiscoveryTests
     {
         var state = GlobalDiscoveryTests.State(); state.Requirements = PlannerFixture.Requirements();
         state.Plan = new() { Root = new() { Tasks = [new() { Id = "use", Operation = "a0", Objective = "Use the selected operation" }] } };
+        state.Discovery.Pages = [state.Discovery.Pages[0] with { Capabilities = [state.Discovery.Pages[0].Capabilities[0]] }];
+        state.Discovery.Resolved.RemoveAll(c => c.Id != "a0");
         var mandatory = PlanningJsonTransport.EstimateInputTokens(HybridWorkflowPlanner.BuildPrompt(state, []), PlanningSchemas.Proposal(state));
         state.Request.Generation.MaxInputTokensPerRequest = mandatory + 100;
         var runtime = new TestRuntime { Respond = (_, _) => throw new IOException("Retain pending request") };
