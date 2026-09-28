@@ -1,0 +1,1256 @@
+{
+  "provenance": "Synthetic minimal repair of the original seventh response: omit two invalid optional consumer arguments; preserve all producer fields and objectives; remove invalid ancestor dependencies; use the producer-declared deny mode. Static validation only: deny does not establish permission to execute project checks. No inference or execution.",
+  "proposal": {
+    "discoveryRequests": null,
+    "plan": {
+      "inputs": [
+        {
+          "name": "pullRequestUrl",
+          "type": {
+            "kind": "string"
+          }
+        },
+        {
+          "name": "reviewInstructions",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ],
+      "root": {
+        "tasks": [
+          {
+            "id": "review_workspace",
+            "kind": "value",
+            "objective": "Déclare l’unique emplacement de clone à réutiliser pour toute l’exécution et le nettoyage.",
+            "dependsOn": [],
+            "outputs": [
+              {
+                "name": "targetDirectory",
+                "value": {
+                  "kind": "string",
+                  "text": "workflows/github-pr-auto-review/repository"
+                }
+              }
+            ]
+          },
+          {
+            "id": "parse_pr_url",
+            "kind": "transform",
+            "objective": "Extraire depuis l’URL GitHub owner, repo, numéro de pull request, URL distante HTTPS et ref de pull request refs/pull/<number>/head. Rejeter toute URL qui n’est pas une pull request GitHub.",
+            "dependsOn": [],
+            "inputs": [
+              {
+                "name": "pullRequestUrl",
+                "value": {
+                  "kind": "input",
+                  "source": "pullRequestUrl"
+                }
+              }
+            ],
+            "resultType": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "owner",
+                  "type": {
+                    "kind": "string"
+                  }
+                },
+                {
+                  "name": "repo",
+                  "type": {
+                    "kind": "string"
+                  }
+                },
+                {
+                  "name": "pullNumber",
+                  "type": {
+                    "kind": "integer"
+                  }
+                },
+                {
+                  "name": "remoteUrl",
+                  "type": {
+                    "kind": "string"
+                  }
+                },
+                {
+                  "name": "pullRef",
+                  "type": {
+                    "kind": "string"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "read_pr",
+            "kind": "operation",
+            "objective": "Lire les métadonnées de la pull request.",
+            "dependsOn": [
+              "parse_pr_url"
+            ],
+            "operation": "cap_e0b759aca76a490f87ad21ca",
+            "inputs": [
+              {
+                "name": "method",
+                "value": {
+                  "kind": "string",
+                  "text": "get"
+                }
+              },
+              {
+                "name": "owner",
+                "value": {
+                  "kind": "output",
+                  "source": "parse_pr_url",
+                  "port": "owner"
+                }
+              },
+              {
+                "name": "repo",
+                "value": {
+                  "kind": "output",
+                  "source": "parse_pr_url",
+                  "port": "repo"
+                }
+              },
+              {
+                "name": "pullNumber",
+                "value": {
+                  "kind": "output",
+                  "source": "parse_pr_url",
+                  "port": "pullNumber"
+                }
+              }
+            ]
+          },
+          {
+            "id": "extract_pr_refs",
+            "kind": "transform",
+            "objective": "Interpréter les métadonnées de pull request pour obtenir les refs et SHA exacts base/head à reviewer.",
+            "dependsOn": [
+              "read_pr"
+            ],
+            "inputs": [
+              {
+                "name": "pullRequest",
+                "value": {
+                  "kind": "output",
+                  "source": "read_pr",
+                  "port": null
+                }
+              }
+            ],
+            "resultType": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "baseRef",
+                  "type": {
+                    "kind": "string"
+                  }
+                },
+                {
+                  "name": "headRef",
+                  "type": {
+                    "kind": "string"
+                  }
+                },
+                {
+                  "name": "baseSha",
+                  "type": {
+                    "kind": "string"
+                  }
+                },
+                {
+                  "name": "headSha",
+                  "type": {
+                    "kind": "string"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "clone_pr",
+            "kind": "operation",
+            "objective": "Cloner une seule fois le dépôt dans l’emplacement déclaré, sur la ref de pull request.",
+            "dependsOn": [
+              "review_workspace",
+              "parse_pr_url"
+            ],
+            "operation": "cap_fa8aa0024ff2ec0a4f9e61ad",
+            "inputs": [
+              {
+                "name": "remoteUrl",
+                "value": {
+                  "kind": "output",
+                  "source": "parse_pr_url",
+                  "port": "remoteUrl"
+                }
+              },
+              {
+                "name": "targetDirectory",
+                "value": {
+                  "kind": "output",
+                  "source": "review_workspace",
+                  "port": "targetDirectory"
+                }
+              },
+              {
+                "name": "branch",
+                "value": {
+                  "kind": "output",
+                  "source": "parse_pr_url",
+                  "port": "pullRef"
+                }
+              },
+              {
+                "name": "fetchAllBranches",
+                "value": {
+                  "kind": "boolean",
+                  "boolean": true
+                }
+              },
+              {
+                "name": "historyDepth",
+                "value": {
+                  "kind": "number",
+                  "number": 0
+                }
+              },
+              {
+                "name": "tagFetchMode",
+                "value": {
+                  "kind": "string",
+                  "text": "none"
+                }
+              }
+            ]
+          },
+          {
+            "id": "when_cloned",
+            "kind": "conditional",
+            "objective": "Poursuivre la revue seulement si le clone existe, sinon publier un refus explicatif.",
+            "dependsOn": [
+              "clone_pr"
+            ],
+            "condition": {
+              "kind": "output",
+              "source": "clone_pr",
+              "port": "success"
+            },
+            "body": {
+              "tasks": [
+                {
+                  "id": "checks_prompt",
+                  "kind": "value",
+                  "objective": "Préparer la consigne Copilot d’installation et d’exécution des vérifications dans le clone unique.",
+                  "dependsOn": [],
+                  "outputs": [
+                    {
+                      "name": "prompt",
+                      "value": {
+                        "kind": "string",
+                        "text": "Dans le projectRoot fourni, travaille uniquement dans ce répertoire cloné. Détecte le gestionnaire de dépendances et installe les dépendances nécessaires. Exécute les linters présents, les tests unitaires présents et les tests d’intégration présents. Ne clone pas le dépôt ailleurs, ne publie rien sur GitHub et ne modifie pas le code source de la pull request. Retourne une synthèse structurée avec les commandes lancées, codes de sortie, journaux utiles et statut dependencyInstall, lint, unitTests, integrationTests: passed, failed, absent ou unknown."
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "run_checks_with_copilot",
+                  "kind": "operation",
+                  "objective": "Installer les dépendances et exécuter les vérifications disponibles via Copilot dans le clone.",
+                  "dependsOn": [
+                    "checks_prompt"
+                  ],
+                  "operation": "cap_85d8b8b050162024993780f1",
+                  "inputs": [
+                    {
+                      "name": "projectRoot",
+                      "value": {
+                        "kind": "output",
+                        "source": "clone_pr",
+                        "port": "projectRootRelative"
+                      }
+                    },
+                    {
+                      "name": "prompt",
+                      "value": {
+                        "kind": "output",
+                        "source": "checks_prompt",
+                        "port": "prompt"
+                      }
+                    },
+                    {
+                      "name": "attachmentsJson",
+                      "value": {
+                        "kind": "string",
+                        "text": "[]"
+                      }
+                    },
+                    {
+                      "name": "permissionAllowlistJson",
+                      "value": {
+                        "kind": "null"
+                      }
+                    },
+                    {
+                      "name": "permissionMode",
+                      "value": {
+                        "kind": "string",
+                        "text": "deny"
+                      }
+                    },
+                    {
+                      "name": "provider",
+                      "value": {
+                        "kind": "null"
+                      }
+                    },
+                    {
+                      "name": "model",
+                      "value": {
+                        "kind": "null"
+                      }
+                    },
+                    {
+                      "name": "tenantId",
+                      "value": {
+                        "kind": "null"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "evaluate_checks",
+                  "kind": "transform",
+                  "objective": "Interpréter la sortie Copilot: les vérifications présentes échouées ou inconnues rendent checksPassed=false; les vérifications absentes ne bloquent pas. Produire un résumé factuel incluant installation, lint, tests unitaires et tests d’intégration.",
+                  "dependsOn": [
+                    "run_checks_with_copilot"
+                  ],
+                  "inputs": [
+                    {
+                      "name": "checksRun",
+                      "value": {
+                        "kind": "output",
+                        "source": "run_checks_with_copilot",
+                        "port": null
+                      }
+                    }
+                  ],
+                  "resultType": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "checksPassed",
+                        "type": {
+                          "kind": "boolean"
+                        }
+                      },
+                      {
+                        "name": "summary",
+                        "type": {
+                          "kind": "string"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "compare_pr",
+                  "kind": "operation",
+                  "objective": "Produire les patchs exacts de la pull request depuis le clone.",
+                  "dependsOn": [],
+                  "operation": "cap_6c40004fe4610a44cf97c2c7",
+                  "inputs": [
+                    {
+                      "name": "projectRoot",
+                      "value": {
+                        "kind": "output",
+                        "source": "clone_pr",
+                        "port": "projectRootRelative"
+                      }
+                    },
+                    {
+                      "name": "baseRef",
+                      "value": {
+                        "kind": "output",
+                        "source": "extract_pr_refs",
+                        "port": "baseSha"
+                      }
+                    },
+                    {
+                      "name": "headRef",
+                      "value": {
+                        "kind": "output",
+                        "source": "extract_pr_refs",
+                        "port": "headSha"
+                      }
+                    },
+                    {
+                      "name": "compareFromMergeBase",
+                      "value": {
+                        "kind": "boolean",
+                        "boolean": true
+                      }
+                    },
+                    {
+                      "name": "pageSize",
+                      "value": {
+                        "kind": "number",
+                        "number": 1000
+                      }
+                    },
+                    {
+                      "name": "cursor",
+                      "value": {
+                        "kind": "null"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "start_copilot_review",
+                  "kind": "operation",
+                  "objective": "Démarrer la revue Copilot en lecture seule sur les patchs exacts.",
+                  "dependsOn": [
+                    "compare_pr",
+                    "evaluate_checks"
+                  ],
+                  "operation": "cap_5c32cc076458c7dfeee37a58",
+                  "inputs": [
+                    {
+                      "name": "projectRoot",
+                      "value": {
+                        "kind": "output",
+                        "source": "clone_pr",
+                        "port": "projectRootRelative"
+                      }
+                    },
+                    {
+                      "name": "baseSha",
+                      "value": {
+                        "kind": "output",
+                        "source": "compare_pr",
+                        "port": "baseSha"
+                      }
+                    },
+                    {
+                      "name": "headSha",
+                      "value": {
+                        "kind": "output",
+                        "source": "compare_pr",
+                        "port": "headSha"
+                      }
+                    },
+                    {
+                      "name": "filesJson",
+                      "value": {
+                        "kind": "output",
+                        "source": "compare_pr",
+                        "port": "filesJson"
+                      }
+                    },
+                    {
+                      "name": "reviewInstructions",
+                      "value": {
+                        "kind": "input",
+                        "source": "reviewInstructions"
+                      }
+                    },
+                    {
+                      "name": "runtimeContextJson",
+                      "value": {
+                        "kind": "json",
+                        "items": [
+                          {
+                            "kind": "object",
+                            "members": [
+                              {
+                                "name": "checks",
+                                "value": {
+                                  "kind": "output",
+                                  "source": "evaluate_checks",
+                                  "port": null
+                                }
+                              },
+                              {
+                                "name": "compare",
+                                "value": {
+                                  "kind": "output",
+                                  "source": "compare_pr",
+                                  "port": null
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "existingCommentsJson",
+                      "value": {
+                        "kind": "null"
+                      }
+                    },
+                    {
+                      "name": "maxBatchCharacters",
+                      "value": {
+                        "kind": "number",
+                        "number": 60000
+                      }
+                    },
+                    {
+                      "name": "provider",
+                      "value": {
+                        "kind": "null"
+                      }
+                    },
+                    {
+                      "name": "model",
+                      "value": {
+                        "kind": "null"
+                      }
+                    },
+                    {
+                      "name": "tenantId",
+                      "value": {
+                        "kind": "null"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "make_batch_indices",
+                  "kind": "transform",
+                  "objective": "Créer la liste finie d’indices entiers 0..batchCount-1 à partir du nombre de lots de revue.",
+                  "dependsOn": [
+                    "start_copilot_review"
+                  ],
+                  "inputs": [
+                    {
+                      "name": "batchCount",
+                      "value": {
+                        "kind": "output",
+                        "source": "start_copilot_review",
+                        "port": "batchCount"
+                      }
+                    }
+                  ],
+                  "resultType": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "indices",
+                        "type": {
+                          "kind": "array",
+                          "items": {
+                            "kind": "integer"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "analyze_review_batches",
+                  "kind": "foreach",
+                  "objective": "Analyser chaque lot de revue Copilot.",
+                  "dependsOn": [
+                    "make_batch_indices"
+                  ],
+                  "items": {
+                    "kind": "output",
+                    "source": "make_batch_indices",
+                    "port": "indices"
+                  },
+                  "body": {
+                    "tasks": [
+                      {
+                        "id": "analyze_batch",
+                        "kind": "operation",
+                        "objective": "Analyser un lot borné et valider les constats sur lignes exactes du diff.",
+                        "dependsOn": [],
+                        "operation": "cap_41f719ac6f01db152001be4b",
+                        "inputs": [
+                          {
+                            "name": "reviewHandle",
+                            "value": {
+                              "kind": "output",
+                              "source": "start_copilot_review",
+                              "port": "reviewHandle"
+                            }
+                          },
+                          {
+                            "name": "batchIndex",
+                            "value": {
+                              "kind": "item"
+                            }
+                          },
+                          {
+                            "name": "tenantId",
+                            "value": {
+                              "kind": "null"
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    "outputs": [],
+                    "always": []
+                  },
+                  "parallel": false,
+                  "maxItems": 1000,
+                  "maxConcurrency": 1
+                },
+                {
+                  "id": "finish_copilot_review",
+                  "kind": "operation",
+                  "objective": "Dédupliquer les constats et fermer la session de revue Copilot.",
+                  "dependsOn": [
+                    "analyze_review_batches"
+                  ],
+                  "operation": "cap_6ec5e264675095b9e8df289a",
+                  "inputs": [
+                    {
+                      "name": "reviewHandle",
+                      "value": {
+                        "kind": "output",
+                        "source": "start_copilot_review",
+                        "port": "reviewHandle"
+                      }
+                    },
+                    {
+                      "name": "tenantId",
+                      "value": {
+                        "kind": "null"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "create_pending_review",
+                  "kind": "operation",
+                  "objective": "Créer une revue GitHub en attente pour recevoir les commentaires de diff.",
+                  "dependsOn": [
+                    "finish_copilot_review"
+                  ],
+                  "operation": "cap_9b6a3f4c1fab83fa518d4b62",
+                  "inputs": [
+                    {
+                      "name": "method",
+                      "value": {
+                        "kind": "string",
+                        "text": "create"
+                      }
+                    },
+                    {
+                      "name": "owner",
+                      "value": {
+                        "kind": "output",
+                        "source": "parse_pr_url",
+                        "port": "owner"
+                      }
+                    },
+                    {
+                      "name": "repo",
+                      "value": {
+                        "kind": "output",
+                        "source": "parse_pr_url",
+                        "port": "repo"
+                      }
+                    },
+                    {
+                      "name": "pullNumber",
+                      "value": {
+                        "kind": "output",
+                        "source": "parse_pr_url",
+                        "port": "pullNumber"
+                      }
+                    },
+                    {
+                      "name": "commitID",
+                      "value": {
+                        "kind": "output",
+                        "source": "finish_copilot_review",
+                        "port": "headSha"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "prepare_inline_findings",
+                  "kind": "foreach",
+                  "objective": "Publier chaque constat validé comme commentaire de diff.",
+                  "dependsOn": [
+                    "create_pending_review"
+                  ],
+                  "items": {
+                    "kind": "output",
+                    "source": "finish_copilot_review",
+                    "port": "findings"
+                  },
+                  "body": {
+                    "tasks": [
+                      {
+                        "id": "format_inline_comment",
+                        "kind": "transform",
+                        "objective": "Convertir un constat Copilot en commentaire GitHub: body explicatif avec sévérité, catégorie, preuve et patch suggéré éventuel; side en LEFT/RIGHT; line=endLine; startLine seulement pour les plages multilignes; subjectType=LINE.",
+                        "dependsOn": [],
+                        "inputs": [
+                          {
+                            "name": "finding",
+                            "value": {
+                              "kind": "item"
+                            }
+                          }
+                        ],
+                        "resultType": {
+                          "kind": "object",
+                          "fields": [
+                            {
+                              "name": "body",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "path",
+                              "type": {
+                                "kind": "string"
+                              }
+                            },
+                            {
+                              "name": "line",
+                              "type": {
+                                "kind": "integer"
+                              }
+                            },
+                            {
+                              "name": "startLine",
+                              "type": {
+                                "kind": "integer",
+                                "nullable": true
+                              }
+                            },
+                            {
+                              "name": "side",
+                              "type": {
+                                "kind": "string",
+                                "enum": [
+                                  "LEFT",
+                                  "RIGHT"
+                                ]
+                              }
+                            },
+                            {
+                              "name": "startSide",
+                              "type": {
+                                "kind": "string",
+                                "enum": [
+                                  "LEFT",
+                                  "RIGHT"
+                                ],
+                                "nullable": true
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "add_inline_comment",
+                        "kind": "operation",
+                        "objective": "Ajouter le commentaire au diff de la revue en attente.",
+                        "dependsOn": [
+                          "format_inline_comment"
+                        ],
+                        "operation": "cap_0c45707eabb02da3b0885cf0",
+                        "inputs": [
+                          {
+                            "name": "owner",
+                            "value": {
+                              "kind": "output",
+                              "source": "parse_pr_url",
+                              "port": "owner"
+                            }
+                          },
+                          {
+                            "name": "repo",
+                            "value": {
+                              "kind": "output",
+                              "source": "parse_pr_url",
+                              "port": "repo"
+                            }
+                          },
+                          {
+                            "name": "pullNumber",
+                            "value": {
+                              "kind": "output",
+                              "source": "parse_pr_url",
+                              "port": "pullNumber"
+                            }
+                          },
+                          {
+                            "name": "body",
+                            "value": {
+                              "kind": "output",
+                              "source": "format_inline_comment",
+                              "port": "body"
+                            }
+                          },
+                          {
+                            "name": "path",
+                            "value": {
+                              "kind": "output",
+                              "source": "format_inline_comment",
+                              "port": "path"
+                            }
+                          },
+                          {
+                            "name": "line",
+                            "value": {
+                              "kind": "output",
+                              "source": "format_inline_comment",
+                              "port": "line"
+                            }
+                          },
+                          {
+                            "name": "side",
+                            "value": {
+                              "kind": "output",
+                              "source": "format_inline_comment",
+                              "port": "side"
+                            }
+                          },
+                          {
+                            "name": "subjectType",
+                            "value": {
+                              "kind": "string",
+                              "text": "LINE"
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    "outputs": [],
+                    "always": []
+                  },
+                  "parallel": false,
+                  "maxItems": 1000,
+                  "maxConcurrency": 1
+                },
+                {
+                  "id": "decide_review",
+                  "kind": "transform",
+                  "objective": "Décider APPROVE uniquement si la revue est complète, sans constat bloquant, sans fichiers ignorés/tronqués, sans pagination restante et si les vérifications présentes ont réussi. Sinon décider REQUEST_CHANGES. Rédiger le corps final en français avec synthèse Copilot, résultats install/lint/tests, couverture et raisons de refus ou d’acceptation.",
+                  "dependsOn": [
+                    "finish_copilot_review",
+                    "evaluate_checks",
+                    "compare_pr"
+                  ],
+                  "inputs": [
+                    {
+                      "name": "review",
+                      "value": {
+                        "kind": "output",
+                        "source": "finish_copilot_review",
+                        "port": null
+                      }
+                    },
+                    {
+                      "name": "checks",
+                      "value": {
+                        "kind": "output",
+                        "source": "evaluate_checks",
+                        "port": null
+                      }
+                    },
+                    {
+                      "name": "compare",
+                      "value": {
+                        "kind": "output",
+                        "source": "compare_pr",
+                        "port": null
+                      }
+                    }
+                  ],
+                  "resultType": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "event",
+                        "type": {
+                          "kind": "string",
+                          "enum": [
+                            "APPROVE",
+                            "REQUEST_CHANGES"
+                          ]
+                        }
+                      },
+                      {
+                        "name": "accepted",
+                        "type": {
+                          "kind": "boolean"
+                        }
+                      },
+                      {
+                        "name": "body",
+                        "type": {
+                          "kind": "string"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "submit_review",
+                  "kind": "operation",
+                  "objective": "Soumettre la décision finale de revue sur GitHub.",
+                  "dependsOn": [
+                    "prepare_inline_findings",
+                    "decide_review"
+                  ],
+                  "operation": "cap_9b6a3f4c1fab83fa518d4b62",
+                  "inputs": [
+                    {
+                      "name": "method",
+                      "value": {
+                        "kind": "string",
+                        "text": "submit_pending"
+                      }
+                    },
+                    {
+                      "name": "owner",
+                      "value": {
+                        "kind": "output",
+                        "source": "parse_pr_url",
+                        "port": "owner"
+                      }
+                    },
+                    {
+                      "name": "repo",
+                      "value": {
+                        "kind": "output",
+                        "source": "parse_pr_url",
+                        "port": "repo"
+                      }
+                    },
+                    {
+                      "name": "pullNumber",
+                      "value": {
+                        "kind": "output",
+                        "source": "parse_pr_url",
+                        "port": "pullNumber"
+                      }
+                    },
+                    {
+                      "name": "event",
+                      "value": {
+                        "kind": "output",
+                        "source": "decide_review",
+                        "port": "event"
+                      }
+                    },
+                    {
+                      "name": "body",
+                      "value": {
+                        "kind": "output",
+                        "source": "decide_review",
+                        "port": "body"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "published_result",
+                  "kind": "value",
+                  "objective": "Exposer la décision publiée.",
+                  "dependsOn": [
+                    "submit_review"
+                  ],
+                  "outputs": [
+                    {
+                      "name": "reviewPublished",
+                      "value": {
+                        "kind": "boolean",
+                        "boolean": true
+                      }
+                    },
+                    {
+                      "name": "accepted",
+                      "value": {
+                        "kind": "output",
+                        "source": "decide_review",
+                        "port": "accepted"
+                      }
+                    },
+                    {
+                      "name": "summary",
+                      "value": {
+                        "kind": "output",
+                        "source": "decide_review",
+                        "port": "body"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "reviewPublished",
+                  "value": {
+                    "kind": "output",
+                    "source": "published_result",
+                    "port": "reviewPublished"
+                  }
+                },
+                {
+                  "name": "accepted",
+                  "value": {
+                    "kind": "output",
+                    "source": "published_result",
+                    "port": "accepted"
+                  }
+                },
+                {
+                  "name": "summary",
+                  "value": {
+                    "kind": "output",
+                    "source": "published_result",
+                    "port": "summary"
+                  }
+                }
+              ],
+              "always": []
+            },
+            "otherwise": {
+              "tasks": [
+                {
+                  "id": "clone_failure_decision",
+                  "kind": "transform",
+                  "objective": "Rédiger un refus GitHub expliquant que le clone unique n’a pas pu être matérialisé et que les vérifications/revue ne peuvent pas être fiables.",
+                  "dependsOn": [],
+                  "inputs": [
+                    {
+                      "name": "clone",
+                      "value": {
+                        "kind": "output",
+                        "source": "clone_pr",
+                        "port": null
+                      }
+                    }
+                  ],
+                  "resultType": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "body",
+                        "type": {
+                          "kind": "string"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "submit_clone_failure_review",
+                  "kind": "operation",
+                  "objective": "Publier le refus dû à l’échec de clone.",
+                  "dependsOn": [
+                    "clone_failure_decision"
+                  ],
+                  "operation": "cap_9b6a3f4c1fab83fa518d4b62",
+                  "inputs": [
+                    {
+                      "name": "method",
+                      "value": {
+                        "kind": "string",
+                        "text": "create"
+                      }
+                    },
+                    {
+                      "name": "owner",
+                      "value": {
+                        "kind": "output",
+                        "source": "parse_pr_url",
+                        "port": "owner"
+                      }
+                    },
+                    {
+                      "name": "repo",
+                      "value": {
+                        "kind": "output",
+                        "source": "parse_pr_url",
+                        "port": "repo"
+                      }
+                    },
+                    {
+                      "name": "pullNumber",
+                      "value": {
+                        "kind": "output",
+                        "source": "parse_pr_url",
+                        "port": "pullNumber"
+                      }
+                    },
+                    {
+                      "name": "event",
+                      "value": {
+                        "kind": "string",
+                        "text": "REQUEST_CHANGES"
+                      }
+                    },
+                    {
+                      "name": "body",
+                      "value": {
+                        "kind": "output",
+                        "source": "clone_failure_decision",
+                        "port": "body"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "clone_failure_result",
+                  "kind": "value",
+                  "objective": "Exposer le refus publié après échec de clone.",
+                  "dependsOn": [
+                    "submit_clone_failure_review"
+                  ],
+                  "outputs": [
+                    {
+                      "name": "reviewPublished",
+                      "value": {
+                        "kind": "boolean",
+                        "boolean": true
+                      }
+                    },
+                    {
+                      "name": "accepted",
+                      "value": {
+                        "kind": "boolean",
+                        "boolean": false
+                      }
+                    },
+                    {
+                      "name": "summary",
+                      "value": {
+                        "kind": "output",
+                        "source": "clone_failure_decision",
+                        "port": "body"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "reviewPublished",
+                  "value": {
+                    "kind": "output",
+                    "source": "clone_failure_result",
+                    "port": "reviewPublished"
+                  }
+                },
+                {
+                  "name": "accepted",
+                  "value": {
+                    "kind": "output",
+                    "source": "clone_failure_result",
+                    "port": "accepted"
+                  }
+                },
+                {
+                  "name": "summary",
+                  "value": {
+                    "kind": "output",
+                    "source": "clone_failure_result",
+                    "port": "summary"
+                  }
+                }
+              ],
+              "always": []
+            }
+          }
+        ],
+        "outputs": [
+          {
+            "name": "reviewPublished",
+            "value": {
+              "kind": "output",
+              "source": "when_cloned",
+              "port": "reviewPublished"
+            }
+          },
+          {
+            "name": "accepted",
+            "value": {
+              "kind": "output",
+              "source": "when_cloned",
+              "port": "accepted"
+            }
+          },
+          {
+            "name": "summary",
+            "value": {
+              "kind": "output",
+              "source": "when_cloned",
+              "port": "summary"
+            }
+          }
+        ],
+        "always": [
+          {
+            "id": "cleanup_clone",
+            "kind": "operation",
+            "objective": "Supprimer quoi qu’il arrive le répertoire de clone déclaré, même après création partielle.",
+            "dependsOn": [
+              "review_workspace"
+            ],
+            "operation": "cap_5c01f9aa688163d23a30ff8b",
+            "inputs": [
+              {
+                "name": "commandName",
+                "value": {
+                  "kind": "string",
+                  "text": "delete_directory"
+                }
+              },
+              {
+                "name": "parametersJson",
+                "value": {
+                  "kind": "json",
+                  "items": [
+                    {
+                      "kind": "object",
+                      "members": [
+                        {
+                          "name": "path",
+                          "value": {
+                            "kind": "output",
+                            "source": "review_workspace",
+                            "port": "targetDirectory"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "timeoutMs",
+                "value": {
+                  "kind": "null"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "groups": [],
+      "choices": []
+    }
+  }
+}
