@@ -27,9 +27,12 @@ before executing the allowlisted command when no explicitly allowlisted
 full environment. Explicit environment configuration remains authoritative.
 The selected shell, supported invocation options, private stdin, immediate EOF,
 autoloading, output capture, exit codes, filesystem restrictions, timeouts and
-process-tree termination remain unchanged.
+process-tree termination remain unchanged. The already allowlisted and rendered
+script is parsed as a separate script block after host initialization, preserving
+leading `param` and `using` declarations; their native regression exposed the
+problem with directly prepending statements.
 
-[Native probe records](evidence/flow-v9-112/windows-cmd-startup.json) retain six
+[Native probe records](evidence/flow-v9-112/windows-cmd-startup.json) retain seven
 unsuccessful diagnostic runs, including the insufficient first fix, exact
 revisions and job links, shell version, timings, CPU observations and bounded
 output. They exclude environment values and credentials. Diagnostic-only test

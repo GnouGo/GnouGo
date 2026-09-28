@@ -175,6 +175,19 @@
         "Probe=builtin-direct-import; startMs=2; totalMs=235; exit=0; timeout=False; stdout=isolated probe"
       ],
       "conclusion": "Autoloading against startup-expanded module locations spins. Reapplying the built-in module path before the command succeeds (720ms), as does explicit built-in import. Disabling autoload produces an error and is not a solution. Production will preserve autoload, existing invocation and private EOF."
+    },
+    {
+      "revision": "0f5fe5b3ab658d35b09b2fc532fcdbb2151bd423",
+      "run": 36478257073,
+      "job": 109117277088,
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/36478257073/job/109117277088",
+      "timeoutMs": 10000,
+      "productionChanged": false,
+      "observations": [
+        "Leading param declaration: timeout, no expected output.",
+        "Leading using declaration: timeout, no expected output."
+      ],
+      "conclusion": "Directly prepending initialization displaces leading declarations. Retain native regressions and parse the original allowlisted script separately after initialization. No permission or timeout changes."
     }
   ],
   "note": "All probes used static local commands, private redirected stdin and the existing 10000ms command timeout. Environment values and credentials are not recorded. Remaining builds on superseded diagnostic runs were cancelled after failure logs were retained; they are not final validation passes.",

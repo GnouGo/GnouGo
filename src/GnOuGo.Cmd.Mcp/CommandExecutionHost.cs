@@ -51,7 +51,10 @@ public sealed class CommandExecutionHost
             {
                 var modules = Path.Combine(Path.GetDirectoryName(shell.ExecutablePath)!, "Modules");
                 environment["PSModulePath"] = modules;
-                script = "$env:PSModulePath = '" + modules.Replace("'", "''", StringComparison.Ordinal) + "'; " + script;
+                // Parse the original script separately so leading param/using declarations
+                // remain valid after host initialization. Only allowlisted, rendered code enters it.
+                script = "$env:PSModulePath = '" + modules.Replace("'", "''", StringComparison.Ordinal) +
+                    "'; & ([scriptblock]::Create('" + script.Replace("'", "''", StringComparison.Ordinal) + "'))";
             }
 
             Process process;
