@@ -17,7 +17,7 @@ This is intentionally a **deny-by-default** design to limit risks:
 - working directories bounded to allowed roots
 - bounded timeout
 - bounded max stdout/stderr size
-- environment transmitted via allowlist
+- inherited environment transmitted via allowlist
 - optional named parameters validated by regex
 - optional path parameters normalized inside the workspace and rejected on traversal attempts
 - no raw free shell execution
@@ -37,6 +37,14 @@ The server is designed to work on **Windows**, **Linux**, and **macOS** out of t
 | `cmd`        | `cmd.exe`            | _(not available)_         |
 
 Shell availability is auto-detected at runtime. The `cmd_get_policy` tool reports which shells are actually available on the current host.
+
+Windows PowerShell needs an initialized module search path in the filtered child
+environment. Unless `PSModulePath` is explicitly allowlisted and present, Cmd sets
+and reapplies it to the selected shell installation's `Modules` directory before
+command loading, preventing startup expansion from adding unwanted module searches. It does not inherit
+user module paths. Commands still receive private stdin closed immediately to EOF;
+timeouts, output capture and process-tree termination remain enforced. See the
+[native Windows diagnosis](../../docs/windows-cmd-startup.md).
 
 ## Packaged filesystem commands
 
