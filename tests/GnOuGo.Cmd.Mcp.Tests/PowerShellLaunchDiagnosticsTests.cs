@@ -26,19 +26,19 @@ public sealed class PowerShellLaunchDiagnosticsTests(ITestOutputHelper output)
                 .RunAsync("probe", null, null, TestContext.Current.CancellationToken);
             output.WriteLine("Host: success={0}; exit={1}; timeout={2}; elapsed={3}; stdout={4}; stderr={5}",
                 baseline.Success, baseline.ExitCode, baseline.TimedOut, baseline.DurationMs, baseline.Stdout ?? "", baseline.Stderr ?? "");
-            await Probe("current", shell.ExecutablePath, shell.BuildArguments(script));
-            await Probe("help", shell.ExecutablePath, "-?");
-            await Probe("mta", shell.ExecutablePath, "-Mta " + shell.BuildArguments(script));
+            var builtIn = Path.Combine(Path.GetDirectoryName(shell.ExecutablePath)!, "Modules");
+            await Probe("builtin-console", shell.ExecutablePath, shell.BuildArguments("[Console]::WriteLine('isolated probe')"), modulePath: builtIn);
+            await Probe("builtin-command", shell.ExecutablePath, shell.BuildArguments(script), modulePath: builtIn);
+            await Probe("builtin-program-files", shell.ExecutablePath, shell.BuildArguments(script), additional: ["ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"], modulePath: builtIn);
+            var machineModules = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "WindowsPowerShell", "Modules");
+            await Probe("machine-and-builtin", shell.ExecutablePath, shell.BuildArguments(script), modulePath: machineModules + ";" + builtIn);
             await Probe("module-path", shell.ExecutablePath, shell.BuildArguments(script), additional: ["PSModulePath"]);
-            await Probe("os-environment", shell.ExecutablePath, shell.BuildArguments(script), additional:
-                ["SystemDrive", "HOMEDRIVE", "HOMEPATH", "USERNAME", "USERDOMAIN", "COMPUTERNAME", "ProgramFiles", "ProgramFiles(x86)", "ProgramW6432", "CommonProgramFiles", "CommonProgramFiles(x86)", "CommonProgramW6432", "PROCESSOR_ARCHITECTURE", "NUMBER_OF_PROCESSORS"]);
-            // Static diagnostic command only: compare startup without exposing environment values.
-            await Probe("inherited-environment-control", shell.ExecutablePath, shell.BuildArguments(script), inheritEnvironment: true);
-            var alternate = Environment.GetEnvironmentVariable("ProgramFiles") is { } files ? Path.Combine(files, "PowerShell", "7", "pwsh.exe") : "";
-            if (File.Exists(alternate)) await Probe("pwsh", alternate, shell.BuildArguments(script));
+            var segments = (Environment.GetEnvironmentVariable("PSModulePath") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < segments.Length; i++)
+                await Probe("module-segment-" + i, shell.ExecutablePath, shell.BuildArguments(script), modulePath: segments[i]);
             Assert.True(baseline.Success, "The actual Cmd PowerShell launch must complete under its existing timeout.");
 
-            async Task Probe(string name, string executable, string arguments, bool inheritEnvironment = false, string[]? additional = null)
+            async Task Probe(string name, string executable, string arguments, bool inheritEnvironment = false, string[]? additional = null, string? modulePath = null)
             {
                 using var process = new Process { StartInfo = new() { FileName = executable, Arguments = arguments,
                     WorkingDirectory = root, UseShellExecute = false, CreateNoWindow = true,
@@ -49,6 +49,7 @@ public sealed class PowerShellLaunchDiagnosticsTests(ITestOutputHelper output)
                     foreach (var pair in environment) process.StartInfo.Environment[pair.Key] = pair.Value;
                 }
                 foreach (var key in additional ?? []) process.StartInfo.Environment[key] = Environment.GetEnvironmentVariable(key);
+                if (modulePath is not null) process.StartInfo.Environment["PSModulePath"] = modulePath;
                 var timer = Stopwatch.StartNew(); process.Start(); var started = timer.ElapsedMilliseconds;
                 output.WriteLine("Probe={0}; stdin encoding={1}; preamble bytes={2}", name, process.StandardInput.Encoding.WebName, process.StandardInput.Encoding.GetPreamble().Length);
                 process.StandardInput.Close();

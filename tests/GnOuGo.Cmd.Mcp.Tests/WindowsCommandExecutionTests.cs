@@ -36,7 +36,7 @@ public sealed class WindowsCommandExecutionTests
         {
             var host = Host(root, new() { Shell = "powershell", Script =
                 "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); if ($null -ne [Console]::ReadLine()) { exit 99 }; [Console]::WriteLine({{text}}); [Console]::Error.WriteLine('observed stderr'); exit " + exitCode,
-                Parameters = new(StringComparer.OrdinalIgnoreCase) { ["text"] = new() { Required = true, MaxLength = 100 } } });
+                Parameters = new(StringComparer.OrdinalIgnoreCase) { ["text"] = new() { Required = true, MaxLength = 100, Pattern = "^[\\s\\S]{1,100}$" } } });
             const string expected = "café 'quoted' \"double\" 日本語";
             for (var i = 0; i < 3; i++)
             {
