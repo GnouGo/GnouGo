@@ -50,6 +50,24 @@ public sealed class WindowsCommandExecutionTests
     }
 
     [Theory]
+    [InlineData("param([string]$text = 'parameter default'); [Console]::WriteLine($text); exit 3", "parameter default", 3)]
+    [InlineData("using namespace System\n[Console]::WriteLine('namespace declaration'); exit 0", "namespace declaration", 0)]
+    public async Task LaunchInitializationPreservesLeadingScriptDeclarations(string script, string expected, int exitCode)
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Requires native Windows PowerShell.");
+        var root = Directory.CreateTempSubdirectory("gnougo-declarations-").FullName;
+        try
+        {
+            var result = await Host(root, new() { Shell = "powershell", Script = script })
+                .RunAsync("probe", null, null, TestContext.Current.CancellationToken);
+            Assert.False(result.TimedOut); Assert.Equal(exitCode, result.ExitCode);
+            Assert.Equal(exitCode == 0, result.Success);
+            Assert.Equal(expected, result.Stdout!.TrimEnd('\r', '\n')); Assert.True(string.IsNullOrEmpty(result.Stderr));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task TimeoutAndCancellationTerminateTheChildTree(bool cancel)
