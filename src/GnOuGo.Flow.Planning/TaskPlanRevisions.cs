@@ -33,7 +33,7 @@ internal static class TaskPlanRevisions
         return scope.Order(StringComparer.Ordinal).ToArray();
     }
 
-    internal static IEnumerable<PlanningDiagnostic> Validate(TaskPlan? previous, TaskPlan candidate, IReadOnlyList<string> scope)
+    internal static IEnumerable<PlanningDiagnostic> Validate(TaskPlan? previous, TaskPlan candidate, IReadOnlyList<string> scope, PlanningCatalog? catalog = null)
     {
         var identities = TaskPlanCompiler.IdentityDiagnostics(candidate);
         if (previous is not null) identities = identities.Concat(TaskPlanCompiler.IdentityDiagnostics(previous, includeReferences: false)).Distinct().ToArray();
@@ -47,10 +47,15 @@ internal static class TaskPlanRevisions
         var before = JsonSerializer.SerializeToNode(previous, PlanningJsonContext.Default.TaskPlan)!;
         var after = JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskPlan)!;
         var additions = new HashSet<string>(StringComparer.Ordinal);
+        var removals = new HashSet<string>(StringComparer.Ordinal);
         var resultSlots = TransformResultSlots(previous);
         var permittedValues = new HashSet<string>(StringComparer.Ordinal);
         foreach (var path in scope)
         {
+            if (symbols.Values.ContainsKey(path) && path.Split('/') is ["", "tasks", var consumer, "inputs", var argument] &&
+                symbols.Tasks.TryGetValue(consumer, out var originalTask) && revised.Tasks.TryGetValue(consumer, out var revisedTask) &&
+                revisedTask.Task.Kind == "operation" && originalTask.Task.Operation == revisedTask.Task.Operation &&
+                revisedTask.Task.Inputs.All(i => i.Name != argument) && OptionalInput(originalTask.Task, argument)) removals.Add(path);
             if (symbols.Values.TryGetValue(path, out var site) && revised.Values.TryGetValue(path, out var replacement))
             {
                 var used = new HashSet<string>(StringComparer.Ordinal);
@@ -71,6 +76,23 @@ internal static class TaskPlanRevisions
         Mask(before, "", false); Mask(after, "", true);
         foreach (var location in Differences(before, after, "").Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
             yield return new("REVISION_SCOPE_CHANGED", location, "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.");
+
+        bool OptionalInput(PlanTask task, string name)
+        {
+            if (catalog is null || task.Kind != "operation" || task.Inputs.Count(i => i.Name == name) != 1) return false;
+            var matches = catalog.Capabilities.Where(c => TaskOperations.Describe(c).Id == task.Operation).ToArray();
+            if (matches.Length != 1 || TaskOperations.Validate(matches[0]).Count != 0) return false;
+            var port = TaskOperations.Describe(matches[0]).Inputs.SingleOrDefault(p => p.Name == name);
+            if (port is null || port.Required) return false;
+            // A producer mapping cannot override requiredness in the authoritative schema.
+            var parent = matches[0].InputSchema;
+            foreach (var segment in port.Path.SkipLast(1))
+            {
+                if (parent["properties"]?[segment] is not JsonObject child) return false;
+                parent = child;
+            }
+            return parent["required"] is not JsonArray required || !required.Any(n => n?.ToString() == port.Path[^1]);
+        }
 
         bool Related(TaskValue original, TaskValue replacement, TaskPlanSymbols.Scope owner, HashSet<string> used, bool preserve = false)
         {
@@ -119,7 +141,7 @@ internal static class TaskPlanRevisions
                 for (var i = list.Count - 1; i >= 0; i--)
                 {
                     var location = Element(path, list[i], i);
-                    if (updated && additions.Contains(location)) { list.RemoveAt(i); continue; }
+                    if (updated ? additions.Contains(location) : removals.Contains(location)) { list.RemoveAt(i); continue; }
                     Mask(list[i], location, updated);
                 }
                 return;

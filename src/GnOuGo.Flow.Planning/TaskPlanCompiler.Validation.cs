@@ -189,7 +189,12 @@ public sealed partial class TaskPlanCompiler
             var path = "/tasks/" + task.Id;
             if (symbols.InvalidIds.Contains(task.Id)) { scope.Blocked.Add(("output", task.Id, "*")); return; }
             Check(path + "/objective", () => { if (string.IsNullOrWhiteSpace(task.Objective)) Fail("TASK_OBJECTIVE_REQUIRED", "Each task requires an objective."); });
-            Check(path + "/dependsOn", () => { if (task.DependsOn.Any(d => !scope.Tasks.ContainsKey(d))) Fail("TASK_DEPENDENCY_UNKNOWN", "A dependency must name a preceding task in this scope."); });
+            Check(path + "/dependsOn", () =>
+            {
+                var unknown = task.DependsOn.Where(d => !scope.Tasks.ContainsKey(d)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+                if (unknown.Length > 0) Fail("TASK_DEPENDENCY_UNKNOWN", "Dependencies " + string.Join(", ", unknown) +
+                    " must name preceding tasks in scope " + symbols.Tasks[task.Id].Scope.Path + ". Ancestor values may be captured without cross-scope dependsOn entries.");
+            });
             var ports = new Dictionary<string, Bound>(StringComparer.Ordinal);
             var declared = new List<string>();
             Scope? Child(TaskScope? body, string role)
@@ -245,7 +250,7 @@ public sealed partial class TaskPlanCompiler
                             if (value is not null)
                             {
                                 findings.AddRange(ConstraintFindings(value, port.Schema, location));
-                                Fits(value, port.Schema, "TASK_INPUT_TYPE"); Bind(mapped, port.Path, value.Value);
+                                Fits(value, port.Schema, "TASK_INPUT_TYPE", optional: !port.Required); Bind(mapped, port.Path, value.Value);
                             }
                         });
                     }
@@ -323,17 +328,18 @@ public sealed partial class TaskPlanCompiler
         }
     }
 
-    private void Fits(Bound value, JsonObject schema, string code)
+    private void Fits(Bound value, JsonObject schema, string code, bool optional = false)
     {
         if (PlanningGraphValidation.IsLiteral(value.Value)
             ? PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(value.Value), schema).Count > 0
             : !PlanningGraphValidation.TypesFit(value.Schema, schema, allowUnresolved: false))
             Fail(code, "Produced " + Describe(value.Schema) + (value.TypeLocation is null ? "" : " from " + value.TypeLocation) +
-                "; expected " + Describe(schema) + ". The business value does not satisfy its authoritative contract.");
+                "; expected " + Describe(schema) + ". The business value does not satisfy its authoritative contract." +
+                (optional ? " This argument may be omitted; if supplied it must satisfy the contract. Null is not omission." : ""));
     }
 
     private static string Describe(JsonObject schema) => (schema["type"]?.ToJsonString() ?? "opaque") +
-        string.Concat(new[] { "enum", "pattern", "minLength", "maxLength" }
+        string.Concat(new[] { "enum", "pattern", "minLength", "maxLength", "default" }
             .Where(key => schema[key] is not null).Select(key => " " + key + " " + schema[key]!.ToJsonString()));
 
     private static IEnumerable<PlanningDiagnostic> ConstraintFindings(Bound value, JsonObject expected, string consumer)
@@ -342,14 +348,26 @@ public sealed partial class TaskPlanCompiler
         foreach (var finding in Inspect(value.Schema, expected, value.TypeLocation)) yield return finding;
         IEnumerable<PlanningDiagnostic> Inspect(JsonObject actual, JsonObject target, string path)
         {
-            if (actual["type"]?.ToString() == "string" && target["enum"] is JsonArray { Count: > 0 } domain &&
-                domain.All(v => v is JsonValue j && j.TryGetValue<string>(out _)) && !PlanningGraphValidation.TypesFit(actual, target))
-                yield return new("TASK_TRANSFORM_CONSTRAINT", path + "/enum", "Declare a compatible finite string domain for " + consumer + "; expected " + Describe(target) + ".");
-            if (actual["type"]?.ToString() == "object" && actual["properties"] is JsonObject fields && target["properties"] is JsonObject wanted)
+            var types = PlanningContractCompatibility.Types(actual);
+            if (types.Contains("null", StringComparer.Ordinal) && PlanningContractValidation.ValidateInstance(null, actual).Count == 0 &&
+                PlanningContractValidation.ValidateInstance(null, target).Count > 0)
+                yield return new("TASK_TRANSFORM_CONSTRAINT", path + "/nullable", "The consumer " + consumer + " rejects null; declare a non-null result only if the transformation can guarantee it, or change the diagnosed consumer binding. Expected " + Describe(target) + ".");
+            // Nullability and the non-null string domain are independent constraints.
+            // A nullable A|B producer flowing to A|B needs only its nullable slot repaired.
+            if (types.Where(t => t != "null").SequenceEqual(["string"]) && target["enum"] is JsonArray { Count: > 0 } domain &&
+                domain.All(v => v is null || v is JsonValue j && j.TryGetValue<string>(out _)))
+            {
+                var nonNull = actual.DeepClone().AsObject(); nonNull["type"] = "string";
+                if (nonNull["enum"] is JsonArray values)
+                    for (var i = values.Count - 1; i >= 0; i--) if (values[i] is null) values.RemoveAt(i);
+                if (!PlanningGraphValidation.TypesFit(nonNull, target))
+                    yield return new("TASK_TRANSFORM_CONSTRAINT", path + "/enum", "Declare a compatible finite string domain for " + consumer + "; expected " + Describe(target) + ".");
+            }
+            if (types.Contains("object", StringComparer.Ordinal) && actual["properties"] is JsonObject fields && target["properties"] is JsonObject wanted)
                 foreach (var (name, child) in fields)
                     if (!name.Contains('/') && child is JsonObject produced && wanted[name] is JsonObject required)
                         foreach (var finding in Inspect(produced, required, path + "/fields/" + name + "/type")) yield return finding;
-            if (actual["type"]?.ToString() == "array" && actual["items"] is JsonObject items && target["items"] is JsonObject expectedItems)
+            if (types.Contains("array", StringComparer.Ordinal) && actual["items"] is JsonObject items && target["items"] is JsonObject expectedItems)
                 foreach (var finding in Inspect(items, expectedItems, path + "/items")) yield return finding;
         }
     }
