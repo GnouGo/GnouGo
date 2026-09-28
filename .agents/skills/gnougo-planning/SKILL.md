@@ -11,7 +11,7 @@ Requirements → Discovery → LLM TaskPlan → deterministic compiler → Plann
 
 - TaskPlan is explicit semantic intent; PlanningGraph is the sole executable representation. Add no intermediate representation, model phase or parallel planner.
 - No MCP server/tool-specific logic in Flow.Planning or Flow.Core: never branch on names, catalog IDs, URLs, domain terms or prompt keywords. Producer behavior and provider mappings belong in producer metadata or injected integrations.
-- Generic metadata ranking is permitted only for discovery presentation: rank retained candidates across pages into a bounded global shortlist, retain query/cursor expansion and complete receipts, and keep exact selected contracts; never infer behavior, types or permissions from relevance.
+- Generic metadata ranking is permitted only for discovery presentation: rank retained candidates across pages using request/requirements plus source-scoped refinements, pack optional contracts within 90% of the saved input allowance, retain query/cursor expansion and complete receipts, and keep exact selected contracts; never infer behavior, types or permissions from relevance.
 - Bind through authoritative JSON Schema and validated provider-neutral metadata. Prefer machine-checkable contracts and generic compiler/validator fixes over prompt exceptions or inferred behavior.
 - The model selects operations, business bindings, bounded structured scopes and choices with literal alternatives. It must not generate executor envelopes, wire paths, JavaScript, projection recipes or invented contracts.
 - Request the smallest sufficient plan with explicit objectives. Compact only representation defaults; never drop business intent or weaken contracts. Accepted requirements remain host-owned. `value` assembles, `field` selects declared fields, `json` serializes; `transform` interprets data with an explicit closed result type, never simple wiring.
@@ -23,7 +23,7 @@ Requirements → Discovery → LLM TaskPlan → deterministic compiler → Plann
 
 - Derive minimal complete edit permissions from the immutable baseline and diagnostics. Dependent revalidation does not grant edits; unknown locations never widen scope.
 - Preserve unrelated tasks, interfaces, ordering and choices. Reject unauthorized proposals atomically; retain discovery receipts, request identities and cumulative budgets through recovery. Validate recovered responses against their saved request schemas.
-- Reserve proposal and repair calls before further discovery; enforce the issued response schema and stop safely if no plan is possible. Token settings cannot restart a call-exhausted session or replenish its counters.
+- Reserve one proposal and one repair when allowed before further discovery; additional repairs are opportunistic within saved ceilings; enforce the issued response schema and stop safely if no plan is possible. Token settings cannot restart a call-exhausted session or replenish its counters.
 - Invalid generated plumbing is a compiler defect, not a model repair. Do not remove guards or relax validation to accept it.
 - Keep agent workspace, objective, permissions, budgets and verification requirements literal and approved. Choices grant no permissions. Recompilation must reproduce the reviewed artifact; changed intent, selections, contracts or artifacts invalidate approval.
 
