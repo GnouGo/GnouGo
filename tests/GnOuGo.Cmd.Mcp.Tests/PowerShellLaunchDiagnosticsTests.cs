@@ -27,15 +27,14 @@ public sealed class PowerShellLaunchDiagnosticsTests(ITestOutputHelper output)
             output.WriteLine("Host: success={0}; exit={1}; timeout={2}; elapsed={3}; stdout={4}; stderr={5}",
                 baseline.Success, baseline.ExitCode, baseline.TimedOut, baseline.DurationMs, baseline.Stdout ?? "", baseline.Stderr ?? "");
             var builtIn = Path.Combine(Path.GetDirectoryName(shell.ExecutablePath)!, "Modules");
-            await Probe("builtin-console", shell.ExecutablePath, shell.BuildArguments("[Console]::WriteLine('isolated probe')"), modulePath: builtIn);
             await Probe("builtin-command", shell.ExecutablePath, shell.BuildArguments(script), modulePath: builtIn);
-            await Probe("builtin-program-files", shell.ExecutablePath, shell.BuildArguments(script), additional: ["ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"], modulePath: builtIn);
-            var machineModules = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "WindowsPowerShell", "Modules");
-            await Probe("machine-and-builtin", shell.ExecutablePath, shell.BuildArguments(script), modulePath: machineModules + ";" + builtIn);
-            await Probe("module-path", shell.ExecutablePath, shell.BuildArguments(script), additional: ["PSModulePath"]);
-            var segments = (Environment.GetEnvironmentVariable("PSModulePath") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries);
-            for (var i = 0; i < segments.Length; i++)
-                await Probe("module-segment-" + i, shell.ExecutablePath, shell.BuildArguments(script), modulePath: segments[i]);
+            await Probe("builtin-reset-before-command", shell.ExecutablePath,
+                shell.BuildArguments("$env:PSModulePath = '" + builtIn.Replace("'", "''", StringComparison.Ordinal) + "'; " + script), modulePath: builtIn);
+            await Probe("builtin-disable-autoload", shell.ExecutablePath,
+                shell.BuildArguments("$PSModuleAutoLoadingPreference = 'None'; " + script), modulePath: builtIn);
+            await Probe("empty-module-directory", shell.ExecutablePath, shell.BuildArguments(script), modulePath: root);
+            await Probe("builtin-direct-import", shell.ExecutablePath,
+                shell.BuildArguments("Import-Module '" + Path.Combine(builtIn, "Microsoft.PowerShell.Utility", "Microsoft.PowerShell.Utility.psd1").Replace("'", "''", StringComparison.Ordinal) + "'; " + script), modulePath: builtIn);
             Assert.True(baseline.Success, "The actual Cmd PowerShell launch must complete under its existing timeout.");
 
             async Task Probe(string name, string executable, string arguments, bool inheritEnvironment = false, string[]? additional = null, string? modulePath = null)
