@@ -1726,3 +1726,16 @@ The engine is fully **NativeAOT**-compatible:
 - Scripting: Jint v4+ (pure interpreter, no Reflection.Emit)
 
 The native `collect_json_arrays(completedLoop.results, ["child", "response", "field"])` expression concatenates original JSON-array strings without altering records or numeric precision. Artifact provenance requires an exact original producer declaring `encoding: "json_array"`; missing, conditional, malformed or transformed source results cannot establish identity. The primitive cannot be overridden by workflow helpers.
+
+## Bounded task identity and failures
+
+Hosts own tenant, run, execution and agent identities. Finalization preserves them
+while using distinct invocation paths and independent cleanup cancellation/limits.
+They are not workflow inputs. Primary failures retain cleanup failures separately.
+
+`AgentTaskResult.Failure` is an optional `WorkflowError` supplied by the trusted
+runner integration from safe host diagnostics. Never populate it from assistant
+text, command output or raw exceptions. Terminal failed results expose this error
+without authorizing automatic retries. Historical results retain the generic fallback;
+unknown outcomes still require reconciliation. A completed result with a failure is
+invalid. The field uses existing source-generated serialization; journal schema remains 9.

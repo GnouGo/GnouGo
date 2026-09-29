@@ -77,3 +77,13 @@ dotnet pack src/GnOuGo.GithubCopilot.Core/GnOuGo.GithubCopilot.Core.csproj -c Re
 ```
 
 `CopilotReviewStartRequest.RuntimeContextJson` optionally carries a JSON object of upstream execution results (maximum 32,000 characters). The review manager validates it before creating a session and preserves it as encoded untrusted context in every batch. Caller instructions and existing inline comments remain separate inputs; runtime context grants no permission to act.
+
+## Read-only bounded-task readiness
+
+`CopilotSessionManager.ReadSandboxReadinessAsync` uses the SDK client abstraction to
+read validated device-managed policy with a bounded timeout. It creates no session,
+sends no prompt and executes no command. Missing or invalid mandatory sandbox policy
+and unreadable hosts remain unavailable for bounded commands. Custom SDK adapters
+without this query fail closed. `Configured` describes policy only; the existing
+session enforcement probe remains authoritative before inference. This query never
+changes device settings, authentication or permissions.

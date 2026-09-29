@@ -211,6 +211,14 @@ it does not promise restoration of the SDK session. Cross-process ownership uses
 workspace-resolved owner files, so all hosts sharing the record store must share
 the same workspace owner directory.
 
+`copilot_task_contract` reads validated device policy through the existing SDK without
+creating a session or sending a prompt. Its schema omits `command.execute` and
+`command.exit` when mandatory policy is absent, invalid or unreadable, or host writes
+are disabled. File capabilities retain their existing policy. Discovery snapshots
+are versioned; refresh discovery after an administrator changes policy. Configured
+policy is not proof of working session enforcement: task validation rechecks policy
+and session preparation still probes actual enforcement before inference.
+
 Project tools retain the existing filesystem and permission policies. Adaptive
 commands require a mandatory, available Copilot sandbox: managed `sandbox.enabled`
 and `sandbox.failIfUnavailable` must both be enabled. The task disables sandbox
@@ -228,6 +236,14 @@ Inference retains the configured policy proxy. Supported text HTTP protocols hav
 explicit output ceilings and conservative, non-refundable token reservations;
 opaque prior-conversation references, multimodal requests and unaccounted WebSockets
 are rejected. Receipts label reservations `reserved_upper_bound`.
+
+Terminal preparation failures carry an optional safe `failure` alongside the existing
+result/receipt fields. Codes distinguish `AGENT_ISOLATION_REQUIRED`,
+`AGENT_ISOLATION_POLICY_INVALID`, `AGENT_ISOLATION_UNAVAILABLE` and
+`AGENT_PREPARATION_FAILED`. These messages come from known host conditions, never
+assistant output or arbitrary exception bodies. Unknown external outcomes still
+require reconciliation. Update the MCP and Flow runtime together; old receipts remain
+readable, but older strict readers may reject the additive failure field.
 
 Verification evidence comes from SDK tool events and controlled file reads. Exact
 command subjects include the final exit code and retained attempt history; earlier

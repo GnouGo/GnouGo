@@ -7,6 +7,13 @@ using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 using GnOuGo.Planning.Examples;
 
+// Additive host failure contracts must survive source-generated Native AOT serialization.
+var taskFailure = new AgentTaskResult("failed", null, [], [], new(0, 0, 0))
+{ Failure = new() { Code = "AGENT_ISOLATION_REQUIRED", Message = "Mandatory host isolation is not configured." } };
+var restoredFailure = JsonSerializer.Deserialize(JsonSerializer.Serialize(taskFailure, AgentTaskJsonContext.Default.AgentTaskResult), AgentTaskJsonContext.Default.AgentTaskResult)!;
+if (restoredFailure.Failure?.Code != taskFailure.Failure.Code) throw new InvalidOperationException("Agent failure serialization failed");
+Console.WriteLine("agent failure: structured host diagnostic survives source-generated serialization");
+
 // A shared location is lowered to an approved literal without an agent dispatch.
 var workspacePlan = JsonSerializer.Deserialize("""
 {"root":{"tasks":[

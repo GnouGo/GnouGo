@@ -2,11 +2,51 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Planning.Capabilities;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class ConstantWorkspaceTests
 {
+    [Fact]
+    public async Task RunnerPolicyContractsAreVersionedAndValidatedWithoutProviderRules()
+    {
+        var (plan, catalog) = Fixture(); var runner = new PolicyRunner(); var engine = new WorkflowEngine();
+        engine.AgentTaskRunners["renamed-adaptive-host"] = runner;
+        var discovery = new CapabilityDiscovery(engine); var source = Assert.Single(await discovery.ListSourcesAsync(TestContext.Current.CancellationToken));
+        var page = await discovery.ListAsync(source.Id, null, TestContext.Current.CancellationToken);
+        var capability = await discovery.ResolveAsync(Assert.Single(page.Capabilities), TestContext.Current.CancellationToken);
+        catalog.Capabilities = [capability]; var task = plan.Root.Tasks[1]; task.Operation = capability.Id;
+        task.Inputs.Single(i => i.Name == "capabilities").Value.Items[0].Text = "fixture.adapt";
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(compiled.Diagnostics);
+        var session = new PlanningSession { Plan = plan, Graph = compiled.Graph, Catalog = catalog, Yaml = "reviewed" };
+        var approved = session.ComputeArtifactHash();
+        runner.Ready = false;
+        var refreshed = new CapabilityDiscovery(engine); var changed = Assert.Single((await refreshed.ListAsync(source.Id, null, TestContext.Current.CancellationToken)).Capabilities);
+        Assert.NotEqual(capability.Version, changed.Version);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => refreshed.ResolveAsync(page.Capabilities[0], TestContext.Current.CancellationToken));
+        catalog.Capabilities = [await refreshed.ResolveAsync(changed, TestContext.Current.CancellationToken)];
+        Assert.NotEqual(approved, session.ComputeArtifactHash());
+        var rejected = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Null(rejected.Graph); Assert.Contains(rejected.Diagnostics, d => d.Location == "/tasks/work/inputs/capabilities");
+        Assert.Equal(0, runner.Dispatches);
+    }
+
+    private sealed class PolicyRunner : IAgentTaskRunner
+    {
+        internal bool Ready = true;
+        internal int Dispatches;
+        public Task<AgentTaskRunnerContract> DescribeAsync(CancellationToken ct)
+        {
+            var schema = AgentTaskContracts.InputSchema;
+            schema["properties"]!["capabilities"]!["items"]!["enum"] = Ready ? new JsonArray("fixture.inspect", "fixture.adapt") : new JsonArray("fixture.inspect");
+            return Task.FromResult(new AgentTaskRunnerContract("Declared host policy; runtime scope checks remain mandatory", schema));
+        }
+        public Task<IReadOnlyList<string>> ValidateAsync(AgentTaskContext context, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>>([]);
+        public Task<AgentTaskResult> RunAsync(AgentTaskContext context, CancellationToken ct) { Dispatches++; throw new InvalidOperationException("Discovery cannot dispatch"); }
+        public Task<AgentTaskResult> ReconcileAsync(AgentTaskContext context, CancellationToken ct) => throw new InvalidOperationException();
+    }
+
     [Fact]
     public void SharedValueAndFieldSelectionCompileToLiteralWithoutChangingIntent()
     {

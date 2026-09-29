@@ -22,6 +22,7 @@ public sealed class SharedWorkspaceExecutionTests
     [InlineData("refused")]
     [InlineData("cancelled")]
     [InlineData("missing")]
+    [InlineData("isolation")]
     public async Task LocalLifecycleSliceUsesExactApprovedPathAndRealCleanup(string mode)
     {
         using var current = new RecordedWorkspaceContractTests.CurrentContracts();
@@ -94,7 +95,12 @@ public sealed class SharedWorkspaceExecutionTests
         Assert.Equal(1, cleanupCalls); Assert.False(Directory.Exists(target));
         Assert.Equal("untouched", File.ReadAllText(Path.Combine(unrelated, "keep")));
         Assert.Equal("local source\n", File.ReadAllText(Path.Combine(source, "README.md")));
-        Assert.Equal(mode is "success" or "cancelled" ? 1 : 0, runner.Runs);
+        Assert.Equal(mode is "success" or "cancelled" or "isolation" ? 1 : 0, runner.Runs);
+        if (mode == "isolation")
+        {
+            Assert.Equal("AGENT_ISOLATION_REQUIRED", resultRun.Error!.Code);
+            Assert.Null(resultRun.Error.Details?["finalization_errors"]);
+        }
         foreach (var file in Directory.EnumerateFiles(current.Root, "*", SearchOption.AllDirectories)) File.SetAttributes(file, FileAttributes.Normal);
     }
 
@@ -106,6 +112,7 @@ public sealed class SharedWorkspaceExecutionTests
         public Task<IReadOnlyList<string>> ValidateAsync(AgentTaskContext context, CancellationToken ct)
         {
             Assert.Equal("host-tenant", context.TenantId);
+            Assert.Equal("synthetic-local-run", context.RunId);
             Assert.Equal(RecordedWorkspaceContractTests.Location, context.Task.Workspace);
             var policy = new GnOuGo.GithubCopilot.Mcp.CodePolicy(new() { DefaultWorkingDirectory = root, AllowedWorkingRoots = [root] }, root);
             Assert.Equal(target, policy.ResolveProjectRoot(context.Task.Workspace));
@@ -115,6 +122,8 @@ public sealed class SharedWorkspaceExecutionTests
         public Task<AgentTaskResult> RunAsync(AgentTaskContext context, CancellationToken ct)
         {
             Runs++;
+            if (mode == "isolation") return Task.FromResult(new AgentTaskResult("failed", null, [], [], new(0, 0, 0))
+            { Failure = new() { Code = "AGENT_ISOLATION_REQUIRED", Message = "Mandatory host isolation is not configured.", Retryable = false } });
             if (mode == "cancelled") { cancellation.Cancel(); throw new OperationCanceledException(cancellation.Token); }
             // Explicit mocked observations; no claims about actual shell/model execution.
             var evidence = context.Task.Verification.Select(v => new AgentTaskEvidence(v.Id, v.Kind, v.Subject,
