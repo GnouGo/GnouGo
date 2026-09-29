@@ -4,8 +4,20 @@ using GitHub.Copilot;
 
 namespace GnOuGo.GithubCopilot.Core;
 
-public sealed class CopilotSandboxRequiredException(string? reason = null) : InvalidOperationException(
-    reason ?? "Bounded commands require an available mandatory host sandbox. Configure managed sandbox.enabled=true and sandbox.failIfUnavailable=true before approving command execution.");
+public sealed class CopilotSandboxRequiredException(CopilotSandboxReadiness readiness = CopilotSandboxReadiness.NotConfigured) : InvalidOperationException(readiness switch
+{
+    CopilotSandboxReadiness.NotConfigured => "Bounded commands require mandatory host isolation. Configure managed sandbox.enabled=true and sandbox.failIfUnavailable=true before approval.",
+    CopilotSandboxReadiness.Invalid => "Mandatory host isolation policy could not be validated. Correct the managed policy before approval.",
+    _ => "Mandatory host isolation is unavailable. Check host dependencies and platform support before execution."
+})
+{
+    public string Code => readiness switch
+    {
+        CopilotSandboxReadiness.NotConfigured => "AGENT_ISOLATION_REQUIRED",
+        CopilotSandboxReadiness.Invalid => "AGENT_ISOLATION_POLICY_INVALID",
+        _ => "AGENT_ISOLATION_UNAVAILABLE"
+    };
+}
 
 /// <summary>One invocation's non-renewable ceilings. Reservations precede inference and are never refunded.</summary>
 public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalTokens, DateTimeOffset deadline,

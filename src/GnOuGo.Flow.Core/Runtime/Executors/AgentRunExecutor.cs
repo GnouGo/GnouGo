@@ -69,6 +69,12 @@ public sealed class AgentRunExecutor : IStepExecutor
     internal static async Task<JsonNode?> ValidateResultAsync(AgentTaskContext context, AgentTaskResult result, IAgentTaskVerifier verifier, CancellationToken ct, Func<AgentTaskResult, Task>? persistVerified = null)
     {
         var task = context.Task;
+        if (result.Status == "completed" && result.Failure is not null)
+            throw Failure("AGENT_RESULT_INVALID", "A completed agent result cannot also declare a failure.");
+        if (result.Status == "failed" && result.Failure is { } failure &&
+            !string.IsNullOrWhiteSpace(failure.Code) && !string.IsNullOrWhiteSpace(failure.Message))
+            // A retained terminal task failure never authorizes an automatic effect retry.
+            throw new WorkflowRuntimeException(failure.Code, failure.Message, retryable: false, details: failure.Details?.DeepClone());
         if (result.Status != "completed")
             throw Failure(result.Status == "needs_reconciliation" ? "AGENT_OUTCOME_UNCERTAIN" : "AGENT_TASK_FAILED",
                 "The agent did not complete the approved task.");

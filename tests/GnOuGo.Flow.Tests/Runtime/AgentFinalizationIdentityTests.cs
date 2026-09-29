@@ -50,6 +50,18 @@ public sealed class AgentFinalizationIdentityTests
         Assert.Null(result.Error.Details?["finalization_errors"]);
     }
 
+    [Fact]
+    public async Task CleanupFailureDoesNotReplacePrimaryFailure()
+    {
+        var runner = new Runner { Fail = true }; var engine = Engine(runner);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(Yaml(false, true)));
+        var result = await engine.ExecuteAsync(document.Workflows["main"], null, TestContext.Current.CancellationToken);
+        Assert.Equal("INPUT_VALIDATION", result.Error!.Code);
+        var secondary = Assert.Single(result.Error.Details!["finalization_errors"]!.AsArray())!;
+        Assert.Equal("AGENT_ISOLATION_UNAVAILABLE", secondary["code"]!.ToString());
+        Assert.Equal("run", Assert.Single(runner.Contexts).RunId);
+    }
+
     private static WorkflowEngine Engine(Runner runner)
     {
         var engine = new WorkflowEngine { Limits = new() { TenantId = "tenant", RunId = "run", ExecutionId = "execution", AgentId = "agent", AgentName = "Fixture" } };
@@ -82,10 +94,13 @@ public sealed class AgentFinalizationIdentityTests
     private sealed class Runner : IAgentTaskRunner
     {
         public List<AgentTaskContext> Contexts { get; } = [];
+        internal bool Fail;
         public Task<IReadOnlyList<string>> ValidateAsync(AgentTaskContext context, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>>([]);
         public Task<AgentTaskResult> RunAsync(AgentTaskContext context, CancellationToken ct)
         {
             Assert.False(ct.IsCancellationRequested); Contexts.Add(context);
+            if (Fail) return Task.FromResult(new AgentTaskResult("failed", null, [], [], new(0, 0, 0))
+            { Failure = new() { Code = "AGENT_ISOLATION_UNAVAILABLE", Message = "Mandatory isolation is unavailable." } });
             return Task.FromResult(new AgentTaskResult("completed", new JsonObject { ["done"] = true },
                 [new("receipt", "fixture", "released", new() { ["done"] = true })], [], new(0, 0, 0)));
         }

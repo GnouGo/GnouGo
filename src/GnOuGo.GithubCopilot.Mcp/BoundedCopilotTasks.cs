@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.GithubCopilot.Core;
 using GnOuGo.KeyVault.Core.Services;
@@ -18,16 +19,21 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
     private static readonly string[] Capabilities = ["project.read", "project.write", "command.execute"];
     internal string LockDirectory { get; init; } = GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/copilot-tasks-v9/owners");
 
-    internal JsonObject Contract()
+    internal async Task<JsonObject> ContractAsync(CancellationToken ct)
     {
+        var readiness = await ReadinessAsync(ct);
+        var commands = readiness == CopilotSandboxReadiness.Configured && policy.DescribePolicy().AllowWrites;
         var schema = AgentTaskContracts.InputSchema;
-        schema["properties"]!["capabilities"]!["items"]!["enum"] = new JsonArray(Capabilities.Where(c => policy.DescribePolicy().AllowWrites || c == "project.read").Select(c => (JsonNode?)JsonValue.Create(c)).ToArray());
-        schema["properties"]!["verification"]!["items"]!["properties"]!["kind"]!["enum"] = new JsonArray("command.exit", "file.content");
+        schema["properties"]!["capabilities"]!["items"]!["enum"] = new JsonArray(Capabilities.Where(c => c == "project.read" || c == "project.write" && policy.DescribePolicy().AllowWrites || c == "command.execute" && commands).Select(c => (JsonNode?)JsonValue.Create(c)).ToArray());
+        schema["properties"]!["verification"]!["items"]!["properties"]!["kind"]!["enum"] = commands ? new JsonArray("command.exit", "file.content") : new JsonArray("file.content");
         return new()
         {
             ["schemaVersion"] = 9,
             ["contract"] = JsonSerializer.SerializeToNode(new AgentTaskRunnerContract(
-                "Adaptive project work through managed Copilot. Capabilities: project.read, project.write, command.execute. " +
+                "Adaptive project work through managed Copilot; available capabilities and evidence kinds are declared in this schema. " +
+                (commands ? "Mandatory command isolation policy is configured; session enforcement is checked again before inference. " :
+                    "Adaptive commands and command verification are unavailable under current host policy. " +
+                    (readiness == CopilotSandboxReadiness.Configured ? "Host policy disables writes. " : new CopilotSandboxRequiredException(readiness).Message + " ")) +
                 "Project file tools obey the host file policy. Commands require a mandatory host sandbox, permit project writes and host-defined sandbox read-only locations, and deny network and credential grants. " +
                 "command.exit verification subject is the exact shell command; facts: exit_code (integer), working_directory (string), tool_success (boolean). " +
                 "file.content subject is a relative project file; facts: exists (boolean), sha256 (string), changed (boolean). " +
@@ -35,7 +41,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         };
     }
 
-    internal IReadOnlyList<string> Validate(AgentTaskContext context)
+    internal async Task<IReadOnlyList<string>> ValidateAsync(AgentTaskContext context, CancellationToken ct)
     {
         var errors = new List<string>();
         if (string.IsNullOrWhiteSpace(context.TenantId) || string.IsNullOrWhiteSpace(context.RunId) || string.IsNullOrWhiteSpace(context.InvocationId))
@@ -57,7 +63,23 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
             if (requirement.Kind == "file.content" && (!context.Task.Capabilities.Contains("project.read") || Path.IsPathRooted(requirement.Subject) || requirement.Subject.Split('/', '\\').Contains("..")))
                 errors.Add("File evidence requires a relative path within the approved project and project.read.");
         }
+        if (context.Task.Capabilities.Contains("command.execute"))
+        {
+            var readiness = await ReadinessAsync(ct);
+            if (readiness != CopilotSandboxReadiness.Configured)
+            {
+                var failure = new CopilotSandboxRequiredException(readiness);
+                errors.Add(failure.Code + ": " + failure.Message);
+            }
+        }
         return errors;
+    }
+
+    private async Task<CopilotSandboxReadiness> ReadinessAsync(CancellationToken ct)
+    {
+        try { return await sessions.ReadSandboxReadinessAsync(configuration.Build(null), ct); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { return CopilotSandboxReadiness.Unavailable; }
     }
 
     internal async Task<AgentTaskResult> InspectAsync(AgentTaskContext context, CancellationToken ct)
@@ -74,8 +96,8 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         await using var owner = new FileStream(Path.Combine(LockDirectory, Hash(new JsonArray(context.TenantId, Key(context)).ToJsonString()) + ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         if (await ReadAsync(context, ct) is { } existing)
             return existing["result"] is { } prior ? JsonSerializer.Deserialize(prior, AgentTaskJsonContext.Default.AgentTaskResult)! : Unknown(existing, "This invocation was already dispatched; inspect or reconcile it without repeating its effects.");
-        var validation = Validate(context);
-        if (validation.Count > 0) return new("failed", null, [], [], new(0, 0, 0), string.Join(" ", validation));
+        var validation = await ValidateAsync(context, ct);
+        if (validation.Count > 0) return Failed("AGENT_SCOPE_UNSUPPORTED", string.Join(" ", validation));
         var started = DateTimeOffset.UtcNow;
         var record = new JsonObject
         {
@@ -149,7 +171,8 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             result = dispatched ? Unknown(null, bounds.Exhausted ? "The approved inference budget is exhausted; reconcile interrupted work." : "Execution was interrupted; inspect and reconcile the original invocation.")
-                : new("failed", null, [], [], new(0, 0, 0), ex is CopilotSandboxRequiredException ? ex.Message : "The host rejected task preparation before dispatch (" + ex.GetType().Name + ").");
+                : ex is CopilotSandboxRequiredException isolation ? Failed(isolation.Code, isolation.Message)
+                : Failed("AGENT_PREPARATION_FAILED", "The host rejected task preparation before dispatch. Inspect host configuration and the retained receipt.");
         }
         finally
         {
@@ -165,6 +188,9 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         await SaveAsync(context, record, CancellationToken.None);
         return result;
     }
+
+    private static AgentTaskResult Failed(string code, string message) => new("failed", null, [], [], new(0, 0, 0), message)
+    { Failure = new WorkflowError { Code = code, Type = code, Message = message, Retryable = false } };
 
     private async Task<JsonObject?> ReadAsync(AgentTaskContext context, CancellationToken ct)
     {

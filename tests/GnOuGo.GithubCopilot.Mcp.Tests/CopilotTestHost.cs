@@ -18,6 +18,10 @@ internal sealed class CopilotTestHost : ICopilotSdkClientFactory
     public CopilotSessionManager Manager { get; }
     public Func<CopilotSdkSessionConfiguration, string, CopilotSendRequest, CancellationToken, Task<CopilotSendResult>>? OnSend { get; set; }
     public int Sends { get; private set; }
+    public CopilotSandboxReadiness Readiness { get; set; } = CopilotSandboxReadiness.Configured;
+    public int PolicyReads { get; private set; }
+    public int SessionsCreated { get; private set; }
+    public Exception? PreparationFailure { get; set; }
     public McpCopilotHumanInputProvider Human { get; }
     public CopilotTestHost(CodeServerSettings settings, string root, CodePolicy? policy = null)
     {
@@ -36,12 +40,14 @@ internal sealed class CopilotTestHost : ICopilotSdkClientFactory
     {
         public string ConnectionState => "connected";
         public Task StartAsync(CancellationToken ct) => Task.CompletedTask;
+        public Task<CopilotSandboxReadiness> ReadSandboxReadinessAsync(CancellationToken ct)
+        { owner.PolicyReads++; return Task.FromResult(owner.Readiness); }
         public Task<CopilotConnectivityResult> PingAsync(CancellationToken ct) => Task.FromResult(new CopilotConnectivityResult("ok", "now", "1"));
         public Task<CopilotStatusResult> GetStatusAsync(CancellationToken ct) => Task.FromResult(new CopilotStatusResult("1", "1", "connected"));
         public Task<CopilotAuthResult> GetAuthStatusAsync(CancellationToken ct) => Task.FromResult(new CopilotAuthResult(true, "test", null, null, null));
         public Task<IReadOnlyList<CopilotModelResult>> ListModelsAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<CopilotModelResult>>([]);
         public Task<ICopilotSdkSession> CreateSessionAsync(CopilotSdkSessionConfiguration configuration, CancellationToken ct)
-        { owner.Configuration = configuration; return Task.FromResult<ICopilotSdkSession>(new Session(owner)); }
+        { owner.SessionsCreated++; if (owner.PreparationFailure is { } failure) throw failure; owner.Configuration = configuration; return Task.FromResult<ICopilotSdkSession>(new Session(owner)); }
         public Task<ICopilotSdkSession> ResumeSessionAsync(string id, CopilotSdkSessionConfiguration configuration, CancellationToken ct) => CreateSessionAsync(configuration, ct);
         public Task DeleteSessionAsync(string id, CancellationToken ct) { owner.DeleteCount++; return Task.CompletedTask; }
         public Task<string?> GetForegroundSessionIdAsync(CancellationToken ct) => Task.FromResult<string?>(null);

@@ -134,12 +134,17 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         return await ConfigureBoundedSessionAsync(session, configuration, cancellationToken);
     }
 
+    public async Task<CopilotSandboxReadiness> ReadSandboxReadinessAsync(CancellationToken cancellationToken)
+    {
+        var policy = await _client.Rpc.ManagedSettings.ReadAsync(cancellationToken);
+        return CopilotSandboxPolicy.Read(policy.SettingsJson?.GetRawText(), policy.ErrorMessage);
+    }
+
     private async Task ReadManagedPolicyAsync(CancellationToken cancellationToken)
     {
         if (_configuration.ExecutionBounds?.RequiresSandbox != true) return;
-        var policy = await _client.Rpc.ManagedSettings.ReadAsync(cancellationToken);
-        if (!string.IsNullOrWhiteSpace(policy.ErrorMessage))
-            throw new CopilotSandboxRequiredException("Device-managed sandbox policy could not be validated.");
+        var readiness = await ReadSandboxReadinessAsync(cancellationToken);
+        if (readiness != CopilotSandboxReadiness.Configured) throw new CopilotSandboxRequiredException(readiness);
     }
 
     private async Task<ICopilotSdkSession> ConfigureBoundedSessionAsync(CopilotSession session, CopilotSdkSessionConfiguration configuration, CancellationToken cancellationToken)
@@ -165,15 +170,18 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
                 if (bounds.RequiresSandbox)
                 {
                     var enforcement = await session.Rpc.Sandbox.GetEnforcementStatusAsync(cancellationToken);
-                    if (!enforcement.Required || enforcement.Blocked)
-                        throw new CopilotSandboxRequiredException(enforcement.Required
-                            ? "Mandatory sandbox policy is active, but the host enforcement probe failed. Verify the host sandbox dependencies and platform support."
-                            : null);
+                    ValidateSandboxEnforcement(enforcement.Required, enforcement.Blocked);
                 }
             }
             return new GitHubCopilotSdkSession(session, _configuration, configuration.FileSystem);
         }
         catch { await session.DisposeAsync(); throw; }
+    }
+
+    internal static void ValidateSandboxEnforcement(bool required, bool blocked)
+    {
+        if (!required || blocked) throw new CopilotSandboxRequiredException(required
+            ? CopilotSandboxReadiness.Unavailable : CopilotSandboxReadiness.NotConfigured);
     }
 
     public async Task<ICopilotSdkSession> ResumeSessionAsync(string sessionId, CopilotSdkSessionConfiguration configuration, CancellationToken cancellationToken)

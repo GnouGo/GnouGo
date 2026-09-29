@@ -33,6 +33,23 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         _fileSystems = fileSystems;
     }
 
+    /// <summary>Read-only policy inspection; never creates or sends to a managed task.</summary>
+    public async Task<CopilotSandboxReadiness> ReadSandboxReadinessAsync(CopilotRuntimeConfiguration configuration, CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        cancellationToken.ThrowIfCancellationRequested();
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(configuration.RequestTimeoutSeconds, 1, 10)));
+        try
+        {
+            await using var client = _clientFactory.Create(configuration);
+            await client.StartAsync(timeout.Token);
+            return await client.ReadSandboxReadinessAsync(timeout.Token);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { return CopilotSandboxReadiness.Unavailable; }
+    }
+
     public async Task<CopilotSessionDescriptor> CreateAsync(CopilotSessionCreateRequest request, CancellationToken cancellationToken)
     {
         ThrowIfDisposed();

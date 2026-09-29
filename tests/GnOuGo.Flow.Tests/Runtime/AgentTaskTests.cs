@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
@@ -9,6 +10,33 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class AgentTaskTests
 {
+    [Theory]
+    [InlineData("failed", true, "AGENT_ISOLATION_REQUIRED")]
+    [InlineData("failed", false, "AGENT_TASK_FAILED")]
+    [InlineData("needs_reconciliation", true, "RUN_NEEDS_RECONCILIATION")]
+    [InlineData("completed", true, "AGENT_RESULT_INVALID")]
+    public async Task SafeFailureSurvivesSerializationJournalAndRuntimeWithoutAuthorizingRetry(string status, bool structured, string expected)
+    {
+        var result = Result() with { Status = status, Message = "untrusted assistant or legacy exception content", Failure = structured ? new WorkflowError
+        { Code = "AGENT_ISOLATION_REQUIRED", Message = "Mandatory host isolation is not configured.", Retryable = true } : null };
+        var json = JsonSerializer.Serialize(result, AgentTaskJsonContext.Default.AgentTaskResult);
+        var restored = JsonSerializer.Deserialize(json, AgentTaskJsonContext.Default.AgentTaskResult)!;
+        if (!structured) Assert.DoesNotContain("failure", json);
+        var store = new InMemoryWorkflowRunStore();
+        var executed = await Execute(new Runner { Result = restored }, store);
+        Assert.Equal(expected, executed.Error!.Code); Assert.False(executed.Error.Retryable);
+        Assert.DoesNotContain("untrusted", executed.Error.Message);
+        var run = (await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken))!;
+        if (status == "needs_reconciliation")
+        {
+            Assert.Equal(WorkflowRunStatus.NeedsReconciliation, run.Status);
+            Assert.Equal("RUN_NEEDS_RECONCILIATION", Assert.Single(executed.StepResults, step => step.StepId == "work").Error!.Code);
+        }
+        var observation = Assert.Single(run.Invocations.Values, i => i.StepType == "agent.run").Observation;
+        if (status == "failed" && structured) Assert.Equal(expected, observation!["failure"]!["code"]!.ToString());
+        Assert.DoesNotContain(executed.StepResults, s => s.StepId == "consume");
+    }
+
     [Fact]
     public async Task CompletedTurnWithoutExecutionEvidenceCannotSatisfyTask()
     {

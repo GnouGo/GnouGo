@@ -38,13 +38,13 @@ public sealed class TransportTenantTests
     [Theory]
     [InlineData(null)]
     [InlineData("other")]
-    public void BoundedEnvelopeCannotSupplyOrOverrideTransportOwnership(string? tenant)
+    public async Task BoundedEnvelopeCannotSupplyOrOverrideTransportOwnership(string? tenant)
     {
         var trace = new CodeMcpTraceContextAccessor();
         using var request = trace.Push(tenant is null ? null : Meta(tenant));
         var tools = new BoundedCopilotTools(null!, null!, trace);
         var context = new AgentTaskContext("owner", "run", "invocation", new());
         var json = JsonSerializer.Serialize(context, AgentTaskJsonContext.Default.AgentTaskContext);
-        Assert.Throws<McpException>(() => tools.Validate(json));
+        await Assert.ThrowsAsync<McpException>(() => tools.ValidateAsync(json, TestContext.Current.CancellationToken));
     }
 }

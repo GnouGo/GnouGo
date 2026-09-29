@@ -10,6 +10,46 @@ namespace GnOuGo.GithubCopilot.Mcp.Tests;
 
 public sealed class BoundedCopilotTasksTests
 {
+    [Theory]
+    [InlineData(CopilotSandboxReadiness.Configured)]
+    [InlineData(CopilotSandboxReadiness.NotConfigured)]
+    [InlineData(CopilotSandboxReadiness.Invalid)]
+    [InlineData(CopilotSandboxReadiness.Unavailable)]
+    public async Task PublishedContractReflectsPolicyWithoutDispatchAndValidationRechecksIt(CopilotSandboxReadiness readiness)
+    {
+        await using var fixture = new Fixture(); fixture.Host.Readiness = readiness;
+        var contract = await fixture.Tasks.ContractAsync(TestContext.Current.CancellationToken);
+        var schema = contract["contract"]!["input_schema"]!;
+        Assert.Equal(readiness == CopilotSandboxReadiness.Configured, schema["properties"]!["capabilities"]!["items"]!["enum"]!.AsArray().Any(v => v!.ToString() == "command.execute"));
+        Assert.Equal(readiness == CopilotSandboxReadiness.Configured, schema["properties"]!["verification"]!["items"]!["properties"]!["kind"]!["enum"]!.AsArray().Any(v => v!.ToString() == "command.exit"));
+        Assert.Equal(0, fixture.Host.SessionsCreated); Assert.Equal(0, fixture.Host.Sends); Assert.Equal(1, fixture.Host.PolicyReads);
+        fixture.Host.Readiness = CopilotSandboxReadiness.NotConfigured;
+        var task = fixture.Context with { Task = fixture.Context.Task with { Capabilities = ["project.read", "command.execute"] } };
+        Assert.Contains(await fixture.Tasks.ValidateAsync(task, TestContext.Current.CancellationToken), e => e.StartsWith("AGENT_ISOLATION_REQUIRED:", StringComparison.Ordinal));
+        Assert.Equal(2, fixture.Host.PolicyReads); Assert.Equal(0, fixture.Host.SessionsCreated);
+        var refused = await fixture.Tasks.RunAsync(task, TestContext.Current.CancellationToken);
+        Assert.Equal("failed", refused.Status); Assert.NotNull(refused.Failure); Assert.Equal(0, fixture.Host.Sends);
+        Assert.Empty(await fixture.Tasks.ValidateAsync(fixture.Context, TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ConfiguredPolicyDoesNotBypassEnforcementAndPreparationFailuresStaySafe(bool isolation)
+    {
+        await using var fixture = new Fixture();
+        fixture.Host.PreparationFailure = isolation ? new CopilotSandboxRequiredException(CopilotSandboxReadiness.Unavailable) : new IOException("credential=private-and-never-public");
+        var result = await fixture.Tasks.RunAsync(fixture.Context, TestContext.Current.CancellationToken);
+        Assert.Equal("failed", result.Status); Assert.Equal(0, fixture.Host.Sends);
+        Assert.Equal(isolation ? "AGENT_ISOLATION_UNAVAILABLE" : "AGENT_PREPARATION_FAILED", result.Failure!.Code);
+        Assert.DoesNotContain("private", result.Message); Assert.DoesNotContain("private", result.Failure.Message);
+        Assert.False(result.Failure.Retryable);
+        var retained = await fixture.Tasks.InspectAsync(fixture.Context, TestContext.Current.CancellationToken);
+        Assert.Equal(result.Failure.Code, retained.Failure!.Code);
+        await fixture.Tasks.RunAsync(fixture.Context, TestContext.Current.CancellationToken);
+        Assert.Equal(1, fixture.Host.SessionsCreated);
+    }
+
     [Fact]
     public async Task ManagedExecutionPublishesObservedFilesAndReceiptsWithoutRepeatingWork()
     {
@@ -100,13 +140,13 @@ public sealed class BoundedCopilotTasksTests
     public async Task ScopeFailuresDistinguishIdentityContractAndWorkspaceWithoutLeakingPaths()
     {
         await using var fixture = new Fixture();
-        Assert.Empty(fixture.Tasks.Validate(fixture.Context));
+        Assert.Empty(await fixture.Tasks.ValidateAsync(fixture.Context, TestContext.Current.CancellationToken));
         var missing = fixture.Context with { Task = fixture.Context.Task with { Workspace = Path.Combine(fixture.Root, "not-created") } };
-        var finding = Assert.Single(fixture.Tasks.Validate(missing));
+        var finding = Assert.Single(await fixture.Tasks.ValidateAsync(missing, TestContext.Current.CancellationToken));
         Assert.StartsWith("AGENT_WORKSPACE_UNAVAILABLE:", finding);
         Assert.DoesNotContain(fixture.Root, finding);
-        Assert.Contains(fixture.Tasks.Validate(fixture.Context with { TenantId = "" }), e => e.StartsWith("AGENT_IDENTITY_INVALID:", StringComparison.Ordinal));
-        Assert.Contains(fixture.Tasks.Validate(fixture.Context with { Task = fixture.Context.Task with { Objective = "" } }), e => e.StartsWith("AGENT_CONTRACT_INVALID:", StringComparison.Ordinal));
+        Assert.Contains(await fixture.Tasks.ValidateAsync(fixture.Context with { TenantId = "" }, TestContext.Current.CancellationToken), e => e.StartsWith("AGENT_IDENTITY_INVALID:", StringComparison.Ordinal));
+        Assert.Contains(await fixture.Tasks.ValidateAsync(fixture.Context with { Task = fixture.Context.Task with { Objective = "" } }, TestContext.Current.CancellationToken), e => e.StartsWith("AGENT_CONTRACT_INVALID:", StringComparison.Ordinal));
         Assert.Equal(0, fixture.Host.Sends);
     }
 

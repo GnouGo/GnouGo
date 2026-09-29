@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using GnOuGo.Flow.Core.Models;
 
 namespace GnOuGo.Flow.Core.Runtime;
 
@@ -37,6 +38,9 @@ public sealed record AgentTaskResult(string Status, JsonNode? Output, IReadOnlyL
     IReadOnlyList<AgentTaskArtifact> Artifacts, AgentTaskUsage Usage, string? Message = null)
 {
     public IReadOnlyList<AgentVerificationFinding> Verification { get; init; } = [];
+    /// <summary>Safe adapter-authored failure only; never raw exceptions, model output or command content.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public WorkflowError? Failure { get; init; }
 }
 public sealed record AgentTaskContext(string TenantId, string RunId, string InvocationId, AgentTaskDefinition Task)
 {

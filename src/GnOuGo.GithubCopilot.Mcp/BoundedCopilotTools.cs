@@ -15,12 +15,12 @@ internal sealed class BoundedCopilotTools(BoundedCopilotTasks tasks, McpCopilotH
     private const string Metadata = "{\"management\":{\"visibility\":\"management_only\"}}";
     [McpServerTool(Name = "copilot_task_contract", UseStructuredContent = true), Description("Exact schema-9 bounded task contract for the Flow.Copilot adapter.")]
     [McpMeta("gnougo", JsonValue = Metadata)]
-    public JsonObject Contract() => tasks.Contract();
+    public Task<JsonObject> ContractAsync(CancellationToken cancellationToken) => tasks.ContractAsync(cancellationToken);
 
     [McpServerTool(Name = "copilot_task_validate", UseStructuredContent = true), Description("Validate an approved task scope without dispatching adaptive work.")]
     [McpMeta("gnougo", JsonValue = Metadata)]
-    public JsonObject Validate(string contextJson)
-        => new() { ["errors"] = new JsonArray(tasks.Validate(Parse(contextJson)).Select(e => (JsonNode?)JsonValue.Create(e)).ToArray()) };
+    public async Task<JsonObject> ValidateAsync(string contextJson, CancellationToken cancellationToken)
+        => new() { ["errors"] = new JsonArray((await tasks.ValidateAsync(Parse(contextJson), cancellationToken)).Select(e => (JsonNode?)JsonValue.Create(e)).ToArray()) };
 
     [McpServerTool(Name = "copilot_task_run", UseStructuredContent = true), Description("Execute one approved bounded task using its durable tenant/run/invocation identity. Existing identities are never redispatched.")]
     [McpMeta("gnougo", JsonValue = Metadata)]
