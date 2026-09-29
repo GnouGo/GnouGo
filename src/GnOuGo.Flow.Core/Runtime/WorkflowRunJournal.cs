@@ -17,6 +17,19 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
         i.Recovery == StepRecovery.External && i.DispatchedAt is not null && i.CompletedAt is null &&
         (path is null || !path.StartsWith(i.Id + "/", StringComparison.Ordinal)));
 
+    internal string[] UnresolvedInvocationIds(string? path) => Run.Invocations.Values.Where(i =>
+        i.Recovery == StepRecovery.External && i.DispatchedAt is not null && i.CompletedAt is null &&
+        (path is null || !path.StartsWith(i.Id + "/", StringComparison.Ordinal)))
+        .Select(i => i.Id).Order(StringComparer.Ordinal).ToArray();
+
+    private WorkflowRuntimeException InvocationUncertain(string id, Exception? inner = null)
+    {
+        var error = Uncertain(id, inner);
+        if (Run.Invocations[id].Observation?["failure"] is { } failure)
+            error.Details!["cause"] = failure.DeepClone();
+        return error;
+    }
+
     public async Task<WorkflowInvocation> PrepareAsync(string id, CompiledStep step, StepRecovery recovery,
         bool finalization, JsonObject data, Func<(bool Run, JsonNode? Input)> resolve, CancellationToken ct)
     {
@@ -60,7 +73,7 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
         }
         if (invocation.Status == "failed") throw FromError(invocation.Error!);
         if (invocation.Recovery == StepRecovery.External && invocation.DispatchedAt is not null)
-            throw Uncertain(invocation.Id);
+            throw InvocationUncertain(invocation.Id);
         Restore(data, invocation.DataBefore);
         ct.ThrowIfCancellationRequested();
         using var effect = holdsLeafEffect && !invocation.IsFinalization ? await Effects.EnterEffectAsync(ct) : null;
@@ -90,7 +103,7 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
             {
                 await ChangeAsync(() => { invocation.Status = "needs_reconciliation"; Run.Status = WorkflowRunStatus.NeedsReconciliation; },
                     "outcome_uncertain", invocation.Id, CancellationToken.None);
-                throw Uncertain(invocation.Id, ex);
+                throw InvocationUncertain(invocation.Id, ex);
             }
             // An incomplete composite resumes its children. A waiting human is re-presented with the same invocation ID.
             if (ex is OperationCanceledException || ex is WorkflowRuntimeException { Code: "RUN_NEEDS_RECONCILIATION" } ||
@@ -122,12 +135,12 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
         finally { _gate.Release(); }
     }
 
-    public Task ObserveAsync(string id, JsonNode? observation, CancellationToken ct) => ChangeAsync(() =>
+    public Task ObserveAsync(string id, JsonNode? observation, CancellationToken ct, bool completed = true) => ChangeAsync(() =>
     {
         var invocation = Run.Invocations[id];
-        invocation.ExternalCompletionObserved = true;
+        if (completed) invocation.ExternalCompletionObserved = true;
         invocation.Observation = observation?.DeepClone();
-    }, "external_completion", id, ct);
+    }, completed ? "external_completion" : "external_observation", id, ct);
 
     public Task StartFinalizationAsync(CancellationToken ct) => ChangeAsync(() => Run.FinalizationStarted = true, "finalization_started", null, ct);
 
@@ -141,12 +154,16 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
             result.Success ? WorkflowRunStatus.Completed : WorkflowRunStatus.Failed;
     }, "execution_stopped", null, ct);
 
-    public Task ResolveAsFailedAsync(string id, string reason, CancellationToken ct) => ChangeAsync(() =>
+    public Task ResolveAsFailedAsync(string id, string reason, CancellationToken ct) =>
+        ResolveAsFailedAsync(id, new WorkflowError { Code = "RECONCILED_FAILURE", Message = reason }, ct);
+
+    public Task ResolveAsFailedAsync(string id, WorkflowError error, CancellationToken ct) => ChangeAsync(() =>
     {
         var invocation = Run.Invocations[id];
         if (invocation.Recovery != StepRecovery.External || invocation.CompletedAt is not null)
             throw new WorkflowRunConflictException("Only an unresolved external invocation can be reconciled.");
-        invocation.Error = new WorkflowError { Code = "RECONCILED_FAILURE", Message = reason };
+        invocation.Error = new WorkflowError { Code = error.Code, Type = error.Type, Message = error.Message,
+            Retryable = false, Details = error.Details?.DeepClone() };
         invocation.ExternalCompletionObserved = true;
         invocation.CompletedAt = DateTimeOffset.UtcNow;
         invocation.Status = "failed";

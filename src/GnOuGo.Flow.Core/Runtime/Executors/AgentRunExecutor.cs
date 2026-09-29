@@ -60,8 +60,10 @@ public sealed class AgentRunExecutor : IStepExecutor
         try { result = await runner.RunAsync(context, deadline.Token); }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         { throw Failure("AGENT_OUTCOME_UNCERTAIN", "The agent deadline expired; reconcile the invocation before continuing."); }
-        if (result.Status != "needs_reconciliation")
-            await ctx.RecordExternalCompletionAsync(JsonSerializer.SerializeToNode(result, AgentTaskJsonContext.Default.AgentTaskResult), CancellationToken.None);
+        var observation = JsonSerializer.SerializeToNode(result, AgentTaskJsonContext.Default.AgentTaskResult);
+        if (result.Status == "needs_reconciliation")
+            await ctx.RecordExternalObservationAsync(observation, CancellationToken.None);
+        else await ctx.RecordExternalCompletionAsync(observation, CancellationToken.None);
         return await ValidateResultAsync(context, result, ctx.Engine.AgentTaskVerifier, ct,
             verified => ctx.RecordExternalCompletionAsync(JsonSerializer.SerializeToNode(verified, AgentTaskJsonContext.Default.AgentTaskResult), CancellationToken.None));
     }
@@ -71,13 +73,16 @@ public sealed class AgentRunExecutor : IStepExecutor
         var task = context.Task;
         if (result.Status == "completed" && result.Failure is not null)
             throw Failure("AGENT_RESULT_INVALID", "A completed agent result cannot also declare a failure.");
-        if (result.Status == "failed" && result.Failure is { } failure &&
+        if (result.Status is "failed" or "budget_exhausted" or "cancelled" && result.Failure is { } failure &&
             !string.IsNullOrWhiteSpace(failure.Code) && !string.IsNullOrWhiteSpace(failure.Message))
             // A retained terminal task failure never authorizes an automatic effect retry.
             throw new WorkflowRuntimeException(failure.Code, failure.Message, retryable: false, details: failure.Details?.DeepClone());
+        if (result.Status == "needs_reconciliation")
+            throw new WorkflowRuntimeException("AGENT_OUTCOME_UNCERTAIN", "The agent outcome is unresolved; reconcile it before continuing.",
+                retryable: false, details: result.Failure is { } cause ? new JsonObject
+                { ["cause"] = JsonSerializer.SerializeToNode(cause, WorkflowRunJsonContext.Default.WorkflowError) } : null);
         if (result.Status != "completed")
-            throw Failure(result.Status == "needs_reconciliation" ? "AGENT_OUTCOME_UNCERTAIN" : "AGENT_TASK_FAILED",
-                "The agent did not complete the approved task.");
+            throw Failure("AGENT_TASK_FAILED", "The agent did not complete the approved task.");
         if (result.Usage.ModelCalls < 0 || result.Usage.TotalTokens < 0 || !double.IsFinite(result.Usage.ElapsedMilliseconds) ||
             result.Usage.ElapsedMilliseconds < 0 || result.Usage.ModelCalls > task.Budget.MaxModelCalls ||
             result.Usage.TotalTokens > task.Budget.MaxTotalTokens || result.Usage.ElapsedMilliseconds > task.Budget.MaxElapsedMilliseconds)

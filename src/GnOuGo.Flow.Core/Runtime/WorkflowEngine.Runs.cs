@@ -99,16 +99,20 @@ public sealed partial class WorkflowEngine
                 throw new WorkflowRunConflictException("The approved agent adapter is unavailable.");
             var context = new AgentTaskContext(tenantId, runId, invocationId, task)
             { ExecutionId = lease.Run.Limits.ExecutionId, AgentId = lease.Run.Limits.AgentId, AgentName = lease.Run.Limits.AgentName };
-            var observed = invocation.Observation is null ? await runner.ReconcileAsync(context, ct) :
+            var observed = invocation.Observation is null || invocation.Observation["status"]?.ToString() == "needs_reconciliation" ? await runner.ReconcileAsync(context, ct) :
                 JsonSerializer.Deserialize(invocation.Observation, AgentTaskJsonContext.Default.AgentTaskResult)!;
-            if (observed.Status == "needs_reconciliation") return WorkflowRunStorage.Clone(lease.Run);
+            if (observed.Status == "needs_reconciliation")
+            {
+                await journal.ObserveAsync(invocationId, JsonSerializer.SerializeToNode(observed, AgentTaskJsonContext.Default.AgentTaskResult), ct, completed: false);
+                return WorkflowRunStorage.Clone(lease.Run);
+            }
             await journal.ObserveAsync(invocationId, JsonSerializer.SerializeToNode(observed, AgentTaskJsonContext.Default.AgentTaskResult), ct);
             try
             {
                 var output = await AgentRunExecutor.ValidateResultAsync(context, observed, AgentTaskVerifier, ct, verified => journal.ObserveAsync(invocationId, JsonSerializer.SerializeToNode(verified, AgentTaskJsonContext.Default.AgentTaskResult), ct));
                 await journal.ResolveOutputAsync(invocationId, output, ct);
             }
-            catch (WorkflowRuntimeException ex) { await journal.ResolveAsFailedAsync(invocationId, ex.Message, ct); }
+            catch (WorkflowRuntimeException ex) { await journal.ResolveAsFailedAsync(invocationId, ex.ToWorkflowError(), ct); }
         }
         else throw new WorkflowRunConflictException("This adapter cannot reconcile the effect. Confirm that the external operation has stopped, with an audit reason; it will remain a failed invocation.");
         return WorkflowRunStorage.Clone(lease.Run);

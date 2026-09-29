@@ -72,6 +72,9 @@ public sealed class StepExecutionContext
     public Task RecordExternalCompletionAsync(JsonNode? observation, CancellationToken ct)
         => Engine.Journal?.ObserveAsync(InvocationId, observation, ct) ?? Task.CompletedTask;
 
+    internal Task RecordExternalObservationAsync(JsonNode? observation, CancellationToken ct)
+        => Engine.Journal?.ObserveAsync(InvocationId, observation, ct, completed: false) ?? Task.CompletedTask;
+
     public ExpressionEvaluator Evaluator => ExecutionScope?.Evaluator ?? Engine.Evaluator;
     public StringInterpolator Interpolator => ExecutionScope?.Interpolator ?? Engine.Interpolator;
     public CompiledDocument? ActiveDocument => ExecutionScope?.Workflow?.Document ?? Engine.CompiledDocument;

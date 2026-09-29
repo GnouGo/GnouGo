@@ -37,6 +37,30 @@ public sealed class AgentTaskTests
         Assert.DoesNotContain(executed.StepResults, s => s.StepId == "consume");
     }
 
+    [Theory]
+    [InlineData("budget_exhausted", "AGENT_BUDGET_EXHAUSTED")]
+    [InlineData("needs_reconciliation", "RUN_NEEDS_RECONCILIATION")]
+    public async Task BudgetStopsRetainSafeCauseAndUncertainObservationsWithoutClaimingCompletion(string status, string code)
+    {
+        var result = Result() with { Status = status, Failure = new WorkflowError
+        { Code = "AGENT_BUDGET_EXHAUSTED", Message = "The next inference request does not fit the approved allowance.",
+            Details = new JsonObject { ["dimension"] = "tokens", ["charged_tokens"] = 167402, ["max_total_tokens"] = 200000 } } };
+        var store = new InMemoryWorkflowRunStore();
+        var executed = await Execute(new Runner { Result = result }, store);
+        Assert.Equal(code, executed.Error!.Code);
+        var run = (await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken))!;
+        var invocation = Assert.Single(run.Invocations.Values, i => i.StepType == "agent.run");
+        Assert.Equal("AGENT_BUDGET_EXHAUSTED", invocation.Observation?["failure"]?["code"]?.ToString());
+        Assert.Equal(status != "needs_reconciliation", invocation.ExternalCompletionObserved);
+        Assert.Equal(status != "needs_reconciliation", invocation.CompletedAt is not null);
+        if (status == "needs_reconciliation")
+        {
+            Assert.Equal(invocation.Id, executed.Error.Details?["invocation_id"]?.ToString());
+            Assert.Equal("AGENT_BUDGET_EXHAUSTED", executed.Error.Details?["cause"]?["code"]?.ToString());
+        }
+        Assert.DoesNotContain(executed.StepResults, s => s.StepId == "consume");
+    }
+
     [Fact]
     public async Task CompletedTurnWithoutExecutionEvidenceCannotSatisfyTask()
     {

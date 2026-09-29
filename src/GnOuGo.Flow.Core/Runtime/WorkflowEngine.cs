@@ -651,7 +651,17 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         if (Journal?.HasUnresolvedOutsideAncestors(executionScope.Path) == true)
         {
             result.Success = false;
-            result.Error = WorkflowRunJournal.Uncertain(executionScope.Path).ToWorkflowError();
+            var unresolved = Journal.UnresolvedInvocationIds(executionScope.Path);
+            var original = result.Error;
+            if (original?.Code != "RUN_NEEDS_RECONCILIATION")
+            {
+                result.Error = WorkflowRunJournal.Uncertain(unresolved.FirstOrDefault() ?? executionScope.Path).ToWorkflowError();
+                if (original is not null) result.Error.Details!["primary_error"] = ToErrorJson(original);
+            }
+            var details = result.Error!.Details as JsonObject ?? new JsonObject();
+            details["cleanup_blocked"] = true;
+            details["unresolved_invocation_ids"] = new JsonArray(unresolved.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray());
+            result.Error.Details = details;
             return;
         }
         if (Journal is { } journal) await journal.StartFinalizationAsync(CancellationToken.None);
