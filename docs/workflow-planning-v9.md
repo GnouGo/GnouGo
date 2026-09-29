@@ -273,6 +273,11 @@ and [retained implementation evidence](flow-hybrid-v9-implementation.md).
 
 ## Development and retained evidence
 
+Conditional cleanup guards include selector reads and captured branch inputs while
+preserving presence tests and short-circuit evaluation. Successful switch envelopes
+remain distinct from verified payloads and external success. See the
+[conditional cleanup regression](conditional-cleanup-compilation.md).
+
 Use the [repository planning skill](../.agents/skills/gnougo-planning/SKILL.md) for deterministic regression work. Historical live reports retain their original outcomes and accounting; they do not authorize more dispatches. The latest completed cohort is [8/9 correct](evidence/flow-v9-112/taskplan-stabilization/README.md). The semantic preflight/repair follow-up runs no paid/live evaluation.
 
 Real Copilot command edit/test execution remains unverified because the available host does not satisfy mandatory sandbox enforcement. Keep that limitation visible; do not relax permissions or substitute simulated execution for external evidence.
