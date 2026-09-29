@@ -54,7 +54,7 @@ public sealed class SharedWorkspaceExecutionTests
         Assert.True(reviewed.Status == PlanningStatus.FinalReview, string.Join("; ", reviewed.Diagnostics.Select(d => d.Code + " " + d.Message)));
         PlanningArtifactApproval.Verify(reviewed);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(reviewed.Yaml!));
-        var target = Path.Combine(current.Root, RecordedWorkspaceContractTests.Location);
+        var target = Path.GetFullPath(Path.Combine(current.Root, RecordedWorkspaceContractTests.Location));
         var unrelated = Path.Combine(current.Root, "unrelated"); Directory.CreateDirectory(unrelated); File.WriteAllText(Path.Combine(unrelated, "keep"), "untouched");
         var settings = new GitServerSettings { DefaultWorkingDirectory = current.Root, AllowMutations = true, AllowNetworkOperations = true, TokenEnvironmentVariables = [] };
         var policy = new GitPolicy(settings, current.Root);
