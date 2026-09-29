@@ -278,3 +278,5 @@ Use the [repository planning skill](../.agents/skills/gnougo-planning/SKILL.md) 
 Real Copilot command edit/test execution remains unverified because the available host does not satisfy mandatory sandbox enforcement. Keep that limitation visible; do not relax permissions or substitute simulated execution for external evidence.
 
 Designer exposes read-only issued discovery requests, retained tool status, inspection selections, contract sizes and a sanitized copy report. Historical ranking/exclusion reasons that were not recorded remain unknown; the UI never reruns discovery to reconstruct them. See [controllable discovery](controllable-discovery.md).
+
+Artifact prerequisites remain producer-declared. Compact discovery includes business-port origins; bounded exact-kind searches inspect only already-selected sources and preserve cursor/filter receipts. A resolved plan without a required producer stops for explicit semantic revision instead of consuming binding repairs. No automatic task insertion or provenance inference is allowed. See [artifact prerequisite evidence and limits](artifact-prerequisites.md).

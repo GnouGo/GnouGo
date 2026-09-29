@@ -1,0 +1,56 @@
+{
+  "baselineRevision": "ccc28d3db3da936430e17bcae7941b4f2fa86341",
+  "session": "a27d6926e4b94e938eb9e44e48c6fad7",
+  "retained": {
+    "responses": 6,
+    "revisions": 14,
+    "calls": 6,
+    "repairs": 2,
+    "pending": false
+  },
+  "deterministicReplay": {
+    "terminalAtCall": 4,
+    "repairs": 0,
+    "code": "TASK_ARTIFACT_PREREQUISITE_MISSING"
+  },
+  "explicitRevision": {
+    "label": "synthetic continuation of recorded prefix; not live inference",
+    "status": "final_review",
+    "calls": 4,
+    "repairs": 0,
+    "newScriptedCalls": 1,
+    "metadataPages": 7,
+    "contractResolutions": 4,
+    "before": {
+      "promptBytes": 26228,
+      "schemaBytes": 37656,
+      "inputEstimate": 21551
+    },
+    "after": {
+      "promptBytes": 25509,
+      "schemaBytes": 38324,
+      "inputEstimate": 21534
+    }
+  },
+  "limits": {
+    "input": 24000,
+    "output": 32768,
+    "calls": 8,
+    "repairs": 2
+  },
+  "validation": {
+    "dotnetPassed": 3533,
+    "pythonPassed": 318,
+    "liveTestsDisabled": 5,
+    "windowsOnlyLocalSkips": 7,
+    "packages": [
+      "Core",
+      "Planning",
+      "Integrations",
+      "Copilot",
+      "Persistence"
+    ]
+  },
+  "paidInference": false,
+  "externalWorkflow": false
+}
