@@ -63,7 +63,8 @@ workflows:
           method: cmd_run
           request:
             commandName: list_relative_path
-            parametersJson: "${json({ path: data.inputs.relative_path })}"
+            parameters:
+              path: "${data.inputs.relative_path}"
             timeoutMs: 15000
 
     outputs:

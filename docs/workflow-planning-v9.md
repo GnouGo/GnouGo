@@ -280,3 +280,7 @@ Real Copilot command edit/test execution remains unverified because the availabl
 Designer exposes read-only issued discovery requests, retained tool status, inspection selections, contract sizes and a sanitized copy report. Historical ranking/exclusion reasons that were not recorded remain unknown; the UI never reruns discovery to reconstruct them. See [controllable discovery](controllable-discovery.md).
 
 Artifact prerequisites remain producer-declared. Compact discovery includes business-port origins; bounded exact-kind searches inspect only already-selected sources and preserve cursor/filter receipts. A resolved plan without a required producer stops for explicit semantic revision instead of consuming binding repairs. No automatic task insertion or provenance inference is allowed. See [artifact prerequisite evidence and limits](artifact-prerequisites.md).
+
+### Workspace and producer contract update
+
+A shared semantic `value` may supply a statically approved agent workspace when deterministic compilation proves a literal string through available scopes. Clone and cleanup must explicitly reuse that location; the compiler does not reconcile independent paths or prove filesystem existence. Other agent scope fields retain literal requirements. Copilot tenant identity is transport-owned, and Cmd publishes structured per-command parameter objects. See [migration and retained regression](workspace-contracts.md).

@@ -127,8 +127,7 @@ permission callbacks are installed on resume; active MCP context is captured per
 Commands retain existing CLI sandbox and Core HITL settings; filesystem routing alone
 does not contain shell commands.
 
-Legacy Copilot calls accept optional `tenantId`, or use `_meta.gnougo.tenantId` like the
-managed tools. Agentic execution defaults to interactive permission requests and fails
+Tenant-scoped calls require transport metadata `_meta.gnougo.tenantId`. Business tools no longer accept `tenantId`; there is no environment, activity or default-tenant fallback for ownership. Bounded task envelopes must match the transport tenant. Standalone callers must send metadata; Agent.Server supplies the execution owner. Refresh discovery and revise/regenerate workflows using the removed argument; do not turn tenant identity into a workflow input. Agentic execution defaults to interactive permission requests and fails
 closed when human input is unavailable. Broad approval is disabled in shipped defaults.
 `code_agent_edit` additionally exposes Core's `toolExecutions` observations.
 This lets Copilot edit files directly through the MCP process while still enforcing the same project policy as manual file writes:

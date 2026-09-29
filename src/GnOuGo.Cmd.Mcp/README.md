@@ -70,7 +70,7 @@ Example rename:
 ```json
 {
   "commandName": "move_file",
-  "parametersJson": "{\"source\":\"notes/draft.md\",\"destination\":\"notes/final.md\"}"
+  "parameters": {"source": "notes/draft.md", "destination": "notes/final.md"}
 }
 ```
 
@@ -92,7 +92,7 @@ After deployment, restart the bundled MCP process and discover its current metad
 
 - allowed `commandName` aliases
 - each alias description
-- accepted `parametersJson` field names
+- exact `parameters` object fields (string values only)
 - required/optional markers and workspace-path hints
 
 The advertised input schema also contains one `oneOf` selector branch per alias. Each
@@ -101,7 +101,9 @@ operation description plus its parameter contract. Consumers can therefore retai
 exact semantic contract for a selected alias without inspecting its name or executable
 script.
 
-This is intended to help planning workflows generate valid `cmd_run` calls directly.
+Each parameter object is closed: undeclared fields, Boolean values and implicit argument aliases are rejected. Required strings must be nonblank and obey declared patterns and bounds. Optional values retain their existing omission behavior.
+
+**Breaking change:** replace encoded `parametersJson` strings with a structured `parameters` object. There is no compatibility alias or implicit `args` mapping; explicitly configured parameter names remain supported. Refresh discovery, revise or regenerate existing workflows and approve them again. Scripts, permissions and deletion semantics are unchanged.
 
 The packaged allowlist includes both read aliases and guarded workspace write aliases such as directory creation, file writing, copy/move, and recursive deletion. These capabilities are discoverable by default, but `cmd_run` still accepts only named aliases and validates every workspace path and parameter before execution. Discovery descriptions and command selectors are generated from the effective configuration; no planner changes or additional discovery calls are required.
 
@@ -230,7 +232,7 @@ Then on the MCP side:
 ```json
 {
   "commandName": "list_relative_path",
-  "parametersJson": "{\"path\":\"src/GnOuGo.Cmd.Mcp\"}"
+  "parameters": {"path": "src/GnOuGo.Cmd.Mcp"}
 }
 ```
 
@@ -260,7 +262,7 @@ Example payload for `write_file`:
 ```json
 {
   "commandName": "write_file",
-  "parametersJson": "{\"path\":\"notes/today.md\",\"contentBase64\":\"IyBUb2RheQoKLSBFeGFtcGxlIG5vdGUK\"}"
+  "parameters": {"path": "notes/today.md", "contentBase64": "IyBUb2RheQoKLSBFeGFtcGxlIG5vdGUK"}
 }
 ```
 
