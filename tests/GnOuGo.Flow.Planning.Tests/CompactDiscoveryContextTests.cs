@@ -86,7 +86,7 @@ public sealed class CompactDiscoveryContextTests
         private readonly List<PlanningCapability> capabilities = entries.ToList();
         internal readonly List<string> Resolutions = []; internal readonly List<string?> Reads = [];
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => throw new InvalidOperationException();
-        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null)
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null)
         {
             Reads.Add(query);
             return Task.FromResult(new CapabilityPage(sourceId, cursor, capabilities.Take(8).Select(c => new CapabilitySummary(c.Id, sourceId,

@@ -27,7 +27,7 @@ public sealed class ProgressiveDiscoveryTests
         public int Pages { get; private set; }
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<CapabilitySource>>([new("source", "A declared source")]);
-        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null)
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null)
         {
             Pages++;
             Assert.Null(cursor);
@@ -192,7 +192,7 @@ public sealed class ProgressiveDiscoveryTests
             InputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}""")!.AsObject(),
             OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}""")!.AsObject() };
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<CapabilitySource>>([new("source", "Declared source")]);
-        public Task<CapabilityPage> ListAsync(string id, string? cursor, CancellationToken ct, string? query = null) => Task.FromResult(new CapabilityPage(id, cursor,
+        public Task<CapabilityPage> ListAsync(string id, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null) => Task.FromResult(new CapabilityPage(id, cursor,
             [new("selected", id, "read", "Read a declared value", "mcp.call", "read", "v1", Operation: TaskOperations.Describe(Capability()))], null));
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) { Resolutions++; return Task.FromResult(Capability()); }
     }

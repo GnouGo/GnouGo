@@ -110,7 +110,7 @@ public sealed class RecordedBudgetDiscoveryTests(ITestOutputHelper output)
         internal int Reads;
         internal List<string> Resolutions = [];
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<CapabilitySource>>(Sources);
-        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null)
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null)
         {
             Reads++;
             return Task.FromResult(new CapabilityPage(sourceId, cursor, summaries.Where(c => c.SourceId == sourceId).ToList(), null, Query: query));

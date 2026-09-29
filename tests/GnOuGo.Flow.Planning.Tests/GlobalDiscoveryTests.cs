@@ -157,7 +157,7 @@ public sealed class GlobalDiscoveryTests
     {
         internal List<string> Reads = [];
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => throw new InvalidOperationException();
-        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null)
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null)
         { Reads.Add(sourceId); return Task.FromResult(pages.First(p => p.SourceId == sourceId) with { Cursor = cursor, Query = query }); }
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) => throw new InvalidOperationException("Already resolved");
     }

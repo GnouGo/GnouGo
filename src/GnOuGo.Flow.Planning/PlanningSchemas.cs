@@ -40,6 +40,14 @@ internal static class PlanningSchemas
                         ("operationIds", Array(Ref("goal"), 0, receipts.SelectMany(p => p.Capabilities).Select(c => c.Operation?.Id).OfType<string>().Distinct(StringComparer.Ordinal).Count()))),
                         "Replace this source's inspection selection with already-discovered operation IDs; empty clears it. Selected exact contracts remain visible across pages. This grants no permission."));
             }
+        var inspectedSources = state.Discovery.Sources.Where(s => state.Discovery.Pages.Any(p => p.SourceId == s.Id)).Select(s => s.Id).ToArray();
+        var prerequisiteKinds = PlanningDiscoveryContext.Prerequisites(state).Where(kind =>
+            !PlanningDiscoveryContext.Candidates(state).Any(c => PlanningDiscoveryContext.Artifacts(state, c)?.Produces.Any(a => a.Kind == kind) == true) ||
+            state.Discovery.Pages.Any(p => p.ProducedArtifactKind == kind)).ToArray();
+        if (PlanningDiscoveryContext.CanDiscover(state) && inspectedSources.Length > 0 && prerequisiteKinds.Length > 0)
+            actions.Add(Object(("sourceId", Enum(inspectedSources)), ("cursor", Type("null")),
+                ("query", Nullable(new JsonObject { ["type"] = "string", ["pattern"] = @"\S", ["maxLength"] = 512 })),
+                ("operationIds", Type("null")), ("producedArtifactKind", Enum(prerequisiteKinds))));
         var root = Object(
             ("discoveryRequests", actions.Count == 0 ? Type("null") : Nullable(Array(new JsonObject { ["anyOf"] = new JsonArray(actions.ToArray()) }, 1, 4))),
             ("plan", Nullable(Ref("plan"))));

@@ -261,7 +261,9 @@ public sealed partial class TaskPlanCompiler
                                     if (!artifact.Required && TaskArtifactBindings.ExplicitlyAbsent(input.Value, relativePath)) continue;
                                     if (consumedPath.Take(port.Path.Count).SequenceEqual(port.Path, StringComparer.Ordinal) &&
                                         !artifacts.Proves(input.Value, symbols.Tasks[task.Id].Scope, relativePath, artifact.Kind))
-                                        findings.Add(new("TASK_ARTIFACT_BINDING", location, "Bind a declared producer business port of artifact kind '" + artifact.Kind + "'. A matching type or literal does not establish provenance."));
+                                        findings.Add(artifact.Required && artifacts.MissingProducer(artifact.Kind)
+                                            ? new("TASK_ARTIFACT_PREREQUISITE_MISSING", location, "This plan contains no declared producer of artifact kind '" + artifact.Kind + "'. An explicit semantic revision is required; binding repairs cannot insert tasks. This does not establish capability unavailability. Types, literals and transforms cannot manufacture provenance.")
+                                            : new("TASK_ARTIFACT_BINDING", location, "Bind a declared producer business port of artifact kind '" + artifact.Kind + "'. A matching type or literal does not establish provenance."));
                                 }
                                 Fits(value, port.Schema, "TASK_INPUT_TYPE", optional: !port.Required); Bind(mapped, port.Path, value.Value);
                             }

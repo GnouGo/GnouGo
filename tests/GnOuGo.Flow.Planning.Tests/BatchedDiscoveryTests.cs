@@ -156,14 +156,14 @@ public sealed class BatchedDiscoveryTests(ITestOutputHelper output)
         internal readonly List<string> Pages = []; internal int Resolutions;
         internal void Restart(ICapabilityCatalog catalog) => inner = catalog;
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => inner.ListSourcesAsync(ct);
-        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null) { Pages.Add(sourceId); return inner.ListAsync(sourceId, cursor, ct, query); }
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null) { Pages.Add(sourceId); return inner.ListAsync(sourceId, cursor, ct, query, producedArtifactKind); }
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) { Resolutions++; return inner.ResolveAsync(summary, ct); }
     }
     private sealed class TwoSources : ICapabilityCatalog
     {
         internal readonly List<string> Pages = []; internal bool Interrupt;
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<CapabilitySource>>([new("a", "First"), new("b", "Second")]);
-        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null)
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null)
         { Pages.Add(sourceId); if (Interrupt && sourceId == "b") throw new OperationCanceledException("Interrupted metadata read"); return Task.FromResult(new CapabilityPage(sourceId, cursor, [], null)); }
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) => throw new InvalidOperationException();
     }

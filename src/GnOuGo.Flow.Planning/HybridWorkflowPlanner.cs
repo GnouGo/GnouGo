@@ -144,6 +144,20 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             if (state.Discovery.Sources.Count == 1)
                 await DiscoverPageAsync(state, runtime, state.Discovery.Sources[0].Id, null, ct, state.PendingCall is null ? PlanningDiscoveryContext.Query(state) : null);
         }
+        if (state.PendingCall is null && state.Plan is { } retained && state.Diagnostics.Any(d => d.Code is "TASK_ARTIFACT_BINDING" or "TASK_ARTIFACT_PREREQUISITE_MISSING"))
+        {
+            // Settings/recovery do not turn an impossible structural repair into permission
+            // to insert a task. Reconcile pending receipts first; stop before any new call.
+            var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(retained, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
+            foreach (var choice in probe.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
+            var missing = new TaskPlanCompiler().Compile(probe, state.Catalog).Diagnostics.Where(d => d.Code == "TASK_ARTIFACT_PREREQUISITE_MISSING").ToArray();
+            if (missing.Length > 0)
+            {
+                SemanticFailure(state, state.Diagnostics.Where(d => !missing.Any(m => m.Location == d.Location && d.Code is "TASK_ARTIFACT_BINDING" or "TASK_ARTIFACT_PREREQUISITE_MISSING"))
+                    .Concat(missing).Distinct().ToArray());
+                return;
+            }
+        }
         var repair = PlanningModelCalls.IsRepair(state);
         if (repair && state.PendingCall is null && state.Plan is { } baseline && state.RevisionScope.Count > 0 &&
             state.Diagnostics.Any(d => d.Code == "TASK_INPUT_TYPE"))
@@ -160,7 +174,11 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         state.Phase = repair ? PlanningPhase.Replanning : state.Requirements is null ? PlanningPhase.Requirements : PlanningPhase.Tasks;
         var recovering = state.PendingCall is not null;
         var legacyDiscovery = state.PendingCall is { } issued && !PlanningSchemas.HasQueryProperty(issued.Request.StructuredOutputSchema?["properties"]?["discoveryRequests"]);
-        if (state.PendingCall is null) await ResolveShortlistAsync(state, runtime, ct);
+        if (state.PendingCall is null)
+        {
+            await DiscoverPrerequisitesAsync(state, runtime, ct);
+            await ResolveShortlistAsync(state, runtime, ct);
+        }
         var issuedRequest = state.PendingCall?.Request ?? new LLMRequest { Prompt = Prompt(state), StructuredOutputSchema = PlanningSchemas.Proposal(state) };
         var patchRequest = PlanningRepairPatch.Issued(issuedRequest.StructuredOutputSchema?.AsObject());
         if (patchRequest) PlanningRepairPatch.Verify(state, issuedRequest);
@@ -198,13 +216,17 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
                     continue;
                 }
                 var parent = request.Cursor is null ? null : state.Discovery.Pages.SingleOrDefault(p => p.SourceId == request.SourceId && p.NextCursor == request.Cursor);
-                if (request.Cursor is not null && (parent is null || request.Query is not null))
+                if (request.Cursor is not null && (parent is null || request.Query is not null || request.ProducedArtifactKind is not null))
                     Reject("CURSOR_UNKNOWN", path + "/cursor", "Use an issued continuation cursor with query null, or start a refined query without a cursor.");
                 if (request.Query is { } text && (text.Length > 512 || string.IsNullOrWhiteSpace(Capabilities.CapabilityRelevance.Query(text))))
                     Reject("DISCOVERY_QUERY_INVALID", path + "/query", "Use nonblank query text of at most 512 characters.");
                 var query = legacyDiscovery ? null : parent is not null ? parent.Query : (request.Query is null ? PlanningDiscoveryContext.Query(state) : Capabilities.CapabilityRelevance.Query(request.Query));
-                var next = request with { Query = query };
-                if (effective.Contains(next) || state.Discovery.Pages.Any(p => p.SourceId == next.SourceId && p.Cursor == next.Cursor && p.Query == next.Query))
+                var filter = parent?.ProducedArtifactKind ?? request.ProducedArtifactKind;
+                if (filter is not null && (!state.Discovery.Pages.Any(p => p.SourceId == request.SourceId) ||
+                    !PlanningDiscoveryContext.Prerequisites(state).Contains(filter, StringComparer.Ordinal)))
+                    Reject("DISCOVERY_FILTER_INVALID", path + "/producedArtifactKind", "Choose an issued exact artifact kind, not an inferred prerequisite.");
+                var next = request with { Query = query, ProducedArtifactKind = filter };
+                if (effective.Contains(next) || state.Discovery.Pages.Any(p => p.SourceId == next.SourceId && p.Cursor == next.Cursor && p.Query == next.Query && p.ProducedArtifactKind == next.ProducedArtifactKind))
                     Reject("DISCOVERY_NO_PROGRESS", path, "This query page is cached. Use its operations, refine the query or request an issued continuation cursor.");
                 effective.Add(next);
             }
@@ -214,7 +236,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
                 state.Discovery.Inspections.RemoveAll(r => r.SourceId == request.SourceId);
                 if (request.OperationIds!.Count > 0) state.Discovery.Inspections.Add(request);
             }
-            foreach (var request in effective) await DiscoverPageAsync(state, runtime, request.SourceId, request.Cursor, ct, request.Query);
+            foreach (var request in effective) await DiscoverPageAsync(state, runtime, request.SourceId, request.Cursor, ct, request.Query, request.ProducedArtifactKind);
             if (!legacyDiscovery && effective.Count > 0)
                 state.Discovery.PresentationQuery = Capabilities.CapabilityRelevance.Query(string.Join(' ', effective.Select(r => r.Query).OfType<string>()));
             // Resolve while this adapter still owns the complete source listing.
@@ -226,7 +248,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             // A successful replacement batch resolves response errors, not semantic
             // findings or source availability. Historical checkpoints keep the failure.
             state.Diagnostics.RemoveAll(d => (d.Code is "DISCOVERY_BATCH_INVALID" or "SOURCE_UNKNOWN" or "CURSOR_UNKNOWN" or
-                "DISCOVERY_QUERY_INVALID" or "DISCOVERY_NO_PROGRESS" or "DISCOVERY_SELECTION_INVALID" or "PLANNING_RESPONSE_INVALID") &&
+                "DISCOVERY_QUERY_INVALID" or "DISCOVERY_FILTER_INVALID" or "DISCOVERY_NO_PROGRESS" or "DISCOVERY_SELECTION_INVALID" or "PLANNING_RESPONSE_INVALID") &&
                 (d.Location == "/discoveryRequests" || d.Location.StartsWith("/discoveryRequests/", StringComparison.Ordinal)));
             state.Phase = PlanningPhase.Discovery; return;
         }
@@ -315,7 +337,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
                 state.Graph = graph; state.Yaml = yaml; state.ApprovedHash = null;
                 var unseen = state.Discovery.Sources.Count(s => state.Discovery.Pages.All(p => p.SourceId != s.Id));
                 if (unseen > 0) state.Discovery.Limitations.Add($"Discovery is incomplete: {unseen} sources were not inspected.");
-                if (state.Discovery.Pages.Any(p => p.NextCursor is { } next && !state.Discovery.Pages.Any(seen => seen.SourceId == p.SourceId && seen.Cursor == next && seen.Query == p.Query)))
+                if (state.Discovery.Pages.Any(p => p.NextCursor is { } next && !state.Discovery.Pages.Any(seen => seen.SourceId == p.SourceId && seen.Cursor == next && seen.Query == p.Query && seen.ProducedArtifactKind == p.ProducedArtifactKind)))
                     state.Discovery.Limitations.Add("Additional operation pages remain uninspected.");
                 state.Discovery.Limitations = state.Discovery.Limitations.Distinct(StringComparer.Ordinal).ToList();
                 state.Diagnostics.Clear(); state.ValidationResults = [new("static", "passed", "Business bindings, contracts and control flow validated. External execution has not been observed.", [])];
@@ -332,8 +354,22 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         state.Diagnostics = findings.ToList(); state.Graph = null;
         state.RevisionScope = TaskPlanRevisions.Scope(state.Plan!, findings).ToList();
         Invalidate(state);
-        if (state.RevisionScope.Count == 0 || findings.Any(d => d.Code == "TASK_COMPILER_VALIDATION")) Stop(state);
+        if (state.RevisionScope.Count == 0 || findings.Any(d => d.Code is "TASK_COMPILER_VALIDATION" or "TASK_ARTIFACT_PREREQUISITE_MISSING")) Stop(state);
         else state.Status = PlanningStatus.Generating;
+    }
+
+    private static async Task DiscoverPrerequisitesAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
+    {
+        if (TaskPlanRevisions.FixedOperations(state)) return;
+        // Snapshot the frontier: no recursive expansion in one advance. Read at most
+        // one page per inspected source; receipts cache empty/unavailable source/kind pairs.
+        var visible = PlanningDiscoveryContext.Candidates(state);
+        var kinds = PlanningDiscoveryContext.Prerequisites(state).Where(kind => !visible.Any(c =>
+            PlanningDiscoveryContext.Artifacts(state, c)?.Produces.Any(a => a.Kind == kind) == true)).ToArray();
+        var sources = state.Discovery.Pages.Select(p => p.SourceId).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        foreach (var source in sources)
+            if (kinds.FirstOrDefault(kind => !state.Discovery.Pages.Any(p => p.SourceId == source && p.ProducedArtifactKind == kind)) is { } kind)
+                await DiscoverPageAsync(state, runtime, source, null, ct, PlanningDiscoveryContext.Query(state), kind);
     }
 
     private static async Task ResolveShortlistAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
@@ -365,19 +401,20 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         }
     }
 
-    private static async Task DiscoverPageAsync(PlanningSession state, IPlanningRuntime runtime, string source, string? cursor, CancellationToken ct, string? query = null)
+    private static async Task DiscoverPageAsync(PlanningSession state, IPlanningRuntime runtime, string source, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null)
     {
         CapabilityPage page;
         try
         {
-            page = await runtime.Capabilities.ListAsync(source, cursor, ct, query);
-            if (page.SourceId != source || page.Cursor != cursor || page.Query is not null && page.Query != query || page.Capabilities.Any(c => c.SourceId != source) ||
+            page = await runtime.Capabilities.ListAsync(source, cursor, ct, query, producedArtifactKind);
+            if (page.SourceId != source || page.Cursor != cursor || page.ProducedArtifactKind != producedArtifactKind ||
+                producedArtifactKind is not null && page.Capabilities.Any(c => c.ArtifactContract?.Produces.Any(a => a.Kind == producedArtifactKind) != true) || page.Query is not null && page.Query != query || page.Capabilities.Any(c => c.SourceId != source) ||
                 page.Capabilities.Select(c => c.Id).Distinct(StringComparer.Ordinal).Count() != page.Capabilities.Count)
                 page = new(source, cursor, [], null, "The source returned an ambiguous discovery contract.");
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch { page = new(source, cursor, [], null, "This source is unavailable; its capabilities have not been inspected."); }
-        page = page with { Query = query };
+        page = page with { Query = query, ProducedArtifactKind = producedArtifactKind };
         state.Discovery.Pages.Add(page);
         if (page.UnavailableReason is { } reason) state.Discovery.Limitations.Add(source + ": " + reason);
     }

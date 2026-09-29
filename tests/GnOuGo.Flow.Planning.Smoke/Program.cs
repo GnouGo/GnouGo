@@ -50,6 +50,15 @@ var proposal = new PlanningProposal { DiscoveryRequests = [new("browser", Query:
 if (JsonSerializer.Deserialize(JsonSerializer.Serialize(proposal, PlanningJsonContext.Default.PlanningProposal), PlanningJsonContext.Default.PlanningProposal)!.DiscoveryRequests!.Count != 2) throw new InvalidOperationException("Discovery batch serialization failed");
 if (JsonSerializer.Deserialize(JsonSerializer.Serialize(proposal, PlanningJsonContext.Default.PlanningProposal), PlanningJsonContext.Default.PlanningProposal)!.DiscoveryRequests![0].Query != "inspect pages") throw new InvalidOperationException("Discovery query serialization failed");
 var discoveryReceipt = new CapabilityPage("source", null, [], "rank:snapshot:8", Query: "inspect pages");
+var artifactReceipt = new CapabilityPage("source", null,
+    [new("producer", "source", "declared", "", "mcp.call", "read", "v1", ArtifactContract: new(1, [new("evidence", "/value", "materialize")], []))],
+    "filtered-next", Query: "request", ProducedArtifactKind: "evidence");
+var artifactRoundtrip = JsonSerializer.Deserialize(JsonSerializer.Serialize(artifactReceipt, PlanningJsonContext.Default.CapabilityPage), PlanningJsonContext.Default.CapabilityPage)!;
+if (artifactRoundtrip.ProducedArtifactKind != "evidence" || artifactRoundtrip.Capabilities[0].ArtifactContract?.Produces[0].Kind != "evidence")
+    throw new InvalidOperationException("Artifact-filter discovery serialization failed");
+var filterRequest = new PlanningDiscoveryRequest("source", ProducedArtifactKind: "evidence");
+if (JsonSerializer.Deserialize(JsonSerializer.Serialize(filterRequest, PlanningJsonContext.Default.PlanningDiscoveryRequest), PlanningJsonContext.Default.PlanningDiscoveryRequest)!.ProducedArtifactKind != "evidence")
+    throw new InvalidOperationException("Artifact-filter request serialization failed");
 var focusedDiscovery = new CapabilityDiscoveryState { PresentationQuery = "inspect pages", Pages = [discoveryReceipt],
     Inspections = [new("source", OperationIds: ["selected_operation"])] };
 if (JsonSerializer.Deserialize(JsonSerializer.Serialize(focusedDiscovery, PlanningJsonContext.Default.CapabilityDiscoveryState), PlanningJsonContext.Default.CapabilityDiscoveryState)!.PresentationQuery != "inspect pages") throw new InvalidOperationException("Discovery focus serialization failed");

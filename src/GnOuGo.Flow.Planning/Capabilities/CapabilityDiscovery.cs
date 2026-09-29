@@ -40,29 +40,36 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
         return Task.FromResult<IReadOnlyList<CapabilitySource>>(sources.OrderBy(s => s.Id, StringComparer.Ordinal).ToArray());
     }
 
-    public async Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null)
+    public async Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null)
     {
         try
         {
             var capabilities = await ReadSourceAsync(sourceId, ct);
             var summaries = capabilities.Select(c => new CapabilitySummary(c.Id, sourceId,
-                c.Method ?? c.Id, c.Description, c.StepType, c.EffectKind, c.Version, c.Composition, PlanningCapabilityArguments.Editable(c))).ToArray();
+                c.Method ?? c.Id, c.Description, c.StepType, c.EffectKind, c.Version, c.Composition, PlanningCapabilityArguments.Editable(c), c.ArtifactContract)).ToArray();
+            if (producedArtifactKind is not null)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(producedArtifactKind);
+                summaries = summaries.Where(c => c.ArtifactContract?.Produces.Any(p => p.Kind == producedArtifactKind) == true).ToArray();
+            }
             // Null queries retain the ordering and numeric cursors of already-issued requests.
             var ordered = query is null ? summaries : CapabilityRelevance.Rank(summaries, query);
-            var prefix = query is null ? "" : "rank:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(
-                new[] { sourceId, CapabilityRelevance.Query(query) }.Concat(capabilities.Select(c => c.Id + ":" + c.Version)).ToArray(),
+            var identity = new[] { sourceId, CapabilityRelevance.Query(query ?? "") }.AsEnumerable();
+            if (producedArtifactKind is not null) identity = identity.Append(producedArtifactKind);
+            var prefix = query is null && producedArtifactKind is null ? "" : "rank:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(
+                identity.Concat(capabilities.Select(c => c.Id + ":" + c.Version)).ToArray(),
                 PlanningJsonContext.Default.StringArray)) + ":";
             var offsetText = cursor is null ? "0" : cursor.StartsWith(prefix, StringComparison.Ordinal) ? cursor[prefix.Length..] : "invalid";
             if (!int.TryParse(offsetText, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var offset))
                 throw new ArgumentException("The discovery cursor does not match this query and metadata snapshot.");
-            if (offset > capabilities.Count) throw new ArgumentException("Discovery cursor is outside this source.");
-            var pageSize = query is null ? 24 : 8;
+            if (offset > summaries.Length) throw new ArgumentException("Discovery cursor is outside this source.");
+            var pageSize = query is null && producedArtifactKind is null ? 24 : 8;
             return new(sourceId, cursor, ordered.Skip(offset).Take(pageSize).ToList(),
-                offset + pageSize < capabilities.Count ? prefix + (offset + pageSize).ToString(System.Globalization.CultureInfo.InvariantCulture) : null, Query: query);
+                offset + pageSize < summaries.Length ? prefix + (offset + pageSize).ToString(System.Globalization.CultureInfo.InvariantCulture) : null, Query: query, ProducedArtifactKind: producedArtifactKind);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex) when (ex is not ArgumentException)
-        { return new(sourceId, cursor, [], null, "The source could not be discovered. Its capabilities remain unavailable.", query); }
+        { return new(sourceId, cursor, [], null, "The source could not be discovered. Its capabilities remain unavailable.", query, producedArtifactKind); }
     }
 
     public async Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct)

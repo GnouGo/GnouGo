@@ -45,7 +45,8 @@ public sealed class RecordedTargetedDiscoveryTests(ITestOutputHelper output)
         var final = TargetedDiscoveryTests.Context(runtime.Calls[^1].Prompt);
         var shown = final["operations"]!.AsArray().Select(o => o!["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
         Assert.All(inspections.SelectMany(i => i.OperationIds!), id => Assert.Contains(id, shown));
-        Assert.Null(final["sources"]); Assert.Equal(19, catalog.Reads);
+        Assert.Null(final["sources"]); Assert.Equal(19, catalog.Reads - catalog.FilterReads);
+        Assert.InRange(catalog.FilterReads, 0, metadata.Sources.Count);
         foreach (var capability in successful.Catalog.Capabilities.Where(c => c.Kind != "registered"))
             Assert.Equal(JsonSerializer.Serialize(capability, PlanningJsonContext.Default.PlanningCapability),
                 JsonSerializer.Serialize(state.Catalog!.Capabilities.Single(c => c.Id == capability.Id), PlanningJsonContext.Default.PlanningCapability));
@@ -89,13 +90,21 @@ public sealed class RecordedTargetedDiscoveryTests(ITestOutputHelper output)
 
     private sealed class RecordedCatalog(CapabilityDiscoveryState metadata, List<PlanningCapability> contracts) : ICapabilityCatalog
     {
-        internal int Reads, Unavailable;
+        internal int Reads, Unavailable, FilterReads;
         internal string SanitizedBaseQuery = "";
         internal List<string> Resolutions = [];
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => throw new InvalidOperationException("Sources are retained");
-        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null)
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null)
         {
             Reads++;
+            if (producedArtifactKind is not null)
+            {
+                FilterReads++;
+                var summaries = metadata.Pages.Where(p => p.SourceId == sourceId).SelectMany(p => p.Capabilities).DistinctBy(c => (c.Id, c.Version));
+                var matched = summaries.Select(c => c with { ArtifactContract = contracts.FirstOrDefault(x => x.Id == c.Id && x.Version == c.Version)?.ArtifactContract })
+                    .Where(c => c.ArtifactContract?.Produces.Any(a => a.Kind == producedArtifactKind) == true).ToList();
+                return Task.FromResult(new CapabilityPage(sourceId, cursor, matched, null, Query: query, ProducedArtifactKind: producedArtifactKind));
+            }
             // Sanitizing request paths changes derived base-query tokens, not the
             // recorded page contents. Refined queries still match exactly.
             var recordedQuery = query == SanitizedBaseQuery ? metadata.Pages[0].Query : query;

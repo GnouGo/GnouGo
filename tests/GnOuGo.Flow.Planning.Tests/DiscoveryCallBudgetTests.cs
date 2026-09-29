@@ -149,7 +149,7 @@ public sealed class DiscoveryCallBudgetTests
             OutputSchema = new() { ["type"] = "string" }
         };
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<CapabilitySource>>([new("source", "Declared operations"), new("unused", "Unrelated")]);
-        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null)
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null)
         {
             Reads++;
             return Task.FromResult(new CapabilityPage(sourceId, cursor, [new(capability.Id, sourceId, "inspect", "Inspect data", capability.StepType, "read", capability.Version, Operation: TaskOperations.Describe(capability))], null, Query: query));

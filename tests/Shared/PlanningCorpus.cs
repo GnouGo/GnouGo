@@ -105,6 +105,7 @@ public static class PlanningCorpus
         var properties = schema["properties"] as JsonObject;
         if (properties?.ContainsKey("sourceId") == true &&
             (properties["operationIds"]?["type"]?.ToString() == "array") != (value["operationIds"] is not null)) return false;
+        if (properties?.ContainsKey("sourceId") == true && properties.ContainsKey("producedArtifactKind") != (value["producedArtifactKind"] is not null)) return false;
         if (value is JsonObject obj && obj.ContainsKey("nullable") && properties?["kind"] is not null &&
             (properties.ContainsKey("nullable") ? !Matches(obj["nullable"], properties["nullable"]!.AsObject(), root) : obj["nullable"]?.ToString() == "true")) return false;
         if (properties?["text"] is null && properties?["kind"]?["enum"] is JsonArray typeKinds &&

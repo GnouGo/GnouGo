@@ -120,7 +120,7 @@ public sealed class PlanningInputBudgetTests
         internal int Pages;
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<CapabilitySource>>([new("source1", "First declared source"), new("source2", "Second declared source")]);
-        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null)
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null)
         {
             Pages++;
             Assert.Null(cursor);

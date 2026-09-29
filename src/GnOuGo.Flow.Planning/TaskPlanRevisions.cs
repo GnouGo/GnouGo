@@ -19,7 +19,7 @@ internal static class TaskPlanRevisions
         var inputs = plan.Inputs.Select(i => "/inputs/" + i.Name).Concat(plan.Groups.SelectMany(g => g.Inputs.Select(i => "/groups/" + g.Id + "/inputs/" + i.Name))).ToHashSet(StringComparer.Ordinal);
         var scope = new HashSet<string>(StringComparer.Ordinal);
         var resultSlots = TransformResultSlots(plan);
-        foreach (var finding in findings.Where(d => d.Required && d.Code != "REVISION_SCOPE_CHANGED"))
+        foreach (var finding in findings.Where(d => d.Required && d.Code is not ("REVISION_SCOPE_CHANGED" or "TASK_ARTIFACT_PREREQUISITE_MISSING")))
         {
             var path = finding.Location;
             if (finding.Code is "TASK_TRANSFORM_TYPE" or "TASK_TRANSFORM_CONSTRAINT" && resultSlots.Contains(path)) { scope.Add(path); continue; }

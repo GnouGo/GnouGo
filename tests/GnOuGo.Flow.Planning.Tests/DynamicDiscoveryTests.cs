@@ -96,7 +96,7 @@ public sealed class DynamicDiscoveryTests
     {
         internal List<string> Reads = [];
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => throw new InvalidOperationException();
-        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null) => throw new InvalidOperationException();
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null) => throw new InvalidOperationException();
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct)
         {
             Reads.Add(summary.Id);

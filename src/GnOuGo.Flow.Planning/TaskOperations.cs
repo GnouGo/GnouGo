@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Planning;
 
@@ -32,10 +33,12 @@ public static class TaskOperations
     };
 
     internal static JsonObject ArtifactPorts(PlanningCapability capability)
+        => ArtifactPorts(PlanningCapabilityArguments.Editable(capability), capability.ArtifactContract);
+
+    internal static JsonObject ArtifactPorts(PlanningOperation operation, McpArtifactContract? contract)
     {
         var result = new JsonObject();
-        if (capability.ArtifactContract is not { } contract) return result;
-        var operation = PlanningCapabilityArguments.Editable(capability);
+        if (contract is null) return result;
         var produced = new JsonArray(); var consumed = new JsonArray();
         foreach (var artifact in contract.Produces)
             if (Port(operation.Outputs, artifact.Pointer, artifact.Kind) is { } port) produced.Add((JsonNode)port);

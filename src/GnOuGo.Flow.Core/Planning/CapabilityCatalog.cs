@@ -7,15 +7,17 @@ namespace GnOuGo.Flow.Core.Planning;
 public interface ICapabilityCatalog
 {
     Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct);
-    Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null);
+    Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null);
     Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct);
 }
 
 public sealed record CapabilitySource(string Id, string Description);
 public sealed record CapabilitySummary(string Id, string SourceId, string Name, string Description,
-    string StepType, string EffectKind, string Version, McpCapabilityComposition? Composition = null, PlanningOperation? Operation = null);
+    string StepType, string EffectKind, string Version, McpCapabilityComposition? Composition = null, PlanningOperation? Operation = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] McpArtifactContract? ArtifactContract = null);
 public sealed record CapabilityPage(string SourceId, string? Cursor, List<CapabilitySummary> Capabilities,
-    string? NextCursor, string? UnavailableReason = null, string? Query = null);
+    string? NextCursor, string? UnavailableReason = null, string? Query = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ProducedArtifactKind = null);
 
 public sealed class CapabilityDiscoveryState
 {
@@ -51,7 +53,8 @@ public sealed class PlanningProposal
 }
 
 public sealed record PlanningDiscoveryRequest(string SourceId, string? Cursor = null, string? Query = null,
-    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] List<string>? OperationIds = null);
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] List<string>? OperationIds = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ProducedArtifactKind = null);
 
 public static class PlanningPhase
 {

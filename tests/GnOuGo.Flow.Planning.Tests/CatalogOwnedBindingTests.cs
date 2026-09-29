@@ -372,7 +372,7 @@ public sealed class CatalogOwnedBindingTests
     {
         internal int Resolutions;
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => throw new InvalidOperationException("No new discovery");
-        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null) => throw new InvalidOperationException("No new pages");
+        public Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null) => throw new InvalidOperationException("No new pages");
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct)
         { Resolutions++; return Task.FromResult(capability); }
     }

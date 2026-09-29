@@ -10,6 +10,20 @@ internal sealed class TaskArtifactBindings(TaskPlan plan, PlanningCatalog catalo
     internal bool Proves(TaskValue value, TaskPlanSymbols.Scope scope, IReadOnlyList<string> path, string kind) =>
         Trace(value, scope, path.Cast<string?>().ToArray(), kind);
 
+    internal bool MissingProducer(string kind)
+    {
+        var operations = TaskPlanRevisions.Tasks(plan).Where(t => t.Kind == "operation").Select(t => t.Operation).Distinct(StringComparer.Ordinal);
+        var resolved = new List<PlanningCapability>();
+        foreach (var operation in operations)
+        {
+            var matches = catalog.Capabilities.Where(c => TaskOperations.Describe(c).Id == operation).ToArray();
+            if (matches.Length != 1 || TaskOperations.Validate(matches[0]).Count > 0 ||
+                !catalog.AllowedStepTypes.Contains(matches[0].StepType) || catalog.Policy.DeniedCapabilityIds.Contains(matches[0].Id)) return false;
+            resolved.Add(matches[0]);
+        }
+        return !resolved.Any(c => c.ArtifactContract?.Produces.Any(p => p.Kind == kind) == true);
+    }
+
     private bool Trace(TaskValue value, TaskPlanSymbols.Scope scope, IReadOnlyList<string?> path, string kind)
     {
         var key = (value, scope, kind);
