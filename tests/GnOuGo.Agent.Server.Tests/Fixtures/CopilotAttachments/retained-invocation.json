@@ -1,0 +1,43 @@
+{
+  "provenance": "Sanitized CodeurAmour invocation; original encrypted journal unchanged. No workflow execution or inference.",
+  "runId": "748041de1513fb18397856c74fed801b",
+  "status": "failed",
+  "invocationId": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_cd64f2ff1eb4105a",
+  "resolvedInput": {
+    "request": {
+      "projectRoot": "workflows/github-pr-auto-review/example-owner-fixture-project-pr-610",
+      "provider": "OpenAi",
+      "model": "gpt-5.5-2026-04-24",
+      "permissionMode": "auto_approve_allowlist",
+      "permissionAllowlistJson": "[\u0022install dependencies detected from repository manifests\u0022,\u0022run repository linters\u0022,\u0022run unit tests\u0022,\u0022run integration tests\u0022,\u0022read project files\u0022,\u0022inspect git diff\u0022]",
+      "attachmentsJson": "{\u0022pullRequestUrl\u0022:\u0022https://example.test/owner/project/pull/17\u0022,\u0022reviewInstructions\u0022:\u0022Qualit\\u00E9, S\\u00E9curit\\u00E9\u0022}",
+      "prompt": "Travaille uniquement dans ce r\u00E9pertoire d\u00E9j\u00E0 clon\u00E9. Installe les d\u00E9pendances selon les manifests d\u00E9tect\u00E9s, puis ex\u00E9cute tous les linters, tests unitaires et tests d\u2019int\u00E9gration pr\u00E9sents. N\u2019applique aucune modification au code. Retourne un rapport en JSON d\u00E9crivant chaque commande, son statut, les preuves pertinentes, les \u00E9checs et si ces \u00E9checs doivent bloquer l\u2019approbation de la PR."
+    },
+    "preserve_optional_nulls": true,
+    "server": "GnOuGo.GithubCopilot.Mcp",
+    "method": "copilot_one_shot",
+    "kind": "tool"
+  },
+  "error": {
+    "code": "MCP_CALL_ERROR",
+    "type": "MCP_CALL_ERROR",
+    "message": "mcp.call (tool) to \u0027GnOuGo.GithubCopilot.Mcp/copilot_one_shot\u0027 returned an MCP error: An error occurred invoking \u0027copilot_one_shot\u0027: The JSON value could not be converted to System.Collections.Generic.IReadOnlyList\u00601[GnOuGo.GithubCopilot.Core.CopilotAttachment]. Path: $ | LineNumber: 0 | BytePositionInLine: 1.",
+    "retryable": false,
+    "details": {
+      "message": "An error occurred invoking \u0027copilot_one_shot\u0027: The JSON value could not be converted to System.Collections.Generic.IReadOnlyList\u00601[GnOuGo.GithubCopilot.Core.CopilotAttachment]. Path: $ | LineNumber: 0 | BytePositionInLine: 1.",
+      "mcp_error_code": null,
+      "mcp_error_message": "An error occurred invoking \u0027copilot_one_shot\u0027: The JSON value could not be converted to System.Collections.Generic.IReadOnlyList\u00601[GnOuGo.GithubCopilot.Core.CopilotAttachment]. Path: $ | LineNumber: 0 | BytePositionInLine: 1.",
+      "content": "An error occurred invoking \u0027copilot_one_shot\u0027: The JSON value could not be converted to System.Collections.Generic.IReadOnlyList\u00601[GnOuGo.GithubCopilot.Core.CopilotAttachment]. Path: $ | LineNumber: 0 | BytePositionInLine: 1.",
+      "correlation_id": "748041de1513fb18397856c74fed801b",
+      "run_id": "748041de1513fb18397856c74fed801b",
+      "trace_id": "748041de1513fb18397856c74fed801b",
+      "span_id": "6166df88763d6476",
+      "traceparent": "00-748041de1513fb18397856c74fed801b-6166df88763d6476-01",
+      "server": "GnOuGo.GithubCopilot.Mcp",
+      "method": "copilot_one_shot",
+      "kind": "tool",
+      "status": "error",
+      "response": "An error occurred invoking \u0027copilot_one_shot\u0027: The JSON value could not be converted to System.Collections.Generic.IReadOnlyList\u00601[GnOuGo.GithubCopilot.Core.CopilotAttachment]. Path: $ | LineNumber: 0 | BytePositionInLine: 1."
+    }
+  }
+}

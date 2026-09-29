@@ -1,0 +1,894 @@
+{
+  "copilot_one_shot": {
+    "InputSchema": {
+      "type": "object",
+      "properties": {
+        "projectRoot": {
+          "description": "Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory; a URL, repository identifier, absolute path, or invented path is invalid.",
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "permissionMode": {
+          "description": "Non-interactive permission mode. deny is the safe default; auto_approve_allowlist permits only entries supplied in permissionAllowlistJson; approve_all is host-policy gated and must not be selected by generated workflows without explicit unattended intent and established availability.",
+          "type": "string",
+          "enum": [
+            "auto_approve_allowlist",
+            "deny",
+            "approve_all"
+          ],
+          "default": "deny"
+        },
+        "provider": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "permissionAllowlistJson": {
+          "description": "Optional JSON array of read-only tool/path allowlist entries used only with auto_approve_allowlist.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "attachmentsJson": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "projectRoot",
+        "prompt"
+      ]
+    },
+    "OutputSchema": {
+      "type": "object",
+      "properties": {
+        "handle": {
+          "type": "string"
+        },
+        "copilotSessionId": {
+          "type": "string"
+        },
+        "content": {
+          "description": "Assistant response text. Claims about requested work require validation against execution observations; this text is not a machine-validated task outcome.",
+          "type": "string"
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "progressEvents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "kind",
+              "level",
+              "message",
+              "timestamp"
+            ]
+          }
+        },
+        "completed": {
+          "description": "Whether the assistant turn completed. This does not certify that the requested work succeeded; use verified execution observations to establish its outcome.",
+          "type": "boolean",
+          "default": true
+        },
+        "usage": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "outputTokens": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "requestId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "interactionId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "outputTokens",
+            "requestId",
+            "interactionId"
+          ]
+        },
+        "modifiedFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "toolExecutions": {
+          "description": "Execution observations captured directly from SDK tool events during this invocation, separate from assistant claims. Consume these existing results to verify commanded work; no separate observation tool is needed. Empty observations, missing completion, missing exit codes, or conflicting completions cannot establish successful work.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "toolCallId": {
+                "type": "string"
+              },
+              "parentToolCallId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "toolName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "argumentsJson": {
+                "description": "Exact JSON arguments from the tool-start event; null when that event was not observed. Use these to identify the work actually requested, not the assistant\u0027s summary.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "completionObserved": {
+                "type": "boolean"
+              },
+              "toolSucceeded": {
+                "description": "Whether the SDK reported successful tool invocation. This is distinct from a process exit code and does not alone establish task success.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "conflictingCompletion": {
+                "type": "boolean"
+              },
+              "terminals": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "workingDirectory": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "exitCode": {
+                      "description": "Process exit code supplied by the SDK terminal result, not inferred from text. Null means process completion is not established. Match the invocation\u0027s arguments to the required work and check every required command separately.",
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "text": {
+                      "description": "SDK command output or output preview; may be partial. It is never used to infer an exit code.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "outputTruncated": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "outputFilePath": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "shellId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "workingDirectory",
+                    "exitCode",
+                    "text"
+                  ]
+                }
+              },
+              "errorCode": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "startedSequence": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "completedSequence": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "toolCallId",
+              "parentToolCallId",
+              "toolName",
+              "argumentsJson",
+              "completionObserved",
+              "toolSucceeded",
+              "conflictingCompletion",
+              "terminals",
+              "errorCode"
+            ]
+          }
+        }
+      },
+      "required": [
+        "handle",
+        "copilotSessionId",
+        "content",
+        "model",
+        "progressEvents"
+      ]
+    },
+    "Meta": {
+      "gnougo": {
+        "artifacts": {
+          "version": 1,
+          "consumes": [
+            {
+              "kind": "workspace.directory",
+              "pointer": "/projectRoot",
+              "required": true
+            }
+          ]
+        },
+        "composition": {
+          "version": 1,
+          "kind": "complete_operation",
+          "encapsulates": [
+            {
+              "kind": "tool",
+              "method": "copilot_session_create"
+            },
+            {
+              "kind": "tool",
+              "method": "copilot_session_send"
+            },
+            {
+              "kind": "tool",
+              "method": "copilot_session_disconnect"
+            },
+            {
+              "kind": "tool",
+              "method": "copilot_session_delete"
+            }
+          ]
+        }
+      }
+    },
+    "description": "Runs one non-interactive call in one ephemeral Copilot session, then disconnects and permanently deletes it. The deny default is appropriate for inference that needs no tool execution. Use copilot_interactive_one_shot for work that may install dependencies, run commands, edit files, or otherwise require user permission. approve_all is host-policy gated and generated workflows must not select it unless unattended execution was explicitly requested and availability is established."
+  },
+  "copilot_interactive_one_shot": {
+    "InputSchema": {
+      "type": "object",
+      "properties": {
+        "projectRoot": {
+          "description": "Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory; a URL, repository identifier, absolute path, or invented path is invalid.",
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "provider": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "permissionAllowlistJson": {
+          "description": "Optional JSON array of read-only tool/path allowlist entries retained in the ephemeral managed session configuration.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "attachmentsJson": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "projectRoot",
+        "prompt"
+      ]
+    },
+    "OutputSchema": {
+      "type": "object",
+      "properties": {
+        "handle": {
+          "type": "string"
+        },
+        "copilotSessionId": {
+          "type": "string"
+        },
+        "content": {
+          "description": "Assistant response text. Claims about requested work require validation against execution observations; this text is not a machine-validated task outcome.",
+          "type": "string"
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "progressEvents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "kind",
+              "level",
+              "message",
+              "timestamp"
+            ]
+          }
+        },
+        "completed": {
+          "description": "Whether the assistant turn completed. This does not certify that the requested work succeeded; use verified execution observations to establish its outcome.",
+          "type": "boolean",
+          "default": true
+        },
+        "usage": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "outputTokens": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "requestId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "interactionId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "outputTokens",
+            "requestId",
+            "interactionId"
+          ]
+        },
+        "modifiedFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "toolExecutions": {
+          "description": "Execution observations captured directly from SDK tool events during this invocation, separate from assistant claims. Consume these existing results to verify commanded work; no separate observation tool is needed. Empty observations, missing completion, missing exit codes, or conflicting completions cannot establish successful work.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "toolCallId": {
+                "type": "string"
+              },
+              "parentToolCallId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "toolName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "argumentsJson": {
+                "description": "Exact JSON arguments from the tool-start event; null when that event was not observed. Use these to identify the work actually requested, not the assistant\u0027s summary.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "completionObserved": {
+                "type": "boolean"
+              },
+              "toolSucceeded": {
+                "description": "Whether the SDK reported successful tool invocation. This is distinct from a process exit code and does not alone establish task success.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "conflictingCompletion": {
+                "type": "boolean"
+              },
+              "terminals": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "workingDirectory": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "exitCode": {
+                      "description": "Process exit code supplied by the SDK terminal result, not inferred from text. Null means process completion is not established. Match the invocation\u0027s arguments to the required work and check every required command separately.",
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "text": {
+                      "description": "SDK command output or output preview; may be partial. It is never used to infer an exit code.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "outputTruncated": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "outputFilePath": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "shellId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "workingDirectory",
+                    "exitCode",
+                    "text"
+                  ]
+                }
+              },
+              "errorCode": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "startedSequence": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "completedSequence": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "toolCallId",
+              "parentToolCallId",
+              "toolName",
+              "argumentsJson",
+              "completionObserved",
+              "toolSucceeded",
+              "conflictingCompletion",
+              "terminals",
+              "errorCode"
+            ]
+          }
+        }
+      },
+      "required": [
+        "handle",
+        "copilotSessionId",
+        "content",
+        "model",
+        "progressEvents"
+      ]
+    },
+    "Meta": {
+      "gnougo": {
+        "artifacts": {
+          "version": 1,
+          "consumes": [
+            {
+              "kind": "workspace.directory",
+              "pointer": "/projectRoot",
+              "required": true
+            }
+          ]
+        },
+        "composition": {
+          "version": 1,
+          "kind": "complete_operation",
+          "encapsulates": [
+            {
+              "kind": "tool",
+              "method": "copilot_session_create"
+            },
+            {
+              "kind": "tool",
+              "method": "copilot_session_send"
+            },
+            {
+              "kind": "tool",
+              "method": "copilot_session_disconnect"
+            },
+            {
+              "kind": "tool",
+              "method": "copilot_session_delete"
+            }
+          ]
+        }
+      }
+    },
+    "description": "Runs one turn in an ephemeral managed Copilot session with interactive MCP permission and elicitation callbacks, then permanently deletes the session after success, failure, or cancellation. Use this capability for work that may install dependencies, run commands, edit files, or otherwise require user permission."
+  },
+  "copilot_session_send": {
+    "InputSchema": {
+      "type": "object",
+      "properties": {
+        "handle": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "deliveryMode": {
+          "type": "string",
+          "default": "enqueue"
+        },
+        "agentMode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "attachmentsJson": {
+          "description": "Optional JSON array of file/blob attachments using the stable attachment contract.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "handle",
+        "prompt"
+      ]
+    },
+    "OutputSchema": {
+      "type": "object",
+      "properties": {
+        "handle": {
+          "type": "string"
+        },
+        "copilotSessionId": {
+          "type": "string"
+        },
+        "content": {
+          "description": "Assistant response text. Claims about requested work require validation against execution observations; this text is not a machine-validated task outcome.",
+          "type": "string"
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "progressEvents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "kind",
+              "level",
+              "message",
+              "timestamp"
+            ]
+          }
+        },
+        "completed": {
+          "description": "Whether the assistant turn completed. This does not certify that the requested work succeeded; use verified execution observations to establish its outcome.",
+          "type": "boolean",
+          "default": true
+        },
+        "usage": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "outputTokens": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "requestId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "interactionId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "outputTokens",
+            "requestId",
+            "interactionId"
+          ]
+        },
+        "modifiedFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "toolExecutions": {
+          "description": "Execution observations captured directly from SDK tool events during this invocation, separate from assistant claims. Consume these existing results to verify commanded work; no separate observation tool is needed. Empty observations, missing completion, missing exit codes, or conflicting completions cannot establish successful work.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "toolCallId": {
+                "type": "string"
+              },
+              "parentToolCallId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "toolName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "argumentsJson": {
+                "description": "Exact JSON arguments from the tool-start event; null when that event was not observed. Use these to identify the work actually requested, not the assistant\u0027s summary.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "completionObserved": {
+                "type": "boolean"
+              },
+              "toolSucceeded": {
+                "description": "Whether the SDK reported successful tool invocation. This is distinct from a process exit code and does not alone establish task success.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "conflictingCompletion": {
+                "type": "boolean"
+              },
+              "terminals": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "workingDirectory": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "exitCode": {
+                      "description": "Process exit code supplied by the SDK terminal result, not inferred from text. Null means process completion is not established. Match the invocation\u0027s arguments to the required work and check every required command separately.",
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "text": {
+                      "description": "SDK command output or output preview; may be partial. It is never used to infer an exit code.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "outputTruncated": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "outputFilePath": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "shellId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "workingDirectory",
+                    "exitCode",
+                    "text"
+                  ]
+                }
+              },
+              "errorCode": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "startedSequence": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "completedSequence": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "toolCallId",
+              "parentToolCallId",
+              "toolName",
+              "argumentsJson",
+              "completionObserved",
+              "toolSucceeded",
+              "conflictingCompletion",
+              "terminals",
+              "errorCode"
+            ]
+          }
+        }
+      },
+      "required": [
+        "handle",
+        "copilotSessionId",
+        "content",
+        "model",
+        "progressEvents"
+      ]
+    },
+    "Meta": {
+      "gnougo": {
+        "artifacts": {
+          "version": 1,
+          "consumes": [
+            {
+              "kind": "session.handle",
+              "pointer": "/handle",
+              "required": true
+            }
+          ]
+        }
+      }
+    },
+    "description": "Sends a serialized message to a managed session. deliveryMode enqueue queues a turn; immediate steers an active turn. Streaming progress excludes raw model reasoning."
+  }
+}

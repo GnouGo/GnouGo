@@ -181,6 +181,21 @@ if args.copilot:
         try:
             rpc(1, 'initialize', {'protocolVersion': '2025-11-25', 'capabilities': {}, 'clientInfo': {'name': 'flow-v9-published', 'version': '1.0'}})
             mcp.stdin.write(json.dumps({'jsonrpc': '2.0', 'method': 'notifications/initialized'}) + '\n'); mcp.stdin.flush()
+            tools = {tool['name']: tool for tool in rpc(10, 'tools/list', {})['tools']}
+            for index, name in enumerate(('copilot_session_send', 'copilot_one_shot', 'copilot_interactive_one_shot')):
+                properties = tools[name]['inputSchema']['properties']
+                assert 'attachmentsJson' not in properties
+                attachments = properties['attachments']
+                assert attachments['type'] == ['array', 'null'] and attachments['items']['type'] == 'object'
+                variants = {variant['properties']['type']['const']: variant for variant in attachments['items']['anyOf']}
+                assert set(variants) == {'file', 'blob'}
+                for kind, field in (('file', 'path'), ('blob', 'content')):
+                    assert variants[kind]['additionalProperties'] is False
+                    assert field in variants[kind]['required'] and variants[kind]['properties'][field]['type'] == 'string'
+                for offset, arguments in enumerate(({'attachments': {'pullRequestUrl': 'fixture'}}, {'attachmentsJson': '{}'}, {'attachments': [None]})):
+                    rejected = rpc(20 + index * 3 + offset, 'tools/call', {'name': name, 'arguments': arguments})
+                    assert rejected.get('isError') and rejected['structuredContent']['code'] == 'INVALID_INPUT', rejected
+                    assert rejected['structuredContent']['message'].startswith('attachments'), rejected
             assert content(rpc(2, 'tools/call', {'name': 'copilot_task_contract', 'arguments': {}}))['schemaVersion'] == 9
             context = {'tenant_id': 'smoke', 'run_id': 'rejected-fixture', 'invocation_id': 'main/task', 'task': {
                 'runner': 'coding', 'objective': 'This invalid scope must never dispatch inference.', 'workspace': str(root),
@@ -195,7 +210,7 @@ if args.copilot:
             assert receipt['result']['usage']['model_calls'] == 0
         finally:
             mcp.terminate(); mcp.wait(timeout=30)
-    print('PASS published Copilot MCP: bounded protocol, unsupported-scope refusal before inference, terminal failed receipt envelope')
+    print('PASS published Copilot MCP: typed attachment discovery/refusal, bounded protocol, unsupported-scope refusal before inference, terminal failed receipt envelope')
 
 for path in root.glob('*.db*'):
     assert marker.encode() not in path.read_bytes(), f'Unencrypted payload in {path.name}'
