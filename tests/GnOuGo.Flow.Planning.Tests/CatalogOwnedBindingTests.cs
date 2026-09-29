@@ -236,9 +236,11 @@ public sealed class CatalogOwnedBindingTests
     {
         var (plan, catalog, cap) = await Fixture(true);
         cap.InputSchema["properties"]!["extra"] = new JsonObject { ["type"] = "string" };
+        var result = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(result.Diagnostics);
         cap.InputSchema["if"] = JsonNode.Parse("""{"properties":{"selector":{"const":"host"}},"required":["selector"]}""");
         cap.InputSchema["then"] = JsonNode.Parse("""{"required":["extra"]}""");
-        var result = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(result.Diagnostics);
+        var preflight = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Null(preflight.Graph); Assert.Contains(preflight.Diagnostics, d => d.Code == "TASK_INPUT_TYPE");
         var yaml = new PlanningGraphCompiler().Compile(result.Graph!, catalog);
         var findings = await new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask).ValidateAsync(
             new(yaml, new(), catalog, PlanningGraphCompiler.CapabilityBindings(result.Graph!)), PlannerFixture.Ct);

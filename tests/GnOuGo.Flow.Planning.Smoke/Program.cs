@@ -7,6 +7,27 @@ using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 using GnOuGo.Planning.Examples;
 
+// A shared location is lowered to an approved literal without an agent dispatch.
+var workspacePlan = JsonSerializer.Deserialize("""
+{"root":{"tasks":[
+ {"id":"location","kind":"value","objective":"Declare location","outputs":[{"name":"path","value":{"kind":"string","text":"workflows/smoke/project"}}]},
+ {"id":"work","kind":"operation","operation":"bounded","objective":"Check project","inputs":[
+  {"name":"workspace","value":{"kind":"output","source":"location","port":"path"}},
+  {"name":"objective","value":{"kind":"string","text":"Check project"}},
+  {"name":"capabilities","value":{"kind":"array","items":[{"kind":"string","text":"project.read"}]}},
+  {"name":"budget","value":{"kind":"object","members":[{"name":"max_model_calls","value":{"kind":"number","number":1}},{"name":"max_total_tokens","value":{"kind":"number","number":1000}},{"name":"max_elapsed_milliseconds","value":{"kind":"number","number":1000}}]}},
+  {"name":"output_schema","value":{"kind":"object","members":[{"name":"type","value":{"kind":"string","text":"object"}}]}},
+  {"name":"verification","value":{"kind":"array","items":[{"kind":"object","members":[{"name":"id","value":{"kind":"string","text":"check"}},{"name":"kind","value":{"kind":"string","text":"file.content"}},{"name":"subject","value":{"kind":"string","text":"result.txt"}},{"name":"facts_schema","value":{"kind":"object","members":[{"name":"type","value":{"kind":"string","text":"object"}}]}}]}]}}
+ ]}]}}
+""", PlanningJsonContext.Default.TaskPlan)!;
+var workspaceCatalog = new PlanningCatalog { AllowedStepTypes = ["set", "agent.run"], Capabilities = [new() { Id = "bounded", StepType = "agent.run", Kind = "agent", FixedInput = new() { ["runner"] = "fixture" }, InputSchema = AgentTaskContracts.InputSchema, OutputSchema = new() { ["type"] = "object" } }] };
+var workspaceCompiled = new TaskPlanCompiler().Compile(workspacePlan, workspaceCatalog);
+if (workspaceCompiled.Graph is null || workspaceCompiled.Diagnostics.Count != 0) throw new InvalidOperationException("Constant workspace compilation failed");
+var workspaceGraph = JsonSerializer.Deserialize(JsonSerializer.Serialize(workspaceCompiled.Graph, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph)!;
+if (workspaceGraph.Workflows[0].Steps.Single(s => s.Type == "agent.run").Input.Members.Single(m => m.Name == "workspace").Value.Text != "workflows/smoke/project" ||
+    PlanningGeneratedGraph.Validate(workspaceGraph, workspaceCatalog).Any()) throw new InvalidOperationException("Workspace scope was not preserved");
+Console.WriteLine("constant workspace: approved literal survives compilation and source-generated serialization; no agent execution");
+
 foreach (var name in PlanningCorpus.Names)
 {
     var environment = new PlanningBenchmarkCases.Environment(name); var engine = new WorkflowEngine { McpClientFactory = environment.Factory(), HumanInputProvider = new PlanningCorpus.Human() };

@@ -167,4 +167,42 @@ internal static class PlanningCapabilityArguments
         }
         return input;
     }
+
+    // The same owned values participate in complete-request type checking, without
+    // changing the authoritative contract or accepting a model-owned override.
+    internal static JsonObject EffectiveSchema(PlanningCapability capability, IEnumerable<(OperationPort Port, JsonObject Schema)> inputs)
+    {
+        var result = Object();
+        foreach (var (port, schema) in inputs) Insert(port.Path, schema);
+        foreach (var binding in Bindings(capability)) Insert(binding.Path, new() { ["const"] = binding.Value?.DeepClone() });
+        return result;
+
+        void Insert(IReadOnlyList<string> path, JsonObject schema)
+        {
+            if (path.Count == 0) { result = schema.DeepClone().AsObject(); return; }
+            var current = result;
+            foreach (var part in path.SkipLast(1))
+            {
+                Expand(current);
+                var properties = current["properties"] as JsonObject ?? throw new InvalidOperationException("Input mappings overlap a non-object binding.");
+                if (properties[part] is null) { properties[part] = Object(); current["required"]!.AsArray().Add((JsonNode)JsonValue.Create(part)!); }
+                current = properties[part]!.AsObject();
+            }
+            Expand(current);
+            if (current["properties"] is not JsonObject target || target.ContainsKey(path[^1]))
+                throw new InvalidOperationException("Input mappings must be disjoint object bindings.");
+            current["properties"]![path[^1]] = schema.DeepClone();
+            if (!current["required"]!.AsArray().Any(n => n?.ToString() == path[^1])) current["required"]!.AsArray().Add((JsonNode)JsonValue.Create(path[^1])!);
+        }
+        static void Expand(JsonObject current)
+        {
+            if (current["const"] is not JsonObject literal) return;
+            var fields = literal.Select(p => (p.Key, Value: p.Value?.DeepClone())).ToArray();
+            current.Clear(); current["type"] = "object"; current["properties"] = new JsonObject();
+            current["required"] = new JsonArray(); current["additionalProperties"] = false;
+            foreach (var field in fields)
+            { current["properties"]![field.Key] = new JsonObject { ["const"] = field.Value }; current["required"]!.AsArray().Add((JsonNode)JsonValue.Create(field.Key)!); }
+        }
+        static JsonObject Object() => new() { ["type"] = "object", ["properties"] = new JsonObject(), ["required"] = new JsonArray(), ["additionalProperties"] = false };
+    }
 }

@@ -188,8 +188,9 @@ if args.copilot:
                 'budget': {'max_model_calls': 1, 'max_total_tokens': 1000, 'max_elapsed_milliseconds': 1000},
                 'verification': []}}
             arguments = {'contextJson': json.dumps(context)}
-            assert content(rpc(3, 'tools/call', {'name': 'copilot_task_validate', 'arguments': arguments}))['errors']
-            receipt = content(rpc(4, 'tools/call', {'name': 'copilot_task_run', 'arguments': arguments}))
+            metadata = {'gnougo': {'tenantId': 'smoke'}}
+            assert content(rpc(3, 'tools/call', {'name': 'copilot_task_validate', 'arguments': arguments, '_meta': metadata}))['errors']
+            receipt = content(rpc(4, 'tools/call', {'name': 'copilot_task_run', 'arguments': arguments, '_meta': metadata}))
             assert receipt['schemaVersion'] == 9 and receipt['result']['status'] == 'failed'
             assert receipt['result']['usage']['model_calls'] == 0
         finally:

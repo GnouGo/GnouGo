@@ -14,6 +14,7 @@
     <ProjectReference Include="../../src/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp.csproj" />
     <ProjectReference Include="../../src/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.csproj" />
     <ProjectReference Include="../../src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj" />
+    <ProjectReference Include="../../src/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp.csproj" />
     <ProjectReference Include="..\..\src\GnOuGo.Flow.Integrations\GnOuGo.Flow.Integrations.csproj" />
   </ItemGroup>
 

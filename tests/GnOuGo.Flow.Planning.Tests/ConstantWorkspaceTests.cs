@@ -79,6 +79,21 @@ public sealed class ConstantWorkspaceTests
         Assert.Equal("string", compiled.Graph!.Workflows.SelectMany(w => w.Steps).Single(s => s.Type == "agent.run").Input.Members.Single(m => m.Name == "workspace").Value.Kind);
     }
 
+    [Fact]
+    public void LoopLocalConstantsAndOtherDynamicScopeFieldsRemainForbidden()
+    {
+        var (plan, catalog) = Fixture();
+        plan.Root.Tasks = [new() { Id = "repeat", Kind = "foreach", Objective = "Bounded work", Items = new() { Kind = "array", Items = [Text("item")] },
+            MaxItems = 1, MaxConcurrency = 1, Body = new() { Tasks = plan.Root.Tasks } }];
+        Assert.Contains(new TaskPlanCompiler().Compile(plan, catalog).Diagnostics, d => d.Code == "AGENT_SCOPE_DYNAMIC");
+        (plan, catalog) = Fixture();
+        var task = plan.Root.Tasks[1]; task.Inputs[task.Inputs.FindIndex(i => i.Name == "objective")] = new("objective", task.Inputs.Single(i => i.Name == "workspace").Value);
+        Assert.Contains(new TaskPlanCompiler().Compile(plan, catalog).Diagnostics, d => d.Code == "AGENT_SCOPE_DYNAMIC" && d.Location.EndsWith("/objective", StringComparison.Ordinal));
+        var changed = JsonSerializer.Deserialize(JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
+        changed.Root.Tasks[0].Outputs[0].Value.Members[0].Value.Text = "workflows/elsewhere";
+        Assert.Contains(TaskPlanRevisions.Validate(plan, changed, ["/tasks/work/inputs/objective"], catalog), d => d.Code == "REVISION_SCOPE_CHANGED");
+    }
+
     private static (TaskPlan, PlanningCatalog) Fixture()
     {
         var definition = JsonNode.Parse("""{"objective":"Inspect project","workspace":"workflows/example/project","capabilities":["project.read"],"budget":{"max_model_calls":1,"max_total_tokens":1000,"max_elapsed_milliseconds":1000},"output_schema":{"type":"object"},"verification":[{"id":"file","kind":"file.content","subject":"result.txt","facts_schema":{"type":"object"}}]}""")!.AsObject();

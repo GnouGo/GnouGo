@@ -238,7 +238,8 @@ public sealed partial class TaskPlanCompiler
                     var operation = PlanningCapabilityArguments.Editable(capability);
                     Check(path + "/operation", () => { if (_catalog.Policy.DeniedCapabilityIds.Contains(capability.Id) || !_catalog.AllowedStepTypes.Contains(capability.StepType)) Fail("TASK_OPERATION_DENIED", "The operation is outside the approved host policy."); });
                     Check(path + "/inputs", () => Unique(task.Inputs.Select(i => i.Name)));
-                    var mapped = Object([]);
+                    var inputFindings = findings.Count;
+                    var mapped = new List<(OperationPort Port, JsonObject Schema)>();
                     foreach (var input in task.Inputs)
                     {
                         var location = path + "/inputs/" + input.Name;
@@ -264,12 +265,23 @@ public sealed partial class TaskPlanCompiler
                                             ? new("TASK_ARTIFACT_PREREQUISITE_MISSING", location, "This plan contains no declared producer of artifact kind '" + artifact.Kind + "'. An explicit semantic revision is required; binding repairs cannot insert tasks. This does not establish capability unavailability. Types, literals and transforms cannot manufacture provenance.")
                                             : new("TASK_ARTIFACT_BINDING", location, "Bind a declared producer business port of artifact kind '" + artifact.Kind + "'. A matching type or literal does not establish provenance."));
                                 }
-                                Fits(value, port.Schema, "TASK_INPUT_TYPE", optional: !port.Required); Bind(mapped, port.Path, value.Value);
+                                Fits(value, port.Schema, "TASK_INPUT_TYPE", optional: !port.Required);
+                                mapped.Add((port, PlanningGraphValidation.IsLiteral(value.Value)
+                                    ? new() { ["const"] = PlanningGraphValidation.Literal(value.Value) } : value.Schema));
                             }
                         });
                     }
                     foreach (var port in operation.Inputs.Where(p => p.Required && task.Inputs.All(i => i.Name != p.Name)))
                         findings.Add(new("TASK_INPUT_REQUIRED", path + "/inputs/" + port.Name, "Required business input: " + port.Name));
+                    if (findings.Count == inputFindings && mapped.Count == task.Inputs.Count)
+                        Check(path + "/inputs", () =>
+                        {
+                            JsonObject request;
+                            try { request = PlanningCapabilityArguments.EffectiveSchema(capability, mapped); }
+                            catch (InvalidOperationException) { Fail("TASK_INPUT_BINDING", "Input mappings must assemble disjoint declared fields."); return; }
+                            if (!PlanningContractCompatibility.Fits(request, capability.InputSchema))
+                                Fail("TASK_INPUT_TYPE", "The complete effective request does not satisfy its authoritative contract, including conditional parameter requirements. Omission and null are distinct.");
+                        });
                     ports[""] = Output(task.Id, capability.StepType, [], capability.OutputSchema);
                         foreach (var port in operation.Outputs) ports[port.Name] = OperationOutput(task.Id, capability, port);
                     break;

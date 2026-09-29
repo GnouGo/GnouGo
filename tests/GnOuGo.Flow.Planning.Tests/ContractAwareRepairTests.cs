@@ -143,12 +143,14 @@ public sealed class ContractAwareRepairTests
     public async Task FullRequestValidationRejectsOmissionWhenAnotherArgumentRequiresIt()
     {
         var (plan, catalog) = await Fixture(); var cap = catalog.Capabilities.Single(c => c.Id == "write");
+        var revised = Clone(plan); revised.Root.Tasks[1].Inputs.RemoveAll(i => i.Name is "position" or "side");
+        var compiled = new TaskPlanCompiler().Compile(revised, catalog); Assert.Empty(compiled.Diagnostics);
         cap.InputSchema["if"] = JsonNode.Parse("""{"properties":{"other":{"const":"unchanged"}},"required":["other"]}""");
         cap.InputSchema["then"] = JsonNode.Parse("""{"required":["position"]}""");
-        var revised = Clone(plan); revised.Root.Tasks[1].Inputs.RemoveAll(i => i.Name is "position" or "side");
         var scope = TaskPlanRevisions.Scope(plan, new TaskPlanCompiler().Compile(plan, catalog).Diagnostics);
         Assert.Empty(TaskPlanRevisions.Validate(plan, revised, scope, catalog));
-        var compiled = new TaskPlanCompiler().Compile(revised, catalog); Assert.Empty(compiled.Diagnostics);
+        var preflight = new TaskPlanCompiler().Compile(revised, catalog);
+        Assert.Null(preflight.Graph); Assert.Contains(preflight.Diagnostics, d => d.Code == "TASK_INPUT_TYPE");
         Assert.Empty(PlanningGeneratedGraph.Validate(compiled.Graph!, catalog));
         PlanningConfirmationGuards.Apply(compiled.Graph!, catalog);
         Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
