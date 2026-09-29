@@ -242,7 +242,11 @@ public sealed class LocalTraceDebugStore
         if (_traces.Count <= MaxTraceCount)
             return;
 
-        foreach (var pair in _traces.OrderBy(pair => pair.Value.LastUpdatedUtc).Take(_traces.Count - MaxTraceCount).ToList())
+        // LINQ may read ICollection.Count and CopyTo separately. Concurrent eviction
+        // can shrink that copy and leave default entries; take the dictionary's
+        // atomic snapshot before sorting or computing how many traces to remove.
+        var snapshot = _traces.ToArray();
+        foreach (var pair in snapshot.OrderBy(pair => pair.Value.LastUpdatedUtc).Take(snapshot.Length - MaxTraceCount))
         {
             if (_traces.TryRemove(pair.Key, out var removed)
                 && !string.IsNullOrWhiteSpace(removed.CorrelationId))

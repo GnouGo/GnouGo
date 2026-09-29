@@ -466,6 +466,22 @@ public sealed class TraceDebugServiceTests
             && row.AttributesJson!.Contains(session, StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void ConcurrentTraceEvictionDoesNotExposePartiallyCopiedEntries()
+    {
+        var local = new LocalTraceDebugStore(new StaticOptionsMonitor<OpenTelemetrySettings>(new()));
+        Parallel.For(0, 4096, new ParallelOptions { MaxDegreeOfParallelism = 16 }, _ =>
+        {
+            using var activity = new Activity("eviction-regression").SetIdFormat(ActivityIdFormat.W3C)
+                .SetParentId(ActivityTraceId.CreateRandom(), ActivitySpanId.CreateRandom(), ActivityTraceFlags.Recorded).Start();
+            local.Track(activity);
+        });
+        using var latest = new Activity("retained-after-eviction").SetIdFormat(ActivityIdFormat.W3C)
+            .SetParentId(ActivityTraceId.CreateRandom(), ActivitySpanId.CreateRandom(), ActivityTraceFlags.Recorded).Start();
+        local.Track(latest);
+        Assert.NotNull(local.GetTrace(latest.TraceId.ToHexString()));
+    }
+
     private static TraceDebugService CreateService(
         IServiceProvider services,
         OpenTelemetrySettings openTelemetrySettings,
