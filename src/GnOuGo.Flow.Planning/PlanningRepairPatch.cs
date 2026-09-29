@@ -103,6 +103,7 @@ internal static class PlanningRepairPatch
                     "kind" => PlanningSchemas.Enum("string", "integer", "number", "boolean", "array", "object"),
                     "default" => PlanningSchemas.Nullable(PlanningSchemas.Ref("literal")),
                     "fields" => PlanningSchemas.Array(PlanningSchemas.Ref("resultField"), 1),
+                    "resultType" => PlanningSchemas.Object(("kind", PlanningSchemas.Enum("object")), ("fields", PlanningSchemas.Array(PlanningSchemas.Ref("resultField"), 1))),
                     _ => PlanningSchemas.Ref("resultType")
                 };
                 actions.Add("replace");
@@ -188,7 +189,10 @@ internal static class PlanningRepairPatch
         ["scope"] = new JsonArray(state.RevisionScope.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
         ["catalog"] = JsonSerializer.SerializeToNode(state.Catalog, PlanningJsonContext.Default.PlanningCatalog),
         ["resolved"] = JsonSerializer.SerializeToNode(state.Discovery.Resolved, PlanningJsonContext.Default.ListPlanningCapability),
-        ["policy"] = JsonSerializer.SerializeToNode(state.Request.Policy, PlanningJsonContext.Default.PlanningPolicy)
+        ["policy"] = JsonSerializer.SerializeToNode(state.Request.Policy, PlanningJsonContext.Default.PlanningPolicy),
+        ["maxModelCalls"] = state.Request.MaxModelCalls, ["maxReplanAttempts"] = state.Request.MaxReplanAttempts,
+        ["generation"] = JsonSerializer.SerializeToNode(state.Request.Generation, PlanningJsonContext.Default.PlanningGenerationOptions),
+        ["options"] = state.Request.Options.DeepClone()
     }.ToJsonString());
 
     internal static JsonObject RequestContext(LLMRequest request)

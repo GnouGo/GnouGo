@@ -76,7 +76,9 @@ public sealed class FrozenReviewDiscoveryTests(ITestOutputHelper output)
         state.Diagnostics = [new("TASK_INPUT_TYPE", state.RevisionScope[0], "Synthetic binding-only size probe")];
         var prompt = HybridWorkflowPlanner.Prompt(state); var estimate = PlanningJsonTransport.EstimateInputTokens(prompt, PlanningSchemas.Proposal(state));
         var context = JsonNode.Parse(prompt[(prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
-        Assert.Equal(PlanningDiscoveryContext.Required(state).Count, context["operations"]!.AsArray().Count);
+        Assert.Equal(PlanningRepairContext.Operations(state).Order(StringComparer.Ordinal), context["operations"]!.AsArray().Select(o => o!["id"]!.ToString()).Order(StringComparer.Ordinal));
+        Assert.False(context.AsObject().ContainsKey("taskPlan"));
+        Assert.True(estimate < 24000);
         Assert.Empty(HybridWorkflowPlanner.Shortlist(state));
         Assert.All(context["coverage"]!.AsArray(), c => Assert.False(c!.AsObject().ContainsKey("index")));
         output.WriteLine($"Synthetic fixed-operation repair: prompt bytes={Encoding.UTF8.GetByteCount(prompt)}, complete tokens={estimate}; original presentation probe at f46a40d=29018. Saved admission limit remains 24000; mandatory contracts are never pruned.");

@@ -319,10 +319,12 @@ public sealed class CatalogOwnedBindingTests
         var schema = PlanningSchemas.Proposal(state);
         Assert.DoesNotContain("unrelated", schema.ToJsonString());
         var corrected = Clone(plan); corrected.Root.Tasks[0].Inputs.RemoveAll(i => i.Name == "selector");
-        JsonObject Response() => new() { ["discoveryRequests"] = null, ["plan"] = PlanningJsonTransport.TaskPlanPrompt(corrected) };
-        Assert.Empty(PlanningContractValidation.ValidateInstance(Response(), schema));
+        var request = new LLMRequest { StructuredOutputSchema = schema };
+        var response = TestRuntime.PatchResponse(request, state, corrected);
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
+        Assert.Equal("remove", response["patch"]!["edits"]![0]!["action"]!.ToString());
         corrected.Root.Tasks[0].Operation = other.Id;
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Response(), schema));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(TestRuntime.PatchResponse(request, state, corrected), schema));
     }
 
     [Theory]
@@ -346,7 +348,7 @@ public sealed class CatalogOwnedBindingTests
         Assert.Equal(baseline, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
         if (changeObjective)
         {
-            Assert.Contains(result.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED" && d.Location == "/tasks/consume/objective");
+            Assert.Contains(result.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID" && d.Location == "/plan");
             Assert.Equal(baseline, JsonSerializer.Serialize(result.Plan, PlanningJsonContext.Default.TaskPlan));
             Assert.Null(result.Graph); Assert.Null(result.Yaml);
         }

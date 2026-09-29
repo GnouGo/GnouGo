@@ -43,10 +43,57 @@ internal sealed class TestRuntime : IPlanningRuntime
     public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
     {
         Calls.Add(request);
-        return Task.FromResult(Respond?.Invoke(request, purpose) ?? Response(request, Proposal));
+        var response = Respond?.Invoke(request, purpose) ?? Response(request, Proposal);
+        if (PlanningRepairPatch.Issued(request.StructuredOutputSchema?.AsObject()) && response.Json?["plan"] is JsonObject plan)
+            response.Json = PatchResponse(request, Checkpoints[^1], plan.Deserialize(PlanningJsonContext.Default.TaskPlan)!);
+        return Task.FromResult(response);
     }
     internal static LLMResponse Response(LLMRequest request, PlanningProposal proposal) => new()
-    { Json = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal), request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
+    { Json = PlanningRepairPatch.Issued(request.StructuredOutputSchema?.AsObject())
+        ? proposal.Plan is not null
+            ? new JsonObject { ["discoveryRequests"] = null, ["plan"] = JsonSerializer.SerializeToNode(proposal.Plan, PlanningJsonContext.Default.TaskPlan) }
+            : PlanningCorpus.Transport(new JsonObject { ["discoveryRequests"] = JsonSerializer.SerializeToNode(proposal.DiscoveryRequests, PlanningJsonContext.Default.ListPlanningDiscoveryRequest), ["patch"] = null }, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())
+        : PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal), request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
+
+    // Existing scripted tests state the intended candidate. Convert only authorized
+    // differences into explicit edits; never discard an attempted unrelated change.
+    internal static JsonNode PatchResponse(LLMRequest request, PlanningSession state, TaskPlan candidate)
+    {
+        var violations = TaskPlanRevisions.Validate(state.Plan, candidate, state.RevisionScope, state.Catalog).ToList();
+        if (violations.Count > 0) return new JsonObject { ["plan"] = JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskPlan) };
+        var before = PlanningRepairPatch.Index(JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)!);
+        var after = PlanningRepairPatch.Index(JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskPlan)!);
+        var edits = new JsonArray();
+        foreach (var slot in RepairPatchTests.Slots(state))
+        {
+            var old = before.GetValueOrDefault(slot.Location)?.Node;
+            var value = after.GetValueOrDefault(slot.Location)?.Node;
+            var action = "replace";
+            if (slot.Kind == "exports")
+            {
+                var existing = old!.AsArray().Select(o => o!["name"]!.ToString()).ToHashSet(StringComparer.Ordinal);
+                value = new JsonArray(value!.AsArray().Where(o => !existing.Contains(o!["name"]!.ToString())).Select(o => o!.DeepClone()).ToArray());
+                if (value.AsArray().Count == 0) continue;
+                action = "add";
+            }
+            else
+            {
+                if (JsonNode.DeepEquals(old, value)) continue;
+                if (slot.Kind is "value" or "binding")
+                {
+                    if (value is null && slot.Actions.Contains("remove")) action = "remove";
+                    else if (slot.Actions.Contains("remove_owned")) action = "remove_owned";
+                    else if (slot.Kind == "binding") action = "add";
+                    if (value is JsonObject binding && binding.ContainsKey("name")) value = binding["value"];
+                }
+            }
+            var edit = new JsonObject { ["slot"] = slot.Id, ["action"] = action };
+            if (action is not ("remove" or "remove_owned")) edit["value"] = value?.DeepClone();
+            edits.Add((JsonNode)edit);
+        }
+        var result = new JsonObject { ["discoveryRequests"] = null, ["patch"] = new JsonObject { ["edits"] = edits } };
+        return PlanningCorpus.Transport(result, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())!;
+    }
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => Validation is null ? Actual.ValidateAsync(request, ct) : Task.FromResult(Validation);
     public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => CatalogChanges is null ? Actual.ValidateCatalogAsync(catalog, ct) : Task.FromResult(CatalogChanges);
     public Task CheckpointAsync(PlanningSession state, CancellationToken ct) { Checkpoints.Add(PlannerFixture.Clone(state)); return Task.CompletedTask; }

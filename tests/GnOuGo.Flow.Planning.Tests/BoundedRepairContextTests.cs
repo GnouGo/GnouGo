@@ -69,7 +69,7 @@ public sealed class BoundedRepairContextTests
         runtime.Proposal.Plan.Root.Tasks[0].Objective = "Unrelated edit";
         var planner = new HybridWorkflowPlanner();
         state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Contains(state.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED" && d.Location == "/tasks/parse_pr_url/objective");
+        Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID" && d.Location == "/plan");
         Assert.Equal(baseline, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
         Assert.Equal(discovery, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
         Assert.Equal(81391, state.Usage!.TotalTokens); Assert.Equal(4, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts);
@@ -84,7 +84,7 @@ public sealed class BoundedRepairContextTests
     public async Task PendingRequestRetainsItsSchemaIdentityAndIssuedScope()
     {
         var state = State(); var runtime = new TestRuntime { Proposal = new() { Plan = ConstrainedBindingTests.Repair(state.Plan!) } };
-        var schema = PlanningSchemas.Proposal(state); schema["description"] = "Original persisted request";
+        var schema = PlanningSchemas.FullProposal(state); schema["description"] = "Original persisted request";
         state.PendingCall = new() { Id = "retained", Purpose = "replan", Request = new() { ClientRequestId = "retained", Prompt = "Original retained prompt", StructuredOutputSchema = schema } };
         state.Request.Generation.MaxInputTokensPerRequest = 1024;
         var scope = state.RevisionScope.ToArray(); var baseline = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);

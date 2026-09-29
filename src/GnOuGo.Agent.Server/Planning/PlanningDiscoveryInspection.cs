@@ -70,10 +70,11 @@ internal static class PlanningDiscoveryInspection
                 var conflict = group.Select(c => c.Version).Distinct(StringComparer.Ordinal).Count() != 1;
                 var unavailable = state.Discovery.Limitations.Any(l => l.StartsWith(capability.Id + ":", StringComparison.Ordinal)) &&
                     !state.Discovery.Resolved.Any(c => c.Id == capability.Id && c.Version == capability.Version);
-                var status = exact is not null ? "Full contract" : indexed.Contains(operation.Id) ? "Index only" :
+                var status = exact is not null ? exact["contextRole"]?.ToString() == "producer_outputs" ? "Producer outputs" : "Full contract" : indexed.Contains(operation.Id) ? "Index only" :
                     denied ? "Policy excluded" : conflict ? "Version conflict" : unavailable ? "Unavailable" : "Retained, omitted";
                 var reason = status switch
                 {
+                    "Producer outputs" => "Read-only producer output contracts were included; its input contracts were not sent.",
                     "Full contract" => inspections.Contains(operation.Id) ? "Explicitly requested for inspection." : "Included in this issued request.",
                     "Index only" => "Identity and business port names were shown; the full contract was not sent.",
                     "Policy excluded" => "Excluded by the saved planning policy.",

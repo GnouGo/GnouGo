@@ -17,7 +17,8 @@ internal static class PlanningSchemas
         schema["properties"]?["plan"]?["anyOf"] is JsonArray alternatives &&
         alternatives.Any(a => a?["type"]?.ToString() == "null");
 
-    internal static JsonObject Proposal(PlanningSession state) => FullProposal(state);
+    internal static JsonObject Proposal(PlanningSession state) => PlanningRepairPatch.Active(state)
+        ? PlanningRepairPatch.Schema(state, FullProposal(state, compact: false)) : FullProposal(state);
 
     internal static JsonObject FullProposal(PlanningSession state, bool compact = true)
     {

@@ -35,7 +35,7 @@ public sealed class TaskPlanRevisionTests
         var original = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
         runtime.Proposal.Plan.Root.Tasks[0].Outputs[0].Value.Text = "Unapproved change";
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Contains(state.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED");
+        Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID" && d.Location == "/plan");
         Assert.Contains(state.Diagnostics, d => d.Code != "REVISION_SCOPE_CHANGED");
         Assert.Equal(original, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
         Assert.Null(state.Yaml); Assert.Equal(1, runtime.Discoveries); Assert.Equal(2, state.ModelCalls);

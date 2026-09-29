@@ -96,7 +96,9 @@ public sealed class TargetedDiscoveryTests
         state.Diagnostics = [new("TASK_INPUT_TYPE", "/tasks/use/inputs/value", "Fix binding")];
         state.RevisionScope = ["/tasks/use/inputs/value"];
         state.Discovery.Inspections = [new("b", OperationIds: ["b0"])];
-        Assert.True(PlanningSchemas.AllowsNoPlan(PlanningSchemas.Proposal(state)));
+        var schema = PlanningSchemas.Proposal(state);
+        Assert.True(PlanningRepairPatch.Issued(schema));
+        Assert.Equal("null", schema["properties"]!["discoveryRequests"]!["type"]!.ToString());
         Assert.DoesNotContain("schema-only-b0", HybridWorkflowPlanner.Prompt(state));
     }
 

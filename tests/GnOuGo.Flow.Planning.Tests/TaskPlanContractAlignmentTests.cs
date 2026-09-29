@@ -247,7 +247,7 @@ public sealed class TaskPlanContractAlignmentTests
         var receipts = JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
         runtime.Proposal.Plan.Groups.Add(new() { Id = invalidGroupId });
         state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Contains(state.Diagnostics, d => d.Code == "TASK_IDENTITY_INVALID");
+        Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID" && d.Location == "/plan");
         Assert.Equal(original, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
         Assert.Equal(receipts, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
         Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts); Assert.Equal(1, runtime.Discoveries);

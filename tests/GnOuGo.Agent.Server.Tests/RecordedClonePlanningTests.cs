@@ -47,7 +47,7 @@ public sealed class RecordedClonePlanningTests
         // The semantic revision is legitimate only for a new/revised plan, not this one-slot repair.
         replay.NextResponse = proposal;
         state = await new HybridWorkflowPlanner().AdvanceAsync(Recover(state), new() { ExpectedRevision = state.Revision }, replay, TestContext.Current.CancellationToken);
-        Assert.Contains(state.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED");
+        Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID" && d.Location == "/plan");
         Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(before.Plan, PlanningJsonContext.Default.TaskPlan), JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)));
         Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(before.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState), JsonSerializer.SerializeToNode(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState)));
         Assert.True(JsonNode.DeepEquals(before.Request.Options, state.Request.Options));
@@ -122,8 +122,8 @@ public sealed class RecordedClonePlanningTests
         public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
         {
             RequestIds.Add(request.ClientRequestId!);
-            if (Calls++ >= 3) return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(
-                NextResponse ?? throw new InvalidOperationException("No further response or inference authorized."), request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) });
+            if (Calls++ >= 3) return Task.FromResult(new LLMResponse { Json =
+                (NextResponse ?? throw new InvalidOperationException("No further response or inference authorized.")).DeepClone() });
             var entry = Recording["responses"]![Calls - 1]!;
             if (current is null)
             {

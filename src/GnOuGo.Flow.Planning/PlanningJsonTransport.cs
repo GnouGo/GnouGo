@@ -13,7 +13,12 @@ internal static class PlanningJsonTransport
     internal static JsonNode? TaskPlanPrompt(TaskPlan? plan)
     {
         if (plan is null) return null;
-        var node = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!;
+        return TaskPlanPart(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan));
+    }
+
+    internal static JsonNode? TaskPlanPart(JsonNode? value)
+    {
+        var node = value?.DeepClone();
         Trim(node);
         return node;
         static void Trim(JsonNode? node)

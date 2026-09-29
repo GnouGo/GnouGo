@@ -89,6 +89,20 @@ public sealed class PlanningDiscoveryInspectionTests : BunitContext
     }
 
     [Fact]
+    public void RepairProducerContractsAreNotPresentedAsFullOperationContracts()
+    {
+        var state = State(1, "alpha"); var request = state.PendingCall!.Request;
+        var context = JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
+        context["operations"]![0]!["contextRole"] = "producer_outputs";
+        context["operations"]![0]!.AsObject().Remove("inputs");
+        request.Prompt = "Instructions\n" + context.ToJsonString();
+        var report = PlanningDiscoveryInspection.Build(state, [state]);
+        var tool = Assert.Single(report.Requests).Tools.Single(t => t.Id == "alpha");
+        Assert.Equal("Producer outputs", tool.Status); Assert.Contains("input contracts were not sent", tool.Reason);
+        Assert.Contains("Producer outputs", PlanningDiscoveryInspection.CopyText(report));
+    }
+
+    [Fact]
     public void ClipboardRejectsPathAndCredentialShapedToolNames()
     {
         var state = State(1, "alpha");

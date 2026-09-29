@@ -154,6 +154,37 @@ public sealed class ProgressiveDiscoveryTests
         Assert.Equal(1, source.Resolutions); Assert.Single(state.Discovery.Pages);
         Assert.Equal(receipt, System.Text.Json.JsonSerializer.Serialize(state.Discovery.Resolved[0], PlanningJsonContext.Default.PlanningCapability));
     }
+    [Fact]
+    public async Task OperationRepairRetainsBoundedDiscoveryThenRequiresAnExplicitPatch()
+    {
+        var source = new RepairCatalog(); var runtime = new TestRuntime { Capabilities = source };
+        runtime.Proposal.Plan!.Root.Tasks.Add(new() { Id = "work", Objective = "Read the supplied value", Operation = "unknown-operation",
+            Inputs = [new("value", GnOuGo.Planning.Examples.PlanningCorpus.String("evidence"))] });
+        var planner = new HybridWorkflowPlanner();
+        // A retained baseline whose operation is no longer in the available catalog.
+        var state = PlannerFixture.Session(); state.Requirements = PlannerFixture.Requirements(); state.ModelCalls = 1;
+        state.Catalog = await runtime.DiscoverAsync(state.Request, Ct); state.Plan = runtime.Proposal.Plan;
+        state.Discovery.Sources = (await source.ListSourcesAsync(Ct)).ToList();
+        var page = await source.ListAsync("source", null, Ct); state.Discovery.Pages.Add(page);
+        state.Catalog.Capabilities.Add(await source.ResolveAsync(page.Capabilities[0], Ct));
+        state.Discovery.Resolved.Add(state.Catalog.Capabilities[^1]);
+        state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Diagnostics.ToList();
+        state.RevisionScope = TaskPlanRevisions.Scope(state.Plan, state.Diagnostics).ToList();
+        Assert.Contains("/tasks/work/operation", state.RevisionScope);
+        var baseline = System.Text.Json.JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
+        runtime.Proposal.Plan = null; runtime.Proposal.DiscoveryRequests = [new("source", Query: "declared value")];
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(PlanningPhase.Discovery, state.Phase); Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal(baseline, System.Text.Json.JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
+        runtime.Respond = (_, _) => new() { Json = new JsonObject { ["discoveryRequests"] = null,
+            ["patch"] = new JsonObject { ["edits"] = new JsonArray((JsonNode)RepairPatchTests.Edit(state, "/tasks/work/operation", "replace", JsonValue.Create("selected"))) } } };
+        state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, Ct);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(3, state.ModelCalls); Assert.Equal(2, state.ReplanAttempts);
+        Assert.Equal(1, source.Resolutions);
+        Assert.All(runtime.Calls, call => Assert.True(PlanningRepairPatch.Issued(call.StructuredOutputSchema!.AsObject())));
+        Assert.Equal("null", runtime.Calls[^1].StructuredOutputSchema!["properties"]!["discoveryRequests"]!["type"]!.ToString());
+    }
+
     private sealed class RepairCatalog : ICapabilityCatalog
     {
         public int Resolutions;

@@ -59,7 +59,7 @@ public sealed class RecordedArtifactPlanningTests
         runtime.NextProposal = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "ArtifactPlanning", "synthetic-corrected.json")))!["proposal"]!.AsObject();
         runtime.NextProposal["plan"]!["root"]!["tasks"]![0]!["objective"] = "Changed intent";
         var rejected = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-        Assert.Contains(rejected.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED");
+        Assert.Contains(rejected.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID" && d.Location == "/plan");
         Assert.Equal(baseline, JsonSerializer.Serialize(rejected.Plan, PlanningJsonContext.Default.TaskPlan));
         Assert.Equal(receipts, JsonSerializer.Serialize(rejected.Discovery.Pages, PlanningJsonContext.Default.ListCapabilityPage));
         Assert.Equal(6, rejected.ModelCalls); Assert.Equal(2, rejected.ReplanAttempts);
@@ -102,7 +102,24 @@ public sealed class RecordedArtifactPlanningTests
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) => Task.FromResult(Discovery.Resolved.Single(c => c.Id == summary.Id && c.Version == summary.Version));
         public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
         {
-            if (Expected is null) { Identities.Add(request.ClientRequestId!); Requests.Add(request); return Task.FromResult(new LLMResponse { Json = (NextProposal ?? FileData("synthetic-corrected")["proposal"]!).DeepClone() }); }
+            if (Expected is null)
+            {
+                Identities.Add(request.ClientRequestId!); Requests.Add(request);
+                // An attempted whole-plan rewrite remains an explicit invalid response.
+                if (NextProposal is not null) return Task.FromResult(new LLMResponse { Json = NextProposal.DeepClone() });
+                var context = JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
+                var tasks = FileData("synthetic-corrected")["proposal"]!["plan"]!["root"]!["tasks"]!.AsArray();
+                var edits = new JsonArray();
+                foreach (var location in Locations)
+                {
+                    var id = location.Split('/')[2];
+                    var value = tasks.Single(t => t!["id"]!.ToString() == id)!["inputs"]!.AsArray().Single(i => i!["name"]!.ToString() == "projectRoot")!["value"]!;
+                    var slot = context["repair"]!["slots"]!.AsArray().Single(s => s!["location"]!.ToString() == location)!;
+                    edits.Add((JsonNode)new JsonObject { ["slot"] = slot["id"]!.DeepClone(), ["action"] = "replace", ["value"] = value.DeepClone() });
+                }
+                var response = new JsonObject { ["discoveryRequests"] = null, ["patch"] = new JsonObject { ["edits"] = edits } };
+                return Task.FromResult(new LLMResponse { Json = GnOuGo.Planning.Examples.PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) });
+            }
             var issued = Expected["pendingSession"]!["pendingCall"]!;
             Assert.Equal(issued["id"]!.ToString(), request.ClientRequestId);
             Assert.Equal(issued["request"]!["prompt"]!.ToString(), request.Prompt);
