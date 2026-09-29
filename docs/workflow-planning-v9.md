@@ -284,3 +284,8 @@ Artifact prerequisites remain producer-declared. Compact discovery includes busi
 ### Workspace and producer contract update
 
 A shared semantic `value` may supply a statically approved agent workspace when deterministic compilation proves a literal string through available scopes. Clone and cleanup must explicitly reuse that location; the compiler does not reconcile independent paths or prove filesystem existence. Other agent scope fields retain literal requirements. Copilot tenant identity is transport-owned, and Cmd publishes structured per-command parameter objects. See [migration and retained regression](workspace-contracts.md).
+
+Copilot message/one-shot attachments use a typed file/blob array instead of encoded
+JSON. Refresh discovery and explicitly revise/regenerate and approve workflows using
+the removed argument; business context belongs in the prompt. See
+[contract migration and deterministic evidence](copilot-attachments.md).

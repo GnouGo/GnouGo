@@ -41,6 +41,34 @@ additional external read operation. Legacy results deserialize with an empty lis
 
 Git repository workflows are provided by the separate `GnOuGo.Git.Mcp` tool.
 
+## Typed attachments (breaking contract)
+
+`copilot_session_send`, `copilot_one_shot` and `copilot_interactive_one_shot` accept
+`attachments`, an optional array of closed objects. `attachmentsJson` has been removed
+and is explicitly rejected. Omission, null and `[]` mean no attachments.
+
+```json
+{"attachments":[{"type":"file","path":"docs/design.md"},{"type":"blob","content":"aGVsbG8=","path":"note.txt","mimeType":"text/plain"}]}
+```
+
+File paths must be nonblank; files must exist inside the approved project and remain
+subject to read permissions and sandbox policy. Blob content must be base64. Blob
+`path` is an optional display name; omitted/null `mimeType` retains
+`application/octet-stream`. Unknown kinds, extra fields, null items, encoded JSON
+strings and arbitrary context objects are invalid. Syntax validation runs before
+session creation/sending and returns sanitized `INVALID_INPUT` locations. Discovery
+publishes the same types and constraints; it does not grant filesystem access.
+
+Put business context (such as a review URL and instructions) in `prompt`, never in
+attachments. Deploy the updated MCP, refresh discovery, then explicitly revise or
+regenerate and approve affected workflows. Saved executions and approvals are not
+rewritten or restarted. Attachment validation does not prove that a task will complete.
+
+Natural-language allowlist entries such as “install dependencies” or “run tests” do
+not grant command execution. Use the declared permission mechanism for the requested
+work; do not substitute `approve_all`. Sandbox restrictions, including dependency
+download restrictions, remain unchanged.
+
 ## Workspace path policy
 
 Code and Copilot `projectRoot` and file paths may target normal visible content below the configured workspace. The `.GnOuGo/` subtree is reserved for GnOuGo-managed state and is rejected. Recursive project summaries, searches, and session file discovery omit that reserved tree. Tools taking `projectRoot` advertise a required `workspace.directory` consumer contract and accept the exact validated workspace-relative value returned by any compatible MCP producer; they do not depend on a particular producer tool.
