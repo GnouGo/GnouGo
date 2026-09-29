@@ -117,6 +117,7 @@ public sealed class BoundedCopilotTasksTests
         public Records Records { get; } = new();
         public BoundedCopilotTasks Tasks { get; }
         public AgentTaskContext Context { get; }
+        private readonly IDisposable _tenant;
         public Fixture()
         {
             Directory.CreateDirectory(Root);
@@ -124,6 +125,7 @@ public sealed class BoundedCopilotTasksTests
             var policy = new CodePolicy(settings, Root);
             Host = new(settings, Root, policy);
             var trace = new CodeMcpTraceContextAccessor();
+            _tenant = trace.Push(CodeMcpTraceContext.FromMcpMeta(new JsonObject { ["gnougo"] = new JsonObject { ["tenantId"] = "tenant" } }));
             var options = Options.Create(settings);
             Tasks = new(Host.Manager, new(policy, options, trace), new LocalProjectSessionFsFactory(policy, options, NullLoggerFactory.Instance), Records, new(trace), policy) { LockDirectory = Path.Combine(Root, "locks") };
             Context = new("tenant", "run", "invocation", new()
@@ -132,7 +134,7 @@ public sealed class BoundedCopilotTasksTests
                 OutputSchema = new() { ["type"] = "object" }, Verification = [new("edit", "file.content", "result.txt", new() { ["type"] = "object" })]
             });
         }
-        public async ValueTask DisposeAsync() { await Host.Manager.DisposeAsync(); Directory.Delete(Root, true); }
+        public async ValueTask DisposeAsync() { await Host.Manager.DisposeAsync(); _tenant.Dispose(); Directory.Delete(Root, true); }
     }
     private sealed class Records : IKeyVaultRecordStore
     {

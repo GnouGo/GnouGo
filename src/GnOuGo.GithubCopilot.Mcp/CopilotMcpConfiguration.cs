@@ -19,11 +19,12 @@ internal sealed class CopilotMcpConfiguration(CodePolicy policy, IOptions<CodeSe
             Model = string.IsNullOrWhiteSpace(model) ? _settings.Copilot.Model : model.Trim()
         };
     }
-    internal CopilotRequestContext Context(string? tenantId)
+    internal CopilotRequestContext Context()
     {
-        var context = trace.Current ?? CodeMcpTraceContext.Capture(trace);
-        var tenant = string.IsNullOrWhiteSpace(tenantId) ? context?.TenantId : tenantId.Trim();
-        if (string.IsNullOrWhiteSpace(tenant)) throw new McpException("TenantId is required in _meta.gnougo.tenantId or the tenantId argument.");
+        // Ownership comes from this request, never business input, environment or an ambient activity.
+        var context = trace.Current;
+        var tenant = context?.TenantId;
+        if (string.IsNullOrWhiteSpace(tenant)) throw new McpException("Tenant identity is required in request _meta.gnougo.tenantId.");
         return new(tenant, context?.CorrelationId, context?.RunId, context?.StepId, context?.Repository,
             context?.PullRequestNumber, context?.HeadSha, context?.ExecutionId, context?.AgentId, context?.AgentName);
     }

@@ -44,7 +44,7 @@ internal sealed class BoundedCopilotTools(BoundedCopilotTasks tasks, McpCopilotH
     {
         var context = JsonSerializer.Deserialize(json, AgentTaskJsonContext.Default.AgentTaskContext) ?? throw new McpException("A task context is required.");
         if (string.IsNullOrWhiteSpace(context.TenantId) || string.IsNullOrWhiteSpace(context.RunId) || string.IsNullOrWhiteSpace(context.InvocationId) ||
-            trace.Current?.TenantId is { Length: > 0 } tenant && tenant != context.TenantId)
+            (string.IsNullOrWhiteSpace(trace.Current?.TenantId) || trace.Current.TenantId != context.TenantId))
             throw new McpException("The task identity does not match the transport tenant.");
         return context;
     }

@@ -13,6 +13,7 @@ internal sealed class CopilotTestHost : ICopilotSdkClientFactory
     public bool AgentEditCalled => Configuration?.Request.PermissionMode == CopilotPermissionMode.Interactive;
     public int DeleteCount { get; private set; }
     public int DisposedSessions { get; private set; }
+    public CodeMcpTraceContextAccessor Trace { get; } = new();
     public CopilotCodeService Service { get; }
     public CopilotSessionManager Manager { get; }
     public Func<CopilotSdkSessionConfiguration, string, CopilotSendRequest, CancellationToken, Task<CopilotSendResult>>? OnSend { get; set; }
@@ -21,7 +22,7 @@ internal sealed class CopilotTestHost : ICopilotSdkClientFactory
     public CopilotTestHost(CodeServerSettings settings, string root, CodePolicy? policy = null)
     {
         policy ??= new(settings, root);
-        var trace = new CodeMcpTraceContextAccessor();
+        var trace = Trace;
         var reporter = new CodeProgressReporter(trace);
         Human = new(reporter, trace);
         var options = Options.Create(settings);

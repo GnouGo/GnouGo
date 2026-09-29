@@ -48,7 +48,9 @@ public sealed class CodeToolsTests : IDisposable
 		var assistant = new CopilotTestHost(settings, _root);
 		var tools = new CodeTools(CreateService(settings), assistant.Service, NullLogger<CodeTools>.Instance, assistant.Human);
 
-		var result = await tools.SuggestChangeAsync(".", "Add a greeting method.", "[\"src/Program.cs\"]", tenantId: "test", cancellationToken: TestContext.Current.CancellationToken);
+		using var tenant = assistant.Trace.Push(CodeMcpTraceContext.FromMcpMeta(new System.Text.Json.Nodes.JsonObject { ["gnougo"] = new System.Text.Json.Nodes.JsonObject { ["tenantId"] = "test" } }));
+
+		var result = await tools.SuggestChangeAsync(".", "Add a greeting method.", "[\"src/Program.cs\"]", cancellationToken: TestContext.Current.CancellationToken);
 
 		var suggestion = Assert.IsType<CodeSuggestionResult>(result);
 		Assert.Equal("Add a greeting method.", suggestion.Task);
@@ -68,7 +70,9 @@ public sealed class CodeToolsTests : IDisposable
 		var assistant = new CopilotTestHost(settings, _root);
 		var tools = new CodeTools(CreateService(settings), assistant.Service, NullLogger<CodeTools>.Instance, assistant.Human);
 
-		var result = await tools.SuggestChangeAsync(".", "Use a custom provider.", provider: "CustomCopilot", tenantId: "test", cancellationToken: TestContext.Current.CancellationToken);
+		using var tenant = assistant.Trace.Push(CodeMcpTraceContext.FromMcpMeta(new System.Text.Json.Nodes.JsonObject { ["gnougo"] = new System.Text.Json.Nodes.JsonObject { ["tenantId"] = "test" } }));
+
+		var result = await tools.SuggestChangeAsync(".", "Use a custom provider.", provider: "CustomCopilot", cancellationToken: TestContext.Current.CancellationToken);
 
 		var suggestion = Assert.IsType<CodeSuggestionResult>(result);
 		Assert.Equal("fake suggestion", suggestion.Suggestion);
@@ -82,7 +86,9 @@ public sealed class CodeToolsTests : IDisposable
 		var assistant = new CopilotTestHost(settings, _root);
 		var tools = new CodeTools(CreateService(settings), assistant.Service, NullLogger<CodeTools>.Instance, assistant.Human);
 
-		var result = await tools.SuggestChangeAsync(".", "Plan this change.", "{", tenantId: "test", cancellationToken: TestContext.Current.CancellationToken);
+		using var tenant = assistant.Trace.Push(CodeMcpTraceContext.FromMcpMeta(new System.Text.Json.Nodes.JsonObject { ["gnougo"] = new System.Text.Json.Nodes.JsonObject { ["tenantId"] = "test" } }));
+
+		var result = await tools.SuggestChangeAsync(".", "Plan this change.", "{", cancellationToken: TestContext.Current.CancellationToken);
 
 		Assert.False(result.Success);
 		Assert.False(result.Ok);
@@ -99,7 +105,9 @@ public sealed class CodeToolsTests : IDisposable
 		var assistant = new CopilotTestHost(settings, _root);
 		var tools = new CodeTools(CreateService(settings), assistant.Service, NullLogger<CodeTools>.Instance, assistant.Human);
 
-		var result = await tools.AgentEditAsync(".", "Implement the change.", "[\"src/Program.cs\"]", provider: "CustomCopilot", tenantId: "test", cancellationToken: TestContext.Current.CancellationToken);
+		using var tenant = assistant.Trace.Push(CodeMcpTraceContext.FromMcpMeta(new System.Text.Json.Nodes.JsonObject { ["gnougo"] = new System.Text.Json.Nodes.JsonObject { ["tenantId"] = "test" } }));
+
+		var result = await tools.AgentEditAsync(".", "Implement the change.", "[\"src/Program.cs\"]", provider: "CustomCopilot", cancellationToken: TestContext.Current.CancellationToken);
 
 		var edit = Assert.IsType<CodeAgentEditResult>(result);
 		Assert.Equal("Implement the change.", edit.Task);
@@ -142,7 +150,9 @@ public sealed class CodeToolsTests : IDisposable
 		var assistant = new CopilotTestHost(settings, _root, policy);
 		var tools = new CodeTools(projectService, assistant.Service, NullLogger<CodeTools>.Instance, assistant.Human);
 
-		var result = await tools.SuggestChangeAsync("workspace/oidc-client", "Plan this change.", "[\"src/Program.cs\"]", tenantId: "test", cancellationToken: TestContext.Current.CancellationToken);
+		using var tenant = assistant.Trace.Push(CodeMcpTraceContext.FromMcpMeta(new System.Text.Json.Nodes.JsonObject { ["gnougo"] = new System.Text.Json.Nodes.JsonObject { ["tenantId"] = "test" } }));
+
+		var result = await tools.SuggestChangeAsync("workspace/oidc-client", "Plan this change.", "[\"src/Program.cs\"]", cancellationToken: TestContext.Current.CancellationToken);
 
 		var suggestion = Assert.IsType<CodeSuggestionResult>(result);
 		Assert.Equal("fake suggestion", suggestion.Suggestion);
@@ -367,7 +377,8 @@ public sealed class CodeToolsTests : IDisposable
         var missing = await tools.SuggestChangeAsync(".", "Suggest", cancellationToken: TestContext.Current.CancellationToken);
         Assert.False(missing.Success);
         Assert.Null(host.Configuration);
-        var result = await tools.SuggestChangeAsync(".", "Suggest", tenantId: "tenant", cancellationToken: TestContext.Current.CancellationToken);
+        using var tenant = host.Trace.Push(CodeMcpTraceContext.FromMcpMeta(new System.Text.Json.Nodes.JsonObject { ["gnougo"] = new System.Text.Json.Nodes.JsonObject { ["tenantId"] = "test" } }));
+        var result = await tools.SuggestChangeAsync(".", "Suggest", cancellationToken: TestContext.Current.CancellationToken);
         Assert.True(result.Success);
         Assert.Equal(GnOuGo.GithubCopilot.Core.CopilotPermissionMode.Deny, host.Configuration!.Request.PermissionMode);
         Assert.Empty(host.Configuration.Request.Configuration.AvailableTools!);

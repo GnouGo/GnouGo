@@ -15,11 +15,11 @@ internal sealed class CopilotCodeService(
     CodeProgressReporter reporter)
 {
     internal async Task<CodeSuggestionResult> SuggestChangeAsync(string task, string projectRoot,
-        IReadOnlyList<CodeFileContent> contextFiles, string? providerName, string? tenantId, CancellationToken ct)
+        IReadOnlyList<CodeFileContent> contextFiles, string? providerName, CancellationToken ct)
     {
         ValidateTask(task);
         using var activity = CopilotMcpConfiguration.StartCopilotActivity(options.Value, trace);
-        var request = new CopilotSessionCreateRequest(configuration.Context(tenantId),
+        var request = new CopilotSessionCreateRequest(configuration.Context(),
             configuration.Build(projectRoot, providerName) with { AvailableTools = [], UseSessionFileSystem = true },
             CopilotSessionKind.OneShot, CopilotPermissionMode.Deny);
         var events = new List<CodeProgressEvent>();
@@ -31,12 +31,12 @@ internal sealed class CopilotCodeService(
     }
 
     internal async Task<CodeAgentEditResult> AgentEditAsync(string task, string projectRoot,
-        IReadOnlyList<CodeFileContent> contextFiles, string? providerName, string? tenantId, CancellationToken ct)
+        IReadOnlyList<CodeFileContent> contextFiles, string? providerName, CancellationToken ct)
     {
         ValidateTask(task);
         if (!options.Value.AllowWrites) throw new InvalidOperationException("Copilot agent edits are disabled by policy. Set Code:AllowWrites=true to enable code_agent_edit.");
         using var activity = CopilotMcpConfiguration.StartCopilotActivity(options.Value, trace, "AgentEdit");
-        var request = new CopilotSessionCreateRequest(configuration.Context(tenantId), configuration.Build(projectRoot, providerName));
+        var request = new CopilotSessionCreateRequest(configuration.Context(), configuration.Build(projectRoot, providerName));
         var events = new List<CodeProgressEvent>();
         var progress = reporter.Capture();
         var result = await sessions.InteractiveOneShotAsync(request, BuildAgentEditPrompt(task, projectRoot, contextFiles), null, ct,

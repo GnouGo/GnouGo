@@ -24,7 +24,7 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         var tool = McpServerTool.Create(method, target, new McpServerToolCreateOptions { SerializerOptions = CodeMcpJson.SerializerOptions });
         var schema = JsonNode.Parse(tool.ProtocolTool.InputSchema.GetRawText())!;
         Assert.Null(schema["properties"]?["requestContext"]);
-        Assert.NotNull(schema["properties"]?["tenantId"]);
+        Assert.Null(schema["properties"]?["tenantId"]);
         var output = JsonNode.Parse(tool.ProtocolTool.OutputSchema!.Value.GetRawText())!;
         Assert.NotNull(output["properties"]?["toolExecutions"]);
     }
@@ -477,6 +477,13 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         => returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(Task<>)
             ? returnType.GetGenericArguments()[0]
             : returnType;
+
+    [Fact]
+    public void CopilotBusinessToolsNeverAdvertiseTenantIdentityAsAnArgument()
+    {
+        foreach (var tool in DiscoverCopilotTools().Values)
+            Assert.Null(GetInputSchema(tool)["properties"]?["tenantId"]);
+    }
 
     private static Dictionary<string, McpServerTool> DiscoverCopilotTools()
     {

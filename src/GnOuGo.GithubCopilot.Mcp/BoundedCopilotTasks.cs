@@ -101,7 +101,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
             RequestTimeoutSeconds = Math.Max(1, (int)Math.Ceiling(context.Task.Budget.MaxElapsedMilliseconds / 1000d)),
             ManagedSessionTtlSeconds = Math.Max(60, (int)Math.Ceiling(context.Task.Budget.MaxElapsedMilliseconds / 1000d) + 60)
         };
-        var providerContext = configuration.Context(context.TenantId) with { RunId = context.RunId, StepId = context.InvocationId, ExecutionId = context.ExecutionId ?? context.RunId, AgentId = context.AgentId, AgentName = context.AgentName };
+        var providerContext = configuration.Context() with { RunId = context.RunId, StepId = context.InvocationId, ExecutionId = context.ExecutionId ?? context.RunId, AgentId = context.AgentId, AgentName = context.AgentName };
         var create = new CopilotSessionCreateRequest(providerContext, runtime, CopilotSessionKind.Managed, CopilotPermissionMode.Interactive, Streaming: true);
         string? handle = null;
         var dispatched = false;
