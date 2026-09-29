@@ -151,6 +151,75 @@ public sealed class BoundedCopilotTasksTests
         Assert.Equal(0, fixture.Host.Sends);
     }
 
+    [Theory]
+    [InlineData("stopped", "budget_exhausted")]
+    [InlineData("missing", "needs_reconciliation")]
+    [InlineData("conflict", "needs_reconciliation")]
+    [InlineData("shutdown", "needs_reconciliation")]
+    [InlineData("shutdown_timeout", "needs_reconciliation")]
+    [InlineData("transport", "needs_reconciliation")]
+    [InlineData("command", "needs_reconciliation")]
+    [InlineData("command_exit", "budget_exhausted")]
+    public async Task AdmissionStopRequiresObservedCessationAndShutdownBeforeTerminalReceipt(string mode, string expected)
+    {
+        await using var fixture = new Fixture();
+        var context = fixture.Context with { Task = fixture.Context.Task with { Budget = new() { MaxElapsedMilliseconds = 10000, MaxModelCalls = 1, MaxTotalTokens = 10000 },
+            Capabilities = mode.StartsWith("command", StringComparison.Ordinal) ? ["project.read", "project.write", "command.execute"] : ["project.read", "project.write"] } };
+        var releaseShutdown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (mode == "shutdown_timeout") fixture.Host.OnDispose = () => new ValueTask(releaseShutdown.Task);
+        if (mode == "shutdown") fixture.Host.OnDispose = () => ValueTask.FromException(new IOException("private shutdown failure"));
+        fixture.Host.OnSend = async (configuration, handle, _, ct) =>
+        {
+            var bounds = configuration.Request.Configuration.ExecutionBounds!;
+            using var first = new HttpRequestMessage(HttpMethod.Post, "https://example.test/responses") { Content = new StringContent("{\"input\":\"data\"}") };
+            await bounds.ReserveAsync(first, ct);
+            var command = mode.StartsWith("command", StringComparison.Ordinal);
+            var tool = command ? OperatingSystem.IsWindows() ? "powershell" : "bash" : "project_write";
+            Assert.True(bounds.TryAdmitSdkTool(tool));
+            await configuration.FileSystem!.WriteFileAsync("result.txt", "partial work", null, ct);
+            if (mode != "missing") bounds.CompleteSdkTool(tool);
+            using var next = new HttpRequestMessage(HttpMethod.Post, "https://example.test/responses");
+            await Assert.ThrowsAsync<InvalidOperationException>(() => bounds.ReserveAsync(next, ct));
+            var call = new CopilotToolExecutionObservation("call", null, tool, "{}", mode != "missing", true, mode == "conflict",
+                command ? [new(fixture.Root, mode == "command_exit" ? 0 : null, "claims do not prove completion") { ShellId = "shell" }] : [], null)
+                { StartedSequence = 1, CompletedSequence = mode == "missing" ? null : 2 };
+            throw new CopilotSendInterruptedException(new(handle, "session", "", null, [], Completed: false) { ToolExecutions = [call] }, mode != "transport");
+        };
+        var result = await fixture.Tasks.RunAsync(context, TestContext.Current.CancellationToken);
+        releaseShutdown.TrySetResult();
+        Assert.Equal(expected, result.Status); Assert.Equal("AGENT_BUDGET_EXHAUSTED", result.Failure!.Code);
+        Assert.Equal(expected == "budget_exhausted", result.Failure.Details!["cessation_verified"]!.GetValue<bool>());
+        Assert.Null(result.Output); Assert.False(result.Failure.Retryable); Assert.Equal(1, result.Usage.ModelCalls);
+        Assert.Equal("partial work", await File.ReadAllTextAsync(Path.Combine(fixture.Root, "result.txt"), TestContext.Current.CancellationToken));
+        Assert.Equal(expected, (await fixture.Tasks.InspectAsync(context, TestContext.Current.CancellationToken)).Status);
+        await fixture.Tasks.RunAsync(context, TestContext.Current.CancellationToken);
+        Assert.Equal(1, fixture.Host.Sends);
+        Assert.DoesNotContain("private", result.Failure.Message);
+    }
+
+    [Fact]
+    public async Task CrashSavingBudgetReceiptKeepsUnknownOutcomeAndItsRecordedAdmissionReason()
+    {
+        await using var fixture = new Fixture();
+        var context = fixture.Context with { Task = fixture.Context.Task with { Budget = new() { MaxModelCalls = 1 } } };
+        fixture.Host.OnSend = async (configuration, handle, _, ct) =>
+        {
+            var bounds = configuration.Request.Configuration.ExecutionBounds!;
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://example.test/responses") { Content = new StringContent("{\"input\":\"x\"}") };
+            await bounds.ReserveAsync(request, ct);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => bounds.ReserveAsync(request, ct));
+            fixture.Records.FailReceipt = true;
+            throw new CopilotSendInterruptedException(new(handle, "session", "", null, [], Completed: false), true);
+        };
+        await Assert.ThrowsAsync<IOException>(() => fixture.Tasks.RunAsync(context, TestContext.Current.CancellationToken));
+        fixture.Records.FailReceipt = false;
+        var inspected = await fixture.Tasks.InspectAsync(context, TestContext.Current.CancellationToken);
+        Assert.Equal("needs_reconciliation", inspected.Status); Assert.Equal("AGENT_BUDGET_EXHAUSTED", inspected.Failure!.Code);
+        Assert.False(inspected.Failure.Details!["cessation_verified"]!.GetValue<bool>());
+        await fixture.Tasks.RunAsync(context, TestContext.Current.CancellationToken);
+        Assert.Equal(1, fixture.Host.Sends); Assert.Equal(1, inspected.Usage.ModelCalls);
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         public string Root { get; } = Path.Combine(Path.GetTempPath(), "gnougo-bounded-" + Guid.NewGuid().ToString("N"));

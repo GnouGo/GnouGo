@@ -21,6 +21,7 @@ namespace GnOuGo.GithubCopilot.Core;
 [JsonSerializable(typeof(IReadOnlyList<CopilotStoredSession>))]
 [JsonSerializable(typeof(CopilotSendRequest))]
 [JsonSerializable(typeof(CopilotSendResult))]
+[JsonSerializable(typeof(CopilotAdmissionStop))]
 [JsonSerializable(typeof(CopilotStreamEvent))]
 [JsonSerializable(typeof(IReadOnlyList<CopilotStreamEvent>))]
 [JsonSerializable(typeof(CopilotAttachment))]

@@ -87,6 +87,22 @@ public sealed class CopilotFileSystemTests
     }
 
     [Fact]
+    public async Task StoppingAwaitsActualFileHandlerAndPreventsLaterWrites()
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var files = new TestSessionFileSystem { BeforeWrite = async () => { entered.SetResult(); await release.Task; } };
+        var bounds = new CopilotExecutionBounds(2, 10000, DateTimeOffset.UtcNow.AddMinutes(1), new HashSet<string> { "project_write" }, (_, _, _) => Task.CompletedTask);
+        var tool = CopilotProjectFileTool.Create(files, bounds).Cast<Microsoft.Extensions.AI.AIFunction>().Single(t => t.Name == "project_write");
+        var writing = tool.InvokeAsync(new() { ["path"] = "file.py", ["content"] = "first" }, TestContext.Current.CancellationToken).AsTask();
+        await entered.Task.WaitAsync(TestContext.Current.CancellationToken);
+        var stopping = bounds.StopAsync(TestContext.Current.CancellationToken); Assert.False(stopping.IsCompleted);
+        release.SetResult(); await writing; await stopping;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => tool.InvokeAsync(new() { ["path"] = "file.py", ["content"] = "late" }, TestContext.Current.CancellationToken).AsTask());
+        Assert.Equal("first", files.WrittenContent);
+    }
+
+    [Fact]
     public async Task ControlledTools_ExecuteThroughHostFileSystemAndCannotSkipPermission()
     {
         var files = new TestSessionFileSystem();
@@ -124,6 +140,7 @@ internal sealed class TestSessionFileSystemFactory : ICopilotSessionFileSystemFa
 internal sealed class TestSessionFileSystem : ICopilotSessionFileSystem
 {
     public bool DenyWrites { get; init; }
+    public Func<Task>? BeforeWrite { get; init; }
     public bool Disposed { get; private set; }
     public string? WrittenPath { get; private set; }
     public string? WrittenContent { get; private set; }
@@ -132,7 +149,7 @@ internal sealed class TestSessionFileSystem : ICopilotSessionFileSystem
     public void ValidateWrite(string path, string? content = null) { if (DenyWrites) throw new UnauthorizedAccessException("Host rejects writes."); }
     public ValueTask DisposeAsync() { Disposed = true; return ValueTask.CompletedTask; }
     public Task<string> ReadFileAsync(string path, CancellationToken ct) => Task.FromResult("content");
-    public Task WriteFileAsync(string path, string content, int? mode, CancellationToken ct) { ValidateWrite(path, content); WrittenPath = path; WrittenContent = content; return Task.CompletedTask; }
+    public async Task WriteFileAsync(string path, string content, int? mode, CancellationToken ct) { if (BeforeWrite is not null) await BeforeWrite(); ValidateWrite(path, content); WrittenPath = path; WrittenContent = content; }
     public Task AppendFileAsync(string path, string content, int? mode, CancellationToken ct) => Task.CompletedTask;
     public Task<bool> ExistsAsync(string path, CancellationToken ct) => Task.FromResult(true);
     public Task<CopilotFileStat> StatAsync(string path, CancellationToken ct) => Task.FromResult(new CopilotFileStat(true, false, 0, DateTime.UnixEpoch, DateTime.UnixEpoch));

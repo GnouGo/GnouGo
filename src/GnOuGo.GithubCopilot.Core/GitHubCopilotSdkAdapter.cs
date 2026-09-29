@@ -228,7 +228,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             ExcludedTools = source.FileSystem is null ? configuration.ExcludedTools?.ToArray()
                 : (configuration.ExcludedTools ?? []).Concat(CopilotProjectFileTool.NativeFileTools).Distinct(StringComparer.Ordinal).ToArray(),
             Tools = source.FileSystem is not null && request.PermissionMode != CopilotPermissionMode.Deny
-                ? CopilotProjectFileTool.Create(source.FileSystem) : null,
+                ? CopilotProjectFileTool.Create(source.FileSystem, configuration.ExecutionBounds) : null,
             McpServers = configuration.McpServers?.ToDictionary(static item => item.Key, static item => item.Value, StringComparer.Ordinal),
             SkillDirectories = configuration.SkillDirectories?.ToArray(),
             DisabledSkills = configuration.DisabledSkills?.ToArray(),
@@ -285,17 +285,20 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             OnPreToolUse = (input, _) =>
             {
                 logger.LogDebug("Copilot hook pre-tool-use: {ToolName}", input.ToolName);
-                if (bounds is not null && (bounds.Stopped || DateTimeOffset.UtcNow >= bounds.Deadline || !bounds.Tools.Contains(input.ToolName)))
+                if (ValidateFileTool(input, filePolicy) is { } rejection) return Task.FromResult<PreToolUseHookOutput?>(rejection);
+                if (bounds is not null && !bounds.TryAdmitSdkTool(input.ToolName))
                     return Task.FromResult<PreToolUseHookOutput?>(new() { PermissionDecision = "deny", PermissionDecisionReason = "The operation exceeds the approved task scope or deadline." });
-                return Task.FromResult(ValidateFileTool(input, filePolicy));
+                return Task.FromResult<PreToolUseHookOutput?>(null);
             },
             OnPostToolUse = (input, _) =>
             {
+                bounds?.CompleteSdkTool(input.ToolName);
                 logger.LogDebug("Copilot hook post-tool-use: {ToolName}", input.ToolName);
                 return Task.FromResult<PostToolUseHookOutput?>(null);
             },
             OnPostToolUseFailure = (input, _) =>
             {
+                bounds?.CompleteSdkTool(input.ToolName);
                 logger.LogWarning("Copilot hook tool-failure: {ToolName}", input.ToolName);
                 return Task.FromResult<PostToolUseFailureHookOutput?>(null);
             },
@@ -946,21 +949,28 @@ internal sealed class GitHubCopilotSdkSession : ICopilotSdkSession
             if (MapProgressEvent(evt) is { } progress) Report(progress);
         });
 
-        var timeout = TimeSpan.FromSeconds(Math.Max(1, request.TimeoutSeconds ?? _configuration.RequestTimeoutSeconds));
-        var response = await _session.SendAndWaitAsync(new MessageOptions
+        try
         {
-            Prompt = request.Prompt,
-            Mode = request.DeliveryMode,
-            AgentMode = ParseAgentMode(request.AgentMode),
-            RequestHeaders = request.RequestHeaders?.ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase),
-            Attachments = BuildAttachments(request.Attachments, _configuration.WorkingDirectory, _filePolicy)
-        }, timeout, cancellationToken);
+            var timeout = TimeSpan.FromSeconds(Math.Max(1, request.TimeoutSeconds ?? _configuration.RequestTimeoutSeconds));
+            var response = await _session.SendAndWaitAsync(new MessageOptions
+            {
+                Prompt = request.Prompt,
+                Mode = request.DeliveryMode,
+                AgentMode = ParseAgentMode(request.AgentMode),
+                RequestHeaders = request.RequestHeaders?.ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase),
+                Attachments = BuildAttachments(request.Attachments, _configuration.WorkingDirectory, _filePolicy)
+            }, timeout, cancellationToken);
 
-        var content = response?.Data?.Content;
-        if (string.IsNullOrWhiteSpace(content))
-            throw new InvalidOperationException("GitHub Copilot returned an empty response.");
-        Report(new CopilotStreamEvent("completed", "info", "Copilot completed the message.", DateTimeOffset.UtcNow));
-        return new CopilotSendResult(handle, SessionId, content, response?.Data?.Model, events.ToArray()) { ToolExecutions = observations.Snapshot(), Usage = new CopilotUsage(response?.Data?.OutputTokens, response?.Data?.RequestId, response?.Data?.InteractionId) };
+            var content = response?.Data?.Content;
+            if (string.IsNullOrWhiteSpace(content))
+                throw new InvalidOperationException("GitHub Copilot returned an empty response.");
+            Report(new CopilotStreamEvent("completed", "info", "Copilot completed the message.", DateTimeOffset.UtcNow));
+            return new CopilotSendResult(handle, SessionId, content, response?.Data?.Model, events.ToArray()) { ToolExecutions = observations.Snapshot(), Usage = new CopilotUsage(response?.Data?.OutputTokens, response?.Data?.RequestId, response?.Data?.InteractionId) };
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException && _configuration.ExecutionBounds is not null)
+        {
+            throw observations.Interrupted(handle, SessionId, ex, _configuration.ExecutionBounds, cancellationToken);
+        }
     }
 
     public async Task<IReadOnlyList<CopilotHistoryEvent>> GetHistoryAsync(CancellationToken cancellationToken)

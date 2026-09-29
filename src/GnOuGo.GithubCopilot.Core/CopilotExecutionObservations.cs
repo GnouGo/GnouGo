@@ -6,6 +6,7 @@ namespace GnOuGo.GithubCopilot.Core;
 internal sealed class CopilotExecutionObservations
 {
     private long _sequence;
+    private bool _sessionError;
     private readonly object _gate = new();
     private readonly Dictionary<string, CopilotToolExecutionObservation> _calls = new(StringComparer.Ordinal);
 
@@ -14,6 +15,7 @@ internal sealed class CopilotExecutionObservations
         lock (_gate)
         {
             var sequence = ++_sequence;
+            if (evt is SessionErrorEvent) _sessionError = true;
             if (evt is ToolExecutionStartEvent start)
             {
                 var data = start.Data;
@@ -48,6 +50,15 @@ internal sealed class CopilotExecutionObservations
     internal IReadOnlyList<CopilotToolExecutionObservation> Snapshot()
     {
         lock (_gate) return _calls.Values.ToArray();
+    }
+
+    internal CopilotSendInterruptedException Interrupted(string handle, string sessionId, Exception error,
+        CopilotExecutionBounds? bounds, CancellationToken ct)
+    {
+        lock (_gate)
+            return new(new(handle, sessionId, "", null, [], Completed: false) { ToolExecutions = _calls.Values.ToArray() },
+                _sessionError && error is InvalidOperationException && bounds?.AdmissionStop is not null &&
+                !bounds.TransportFailed && !ct.IsCancellationRequested);
     }
 
     private static CopilotToolExecutionObservation Empty(string id, string? parent) => new(id, parent, null, null, false, null, false, [], null);

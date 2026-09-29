@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="GnOuGo.GithubCopilot.Core.Tests" />
+    <InternalsVisibleTo Include="GnOuGo.GithubCopilot.Mcp.Tests" />
   </ItemGroup>
 
   <ItemGroup>

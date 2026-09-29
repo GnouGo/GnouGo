@@ -84,6 +84,28 @@ public sealed class CopilotExecutionObservationsTests
         Assert.False(result.ToolSucceeded); Assert.Empty(result.Terminals); Assert.Equal("execution_failed", result.ErrorCode);
     }
 
+    [Theory]
+    [InlineData(false, false, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    public async Task InterruptedSdkTurnsPreserveObservationsButTransportOrCancellationNeverProveStop(bool transport, bool cancelled, bool admission)
+    {
+        var observations = new CopilotExecutionObservations();
+        observations.Observe(new ToolExecutionStartEvent { Data = new() { ToolCallId = "call", ToolName = "project_write" } });
+        observations.Observe(Complete("call", 0));
+        observations.Observe(new SessionErrorEvent { Data = new() { ErrorType = "fixture", Message = "secret raw provider content" } });
+        var bounds = new CopilotExecutionBounds(0, 200000, DateTimeOffset.UtcNow.AddMinutes(1), new HashSet<string>(), (_, _, _) => Task.CompletedTask);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://example.test/responses");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => bounds.ReserveAsync(request, TestContext.Current.CancellationToken));
+        if (transport) bounds.RecordTransportFailure();
+        using var cancel = new CancellationTokenSource(); if (cancelled) cancel.Cancel();
+        var interrupted = observations.Interrupted("handle", "session", new InvalidOperationException("secret exception"), bounds, cancel.Token);
+        Assert.Equal(admission, interrupted.BudgetAdmissionObserved);
+        Assert.Single(interrupted.Snapshot.ToolExecutions); Assert.False(interrupted.Snapshot.Completed);
+        Assert.DoesNotContain("secret", interrupted.Message); Assert.Empty(interrupted.Snapshot.Content);
+        Assert.Null(interrupted.InnerException);
+    }
+
     private static ToolExecutionCompleteEvent Complete(string id, long? exitCode) => new() { Data = new() { ToolCallId = id, Success = true,
         Result = new() { Content = "Misleading summary: success", Contents = [new ToolExecutionCompleteContentTerminal { Cwd = "work", ExitCode = exitCode, Text = "Actual terminal output" }] } } };
 }

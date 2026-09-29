@@ -130,6 +130,9 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         deadline.CancelAfter(TimeSpan.FromMilliseconds(context.Task.Budget.MaxElapsedMilliseconds));
         AgentTaskResult result;
+        CopilotSendResult? observed = null;
+        var admissionObserved = false;
+        var sessionClosed = false;
         try
         {
             await using var files = fileSystems.Create(create);
@@ -142,19 +145,21 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
             await SaveAsync(context, record, deadline.Token);
             dispatched = true;
             var reporter = progress.Capture();
-            var sent = await sessions.SendAsync(new(providerContext, handle, Prompt(context.Task), AgentMode: "interactive")
+            var sent = observed = await sessions.SendAsync(new(providerContext, handle, Prompt(context.Task), AgentMode: "interactive")
             {
                 RequestHeaders = configuration.RequestHeaders(),
                 Progress = e => reporter.Report(e.Kind, e.Level, e.Message, fallbackServer: Author, fallbackMethod: "copilot_task_run", fallbackMcpKind: "tool")
             }, deadline.Token);
             var evidence = CommandEvidence(sent, runtime.WorkingDirectory, context.Task.Verification);
-            var uncertain = !sent.Completed || sent.ToolExecutions.Any(t => !t.CompletionObserved || t.ConflictingCompletion) ||
-                sent.ToolExecutions.Where(t => t.ToolName is "bash" or "powershell").Any(t => !CommandCompleted(t, sent.ToolExecutions));
+            var uncertain = !sent.Completed || !CessationObserved(sent, tools);
             if (uncertain) result = Unknown(null, "The observed tool events do not establish that all dispatched work has stopped.");
             else
             {
                 // Close the managed session before collecting final file evidence. This is the existing lifecycle API.
-                await sessions.DeleteAsync(providerContext, handle, CancellationToken.None); handle = null;
+                using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                await bounds.StopAsync(stop.Token);
+                await sessions.DeleteAsync(providerContext, handle, stop.Token).WaitAsync(stop.Token);
+                handle = null; sessionClosed = true;
                 var artifacts = new List<AgentTaskArtifact>();
                 foreach (var requirement in context.Task.Verification.Where(v => v.Kind == "file.content"))
                 {
@@ -170,24 +175,74 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            result = dispatched ? Unknown(null, bounds.Exhausted ? "The approved inference budget is exhausted; reconcile interrupted work." : "Execution was interrupted; inspect and reconcile the original invocation.")
+            if (ex is CopilotSendInterruptedException interrupted)
+            { observed = interrupted.Snapshot; admissionObserved = interrupted.BudgetAdmissionObserved; }
+            result = dispatched ? Unknown(null, "Execution was interrupted; inspect and reconcile the original invocation.")
                 : ex is CopilotSandboxRequiredException isolation ? Failed(isolation.Code, isolation.Message)
                 : Failed("AGENT_PREPARATION_FAILED", "The host rejected task preparation before dispatch. Inspect host configuration and the retained receipt.");
         }
         finally
         {
-            await bounds.StopAsync();
-            if (handle is not null)
+            using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            // Timeout leaves the prepared/dispatched record unresolved. Never save a completion while
+            // a reservation writer or a managed file operation can still change the invocation.
+            await bounds.StopAsync(stop.Token);
+            if (observed is not null)
+                record["executionObservations"] = JsonSerializer.SerializeToNode(observed, CopilotCoreJsonContext.Default.CopilotSendResult);
+            if (bounds.AdmissionStop is not null)
+                record["admissionStop"] = JsonSerializer.SerializeToNode(bounds.AdmissionStop, CopilotCoreJsonContext.Default.CopilotAdmissionStop);
+            try { await SaveAsync(context, record, CancellationToken.None); }
+            finally
             {
-                // Abort is best effort and is not proof of quiescence. Keep uncertainty in the receipt.
-                try { using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(10)); await sessions.AbortAsync(providerContext, handle, stop.Token); } catch (Exception) { }
+                if (handle is not null && admissionObserved && observed is not null &&
+                    bounds.ToolAdmissionsObserved(observed.ToolExecutions.Count) && CessationObserved(observed, tools))
+                {
+                    try
+                    {
+                        await sessions.DeleteAsync(providerContext, handle, stop.Token).WaitAsync(stop.Token);
+                        handle = null; sessionClosed = true;
+                    }
+                    catch (Exception) { /* Shutdown failure is unresolved even when earlier tool events completed. */ }
+                }
+                if (handle is not null)
+                {
+                    // Abort alone is not proof of cessation, and never enables finalization.
+                    try { await sessions.AbortAsync(providerContext, handle, stop.Token).WaitAsync(stop.Token); } catch (Exception) { }
+                }
             }
+        }
+        record["sessionClosed"] = sessionClosed;
+        if (bounds.AdmissionStop is { } admission)
+        {
+            var terminal = sessionClosed && (admissionObserved || result.Status == "budget_exhausted");
+            result = result with { Status = terminal ? "budget_exhausted" : "needs_reconciliation", Output = null,
+                Failure = BudgetFailure(admission, terminal) };
         }
         result = result with { Usage = Usage(record, started) };
         record["status"] = result.Status; record["result"] = JsonSerializer.SerializeToNode(result, AgentTaskJsonContext.Default.AgentTaskResult);
         await SaveAsync(context, record, CancellationToken.None);
         return result;
     }
+
+    private static bool CessationObserved(CopilotSendResult observed, IReadOnlySet<string> tools)
+        => observed.ToolExecutions.All(t => t.StartedSequence is not null && t.CompletionObserved &&
+            !t.ConflictingCompletion && t.ToolName is not null && tools.Contains(t.ToolName)) &&
+            observed.ToolExecutions.Where(t => t.ToolName is "bash" or "powershell")
+                .All(t => CommandCompleted(t, observed.ToolExecutions));
+
+    private static WorkflowError BudgetFailure(CopilotAdmissionStop stop, bool cessationVerified) => new()
+    {
+        Code = "AGENT_BUDGET_EXHAUSTED", Type = "AGENT_BUDGET_EXHAUSTED", Retryable = false,
+        Message = "The approved agent inference allowance cannot admit another request. Charged tokens are conservative reservations, not measured usage.",
+        Details = new JsonObject
+        {
+            ["dimension"] = stop.Kind.ToString().ToLowerInvariant(), ["max_model_calls"] = stop.MaxModelCalls,
+            ["max_total_tokens"] = stop.MaxTotalTokens, ["deadline"] = stop.Deadline.ToString("O"),
+            ["model_calls"] = stop.ModelCalls, ["charged_tokens"] = stop.ChargedTokens,
+            ["required_input_tokens"] = stop.RequiredInputTokens, ["remaining_tokens"] = Math.Max(0, stop.MaxTotalTokens - stop.ChargedTokens),
+            ["metering"] = "reserved_upper_bound", ["cessation_verified"] = cessationVerified
+        }
+    };
 
     private static AgentTaskResult Failed(string code, string message) => new("failed", null, [], [], new(0, 0, 0), message)
     { Failure = new WorkflowError { Code = code, Type = code, Message = message, Retryable = false } };
@@ -210,7 +265,20 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
     private static AgentTaskUsage Usage(JsonObject? record, DateTimeOffset? started = null) => new(
         record?["modelCalls"]?.GetValue<int>() ?? 0, record?["chargedTokens"]?.GetValue<long>() ?? 0,
         started is null ? 0 : (DateTimeOffset.UtcNow - started.Value).TotalMilliseconds) { Metering = "reserved_upper_bound" };
-    private static AgentTaskResult Unknown(JsonObject? record, string message) => new("needs_reconciliation", null, [], [], Usage(record), message);
+    private static AgentTaskResult Unknown(JsonObject? record, string message)
+    {
+        var result = new AgentTaskResult("needs_reconciliation", null, [], [], Usage(record), message);
+        if (record?["admissionStop"] is { } node)
+        {
+            try
+            {
+                var stop = JsonSerializer.Deserialize(node, CopilotCoreJsonContext.Default.CopilotAdmissionStop);
+                if (stop is not null) result = result with { Failure = BudgetFailure(stop, cessationVerified: false) };
+            }
+            catch (JsonException) { /* Malformed diagnostic metadata cannot establish a terminal outcome. */ }
+        }
+        return result;
+    }
     private static async Task<string?> FileHashAsync(ICopilotSessionFileSystem files, string path, CancellationToken ct)
     { try { return Hash(await files.ReadFileAsync(path, ct)); } catch (FileNotFoundException) { return null; } catch (DirectoryNotFoundException) { return null; } }
     private static HashSet<string> Tools(IReadOnlyList<string> capabilities)
