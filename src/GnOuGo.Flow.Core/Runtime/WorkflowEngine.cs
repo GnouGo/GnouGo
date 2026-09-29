@@ -749,7 +749,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
             FinalizationTimeoutSeconds = source.FinalizationTimeoutSeconds,
             MaxFinalizationSteps = source.MaxFinalizationSteps,
             LogStepContent = source.LogStepContent,
-            RunId = null,
+            RunId = source.RunId,
             ExecutionId = source.ExecutionId,
             AgentId = source.AgentId,
             AgentName = source.AgentName,
