@@ -257,3 +257,5 @@ dotnet test tests/GnOuGo.GithubCopilot.Core.Tests
 dotnet test tests/GnOuGo.GithubCopilot.Mcp.Tests
 dotnet test tests/GnOuGo.Flow.Copilot.Tests
 ```
+
+Agent budget stops retain safe admission diagnostics and execution observations. Only verified cessation permits a terminal failure and cleanup; unknown outcomes require explicit reconciliation. See [budget stops and recovery](../../docs/agent-budget-interruptions.md).

@@ -1,0 +1,128 @@
+{
+  "provenance": "Sanitized retained CodeReviewTest execution. No replay of effects; original encrypted records unchanged.",
+  "runId": "625232f39685e1a6b16e30ada70ebcba",
+  "tenantId": "default",
+  "status": "needs_reconciliation",
+  "createdAt": "2026-09-29T15:48:03.667152\u002B00:00",
+  "updatedAt": "2026-09-29T16:11:51.170109\u002B00:00",
+  "result": {
+    "success": false,
+    "outputs": null,
+    "stepResults": [
+      {
+        "stepId": "n_4adcbb58192516ee",
+        "stepType": "human.input",
+        "status": 2,
+        "output": {
+          "response": true,
+          "_action": "submit"
+        },
+        "error": null,
+        "duration": "00:17:49.4282884"
+      },
+      {
+        "stepId": "n_ae5bc47024766af8",
+        "stepType": "assert.non_null",
+        "status": 2,
+        "output": {
+          "value": true
+        },
+        "error": null,
+        "duration": "00:00:00.2136523"
+      },
+      {
+        "stepId": "n_7d6ef7fcc9a24787",
+        "stepType": "workflow.call",
+        "status": 3,
+        "output": null,
+        "error": {
+          "code": "RUN_NEEDS_RECONCILIATION",
+          "type": "RUN_NEEDS_RECONCILIATION",
+          "message": "An external invocation has no verified completion receipt. Reconcile it before resuming or running cleanup.",
+          "retryable": false,
+          "details": {
+            "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9",
+            "workflow": "w_81be22d7f1c8baf9",
+            "step_id": "n_2b55de4ba8055788",
+            "step_type": "agent.run",
+            "step_status": "Failed"
+          }
+        },
+        "duration": "00:05:57.8094202"
+      }
+    ],
+    "error": {
+      "code": "RUN_NEEDS_RECONCILIATION",
+      "type": "RUN_NEEDS_RECONCILIATION",
+      "message": "An external invocation has no verified completion receipt. Reconcile it before resuming or running cleanup. [workflow \u0027main\u0027, step \u0027n_7d6ef7fcc9a24787\u0027]",
+      "retryable": false,
+      "details": {
+        "invocation_id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9",
+        "workflow": "w_81be22d7f1c8baf9",
+        "step_id": "n_2b55de4ba8055788",
+        "step_type": "agent.run",
+        "step_status": "Failed",
+        "failed_workflow": "main",
+        "failed_step_id": "n_7d6ef7fcc9a24787",
+        "failed_step_type": "workflow.call",
+        "execution_phase": "step"
+      }
+    }
+  },
+  "invocations": [
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_2b55de4ba8055788",
+      "stepType": "agent.run",
+      "status": "needs_reconciliation",
+      "dispatchedAt": "2026-09-29T16:06:25.974561\u002B00:00",
+      "completedAt": null,
+      "externalCompletionObserved": false,
+      "observation": null,
+      "error": null,
+      "budget": {
+        "max_elapsed_milliseconds": 1800000,
+        "max_model_calls": 20,
+        "max_total_tokens": 200000
+      },
+      "capabilities": [
+        "project.read",
+        "project.write"
+      ]
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787",
+      "stepType": "workflow.call",
+      "status": "dispatched",
+      "dispatchedAt": "2026-09-29T16:05:53.37223\u002B00:00",
+      "completedAt": null,
+      "externalCompletionObserved": false,
+      "observation": null,
+      "error": null
+    }
+  ],
+  "adapter": {
+    "schemaVersion": 9,
+    "tenantId": "default",
+    "runId": "625232f39685e1a6b16e30ada70ebcba",
+    "invocationId": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_2b55de4ba8055788",
+    "status": "needs_reconciliation",
+    "startedAt": "2026-09-29T16:06:26.8183270\u002B00:00",
+    "deadline": "2026-09-29T16:36:26.8183270\u002B00:00",
+    "modelCalls": 4,
+    "chargedTokens": 167402,
+    "result": {
+      "status": "needs_reconciliation",
+      "output": null,
+      "evidence": [],
+      "artifacts": [],
+      "usage": {
+        "model_calls": 4,
+        "total_tokens": 167402,
+        "elapsed_milliseconds": 324299.592,
+        "metering": "reserved_upper_bound"
+      },
+      "message": "The approved inference budget is exhausted; reconcile interrupted work.",
+      "verification": []
+    }
+  }
+}

@@ -1739,3 +1739,5 @@ text, command output or raw exceptions. Terminal failed results expose this erro
 without authorizing automatic retries. Historical results retain the generic fallback;
 unknown outcomes still require reconciliation. A completed result with a failure is
 invalid. The field uses existing source-generated serialization; journal schema remains 9.
+
+Agent budget stops retain safe admission diagnostics and execution observations. Only verified cessation permits a terminal failure and cleanup; unknown outcomes require explicit reconciliation. See [budget stops and recovery](../../docs/agent-budget-interruptions.md).

@@ -18,7 +18,7 @@
         <p>@run.StepsStarted / @run.Limits.MaxTotalStepsExecuted steps · @run.FinalizationStepsStarted / @run.Limits.MaxFinalizationSteps cleanup steps</p>
         <p>Cleanup: @(run.FinalizationCompleted ? "completed" : run.FinalizationStarted ? "in progress" : "pending") · Cancellation: @(run.CancelRequested ? "requested" : "not requested")</p>
         @if (run.ModelUsage is { } usage) { <p>Model usage: @usage.Calls calls · @usage.InputTokens input tokens · @usage.OutputTokens output tokens</p> }
-        <button type="button" disabled="@_busy" @onclick='() => CommandAsync("resume")'>Resume this revision</button>
+        <button type="button" disabled="@(_busy || run.Status == WorkflowRunStatus.NeedsReconciliation)" @onclick='() => CommandAsync("resume")'>Resume this revision</button>
         <button type="button" disabled="@run.CancelRequested" @onclick='() => CommandAsync("cancel")'>Cancel this revision</button>
         @if (_busy) { <p role="status">Execution command is running. Refresh to inspect its journal or pending human input.</p> }
         @foreach (var invocation in run.Invocations.Values.OrderBy(i => i.PreparedAt).ThenBy(i => i.Id))
@@ -31,6 +31,19 @@
                 {
                     <p>@invocation.ResolvedInput?["objective"]</p>
                     <p>Workspace: <code>@invocation.ResolvedInput?["workspace"]</code></p>
+                    var observed = invocation.Output ?? invocation.Observation;
+                    var budget = invocation.ResolvedInput?["budget"];
+                    @if (observed?["usage"] is { } agentUsage)
+                    {
+                        <p>Agent calls: @agentUsage["model_calls"] / @budget?["max_model_calls"]</p>
+                        <p>@(agentUsage["metering"]?.ToString() == "reserved_upper_bound" ? "Charged token reservations" : "Reported tokens"): @agentUsage["total_tokens"] / @budget?["max_total_tokens"]</p>
+                        @if (agentUsage["metering"]?.ToString() == "reserved_upper_bound")
+                        { <p>Reservations are conservative ceilings, not measured usage. The next request can exceed the remaining allowance.</p> }
+                    }
+                    @if (observed?["failure"] is { } failure)
+                    { <p role="status">@failure["code"]: @failure["message"]</p> }
+                    <p>External cessation: @(invocation.ExternalCompletionObserved ? "verified" : "not verified")</p>
+                    <p>Planner token settings do not change this agent task's approved execution budget.</p>
                     <details><summary>Approved permissions, budgets and verification</summary><pre>@Scope(invocation.ResolvedInput)</pre></details>
                     <details open><summary>Observed evidence and verification findings</summary><pre>@Evidence(invocation.Output ?? invocation.Observation)</pre></details>
                 }
@@ -96,5 +109,5 @@
     private static string Scope(JsonNode? input) => new JsonObject
     { ["capabilities"] = input?["capabilities"]?.DeepClone(), ["budget"] = input?["budget"]?.DeepClone(), ["verification"] = input?["verification"]?.DeepClone() }.ToJsonString();
     private static string Evidence(JsonNode? result) => new JsonObject
-    { ["status"] = result?["status"]?.DeepClone(), ["evidence"] = result?["evidence"]?.DeepClone(), ["verification"] = result?["verification"]?.DeepClone(), ["artifacts"] = result?["artifacts"]?.DeepClone(), ["usage"] = result?["usage"]?.DeepClone() }.ToJsonString();
+    { ["status"] = result?["status"]?.DeepClone(), ["failure"] = result?["failure"]?.DeepClone(), ["evidence"] = result?["evidence"]?.DeepClone(), ["verification"] = result?["verification"]?.DeepClone(), ["artifacts"] = result?["artifacts"]?.DeepClone(), ["usage"] = result?["usage"]?.DeepClone() }.ToJsonString();
 }

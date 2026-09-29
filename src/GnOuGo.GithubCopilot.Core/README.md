@@ -87,3 +87,5 @@ and unreadable hosts remain unavailable for bounded commands. Custom SDK adapter
 without this query fail closed. `Configured` describes policy only; the existing
 session enforcement probe remains authoritative before inference. This query never
 changes device settings, authentication or permissions.
+
+Agent budget stops retain safe admission diagnostics and execution observations. Only verified cessation permits a terminal failure and cleanup; unknown outcomes require explicit reconciliation. See [budget stops and recovery](../../docs/agent-budget-interruptions.md).

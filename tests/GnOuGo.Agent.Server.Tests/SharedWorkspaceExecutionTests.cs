@@ -23,6 +23,7 @@ public sealed class SharedWorkspaceExecutionTests
     [InlineData("cancelled")]
     [InlineData("missing")]
     [InlineData("isolation")]
+    [InlineData("budget")]
     public async Task LocalLifecycleSliceUsesExactApprovedPathAndRealCleanup(string mode)
     {
         using var current = new RecordedWorkspaceContractTests.CurrentContracts();
@@ -95,12 +96,13 @@ public sealed class SharedWorkspaceExecutionTests
         Assert.Equal(1, cleanupCalls); Assert.False(Directory.Exists(target));
         Assert.Equal("untouched", File.ReadAllText(Path.Combine(unrelated, "keep")));
         Assert.Equal("local source\n", File.ReadAllText(Path.Combine(source, "README.md")));
-        Assert.Equal(mode is "success" or "cancelled" or "isolation" ? 1 : 0, runner.Runs);
+        Assert.Equal(mode is "success" or "cancelled" or "isolation" or "budget" ? 1 : 0, runner.Runs);
         if (mode == "isolation")
         {
             Assert.Equal("AGENT_ISOLATION_REQUIRED", resultRun.Error!.Code);
             Assert.Null(resultRun.Error.Details?["finalization_errors"]);
         }
+        if (mode == "budget") Assert.Equal("AGENT_BUDGET_EXHAUSTED", resultRun.Error!.Code);
         foreach (var file in Directory.EnumerateFiles(current.Root, "*", SearchOption.AllDirectories)) File.SetAttributes(file, FileAttributes.Normal);
     }
 
@@ -124,6 +126,8 @@ public sealed class SharedWorkspaceExecutionTests
             Runs++;
             if (mode == "isolation") return Task.FromResult(new AgentTaskResult("failed", null, [], [], new(0, 0, 0))
             { Failure = new() { Code = "AGENT_ISOLATION_REQUIRED", Message = "Mandatory host isolation is not configured.", Retryable = false } });
+            if (mode == "budget") return Task.FromResult(new AgentTaskResult("budget_exhausted", null, [], [], new(4, 167402, 324299) { Metering = "reserved_upper_bound" })
+            { Failure = new() { Code = "AGENT_BUDGET_EXHAUSTED", Message = "The next request does not fit the approved allowance.", Retryable = false } });
             if (mode == "cancelled") { cancellation.Cancel(); throw new OperationCanceledException(cancellation.Token); }
             // Explicit mocked observations; no claims about actual shell/model execution.
             var evidence = context.Task.Verification.Select(v => new AgentTaskEvidence(v.Id, v.Kind, v.Subject,
