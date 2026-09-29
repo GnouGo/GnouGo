@@ -118,24 +118,30 @@ internal static class PlanningCapabilityArguments
 
     internal static bool RemovalOnly(PlanningCapability capability, string name, TaskValue original, TaskValue candidate)
     {
+        var copy = WithoutOwned(capability, name, original);
+        return copy is not null && JsonNode.DeepEquals(JsonSerializer.SerializeToNode(copy, PlanningJsonContext.Default.TaskValue),
+            JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskValue));
+    }
+
+    internal static TaskValue? WithoutOwned(PlanningCapability capability, string name, TaskValue original)
+    {
         var port = TaskOperations.Describe(capability).Inputs.Single(p => p.Name == name);
-        if (Owns(capability, port.Path)) return false; // Remove the binding, never replace its value.
+        if (Owns(capability, port.Path)) return null; // Remove the binding, never replace its value.
         var copy = JsonSerializer.SerializeToNode(original, PlanningJsonContext.Default.TaskValue)!.Deserialize(PlanningJsonContext.Default.TaskValue)!;
         foreach (var binding in Bindings(capability).Where(b => Prefix(port.Path, b.Path)))
         {
             var path = binding.Path[port.Path.Count..]; var value = copy;
             foreach (var part in path[..^1])
             {
-                if (value.Kind != "object" || value.Members.Count(m => m.Name == part) > 1) return false;
+                if (value.Kind != "object" || value.Members.Count(m => m.Name == part) > 1) return null;
                 value = value.Members.SingleOrDefault(m => m.Name == part)?.Value!;
                 if (value is null) break;
             }
             if (value is null) continue;
-            if (value.Kind != "object" || value.Members.Count(m => m.Name == path[^1]) > 1) return false;
+            if (value.Kind != "object" || value.Members.Count(m => m.Name == path[^1]) > 1) return null;
             value.Members.RemoveAll(m => m.Name == path[^1]);
         }
-        return JsonNode.DeepEquals(JsonSerializer.SerializeToNode(copy, PlanningJsonContext.Default.TaskValue),
-            JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskValue));
+        return copy;
     }
 
     internal static PlanningValue Apply(PlanningValue input, PlanningCapability capability)

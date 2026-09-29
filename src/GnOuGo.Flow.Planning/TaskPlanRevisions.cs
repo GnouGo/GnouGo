@@ -55,11 +55,11 @@ internal static class TaskPlanRevisions
             if (symbols.Values.ContainsKey(path) && path.Split('/') is ["", "tasks", var consumer, "inputs", var argument] &&
                 symbols.Tasks.TryGetValue(consumer, out var originalTask) && revised.Tasks.TryGetValue(consumer, out var revisedTask) &&
                 revisedTask.Task.Kind == "operation" && originalTask.Task.Operation == revisedTask.Task.Operation &&
-                revisedTask.Task.Inputs.All(i => i.Name != argument) && RemovableInput(originalTask.Task, argument)) removals.Add(path);
+                revisedTask.Task.Inputs.All(i => i.Name != argument) && RemovableInput(originalTask.Task, argument, catalog)) removals.Add(path);
             if (symbols.Values.TryGetValue(path, out var site) && revised.Values.TryGetValue(path, out var replacement))
             {
                 var used = new HashSet<string>(StringComparer.Ordinal);
-                var owned = OwnedInput(path);
+                var owned = OwnedInput(symbols, path, catalog);
                 if (owned is null ? Related(site.Value, replacement.Value, site.Scope, used) : Same(site.Value, replacement.Value) ||
                     PlanningCapabilityArguments.RemovalOnly(owned, path.Split('/')[4], site.Value, replacement.Value))
                 { permittedValues.Add(path); additions.UnionWith(used); }
@@ -79,34 +79,6 @@ internal static class TaskPlanRevisions
         Mask(before, "", false); Mask(after, "", true);
         foreach (var location in Differences(before, after, "").Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
             yield return new("REVISION_SCOPE_CHANGED", location, "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.");
-
-        PlanningCapability? OwnedInput(string path)
-        {
-            if (catalog is null || path.Split('/') is not ["", "tasks", var id, "inputs", var name] || !symbols.Tasks.TryGetValue(id, out var site)) return null;
-            var matches = catalog.Capabilities.Where(c => TaskOperations.Describe(c).Id == site.Task.Operation).ToArray();
-            return matches.Length == 1 && TaskOperations.Validate(matches[0]).Count == 0 && site.Task.Inputs.Count(i => i.Name == name) == 1 &&
-                PlanningCapabilityArguments.Assignment(matches[0], name, site.Task.Inputs.Single(i => i.Name == name).Value) ? matches[0] : null;
-        }
-
-        bool RemovableInput(PlanTask task, string name)
-        {
-            if (catalog is null || task.Kind != "operation" || task.Inputs.Count(i => i.Name == name) != 1) return false;
-            var matches = catalog.Capabilities.Where(c => TaskOperations.Describe(c).Id == task.Operation).ToArray();
-            if (matches.Length != 1 || TaskOperations.Validate(matches[0]).Count != 0) return false;
-            var port = TaskOperations.Describe(matches[0]).Inputs.SingleOrDefault(p => p.Name == name);
-            if (port is null) return false;
-            if (PlanningCapabilityArguments.Owns(matches[0], port.Path)) return true;
-            if (PlanningCapabilityArguments.Assignment(matches[0], name, task.Inputs.Single(i => i.Name == name).Value)) return false;
-            if (port.Required) return false;
-            // A producer mapping cannot override requiredness in the authoritative schema.
-            var parent = matches[0].InputSchema;
-            foreach (var segment in port.Path.SkipLast(1))
-            {
-                if (parent["properties"]?[segment] is not JsonObject child) return false;
-                parent = child;
-            }
-            return parent["required"] is not JsonArray required || !required.Any(n => n?.ToString() == port.Path[^1]);
-        }
 
         bool Related(TaskValue original, TaskValue replacement, TaskPlanSymbols.Scope owner, HashSet<string> used, bool preserve = false)
         {
@@ -175,9 +147,37 @@ internal static class TaskPlanRevisions
             }
         }
     }
+    internal static PlanningCapability? OwnedInput(TaskPlanSymbols symbols, string path, PlanningCatalog? catalog)
+    {
+        if (catalog is null || path.Split('/') is not ["", "tasks", var id, "inputs", var name] || !symbols.Tasks.TryGetValue(id, out var site)) return null;
+        var matches = catalog.Capabilities.Where(c => TaskOperations.Describe(c).Id == site.Task.Operation).ToArray();
+        return matches.Length == 1 && TaskOperations.Validate(matches[0]).Count == 0 && site.Task.Inputs.Count(i => i.Name == name) == 1 &&
+            PlanningCapabilityArguments.Assignment(matches[0], name, site.Task.Inputs.Single(i => i.Name == name).Value) ? matches[0] : null;
+    }
+
+    internal static bool RemovableInput(PlanTask task, string name, PlanningCatalog? catalog)
+    {
+        if (catalog is null || task.Kind != "operation" || task.Inputs.Count(i => i.Name == name) != 1) return false;
+        var matches = catalog.Capabilities.Where(c => TaskOperations.Describe(c).Id == task.Operation).ToArray();
+        if (matches.Length != 1 || TaskOperations.Validate(matches[0]).Count != 0) return false;
+        var port = TaskOperations.Describe(matches[0]).Inputs.SingleOrDefault(p => p.Name == name);
+        if (port is null) return false;
+        if (PlanningCapabilityArguments.Owns(matches[0], port.Path)) return true;
+        if (PlanningCapabilityArguments.Assignment(matches[0], name, task.Inputs.Single(i => i.Name == name).Value)) return false;
+        if (port.Required) return false;
+        // A producer mapping cannot override requiredness in the authoritative schema.
+        var parent = matches[0].InputSchema;
+        foreach (var segment in port.Path.SkipLast(1))
+        {
+            if (parent["properties"]?[segment] is not JsonObject child) return false;
+            parent = child;
+        }
+        return parent["required"] is not JsonArray required || !required.Any(n => n?.ToString() == port.Path[^1]);
+    }
+
     // Only exact, unambiguous type slots grant permission. Existing field names and
     // order are immutable; a missing subtype may be supplied explicitly by repair.
-    private static HashSet<string> TransformResultSlots(TaskPlan plan)
+    internal static HashSet<string> TransformResultSlots(TaskPlan plan)
     {
         var paths = new List<string>();
         foreach (var task in Tasks(plan).Where(t => t.Kind == "transform")) Add(task.ResultType, "/tasks/" + task.Id + "/resultType");
@@ -202,7 +202,7 @@ internal static class TaskPlanRevisions
         }
     }
     private static bool Same(TaskValue left, TaskValue right) => JsonNode.DeepEquals(JsonSerializer.SerializeToNode(left, PlanningJsonContext.Default.TaskValue), JsonSerializer.SerializeToNode(right, PlanningJsonContext.Default.TaskValue));
-    private static string Element(string path, JsonNode? node, int index)
+    internal static string Element(string path, JsonNode? node, int index)
     {
         var collection = path.Split('/')[^1];
         if (collection is "tasks" or "always" && node?["id"] is { } task) return "/tasks/" + task;

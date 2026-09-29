@@ -17,7 +17,9 @@ internal static class PlanningSchemas
         schema["properties"]?["plan"]?["anyOf"] is JsonArray alternatives &&
         alternatives.Any(a => a?["type"]?.ToString() == "null");
 
-    internal static JsonObject Proposal(PlanningSession state)
+    internal static JsonObject Proposal(PlanningSession state) => FullProposal(state);
+
+    internal static JsonObject FullProposal(PlanningSession state, bool compact = true)
     {
         var actions = new List<JsonNode?>();
         if (PlanningDiscoveryContext.CanDiscover(state))
@@ -84,7 +86,7 @@ internal static class PlanningSchemas
         var definitions = root["$defs"]!.AsObject();
         definitions["task"] = Tasks(state, definitions);
         if (state.Requirements is not null) root["$defs"]!.AsObject().Remove("requirements");
-        ShareRepeatedSchemas(root, definitions);
+        if (compact) ShareRepeatedSchemas(root, definitions);
         return root;
     }
 
@@ -200,7 +202,7 @@ internal static class PlanningSchemas
         }
     }
 
-    private static JsonObject DomainValue(JsonObject schema, JsonObject definitions)
+    internal static JsonObject DomainValue(JsonObject schema, JsonObject definitions)
     {
         var declared = TaskOperations.FiniteDomain(schema);
         var values = declared.ContainsKey("const") ? new JsonArray([declared["const"]?.DeepClone()]) : declared["enum"]?.DeepClone() as JsonArray;
@@ -233,7 +235,7 @@ internal static class PlanningSchemas
     private static JsonObject Described(JsonObject schema, string description) { schema["description"] = description; return schema; }
     private static JsonObject Identity() => new() { ["type"] = "string", ["pattern"] = TaskPlanCompiler.IdentityPattern };
     private static JsonObject Nonblank() => new() { ["type"] = "string", ["pattern"] = @"\S" };
-    private static JsonObject Integer(int minimum, int maximum) => new() { ["type"] = "integer", ["minimum"] = minimum, ["maximum"] = maximum };
+    internal static JsonObject Integer(int minimum, int maximum) => new() { ["type"] = "integer", ["minimum"] = minimum, ["maximum"] = maximum };
     internal static JsonObject String() => Type("string");
     internal static JsonObject Type(string type) => new() { ["type"] = type };
     internal static JsonObject Enum(params string[] values) => new() { ["type"] = "string", ["enum"] = new JsonArray(values.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()) };
