@@ -257,13 +257,15 @@ internal static class CodeMcpJson
 
     private static JsonSerializerOptions CreateSerializerOptions()
     {
-        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web) { AllowOutOfOrderMetadataProperties = true };
         options.TypeInfoResolverChain.Insert(0, CopilotCoreJsonContext.Default);
         options.TypeInfoResolverChain.Insert(0, CodeMcpJsonContext.Default);
         return options;
     }
 }
 
+[JsonSourceGenerationOptions(AllowOutOfOrderMetadataProperties = true)]
+[JsonSerializable(typeof(IReadOnlyList<CopilotAttachmentInput>))]
 [JsonSerializable(typeof(System.Text.Json.Nodes.JsonObject))]
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(IReadOnlyList<string>))]

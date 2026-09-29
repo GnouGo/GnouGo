@@ -189,10 +189,10 @@ internal sealed class CopilotTools
         string prompt,
         string deliveryMode = "enqueue",
         string? agentMode = null,
-        [Description("Optional JSON array of file/blob attachments using the stable attachment contract.")] string? attachmentsJson = null,
+        [Description(CopilotAttachmentContract.Description)] IReadOnlyList<CopilotAttachmentInput>? attachments = null,
         CancellationToken cancellationToken = default)
         => WithServerAsync(requestContext, cancellationToken, () => SendWithProgressAsync(
-            new CopilotSendRequest(BuildContext(), handle, prompt, deliveryMode, agentMode, ParseAttachments(attachmentsJson)),
+            new CopilotSendRequest(BuildContext(), handle, prompt, deliveryMode, agentMode, CopilotAttachmentContract.ToCore(attachments)),
             cancellationToken));
 
     [McpServerTool(Name = "copilot_one_shot", UseStructuredContent = true, OutputSchemaType = typeof(CopilotSendResult)), Description("Runs one non-interactive call in one ephemeral Copilot session, then disconnects and permanently deletes it. The deny default is appropriate for inference that needs no tool execution. Use copilot_interactive_one_shot for work that may install dependencies, run commands, edit files, or otherwise require user permission. approve_all is host-policy gated and generated workflows must not select it unless unattended execution was explicitly requested and availability is established.")]
@@ -205,12 +205,12 @@ internal sealed class CopilotTools
         string? provider = null,
         string? model = null,
         [Description("Optional JSON array of read-only tool/path allowlist entries used only with auto_approve_allowlist.")] string? permissionAllowlistJson = null,
-        string? attachmentsJson = null,
+        [Description(CopilotAttachmentContract.Description)] IReadOnlyList<CopilotAttachmentInput>? attachments = null,
         CancellationToken cancellationToken = default)
         => WithServerAsync(requestContext, () => OneShotWithProgressAsync(
             new CopilotSessionCreateRequest(BuildContext(), BuildConfiguration(projectRoot, provider, model, permissionAllowlistJson), CopilotSessionKind.OneShot, ToCorePermissionMode(permissionMode)),
             prompt,
-            ParseAttachments(attachmentsJson),
+            CopilotAttachmentContract.ToCore(attachments),
             cancellationToken));
 
     [McpServerTool(Name = "copilot_interactive_one_shot", UseStructuredContent = true, OutputSchemaType = typeof(CopilotSendResult)), Description("Runs one turn in an ephemeral managed Copilot session with interactive MCP permission and elicitation callbacks, then permanently deletes the session after success, failure, or cancellation. Use this capability for work that may install dependencies, run commands, edit files, or otherwise require user permission.")]
@@ -222,7 +222,7 @@ internal sealed class CopilotTools
         string? provider = null,
         string? model = null,
         [Description("Optional JSON array of read-only tool/path allowlist entries retained in the ephemeral managed session configuration.")] string? permissionAllowlistJson = null,
-        string? attachmentsJson = null,
+        [Description(CopilotAttachmentContract.Description)] IReadOnlyList<CopilotAttachmentInput>? attachments = null,
         CancellationToken cancellationToken = default)
         => WithServerAsync(requestContext, cancellationToken, () => InteractiveOneShotWithProgressAsync(
             new CopilotSessionCreateRequest(
@@ -231,7 +231,7 @@ internal sealed class CopilotTools
                 CopilotSessionKind.Managed,
                 CopilotPermissionMode.Interactive),
             prompt,
-            ParseAttachments(attachmentsJson),
+            CopilotAttachmentContract.ToCore(attachments),
             cancellationToken));
 
     [McpServerTool(Name = "copilot_session_history", UseStructuredContent = true, OutputSchemaType = typeof(IReadOnlyList<CopilotHistoryEvent>)), Description("Returns safe session history. Reasoning event content is always removed.")]
@@ -486,11 +486,6 @@ internal sealed class CopilotTools
         => string.IsNullOrWhiteSpace(json)
             ? null
             : JsonSerializer.Deserialize(json, CodeMcpJsonContext.Default.ListString)?.Where(static value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.Ordinal).ToArray();
-
-    private static IReadOnlyList<CopilotAttachment>? ParseAttachments(string? json)
-        => string.IsNullOrWhiteSpace(json)
-            ? null
-            : JsonSerializer.Deserialize(json, CopilotCoreJsonContext.Default.IReadOnlyListCopilotAttachment);
 
     private static IReadOnlyList<ReviewFilePatch> ParseReviewFiles(string json)
         => JsonSerializer.Deserialize(json, CopilotCoreJsonContext.Default.IReadOnlyListReviewFilePatch)

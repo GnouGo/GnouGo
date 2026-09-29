@@ -76,6 +76,7 @@ builder.Services
             Version = "1.0.0"
         };
         options.AddGnOuGoToolErrorNormalizer();
+        CopilotAttachmentContract.Configure(options);
         options.Filters.Request.CallToolFilters.Add(next => async (request, cancellationToken) =>
         {
             var accessor = request.Services is null ? null : request.Services.GetService<CodeMcpTraceContextAccessor>();

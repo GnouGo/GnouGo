@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Mcp.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -46,6 +47,22 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         Assert.Contains("captured directly", observations["description"]!.ToString());
         Assert.Contains("exitCode", observations.ToJsonString());
         Assert.Contains("not inferred from text", observations.ToJsonString());
+    }
+
+    [Theory]
+    [InlineData("copilot_one_shot")]
+    [InlineData("copilot_interactive_one_shot")]
+    [InlineData("copilot_session_send")]
+    public void AttachmentsExposeTypedBusinessObjectsInsteadOfEncodedJson(string tool)
+    {
+        var schema = GetInputSchema(DiscoverCopilotTools()[tool]);
+        Assert.Null(schema["properties"]?["attachmentsJson"]);
+        var attachments = Assert.IsType<JsonObject>(schema["properties"]?["attachments"]);
+        Assert.Contains("array", attachments["type"]!.ToString());
+        Assert.NotNull(attachments["items"]);
+        Assert.Contains("file", attachments["items"]!.ToJsonString());
+        Assert.Contains("blob", attachments["items"]!.ToJsonString());
+        Assert.Contains("additionalProperties\":false", attachments["items"]!.ToJsonString());
     }
 
     private readonly string _root = Path.Combine(Path.GetTempPath(), "gnougo-code-tools-structured-output-tests-" + Guid.NewGuid().ToString("N"));
@@ -393,6 +410,17 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
 
         var tools = (await client.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken))
             .ToDictionary(static tool => tool.Name, StringComparer.Ordinal);
+        foreach (var name in new[] { "copilot_session_send", "copilot_one_shot", "copilot_interactive_one_shot" })
+        {
+            var schema = JsonNode.Parse(tools[name].JsonSchema.GetRawText())!;
+            Assert.Null(schema["properties"]?["attachmentsJson"]);
+            var attachments = schema["properties"]!["attachments"]!;
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(new JsonArray((JsonNode?)null), attachments));
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(JsonNode.Parse("""[{"type":"file","path":null}]"""), attachments));
+            var rejected = await client.CallToolAsync(name, new Dictionary<string, object?> { ["attachments"] = new { pullRequestUrl = "fixture" } }, cancellationToken: TestContext.Current.CancellationToken);
+            Assert.True(rejected.IsError);
+            Assert.Equal("INVALID_INPUT", rejected.StructuredContent!.Value.GetProperty("code").GetString());
+        }
         AssertPermissionSchema(
             Assert.IsType<JsonObject>(JsonNode.Parse(tools["copilot_session_create"].JsonSchema.GetRawText())),
             ["interactive", "auto_approve_allowlist", "deny", "approve_all"],
@@ -501,8 +529,12 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
             .WithTools<CopilotTools>(CodeMcpJson.SerializerOptions);
 
         using var provider = services.BuildServiceProvider();
-        return provider.GetServices<McpServerTool>()
+        var tools = provider.GetServices<McpServerTool>()
             .ToDictionary(static tool => tool.ProtocolTool.Name, StringComparer.Ordinal);
+        foreach (var tool in tools.Values)
+            if (CopilotAttachmentContract.IsAttachmentTool(tool.ProtocolTool.Name))
+                tool.ProtocolTool.InputSchema = CopilotAttachmentContract.InputSchema(tool.ProtocolTool.InputSchema);
+        return tools;
     }
 
     private static JsonObject GetInputSchema(McpServerTool tool)
