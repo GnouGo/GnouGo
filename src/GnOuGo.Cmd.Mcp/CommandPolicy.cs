@@ -163,7 +163,9 @@ public sealed class CommandPolicy
             throw new InvalidOperationException("The generated cmd_run input schema must declare commandName.");
         }
 
-        properties["parameters"] = new JsonObject { ["type"] = new JsonArray("object", "null"), ["description"] = "Declared named string parameters for the selected command." };
+        properties["parameters"] = new JsonObject { ["type"] = new JsonArray("object", "null"),
+            ["additionalProperties"] = new JsonObject { ["type"] = new JsonArray("string", "null") },
+            ["description"] = "Declared named string parameters for the selected command." };
         commandName["enum"] = new JsonArray(_settings.AllowedCommands.Keys
             .Order(StringComparer.Ordinal)
             .Select(static name => (JsonNode?)JsonValue.Create(name))

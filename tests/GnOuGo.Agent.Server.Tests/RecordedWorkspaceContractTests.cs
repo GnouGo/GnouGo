@@ -84,6 +84,8 @@ public sealed class RecordedWorkspaceContractTests(ITestOutputHelper output)
         using var current = new CurrentContracts(); var replay = new Replay(); var state = replay.State(replay.Recording["finalSession"]!);
         var cmd = state.Catalog!.Capabilities.Single(c => c.Method == "cmd_run");
         state.Catalog.Capabilities[state.Catalog.Capabilities.IndexOf(cmd)] = current.Replace(cmd)!;
+        var parameterPort = TaskOperations.Describe(state.Catalog.Capabilities.Single(c => c.Id == cmd.Id)).Inputs.Single(i => i.Name == "parameters");
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(new JsonObject { ["recursive"] = true }, parameterPort.Schema));
         var plan = Corrected(state.Plan!);
         var cleanup = plan.Root.Always.Single(t => t.Id == "cleanup_clone");
         cleanup.Inputs.Single(i => i.Name == "parameters").Value.Members.Add(new("recursive", new() { Kind = "boolean", Boolean = true }));
