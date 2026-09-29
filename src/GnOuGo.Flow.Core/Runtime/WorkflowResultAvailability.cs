@@ -49,7 +49,10 @@ public static class WorkflowResultAvailability
                 return ResultName(member.Object) is { } source ? new([source], StringComparer.Ordinal) : EvaluationReads(member.Object);
             }
             if (node is Identifier identifier) return identifier.Name == "data" ? new(StringComparer.Ordinal) : null;
-            if (node is not (Literal or BinaryExpression or UnaryExpression)) return null;
+            if (node is not Literal &&
+                node is not UnaryExpression { Operator: Operator.LogicalNot } &&
+                node is not BinaryExpression { Operator: Operator.Equality or Operator.Inequality or Operator.StrictEquality or Operator.StrictInequality or
+                    Operator.LessThan or Operator.LessThanOrEqual or Operator.GreaterThan or Operator.GreaterThanOrEqual or Operator.LogicalAnd or Operator.LogicalOr }) return null;
             var result = new HashSet<string>(StringComparer.Ordinal);
             foreach (var child in node.ChildNodes)
             { var reads = EvaluationReads(child); if (reads is null) return null; result.UnionWith(reads); }

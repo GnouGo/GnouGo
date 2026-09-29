@@ -17,6 +17,7 @@ public sealed class ResultAvailabilityTests
     [InlineData("unproven() || data.steps.a != null", false)]
     [InlineData("data.steps.b[unproven()] || data.steps.a != null", false)]
     [InlineData("unknownName || data.steps.a != null", false)]
+    [InlineData("delete data.steps.b || data.steps.a != null", false)]
     [InlineData("data.steps.a != null ?? data.steps.b != null", false)]
     public void GuardProofUsesOnlyKnownPresenceFacts(string expression, bool expected)
     {
