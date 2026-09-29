@@ -8,20 +8,48 @@ public static class WorkflowResultAvailability
     public static bool GuardHolds(string? expression, IReadOnlySet<string> guaranteed)
         => RequiredResults(expression) is { Count: > 0 } required && required.All(guaranteed.Contains);
 
-    /// <summary>Results whose presence is sufficient to make a pure availability conjunction true.</summary>
+    /// <summary>Results whose presence is sufficient to make an availability guard true.</summary>
     public static IReadOnlySet<string> RequiredResults(string? expression)
     {
-        var required = new HashSet<string>(StringComparer.Ordinal);
-        if (Parse(expression) is not { } root || !Holds(root)) required.Clear();
-        return required;
-        bool Holds(Node node) => node switch
+        return Parse(expression) is { } root ? Required(root) ?? new(StringComparer.Ordinal) : new HashSet<string>(StringComparer.Ordinal);
+        HashSet<string>? Required(Node node)
         {
-            LogicalExpression { Operator: Operator.LogicalAnd } and => Holds(and.Left) && Holds(and.Right),
-            BinaryExpression { Operator: Operator.Inequality or Operator.StrictInequality } comparison =>
-                comparison.Right is NullLiteral && Known(comparison.Left) || comparison.Left is NullLiteral && Known(comparison.Right),
-            _ => false
-        };
-        bool Known(Node node) { if (ResultName(node) is not { } name) return false; required.Add(name); return true; }
+            if (node is BooleanLiteral { Value: true }) return new(StringComparer.Ordinal);
+            if (node is LogicalExpression logical)
+            {
+                var left = Required(logical.Left); var right = Required(logical.Right);
+                if (logical.Operator == Operator.LogicalAnd)
+                { if (left is null || right is null) return null; left.UnionWith(right); return left; }
+                // A known-true operand suffices for OR. This is not a proof that the other
+                // operand's business predicate is true or that any payload is valid.
+                if (logical.Operator == Operator.LogicalOr)
+                {
+                    // Choosing the right proof must also establish that evaluating the left
+                    // operand cannot dereference an absent result before short-circuiting.
+                    var reads = EvaluationReads(logical.Left);
+                    if (right is not null && reads is not null) right.UnionWith(reads); else right = null;
+                    return left is null ? right : right is null || left.Count <= right.Count ? left : right;
+                }
+                return null;
+            }
+            if (node is BinaryExpression { Operator: Operator.Inequality or Operator.StrictInequality } comparison)
+            {
+                var name = comparison.Right is NullLiteral ? ResultName(comparison.Left) : comparison.Left is NullLiteral ? ResultName(comparison.Right) : null;
+                if (name is not null) return new([name], StringComparer.Ordinal);
+            }
+            return null;
+        }
+        HashSet<string>? EvaluationReads(Node node)
+        {
+            if (node is BinaryExpression { Operator: Operator.Equality or Operator.Inequality or Operator.StrictEquality or Operator.StrictInequality } comparison &&
+                (comparison.Left is NullLiteral && ResultName(comparison.Right) is not null || comparison.Right is NullLiteral && ResultName(comparison.Left) is not null)) return new(StringComparer.Ordinal);
+            if (node is MemberExpression member && ResultName(member.Object) is { } source) return new([source], StringComparer.Ordinal);
+            if (node is not (Literal or Identifier or MemberExpression or BinaryExpression or UnaryExpression)) return null;
+            var result = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var child in node.ChildNodes)
+            { var reads = EvaluationReads(child); if (reads is null) return null; result.UnionWith(reads); }
+            return result;
+        }
     }
 
     /// <summary>Whether a true condition necessarily excludes both null and missing values for this result.</summary>

@@ -137,7 +137,7 @@ public static class WorkflowPlanSemanticValidator
             // Failure-path guards remain in the executable workflow; their truth here needs a proof.
             var guaranteed = workflow.Steps.Where(s => string.IsNullOrWhiteSpace(s.If) &&
                 !(s.OnError?.Cases.Any(c => c.Action == "continue") ?? false) &&
-                symbols.TryGetStepOutput(s.Id, out var output) && output.Kind == FlowTypeKind.Object)
+                symbols.TryGetStepOutput(s.Id, out var output) && HasObjectEnvelope(s, output))
                 .Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
             foreach (var finalizer in workflow.Finally)
             {
@@ -145,7 +145,7 @@ public static class WorkflowPlanSemanticValidator
                 ValidateStep(finalizer, workflowName, document.Workflows, workflow.Inputs, knownContracts, symbols, allStepIds,
                     allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors, proven);
                 if ((proven || string.IsNullOrWhiteSpace(finalizer.If)) && !(finalizer.OnError?.Cases.Any(c => c.Action == "continue") ?? false) &&
-                    symbols.TryGetStepOutput(finalizer.Id, out var output) && output.Kind == FlowTypeKind.Object) guaranteed.Add(finalizer.Id);
+                    symbols.TryGetStepOutput(finalizer.Id, out var output) && HasObjectEnvelope(finalizer, output)) guaranteed.Add(finalizer.Id);
             }
 
             if (workflow.Outputs != null)
@@ -163,6 +163,10 @@ public static class WorkflowPlanSemanticValidator
                         errors);
             }
         }
+
+        static bool HasObjectEnvelope(StepDef step, FlowTypeDescriptor output) => output.Kind == FlowTypeKind.Object ||
+            step.Type == "switch" && step.Cases is { Count: > 0 } && step.Cases.All(c => c.Steps.Count > 0) && step.Default is { Count: > 0 } &&
+            output.Kind == FlowTypeKind.Union && output.Variants.Count > 0 && output.Variants.All(v => v.Kind == FlowTypeKind.Object);
 
         if (errors.Count > 0)
             throw new WorkflowSemanticValidationException(errors);

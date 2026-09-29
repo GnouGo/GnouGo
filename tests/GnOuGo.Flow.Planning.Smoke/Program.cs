@@ -187,6 +187,27 @@ foreach (var selected in new[] { false, true })
 }
 Console.WriteLine("null-only contracts: passed; both conditional branches; no inference");
 
+var cleanupPlan = JsonSerializer.Deserialize("""
+{"inputs":[{"name":"selected","type":{"kind":"boolean"}}],"root":{
+ "tasks":[{"id":"prepare","kind":"value","objective":"Retain condition","outputs":[{"name":"flag","value":{"kind":"input","source":"selected"}}]}],
+ "always":[{"id":"finish","kind":"conditional","objective":"Export explicit cleanup result",
+ "condition":{"kind":"field","port":"flag","items":[{"kind":"output","source":"prepare"}]},
+ "body":{"outputs":[{"name":"result","value":{"kind":"string","text":"performed"}}]},
+ "otherwise":{"outputs":[{"name":"result","value":{"kind":"string","text":"skipped"}}]}}],
+ "outputs":[{"name":"cleanup","value":{"kind":"output","source":"finish","port":"result"}}]}}
+""", PlanningJsonContext.Default.TaskPlan)!;
+var cleanupGraph = new TaskPlanCompiler().Compile(cleanupPlan, encodingCatalog);
+if (cleanupGraph.Graph is null || cleanupGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Cleanup compilation failed");
+var cleanupYaml = new PlanningGraphCompiler().Compile(cleanupGraph.Graph, encodingCatalog);
+if ((await encodingRuntime.ValidateAsync(new(cleanupYaml, new(), encodingCatalog, []), CancellationToken.None)).Count != 0) throw new InvalidOperationException("Cleanup validation failed");
+var cleanupDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(cleanupYaml));
+foreach (var selected in new[] { true, false })
+{
+    var run = await encodingEngine.ExecuteAsync(cleanupDocument.Workflows["main"], new JsonObject { ["selected"] = selected }, CancellationToken.None);
+    if (!run.Success || run.Outputs!["cleanup"]!.GetValue<string>() != (selected ? "performed" : "skipped")) throw new InvalidOperationException("Conditional cleanup changed its selected output");
+}
+Console.WriteLine("conditional cleanup: passed; guarded field selection and explicit branch exports; no inference");
+
 // Catalog-owned fields stay out of semantic intent through serialization and AOT.
 var ownedCatalog = await productRuntime.DiscoverAsync(new(), CancellationToken.None);
 ownedCatalog.Capabilities.Add(new() { Id = "owned_operation", Version = "v1", Kind = "registered", StepType = "set", EffectKind = "none",

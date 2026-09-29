@@ -287,7 +287,7 @@ public sealed partial class TaskPlanCompiler
         // Cleanup can observe a failed/absent producer. Guard each generated stage before resolving inputs.
         if (cleanup)
         {
-            foreach (var node in target.Skip(start))
+            foreach (var node in PlanningGraphCompiler.Enumerate(target.Skip(start)))
             {
                 GuardCleanup(node);
             }
@@ -297,12 +297,6 @@ public sealed partial class TaskPlanCompiler
             _sources.TryAdd(node.Key, "/tasks/" + task.Id);
             node.Dependencies = task.DependsOn.SelectMany(id => scope.Tasks[id].Values.Select(b => b.Value.Source)).OfType<string>().Concat(node.Dependencies).Distinct().ToList();
         }
-    }
-
-    private static void GuardCleanup(PlanningNode node)
-    {
-        var producers = PlanningGraphTopology.ReferencedStages(node.Input).Distinct(StringComparer.Ordinal).ToArray();
-        if (producers.Length > 0) node.If = new() { Kind = "expression", Text = string.Join(" && ", producers.Select(p => "data.steps[" + Quote(p) + "] != null")) };
     }
 
     private Dictionary<string, Bound> Operation(PlanTask task, Scope scope, List<PlanningNode> target, string key)
