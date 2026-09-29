@@ -38,15 +38,16 @@ public sealed class BoundedCopilotTasksTests
     public async Task ConfiguredPolicyDoesNotBypassEnforcementAndPreparationFailuresStaySafe(bool isolation)
     {
         await using var fixture = new Fixture();
+        var context = fixture.Context with { Task = fixture.Context.Task with { Capabilities = ["project.read", "project.write", "command.execute"] } };
         fixture.Host.PreparationFailure = isolation ? new CopilotSandboxRequiredException(CopilotSandboxReadiness.Unavailable) : new IOException("credential=private-and-never-public");
-        var result = await fixture.Tasks.RunAsync(fixture.Context, TestContext.Current.CancellationToken);
-        Assert.Equal("failed", result.Status); Assert.Equal(0, fixture.Host.Sends);
+        var result = await fixture.Tasks.RunAsync(context, TestContext.Current.CancellationToken);
+        Assert.Equal("failed", result.Status); Assert.Equal(0, fixture.Host.Sends); Assert.Equal(1, fixture.Host.PolicyReads);
         Assert.Equal(isolation ? "AGENT_ISOLATION_UNAVAILABLE" : "AGENT_PREPARATION_FAILED", result.Failure!.Code);
         Assert.DoesNotContain("private", result.Message); Assert.DoesNotContain("private", result.Failure.Message);
         Assert.False(result.Failure.Retryable);
-        var retained = await fixture.Tasks.InspectAsync(fixture.Context, TestContext.Current.CancellationToken);
+        var retained = await fixture.Tasks.InspectAsync(context, TestContext.Current.CancellationToken);
         Assert.Equal(result.Failure.Code, retained.Failure!.Code);
-        await fixture.Tasks.RunAsync(fixture.Context, TestContext.Current.CancellationToken);
+        await fixture.Tasks.RunAsync(context, TestContext.Current.CancellationToken);
         Assert.Equal(1, fixture.Host.SessionsCreated);
     }
 
