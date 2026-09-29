@@ -64,6 +64,7 @@ public sealed partial class TaskPlanCompiler
     private sealed class InvalidTask(string code, string location, string message) : Exception(message)
     { public PlanningDiagnostic Diagnostic { get; } = new(code, location, message); }
     private TaskPlan _plan = null!;
+    private TaskPlanSymbols _symbols = null!;
     private PlanningCatalog _catalog = null!;
     private PlanningGraph _graph = new();
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
@@ -73,7 +74,7 @@ public sealed partial class TaskPlanCompiler
 
     public TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog)
     {
-        _plan = plan; _catalog = catalog; _location = "/"; _graph = new(); _sources.Clear(); _groups.Clear(); _compilingGroups.Clear();
+        _plan = plan; _symbols = new(plan); _catalog = catalog; _location = "/"; _graph = new(); _sources.Clear(); _groups.Clear(); _compilingGroups.Clear();
         try
         {
             var findings = Preflight();
@@ -294,7 +295,7 @@ public sealed partial class TaskPlanCompiler
         foreach (var node in target.Skip(start))
         {
             _sources.TryAdd(node.Key, "/tasks/" + task.Id);
-            node.Dependencies = task.DependsOn.SelectMany(id => scope.Tasks[id].Values.Select(b => b.Value.Source)).OfType<string>().Distinct().ToList();
+            node.Dependencies = task.DependsOn.SelectMany(id => scope.Tasks[id].Values.Select(b => b.Value.Source)).OfType<string>().Concat(node.Dependencies).Distinct().ToList();
         }
     }
 
@@ -312,14 +313,22 @@ public sealed partial class TaskPlanCompiler
         if (_catalog.Policy.DeniedCapabilityIds.Contains(capability.Id) || !_catalog.AllowedStepTypes.Contains(capability.StepType)) Fail("TASK_OPERATION_DENIED", "The operation is outside the approved host policy.");
         Unique(task.Inputs.Select(i => i.Name));
         var input = Object([]);
+        var scopeDependencies = new List<string>();
         foreach (var argument in task.Inputs)
         {
             _location = "/tasks/" + task.Id + "/inputs/" + argument.Name;
             var port = operation.Inputs.SingleOrDefault(p => p.Name == argument.Name);
             if (port is null) Fail("TASK_INPUT_UNKNOWN", "Choose a declared business input port: " + argument.Name);
-            if (capability.StepType == "agent.run" && port!.Path[0] is "objective" or "workspace" or "capabilities" or "budget" or "verification" or "output_schema" && !Literal(argument.Value))
-                Fail("AGENT_SCOPE_DYNAMIC", "Agent scope fields must be literal before approval; choices and runtime references cannot change them.");
             var bound = Value(argument.Value, scope);
+            if (capability.StepType == "agent.run")
+            {
+                var approved = ScopeValue(task, port!.Path[0], argument.Value);
+                if (!ReferenceEquals(approved, argument.Value))
+                {
+                    scopeDependencies.AddRange(PlanningGraphTopology.ReferencedStages(bound.Value));
+                    bound = Value(approved, scope);
+                }
+            }
             Fits(bound, port!.Schema, "TASK_INPUT_TYPE");
             Bind(input, port.Path, bound.Value);
         }
@@ -339,7 +348,7 @@ public sealed partial class TaskPlanCompiler
         input = PlanningCapabilityArguments.Apply(input, capability);
         _location = "/tasks/" + task.Id;
         target.Add(new() { Key = key, Purpose = task.Objective, Type = capability.StepType, CapabilityId = capability.Id,
-            Input = capability.StepType == "mcp.call" ? Object([new("request", input)]) : input });
+            Input = capability.StepType == "mcp.call" ? Object([new("request", input)]) : input, Dependencies = scopeDependencies });
         var outputs = new Dictionary<string, Bound>(StringComparer.Ordinal) { [""] = Output(key, capability.StepType, [], capability.OutputSchema) };
         foreach (var port in operation.Outputs) outputs.Add(port.Name, OperationOutput(key, capability, port));
         return outputs;

@@ -38,15 +38,14 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
     internal IReadOnlyList<string> Validate(AgentTaskContext context)
     {
         var errors = new List<string>();
-        try
-        {
-            AgentTaskContracts.Parse(JsonSerializer.SerializeToNode(context.Task, AgentTaskJsonContext.Default.AgentTaskDefinition));
-            ArgumentException.ThrowIfNullOrWhiteSpace(context.TenantId); ArgumentException.ThrowIfNullOrWhiteSpace(context.RunId);
-            ArgumentException.ThrowIfNullOrWhiteSpace(context.InvocationId);
-            _ = configuration.Build(context.Task.Workspace);
-        }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException or WorkflowRuntimeException)
-        { errors.Add("The task identity, workspace or contract is invalid under host policy."); }
+        if (string.IsNullOrWhiteSpace(context.TenantId) || string.IsNullOrWhiteSpace(context.RunId) || string.IsNullOrWhiteSpace(context.InvocationId))
+            errors.Add("AGENT_IDENTITY_INVALID: Tenant, run and invocation identities are required.");
+        try { AgentTaskContracts.Parse(JsonSerializer.SerializeToNode(context.Task, AgentTaskJsonContext.Default.AgentTaskDefinition)); }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or WorkflowRuntimeException)
+        { errors.Add("AGENT_CONTRACT_INVALID: The approved task contract is invalid."); }
+        try { _ = configuration.Build(context.Task.Workspace); }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException)
+        { errors.Add("AGENT_WORKSPACE_UNAVAILABLE: The approved workspace must be an existing directory within the host's permitted roots, outside reserved paths and without filesystem links."); }
         if (!policy.DescribePolicy().AllowWrites && context.Task.Capabilities.Any(c => c is "project.write" or "command.execute"))
             errors.Add("Host policy disables writes and adaptive command execution.");
         if (context.Task.Capabilities.Any(c => !Capabilities.Contains(c, StringComparer.Ordinal))) errors.Add("The task requests an unsupported capability.");

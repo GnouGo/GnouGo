@@ -78,7 +78,7 @@ public sealed partial class TaskPlanCompiler
     private IReadOnlyList<PlanningDiagnostic> Preflight()
     {
         var findings = IdentityDiagnostics(_plan).ToList();
-        var symbols = new TaskPlanSymbols(_plan);
+        var symbols = _symbols;
         var artifacts = new TaskArtifactBindings(_plan, _catalog, symbols);
         var groups = new Dictionary<string, Scope>(StringComparer.Ordinal);
         var activeGroups = new HashSet<string>(StringComparer.Ordinal);
@@ -249,8 +249,7 @@ public sealed partial class TaskPlanCompiler
                         if (port is null) { findings.Add(new("TASK_INPUT_UNKNOWN", location, "Choose a declared business input port.")); continue; }
                         Check(location, () =>
                         {
-                            if (capability.StepType == "agent.run" && port.Path[0] is "objective" or "workspace" or "capabilities" or "budget" or "verification" or "output_schema" && !Literal(input.Value))
-                                Fail("AGENT_SCOPE_DYNAMIC", "Agent scope fields must be literal before approval; choices and runtime references cannot change them.");
+                            if (capability.StepType == "agent.run") ScopeValue(task, port.Path[0], input.Value);
                             if (value is not null)
                             {
                                 findings.AddRange(ConstraintFindings(value, port.Schema, location));

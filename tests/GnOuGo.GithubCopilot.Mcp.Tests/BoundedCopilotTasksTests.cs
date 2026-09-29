@@ -96,6 +96,20 @@ public sealed class BoundedCopilotTasksTests
         Assert.Equal("needs_reconciliation", (await running).Status); Assert.Equal(1, fixture.Host.Sends);
     }
 
+    [Fact]
+    public async Task ScopeFailuresDistinguishIdentityContractAndWorkspaceWithoutLeakingPaths()
+    {
+        await using var fixture = new Fixture();
+        Assert.Empty(fixture.Tasks.Validate(fixture.Context));
+        var missing = fixture.Context with { Task = fixture.Context.Task with { Workspace = Path.Combine(fixture.Root, "not-created") } };
+        var finding = Assert.Single(fixture.Tasks.Validate(missing));
+        Assert.StartsWith("AGENT_WORKSPACE_UNAVAILABLE:", finding);
+        Assert.DoesNotContain(fixture.Root, finding);
+        Assert.Contains(fixture.Tasks.Validate(fixture.Context with { TenantId = "" }), e => e.StartsWith("AGENT_IDENTITY_INVALID:", StringComparison.Ordinal));
+        Assert.Contains(fixture.Tasks.Validate(fixture.Context with { Task = fixture.Context.Task with { Objective = "" } }), e => e.StartsWith("AGENT_CONTRACT_INVALID:", StringComparison.Ordinal));
+        Assert.Equal(0, fixture.Host.Sends);
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         public string Root { get; } = Path.Combine(Path.GetTempPath(), "gnougo-bounded-" + Guid.NewGuid().ToString("N"));
