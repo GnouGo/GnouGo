@@ -43,8 +43,13 @@ public static class WorkflowResultAvailability
         {
             if (node is BinaryExpression { Operator: Operator.Equality or Operator.Inequality or Operator.StrictEquality or Operator.StrictInequality } comparison &&
                 (comparison.Left is NullLiteral && ResultName(comparison.Right) is not null || comparison.Right is NullLiteral && ResultName(comparison.Left) is not null)) return new(StringComparer.Ordinal);
-            if (node is MemberExpression member && ResultName(member.Object) is { } source) return new([source], StringComparer.Ordinal);
-            if (node is not (Literal or Identifier or MemberExpression or BinaryExpression or UnaryExpression)) return null;
+            if (node is MemberExpression member)
+            {
+                if (member.Computed && member.Property is not (StringLiteral or NumericLiteral)) return null;
+                return ResultName(member.Object) is { } source ? new([source], StringComparer.Ordinal) : EvaluationReads(member.Object);
+            }
+            if (node is Identifier identifier) return identifier.Name == "data" ? new(StringComparer.Ordinal) : null;
+            if (node is not (Literal or BinaryExpression or UnaryExpression)) return null;
             var result = new HashSet<string>(StringComparer.Ordinal);
             foreach (var child in node.ChildNodes)
             { var reads = EvaluationReads(child); if (reads is null) return null; result.UnionWith(reads); }
