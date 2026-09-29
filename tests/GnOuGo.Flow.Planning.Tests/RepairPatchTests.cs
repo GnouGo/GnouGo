@@ -102,6 +102,7 @@ public sealed class RepairPatchTests
     [InlineData("catalog")]
     [InlineData("tenant")]
     [InlineData("policy")]
+    [InlineData("ceilings")]
     public void RetainedRequestCannotBeRebased(string changed)
     {
         var state = State(); var request = Request(state);
@@ -112,6 +113,7 @@ public sealed class RepairPatchTests
             case "catalog": state.Catalog!.Capabilities[0].Version = "2"; break;
             case "tenant": state.Request.TenantId = "other"; break;
             case "policy": state.Request.Policy.RequireExternalConfirmation = false; break;
+            case "ceilings": state.Request.MaxModelCalls++; break;
         }
         Assert.Throws<PlanningConflictException>(() => PlanningRepairPatch.Verify(state, request));
     }
@@ -142,4 +144,90 @@ public sealed class RepairPatchTests
         Assert.Throws<PlanningResponseException>(() => Apply(state, Export()));
         Assert.Empty(state.Plan.Root.Tasks[0].Body!.Outputs);
     }
+    [Fact]
+    public void ALocalRepairDoesNotRepeatUnrelatedSubtreesOrSchemas()
+    {
+        var state = State(); var before = HybridWorkflowPlanner.Prompt(state);
+        state.Plan!.Groups.Add(new() { Id = "unrelated_group", Body = new() { Tasks = [new() { Id = "other", Kind = "value", Objective = new string('x', 100000) }] } });
+        state.Discovery.Resolved.Add(new() { Id = "unrelated_capability", Description = new string('y', 100000), Version = "1", StepType = "mcp.call", InputSchema = new() { ["type"] = "object" } });
+        var after = HybridWorkflowPlanner.Prompt(state);
+        Assert.DoesNotContain(new string('x', 50), after); Assert.DoesNotContain(new string('y', 50), after);
+        Assert.Equal(before.Length, after.Length); // Only the fixed-length authority fingerprint changes.
+        Assert.DoesNotContain("\"taskPlan\"", after);
+    }
+
+    [Fact]
+    public void PartialCatalogOwnershipAllowsExplicitRemovalOfOwnedDescendantsOnly()
+    {
+        var state = State(); var cap = state.Catalog!.Capabilities[0];
+        cap.InputSchema = JsonNode.Parse("""{"type":"object","properties":{"options":{"type":"object","properties":{"locked":{"type":"string"},"text":{"type":"string"}},"required":["locked","text"]}},"required":["options"]}""")!.AsObject();
+        cap.RequestBindings = [new("/options/locked", JsonValue.Create("host"))];
+        state.Plan!.Root.Tasks[1].Inputs = [new("options", new() { Kind = "object", Members = [
+            new("locked", new() { Kind = "string", Text = "override" }), new("text", new() { Kind = "string", Text = "keep" })] })];
+        state.RevisionScope = ["/tasks/consumer/inputs/options"];
+        Assert.Equal(new[] { "remove_owned" }, Assert.Single(Slots(state)).Actions);
+        var repaired = Apply(state, Edit(state, state.RevisionScope[0], "remove_owned"));
+        var remaining = Assert.Single(repaired.Root.Tasks[1].Inputs[0].Value.Members);
+        Assert.Equal("text", remaining.Name); Assert.Equal("keep", remaining.Value.Text);
+        Assert.Equal(2, state.Plan.Root.Tasks[1].Inputs[0].Value.Members.Count);
+    }
+
+    [Fact]
+    public void MissingGroupInputAndDependencyRepairsPreserveInterfacesAndOrder()
+    {
+        var state = State(); state.Plan!.Groups.Add(new() { Id = "reuse", Inputs = [new() { Name = "text" }], Body = new() { Outputs = [new("text", new() { Kind = "input", Source = "text" })] } });
+        state.Plan.Root.Tasks.Add(new() { Id = "call_group", Kind = "call", Objective = "Use the declared interface", Group = "reuse", DependsOn = ["unknown"] });
+        state.RevisionScope = ["/tasks/call_group/inputs/text", "/tasks/call_group/dependsOn"];
+        var repaired = Apply(state, Edit(state, state.RevisionScope[0], "add", JsonNode.Parse("""{"kind":"string","text":"explicit"}""")),
+            Edit(state, state.RevisionScope[1], "replace", new JsonArray("consumer")));
+        Assert.Equal("explicit", Assert.Single(repaired.Root.Tasks[^1].Inputs).Value.Text);
+        Assert.Equal(new[] { "consumer" }, repaired.Root.Tasks[^1].DependsOn);
+        Assert.Equal("text", Assert.Single(repaired.Groups[0].Inputs).Name);
+        Assert.Equal(state.Plan.Root.Tasks.Select(t => t.Id), repaired.Root.Tasks.Select(t => t.Id));
+    }
+
+    [Fact]
+    public void MissingTransformTypeIsAClosedBusinessDeclarationNotAReplacementTask()
+    {
+        var state = State(); state.Plan!.Root.Tasks[0].ResultType = null;
+        state.RevisionScope = ["/tasks/producer/resultType"];
+        var payload = JsonNode.Parse("""{"kind":"object","fields":[{"name":"text","type":{"kind":"string"}}]}""");
+        var repaired = Apply(state, Edit(state, state.RevisionScope[0], "replace", payload));
+        Assert.Equal("string", Assert.Single(repaired.Root.Tasks[0].ResultType!.Fields).Type.Kind);
+        Assert.Equal(state.Plan.Root.Tasks[0].Objective, repaired.Root.Tasks[0].Objective);
+        Assert.Null(state.Plan.Root.Tasks[0].ResultType);
+    }
+
+    [Fact]
+    public void ChoicesCannotChangeHostSelectionsAndAlternativeValuesRemainLiteral()
+    {
+        var state = State(); state.Plan!.Choices = [new() { Id = "decision", Question = "Which value?", Type = new() { Kind = "string" },
+            Alternatives = [new("a", "First", new() { Kind = "string", Text = "A" }), new("b", "Second", new() { Kind = "string", Text = "B" })], Recommended = "missing" }];
+        state.RevisionScope = ["/choices/decision"];
+        var payload = JsonNode.Parse("""{"id":"decision","question":"Which value?","type":{"kind":"string"},"alternatives":[{"id":"a","description":"First","value":{"kind":"string","text":"A"}},{"id":"b","description":"Second","value":{"kind":"string","text":"B"}}],"recommended":"a"}""");
+        var repaired = Apply(state, Edit(state, state.RevisionScope[0], "replace", payload!.DeepClone()));
+        Assert.Equal("a", repaired.Choices[0].Recommended); Assert.Null(repaired.Choices[0].Selected);
+        state.Plan.Choices[0].Selected = "b";
+        Assert.Throws<PlanningResponseException>(() => Apply(state, Edit(state, state.RevisionScope[0], "replace", payload!.DeepClone())));
+        Assert.Equal("b", state.Plan.Choices[0].Selected);
+    }
+
+    [Fact]
+    public void ConditionalRepairRequiresBothExplicitBranchesAndRejectsUnusedExports()
+    {
+        var state = State(); var producer = state.Plan!.Root.Tasks[0]; producer.ResultType!.Fields[0].Type.Nullable = false;
+        state.Plan.Root.Tasks = [new() { Id = "branch", Kind = "conditional", Objective = "Choose a result", Condition = new() { Kind = "boolean", Boolean = true },
+            Body = new() { Tasks = [producer] }, Otherwise = new() }];
+        state.Plan.Root.Outputs = [new("text", new() { Kind = "output", Source = "producer", Port = "text" })];
+        state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog!).Diagnostics.ToList();
+        state.RevisionScope = TaskPlanRevisions.Scope(state.Plan, state.Diagnostics).ToList();
+        JsonObject[] Edits() => [Edit(state, "/tasks/branch/body/outputs", "add", JsonNode.Parse("""[{"name":"text","value":{"kind":"output","source":"producer","port":"text"}}]""")),
+            Edit(state, "/tasks/branch/otherwise/outputs", "add", JsonNode.Parse("""[{"name":"text","value":{"kind":"string","text":"explicit fallback"}}]""")),
+            Edit(state, "/root/outputs/text", "replace", JsonNode.Parse("""{"kind":"output","source":"branch","port":"text"}"""))];
+        Assert.Empty(new TaskPlanCompiler().Compile(Apply(state, Edits()), state.Catalog!).Diagnostics);
+        var partial = Edits(); Assert.Throws<PlanningResponseException>(() => Apply(state, partial[0], partial[2]));
+        var extra = Edits(); extra[0]["value"]!.AsArray().Add((JsonNode)JsonNode.Parse("""{"name":"unused","value":{"kind":"string","text":"unrelated"}}""")!);
+        Assert.Throws<PlanningResponseException>(() => Apply(state, extra));
+    }
+
 }

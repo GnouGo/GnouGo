@@ -24,6 +24,7 @@ Requirements → Discovery → LLM TaskPlan → deterministic compiler → Plann
 ## Repair and approval
 
 - Derive minimal complete edit permissions from the immutable baseline and diagnostics. A diagnosed optional operation binding may be explicitly omitted only under its authoritative contract; null is not omission. Expose only incompatible producer constraint leaves. Dependent revalidation does not grant edits; unknown locations never widen scope.
+- Initial generation returns TaskPlan; repairs return typed host-issued patches only. Reuse revision permissions, apply to a clone and fully revalidate. Send only affected context; never insert/delete/reorder tasks or regenerate the baseline. Bind recovery to the original baseline, scope, contracts and request schema; never silently rebase.
 - Preserve unrelated tasks, interfaces, ordering and choices. Reject unauthorized proposals atomically; retain discovery receipts, request identities and cumulative budgets through recovery. Validate recovered responses against their saved request schemas.
 - Reserve one proposal and one repair when allowed; additional repairs are opportunistic within saved ceilings. Successful discovery clears only resolved response errors, never history or counters. Enforce issued schemas and stop safely; token settings cannot replenish calls.
 - Invalid generated plumbing is a compiler defect, not a model repair. Do not remove guards or relax validation to accept it.

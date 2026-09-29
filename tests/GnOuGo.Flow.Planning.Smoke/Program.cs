@@ -169,3 +169,21 @@ var ownedRejection = new TaskPlanCompiler().Compile(ownedPlan, ownedCatalog);
 if (ownedRejection.Graph is not null || !ownedRejection.Diagnostics.Any(d => d.Code == "TASK_INPUT_HOST_OWNED"))
     throw new InvalidOperationException("Catalog override was accepted");
 Console.WriteLine("catalog-owned bindings: passed; host injection and explicit override rejection verified");
+
+// Patch-only repair is a private wire contract, round-tripped through source generation.
+var repairState = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = "Use the declared business text" },
+    Requirements = new() { Summary = "Use text", Outcomes = [new("text", "Use business text")] }, Plan = ownedPlan, Catalog = ownedCatalog,
+    Diagnostics = ownedRejection.Diagnostics.ToList(), RevisionScope = TaskPlanRevisions.Scope(ownedPlan, ownedRejection.Diagnostics).ToList() };
+var repairSchema = PlanningSchemas.Proposal(repairState);
+var repairRequest = new LLMRequest { Prompt = HybridWorkflowPlanner.Prompt(repairState), StructuredOutputSchema = repairSchema };
+var removeOwned = JsonNode.Parse("""{"discoveryRequests":null,"patch":{"edits":[{"slot":"s0","action":"remove"}]}}""")!;
+if (PlanningContractValidation.ValidateSchema(repairSchema, strict: true).Count != 0 || PlanningContractValidation.ValidateInstance(removeOwned, repairSchema).Count != 0)
+    throw new InvalidOperationException("Typed repair schema failed");
+var patchResponse = removeOwned.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!;
+patchResponse = JsonSerializer.Deserialize(JsonSerializer.Serialize(patchResponse, RepairJsonContext.Default.PlanningRepairResponse), RepairJsonContext.Default.PlanningRepairResponse)!;
+repairState = JsonSerializer.Deserialize(JsonSerializer.Serialize(repairState, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+var repairedPlan = PlanningRepairPatch.Apply(repairState, patchResponse.Patch!, repairRequest);
+if (repairedPlan.Root.Tasks[0].Inputs.Any(i => i.Name == "selector") || repairState.Plan!.Root.Tasks[0].Inputs.All(i => i.Name != "selector") ||
+    new TaskPlanCompiler().Compile(repairedPlan, ownedCatalog).Diagnostics.Count != 0)
+    throw new InvalidOperationException("Atomic source-generated repair failed");
+Console.WriteLine("typed repair patches: passed; source-generated recovery; owned removal; immutable baseline; no inference");
