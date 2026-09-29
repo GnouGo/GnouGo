@@ -1,0 +1,268 @@
+{
+  "id": "cap_6c40004fe4610a44cf97c2c7",
+  "description": "Resolves exact base/head/merge-base commits and returns a paginated per-file patch comparison with rename, binary, submodule, and truncation metadata. This is read-only and does not depend on the working tree. projectRoot consumes a required workspace.directory artifact and must identify an existing workspace-relative project root.",
+  "stepType": "mcp.call",
+  "server": "GnOuGo.Git.Mcp",
+  "method": "git_compare_refs",
+  "kind": "tool",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "projectRoot": {
+        "description": "Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory. Null, omitted, empty, absolute, file URI, home-relative, parent-traversal, and invented values are invalid.",
+        "type": "string"
+      },
+      "baseRef": {
+        "description": "Exact base commit SHA or fetched ref.",
+        "type": "string"
+      },
+      "headRef": {
+        "description": "Exact head commit SHA or fetched ref.",
+        "type": "string"
+      },
+      "compareFromMergeBase": {
+        "description": "When true (default), compare merge-base to head as GitHub PRs do; exact base/head/merge-base SHAs are always returned.",
+        "type": "boolean",
+        "default": true
+      },
+      "cursor": {
+        "description": "Opaque pagination cursor returned by a previous call.",
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "pageSize": {
+        "description": "Maximum files in this page, capped by Git:MaxComparePageSize.",
+        "type": "integer",
+        "default": 50
+      }
+    },
+    "required": [
+      "projectRoot",
+      "baseRef",
+      "headRef"
+    ]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "repositoryRoot": {
+        "type": "string"
+      },
+      "baseRef": {
+        "type": "string"
+      },
+      "headRef": {
+        "type": "string"
+      },
+      "baseSha": {
+        "type": "string"
+      },
+      "headSha": {
+        "type": "string"
+      },
+      "mergeBaseSha": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "comparedFromSha": {
+        "type": "string"
+      },
+      "files": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "previousPath": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": "string"
+            },
+            "patch": {
+              "type": "string"
+            },
+            "isBinary": {
+              "type": "boolean"
+            },
+            "isSubmodule": {
+              "type": "boolean"
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "linesAdded": {
+              "type": "integer"
+            },
+            "linesDeleted": {
+              "type": "integer"
+            },
+            "oldObjectId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "newObjectId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "path",
+            "previousPath",
+            "status",
+            "patch",
+            "isBinary",
+            "isSubmodule",
+            "truncated",
+            "linesAdded",
+            "linesDeleted",
+            "oldObjectId",
+            "newObjectId"
+          ]
+        }
+      },
+      "filesJson": {
+        "description": "Exact JSON array of the per-file comparison records returned on this page, preserving paths, patches, revision object identifiers, and truncation metadata.",
+        "type": "string"
+      },
+      "totalFiles": {
+        "type": "integer"
+      },
+      "offset": {
+        "type": "integer"
+      },
+      "pageSize": {
+        "type": "integer"
+      },
+      "hasMore": {
+        "type": "boolean"
+      },
+      "nextCursor": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "totalPatchCharacters": {
+        "type": "integer"
+      },
+      "truncatedFileCount": {
+        "type": "integer"
+      },
+      "repositoryRootRelative": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "output": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "success": {
+        "type": "boolean",
+        "default": true
+      },
+      "error_code": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "error_message": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      },
+      "ok": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "repositoryRoot",
+      "baseRef",
+      "headRef",
+      "baseSha",
+      "headSha",
+      "mergeBaseSha",
+      "comparedFromSha",
+      "files",
+      "filesJson",
+      "totalFiles",
+      "offset",
+      "pageSize",
+      "hasMore",
+      "nextCursor",
+      "totalPatchCharacters",
+      "truncatedFileCount"
+    ]
+  },
+  "fixedInput": {},
+  "requestBindings": [],
+  "effectKind": "unknown",
+  "version": "3e44b102f0af2bf158b419b8e5287574e2964fedd9f37bfbbb6b4bf080d3bc81",
+  "operation": null,
+  "composition": null,
+  "artifactContract": {
+    "version": 1,
+    "produces": [
+      {
+        "kind": "revision.comparison.files",
+        "pointer": "/filesJson",
+        "mode": "materialize",
+        "encoding": "json_array"
+      }
+    ],
+    "consumes": [
+      {
+        "kind": "workspace.directory",
+        "pointer": "/projectRoot",
+        "required": true
+      }
+    ]
+  },
+  "metadata": {
+    "gnougo": {
+      "artifacts": {
+        "version": 1,
+        "produces": [
+          {
+            "kind": "revision.comparison.files",
+            "pointer": "/filesJson",
+            "mode": "materialize",
+            "encoding": "json_array"
+          }
+        ],
+        "consumes": [
+          {
+            "kind": "workspace.directory",
+            "pointer": "/projectRoot",
+            "required": true
+          }
+        ]
+      }
+    }
+  },
+  "exampleResponse": null
+}
