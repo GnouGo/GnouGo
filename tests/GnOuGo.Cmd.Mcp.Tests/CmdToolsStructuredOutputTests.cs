@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -77,7 +78,7 @@ public sealed class CmdToolsStructuredOutputTests : IDisposable
         var host = new CommandExecutionHost(policy, NullLogger<CommandExecutionHost>.Instance);
         var tools = new CmdTools(host, NullLogger<CmdTools>.Instance);
 
-        var result = await tools.RunAsync("echo_test", "{", cancellationToken: CancellationToken.None);
+        var result = await tools.RunAsync("echo_test", new JsonObject { ["invented"] = true }, cancellationToken: CancellationToken.None);
 
         Assert.False(result.Success);
         Assert.False(result.Ok);

@@ -40,7 +40,7 @@ public sealed class WindowsCommandExecutionTests
             const string expected = "café 'quoted' \"double\" 日本語";
             for (var i = 0; i < 3; i++)
             {
-                var result = await host.RunAsync("probe", new JsonObject { ["text"] = expected }.ToJsonString(), null, TestContext.Current.CancellationToken);
+                var result = await host.RunAsync("probe", new JsonObject { ["text"] = expected }, null, TestContext.Current.CancellationToken);
                 Assert.False(result.TimedOut); Assert.Equal(exitCode, result.ExitCode); Assert.Equal(exitCode == 0, result.Success);
                 Assert.Equal(expected, result.Stdout!.TrimEnd('\r', '\n'));
                 Assert.Equal("observed stderr", result.Stderr!.TrimEnd('\r', '\n'));

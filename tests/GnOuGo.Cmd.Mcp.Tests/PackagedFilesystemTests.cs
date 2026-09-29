@@ -32,7 +32,7 @@ public sealed class PackagedFilesystemTests : IDisposable
 
     private string At(string relative) => Path.Combine(_root, relative);
     private Task<CmdRunResult> Run(string command, JsonObject? parameters = null, CancellationToken? ct = null, int? timeout = null)
-        => _tools.RunAsync(command, parameters?.ToJsonString(), timeout, ct ?? TestContext.Current.CancellationToken);
+        => _tools.RunAsync(command, parameters, timeout, ct ?? TestContext.Current.CancellationToken);
     private void FileAt(string relative, string content = "Unicode: é東京\nsecond line\n")
     {
         var path = At(relative); Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, content);
@@ -47,7 +47,7 @@ public sealed class PackagedFilesystemTests : IDisposable
     public void PackagedCatalogAndDiscoveryContainOnlyTheEighteenFilesystemCommands()
     {
         Assert.Equal(ExpectedCommands, _policy.ListAllowedCommands().Select(c => c.Name));
-        using var baseSchema = JsonDocument.Parse("""{"type":"object","properties":{"commandName":{"type":"string"},"parametersJson":{"type":["string","null"]}}} """);
+        using var baseSchema = JsonDocument.Parse("""{"type":"object","properties":{"commandName":{"type":"string"},"parameters":{"type":["object","null"]}}} """);
         var schema = _policy.BuildCmdRunInputSchema(baseSchema.RootElement);
         Assert.Equal(ExpectedCommands, schema.GetProperty("properties").GetProperty("commandName").GetProperty("enum").EnumerateArray().Select(n => n.GetString()));
         Assert.Equal(18, schema.GetProperty("oneOf").GetArrayLength());
@@ -75,6 +75,39 @@ public sealed class PackagedFilesystemTests : IDisposable
         Success(await Run("delete_directory", new() { ["path"] = "workflows/first-run" }));
         Success(await Run("delete_directory", new() { ["path"] = "workflows/first-run" }));
         Assert.False(Directory.Exists(At("workflows/first-run")));
+    }
+
+    [Theory]
+    [InlineData("recursive", true)]
+    [InlineData("ignoreMissing", true)]
+    [InlineData("invented", "true")]
+    [InlineData("args", "workflows/first-run")]
+    public async Task UnknownOrNonstringsAreRejectedBeforeDeletion(string name, object value)
+    {
+        FileAt("workflows/first-run/keep.txt", "unchanged");
+        var parameters = new JsonObject { ["path"] = "workflows/first-run", [name] = value is bool b ? JsonValue.Create(b) : JsonValue.Create((string)value) };
+        var before = parameters.ToJsonString();
+        var result = await Run("delete_directory", parameters);
+        Assert.Equal("INVALID_INPUT", result.ErrorCode); Assert.Null(result.StartedAtUtc);
+        Assert.Equal(before, parameters.ToJsonString());
+        Assert.Equal("unchanged", File.ReadAllText(At("workflows/first-run/keep.txt")));
+    }
+
+    [Fact]
+    public void RenamedCommandPublishesExactEffectiveParameterContract()
+    {
+        var command = _settings.AllowedCommands["delete_directory"];
+        _settings.AllowedCommands.Remove("delete_directory");
+        _settings.AllowedCommands["remove_tree"] = command;
+        using var input = JsonDocument.Parse("""{"type":"object","properties":{"commandName":{"type":"string"},"parameters":{"type":"object"}}}""");
+        var schema = _policy.BuildCmdRunInputSchema(input.RootElement);
+        var branch = schema.GetProperty("oneOf").EnumerateArray().Single(b => b.GetProperty("properties").GetProperty("commandName").GetProperty("const").GetString() == "remove_tree");
+        var parameters = branch.GetProperty("properties").GetProperty("parameters");
+        Assert.False(parameters.GetProperty("additionalProperties").GetBoolean());
+        Assert.Equal(new[] { "path" }, parameters.GetProperty("properties").EnumerateObject().Select(p => p.Name));
+        Assert.Equal(new[] { "path" }, parameters.GetProperty("required").EnumerateArray().Select(p => p.GetString()));
+        Assert.Equal("string", parameters.GetProperty("properties").GetProperty("path").GetProperty("type").GetString());
+        Assert.Contains("parameters", branch.GetProperty("required").EnumerateArray().Select(p => p.GetString()));
     }
 
     [Fact]

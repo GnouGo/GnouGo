@@ -128,9 +128,12 @@ public sealed class RecordedCloneExecutionTests
                     Assert.Equal(Location, path); CleanupCalls++;
                     Assert.False(ct.IsCancellationRequested);
                     // Actual packaged command settings, scripts and producer schema; no shell substitution in the test.
-                    using var baseSchema = JsonDocument.Parse(contract.InputSchema.ToJsonString());
-                    Assert.Empty(PlanningContractValidation.ValidateInstance(input, JsonNode.Parse(cmdPolicy.BuildCmdRunInputSchema(baseSchema.RootElement).GetRawText())!));
-                    var result = await cmd.RunAsync("delete_directory", args["parametersJson"]!.ToString(), null, ct);
+                    // Historical contract adapter only: the retained workflow keeps its issued wire shape.
+                    var parameters = JsonNode.Parse(args["parametersJson"]!.ToString())!.AsObject();
+                    using var baseSchema = JsonDocument.Parse("""{"type":"object","properties":{"commandName":{"type":"string"},"parameters":{"type":"object"}}}""");
+                    var current = new JsonObject { ["commandName"] = "delete_directory", ["parameters"] = parameters.DeepClone() };
+                    Assert.Empty(PlanningContractValidation.ValidateInstance(current, JsonNode.Parse(cmdPolicy.BuildCmdRunInputSchema(baseSchema.RootElement).GetRawText())!));
+                    var result = await cmd.RunAsync("delete_directory", parameters, null, ct);
                     Assert.True(result.Success, result.ErrorMessage + result.Stderr); output = Node(result);
                 }
                 else output = Respond(method, args);

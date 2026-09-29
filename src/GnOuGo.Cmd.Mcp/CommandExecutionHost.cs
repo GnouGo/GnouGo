@@ -28,7 +28,7 @@ public sealed class CommandExecutionHost
 
     public async Task<CmdRunResult> RunAsync(
         string commandName,
-        string? parametersJson,
+        JsonObject? parameters,
         int? timeoutMs,
         CancellationToken cancellationToken)
     {
@@ -37,7 +37,7 @@ public sealed class CommandExecutionHost
         {
             var command = _policy.GetRequiredCommand(commandName);
             var shell = _policy.ResolveShell(command.Shell);
-            var parameters = ParseParameters(parametersJson);
+            parameters = ValidateParameters(parameters);
             var workingDirectory = _policy.ResolveWorkingDirectory(command.WorkingDirectory);
             var script = _policy.RenderScript(command, parameters, workingDirectory);
             var effectiveTimeoutMs = _policy.ResolveTimeoutMs(command, timeoutMs);
@@ -193,24 +193,10 @@ public sealed class CommandExecutionHost
         }
     }
 
-    private static JsonObject? ParseParameters(string? parametersJson)
+    private static JsonObject? ValidateParameters(JsonObject? parameters)
     {
-        if (string.IsNullOrWhiteSpace(parametersJson))
-            return null;
-
-        JsonNode? node;
-        try
-        {
-            node = JsonNode.Parse(parametersJson);
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException("parametersJson must be a valid JSON object string.", ex);
-        }
-
-        if (node is not JsonObject obj)
-            throw new InvalidOperationException("parametersJson must deserialize to a JSON object.");
-
+        if (parameters is null) return null;
+        var obj = (JsonObject)parameters.DeepClone();
         foreach (var kv in obj)
         {
             if (kv.Value is null)

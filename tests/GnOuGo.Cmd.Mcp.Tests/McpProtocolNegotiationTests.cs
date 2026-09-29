@@ -63,7 +63,7 @@ public sealed class McpProtocolNegotiationTests : IDisposable
         {
             var result = await client.CallToolAsync("cmd_run", new Dictionary<string, object?>
             {
-                ["commandName"] = command, ["parametersJson"] = parameters.ToJsonString()
+                ["commandName"] = command, ["parameters"] = parameters.DeepClone()
             }, cancellationToken: TestContext.Current.CancellationToken);
             Assert.NotNull(result.StructuredContent);
             var value = JsonNode.Parse(result.StructuredContent.ToString()!)!;
