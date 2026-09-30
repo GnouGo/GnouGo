@@ -72,10 +72,10 @@ public sealed class CompactWireDefaultsTests
         Assert.Contains(state.Diagnostics, d => d.Code == "TASK_DEFAULT_INVALID" && d.Location == "/inputs/active");
         Assert.Contains(state.Diagnostics, d => d.Code == "TASK_ITEMS_INVALID" && d.Location == "/tasks/iterate/items");
         state.RevisionScope = TaskPlanRevisions.Scope(state.Plan, state.Diagnostics).ToList();
-        Assert.Equal(new[] { "/inputs/active", "/tasks/iterate/items" }, state.RevisionScope);
-        Assert.DoesNotContain(RepairPatchTests.Slots(state), s => s.Location.StartsWith("/inputs/entries", StringComparison.Ordinal));
+        Assert.Equal(new[] { "/inputs/active", "/inputs/entries/type/nullable", "/tasks/iterate/items" }, state.RevisionScope);
+        Assert.Single(RepairPatchTests.Slots(state), s => s.Location == "/inputs/entries/type/nullable");
         // Requiredness/default omission and nullability are separate business decisions.
-        // A producer declaration cannot be silently narrowed to make iteration valid.
+        // A diagnosed nullable leaf requires an explicit edit; other input fields remain fixed.
         state.Plan.Inputs[0].Default = null; state.Plan.Inputs[1].Type.Nullable = false;
         var result = compiler.Compile(state.Plan, state.Catalog); Assert.Empty(result.Diagnostics);
         var document = new GnOuGo.Flow.Core.Compilation.WorkflowCompiler().Compile(

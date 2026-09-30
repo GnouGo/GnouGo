@@ -95,4 +95,19 @@ inputs. Guidance now explains omitted representation flags (`required:true`,
 TaskPlan ceiling of 100 when the request supplies no bound. This does not change public
 contracts, infer intent deterministically or override explicit collection limits.
 [Validation](validation-2dda1cde.json) records the unchanged runtime's checks and passing CI.
+Candidate `8055674f` passed the collection diagnostic but its local-loop diagnostic
+stopped on an incompatible nullable input declaration. A conditional launch command
+incorrectly proceeded after that failed check; the resulting six final identities
+(all correct) are retained as an [inconclusive partial cohort](inconclusive-final-8055674f.jsonl),
+never claimed as acceptance or pooled with another revision. Its
+[diagnostic](diagnostic-8055674f.jsonl), [comparison](inconclusive-comparison-8055674f.json)
+and [validation](validation-8055674f.json) remain separate. Cumulative spend was
+EUR 9.899044 with no unknown usage.
+
+The failure reproduces a missing dependency permission: iteration diagnosed its
+binding but did not identify the incompatible input nullability leaf. New diagnostics
+track exact input type origins (including nested fields and reusable groups), grant
+only that leaf, and retain the remaining declaration. Tightening requires an explicit
+model patch consistent with accepted requirements; the compiler never changes intent.
+Whole-plan validation and the original authority fingerprint still apply.
 Fresh evaluation is pending.

@@ -18,12 +18,12 @@ internal static class TaskPlanRevisions
         var symbols = new TaskPlanSymbols(plan);
         var inputs = plan.Inputs.Select(i => "/inputs/" + i.Name).Concat(plan.Groups.SelectMany(g => g.Inputs.Select(i => "/groups/" + g.Id + "/inputs/" + i.Name))).ToHashSet(StringComparer.Ordinal);
         var scope = new HashSet<string>(StringComparer.Ordinal);
-        var resultSlots = TransformResultSlots(plan);
+        var resultSlots = ProducerConstraintSlots(plan);
         foreach (var finding in findings.Where(d => d.Required && d.Code != "REVISION_SCOPE_CHANGED"))
         {
             var path = finding.Location;
             if (finding.Code == "TASK_KIND_INVALID" && path.Split('/') is ["", "tasks", var invalidTask, "kind"] && symbols.Tasks.ContainsKey(invalidTask)) { scope.Add(path); continue; }
-            if (finding.Code is "TASK_TRANSFORM_TYPE" or "TASK_TRANSFORM_CONSTRAINT" && resultSlots.Contains(path)) { scope.Add(path); continue; }
+            if (finding.Code is "TASK_TRANSFORM_TYPE" or "TASK_TRANSFORM_CONSTRAINT" or "TASK_INPUT_CONSTRAINT" && resultSlots.Contains(path)) { scope.Add(path); continue; }
             if (symbols.Values.ContainsKey(path) || inputs.Contains(path) || plan.Choices.Any(c => path == "/choices/" + c.Id)) scope.Add(path);
             else if (finding.Code == "TASK_EXPORT_REQUIRED" && symbols.Scopes.Any(s => s.Path + "/outputs" == path)) scope.Add(path);
             else if (finding.Code == "TASK_BRANCH_OUTPUTS" && symbols.Scopes.Any(s => s.Owner?.Kind == "conditional" && path.StartsWith(s.Path + "/outputs/", StringComparison.Ordinal))) scope.Add(path);
@@ -60,7 +60,7 @@ internal static class TaskPlanRevisions
         var after = JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskPlan)!;
         var additions = new HashSet<string>(StringComparer.Ordinal);
         var removals = new HashSet<string>(StringComparer.Ordinal);
-        var resultSlots = TransformResultSlots(previous);
+        var resultSlots = ProducerConstraintSlots(previous);
         var permittedValues = new HashSet<string>(StringComparer.Ordinal);
         foreach (var path in scope)
         {
@@ -185,6 +185,26 @@ internal static class TaskPlanRevisions
             parent = child;
         }
         return parent["required"] is not JsonArray required || !required.Any(n => n?.ToString() == port.Path[^1]);
+    }
+
+    internal static HashSet<string> ProducerConstraintSlots(TaskPlan plan)
+    {
+        var slots = TransformResultSlots(plan);
+        Inputs(plan.Inputs, "/inputs");
+        foreach (var group in plan.Groups) Inputs(group.Inputs, "/groups/" + group.Id + "/inputs");
+        return slots;
+        void Inputs(List<TaskInput> inputs, string path)
+        {
+            foreach (var input in inputs.Where(i => !i.Name.Contains('/') && inputs.Count(other => other.Name == i.Name) == 1))
+                Nullable(input.Type, path + "/" + input.Name + "/type");
+        }
+        void Nullable(TaskType type, string path)
+        {
+            slots.Add(path + "/nullable");
+            if (type.Items is not null) Nullable(type.Items, path + "/items");
+            foreach (var field in type.Fields.Where(f => !f.Name.Contains('/') && type.Fields.Count(other => other.Name == f.Name) == 1))
+                Nullable(field.Type, path + "/fields/" + field.Name + "/type");
+        }
     }
 
     // Only exact, unambiguous type slots grant permission. Existing field names and

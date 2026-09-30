@@ -67,7 +67,7 @@ internal static class PlanningRepairPatch
     {
         var plan = state.Plan!; var symbols = new TaskPlanSymbols(plan);
         var index = Index(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!);
-        var types = TaskPlanRevisions.TransformResultSlots(plan); var slots = new List<Slot>();
+        var types = TaskPlanRevisions.ProducerConstraintSlots(plan); var slots = new List<Slot>();
         var structuralSlots = structural ? PlanningStructuralRepair.Slots(state, definitions) : [];
         foreach (var path in state.RevisionScope.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {

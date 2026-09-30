@@ -134,7 +134,7 @@ public sealed partial class TaskPlanCompiler
                 Check(path + "/" + input.Name, () =>
                 {
                     var port = InputPort(input);
-                    scope.Inputs.TryAdd(input.Name, Input(input.Name, port.Schema.Contract!));
+                    scope.Inputs.TryAdd(input.Name, Input(input.Name, port.Schema.Contract!) with { TypeLocation = path + "/" + input.Name + "/type" });
                     scope.Blocked.Remove(("input", input.Name, ""));
                 });
             }
@@ -207,7 +207,15 @@ public sealed partial class TaskPlanCompiler
                     var items = task.Items is null ? null : Read(task.Items, scope, path + "/items");
                     if (items?.Schema["type"]?.ToString() == "array" && items.Schema["items"] is JsonObject itemSchema)
                     { child.Item = new(new() { Kind = "loop_item" }, itemSchema, "data.item", TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null); child.Index = new(Number(0), new() { ["type"] = "integer" }, "data.index"); }
-                    else { if (items is not null) findings.Add(new("TASK_ITEMS_INVALID", path + "/items", "Iteration needs an authoritative array contract.")); child.Blocked.Add(("item", "", "")); child.Blocked.Add(("index", "", "")); }
+                    else
+                    {
+                        if (items is not null)
+                        {
+                            findings.Add(new("TASK_ITEMS_INVALID", path + "/items", "Iteration needs an authoritative array contract."));
+                            findings.AddRange(ConstraintFindings(items, new() { ["type"] = "array" }, path + "/items"));
+                        }
+                        child.Blocked.Add(("item", "", "")); child.Blocked.Add(("index", "", ""));
+                    }
                 }
                 InspectScope(body, child, path + "/" + role); return child;
             }
@@ -417,12 +425,13 @@ public sealed partial class TaskPlanCompiler
         IEnumerable<PlanningDiagnostic> Inspect(JsonObject actual, JsonObject target, string path)
         {
             var types = PlanningContractCompatibility.Types(actual);
+            var input = !value.TypeLocation.StartsWith("/tasks/", StringComparison.Ordinal);
             if (types.Contains("null", StringComparer.Ordinal) && PlanningContractValidation.ValidateInstance(null, actual).Count == 0 &&
                 PlanningContractValidation.ValidateInstance(null, target).Count > 0)
-                yield return new("TASK_TRANSFORM_CONSTRAINT", path + "/nullable", "The consumer " + consumer + " rejects null; declare a non-null result only if the transformation can guarantee it, or change the diagnosed consumer binding. Expected " + Describe(target) + ".");
+                yield return new(input ? "TASK_INPUT_CONSTRAINT" : "TASK_TRANSFORM_CONSTRAINT", path + "/nullable", "The consumer " + consumer + " rejects null; declare non-null only when consistent with accepted requirements and producer guarantees, or change the diagnosed consumer binding. Expected " + Describe(target) + ".");
             // Nullability and the non-null string domain are independent constraints.
             // A nullable A|B producer flowing to A|B needs only its nullable slot repaired.
-            if (types.Where(t => t != "null").SequenceEqual(["string"]) && (target["enum"] is JsonArray { Count: > 0 } domain && domain.All(v => v is null || v is JsonValue j && j.TryGetValue<string>(out _)) ||
+            if (!input && types.Where(t => t != "null").SequenceEqual(["string"]) && (target["enum"] is JsonArray { Count: > 0 } domain && domain.All(v => v is null || v is JsonValue j && j.TryGetValue<string>(out _)) ||
                     target["pattern"] is not null || target["minLength"] is not null || target["maxLength"] is not null))
             {
                 var nonNull = actual.DeepClone().AsObject(); nonNull["type"] = "string";

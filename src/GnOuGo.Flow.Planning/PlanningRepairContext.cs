@@ -125,7 +125,7 @@ internal static class PlanningRepairContext
         }
         foreach (var path in state.RevisionScope)
         {
-            if (path.Split('/') is ["", "inputs", var name]) inputs.Add(name);
+            if (path.Split('/') is ["", "inputs", var name, ..]) inputs.Add(name);
             if (path.Split('/') is ["", "choices", var id]) choices.Add(id);
         }
         var groups = state.Plan!.Groups.Where(g => selection.Scopes.Any(p => p.StartsWith("/groups/" + g.Id + "/", StringComparison.Ordinal)) ||

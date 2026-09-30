@@ -99,3 +99,10 @@ See the [typed record-field diagnosis and deterministic replay](../../docs/taskp
 Explicitly requested inspection contracts are never silently pruned. Unknown, ambiguous, cross-source or policy-excluded IDs invalidate the whole batch before fetching. An unavailable requested contract stops with `DISCOVERY_CONTRACT_UNAVAILABLE`; mandatory context exceeding the saved ceiling stops through `MODEL_INPUT_LIMIT`. Pending requests keep their original schemas and identities. See [targeted discovery evidence](../../docs/controllable-discovery.md) for retained failures, deterministic results and Designer inspection.
 
 `PlanningPrompt` owns deterministic request presentation and token packing, reusing ranking, required contracts and schema fragments within each request. `PlanningDiscoveryContext` owns metadata reads and versioned receipts. `HybridWorkflowPlanner` retains session transitions, model calls, recovery and approval. The [execution benchmark](../../tests/GnOuGo.Agent.Planning.Benchmark/README.md#planner-stabilization-comparison) compares eleven frozen cases, including actual local MCP execution.
+
+Input type origins are tracked through checked bindings during semantic preflight.
+A nullable input consumed as a non-null array produces an exact `TASK_INPUT_CONSTRAINT`
+leaf alongside its consumer diagnostic, including nested fields and reusable groups.
+A typed patch may change that nullable leaf only when accepted requirements permit it;
+the input name, requiredness, defaults and remaining type stay fixed. Full compilation
+validates the patch, and ambiguous display identities never grant broader permissions.
