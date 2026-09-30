@@ -15,7 +15,7 @@ public sealed class ProxyAuthenticationService : IProxyAuthentication
     private readonly Dictionary<string, IApiKeyProvider> _credentials = new(StringComparer.Ordinal);
     private readonly ITrafficStore _traffic;
 
-    public ProxyAuthenticationService(ProxyOptions options, HttpClient client, ITrafficStore traffic)
+    public ProxyAuthenticationService(ProxyOptions options, HttpClient client, ITrafficStore traffic, TimeProvider clock)
     {
         _traffic = traffic;
         foreach (var (name, provider) in options.Providers)
@@ -26,7 +26,7 @@ public sealed class ProxyAuthenticationService : IProxyAuthentication
                 ProxyAuthentication.ApiKey => new StaticApiKeyProvider(connection.ApiKey!),
                 ProxyAuthentication.CopilotEnvironment => new CopilotApiKeyProvider(),
                 ProxyAuthentication.OidcClientSecret or ProxyAuthentication.OidcPrivateKey => new OidcJwtApiKeyProvider(client,
-                    new OidcClientCredentialsConfig(connection.Issuer!, connection.ClientId!, connection.Scopes!, connection.ClientSecret, connection.PrivateKeyPem)),
+                    new OidcClientCredentialsConfig(connection.Issuer!, connection.ClientId!, connection.Scopes!, connection.ClientSecret, connection.PrivateKeyPem), clock),
                 _ => null
             };
             if (credential is not null) _credentials.Add(name, credential);
