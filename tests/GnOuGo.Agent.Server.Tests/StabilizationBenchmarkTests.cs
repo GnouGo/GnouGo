@@ -1,5 +1,11 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Planning;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -63,5 +69,37 @@ public sealed class StabilizationBenchmarkTests
         var response = await client.CallToolAsync("cmd_run", new JsonObject { ["commandName"] = "cat_file", ["parameters"] = new JsonObject { ["path"] = "seed.txt" } }, TestContext.Current.CancellationToken);
         Assert.Contains("changed", response.Content!.ToJsonString());
         Assert.Equal("changed 東京\n", File.ReadAllText(Path.Combine(root, "seed.txt")));
+    }
+
+    [Theory]
+    [InlineData(false)][InlineData(true)]
+    public async Task SuccessfulExecutionStillFailsOracleForAnUnrelatedLifecycleOperation(bool unrelated)
+    {
+        // Reproduce the retained live failure: a write effect was mistaken for a
+        // business relationship to an unrelated lifecycle operation. Contracts alone
+        // permit this plan; the independent execution oracle must keep rejecting it.
+        var environment = new PlanningBenchmarkCases.Environment("review_distractors");
+        var engine = new WorkflowEngine { McpClientFactory = environment.Factory(), HumanInputProvider = new PlanningCorpus.Human() };
+        var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
+        var ct = TestContext.Current.CancellationToken;
+        var catalog = await runtime.DiscoverAsync(new() { Policy = new() { RequireExternalConfirmation = false } }, ct);
+        foreach (var source in await runtime.Capabilities.ListSourcesAsync(ct))
+        {
+            string? cursor = null;
+            do
+            {
+                var page = await runtime.Capabilities.ListAsync(source.Id, cursor, ct);
+                foreach (var summary in page.Capabilities) catalog.Capabilities.Add(await runtime.Capabilities.ResolveAsync(summary, ct));
+                cursor = page.NextCursor;
+            } while (cursor is not null);
+        }
+        var plan = PlanningCorpus.Tasks("review_distractors", catalog);
+        if (unrelated) plan.Root.Always.Add(new() { Id = "extra", Objective = "Clean up after protected publication", DependsOn = ["publish"],
+            Operation = TaskOperations.Describe(catalog.Capabilities.Single(c => c.Method == "cleanup")).Id });
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(compiled.Diagnostics);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(compiled.Graph!, catalog)));
+        var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], PlanningBenchmarkCases.Inputs("review_distractors", "nominal"), ct);
+        Assert.True(result.Success); Assert.Empty(environment.Violations);
+        Assert.Equal(!unrelated, environment.Verify(result));
     }
 }

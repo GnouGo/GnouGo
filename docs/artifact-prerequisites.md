@@ -1,5 +1,10 @@
 # Artifact prerequisites and bounded repair
 
+Historical design and measurements from before planner stabilization are retained below.
+Current version-2 structural permissions and execution comparisons are documented in
+[planner stabilization](evidence/planner-stabilization/README.md); older pending
+requests continue to use their original narrower schemas.
+
 Session `a27d6926e4b94e938eb9e44e48c6fad7` supplied a transform's string to an input requiring a `revision.comparison.files` artifact. No task declared that origin. Its six responses and fourteen session revisions are retained in the sanitized [recording](../tests/GnOuGo.Agent.Server.Tests/Fixtures/ArtifactPrerequisites/retained-prerequisites.json); the encrypted original records and their accounting remain unchanged. The historical outcome remains six calls, two repairs and no executable workflow.
 
 ## Generic correction

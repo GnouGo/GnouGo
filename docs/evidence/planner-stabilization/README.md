@@ -37,5 +37,19 @@ One undispatched harness startup failed to resolve a Unix apphost's dotted assem
 name; the fixed harness was frozen before the first model reservation. No benchmark
 identity or budget was reset.
 
-Candidate evaluation and final acceptance will be recorded here after collection.
-Until then this report establishes only the baseline, not candidate readiness.
+The first candidate (`32afd9a2`) passed three diagnostic cases, then **32/33**
+final execution oracles. The failed `review_distractors:3` run appended a generic
+lifecycle operation after the required resource cleanup. Runtime success was true;
+the independent oracle correctly failed the run. There were no safety violations.
+Its [full failed cohort](failed-final-32afd9a2.jsonl),
+[failed comparison](failed-comparison-32afd9a2.json) and
+[validation](validation-32afd9a2.json) remain separate evidence. Cumulative spend was
+EUR 3.734557, with no unknown usage.
+
+The retained task objective incorrectly inferred a lifecycle relationship from a
+publication operation's write effect. A deterministic execution regression preserves
+that counterexample: contracts permit execution, but the oracle rejects the extra
+operation. The next prompt removes a universal cleanup instruction and distinguishes
+permission effect kinds from documented business/resource lifecycle relationships.
+This is model guidance, not a new inferred contract or deterministic semantic guarantee.
+Final evaluation of the corrected candidate is pending.

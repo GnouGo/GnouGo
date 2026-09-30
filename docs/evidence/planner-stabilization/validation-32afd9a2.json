@@ -1,0 +1,25 @@
+{
+  "production": "32afd9a23a529047b379c037d7feace51e2b31f8",
+  "harness": "3ecbf95e",
+  "solution": {
+    "projects": 33,
+    "failed": 0,
+    "passed": 3750,
+    "skipped": 12
+  },
+  "commands": [
+    "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+    "dotnet pack src/GnOuGo.Flow.Planning -c Release -m:1 -warnaserror",
+    "dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 --self-contained true -warnaserror -o artifacts/planner-stabilization/aot-smoke",
+    "artifacts/planner-stabilization/aot-smoke/GnOuGo.Flow.Planning.Smoke"
+  ],
+  "logs": {
+    "final-solution-tests.log": "a378740c80279cba756fd9c8285b844e32e4eacd23169997c1a4d28a91a065b9",
+    "structural-final.log": "1d22a5fa96c435e5df5dc419676cbb2238053feb1d88b8d7141787c68b8e41e4",
+    "replay-tests.log": "c8ac3cc6ef29a84384081c7c35dbd6aebac9033fa9a052b6cc1a772dd939e5e8",
+    "planning-pack-final.log": "ad0dfc97e22e6afefc28e68ee6920bdc240cb22aa78cb97395c1d9447baba6b1",
+    "aot-publish-final.log": "640cabefd34e2eef65a2c0ee123da9c6444d4ddfbb6120eec9553fff11ab3ebc",
+    "aot-smoke-final.log": "fa4d33e6be712395cad32abd9cb768fb3da858367cedbeab9e59eb5ddf776c7d"
+  },
+  "cmd_assembly_sha256": "80b0e4bde0fdd8ddd464bad5b13263930cccefc1c4732d5c083608c81d2dadba"
+}
