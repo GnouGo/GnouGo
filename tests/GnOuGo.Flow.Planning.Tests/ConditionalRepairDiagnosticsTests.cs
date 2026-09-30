@@ -67,12 +67,13 @@ public sealed class ConditionalRepairDiagnosticsTests
         Assert.Empty(state.RevisionScope);
     }
     [Theory]
-    [InlineData(1, false)][InlineData(3, true)]
-    public async Task IterationCeilingCountsAllItemsIndependentlyOfConcurrency(int ceiling, bool succeeds)
+    [InlineData(1, false, false)][InlineData(3, true, false)]
+    [InlineData(1, false, true)][InlineData(3, true, true)]
+    public async Task IterationCeilingCountsAllItemsIndependentlyOfConcurrency(int ceiling, bool succeeds, bool parallel)
     {
         var catalog = await new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask).DiscoverAsync(new(), PlannerFixture.Ct);
         var plan = new TaskPlan { Inputs = [new() { Name = "values", Type = new() { Kind = "array", Items = new() { Kind = "string" } } }], Root = new() { Tasks = [
-            new() { Id = "loop", Kind = "foreach", Objective = "Preserve every item", MaxItems = ceiling, MaxConcurrency = 1,
+            new() { Id = "loop", Kind = "foreach", Objective = "Preserve every item", MaxItems = ceiling, MaxConcurrency = 1, Parallel = parallel,
                 Items = new() { Kind = "input", Source = "values" }, Body = new() { Outputs = [new("values", new() { Kind = "item" })] } }
         ], Outputs = [new("result", new() { Kind = "output", Source = "loop", Port = "values" })] } };
         var compiled = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(compiled.Diagnostics);

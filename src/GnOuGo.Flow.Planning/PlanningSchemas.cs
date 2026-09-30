@@ -82,7 +82,7 @@ internal static class PlanningSchemas
             ["field"] = Input(objectField: true),
             ["resultType"] = BusinessTypes(transform: true),
             ["resultField"] = Object(("name", Ref("goal")), ("type", Ref("resultType"))),
-            ["input"] = Input(objectField: false),
+            ["input"] = Described(Input(objectField: false), "Omitted required=true/default=absent. Declare inputs once."),
             ["output"] = Object(("name", String()), ("value", Ref("value"))),
             ["requirements"] = Object(("summary", String()), ("outcomes", NonEmptyArray(Object(("id", String()), ("description", String()))))),
             ["plan"] = Object(("inputs", Array(Ref("input"))), ("root", Ref("scope")), ("groups", Array(Ref("group"))), ("choices", Array(Ref("choice")))),
@@ -175,7 +175,7 @@ internal static class PlanningSchemas
             Task("sequence", ("body", Ref("scope"))),
             Task("conditional", ("condition", Ref("value")), ("body", Ref("scope")), ("otherwise", Ref("scope"))),
             Task("parallel", ("branches", Array(Ref("scope"), 2)), ("maxConcurrency", Integer(1, 100))),
-            Task("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Described(Integer(1, 10000), "Maximum LENGTH of the entire items input; excess fails. Copy the requested total bound. Never set 1 merely for sequential execution.")), ("maxConcurrency", Integer(1, 100))),
+            Task("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Described(Integer(1, 10000), "TOTAL items limit: requested bound, else 100. Excess fails. 1 accepts only a singleton, regardless of workers.")), ("maxConcurrency", Integer(1, 100))),
             Task("call", ("group", Ref("id")), ("inputs", Array(Ref("output")))) }).ToArray()) };
     }
     private static IEnumerable<JsonNode?> OperationTasks(PlanningSession state, JsonObject definitions, Func<JsonObject, JsonObject, JsonObject> task)

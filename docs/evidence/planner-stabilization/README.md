@@ -78,4 +78,21 @@ The next guidance explicitly says sequential execution uses one worker without
 reducing the requested collection limit. This remains model guidance, not inferred
 intent or a compiler override. The deterministic three-item/one-worker regression
 continues to require all items, preserve duplicates and reject a ceiling of one.
+Candidate `2dda1cde` passed its loop diagnostic but only **31/33** final oracles.
+One collection used a singleton ceiling with no requested bound. One local loop
+invented duplicate input declarations and optional nullable values for required inputs;
+its two scoped repairs stopped without expanding input permissions. Both failures
+remain in the [cohort](failed-final-2dda1cde.jsonl) and
+[comparison](failed-comparison-2dda1cde.json). The loop cases were collected first;
+then the remaining cases reused their completed identities without redispatch. All
+33 runs use the same production binary, harness and manifest. Cumulative usage was
+EUR 9.337318 with no unknown reservations or safety violations.
+
+New deterministic regressions cover singleton limits in both sequential and parallel
+loops, invalid null defaults, nullable iteration and rejection of missing/null required
+inputs. Guidance now explains omitted representation flags (`required:true`,
+`nullable:false`, no fallback), declares each requested input once and uses the existing
+TaskPlan ceiling of 100 when the request supplies no bound. This does not change public
+contracts, infer intent deterministically or override explicit collection limits.
+[Validation](validation-2dda1cde.json) records the unchanged runtime's checks and passing CI.
 Fresh evaluation is pending.
