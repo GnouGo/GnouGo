@@ -245,3 +245,19 @@ if (repairedPlan.Root.Tasks[0].Inputs.Any(i => i.Name == "selector") || repairSt
     new TaskPlanCompiler().Compile(repairedPlan, ownedCatalog).Diagnostics.Count != 0)
     throw new InvalidOperationException("Atomic source-generated repair failed");
 Console.WriteLine("typed repair patches: passed; source-generated recovery; owned removal; immutable baseline; no inference");
+
+// Version-two replacement must preserve business arguments under Native AOT too.
+repairState.Plan = repairedPlan;
+repairState.Plan.Root.Tasks[0].Operation = "unresolved_operation";
+repairState.Diagnostics = new TaskPlanCompiler().Compile(repairState.Plan, ownedCatalog).Diagnostics.ToList();
+repairState.RevisionScope = TaskPlanRevisions.Scope(repairState.Plan, repairState.Diagnostics).ToList();
+var structuralRequest = new PlanningPrompt(repairState).Request();
+var structuralSlot = PlanningRepairPatch.Slots(repairState, structuralRequest.StructuredOutputSchema!["$defs"]!.DeepClone().AsObject()).Single(s => s.Kind == "task");
+var structuralPatch = new RepairPatch { Edits = [new() { Slot = structuralSlot.Id, Action = "replace_task", Value = JsonNode.Parse("""
+{"id":"work","kind":"operation","objective":"Use the business text","dependsOn":[],"operation":"owned_operation","inputs":[{"name":"text","value":{"kind":"string","text":"business"}}]}
+""") }] };
+structuralPatch = JsonSerializer.Deserialize(JsonSerializer.Serialize(structuralPatch, RepairJsonContext.Default.RepairPatch), RepairJsonContext.Default.RepairPatch)!;
+var structurallyRepaired = PlanningRepairPatch.Apply(repairState, structuralPatch, structuralRequest);
+if (structurallyRepaired.Root.Tasks[0].Operation != "owned_operation" || structurallyRepaired.Root.Tasks[0].Inputs.Single().Value.Text != "business" ||
+    repairState.Plan.Root.Tasks[0].Operation != "unresolved_operation") throw new InvalidOperationException("Structural repair lost authority or business intent");
+Console.WriteLine("structural repair: passed; version-two authority, preserved arguments and atomic AOT round trip; no inference");

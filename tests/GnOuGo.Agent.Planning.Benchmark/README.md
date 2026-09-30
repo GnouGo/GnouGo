@@ -26,6 +26,10 @@ dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark
 
 `--source` permits a harness-only commit over that production tree, never changed
 production. `--cmd-executable` supplies an absolute path to a separately built server.
+Copy the complete Cmd Release directory outside subsequent build outputs before
+starting collection, and pass that frozen apphost with `--cmd-executable` to both
+cohorts. A rebuild can change assembly hashes through source-version metadata even
+when Cmd source is unchanged.
 The campaign pins harness/oracle/accounting/configuration hashes, the Cmd assembly,
 OS/runtime and limits. Each row records production and harness commits separately.
 Both cohorts require three repetitions of all eleven cases. `--cohort diagnostic
