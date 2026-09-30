@@ -202,7 +202,7 @@ internal static class StabilizationBenchmark
             "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs", "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs", "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs",
             "tests/Shared/PlanningBenchmarkCases.cs", "tests/Shared/PlanningBenchmarkMeasurements.cs", "tests/Shared/PlanningCorpus.cs", "src/GnOuGo.Cmd.Mcp/appsettings.json" };
         return new() { ["version"] = 1, ["files"] = new JsonObject(paths.Select(p => new KeyValuePair<string, JsonNode?>(p, JsonValue.Create(Hash(p))))),
-            ["cmd_assembly"] = Hash(Path.ChangeExtension(executable, ".dll")), ["os"] = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
+            ["cmd_assembly"] = Hash(executable.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? Path.ChangeExtension(executable, ".dll") : executable + ".dll"), ["os"] = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
             ["architecture"] = System.Runtime.InteropServices.RuntimeInformation.OSArchitecture.ToString(), ["runtime"] = Environment.Version.ToString(),
             ["calls"] = 8, ["repairs"] = 2, ["input_tokens"] = 96_000, ["output_tokens"] = 32_768, ["reasoning"] = "medium", ["ceiling_eur"] = 50 };
     }
