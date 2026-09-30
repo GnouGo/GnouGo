@@ -72,12 +72,12 @@ public sealed class StabilizationBenchmarkTests
     }
 
     [Theory]
-    [InlineData(false)][InlineData(true)]
-    public async Task SuccessfulExecutionStillFailsOracleForAnUnrelatedLifecycleOperation(bool unrelated)
+    [InlineData("nominal")][InlineData("unrelated_cleanup")][InlineData("planning_confirmation")]
+    public async Task SuccessfulExecutionStillRequiresRequestedWorkAndRuntimeConfirmation(string mutation)
     {
-        // Reproduce the retained live failure: a write effect was mistaken for a
-        // business relationship to an unrelated lifecycle operation. Contracts alone
-        // permit this plan; the independent execution oracle must keep rejecting it.
+        // Retained counterexamples: unrelated cleanup and a planning choice replacing
+        // operation-owned runtime confirmation. Contracts alone permit these plans;
+        // successful execution still has to satisfy the independent business oracle.
         var environment = new PlanningBenchmarkCases.Environment("review_distractors");
         var engine = new WorkflowEngine { McpClientFactory = environment.Factory(), HumanInputProvider = new PlanningCorpus.Human() };
         var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
@@ -94,12 +94,21 @@ public sealed class StabilizationBenchmarkTests
             } while (cursor is not null);
         }
         var plan = PlanningCorpus.Tasks("review_distractors", catalog);
-        if (unrelated) plan.Root.Always.Add(new() { Id = "extra", Objective = "Clean up after protected publication", DependsOn = ["publish"],
+        if (mutation == "unrelated_cleanup") plan.Root.Always.Add(new() { Id = "extra", Objective = "Clean up after protected publication", DependsOn = ["publish"],
             Operation = TaskOperations.Describe(catalog.Capabilities.Single(c => c.Method == "cleanup")).Id });
+        if (mutation == "planning_confirmation")
+        {
+            var publish = plan.Root.Tasks.Single(t => t.Id == "publish");
+            plan.Choices.Add(new() { Id = "confirmation", Question = "Publish?", Type = new() { Kind = "boolean" }, Recommended = "no", Selected = "no",
+                Alternatives = [new("no", "Do not publish", new() { Kind = "boolean", Boolean = false }), new("yes", "Publish", new() { Kind = "boolean", Boolean = true })] });
+            plan.Root.Tasks[plan.Root.Tasks.IndexOf(publish)] = new() { Id = "gate", Kind = "conditional", Objective = "Wait for separate confirmation",
+                Condition = new() { Kind = "choice", Source = "confirmation" }, Body = new() { Tasks = [publish] }, Otherwise = new() };
+        }
         var compiled = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(compiled.Diagnostics);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(compiled.Graph!, catalog)));
         var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], PlanningBenchmarkCases.Inputs("review_distractors", "nominal"), ct);
         Assert.True(result.Success); Assert.Empty(environment.Violations);
-        Assert.Equal(!unrelated, environment.Verify(result));
+        Assert.Equal(mutation == "nominal", environment.Verify(result));
+        if (mutation == "planning_confirmation") Assert.DoesNotContain("confirmation", environment.Effects);
     }
 }

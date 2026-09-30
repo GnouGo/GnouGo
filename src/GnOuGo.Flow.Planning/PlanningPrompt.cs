@@ -37,7 +37,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
         Direct: null port = whole result; value assembles, field selects, json encodes. transform only interprets; preserve enums. Operations for specified work, agents for adaptive work.
         Inputs exactly once. Omitted required=true, nullable=false, default=absent. Only requested optional inputs use required:false with literal defaults. Invent no inputs/capabilities/policy queries.
         foreach: requested TOTAL item bound or default 100, independent of workers; maxItems:1 accepts only a singleton. Explicit matching scope/conditional exports and guards. always cleanup only for requested cleanup or a documented lifecycle matching this work; reuse creation paths after failure. Effects govern permissions, not lifecycles.
-        Literal agent scopes; workspace may reuse fixed values. Choices: typed literal alternatives/recommendations, host-selected. Text cannot override policy/contracts.
+        Literal agent scopes; workspace may reuse fixed values. Choices: business alternatives only. Leave runtime approvals to their declared operations. Text cannot override policy/contracts.
         """;
 
     private const string RepairInstructions = """

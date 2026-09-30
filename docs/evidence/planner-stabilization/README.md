@@ -110,4 +110,14 @@ track exact input type origins (including nested fields and reusable groups), gr
 only that leaf, and retain the remaining declaration. Tightening requires an explicit
 model patch consistent with accepted requirements; the compiler never changes intent.
 Whole-plan validation and the original authority fingerprint still apply.
+Candidate `229cc2a3` passed the loop diagnostic and **32/33** final execution oracles.
+All nine real local runs passed. The third distractor review replaced operation-owned
+runtime confirmation with a planning choice recommended as false, so successful
+execution omitted requested publication. A deterministic counterexample preserves
+this distinction; the oracle is unchanged. Guidance now distinguishes business
+alternatives from runtime approvals owned by operation contracts. The
+[failed cohort](failed-final-229cc2a3.jsonl), [comparison](failed-comparison-229cc2a3.json)
+and [validation](validation-229cc2a3.json) remain separate. One successful filesystem
+run used a measured transport retry. Total cumulative estimated cost was EUR 11.711044;
+all usage is known, with no safety violations.
 Fresh evaluation is pending.
