@@ -66,4 +66,16 @@ branch, new diagnostics identify its incompatible binding and the producer's exa
 constraint leaf; ambiguous or dynamic selectors never widen permissions. The complete
 contract is still validated. Schema descriptions now distinguish iteration ceilings
 from concurrency and LLM interpretation from direct wiring/validation. No runtime or
-MCP contract change is required. A fresh candidate evaluation is pending.
+MCP contract change is required. Candidate `7405446b` then passed **32/33** final oracles: the loop's second repetition
+still selected a total item ceiling of one. Its original issued schema described total
+length independently of concurrency, and its retained response itself returned one;
+transport did not change the value. No safety violation occurred. The
+[failed cohort](failed-final-7405446b.jsonl), [comparison](failed-comparison-7405446b.json)
+and [validation](validation-7405446b.json) are retained. A test-only replay assertion
+was updated during collection; the production binary and harness hashes stayed fixed.
+
+The next guidance explicitly says sequential execution uses one worker without
+reducing the requested collection limit. This remains model guidance, not inferred
+intent or a compiler override. The deterministic three-item/one-worker regression
+continues to require all items, preserve duplicates and reject a ceiling of one.
+Fresh evaluation is pending.

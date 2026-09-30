@@ -65,8 +65,8 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
                 Object(("kind", Enum("object")), ("members", Array(Ref("output")))),
                 Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
-                Described(Object(("kind", Enum("json")), ("items", Array(Ref("value"), 1, 1))), "Encode one business value as JSON text; no inference or interpolation."),
-                Described(Object(("kind", Enum("field")), ("items", Array(Ref("value"), 1, 1)), ("port", Ref("goal"))), "Select a declared field from one typed object or loop item. Use a literal field name, not a path; nest selections for nested fields."),
+                Described(Object(("kind", Enum("json")), ("items", Array(Ref("value"), 1, 1))), "Serialize one business value as JSON text; no inference."),
+                Described(Object(("kind", Enum("field")), ("items", Array(Ref("value"), 1, 1)), ("port", Ref("goal"))), "Select one literal declared field from a typed object/item; nest for nested fields."),
                 Object(("kind", Enum("input")), ("source", String())),
                 Object(("kind", Enum("choice", "present")), ("source", Ref("id"))),
                 Object(("kind", Enum("output")), ("source", Ref("id")), ("port", Nullable(String()))),
@@ -168,14 +168,14 @@ internal static class PlanningSchemas
         { ("id", Ref("id")), ("kind", Enum(kind)), ("objective", Ref("goal")), ("dependsOn", Ref("identities")) }.Concat(fields).ToArray());
         var operations = OperationTasks(state, definitions, (ids, inputs) => Task("operation", ("operation", ids), ("inputs", inputs)));
         return new() { ["anyOf"] = new JsonArray(operations.Concat(new JsonNode?[] {
-            Described(Task("value", ("outputs", Array(Ref("output")))), "Copies or assembles values; the objective executes no computation."),
+            Described(Task("value", ("outputs", Array(Ref("output")))), "Copies/assembles values; objectives do not compute."),
             Described(Task("transform", ("inputs", NonEmptyArray(Ref("output"))),
                 ("resultType", Object(("kind", Enum("object")), ("fields", NonEmptyArray(Ref("resultField")))))),
                 "LLM interpretation only, never copying/extraction/validation. Preserve domains; typed fields, no defaults/opacity."),
             Task("sequence", ("body", Ref("scope"))),
             Task("conditional", ("condition", Ref("value")), ("body", Ref("scope")), ("otherwise", Ref("scope"))),
             Task("parallel", ("branches", Array(Ref("scope"), 2)), ("maxConcurrency", Integer(1, 100))),
-            Task("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Described(Integer(1, 10000), "Total input item ceiling, not concurrency; excess fails. Keep the requested bound.")), ("maxConcurrency", Integer(1, 100))),
+            Task("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Described(Integer(1, 10000), "Maximum LENGTH of the entire items input; excess fails. Copy the requested total bound. Never set 1 merely for sequential execution.")), ("maxConcurrency", Integer(1, 100))),
             Task("call", ("group", Ref("id")), ("inputs", Array(Ref("output")))) }).ToArray()) };
     }
     private static IEnumerable<JsonNode?> OperationTasks(PlanningSession state, JsonObject definitions, Func<JsonObject, JsonObject, JsonObject> task)
