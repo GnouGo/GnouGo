@@ -171,11 +171,11 @@ internal static class PlanningSchemas
             Described(Task("value", ("outputs", Array(Ref("output")))), "Copies or assembles values; the objective executes no computation."),
             Described(Task("transform", ("inputs", NonEmptyArray(Ref("output"))),
                 ("resultType", Object(("kind", Enum("object")), ("fields", NonEmptyArray(Ref("resultField")))))),
-                "Interprets bound data using the objective. Require typed result fields, nullable for missing values; no defaults or opaque types."),
+                "LLM interpretation only, never copying/extraction/validation. Preserve domains; typed fields, no defaults/opacity."),
             Task("sequence", ("body", Ref("scope"))),
             Task("conditional", ("condition", Ref("value")), ("body", Ref("scope")), ("otherwise", Ref("scope"))),
             Task("parallel", ("branches", Array(Ref("scope"), 2)), ("maxConcurrency", Integer(1, 100))),
-            Task("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Integer(1, 10000)), ("maxConcurrency", Integer(1, 100))),
+            Task("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Described(Integer(1, 10000), "Total input item ceiling, not concurrency; excess fails. Keep the requested bound.")), ("maxConcurrency", Integer(1, 100))),
             Task("call", ("group", Ref("id")), ("inputs", Array(Ref("output")))) }).ToArray()) };
     }
     private static IEnumerable<JsonNode?> OperationTasks(PlanningSession state, JsonObject definitions, Func<JsonObject, JsonObject, JsonObject> task)

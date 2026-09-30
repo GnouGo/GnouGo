@@ -14,15 +14,26 @@ the baseline, and use that same harness against both production revisions:
 ```sh
 dotnet build tests/GnOuGo.Agent.Planning.Benchmark -c Release -m:1 -warnaserror -p:SkipClientBuild=true
 dotnet build src/GnOuGo.Cmd.Mcp -c Release -m:1 -warnaserror
+STABILIZATION_CMD_DIR="$(mktemp -d)"
+cp -R src/GnOuGo.Cmd.Mcp/bin/Release/net10.0/. "$STABILIZATION_CMD_DIR/"
 dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
   --stabilization --campaign planner-stabilization-20260930 --cohort baseline \
-  --source 7288b6997c704b8ca098761c030071d61da1ce1a
+  --source 7288b6997c704b8ca098761c030071d61da1ce1a \
+  --cmd-executable "$STABILIZATION_CMD_DIR/GnOuGo.Cmd.Mcp"
 dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
-  --stabilization --campaign planner-stabilization-20260930 --cohort final --source <candidate-sha>
+  --stabilization --campaign planner-stabilization-20260930 --cohort final --source <candidate-sha> \
+  --cmd-executable "$STABILIZATION_CMD_DIR/GnOuGo.Cmd.Mcp"
 dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
   --stabilization --campaign planner-stabilization-20260930 \
   --compare 7288b6997c704b8ca098761c030071d61da1ce1a --candidate <candidate-sha>
 ```
+
+Run collection in clean isolated worktrees at the recorded harness/production
+revisions: baseline harness `22bba1a5` over production `7288b699`, and the candidate
+revision linked in the evidence report. Build each runner in its own worktree and
+share only the frozen Cmd directory and encrypted campaign. The manifest hashes
+must match before candidate dispatch. Existing retained identities are read-only
+replays; a new measurement campaign needs its own explicitly authorized allowance.
 
 `--source` permits a harness-only commit over that production tree, never changed
 production. `--cmd-executable` supplies an absolute path to a separately built server.

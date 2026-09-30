@@ -52,4 +52,18 @@ that counterexample: contracts permit execution, but the oracle rejects the extr
 operation. The next prompt removes a universal cleanup instruction and distinguishes
 permission effect kinds from documented business/resource lifecycle relationships.
 This is model guidance, not a new inferred contract or deterministic semantic guarantee.
-Final evaluation of the corrected candidate is pending.
+The next candidate (`efdf57cc`) passed its distractor diagnostic and all 24 mocked
+integration runs, but only **31/33** final execution oracles overall. One real loop
+set its total item ceiling to one despite a requested bound of three. Another inserted
+an unnecessary validation transform, lost a finite string domain, and stopped on an
+aggregate conditional-input diagnostic. The complete [failed cohort](failed-final-efdf57cc.jsonl)
+and [comparison](failed-comparison-efdf57cc.json) remain separate. No safety violation
+occurred; cumulative spend reached EUR 5.628763 with no unknown usage.
+
+Deterministic regressions reproduce total-item versus concurrency semantics and the
+lost domain through a nested loop. When literal selectors prove one input-contract
+branch, new diagnostics identify its incompatible binding and the producer's exact
+constraint leaf; ambiguous or dynamic selectors never widen permissions. The complete
+contract is still validated. Schema descriptions now distinguish iteration ceilings
+from concurrency and LLM interpretation from direct wiring/validation. No runtime or
+MCP contract change is required. A fresh candidate evaluation is pending.

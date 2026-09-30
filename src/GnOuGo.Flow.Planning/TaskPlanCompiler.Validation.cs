@@ -280,7 +280,34 @@ public sealed partial class TaskPlanCompiler
                             try { request = PlanningCapabilityArguments.EffectiveSchema(capability, mapped); }
                             catch (InvalidOperationException) { Fail("TASK_INPUT_BINDING", "Input mappings must assemble disjoint declared fields."); return; }
                             if (!PlanningContractCompatibility.Fits(request, capability.InputSchema))
-                                Fail("TASK_INPUT_TYPE", "The complete effective request does not satisfy its authoritative contract, including conditional parameter requirements. Omission and null are distinct.");
+                            {
+                                // A literal discriminator can prove the applicable branch without
+                                // granting edits to that selector or unrelated business bindings.
+                                var before = findings.Count;
+                                if (SelectedInputBranch(request, capability.InputSchema) is { } selected)
+                                    foreach (var input in task.Inputs)
+                                    {
+                                        var port = operation.Inputs.Single(p => p.Name == input.Name);
+                                        JsonObject? expected = selected;
+                                        foreach (var part in port.Path) expected = expected?["properties"]?[part] as JsonObject;
+                                        if (expected is null) continue;
+                                        var location = path + "/inputs/" + input.Name;
+                                        if (Read(input.Value, scope, location) is { } produced)
+                                        {
+                                            Check(location, () => Fits(produced, expected, "TASK_INPUT_TYPE"));
+                                            Constraints(input.Value, expected, location);
+                                        }
+                                    }
+                                if (findings.Count == before)
+                                    Fail("TASK_INPUT_TYPE", "The complete effective request does not satisfy its authoritative contract, including conditional parameter requirements. Omission and null are distinct.");
+                            }
+                            void Constraints(TaskValue value, JsonObject expected, string location)
+                            {
+                                if (Read(value, scope, location) is { } produced) findings.AddRange(ConstraintFindings(produced, expected, location));
+                                if (value.Kind == "object")
+                                    foreach (var member in value.Members)
+                                        if (expected["properties"]?[member.Name] is JsonObject field) Constraints(member.Value, field, location);
+                            }
                         });
                     ports[""] = Output(task.Id, capability.StepType, [], capability.OutputSchema);
                         foreach (var port in operation.Outputs) ports[port.Name] = OperationOutput(task.Id, capability, port);
@@ -354,6 +381,21 @@ public sealed partial class TaskPlanCompiler
         }
     }
 
+    private static JsonObject? SelectedInputBranch(JsonObject request, JsonObject contract)
+    {
+        if (contract["oneOf"] is not JsonArray alternatives || request["properties"] is not JsonObject supplied) return null;
+        var possible = new List<(JsonObject Schema, bool Proven)>();
+        foreach (var branch in alternatives)
+        {
+            if (branch is not JsonObject schema || schema["properties"] is not JsonObject properties) return null;
+            var selectors = properties.Where(p => p.Value is JsonObject expected && (expected.ContainsKey("const") || expected["enum"] is JsonArray) &&
+                supplied[p.Key] is JsonObject actual && actual.ContainsKey("const")).ToArray();
+            if (selectors.Any(p => !PlanningContractCompatibility.Fits(supplied[p.Key]!.AsObject(), p.Value!.AsObject()))) continue;
+            possible.Add((schema, selectors.Length > 0));
+        }
+        return possible.Count == 1 && possible[0].Proven ? possible[0].Schema : null;
+    }
+
     private void Fits(Bound value, JsonObject schema, string code, bool optional = false)
     {
         if (PlanningGraphValidation.IsLiteral(value.Value)
@@ -380,8 +422,8 @@ public sealed partial class TaskPlanCompiler
                 yield return new("TASK_TRANSFORM_CONSTRAINT", path + "/nullable", "The consumer " + consumer + " rejects null; declare a non-null result only if the transformation can guarantee it, or change the diagnosed consumer binding. Expected " + Describe(target) + ".");
             // Nullability and the non-null string domain are independent constraints.
             // A nullable A|B producer flowing to A|B needs only its nullable slot repaired.
-            if (types.Where(t => t != "null").SequenceEqual(["string"]) && target["enum"] is JsonArray { Count: > 0 } domain &&
-                domain.All(v => v is null || v is JsonValue j && j.TryGetValue<string>(out _)))
+            if (types.Where(t => t != "null").SequenceEqual(["string"]) && (target["enum"] is JsonArray { Count: > 0 } domain && domain.All(v => v is null || v is JsonValue j && j.TryGetValue<string>(out _)) ||
+                    target["pattern"] is not null || target["minLength"] is not null || target["maxLength"] is not null))
             {
                 var nonNull = actual.DeepClone().AsObject(); nonNull["type"] = "string";
                 if (nonNull["enum"] is JsonArray values)
