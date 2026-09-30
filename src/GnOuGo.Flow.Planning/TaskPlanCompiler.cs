@@ -39,7 +39,10 @@ public sealed record TaskCompilation(PlanningGraph? Graph, IReadOnlyList<Plannin
         }
         foreach (var (key, task) in Sources)
             if (location.Contains("/stages/" + key, StringComparison.Ordinal)) { location = task; break; }
-        return diagnostic with { Location = location };
+        var message = diagnostic.Message;
+        if (diagnostic.Code == "SCHEMA_INVALID" && diagnostic.Rule?.StartsWith("producer:", StringComparison.Ordinal) == true)
+            message += " Producer: " + Sources.GetValueOrDefault(diagnostic.Rule[9..], diagnostic.Rule[9..]) + ".";
+        return diagnostic with { Location = location, Message = message };
     }
 }
 
@@ -343,9 +346,7 @@ public sealed partial class TaskPlanCompiler
         _location = "/tasks/" + task.Id;
         target.Add(new() { Key = key, Purpose = task.Objective, Type = capability.StepType, CapabilityId = capability.Id,
             Input = capability.StepType == "mcp.call" ? Object([new("request", input)]) : input, Dependencies = scopeDependencies });
-        var outputs = new Dictionary<string, Bound>(StringComparer.Ordinal) { [""] = Output(key, capability.StepType, [], capability.OutputSchema) };
-        foreach (var port in operation.Outputs) outputs.Add(port.Name, OperationOutput(key, capability, port));
-        return outputs;
+        return OperationResults(key, capability, input);
     }
 
     private (PlanningWorkflow Workflow, PlanningNode Call) Child(TaskScope source, Scope parent, string key, string role)
@@ -452,12 +453,23 @@ public sealed partial class TaskPlanCompiler
         return consume ? Consume(already, scope) : already;
     }
 
-    private static Bound OperationOutput(string key, PlanningCapability capability, OperationPort port)
+    private Dictionary<string, Bound> OperationResults(string key, PlanningCapability capability, PlanningValue input)
     {
-        var result = Output(key, capability.StepType, port.Path, port.Schema);
-        return TaskOperations.OutputNeedsCheck(capability.OutputSchema, port.Path)
-            ? result with { SelectionSource = Output(key, capability.StepType, [], capability.OutputSchema), SelectionPath = port.Path }
-            : result;
+        JsonObject schema;
+        try { schema = PlanningOperationResults.Resolve(capability.StepType, capability.OutputSchema, PlanningGraphValidation.Member(input, "output_schema")); }
+        catch (ArgumentException ex) { Fail("TASK_INPUT_SCHEMA", ex.Message); return null!; }
+        catch (InvalidOperationException ex) { Fail("TASK_COMPILER_VALIDATION", ex.Message); return null!; }
+        var whole = Output(key, capability.StepType, [], schema);
+        var results = new Dictionary<string, Bound>(StringComparer.Ordinal) { [""] = whole };
+        foreach (var port in TaskOperations.Describe(capability).Outputs)
+        {
+            var selected = schema;
+            foreach (var segment in port.Path) selected = selected["properties"]![segment]!.AsObject();
+            var result = Output(key, capability.StepType, port.Path, selected);
+            results.Add(port.Name, TaskOperations.OutputNeedsCheck(schema, port.Path)
+                ? result with { SelectionSource = whole, SelectionPath = port.Path } : result);
+        }
+        return results;
     }
 
     private Bound Consume(Bound value, Scope scope)

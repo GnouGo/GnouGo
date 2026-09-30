@@ -45,7 +45,8 @@ public static class PlanningGraphValidation
             var byKey = nodes.GroupBy(n => n.Node.Key, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First().Node, StringComparer.Ordinal);
             var structured = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
             for (var i = 0; i < workflow.Inputs.Count; i++) CheckSchema(workflow.Inputs[i].Schema, path + "/inputs/" + i + "/schema", true);
-            for (var i = 0; i < workflow.Outputs.Count; i++) CheckSchema(workflow.Outputs[i].Schema, path + "/outputs/" + i + "/schema", true);
+            for (var i = 0; i < workflow.Outputs.Count; i++) CheckSchema(workflow.Outputs[i].Schema, path + "/outputs/" + i + "/schema", true,
+                producer: workflow.Outputs[i].Value.Kind == "output" ? workflow.Outputs[i].Value.Source : null);
             foreach (var (node, location) in nodes)
             {
                 if (node.CapabilityId is { } capabilityId)
@@ -54,7 +55,7 @@ public static class PlanningGraphValidation
                     if (binding is null || !PlanningCapabilityBindings.Supports(binding, node.Type))
                         errors.Add(new("CAPABILITY_BINDING_INVALID", location + "/capabilityId", "The node must implement its exact selected executor, or a permitted local-processing control-flow construct."));
                 }
-                if (node.OutputSchema is not null) CheckSchema(node.OutputSchema, location + "/outputSchema", false);
+                if (node.OutputSchema is not null) CheckSchema(node.OutputSchema, location + "/outputSchema", false, producer: node.Key);
                 var config = Member(node.Input, "structured_output");
                 if (config is null && node.StructuredOutput is null) continue;
                 if (node.StructuredOutput is { } declaration)
@@ -344,7 +345,8 @@ public static class PlanningGraphValidation
                         }
                         else if (producer.Type == "mcp.call")
                         {
-                            schema = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema;
+                            schema = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId) is { } operation
+                                ? PlanningOperationResults.Resolve(producer.Type, operation.OutputSchema, null) : null;
                             foreach (var handler in producer.OnError.Where(h => h.Action == "continue"))
                             {
                                 var response = handler.SetOutput is { } fallback ? Member(fallback, "response") : null;
@@ -354,10 +356,9 @@ public static class PlanningGraphValidation
                         }
                         else if (producer.Type == "agent.run")
                         {
-                            var declaration = Member(producer.Input, "output_schema");
-                            schema = catalog.StepContracts[producer.Type]?["output"]?.DeepClone().AsObject();
-                            if (schema is not null && declaration is not null && IsLiteral(declaration))
-                                schema["properties"]!["output"] = Literal(declaration);
+                            var contract = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema
+                                ?? catalog.StepContracts[producer.Type]?["output"] as JsonObject;
+                            schema = contract is null ? null : PlanningOperationResults.Resolve(producer.Type, contract, Member(producer.Input, "output_schema"));
                         }
                         else if (producer.Type == "workflow.call")
                         {
@@ -405,8 +406,14 @@ public static class PlanningGraphValidation
                         else if (producer.Type == "human.input")
                             schema = HumanSchema(producer.Input);
                         else if (producer.Type == "decision.evaluate")
-                            schema = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema;
-                        else schema = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema ?? catalog.StepContracts[producer.Type]?["output"] as JsonObject ?? BuiltInStepContracts.Get(producer.Type)?.OutputSchema;
+                            schema = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId) is { } decision
+                                ? PlanningOperationResults.Resolve(producer.Type, decision.OutputSchema, null) : null;
+                        else
+                        {
+                            var contract = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema
+                                ?? catalog.StepContracts[producer.Type]?["output"] as JsonObject ?? BuiltInStepContracts.Get(producer.Type)?.OutputSchema;
+                            schema = contract is null ? null : PlanningOperationResults.Resolve(producer.Type, contract, null);
+                        }
                         if (schema is null) throw new InvalidOperationException("The producer needs an explicit typed output contract.");
                         return AtPath(schema.Count == 0 ? PlanningContractShapes.Opaque() : schema, value.Path);
                     }
@@ -474,7 +481,7 @@ public static class PlanningGraphValidation
         }
         return errors.DistinctBy(d => (d.Code, d.Location, d.Message)).ToArray();
 
-        void CheckSchema(PlanningSchema schema, string location, bool boundary, string? code = null)
+        void CheckSchema(PlanningSchema schema, string location, bool boundary, string? code = null, string? producer = null)
         {
             // Report independent leaf failures at their actual planning coordinates.
             // Repeating the same conversion exception at every ancestor would turn
@@ -492,7 +499,8 @@ public static class PlanningGraphValidation
                 if (boundary) { RequireTyped(json, 0); _ = PlanningGraphCompiler.ToFlowSchema(json); }
             }
             catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException)
-            { errors.Add(new(code ?? (schema.CapabilityId is not null || schema.SchemaPointer is not null ? "SCHEMA_REFERENCE_INVALID" : "SCHEMA_INVALID"), location, ex.Message)); }
+            { errors.Add(new(code ?? (schema.CapabilityId is not null || schema.SchemaPointer is not null ? "SCHEMA_REFERENCE_INVALID" : "SCHEMA_INVALID"), location, ex.Message,
+                Rule: producer is null ? null : "producer:" + producer)); }
         }
     }
 
@@ -578,26 +586,28 @@ public static class PlanningGraphValidation
     private static bool HasType(JsonNode? type, string name) => type is JsonValue scalar && scalar.TryGetValue<string>(out var value) && value == name ||
         type is JsonArray union && union.Any(t => t is JsonValue item && item.TryGetValue<string>(out var candidate) && candidate == name);
 
-    internal static void RequireTyped(JsonObject schema, int depth)
+    internal static void RequireTyped(JsonObject schema, int depth, string pointer = "")
     {
         if (PlanningContractShapes.IsOpaque(schema)) return;
-        if (depth > 32) throw new InvalidOperationException("Schema nesting exceeds 32 levels.");
+        InvalidOperationException Invalid(string message) => new(message + " Schema path: '" + (pointer.Length == 0 ? "/" : pointer) + "'.");
+        if (depth > 32) throw Invalid("Schema nesting exceeds 32 levels.");
         if (schema.ContainsKey("const") || schema["enum"] is JsonArray { Count: > 0 }) return;
         if (schema["allOf"] is JsonArray && PlanningValues.Established(schema)) return;
         var type = schema["type"];
         if (type is null && schema["$ref"] is null && schema["anyOf"] is null && schema["oneOf"] is null)
-            throw new InvalidOperationException("An output schema requires a concrete type.");
+            throw Invalid("An output schema requires a concrete type.");
         if (HasType(type, "object"))
         {
             var properties = schema["properties"] as JsonObject;
             if ((properties is null || properties.Count == 0) && schema["additionalProperties"] is not JsonObject && schema["additionalProperties"]?.ToString() != "false")
-                throw new InvalidOperationException("An object output requires declared properties or typed additional properties; required names alone are insufficient.");
+                throw Invalid("An object output requires declared properties or typed additional properties; required names alone are insufficient.");
         }
         if (HasType(type, "array") && schema["items"] is not JsonObject && !PlanningValues.Established(schema))
-            throw new InvalidOperationException("An array output requires typed items.");
-        foreach (var child in (schema["properties"] as JsonObject ?? []).Select(p => p.Value).OfType<JsonObject>()) RequireTyped(child, depth + 1);
-        if (schema["items"] is JsonObject items) RequireTyped(items, depth + 1);
-        if (schema["additionalProperties"] is JsonObject additional) RequireTyped(additional, depth + 1);
+            throw Invalid("An array output requires typed items.");
+        foreach (var (name, child) in schema["properties"] as JsonObject ?? [])
+            if (child is JsonObject field) RequireTyped(field, depth + 1, pointer + "/properties/" + PlanningSchemaReferences.Escape(name));
+        if (schema["items"] is JsonObject items) RequireTyped(items, depth + 1, pointer + "/items");
+        if (schema["additionalProperties"] is JsonObject additional) RequireTyped(additional, depth + 1, pointer + "/additionalProperties");
     }
 
     internal static IEnumerable<(PlanningNode Node, string Path)> Located(List<PlanningNode> nodes, string path)

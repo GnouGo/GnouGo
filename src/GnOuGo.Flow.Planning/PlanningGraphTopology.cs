@@ -53,7 +53,7 @@ internal static class PlanningGraphTopology
                     // Successful projections return an object envelope even when its selected payload is null.
                     // Keep the guard proof: failed, skipped or continued producers do not establish availability.
                     if (producer is null || producer.OnError.Any(h => h.Action == "continue") ||
-                        !(producer.Type is "mcp.call" or "llm.call" or "workflow.call" or "value.validate" or "value.project" or "array.project" || producer.Type == "set" && producer.Input.Kind == "object" ||
+                        !(producer.Type is "mcp.call" or "llm.call" or "agent.run" or "workflow.call" or "value.validate" or "value.project" or "array.project" || producer.Type == "set" && producer.Input.Kind == "object" ||
                             producer.Type == "switch" && producer.Cases.Count > 0 && producer.Cases.All(c => c.Steps.Count > 0) && producer.Default.Count > 0) ||
                         (workflow.Finally.Contains(producer) ? !Available(producer, visiting) : producer.If is not null)) return false;
                 }

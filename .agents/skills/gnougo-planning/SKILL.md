@@ -19,6 +19,7 @@ Requirements → Discovery → LLM TaskPlan → deterministic compiler → Plann
 - Validate identities, scope visibility, dependencies and types before lowering; collect independent task/port diagnostics. Keep response schemas aligned with semantic checks. The compiler owns stable IDs, envelopes, projections and guards.
 - Require explicit scope exports, defaults and branch values; never invent them. Reuse declared resource locations for creation and cleanup, including partial failure.
 - Preserve optionality, nullability, enums, opaque contracts and availability checks. Fail closed on ambiguity or unavailable contracts. Envelope presence proves neither payload non-nullability nor external success.
+- Derive effective operation outputs consistently during semantic validation, lowering and graph validation. Preserve approved agent payload schemas and nested unknown contents through the existing opaque representation; passing data across a scope never grants typed access to undeclared fields. Preserve the original discovery contracts and issued requests.
 - Artifact origin comes only from declared producer metadata; preserve it through checked identity-preserving bindings. Types, literals and transforms cannot manufacture provenance. Present artifact kinds and business ports in compact discovery, never wire pointers; find missing prerequisites with bounded exact-kind metadata queries.
 
 ## Repair and approval

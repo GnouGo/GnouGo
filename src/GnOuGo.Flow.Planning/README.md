@@ -83,6 +83,17 @@ Planning storage format **10** rejects prior planning sessions and approvals wit
 
 Consuming an optional operation port emits a checked `value.project` at the consumer. The full authoritative container crosses scope boundaries; the check stays inside the consuming branch, iteration or cleanup. Missing fields fail, nullable values remain nullable, and unused ports need no projection. Optional-port checks require no fallback or model call; explicit nested business-field selection uses the `field` value described above.
 
+Operation results use the same effective contract during semantic validation, lowering
+and graph validation. For `agent.run`, the approved literal `output_schema` specializes
+the envelope's `output` member. Authoritative unknown contents are represented by the
+existing opaque marker inside their known object/array shapes. This permits whole-value
+exports, captures and collections without inventing field types or changing nullability,
+requiredness or constraints. Discovery contracts and issued requests remain unchanged.
+Successful agent result envelopes also establish guarded export availability; skipped,
+failed and continued producers do not. Schema errors report the nested schema pointer
+and, when available, the business producer. See the [retained failure and execution
+regressions](../../docs/operation-output-contracts.md).
+
 ```bash
 dotnet build src/GnOuGo.Flow.Planning -c Release -warnaserror
 dotnet test tests/GnOuGo.Flow.Planning.Tests -c Release -warnaserror

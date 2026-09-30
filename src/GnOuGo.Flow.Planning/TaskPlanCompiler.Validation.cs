@@ -248,6 +248,7 @@ public sealed partial class TaskPlanCompiler
                     Check(path + "/inputs", () => Unique(task.Inputs.Select(i => i.Name)));
                     var inputFindings = findings.Count;
                     var mapped = new List<(OperationPort Port, JsonObject Schema)>();
+                    var mappedValues = Object([]);
                     foreach (var input in task.Inputs)
                     {
                         var location = path + "/inputs/" + input.Name;
@@ -276,6 +277,7 @@ public sealed partial class TaskPlanCompiler
                                 Fits(value, port.Schema, "TASK_INPUT_TYPE", optional: !port.Required);
                                 mapped.Add((port, PlanningGraphValidation.IsLiteral(value.Value)
                                     ? new() { ["const"] = PlanningGraphValidation.Literal(value.Value) } : value.Schema));
+                                Bind(mappedValues, port.Path, value.Value);
                             }
                         });
                     }
@@ -317,8 +319,10 @@ public sealed partial class TaskPlanCompiler
                                         if (expected["properties"]?[member.Name] is JsonObject field) Constraints(member.Value, field, location);
                             }
                         });
-                    ports[""] = Output(task.Id, capability.StepType, [], capability.OutputSchema);
-                        foreach (var port in operation.Outputs) ports[port.Name] = OperationOutput(task.Id, capability, port);
+                    var declarationPort = operation.Inputs.SingleOrDefault(p => p.Path.SequenceEqual(["output_schema"]));
+                    Check(path + (capability.StepType == "agent.run" && declarationPort is not null ? "/inputs/" + declarationPort.Name : "/operation"), () =>
+                        ports = OperationResults(task.Id, capability, PlanningCapabilityArguments.Apply(mappedValues, capability)));
+                    if (ports.Count == 0) scope.Blocked.Add(("output", task.Id, "*"));
                     break;
                 case "value":
                     Check(path + "/outputs", () => Unique(task.Outputs.Select(o => o.Name)));

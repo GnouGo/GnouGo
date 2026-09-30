@@ -7,6 +7,11 @@ Cumulative estimated campaign cost: **EUR 13.473417 / 50**; no unknown usage or
 outstanding reservations. Historical failures below remain in the denominator of
 their own cohorts and are never pooled into the final success rate.
 
+A subsequent Designer session exposed an operation-output compiler defect outside
+this frozen corpus. The [focused follow-up](../../operation-output-contracts.md)
+retains its failure and reports deterministic replay/execution separately. The
+33/33 result above applies only to the recorded `7d5d42b2` candidate.
+
 Baseline production: `7288b6997c704b8ca098761c030071d61da1ce1a` (merged PR #113).
 Frozen harness: `22bba1a5`. Campaign: `planner-stabilization-20260930`, pinned
 OpenAi `gpt-5.5-2026-04-24`, medium reasoning, 96,000 input / 32,768 output tokens,

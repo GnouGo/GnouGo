@@ -278,6 +278,11 @@ preserving presence tests and short-circuit evaluation. Successful switch envelo
 remain distinct from verified payloads and external success. See the
 [conditional cleanup regression](conditional-cleanup-compilation.md).
 
+Effective operation results retain approved agent payload contracts and nested opaque
+contents across scope exports. The same resolver serves semantic compilation and graph
+validation; successful agent envelopes participate in guarded export availability.
+See the [operation-output diagnosis and execution regressions](operation-output-contracts.md).
+
 Use the [repository planning skill](../.agents/skills/gnougo-planning/SKILL.md) for deterministic regression work. Historical live reports retain their original outcomes and accounting; they do not authorize more dispatches. The historical cohort remains [8/9 correct](evidence/flow-v9-112/taskplan-stabilization/README.md). The separately authorized [stabilization campaign](evidence/planner-stabilization/README.md) freezes eleven execution scenarios and a fresh cumulative EUR 50 ceiling, including real Cmd MCP filesystem workflows.
 
 Real Copilot command edit/test execution remains unverified because the available host does not satisfy mandatory sandbox enforcement. Keep that limitation visible; do not relax permissions or substitute simulated execution for external evidence.

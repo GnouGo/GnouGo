@@ -35,6 +35,23 @@ if (workspaceGraph.Workflows[0].Steps.Single(s => s.Type == "agent.run").Input.M
     PlanningGeneratedGraph.Validate(workspaceGraph, workspaceCatalog).Any()) throw new InvalidOperationException("Workspace scope was not preserved");
 Console.WriteLine("constant workspace: approved literal survives compilation and source-generated serialization; no agent execution");
 
+// Use the real executor contract: an agent payload can contain open objects while
+// evidence, usage and other envelope fields retain their authoritative shapes.
+workspaceCatalog.Capabilities[0].OutputSchema = new GnOuGo.Flow.Core.Runtime.Executors.AgentRunExecutor().Contract.OutputSchema;
+workspacePlan.Root.Outputs = [new("observed", new() { Kind = "output", Source = "work" })];
+var outputCompiled = new TaskPlanCompiler().Compile(workspacePlan, workspaceCatalog);
+var outputGraph = JsonSerializer.Deserialize(JsonSerializer.Serialize(outputCompiled.Graph, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph)!;
+if (outputCompiled.Diagnostics.Count != 0 || PlanningGraphValidation.Validate(outputGraph, workspaceCatalog).Count != 0)
+    throw new InvalidOperationException("Partial operation output contract did not survive serialization");
+var outputSchema = outputGraph.Workflows[0].Outputs[0].Schema.Contract!;
+if (outputSchema["properties"]?["output"]?["type"]?.ToString() != "object" ||
+    outputSchema["properties"]?["output"]?["additionalProperties"]?["x-gnougo-opaque"]?.ToString() != "true")
+    throw new InvalidOperationException("Output schema specialization or nested opacity was lost");
+workspaceCatalog.AllowedStepTypes.AddRange(["human.input", "assert.non_null", "workflow.call"]);
+PlanningConfirmationGuards.Apply(outputGraph, workspaceCatalog);
+_ = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(outputGraph, workspaceCatalog)));
+Console.WriteLine("operation outputs: approved payload and partial envelope survive source-generated serialization and YAML compilation");
+
 foreach (var name in PlanningCorpus.Names)
 {
     var environment = new PlanningBenchmarkCases.Environment(name); var engine = new WorkflowEngine { McpClientFactory = environment.Factory(), HumanInputProvider = new PlanningCorpus.Human() };
