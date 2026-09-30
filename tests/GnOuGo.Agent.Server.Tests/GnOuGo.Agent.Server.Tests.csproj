@@ -40,6 +40,10 @@
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs" Link="BenchmarkHttpJournal.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs" Link="KeyVaultBenchmarkModel.cs" /></ItemGroup>
   <ItemGroup>
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/StabilizationBenchmark.cs" Link="StabilizationBenchmark.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LocalExecutionCases.cs" Link="LocalExecutionCases.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" />
     <Compile Include="../Shared/PlanningBenchmarkCases.cs" Link="PlanningBenchmarkCases.cs" />
     <Compile Include="../Shared/PlanningBenchmarkMeasurements.cs" Link="PlanningBenchmarkMeasurements.cs" />

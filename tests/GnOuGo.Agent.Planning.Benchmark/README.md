@@ -1,5 +1,54 @@
 # Planning evaluation corpus
 
+## Planner stabilization comparison
+
+`--stabilization` is the execution-based eleven-case campaign. It uses the eight
+unchanged corpus requests and three real filesystem workflows through the shipped
+Cmd MCP stdio process. Real effects are confined to a disposable workspace per run;
+the oracle checks contents, unchanged inputs, permission denial, and creation/cleanup
+calls independently. No remote publication is part of this campaign.
+
+Build the benchmark and Cmd MCP in Release. Freeze the harness before collecting
+the baseline, and use that same harness against both production revisions:
+
+```sh
+dotnet build tests/GnOuGo.Agent.Planning.Benchmark -c Release -m:1 -warnaserror -p:SkipClientBuild=true
+dotnet build src/GnOuGo.Cmd.Mcp -c Release -m:1 -warnaserror
+dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --stabilization --campaign planner-stabilization-20260930 --cohort baseline \
+  --source 7288b6997c704b8ca098761c030071d61da1ce1a
+dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --stabilization --campaign planner-stabilization-20260930 --cohort final --source <candidate-sha>
+dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --stabilization --campaign planner-stabilization-20260930 \
+  --compare 7288b6997c704b8ca098761c030071d61da1ce1a --candidate <candidate-sha>
+```
+
+`--source` permits a harness-only commit over that production tree, never changed
+production. `--cmd-executable` supplies an absolute path to a separately built server.
+The campaign pins harness/oracle/accounting/configuration hashes, the Cmd assembly,
+OS/runtime and limits. Each row records production and harness commits separately.
+Both cohorts require three repetitions of all eleven cases. `--cohort diagnostic
+--cases <names>` records one separate diagnostic repetition per source revision.
+Reissuing a completed identity reads its result without another dispatch. Interrupted
+execution is failed evidence; it is never automatically repeated. Interrupted planning
+uses the existing encrypted request journal and original schemas.
+
+The fresh EUR 50 ceiling covers both revisions, diagnostics and execution inference.
+Logical planning calls, physical attempts, discovery reads, repairs, tokens and
+planning/execution/total latency are distinct. Unknown usage remains unknown. Final
+acceptance requires 33 correct executions, successful nominal variants, zero safety
+violations, and one planning call with zero repairs for each simple case. Incomplete
+or mismatched cohorts are inconclusive. Historical review-based gates do not apply.
+
+Read a sanitized result with `--stabilization --campaign <id> --inspect
+<source>:<cohort>:<case>:<repetition>`. `--private-evidence` additionally returns the
+encrypted session/diagnostic evidence for local inspection; never redirect that
+private output to plaintext files or commit it. All failure identities and budget
+reservations remain retained. Generic fixes and further diagnostic iterations are
+authorized for this campaign within its shared ceiling; failed final cohorts are
+not overwritten or pooled with a later revision.
+
 Eight frozen requests cover arithmetic, read/transform, nullable values/defaults, routing, parallel collections/subflows, protected writes/cleanup, the original French PR review and an English review with 80 irrelevant tools. All external integrations are mocked. Expected results use independent alternate inputs and observations; review evaluation checks passing, failed and incomplete executions in one clone. All eight offline intent fixtures exercise construction and execution. They are not a live-model reliability score. Rejected confirmation and changed-head cases must prevent publication while preserving cleanup.
 
 ```bash
