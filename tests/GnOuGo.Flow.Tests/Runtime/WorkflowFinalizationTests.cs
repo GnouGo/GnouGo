@@ -245,55 +245,6 @@ public sealed class WorkflowFinalizationTests
         Assert.Equal("lease-2", result.Outputs!["cleaned"]!.GetValue<string>());
     }
 
-    [Fact]
-    public async Task Finally_IsPersistedWhenCheckpointedWorkflowResumes()
-    {
-        const string yaml = """
-            version: 1
-            workflows:
-              main:
-                steps:
-                  - id: allocate
-                    type: set
-                    input:
-                      resource: lease-3
-                  - id: use
-                    type: set
-                    input:
-                      resource: "${data.steps.allocate.resource}"
-                finally:
-                  - id: cleanup
-                    type: set
-                    input:
-                      resource: "${data.steps.allocate.resource}"
-            """;
-        var (engine, workflow) = CreateEngine(yaml);
-        var checkpointer = new InMemoryWorkflowCheckpointer();
-        await checkpointer.SaveAsync(new WorkflowCheckpoint
-        {
-            RunId = "finalization-resume",
-            WorkflowName = "main",
-            WorkflowYaml = yaml,
-            NextStepIndex = 1,
-            StepOutputs = new JsonObject
-            {
-                ["allocate"] = new JsonObject { ["resource"] = "lease-3" }
-            },
-            Inputs = new JsonObject(),
-            Status = "paused"
-        }, CancellationToken.None);
-        engine.Checkpointer = checkpointer;
-
-        var result = await engine.ResumeAsync("finalization-resume", workflow, CancellationToken.None);
-
-        Assert.True(result.Success, result.Error?.Message);
-        var checkpoint = await checkpointer.LoadAsync("finalization-resume", CancellationToken.None);
-        Assert.NotNull(checkpoint);
-        Assert.Equal("completed", checkpoint.Status);
-        Assert.Equal(2, checkpoint.NextStepIndex);
-        Assert.Equal("lease-3", checkpoint.StepOutputs["cleanup"]!["resource"]!.GetValue<string>());
-    }
-
     private static async Task<RunResult> ExecuteAsync(
         string yaml,
         JsonNode? inputs = null,

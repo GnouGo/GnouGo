@@ -1,0 +1,103 @@
+{
+  "checks": [
+    {
+      "check": "pack-Core",
+      "exit_code": 0,
+      "unexpected_warnings": [],
+      "documented_ef_notices": 0,
+      "log_sha256": "969c8cdfbae60fd692848ce460543b0c7b992b2092d5dece43ef1d5f529c4a5a"
+    },
+    {
+      "check": "pack-Planning",
+      "exit_code": 0,
+      "unexpected_warnings": [],
+      "documented_ef_notices": 0,
+      "log_sha256": "4fca6c34e2f61ff39f05163655a8b51842c65dd5aa00658a782d71f044adb07d"
+    },
+    {
+      "check": "pack-Integrations",
+      "exit_code": 0,
+      "unexpected_warnings": [],
+      "documented_ef_notices": 0,
+      "log_sha256": "a9540e46188dd5193d711886ace634337aee9165fe10e053ccec1e2366c7f369"
+    },
+    {
+      "check": "pack-Copilot",
+      "exit_code": 0,
+      "unexpected_warnings": [],
+      "documented_ef_notices": 0,
+      "log_sha256": "ce4c0fd64fadf166ad5e19023f33bb085c2c88257c3ec53b24c04631e0b1c5bf"
+    },
+    {
+      "check": "pack-Persistence",
+      "exit_code": 0,
+      "unexpected_warnings": [],
+      "documented_ef_notices": 0,
+      "log_sha256": "889dcf8b3f0fbba0600e7336299d75e63f3d12f706b6b4a7c69d86c895392d63"
+    },
+    {
+      "check": "publish-PlanningSmoke",
+      "exit_code": 0,
+      "unexpected_warnings": [],
+      "documented_ef_notices": 0,
+      "log_sha256": "7e3246a4828e1096073fa877133e262c6e9aabfdac451d307b8cc787105c4548"
+    },
+    {
+      "check": "smoke-planning",
+      "exit_code": 0,
+      "unexpected_warnings": [],
+      "documented_ef_notices": 0,
+      "log_sha256": "6399ff5e15657aa93f4da5dc9808cd7ca95224c3b5c910fdf6bf8c5e5b06ec02"
+    },
+    {
+      "check": "publish-FlowCli",
+      "exit_code": 0,
+      "unexpected_warnings": [],
+      "documented_ef_notices": 2,
+      "log_sha256": "673788f449a01ce76e5ddece933ec38e4b3c5be510d728f9544e49a28d8fd58f"
+    },
+    {
+      "check": "publish-FlowServer",
+      "exit_code": 0,
+      "unexpected_warnings": [],
+      "documented_ef_notices": 2,
+      "log_sha256": "df07449035495124b632ca623bbb9853feecab6fc6f07d85ec8e86548bb270fd"
+    },
+    {
+      "check": "publish-CopilotMcp",
+      "exit_code": 0,
+      "unexpected_warnings": [],
+      "documented_ef_notices": 0,
+      "log_sha256": "d2fa4d3dc9de9bb6336a46cd0fd9f86c4d41be82e1db97eb0a0ccb808a2817a8"
+    },
+    {
+      "check": "publish-AgentServer",
+      "exit_code": 0,
+      "unexpected_warnings": [],
+      "documented_ef_notices": 0,
+      "log_sha256": "a8946f6b102c81526b0a8fdb6bd48abf684318e0d331b4f61ae9c13f55834397"
+    },
+    {
+      "check": "smoke-encrypted-execution",
+      "exit_code": 0,
+      "unexpected_warnings": [],
+      "documented_ef_notices": 0,
+      "log_sha256": "02a03ffc0775f1fe1fd1a86367c72189a87b62f37f4d1ba9d934c7ac6fd19e41"
+    },
+    {
+      "check": "smoke-encrypted-planning",
+      "exit_code": 0,
+      "unexpected_warnings": [],
+      "documented_ef_notices": 0,
+      "log_sha256": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88"
+    },
+    {
+      "check": "build-benchmark",
+      "exit_code": 0,
+      "unexpected_warnings": [],
+      "documented_ef_notices": 0,
+      "log_sha256": "f91ca5a837c487bebff248c5ad3d33f8bfa0e175ebfdc02c9f5b0d3001a3ab51"
+    }
+  ],
+  "collector_note": "The first publish collector incorrectly classified the localized zero-warning build summary as a warning. Exact diagnostic-line audit confirms the existing build exited 0 with no warnings; no build was repeated for this reporting correction."
+}

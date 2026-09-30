@@ -23,7 +23,7 @@ This stdio server uses the stable C# MCP SDK `2.0.0` with automatic protocol neg
 | `document_get_policy` | Returns active policy (roots, extensions, limits) |
 | `document_list` | Lists allowed files in a directory |
 | `document_read` | Reads a document, returns structured sections (markdown or plain) |
-| `document_write` | Writes or appends content to a file (generates DOCX/XLSX for Office formats) |
+| `document_write` | Writes or appends content to a file, creating missing parent directories inside allowed roots (generates DOCX/XLSX for Office formats) |
 
 `document_write` includes the current `document_get_policy` values in its MCP tool description when clients list tools: allowed roots, allowed extensions, default working directory, and max file size. This lets clients choose valid target paths without a separate hardcoded allowlist.
 

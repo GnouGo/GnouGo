@@ -1,4 +1,6 @@
 using System.Text.Json.Nodes;
+using System.Text.Json;
+using GnOuGo.Flow.Core.Compilation;
 using Microsoft.Extensions.Logging;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
@@ -10,6 +12,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// </summary>
 public sealed class WorkflowCallExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.Composite;
     public string StepType => "workflow.call";
 
     public IReadOnlyList<StepExceptionDoc>? DocumentedExceptions => new StepExceptionDoc[]
@@ -55,7 +58,18 @@ public sealed class WorkflowCallExecutor : IStepExecutor
                 $"Max call depth ({ctx.Limits.MaxCallDepth}) exceeded");
         }
 
-        var resolution = await ctx.Engine.WorkflowCallResolver.ResolveAsync(new WorkflowCallResolutionContext
+        WorkflowCallResolution resolution;
+        if (ctx.ReadRecordedControl("workflow") is JsonObject saved)
+        {
+            var document = JsonSerializer.Deserialize(saved["document"], WorkflowRunJsonContext.Default.WorkflowDocument)
+                ?? throw new WorkflowRunConflictException("The resolved workflow journal is invalid.");
+            var compiled = new WorkflowCompiler().Compile(document);
+            var name = saved["name"]!.GetValue<string>();
+            resolution = new() { Workflow = compiled.Workflows[saved["workflowKey"]!.GetValue<string>()], WorkflowName = name, CallStackKey = saved["stackKey"]?.GetValue<string>() };
+        }
+        else
+        {
+            resolution = await ctx.Engine.WorkflowCallResolver.ResolveAsync(new WorkflowCallResolutionContext
         {
             Engine = ctx.Engine,
             Ref = refObj,
@@ -64,6 +78,13 @@ public sealed class WorkflowCallExecutor : IStepExecutor
             CallStack = ctx.CallStack,
             ActiveDocument = ctx.ActiveDocument
         }, ct);
+            await ctx.RecordControlAsync("workflow", () => new JsonObject
+            {
+                ["name"] = resolution.WorkflowName, ["workflowKey"] = resolution.Workflow.Name, ["stackKey"] = resolution.CallStackKey,
+                ["document"] = JsonSerializer.SerializeToNode(resolution.Workflow.Document.Source, WorkflowRunJsonContext.Default.WorkflowDocument)
+            }, ct);
+        }
+
 
         if (!string.IsNullOrWhiteSpace(resolution.CallStackKey) && ctx.CallStack.Contains(resolution.CallStackKey))
         {
@@ -75,7 +96,7 @@ public sealed class WorkflowCallExecutor : IStepExecutor
         return await ExecuteResolvedWorkflow(ctx, resolution, args, ct);
     }
 
-    private static async Task<JsonNode?> ExecuteResolvedWorkflow(
+    internal static async Task<JsonNode?> ExecuteResolvedWorkflow(
         StepExecutionContext ctx,
         WorkflowCallResolution resolution,
         JsonNode? args,
@@ -109,7 +130,7 @@ public sealed class WorkflowCallExecutor : IStepExecutor
         };
 
         var inheritedFinalization = ctx.EffectiveExecutionScope.IsFinalization;
-        var executionScope = ctx.Engine.CreateExecutionScopeForWorkflow(subWorkflow, inheritedFinalization);
+        var executionScope = ctx.Engine.CreateExecutionScopeForWorkflow(subWorkflow, inheritedFinalization, ctx.EffectiveExecutionScope.Child("workflow", resolution.WorkflowName).Path);
         var workflowInfo = new WorkflowTelemetryInfo
         {
             WorkflowName = resolution.WorkflowName,
@@ -255,7 +276,8 @@ public sealed class WorkflowCallExecutor : IStepExecutor
         return new JsonObject
         {
             ["outputs"] = outputs,
-            ["workflow"] = resolution.WorkflowName
+            ["workflow"] = resolution.WorkflowName,
+            ["run"] = new JsonObject { ["steps_executed"] = result.StepResults.Count, ["success"] = result.Success }
         };
     }
 

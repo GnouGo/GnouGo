@@ -63,6 +63,12 @@ public sealed class LLMClientException : Exception
 
     public bool Retryable { get; }
 
+    /// <summary>A definite rejection that cannot be resolved by resending the unchanged request.
+    /// Transport, timeout and unclassified failures retain uncertain outcome semantics.</summary>
+    public bool IsRequestRejected => !Retryable && Kind is LLMClientFailureKind.InvalidRequest
+        or LLMClientFailureKind.Authentication or LLMClientFailureKind.Authorization
+        or LLMClientFailureKind.QuotaOrBilling or LLMClientFailureKind.ModelUnavailable;
+
     public int? StatusCode { get; }
 
     public string? SafeProviderCode { get; }

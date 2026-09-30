@@ -13,7 +13,6 @@ from .models import (
     McpServerMetadata,
     McpToolInfo,
     TemplateResult,
-    WorkflowCheckpoint,
     WorkflowRouteCandidate,
     WorkflowRouteCandidateQuery,
 )
@@ -61,20 +60,6 @@ class IMcpClientFactory(Protocol):
 
 class IHumanInputProvider(Protocol):
     async def request_input_async(self, request: HumanInputRequest) -> Any: ...
-
-
-class IWorkflowCheckpointer(Protocol):
-    async def save_async(self, checkpoint: WorkflowCheckpoint) -> None: ...
-
-    async def load_async(self, run_id: str) -> WorkflowCheckpoint | None: ...
-
-    async def delete_async(self, run_id: str) -> None: ...
-
-    async def list_async(
-        self,
-        tenant_id: str | None = None,
-        status: str | None = None,
-    ) -> list[WorkflowCheckpoint]: ...
 
 
 class ITelemetrySpan:

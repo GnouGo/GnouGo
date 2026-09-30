@@ -1,0 +1,47 @@
+@using GnOuGo.Flow.Core.Planning
+@if (Session.Graph is { } graph)
+{
+    <PlannerAgentStages Graph="@(System.Text.Json.JsonSerializer.Deserialize(graph, PlanningJsonContext.Default.PlanningGraph)!)" />
+}
+@if (Session.RevisionScope.Count > 0)
+{
+    <p>Tasks open for revision: @string.Join(", ", Session.RevisionScope)</p>
+}
+@if (Session.DiscoveryLimitations.Count > 0)
+{
+    <details><summary>Discovery limitations</summary><ul>
+        @foreach (var limitation in Session.DiscoveryLimitations) { <li>@limitation</li> }
+    </ul></details>
+}
+@if (ShowFindings && Session.Diagnostics.Count > 0)
+{
+    <ul>@foreach (var finding in Session.Diagnostics)
+    {
+        <li><strong>@finding.Code</strong>: @finding.Message <small>@finding.Location</small>
+            @if (finding.Prerequisite is { } prerequisite)
+            {
+                <p>@prerequisite.Description</p>
+                @if (prerequisite.RootActionId is { } root) { <p>Blocked by action: <code>@root</code></p> }
+                @if (prerequisite.ContractPath is { } path) { <p>Required consumer input: <code>@path</code></p> }
+            }
+        </li>
+    }</ul>
+}
+@if (Session.TaskPlan is { } plan)
+{
+    var semantic = System.Text.Json.JsonSerializer.Deserialize(plan, PlanningJsonContext.Default.TaskPlan)!;
+    <details open><summary>Business tasks</summary><PlannerTasks Scope="semantic.Root" />
+        @foreach (var group in semantic.Groups) { <p>Reusable group: @group.Id</p><PlannerTasks Scope="group.Body" /> }
+    </details>
+}
+@foreach (var choice in Session.Choices.Where(c => c.Selected is not null))
+{
+    <details><summary>@choice.Question</summary>
+        <p>Recommended: @choice.Recommended · Selected: @choice.Selected</p>
+        @foreach (var alternative in choice.Alternatives) { <p>@alternative.Id: @alternative.Description</p> }
+    </details>
+}
+@code {
+    [Parameter, EditorRequired] public PlanningSessionDto Session { get; set; } = default!;
+    [Parameter] public bool ShowFindings { get; set; } = true;
+}

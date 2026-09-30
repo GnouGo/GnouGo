@@ -9,6 +9,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// </summary>
 public sealed class AssertNonNullExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.ReplaySafe;
     public string StepType => "assert.non_null";
 
     public IReadOnlyList<StepExceptionDoc>? DocumentedExceptions => new StepExceptionDoc[]

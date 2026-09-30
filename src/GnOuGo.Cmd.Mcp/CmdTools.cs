@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
@@ -29,13 +30,13 @@ public sealed class CmdTools
     [McpServerTool(Name = "cmd_run", UseStructuredContent = true, OutputSchemaType = typeof(CmdRunResult)), Description("Runs one allowlisted command by name. Raw shell commands are not accepted; only preconfigured aliases may be executed. Commands execute within the default workspace. Returns a structured result with stdout, stderr, exit code, success flag, and error details if any.")]
     public async Task<CmdRunResult> RunAsync(
         [Description("Allowlisted command alias to execute.")] string commandName,
-        [Description("Optional JSON object string of named parameters, for example {\"path\":\"src\"}.")] string? parametersJson = null,
+        [Description("Named parameters as a JSON object with declared string values, for example {\"path\":\"src\"}. Use only fields declared for the selected command.")] JsonObject? parameters = null,
         [Description("Optional timeout override in milliseconds. It will be clamped by the server policy.")] int? timeoutMs = null,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            return await _host.RunAsync(commandName, parametersJson, timeoutMs, cancellationToken);
+            return await _host.RunAsync(commandName, parameters, timeoutMs, cancellationToken);
         }
         catch (OperationCanceledException ex)
         {

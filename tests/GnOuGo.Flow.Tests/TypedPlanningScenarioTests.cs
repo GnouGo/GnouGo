@@ -50,7 +50,7 @@ public sealed class TypedPlanningScenarioTests
         var observations = JsonNode.Parse("""
             {"main:observe":{"schema":{"type":"object","properties":{"response":{"type":"object","properties":{"more":{"type":"boolean"}},"required":["more"]}},"required":["response"]},"responses":[{"response":{"more":false}}]}}
             """)!.AsObject();
-        var results = await WorkflowPlanScenarioValidator.ValidateAsync(document, factory, TestContext.Current.CancellationToken, observations: observations);
+        var results = await SimulatedWorkflowValidator.ValidateAsync(document, factory, TestContext.Current.CancellationToken, observations: observations);
         var nominal = Assert.Single(results, s => s.Id == "nominal");
         Assert.Equal(valid ? "passed" : "inconclusive", nominal.Outcome);
         Assert.Equal(valid ? 1 : 0, calls);
@@ -95,7 +95,7 @@ public sealed class TypedPlanningScenarioTests
                 new System.Text.Json.Nodes.JsonObject { ["response"] = new System.Text.Json.Nodes.JsonObject { [field] = true } },
                 new System.Text.Json.Nodes.JsonObject { ["response"] = new System.Text.Json.Nodes.JsonObject { [field] = false } })
         } };
-        var results = await WorkflowPlanScenarioValidator.ValidateAsync(document, ObservationFactory(field), TestContext.Current.CancellationToken, observations: observations);
+        var results = await SimulatedWorkflowValidator.ValidateAsync(document, ObservationFactory(field), TestContext.Current.CancellationToken, observations: observations);
         Assert.Equal("passed", Assert.Single(results, s => s.Id == "nominal").Outcome);
         var coverage = Assert.Single(results, s => s.Id == "observations:main:" + loop);
         Assert.Equal(terminates, coverage.Outcome == "passed");
@@ -128,7 +128,7 @@ public sealed class TypedPlanningScenarioTests
                     type: set
                     input: {closed: true}
             """.Replace("EXPRESSION", expression, StringComparison.Ordinal));
-        var nominal = Assert.Single(await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken));
+        var nominal = Assert.Single(await SimulatedWorkflowValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken));
         Assert.Equal(valid ? "passed" : "inconclusive", nominal.Outcome);
         if (valid) Assert.Empty(nominal.Diagnostics);
         else
@@ -175,13 +175,13 @@ public sealed class TypedPlanningScenarioTests
                 new System.Text.Json.Nodes.JsonObject { ["response"] = new System.Text.Json.Nodes.JsonObject { [field] = true } },
                 new System.Text.Json.Nodes.JsonObject { ["response"] = new System.Text.Json.Nodes.JsonObject { [field] = false } })
         } };
-        var results = await WorkflowPlanScenarioValidator.ValidateAsync(document, ObservationFactory(field), TestContext.Current.CancellationToken, observations: observations);
+        var results = await SimulatedWorkflowValidator.ValidateAsync(document, ObservationFactory(field), TestContext.Current.CancellationToken, observations: observations);
         var nominal = Assert.Single(results, s => s.Id == "nominal");
         Assert.Equal(passes, nominal.Outcome == "passed");
         if (passes) Assert.All(results, s => Assert.Equal("passed", s.Outcome));
         else Assert.Contains(nominal.Diagnostics, d => d.Code == "SCENARIO_OBSERVATIONS_UNCONSUMED" || d.Message.Contains("SCENARIO_OBSERVATIONS_EXHAUSTED", StringComparison.Ordinal));
         observations["main:read"]!["responses"]![0]!["response"]![field] = "invalid";
-        var invalid = Assert.Single(await WorkflowPlanScenarioValidator.ValidateAsync(document, ObservationFactory(field), TestContext.Current.CancellationToken, observations: observations), s => s.Id == "nominal");
+        var invalid = Assert.Single(await SimulatedWorkflowValidator.ValidateAsync(document, ObservationFactory(field), TestContext.Current.CancellationToken, observations: observations), s => s.Id == "nominal");
         Assert.NotEqual("passed", invalid.Outcome);
     }
 
@@ -219,7 +219,7 @@ public sealed class TypedPlanningScenarioTests
         var factory = new InMemoryMcpClientFactory();
         factory.RegisterServer("neutral", new() { Tools = [new() { Name = "read", InputSchema = new System.Text.Json.Nodes.JsonObject { ["type"] = "object" } }],
             ToolHandlers = new() { ["read"] = _ => new() { Content = System.Text.Json.Nodes.JsonValue.Create("Opaque original response") } } });
-        var results = await WorkflowPlanScenarioValidator.ValidateAsync(document, factory, TestContext.Current.CancellationToken);
+        var results = await SimulatedWorkflowValidator.ValidateAsync(document, factory, TestContext.Current.CancellationToken);
         Assert.Equal(3, results.Count);
         Assert.All(results, result => Assert.True(result.Outcome == "passed", string.Join("; ", result.Diagnostics.Select(d => d.Message))));
         Assert.Null(document.Workflows["main"].Steps[0].Input!["structured_output"]!["model"]);
@@ -242,10 +242,10 @@ public sealed class TypedPlanningScenarioTests
                     type: set
                     input: {host: "${new URL(data.inputs.resource).hostname}"}
             """);
-        var withoutFixture = Assert.Single(await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken));
+        var withoutFixture = Assert.Single(await SimulatedWorkflowValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken));
         Assert.Equal("inconclusive", withoutFixture.Outcome);
         var inputs = new System.Text.Json.Nodes.JsonObject { ["resource"] = resource };
-        var withFixture = Assert.Single(await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken, inputs));
+        var withFixture = Assert.Single(await SimulatedWorkflowValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken, inputs));
         Assert.Equal("passed", withFixture.Outcome);
         Assert.Null(document.Workflows["main"].Inputs!["resource"].Default);
         Assert.Equal(resource, inputs["resource"]!.GetValue<string>());
@@ -264,7 +264,7 @@ public sealed class TypedPlanningScenarioTests
                     type: assert.non_null
                     input: {value: null}
             """);
-        var result = Assert.Single(await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken));
+        var result = Assert.Single(await SimulatedWorkflowValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken));
         var finding = Assert.Single(result.Diagnostics);
         Assert.Equal("workflow:main/step:required_value", finding.Location);
         Assert.Contains("null", finding.Message, StringComparison.OrdinalIgnoreCase);
@@ -288,7 +288,7 @@ public sealed class TypedPlanningScenarioTests
                     type: set
                     input: {closed: true}
             """);
-        var results = await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken);
+        var results = await SimulatedWorkflowValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken);
         Assert.Equal(3, results.Count);
         Assert.All(results, result => Assert.Equal("passed", result.Outcome));
     }
@@ -323,7 +323,7 @@ public sealed class TypedPlanningScenarioTests
                     type: set
                     input: {closed: true}
             """);
-        var results = await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken);
+        var results = await SimulatedWorkflowValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken);
         Assert.Equal(7, results.Count);
         Assert.All(results, result => Assert.Equal("passed", result.Outcome));
     }
@@ -353,10 +353,10 @@ public sealed class TypedPlanningScenarioTests
                     type: set
                     input: {closed: true}
             """);
-        var missing = await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken);
+        var missing = await SimulatedWorkflowValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken);
         Assert.Equal(2, missing.Count(r => r.Diagnostics.Any(d => d.Code == "SCENARIO_UNREACHED")));
         var schemas = System.Text.Json.Nodes.JsonNode.Parse("""{"main:each":{"type":"object","required":["name"],"properties":{"name":{"type":"string"}}}}""")!.AsObject();
-        var covered = await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken, loopItemSchemas: schemas);
+        var covered = await SimulatedWorkflowValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken, loopItemSchemas: schemas);
         Assert.Equal(3, covered.Count); Assert.All(covered, r => Assert.Equal("passed", r.Outcome));
         Assert.Empty(document.Workflows["main"].Steps[0].Input!["items"]!.AsArray());
         Assert.Contains(covered, r => r.Id == "nominal" && r.Outcome == "passed");
@@ -379,7 +379,7 @@ public sealed class TypedPlanningScenarioTests
                     type: assert.non_null
                     input: {value: null}
             """);
-        var result = Assert.Single(await WorkflowPlanScenarioValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken));
+        var result = Assert.Single(await SimulatedWorkflowValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken));
         Assert.Equal("failed", result.Outcome);
         Assert.Contains(result.Diagnostics, d => d.Code == "FINALIZATION_NOT_EXECUTED");
     }

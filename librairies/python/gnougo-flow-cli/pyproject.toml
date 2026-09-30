@@ -1,7 +1,7 @@
 [project]
 name = "gnougo-flow-cli"
 version = "0.1.0"
-description = "Demonstration CLI utilities for running GnOuGo Flow workflows"
+description = "Authored YAML demonstration runner and schema-9 durable Flow run CLI"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"

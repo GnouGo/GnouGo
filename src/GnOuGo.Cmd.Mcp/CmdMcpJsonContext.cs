@@ -19,6 +19,7 @@ internal static class CmdMcpJson
     }
 }
 
+[JsonSerializable(typeof(System.Text.Json.Nodes.JsonObject))]
 [JsonSerializable(typeof(CmdAllowedCommandsResult))]
 [JsonSerializable(typeof(CmdAllowedCommandInfo))]
 [JsonSerializable(typeof(IReadOnlyList<CmdAllowedCommandInfo>))]

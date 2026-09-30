@@ -175,18 +175,6 @@ class RunResult(BaseModel):
     error: WorkflowError | None = None
 
 
-class WorkflowCheckpoint(BaseModel):
-    run_id: str
-    workflow_name: str
-    next_step_index: int = 0
-    step_outputs: dict[str, Any] = Field(default_factory=dict)
-    inputs: Any = None
-    workflow_yaml: str = ""
-    status: str = "running"
-    timestamp: str | None = None
-    tenant_id: str | None = None
-
-
 class ExecutionLimits(BaseModel):
     max_total_steps_executed: int = 10_000
     max_call_depth: int = 20

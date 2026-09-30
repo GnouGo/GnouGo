@@ -1,0 +1,494 @@
+[
+  {
+    "run": "d636c998acd08b17cd21cb4a9b85c0911b3290ba:fixture:conditional:1",
+    "status": "approved",
+    "model_calls": 1,
+    "repairs": 0,
+    "pending_request": null,
+    "revision_scope": [],
+    "diagnostics": [],
+    "diagnostic_history": [],
+    "request_ids": [
+      "c3031305cc568fe840052af90eb2b6be3ba98e4eaeb254904774bb4d61074c0e:1:f790bc5b7657d9722e0c55c999af2c611ebdc3fff5f4a289c4ae11dc77749f73"
+    ]
+  },
+  {
+    "run": "d636c998acd08b17cd21cb4a9b85c0911b3290ba:fixture:conditional:2",
+    "status": "approved",
+    "model_calls": 1,
+    "repairs": 0,
+    "pending_request": null,
+    "revision_scope": [],
+    "diagnostics": [],
+    "diagnostic_history": [],
+    "request_ids": [
+      "b057c8c9c187c8023b56f785cf1d6b82a6ff805435092e7292f2d4294ec411f5:1:f790bc5b7657d9722e0c55c999af2c611ebdc3fff5f4a289c4ae11dc77749f73"
+    ]
+  },
+  {
+    "run": "d636c998acd08b17cd21cb4a9b85c0911b3290ba:fixture:conditional:3",
+    "status": "approved",
+    "model_calls": 1,
+    "repairs": 0,
+    "pending_request": null,
+    "revision_scope": [],
+    "diagnostics": [],
+    "diagnostic_history": [],
+    "request_ids": [
+      "2876ab889ca3ae1fb1c3017f6039aa693eeba318efbd486f0365772002f03777:1:f790bc5b7657d9722e0c55c999af2c611ebdc3fff5f4a289c4ae11dc77749f73"
+    ]
+  },
+  {
+    "run": "d636c998acd08b17cd21cb4a9b85c0911b3290ba:fixture:review_french:1",
+    "status": "approved",
+    "model_calls": 1,
+    "repairs": 0,
+    "pending_request": null,
+    "revision_scope": [],
+    "diagnostics": [],
+    "diagnostic_history": [],
+    "request_ids": [
+      "f0dcdc9c0cd59e5bd75137e29b01731b1d52dbc7b0bd7ef2a133ea9bb031070f:1:1325ed8de05b0f3fdf9a3f27b0d473f4c26d83e2685708ab612db879d711e88e"
+    ]
+  },
+  {
+    "run": "d636c998acd08b17cd21cb4a9b85c0911b3290ba:fixture:review_french:2",
+    "status": "approved",
+    "model_calls": 1,
+    "repairs": 0,
+    "pending_request": null,
+    "revision_scope": [],
+    "diagnostics": [],
+    "diagnostic_history": [],
+    "request_ids": [
+      "68f499a165730812576f0a431bb4a4e81423996b6e2a25fe6332f754888cbba3:1:1325ed8de05b0f3fdf9a3f27b0d473f4c26d83e2685708ab612db879d711e88e"
+    ]
+  },
+  {
+    "run": "d636c998acd08b17cd21cb4a9b85c0911b3290ba:fixture:review_french:3",
+    "status": "approved",
+    "model_calls": 1,
+    "repairs": 0,
+    "pending_request": null,
+    "revision_scope": [],
+    "diagnostics": [],
+    "diagnostic_history": [],
+    "request_ids": [
+      "3f458f961b94b984f7e82961f82bf738ba64d7e94b0fa14e5698ce284866aaa3:1:1325ed8de05b0f3fdf9a3f27b0d473f4c26d83e2685708ab612db879d711e88e"
+    ]
+  },
+  {
+    "run": "d636c998acd08b17cd21cb4a9b85c0911b3290ba:fixture:review_distractors:1",
+    "status": "approved",
+    "model_calls": 4,
+    "repairs": 0,
+    "pending_request": null,
+    "revision_scope": [],
+    "diagnostics": [],
+    "diagnostic_history": [],
+    "request_ids": [
+      "ba33e43f009fff54abcab9ed74c8b481f4548b9e53aade8e50f148093c997643:1:f1e576940fe0a229941ab0ad4994b581493825c56be5edded9dc70f80e50ecf6",
+      "ba33e43f009fff54abcab9ed74c8b481f4548b9e53aade8e50f148093c997643:2:5e43ed949a276bf10554ca9439ea9bdef9152b2a7f41d636d213073bd4cbfa25",
+      "ba33e43f009fff54abcab9ed74c8b481f4548b9e53aade8e50f148093c997643:3:ffb9808e9d42b6090b70e45d0b43d427aaf04a4c5a10ead56ad742bfa91de73c",
+      "ba33e43f009fff54abcab9ed74c8b481f4548b9e53aade8e50f148093c997643:4:1cbbd5f1b242d98bae497cee8cb5ca4a22a728ff652f1b9249e7c6b631799592"
+    ]
+  },
+  {
+    "run": "d636c998acd08b17cd21cb4a9b85c0911b3290ba:fixture:review_distractors:2",
+    "status": "stopped",
+    "model_calls": 6,
+    "repairs": 2,
+    "pending_request": null,
+    "revision_scope": [
+      "/root/outputs/lint_evidence"
+    ],
+    "diagnostics": [
+      {
+        "code": "TASK_REFERENCE_UNKNOWN",
+        "location": "/root/outputs/lint_evidence",
+        "message": "Business reference is unavailable in this scope.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/inputs",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/tasks",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/always",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/tasks/run_verification_checks/branches/0/outputs",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/tasks/run_verification_checks/branches/1/outputs",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/tasks/run_verification_checks/branches/2/outputs",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/lint_status/value/source",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/lint_status/value/port",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/unit_evidence/value/source",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/unit_evidence/value/port",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/unit_status/value/source",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/unit_status/value/port",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/integration_evidence/value/source",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/integration_evidence/value/port",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/integration_status/value/source",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/integration_status/value/port",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "diagnostic_history": [
+      {
+        "calls": 4,
+        "repairs": 0,
+        "code": "TASK_REFERENCE_UNKNOWN",
+        "location": "/root/outputs/lint_evidence",
+        "message": "Business reference is unavailable in this scope.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 5,
+        "repairs": 1,
+        "code": "TASK_REFERENCE_UNKNOWN",
+        "location": "/root/outputs/lint_evidence",
+        "message": "Business reference is unavailable in this scope.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 5,
+        "repairs": 1,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/inputs",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 5,
+        "repairs": 1,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/tasks",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 5,
+        "repairs": 1,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 5,
+        "repairs": 1,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/always",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "TASK_REFERENCE_UNKNOWN",
+        "location": "/root/outputs/lint_evidence",
+        "message": "Business reference is unavailable in this scope.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/inputs",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/tasks",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/always",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/tasks/run_verification_checks/branches/0/outputs",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/tasks/run_verification_checks/branches/1/outputs",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/tasks/run_verification_checks/branches/2/outputs",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/lint_status/value/source",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/lint_status/value/port",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/unit_evidence/value/source",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/unit_evidence/value/port",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/unit_status/value/source",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/unit_status/value/port",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/integration_evidence/value/source",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/integration_evidence/value/port",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/integration_status/value/source",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/root/outputs/integration_status/value/port",
+        "message": "This slot is outside the permitted repair. Preserve unaffected tasks, business interfaces, choices and ordering.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      }
+    ],
+    "request_ids": [
+      "7e1cbdb4d20f8cdec6fccec89e9823f441f9c08d41ea0ab7285a06251aae6265:1:f1e576940fe0a229941ab0ad4994b581493825c56be5edded9dc70f80e50ecf6",
+      "7e1cbdb4d20f8cdec6fccec89e9823f441f9c08d41ea0ab7285a06251aae6265:2:8b02b1cde0a8275be96e05ebd2593a30c44544df8935bf3abd93ddbdb305bd31",
+      "7e1cbdb4d20f8cdec6fccec89e9823f441f9c08d41ea0ab7285a06251aae6265:3:3375b4a34c8c8d08762383b7a351f0dece86c265c111bc702f674560d07a8ebe",
+      "7e1cbdb4d20f8cdec6fccec89e9823f441f9c08d41ea0ab7285a06251aae6265:4:7763a6c22d15ddb240652f70c4ed27c0f171991fdc9ca881a607b93f07bd20b7",
+      "7e1cbdb4d20f8cdec6fccec89e9823f441f9c08d41ea0ab7285a06251aae6265:5:b4c70cc6da8eadac325c012f1fd4c79490c7b82393686c28f42ad6974195ae3e",
+      "7e1cbdb4d20f8cdec6fccec89e9823f441f9c08d41ea0ab7285a06251aae6265:6:4412f97562289ac1428a1b1597b07de8534355ee76d25574e442fd4c4c68fb03"
+    ]
+  },
+  {
+    "run": "d636c998acd08b17cd21cb4a9b85c0911b3290ba:fixture:review_distractors:3",
+    "status": "approved",
+    "model_calls": 4,
+    "repairs": 0,
+    "pending_request": null,
+    "revision_scope": [],
+    "diagnostics": [],
+    "diagnostic_history": [],
+    "request_ids": [
+      "31831fb3ba70f7fe89ae16a50c3ca8f4750f3cce8f81e7aed6ef5881c678838d:1:f1e576940fe0a229941ab0ad4994b581493825c56be5edded9dc70f80e50ecf6",
+      "31831fb3ba70f7fe89ae16a50c3ca8f4750f3cce8f81e7aed6ef5881c678838d:2:d5767e75c7252c31f1985435a08dfbd5c98dcf7f0e53ecaf568e9006a41eb393",
+      "31831fb3ba70f7fe89ae16a50c3ca8f4750f3cce8f81e7aed6ef5881c678838d:3:84daf1897385ef32e241439bc4b8f54542c3788658dc72b034e558b4208c1241",
+      "31831fb3ba70f7fe89ae16a50c3ca8f4750f3cce8f81e7aed6ef5881c678838d:4:427a2d9b7bb3d9c8d6a7880b901793080455de4b07ae572ab8583ef4881eabc8"
+    ]
+  }
+]

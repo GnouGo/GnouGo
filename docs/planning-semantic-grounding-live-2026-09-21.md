@@ -1,12 +1,14 @@
 # Semantic grounding: final verification and bounded live campaign
 
+> Historical pre-schema-9 evidence. Current architecture and migration: [schema 9](workflow-planning-v9.md).
+
 The acceptance criterion is **not met**: the campaign requires a complex Designer and Server-chat success at `FinalReview`, passing scenarios and no blocking diagnostics, with at least three runs on the same final implementation. Five runs used `c30b821`; two reproduced engine defects required the final freeze at `d9f459f42cde5ed92882b16c473a2d932b357bb3`. The sixth run reached `FinalReview` on that revision with 41/41 scenarios passing, complete grounding and no blocking diagnostics. No Designer run succeeded, and only one campaign run used the final implementation. Testing stopped at the six-run cap.
 
 No generated workflow was approved or externally executed. Live planning uses the real model and catalog; scenario executions use isolated simulated integrations.
 
 ## Implementation and verification
 
-The [architecture](workflow-planning-v2.md) remains SemanticPlan → complete capability grounding → GroundedPlan → deterministic validation → mechanical PlanningGraph → compile → scenarios → approval. The finish makes four bounded corrections:
+The [architecture](workflow-planning-v9.md) remains SemanticPlan → complete capability grounding → GroundedPlan → deterministic validation → mechanical PlanningGraph → compile → scenarios → approval. The finish makes four bounded corrections:
 
 - Graph validation shares the conservative contract inclusion checker, including union contracts, numeric constraints, required fields and opacity. Constructed object values retain their known closed shape.
 - Static lowering/compiler disagreements stop as host defects before fixtures or model replanning.

@@ -96,6 +96,14 @@ public sealed class LlmTraceCapture(AgentOTelTelemetry telemetry, LlmTraceConten
             if (!ct.IsCancellationRequested && ex is LLMClientException client && client.Kind is LLMClientFailureKind.Timeout or LLMClientFailureKind.Transport) status = "uncertain";
             // Provider-neutral mapped transport failures carry uncertainty in their code.
             if (ex is WorkflowRuntimeException runtime && runtime.Code is "LLM_BUDGET_UNVERIFIABLE" or "LLM_TIMEOUT" or "LLM_TRANSPORT") status = "uncertain";
+            if (ex is LLMClientException failure)
+            {
+                if (!ct.IsCancellationRequested && failure.IsRequestRejected) status = "rejected";
+                activity.SetTag("gnougo.llm.failure.kind", failure.Kind.ToString());
+                activity.SetTag("gnougo.llm.failure.retryable", failure.Retryable);
+                activity.SetTag("gnougo.llm.failure.http_status", failure.StatusCode);
+                activity.SetTag("gnougo.llm.failure.provider_code", failure.SafeProviderCode);
+            }
             activity.SetTag("gnougo.llm.status", status);
             activity.SetTag("error.type", ex.GetType().Name);
             activity.SetStatus(ActivityStatusCode.Error);

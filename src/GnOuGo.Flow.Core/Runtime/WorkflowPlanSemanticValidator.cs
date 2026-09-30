@@ -137,7 +137,7 @@ public static class WorkflowPlanSemanticValidator
             // Failure-path guards remain in the executable workflow; their truth here needs a proof.
             var guaranteed = workflow.Steps.Where(s => string.IsNullOrWhiteSpace(s.If) &&
                 !(s.OnError?.Cases.Any(c => c.Action == "continue") ?? false) &&
-                symbols.TryGetStepOutput(s.Id, out var output) && output.Kind == FlowTypeKind.Object)
+                symbols.TryGetStepOutput(s.Id, out var output) && HasObjectEnvelope(s, output))
                 .Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
             foreach (var finalizer in workflow.Finally)
             {
@@ -145,7 +145,7 @@ public static class WorkflowPlanSemanticValidator
                 ValidateStep(finalizer, workflowName, document.Workflows, workflow.Inputs, knownContracts, symbols, allStepIds,
                     allowedFunctionNames, functionDefinitions, knownEmptyStringReferences, mcpContracts, stepContracts, errors, proven);
                 if ((proven || string.IsNullOrWhiteSpace(finalizer.If)) && !(finalizer.OnError?.Cases.Any(c => c.Action == "continue") ?? false) &&
-                    symbols.TryGetStepOutput(finalizer.Id, out var output) && output.Kind == FlowTypeKind.Object) guaranteed.Add(finalizer.Id);
+                    symbols.TryGetStepOutput(finalizer.Id, out var output) && HasObjectEnvelope(finalizer, output)) guaranteed.Add(finalizer.Id);
             }
 
             if (workflow.Outputs != null)
@@ -163,6 +163,10 @@ public static class WorkflowPlanSemanticValidator
                         errors);
             }
         }
+
+        static bool HasObjectEnvelope(StepDef step, FlowTypeDescriptor output) => output.Kind == FlowTypeKind.Object ||
+            step.Type == "switch" && step.Cases is { Count: > 0 } && step.Cases.All(c => c.Steps.Count > 0) && step.Default is { Count: > 0 } &&
+            output.Kind == FlowTypeKind.Union && output.Variants.Count > 0 && output.Variants.All(v => v.Kind == FlowTypeKind.Object);
 
         if (errors.Count > 0)
             throw new WorkflowSemanticValidationException(errors);
@@ -312,12 +316,6 @@ public static class WorkflowPlanSemanticValidator
 
         var match = FunctionParameterIdentifierRegex.Match(candidate);
         return match.Success ? match.Value : candidate;
-    }
-
-    internal static IReadOnlyList<WorkflowSemanticValidationError> ValidateFunctionDocumentation(string? script)
-    {
-        var errors = new List<WorkflowSemanticValidationError>();
-        ValidateFunctionJsDoc(script, null, errors); return errors;
     }
 
     private static void ValidateFunctionJsDoc(
@@ -1068,9 +1066,21 @@ public static class WorkflowPlanSemanticValidator
             var outputSchema = FlowTypeDescriptorConverter.ToRuntimeJsonSchema(outputType);
             knownContracts[step.Id] = outputSchema;
             symbols.SetStepOutput(step.Id, outputType);
-            // set enforces output_schema before downstream execution. A continuation
-            // may bypass that assertion, so it must itself satisfy the same contract.
-            if (step.Type == "set" && step.OutputSchema is { } checkedSchema && JsonSchemaContractValidator.ValidateSchema(checkedSchema, strictProfile: false).Count == 0 &&
+            // Only executor-enforced contracts establish a finite selector domain.
+            // Projections and validation enforce their output schema before publication;
+            // llm.call validates its structured json before returning the envelope.
+            // A continuation must itself satisfy that contract; assistant claims,
+            // dynamic schemas and unvalidated output declarations are insufficient.
+            JsonNode? checkedSchema = step.Type is "set" or "value.project" or "value.validate" or "array.project"
+                ? step.OutputSchema : null;
+            if (step.Type == "llm.call" && step.Input?["structured_output"] is JsonObject structured)
+            {
+                var contract = JsonSchemaContractValidator.ValidateStructuredOutput(structured, allowDynamicSchemaReference: true);
+                if (!contract.IsDynamic && contract.Errors.Count == 0 && contract.Schema is { } resultSchema)
+                    checkedSchema = new JsonObject { ["type"] = "object", ["required"] = new JsonArray("json"),
+                        ["properties"] = new JsonObject { ["json"] = resultSchema.DeepClone() } };
+            }
+            if (checkedSchema is not null && JsonSchemaContractValidator.ValidateSchema(checkedSchema, strictProfile: false).Count == 0 &&
                 (step.OnError?.Cases.All(h => h.Action == "stop" || h.Action == "continue" &&
                     JsonSchemaContractValidator.ValidateInstance(h.SetOutput, checkedSchema).Count == 0) ?? true))
                 symbols.SetCheckedStepOutput(step.Id, FlowTypeDescriptorConverter.FromJsonSchema(checkedSchema));
@@ -1091,11 +1101,11 @@ public static class WorkflowPlanSemanticValidator
     {
         if (step.OutputSchema == null)
         {
-            if (step.Type == "value.validate") errors.Add(new WorkflowSemanticValidationError { Code = "VALIDATION_SCHEMA_REQUIRED", WorkflowName = workflowName, StepId = step.Id, Field = "output_schema", Message = "value.validate requires a literal output schema." });
+            if (step.Type is "value.validate" or "array.project" or "value.project") errors.Add(new WorkflowSemanticValidationError { Code = "VALIDATION_SCHEMA_REQUIRED", WorkflowName = workflowName, StepId = step.Id, Field = "output_schema", Message = "value.validate requires a literal output schema." });
             return;
         }
 
-        if (step.Type is not ("set" or "value.validate"))
+        if (step.Type is not ("set" or "value.validate" or "array.project" or "value.project"))
         {
             errors.Add(new WorkflowSemanticValidationError
             {
@@ -1106,7 +1116,7 @@ public static class WorkflowPlanSemanticValidator
                 InvalidPath = "output_schema",
                 AllowedPaths = Array.Empty<string>(),
                 Suggestion = "Remove output_schema or move the reshaping into a set step.",
-                Message = "output_schema is currently supported only on set steps."
+                Message = "output_schema is supported on set, value.validate, array.project and value.project steps."
             });
             return;
         }
@@ -1159,7 +1169,7 @@ public static class WorkflowPlanSemanticValidator
 
         // This executor validates the whole value at runtime before publishing output.
         // Its source may be opaque; the ordinary set assertion rules remain unchanged.
-        if (step.Type == "value.validate") return;
+        if (step.Type is "value.validate" or "array.project" or "value.project") return;
 
         if (step.Input == null)
             return;

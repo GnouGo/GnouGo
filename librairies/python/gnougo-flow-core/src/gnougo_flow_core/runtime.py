@@ -8,7 +8,6 @@ import random
 import time
 import textwrap
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any, Protocol
 
 
@@ -45,7 +44,6 @@ from .models import (
     StepResult,
     StepStatus,
     TemplateResult,
-    WorkflowCheckpoint,
     WorkflowDef,
 )
 from .parsing import WorkflowParser
@@ -59,7 +57,6 @@ from .runtime_contracts import (
     ITelemetrySpan,
     IWorkflowCandidateProvider,
     IWorkflowFetcher,
-    IWorkflowCheckpointer,
     IWorkflowTelemetry,
     NullWorkflowTelemetry,
 )
@@ -464,7 +461,6 @@ class WorkflowEngine:
         self.template_engine: ITemplateEngine | None = None
         self.mcp_client_factory: IMcpClientFactory | None = None
         self.human_input_provider: IHumanInputProvider | None = None
-        self.checkpointer: IWorkflowCheckpointer | None = None
         self.mcp_cache: McpCacheHelper = McpCacheHelper()
         self._mcp_live_tool_sessions: dict[int, IMcpSession] = {}
         self._mcp_live_tool_session_locks: dict[int, asyncio.Lock] = {}
@@ -521,28 +517,6 @@ class WorkflowEngine:
         self._evaluator = ExpressionEvaluator(script_functions, self.limits)
         self._interpolator = StringInterpolator(self._evaluator)
 
-    async def _save_checkpoint_async(
-        self,
-        workflow: CompiledWorkflow,
-        data: dict[str, Any],
-        next_step_index: int,
-    ) -> None:
-        if self.checkpointer is None or self.limits.run_id is None:
-            return
-
-        document = workflow.document.source if workflow.document else None
-        checkpoint = WorkflowCheckpoint(
-            run_id=self.limits.run_id,
-            workflow_name=(document.name if document and document.name else workflow.name),
-            next_step_index=next_step_index,
-            step_outputs=copy.deepcopy(data.get("steps", {})),
-            inputs=copy.deepcopy(data.get("inputs")),
-            workflow_yaml=document.raw_yaml if document and document.raw_yaml else "",
-            status="running",
-            timestamp=datetime.now(timezone.utc).isoformat(),
-        )
-        await self.checkpointer.save_async(checkpoint)
-
     async def execute_async(
         self,
         workflow: CompiledWorkflow,
@@ -586,7 +560,6 @@ class WorkflowEngine:
                 set(),
                 span,
                 ct=ct,
-                checkpoint_workflow=workflow,
             )
             self.logger.info(
                 "Workflow '%s' completed successfully in %.1fms (%d steps)",
@@ -640,92 +613,6 @@ class WorkflowEngine:
             )
         return result
 
-    async def resume_async(
-        self,
-        run_id: str,
-        workflow: CompiledWorkflow,
-        ct: asyncio.Event | None = None,
-    ) -> RunResult:
-        if self.checkpointer is None:
-            raise RuntimeError("resume_async requires a configured IWorkflowCheckpointer.")
-
-        checkpoint = await self.checkpointer.load_async(run_id)
-        if checkpoint is None:
-            raise WorkflowRuntimeException("CHECKPOINT_NOT_FOUND", f"No checkpoint found for run '{run_id}'.")
-
-        self._total_steps_executed = 0
-        self.limits.run_id = run_id
-        self._prepare_workflow_execution(workflow)
-
-        data = {
-            "inputs": copy.deepcopy(checkpoint.inputs or {}),
-            "steps": copy.deepcopy(checkpoint.step_outputs or {}),
-            "env": {},
-        }
-        result = RunResult(success=True)
-        span = self.telemetry.workflow_start(
-            {
-                "workflow_name": workflow.name,
-                "inputs": copy.deepcopy(checkpoint.inputs),
-                **build_workflow_source_telemetry_info(workflow, checkpoint.workflow_yaml or None),
-            }
-        )
-        started = time.perf_counter()
-
-        self.logger.info(
-            "Workflow '%s' resuming from step index %d (runId: %s)",
-            workflow.name,
-            checkpoint.next_step_index,
-            run_id,
-        )
-        try:
-            await self.execute_steps_async(
-                workflow.steps,
-                data,
-                result,
-                self.limits,
-                0,
-                set(),
-                span,
-                start_from_index=checkpoint.next_step_index,
-                ct=ct,
-                checkpoint_workflow=workflow,
-            )
-        except WorkflowRuntimeException as exc:
-            result.success = False
-            result.error = exc.to_workflow_error()
-        except asyncio.CancelledError:
-            result.success = False
-            result.error = WorkflowRuntimeException("CANCELLED", "Workflow execution cancelled", True).to_workflow_error()
-        except Exception as exc:
-            result.success = False
-            result.error = WorkflowRuntimeException("INTERNAL_ERROR", str(exc), False).to_workflow_error()
-        finally:
-            await self.execute_workflow_finalization_async(
-                workflow,
-                data,
-                result,
-                self.limits,
-                0,
-                set(),
-                span,
-            )
-            self._evaluate_workflow_outputs_into_result(workflow, data, result)
-            checkpoint.status = "completed" if result.success else ("paused" if result.error and result.error.code == "CANCELLED" else "failed")
-            checkpoint.timestamp = datetime.now(timezone.utc).isoformat()
-            checkpoint.step_outputs = copy.deepcopy(data.get("steps", {}))
-            await self.checkpointer.save_async(checkpoint)
-            self.telemetry.workflow_end(
-                span,
-                {
-                    "success": result.success,
-                    "steps_executed": self._total_steps_executed,
-                    "duration": time.perf_counter() - started,
-                    "error_code": result.error.code if result.error else None,
-                },
-            )
-        return result
-
     async def execute_steps_async(
         self,
         steps: list[CompiledStep],
@@ -735,14 +622,11 @@ class WorkflowEngine:
         call_depth: int,
         call_stack: set[str],
         parent_span: ITelemetrySpan | None = None,
-        start_from_index: int = 0,
         ct: asyncio.Event | None = None,
-        checkpoint_workflow: CompiledWorkflow | None = None,
         is_finalization: bool = False,
     ) -> None:
         parent_span = parent_span or self.telemetry.workflow_start({})
-        for index in range(start_from_index, len(steps)):
-            step = steps[index]
+        for step in steps:
             if ct is not None and ct.is_set():
                 raise asyncio.CancelledError()
             self._total_steps_executed += 1
@@ -848,8 +732,6 @@ class WorkflowEngine:
                     (time.perf_counter() - started) * 1000.0,
                 )
                 self.telemetry.step_end(step_span, {"status": StepStatus.SUCCEEDED, "output": output})
-                if not is_finalization and call_depth == 0 and checkpoint_workflow is not None:
-                    await self._save_checkpoint_async(checkpoint_workflow, data, index + 1)
             except WorkflowRuntimeException as exc:
                 step_result.error = exc.to_workflow_error()
                 self.logger.error(
@@ -978,7 +860,6 @@ class WorkflowEngine:
         if inherited_finalization_ct is None:
             final_limits = limits.model_copy(deep=True)
             final_limits.max_total_steps_executed = self._total_steps_executed + max(1, limits.max_finalization_steps)
-            final_limits.run_id = None
             final_ct = asyncio.Event()
 
         self.logger.info(

@@ -1,0 +1,875 @@
+{
+  "provenance": "Synthetic minimal correction of the final retained response: five explicit field bindings and the nested side enum only. This is not a live model completion.",
+  "proposal": {
+    "discoveryRequests": null,
+    "plan": {
+      "inputs": [
+        {
+          "name": "pullRequestUrl",
+          "type": {
+            "kind": "string",
+            "nullable": false
+          },
+          "required": true,
+          "default": {
+            "kind": "string",
+            "text": "https://example.test/example/project/pull/17"
+          }
+        },
+        {
+          "name": "reviewInstructions",
+          "type": {
+            "kind": "string",
+            "nullable": false
+          },
+          "required": true,
+          "default": {
+            "kind": "string",
+            "text": ""
+          }
+        }
+      ],
+      "root": {
+        "tasks": [
+          {
+            "id": "parse-pr-url",
+            "kind": "transform",
+            "objective": "Extraire owner, repo, numéro de PR, URL Git distante et répertoire de clone workflow depuis l’URL PR.",
+            "dependsOn": [],
+            "inputs": [
+              {
+                "name": "pullRequestUrl",
+                "value": {
+                  "kind": "input",
+                  "source": "pullRequestUrl"
+                }
+              }
+            ],
+            "resultType": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "owner",
+                  "type": {
+                    "kind": "string",
+                    "nullable": false
+                  }
+                },
+                {
+                  "name": "repo",
+                  "type": {
+                    "kind": "string",
+                    "nullable": false
+                  }
+                },
+                {
+                  "name": "pullNumber",
+                  "type": {
+                    "kind": "integer",
+                    "nullable": false
+                  }
+                },
+                {
+                  "name": "remoteUrl",
+                  "type": {
+                    "kind": "string",
+                    "nullable": false
+                  }
+                },
+                {
+                  "name": "cloneDirectory",
+                  "type": {
+                    "kind": "string",
+                    "nullable": false
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "read-pr",
+            "kind": "operation",
+            "objective": "Lire les métadonnées de la pull request.",
+            "dependsOn": [
+              "parse-pr-url"
+            ],
+            "operation": "cap_e0b759aca76a490f87ad21ca",
+            "inputs": [
+              {
+                "name": "method",
+                "value": {
+                  "kind": "string",
+                  "text": "get"
+                }
+              },
+              {
+                "name": "owner",
+                "value": {
+                  "kind": "output",
+                  "source": "parse-pr-url",
+                  "port": "owner"
+                }
+              },
+              {
+                "name": "repo",
+                "value": {
+                  "kind": "output",
+                  "source": "parse-pr-url",
+                  "port": "repo"
+                }
+              },
+              {
+                "name": "pullNumber",
+                "value": {
+                  "kind": "output",
+                  "source": "parse-pr-url",
+                  "port": "pullNumber"
+                }
+              }
+            ]
+          },
+          {
+            "id": "extract-pr-metadata",
+            "kind": "transform",
+            "objective": "Extraire base/head SHA, refs et état utile depuis les métadonnées PR.",
+            "dependsOn": [
+              "read-pr"
+            ],
+            "inputs": [
+              {
+                "name": "pullRequest",
+                "value": {
+                  "kind": "output",
+                  "source": "read-pr",
+                  "port": null
+                }
+              }
+            ],
+            "resultType": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "baseSha",
+                  "type": {
+                    "kind": "string",
+                    "nullable": false
+                  }
+                },
+                {
+                  "name": "headSha",
+                  "type": {
+                    "kind": "string",
+                    "nullable": false
+                  }
+                },
+                {
+                  "name": "headRefSpec",
+                  "type": {
+                    "kind": "string",
+                    "nullable": false
+                  }
+                },
+                {
+                  "name": "prOpen",
+                  "type": {
+                    "kind": "boolean",
+                    "nullable": false
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "clone-pr-repository",
+            "kind": "operation",
+            "objective": "Cloner une seule fois le dépôt de la PR dans workflows/ et checkout le head de la PR.",
+            "dependsOn": [
+              "parse-pr-url",
+              "extract-pr-metadata"
+            ],
+            "operation": "cap_fa8aa0024ff2ec0a4f9e61ad",
+            "inputs": [
+              {
+                "name": "remoteUrl",
+                "value": {
+                  "kind": "output",
+                  "source": "parse-pr-url",
+                  "port": "remoteUrl"
+                }
+              },
+              {
+                "name": "targetDirectory",
+                "value": {
+                  "kind": "output",
+                  "source": "parse-pr-url",
+                  "port": "cloneDirectory"
+                }
+              },
+              {
+                "name": "branch",
+                "value": {
+                  "kind": "output",
+                  "source": "extract-pr-metadata",
+                  "port": "headRefSpec"
+                }
+              },
+              {
+                "name": "fetchAllBranches",
+                "value": {
+                  "kind": "boolean",
+                  "boolean": false
+                }
+              },
+              {
+                "name": "historyDepth",
+                "value": {
+                  "kind": "number",
+                  "number": 0
+                }
+              },
+              {
+                "name": "tagFetchMode",
+                "value": {
+                  "kind": "string",
+                  "text": "none"
+                }
+              }
+            ]
+          },
+          {
+            "id": "run-project-checks",
+            "kind": "operation",
+            "objective": "Dans le clone unique, installer les dépendances et exécuter linters, tests unitaires et tests d’intégration présents; ne travailler que dans ce répertoire.",
+            "dependsOn": [
+              "clone-pr-repository"
+            ],
+            "operation": "cap_1ff6cc617981dc592bd62a5a",
+            "inputs": [
+              {
+                "name": "projectRoot",
+                "value": {
+                  "kind": "output",
+                  "source": "clone-pr-repository",
+                  "port": "projectRootRelative"
+                }
+              },
+              {
+                "name": "prompt",
+                "value": {
+                  "kind": "string",
+                  "text": "Installe les dépendances du projet puis exécute tous les linters, tests unitaires et tests d’intégration détectables dans ce dépôt. Travaille exclusivement dans ce répertoire de projet cloné. N’édite aucun fichier sauf si un outil local l’exige temporairement pour installer/exécuter; ne publie rien sur GitHub. Rapporte précisément les commandes exécutées, leurs codes de sortie et les échecs."
+                }
+              }
+            ]
+          },
+          {
+            "id": "compare-pr",
+            "kind": "operation",
+            "objective": "Produire les patchs exacts de la PR depuis le clone unique.",
+            "dependsOn": [
+              "clone-pr-repository",
+              "extract-pr-metadata"
+            ],
+            "operation": "cap_6c40004fe4610a44cf97c2c7",
+            "inputs": [
+              {
+                "name": "projectRoot",
+                "value": {
+                  "kind": "output",
+                  "source": "clone-pr-repository",
+                  "port": "projectRootRelative"
+                }
+              },
+              {
+                "name": "baseRef",
+                "value": {
+                  "kind": "output",
+                  "source": "extract-pr-metadata",
+                  "port": "baseSha"
+                }
+              },
+              {
+                "name": "headRef",
+                "value": {
+                  "kind": "output",
+                  "source": "extract-pr-metadata",
+                  "port": "headSha"
+                }
+              },
+              {
+                "name": "compareFromMergeBase",
+                "value": {
+                  "kind": "boolean",
+                  "boolean": true
+                }
+              },
+              {
+                "name": "pageSize",
+                "value": {
+                  "kind": "number",
+                  "number": 50
+                }
+              }
+            ]
+          },
+          {
+            "id": "prepare-review-context",
+            "kind": "transform",
+            "objective": "Convertir les résultats de commandes en contexte JSON concis pour la revue.",
+            "dependsOn": [
+              "run-project-checks"
+            ],
+            "inputs": [
+              {
+                "name": "checks",
+                "value": {
+                  "kind": "output",
+                  "source": "run-project-checks",
+                  "port": null
+                }
+              }
+            ],
+            "resultType": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "runtimeContextJson",
+                  "type": {
+                    "kind": "string",
+                    "nullable": false
+                  }
+                },
+                {
+                  "name": "checksPassed",
+                  "type": {
+                    "kind": "boolean",
+                    "nullable": false
+                  }
+                },
+                {
+                  "name": "checksSummary",
+                  "type": {
+                    "kind": "string",
+                    "nullable": false
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "start-copilot-review",
+            "kind": "operation",
+            "objective": "Démarrer la revue Copilot des patchs avec les consignes et le contexte d’exécution.",
+            "dependsOn": [
+              "compare-pr",
+              "prepare-review-context"
+            ],
+            "operation": "cap_5c32cc076458c7dfeee37a58",
+            "inputs": [
+              {
+                "name": "projectRoot",
+                "value": {
+                  "kind": "output",
+                  "source": "clone-pr-repository",
+                  "port": "projectRootRelative"
+                }
+              },
+              {
+                "name": "baseSha",
+                "value": {
+                  "kind": "output",
+                  "source": "compare-pr",
+                  "port": "baseSha"
+                }
+              },
+              {
+                "name": "headSha",
+                "value": {
+                  "kind": "output",
+                  "source": "compare-pr",
+                  "port": "headSha"
+                }
+              },
+              {
+                "name": "filesJson",
+                "value": {
+                  "kind": "output",
+                  "source": "compare-pr",
+                  "port": "filesJson"
+                }
+              },
+              {
+                "name": "reviewInstructions",
+                "value": {
+                  "kind": "input",
+                  "source": "reviewInstructions"
+                }
+              },
+              {
+                "name": "runtimeContextJson",
+                "value": {
+                  "kind": "output",
+                  "source": "prepare-review-context",
+                  "port": "runtimeContextJson"
+                }
+              }
+            ]
+          },
+          {
+            "id": "analyze-review-batch-0",
+            "kind": "operation",
+            "objective": "Analyser le lot de revue Copilot et retourner les constats validés sur lignes de diff.",
+            "dependsOn": [
+              "start-copilot-review"
+            ],
+            "operation": "cap_41f719ac6f01db152001be4b",
+            "inputs": [
+              {
+                "name": "reviewHandle",
+                "value": {
+                  "kind": "output",
+                  "source": "start-copilot-review",
+                  "port": "reviewHandle"
+                }
+              },
+              {
+                "name": "batchIndex",
+                "value": {
+                  "kind": "number",
+                  "number": 0
+                }
+              }
+            ]
+          },
+          {
+            "id": "finalize-copilot-review",
+            "kind": "operation",
+            "objective": "Dédupliquer les constats, résumer la couverture, puis fermer la session Copilot.",
+            "dependsOn": [
+              "analyze-review-batch-0"
+            ],
+            "operation": "cap_6ec5e264675095b9e8df289a",
+            "inputs": [
+              {
+                "name": "reviewHandle",
+                "value": {
+                  "kind": "output",
+                  "source": "start-copilot-review",
+                  "port": "reviewHandle"
+                }
+              }
+            ]
+          },
+          {
+            "id": "decide-review",
+            "kind": "transform",
+            "objective": "Décider APPROVE ou REQUEST_CHANGES selon constats bloquants, couverture et résultats de checks.",
+            "dependsOn": [
+              "finalize-copilot-review",
+              "prepare-review-context"
+            ],
+            "inputs": [
+              {
+                "name": "review",
+                "value": {
+                  "kind": "output",
+                  "source": "finalize-copilot-review",
+                  "port": null
+                }
+              },
+              {
+                "name": "checksPassed",
+                "value": {
+                  "kind": "output",
+                  "source": "prepare-review-context",
+                  "port": "checksPassed"
+                }
+              },
+              {
+                "name": "checksSummary",
+                "value": {
+                  "kind": "output",
+                  "source": "prepare-review-context",
+                  "port": "checksSummary"
+                }
+              }
+            ],
+            "resultType": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "event",
+                  "type": {
+                    "kind": "string",
+                    "nullable": false,
+                    "enum": [
+                      "APPROVE",
+                      "REQUEST_CHANGES"
+                    ]
+                  }
+                },
+                {
+                  "name": "body",
+                  "type": {
+                    "kind": "string",
+                    "nullable": false
+                  }
+                },
+                {
+                  "name": "findings",
+                  "type": {
+                    "kind": "array",
+                    "nullable": false,
+                    "items": {
+                      "kind": "object",
+                      "nullable": false,
+                      "fields": [
+                        {
+                          "name": "path",
+                          "type": {
+                            "kind": "string",
+                            "nullable": false
+                          }
+                        },
+                        {
+                          "name": "side",
+                          "type": {
+                            "kind": "string",
+                            "nullable": false,
+                            "enum": [
+                              "LEFT",
+                              "RIGHT"
+                            ]
+                          }
+                        },
+                        {
+                          "name": "startLine",
+                          "type": {
+                            "kind": "integer",
+                            "nullable": false
+                          }
+                        },
+                        {
+                          "name": "endLine",
+                          "type": {
+                            "kind": "integer",
+                            "nullable": false
+                          }
+                        },
+                        {
+                          "name": "body",
+                          "type": {
+                            "kind": "string",
+                            "nullable": false
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "create-pending-review",
+            "kind": "operation",
+            "objective": "Créer une revue GitHub en attente pour recevoir les commentaires de diff.",
+            "dependsOn": [
+              "decide-review"
+            ],
+            "operation": "cap_9b6a3f4c1fab83fa518d4b62",
+            "inputs": [
+              {
+                "name": "method",
+                "value": {
+                  "kind": "string",
+                  "text": "create"
+                }
+              },
+              {
+                "name": "owner",
+                "value": {
+                  "kind": "output",
+                  "source": "parse-pr-url",
+                  "port": "owner"
+                }
+              },
+              {
+                "name": "repo",
+                "value": {
+                  "kind": "output",
+                  "source": "parse-pr-url",
+                  "port": "repo"
+                }
+              },
+              {
+                "name": "pullNumber",
+                "value": {
+                  "kind": "output",
+                  "source": "parse-pr-url",
+                  "port": "pullNumber"
+                }
+              },
+              {
+                "name": "commitID",
+                "value": {
+                  "kind": "output",
+                  "source": "extract-pr-metadata",
+                  "port": "headSha"
+                }
+              }
+            ]
+          },
+          {
+            "id": "post-inline-comments",
+            "kind": "foreach",
+            "objective": "Ajouter chaque commentaire validé dans le diff de la revue en attente.",
+            "dependsOn": [
+              "create-pending-review"
+            ],
+            "items": {
+              "kind": "output",
+              "source": "decide-review",
+              "port": "findings"
+            },
+            "body": {
+              "tasks": [
+                {
+                  "id": "add-inline-comment",
+                  "kind": "operation",
+                  "objective": "Ajouter un commentaire de revue sur la ligne de diff indiquée.",
+                  "dependsOn": [],
+                  "operation": "cap_0c45707eabb02da3b0885cf0",
+                  "inputs": [
+                    {
+                      "name": "owner",
+                      "value": {
+                        "kind": "output",
+                        "source": "parse-pr-url",
+                        "port": "owner"
+                      }
+                    },
+                    {
+                      "name": "repo",
+                      "value": {
+                        "kind": "output",
+                        "source": "parse-pr-url",
+                        "port": "repo"
+                      }
+                    },
+                    {
+                      "name": "pullNumber",
+                      "value": {
+                        "kind": "output",
+                        "source": "parse-pr-url",
+                        "port": "pullNumber"
+                      }
+                    },
+                    {
+                      "name": "body",
+                      "value": {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "item"
+                          }
+                        ],
+                        "port": "body"
+                      }
+                    },
+                    {
+                      "name": "path",
+                      "value": {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "item"
+                          }
+                        ],
+                        "port": "path"
+                      }
+                    },
+                    {
+                      "name": "side",
+                      "value": {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "item"
+                          }
+                        ],
+                        "port": "side"
+                      }
+                    },
+                    {
+                      "name": "startLine",
+                      "value": {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "item"
+                          }
+                        ],
+                        "port": "startLine"
+                      }
+                    },
+                    {
+                      "name": "line",
+                      "value": {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "item"
+                          }
+                        ],
+                        "port": "endLine"
+                      }
+                    },
+                    {
+                      "name": "subjectType",
+                      "value": {
+                        "kind": "string",
+                        "text": "LINE"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "outputs": [],
+              "always": []
+            },
+            "parallel": false,
+            "maxItems": 2000,
+            "maxConcurrency": 1
+          },
+          {
+            "id": "submit-review",
+            "kind": "operation",
+            "objective": "Soumettre la revue avec justification et décision d’acceptation ou refus.",
+            "dependsOn": [
+              "post-inline-comments"
+            ],
+            "operation": "cap_9b6a3f4c1fab83fa518d4b62",
+            "inputs": [
+              {
+                "name": "method",
+                "value": {
+                  "kind": "string",
+                  "text": "submit_pending"
+                }
+              },
+              {
+                "name": "owner",
+                "value": {
+                  "kind": "output",
+                  "source": "parse-pr-url",
+                  "port": "owner"
+                }
+              },
+              {
+                "name": "repo",
+                "value": {
+                  "kind": "output",
+                  "source": "parse-pr-url",
+                  "port": "repo"
+                }
+              },
+              {
+                "name": "pullNumber",
+                "value": {
+                  "kind": "output",
+                  "source": "parse-pr-url",
+                  "port": "pullNumber"
+                }
+              },
+              {
+                "name": "body",
+                "value": {
+                  "kind": "output",
+                  "source": "decide-review",
+                  "port": "body"
+                }
+              },
+              {
+                "name": "event",
+                "value": {
+                  "kind": "output",
+                  "source": "decide-review",
+                  "port": "event"
+                }
+              }
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "name": "reviewDecision",
+            "value": {
+              "kind": "output",
+              "source": "decide-review",
+              "port": "event"
+            }
+          },
+          {
+            "name": "reviewSummary",
+            "value": {
+              "kind": "output",
+              "source": "decide-review",
+              "port": "body"
+            }
+          }
+        ],
+        "always": [
+          {
+            "id": "cleanup-clone",
+            "kind": "operation",
+            "objective": "Supprimer quoi qu’il arrive le répertoire cloné du workflow.",
+            "dependsOn": [
+              "clone-pr-repository"
+            ],
+            "operation": "cap_5c01f9aa688163d23a30ff8b",
+            "inputs": [
+              {
+                "name": "commandName",
+                "value": {
+                  "kind": "string",
+                  "text": "delete_directory"
+                }
+              },
+              {
+                "name": "parametersJson",
+                "value": {
+                  "kind": "json",
+                  "items": [
+                    {
+                      "kind": "object",
+                      "members": [
+                        {
+                          "name": "path",
+                          "value": {
+                            "kind": "output",
+                            "source": "parse-pr-url",
+                            "port": "cloneDirectory"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "timeoutMs",
+                "value": {
+                  "kind": "number",
+                  "number": 300000
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "groups": [],
+      "choices": []
+    }
+  }
+}

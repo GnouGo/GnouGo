@@ -20,6 +20,11 @@ public class CopilotInferenceProxyHandler : CopilotRequestHandler
     }
 
     protected override async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
+        => await ForwardAsync(request, context).ConfigureAwait(false);
+
+    internal Task<HttpResponseMessage> DispatchAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context) => SendRequestAsync(request, context);
+
+    private async Task<HttpResponseMessage> ForwardAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
     {
         var upstream = request.RequestUri ?? throw new InvalidOperationException("Inference has no upstream URI.");
         using var forwarded = new HttpRequestMessage(request.Method, _endpoint) { Content = request.Content };

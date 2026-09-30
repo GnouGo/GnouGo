@@ -528,6 +528,7 @@ public static class MermaidWorkflowRenderer
                 "sequence" or "parallel" => NodeShape.Stadium,
                 "workflow.call" or "workflow.route" or "workflow.execute" or "workflow.plan" => NodeShape.Subroutine,
                 "llm.call" => NodeShape.Asymmetric,
+                "agent.run" => NodeShape.Hexagon,
                 "mcp.call" or "mcp.list" or "chat_history.get" or "chat_history.append" => NodeShape.Database,
                 "human.input" => NodeShape.Trapezoid,
                 "assert.non_null" => NodeShape.Decision,

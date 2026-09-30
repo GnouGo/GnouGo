@@ -134,6 +134,8 @@ public sealed record CodeWriteResult(
     public bool Ok => Success;
 }
 
-public sealed record CodeErrorResult(string Code, string Message);
+public sealed record CodeErrorResult(
+    [property: JsonPropertyName("code")] string Code,
+    [property: JsonPropertyName("message")] string Message);
 
 internal sealed record CodeUsageInfo(long? OutputTokens, string? RequestId, string? InteractionId);

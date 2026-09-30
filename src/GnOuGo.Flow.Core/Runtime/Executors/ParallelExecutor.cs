@@ -9,6 +9,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// </summary>
 public sealed class ParallelExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.Composite;
     public string StepType => "parallel";
 
     public IReadOnlyList<StepExceptionDoc>? DocumentedExceptions => new StepExceptionDoc[]
@@ -73,7 +74,7 @@ public sealed class ParallelExecutor : IStepExecutor
                         ctx.Limits,
                         ctx.CallDepth,
                         ctx.CallStack,
-                        ctx.EffectiveExecutionScope,
+                        ctx.EffectiveExecutionScope.Child("branch", branchIndex.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                         ct,
                         ctx.TelemetrySpan);
                     return (branchIndex, branchData);

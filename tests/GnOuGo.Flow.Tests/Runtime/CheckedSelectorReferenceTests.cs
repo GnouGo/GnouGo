@@ -67,6 +67,37 @@ public sealed class CheckedSelectorReferenceTests
     private static JsonObject InputSchema(string selector) => new() { ["type"] = "object", ["discriminator"] = new JsonObject { ["propertyName"] = selector },
         ["properties"] = new JsonObject { [selector] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("allow", "deny") } }, ["required"] = new JsonArray(selector) };
 
+    [Theory]
+    [InlineData("valid", true)]
+    [InlineData("checked_fallback", true)]
+    [InlineData("optional", false)]
+    [InlineData("nullable", false)]
+    [InlineData("fallback", false)]
+    [InlineData("unchecked", false)]
+    [InlineData("dynamic", false)]
+    public void StructuredLlmEnumsNeedAnEnforcedContractAndSafeFallback(string variation, bool valid)
+    {
+        var document = Document("event"); var producer = document.Workflows["main"].Steps[0];
+        var schema = producer.OutputSchema!.DeepClone(); producer.OutputSchema = null; producer.Type = "llm.call";
+        producer.Input = new JsonObject { ["prompt"] = "Select a declared result", ["structured_output"] = new JsonObject { ["schema_inline"] = schema, ["strict"] = false } };
+        document.Workflows["main"].Steps[1].Input!["request"]!["event"] = "${data.steps.result.json.choice}";
+        switch (variation)
+        {
+            case "optional": schema["required"] = new JsonArray(); break;
+            case "nullable": schema["properties"]!["choice"]!["type"] = new JsonArray("string", "null"); break;
+            case "unchecked": producer.Input.AsObject().Remove("structured_output"); break;
+            case "dynamic": producer.Input["structured_output"] = new JsonObject { ["schema_ref"] = "${data.inputs.schema}" }; break;
+            case "fallback": case "checked_fallback": producer.OnError = new() { Cases = [new() { Action = "continue", SetOutput = new JsonObject
+                { ["json"] = new JsonObject { ["choice"] = variation == "fallback" ? "other" : "allow" } } }] }; break;
+        }
+        if (valid) WorkflowPlanSemanticValidator.Validate(document, [new("fixture", "send", InputSchema("event"), null, null)]);
+        else
+        {
+            var error = Assert.Throws<WorkflowSemanticValidationException>(() => WorkflowPlanSemanticValidator.Validate(document, [new("fixture", "send", InputSchema("event"), null, null)]));
+            Assert.Contains(error.Errors, e => e.Code == "MCP_REQUEST_SELECTOR_NOT_LITERAL");
+        }
+    }
+
     private static WorkflowDocument Document(string selector) => WorkflowParser.Parse($$"""
         version: 1
         workflows:

@@ -18,19 +18,20 @@ public sealed class BenchmarkOracleTests
     {
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var sample = new PlanningBenchmarkCases.Environment(name, "cancelled"); sample.CancelDuringWork(cancellation);
-        var factory = sample.Factory(); var runtime = new TestRuntime(mcp: factory);
-        var catalog = await runtime.DiscoverAsync(PlannerFixture.Session().Request, TestContext.Current.CancellationToken);
-        var plan = PlanningCorpus.Intent(name, catalog);
-        if (name == "protected_cleanup")
+        var factory = sample.Factory(); var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
+        var catalog = await runtime.DiscoverAsync(new(), TestContext.Current.CancellationToken);
+        foreach (var source in await runtime.Capabilities.ListSourcesAsync(TestContext.Current.CancellationToken))
         {
-            // Reproduce a valid minimal proposal: the write is the last main operation,
-            // followed only by cleanup and a literal output. No extra cancellation checkpoint.
-            plan.Operations.RemoveAll(o => o is CalculateGroundedOperation);
-            plan.Outputs = [new("result", new() { Kind = "number", Number = 42 })];
+            var page = await runtime.Capabilities.ListAsync(source.Id, null, TestContext.Current.CancellationToken);
+            foreach (var capability in page.Capabilities) catalog.Capabilities.Add(await runtime.Capabilities.ResolveAsync(capability, TestContext.Current.CancellationToken));
         }
-        if (nested) plan = new() { Operations = [new CallGroundedOperation { Id = "run", Flow = "job" }],
-            Subflows = [new("job", [], plan.Operations, plan.Outputs)], Outputs = [new("result", new() { Kind = "result", Source = "run", Path = ["result"] })] };
-        var graph = PlannerFixture.Build(plan, catalog); PlanningConfirmationGuards.Apply(graph, catalog);
+        var graph = PlanningCorpus.Graph(name, catalog);
+        if (nested)
+        {
+            var job = graph.Workflows[0]; job.Key = "job";
+            graph.Workflows.Insert(0, new() { Steps = [new() { Key = "run", Type = "workflow.call", Input = PlanningCorpus.Obj(("ref", PlanningCorpus.Ref("workflow", "job")), ("args", PlanningCorpus.Obj())) }] });
+        }
+        PlanningConfirmationGuards.Apply(graph, catalog);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, catalog)));
         var engine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human() };
         var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], PlanningBenchmarkCases.Inputs(name, "cancelled"), cancellation.Token);

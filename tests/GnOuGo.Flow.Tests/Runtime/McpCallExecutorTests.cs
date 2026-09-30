@@ -753,9 +753,13 @@ workflows:
           method: code_agent_edit
           request:
             task: Update the program.
+    outputs:
+      payload: "${data.steps.edit.response}"
 """, mcpFactory: hookedFactory, telemetry: telemetry.Object);
 
         Assert.True(result.Success);
+        Assert.Single(result.Outputs!["payload"]!["progressEvents"]!.AsArray());
+        Assert.Equal("Sending agent edit request to Copilot.", result.Outputs["payload"]!["progressEvents"]![0]!["message"]!.ToString());
         Assert.True(realtimeEventObservedBeforeReturn);
         Assert.Equal(1, spanEvents.Count(e =>
             e.Name == "gnougo-flow.step.thinking" &&

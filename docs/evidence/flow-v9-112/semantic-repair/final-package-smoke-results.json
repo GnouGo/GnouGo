@@ -1,0 +1,115 @@
+[
+  {
+    "check": "pack-Core",
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "artifacts/taskplan-semantic-repair/packages"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "pack-Planning",
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "artifacts/taskplan-semantic-repair/packages"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "pack-Integrations",
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "artifacts/taskplan-semantic-repair/packages"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "pack-Copilot",
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Copilot/GnOuGo.Flow.Copilot.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "artifacts/taskplan-semantic-repair/packages"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "pack-Persistence",
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "artifacts/taskplan-semantic-repair/packages"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "aot-publish",
+    "command": [
+      "dotnet",
+      "publish",
+      "tests/GnOuGo.Flow.Planning.Smoke",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-warnaserror",
+      "-o",
+      "artifacts/taskplan-semantic-repair/final-planning-smoke"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "aot-smoke",
+    "command": [
+      "artifacts/taskplan-semantic-repair/final-planning-smoke/GnOuGo.Flow.Planning.Smoke"
+    ],
+    "exit_code": 0
+  },
+  {
+    "check": "benchmark-build",
+    "command": [
+      "dotnet",
+      "build",
+      "tests/GnOuGo.Agent.Planning.Benchmark",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipClientBuild=true"
+    ],
+    "exit_code": 0
+  }
+]

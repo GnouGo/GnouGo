@@ -1,0 +1,289 @@
+{
+  "source_commit": "e5b2e55073318f48fe8156c9cea8d109a1f8d90e",
+  "solution": {
+    "command": "dotnet test GnOuGo.Agent.sln --no-restore -m:1 -p:SkipModelMetadataGeneration=true -p:TreatWarningsAsErrors=true",
+    "passed": 2777,
+    "failed": 0,
+    "skipped": 5,
+    "compiler_warnings": 0,
+    "projects": [
+      {
+        "project": "GnOuGo.DocIngestor.Tests",
+        "failed": 0,
+        "passed": 89,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Diff.Tests",
+        "failed": 0,
+        "passed": 52,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.KeyVault.Core.Tests",
+        "failed": 0,
+        "passed": 12,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Tests",
+        "failed": 0,
+        "passed": 868,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Integrations.Tests",
+        "failed": 0,
+        "passed": 79,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.AI.Core.Tests",
+        "failed": 0,
+        "passed": 222,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.AI.Local.Tests",
+        "failed": 0,
+        "passed": 14,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Agent.Mcp.Tests",
+        "failed": 0,
+        "passed": 103,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Cmd.Mcp.Tests",
+        "failed": 0,
+        "passed": 41,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Browser.Mcp.Tests",
+        "failed": 0,
+        "passed": 43,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Agent.Server.Tests",
+        "failed": 0,
+        "passed": 402,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Document.Mcp.Tests",
+        "failed": 0,
+        "passed": 63,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.KeyVault.Mcp.Tests",
+        "failed": 0,
+        "passed": 9,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Files.Server.Tests",
+        "failed": 0,
+        "passed": 10,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.DocIngestor.Mcp.Tests",
+        "failed": 0,
+        "passed": 7,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.OtlpCollector.Server.Tests",
+        "failed": 0,
+        "passed": 7,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.GithubCopilot.Mcp.Tests",
+        "failed": 0,
+        "passed": 120,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.GithubCopilot.Core.Tests",
+        "failed": 0,
+        "passed": 107,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.GithubCopilot.E2E.Tests",
+        "failed": 0,
+        "passed": 7,
+        "skipped": 5
+      },
+      {
+        "project": "GnOuGo.Observability.Core.Tests",
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Git.Mcp.Tests",
+        "failed": 0,
+        "passed": 48,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Workspace.Tests",
+        "failed": 0,
+        "passed": 30,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Mcp.Core.Tests",
+        "failed": 0,
+        "passed": 31,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Mermaid.Tests",
+        "failed": 0,
+        "passed": 12,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Assets.Bears.Tests",
+        "failed": 0,
+        "passed": 91,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Assets.Animation.Tests",
+        "failed": 0,
+        "passed": 38,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Assets.Animation.Server.Tests",
+        "failed": 0,
+        "passed": 13,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Assets.Bears.Server.Tests",
+        "failed": 0,
+        "passed": 28,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Planning.Tests",
+        "failed": 0,
+        "passed": 77,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.ProxyCopilot.Server.Tests",
+        "failed": 0,
+        "passed": 135,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Auth.Core.Tests",
+        "failed": 0,
+        "passed": 8,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Persistence.Tests",
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Copilot.Tests",
+        "failed": 0,
+        "passed": 5,
+        "skipped": 0
+      }
+    ]
+  },
+  "packages": {
+    "configuration": "Release",
+    "compiler_warnings": 0,
+    "independent_dependencies_checked": true,
+    "names": [
+      "GnOuGo.Flow.Core",
+      "GnOuGo.Flow.Planning",
+      "GnOuGo.Flow.Integrations",
+      "GnOuGo.Flow.Copilot",
+      "GnOuGo.Flow.Persistence"
+    ],
+    "source_commit": "e126b337700a644fe5e7074e30c9504fff4eb563"
+  },
+  "published": {
+    "runtime": "osx-arm64",
+    "native": [
+      "Flow.Cli",
+      "Flow.Server",
+      "Flow.Planning.Smoke",
+      "GithubCopilot.Mcp"
+    ],
+    "trimmed_single_file": [
+      "Agent.Server"
+    ],
+    "passed": [
+      "eight offline planning scenarios",
+      "encrypted CLI journal and native EF queries",
+      "rebuildable EF index",
+      "tenant isolation and revision conflicts",
+      "durable streamed human answers",
+      "server restart recovery",
+      "bounded MCP unsupported-scope refusal and terminal failure receipt",
+      "no workflow payload in database plaintext",
+      "Agent encrypted planning persistence",
+      "Agent HTTP health, UI and Blazor negotiation"
+    ],
+    "framework_notices": [
+      "EF Core 10.0.12: Query precompilation is an experimental feature and should be used with caution.",
+      "EF Core 10.0.12: NativeAOT support is experimental and can change in the future."
+    ],
+    "source_commit": "e126b337700a644fe5e7074e30c9504fff4eb563"
+  },
+  "live_agent": {
+    "file_edit": "Passed in Debug and Native AOT before the final policy bootstrap correction; observations include file change, permission refusal, receipt reuse and rejected objective expansion.",
+    "command_cycle": "Not passed. Final Native AOT BYOK preparation reaches the mandatory sandbox-policy check without the earlier SDK token/provider conflict. This Mac lacks mandatory policy; the isolated Linux host recognizes policy but fails enforcement. No task prompt was dispatched."
+  },
+  "comparison": {
+    "source_commit": "87acc5f0e41702e193795b45b4ddfab1055d2143",
+    "raw_status": "inconclusive",
+    "audited_status": "passed",
+    "audit_commit": "e5b2e55073318f48fe8156c9cea8d109a1f8d90e",
+    "original_rows": "candidate-live.jsonl",
+    "original_report": "comparison-original.json",
+    "audited_report": "comparison-audited.json",
+    "original_failed_outcomes_unchanged": true,
+    "campaign_unchanged": true,
+    "evidence_hash_before": "8ae35da1673edd0d1c1c16840e8f8f286f94fc249fb24be064be760e46891d37",
+    "evidence_hash_after": "8ae35da1673edd0d1c1c16840e8f8f286f94fc249fb24be064be760e46891d37"
+  },
+  "python": {
+    "source_commit": "e5b2e55073318f48fe8156c9cea8d109a1f8d90e",
+    "core_passed": 287,
+    "cli_passed": 26,
+    "lint_warnings": 0,
+    "packages": [
+      "gnougo-flow-core",
+      "gnougo-flow-cli"
+    ],
+    "published_server_client": "Passed: schema-9 journal inspection, durable human answers and receipt reuse after restart."
+  },
+  "harness": {
+    "source_commit": "e5b2e55073318f48fe8156c9cea8d109a1f8d90e",
+    "offline_cases_passed": 8,
+    "compiler_warnings": 0
+  },
+  "remaining_gates": [
+    "Existing stricter pilot/measured live-release gates have not passed. The audited relative comparison does not waive them.",
+    "Real bounded Copilot command edit/test cycle requires a host with mandatory managed sandbox policy and working enforcement."
+  ]
+}

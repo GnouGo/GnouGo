@@ -1,0 +1,362 @@
+[
+  {
+    "run_key": "78b8b3468104e576358839c5315846957746c519:fixture:conditional:1",
+    "export_sha256": "23db3e0d37bdf5541c34fcf4974905f361697aa3e0b5427592acd436ec82dead",
+    "status": "approved",
+    "pending_request": null,
+    "request_ids": [
+      "b011370b3877254f01b8bf954882680e69c1d62258e4be7ba413629109fcbf5a:1:54e375df9e300f5f80aaab36aa0bd73124a277d4aae061d0f5fc092652d041e5"
+    ],
+    "diagnostics": [],
+    "history": []
+  },
+  {
+    "run_key": "78b8b3468104e576358839c5315846957746c519:fixture:review_french:1",
+    "export_sha256": "1eccc961954c3e30a8891caf141516519bd22bfafea58601f89ad1fd72dd1a8b",
+    "status": "stopped",
+    "pending_request": null,
+    "request_ids": [
+      "971f9fd08f5a70ba95295b115626144a63f9ae0b807ad17b077f2bc4a751491b:1:9c8fd1c2cc5ec793c027b277baca347324f0e2b50315891ebcc0514a7d10a860",
+      "971f9fd08f5a70ba95295b115626144a63f9ae0b807ad17b077f2bc4a751491b:2:c9de2f0019ef552513d72f016dda7c949398c6afa5eebce5f8d2bb5c627e593f",
+      "971f9fd08f5a70ba95295b115626144a63f9ae0b807ad17b077f2bc4a751491b:3:371690dd3fac4d88dece439876aa549a9f684960a5921daa0ccd24191cdcde91"
+    ],
+    "diagnostics": [
+      {
+        "code": "TASK_DEFAULT_REQUIRED",
+        "location": "/inputs/pr_url",
+        "message": "Optional business inputs require a literal default.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "PROPOSAL_ACTION_INVALID",
+        "location": "/",
+        "message": "Return one discovery request or a complete TaskPlan.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "history": [
+      {
+        "calls": 1,
+        "repairs": 0,
+        "code": "PROPOSAL_ACTION_INVALID",
+        "location": "/",
+        "message": "Return one discovery request or a complete TaskPlan.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 2,
+        "repairs": 1,
+        "code": "TASK_DEFAULT_REQUIRED",
+        "location": "/inputs/pr_url",
+        "message": "Optional business inputs require a literal default.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 3,
+        "repairs": 2,
+        "code": "TASK_DEFAULT_REQUIRED",
+        "location": "/inputs/pr_url",
+        "message": "Optional business inputs require a literal default.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 3,
+        "repairs": 2,
+        "code": "PROPOSAL_ACTION_INVALID",
+        "location": "/",
+        "message": "Return one discovery request or a complete TaskPlan.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      }
+    ]
+  },
+  {
+    "run_key": "78b8b3468104e576358839c5315846957746c519:fixture:review_distractors:1",
+    "export_sha256": "ec77e112c10ac98d5f5f38eaac321a2b1cce68cc77194828807f133a67f12807",
+    "status": "stopped",
+    "pending_request": null,
+    "request_ids": [
+      "4c2fa3a906838c752de4925c79181159da6a93288258d6d9911ef47d96690a96:1:609e7dcdfe1aad75170cac6b918995bde05ec5632cf8346fff4d4d4727432006",
+      "4c2fa3a906838c752de4925c79181159da6a93288258d6d9911ef47d96690a96:2:3cb2d97d4615f59282c390e0c9f6d688ea0a52a579319f01b30c84ef786f2f4d",
+      "4c2fa3a906838c752de4925c79181159da6a93288258d6d9911ef47d96690a96:3:7aa5a7e4577ac65012cdb65a6f1ef748b7cae2cb86e9e6334171db5ff6d17f1a",
+      "4c2fa3a906838c752de4925c79181159da6a93288258d6d9911ef47d96690a96:4:a44188e40f20dace8e9a0df6e63afce0f4ba1f51a644d02b4d08dbdf96766ee9",
+      "4c2fa3a906838c752de4925c79181159da6a93288258d6d9911ef47d96690a96:5:a622b6e7d19e385b8c9550c361fc715b5bc823fd762b20a71c609c7069bb2c99",
+      "4c2fa3a906838c752de4925c79181159da6a93288258d6d9911ef47d96690a96:6:55fe3ee6ecdc1a3f1f070cf0c9875b092ddad48f6dcb33ba578e44de8998df57"
+    ],
+    "diagnostics": [
+      {
+        "code": "TASK_PRESENCE_SCOPE",
+        "location": "/tasks/always_cleanup_workspace",
+        "message": "Presence requires a preceding task in the same scope.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/tasks",
+        "message": "Preserve all unaffected tasks, business interfaces, choices and ordering. Repair only the permitted tasks or their dependent output bindings.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "history": [
+      {
+        "calls": 4,
+        "repairs": 0,
+        "code": "TASK_PRESENCE_SCOPE",
+        "location": "/tasks/always_cleanup_workspace",
+        "message": "Presence requires a preceding task in the same scope.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 5,
+        "repairs": 1,
+        "code": "TASK_PRESENCE_SCOPE",
+        "location": "/tasks/always_cleanup_workspace",
+        "message": "Presence requires a preceding task in the same scope.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 5,
+        "repairs": 1,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/tasks",
+        "message": "Preserve all unaffected tasks, business interfaces, choices and ordering. Repair only the permitted tasks or their dependent output bindings.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "TASK_PRESENCE_SCOPE",
+        "location": "/tasks/always_cleanup_workspace",
+        "message": "Presence requires a preceding task in the same scope.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 6,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/tasks",
+        "message": "Preserve all unaffected tasks, business interfaces, choices and ordering. Repair only the permitted tasks or their dependent output bindings.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      }
+    ]
+  },
+  {
+    "run_key": "78b8b3468104e576358839c5315846957746c519:fixture:conditional:2",
+    "export_sha256": "6e53c52d2e3df7c7a7d5f0d049289360460ef5ec0e6c826fe5691816f74229e5",
+    "status": "approved",
+    "pending_request": null,
+    "request_ids": [
+      "e1505f50f5ebc59451eebaddeba310c8b7d3fad68be0513515622df86caee987:1:54e375df9e300f5f80aaab36aa0bd73124a277d4aae061d0f5fc092652d041e5"
+    ],
+    "diagnostics": [],
+    "history": []
+  },
+  {
+    "run_key": "78b8b3468104e576358839c5315846957746c519:fixture:review_french:2",
+    "export_sha256": "4990137f67d647644140d5808ffdcf77ead60d9e6345ae2338ba6c4cdbdd34c7",
+    "status": "stopped",
+    "pending_request": null,
+    "request_ids": [
+      "90138cd37679ec56d708092337129c99daf0cc7cdb43f765b5afefc232c87efa:1:9c8fd1c2cc5ec793c027b277baca347324f0e2b50315891ebcc0514a7d10a860",
+      "90138cd37679ec56d708092337129c99daf0cc7cdb43f765b5afefc232c87efa:2:c5022d612eccb20f3bf06edcacf2b3c9f1765b875802dadd9727cb666ff225e7",
+      "90138cd37679ec56d708092337129c99daf0cc7cdb43f765b5afefc232c87efa:3:ec3804188d70f924da6348ee6112267a172824e9d4e511362271474afbcf52ee"
+    ],
+    "diagnostics": [
+      {
+        "code": "TASK_DEFAULT_REQUIRED",
+        "location": "/inputs/pr_url",
+        "message": "Optional business inputs require a literal default.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "PROPOSAL_ACTION_INVALID",
+        "location": "/",
+        "message": "Return one discovery request or a complete TaskPlan.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/tasks",
+        "message": "Preserve all unaffected tasks, business interfaces, choices and ordering. Repair only the permitted tasks or their dependent output bindings.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "history": [
+      {
+        "calls": 1,
+        "repairs": 0,
+        "code": "TASK_DEFAULT_REQUIRED",
+        "location": "/inputs/pr_url",
+        "message": "Optional business inputs require a literal default.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 2,
+        "repairs": 1,
+        "code": "TASK_DEFAULT_REQUIRED",
+        "location": "/inputs/pr_url",
+        "message": "Optional business inputs require a literal default.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 2,
+        "repairs": 1,
+        "code": "PROPOSAL_ACTION_INVALID",
+        "location": "/",
+        "message": "Return one discovery request or a complete TaskPlan.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 3,
+        "repairs": 2,
+        "code": "TASK_DEFAULT_REQUIRED",
+        "location": "/inputs/pr_url",
+        "message": "Optional business inputs require a literal default.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 3,
+        "repairs": 2,
+        "code": "PROPOSAL_ACTION_INVALID",
+        "location": "/",
+        "message": "Return one discovery request or a complete TaskPlan.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 3,
+        "repairs": 2,
+        "code": "REVISION_SCOPE_CHANGED",
+        "location": "/tasks",
+        "message": "Preserve all unaffected tasks, business interfaces, choices and ordering. Repair only the permitted tasks or their dependent output bindings.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      }
+    ]
+  },
+  {
+    "run_key": "78b8b3468104e576358839c5315846957746c519:fixture:review_distractors:2",
+    "export_sha256": "d52a3372ff83ffca5f4a37f2eff7a9495e303ec7338fdb56d2b2474023b159e4",
+    "status": "approved",
+    "pending_request": null,
+    "request_ids": [
+      "b4378e307467cd3996cb60b759a206209a151aa0bf026a4fd37f194b4290827d:1:609e7dcdfe1aad75170cac6b918995bde05ec5632cf8346fff4d4d4727432006",
+      "b4378e307467cd3996cb60b759a206209a151aa0bf026a4fd37f194b4290827d:2:69496b719e2f301d7a19a5aef0c99290ef0dda0798be110f4f1518c112dbc174",
+      "b4378e307467cd3996cb60b759a206209a151aa0bf026a4fd37f194b4290827d:3:4c72c89cc3df04ea8ad36a248bf30d568a3b515bb44eaa13df87f5507b2a9214",
+      "b4378e307467cd3996cb60b759a206209a151aa0bf026a4fd37f194b4290827d:4:3b1382f1fbb71829c71c9471b88f0b4b7d75e711eb4c7f06e70cc8ec08ce5a80"
+    ],
+    "diagnostics": [],
+    "history": []
+  },
+  {
+    "run_key": "78b8b3468104e576358839c5315846957746c519:fixture:conditional:3",
+    "export_sha256": "9a0d03d0d6ad18fa3cab9b129f3cdf065abdf5a766a565e37d250ade30b4d2f5",
+    "status": "approved",
+    "pending_request": null,
+    "request_ids": [
+      "7fe3e36941b0b6c1b68b7c2452ee27ae1e8caf51c9247c1e7a6b5c74bb784c01:1:54e375df9e300f5f80aaab36aa0bd73124a277d4aae061d0f5fc092652d041e5"
+    ],
+    "diagnostics": [],
+    "history": []
+  },
+  {
+    "run_key": "78b8b3468104e576358839c5315846957746c519:fixture:review_french:3",
+    "export_sha256": "ec93bae22c7db38f1863f423d4a87dbefe54638c6bdc33c248d4544c544c026d",
+    "status": "approved",
+    "pending_request": null,
+    "request_ids": [
+      "7de854807c6c27b2c7c658df7d647fcd536fbbed1780fc23da91a4425cac633b:1:9c8fd1c2cc5ec793c027b277baca347324f0e2b50315891ebcc0514a7d10a860",
+      "7de854807c6c27b2c7c658df7d647fcd536fbbed1780fc23da91a4425cac633b:2:9ee7588a812c99bbcd2f5d40da37a68c4f4ba3b0d3992112f8c704f0db858f13",
+      "7de854807c6c27b2c7c658df7d647fcd536fbbed1780fc23da91a4425cac633b:3:491d2956ed4bff26a110c2eac20fcde59b196224f594df2bc8ad5ac00fa28282"
+    ],
+    "diagnostics": [],
+    "history": [
+      {
+        "calls": 1,
+        "repairs": 0,
+        "code": "TASK_DEFAULT_REQUIRED",
+        "location": "/inputs/review_text",
+        "message": "Optional business inputs require a literal default.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 2,
+        "repairs": 1,
+        "code": "TASK_DEFAULT_REQUIRED",
+        "location": "/inputs/review_text",
+        "message": "Optional business inputs require a literal default.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      },
+      {
+        "calls": 2,
+        "repairs": 1,
+        "code": "PROPOSAL_ACTION_INVALID",
+        "location": "/",
+        "message": "Return one discovery request or a complete TaskPlan.",
+        "category": "invalid_intent",
+        "classification_status": "provisional"
+      }
+    ]
+  },
+  {
+    "run_key": "78b8b3468104e576358839c5315846957746c519:fixture:review_distractors:3",
+    "export_sha256": "59225b5f19495776ff1ef0f070f96d5caa1bc2a79771ebe2b05ab489abbaea4f",
+    "status": "stopped",
+    "pending_request": null,
+    "request_ids": [
+      "24bfb82c71a9f591b6c1a6e8b35f393ccba7da359baeb8221c030cdec66eb101:1:609e7dcdfe1aad75170cac6b918995bde05ec5632cf8346fff4d4d4727432006",
+      "24bfb82c71a9f591b6c1a6e8b35f393ccba7da359baeb8221c030cdec66eb101:2:7b84c9a778b7f6bb81c460324f5abc77fc0ffdbead126fe6c3078c07b682cfc8",
+      "24bfb82c71a9f591b6c1a6e8b35f393ccba7da359baeb8221c030cdec66eb101:3:28d7ded7e4408ac05f615fe662cb14d5ae8cabb9b54659133018358e3213951f",
+      "24bfb82c71a9f591b6c1a6e8b35f393ccba7da359baeb8221c030cdec66eb101:4:764319814ff90e3058b9fe7f0ea44c44f98ca701b4d9cb05826ac93113fd984a"
+    ],
+    "diagnostics": [
+      {
+        "code": "TASK_COMPILER_VALIDATION",
+        "location": "/workflows/1/outputs/0",
+        "message": "EXPR_TYPE_MISMATCH: Expression assigned to 'outputs.review_result' has an incompatible nested contract: 'outputs.review_result.draftId' resolves to missing property, but the contract requires string.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "history": [
+      {
+        "calls": 4,
+        "repairs": 0,
+        "code": "TASK_COMPILER_VALIDATION",
+        "location": "/workflows/1/outputs/0",
+        "message": "EXPR_TYPE_MISMATCH: Expression assigned to 'outputs.review_result' has an incompatible nested contract: 'outputs.review_result.draftId' resolves to missing property, but the contract requires string.",
+        "category": "deterministic_builder_defect",
+        "classification_status": "provisional"
+      }
+    ]
+  }
+]

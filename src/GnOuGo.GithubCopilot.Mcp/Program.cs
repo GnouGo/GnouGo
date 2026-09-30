@@ -65,6 +65,8 @@ builder.Services.AddSingleton<CopilotMcpConfiguration>();
 builder.Services.AddSingleton<CopilotCodeService>();
 builder.Services.AddTransient<CodeTools>();
 builder.Services.AddTransient<CopilotTools>();
+builder.Services.AddSingleton<BoundedCopilotTasks>();
+builder.Services.AddTransient<BoundedCopilotTools>();
 builder.Services
     .AddMcpServer(options =>
     {
@@ -74,6 +76,7 @@ builder.Services
             Version = "1.0.0"
         };
         options.AddGnOuGoToolErrorNormalizer();
+        CopilotAttachmentContract.Configure(options);
         options.Filters.Request.CallToolFilters.Add(next => async (request, cancellationToken) =>
         {
             var accessor = request.Services is null ? null : request.Services.GetService<CodeMcpTraceContextAccessor>();
@@ -84,7 +87,8 @@ builder.Services
     })
     .WithStdioServerTransport()
     .WithTools<CodeTools>(CodeMcpJson.SerializerOptions)
-    .WithTools<CopilotTools>(CodeMcpJson.SerializerOptions);
+    .WithTools<CopilotTools>(CodeMcpJson.SerializerOptions)
+    .WithTools<BoundedCopilotTools>(CodeMcpJson.SerializerOptions);
 
 var host = builder.Build();
 var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.GithubCopilot.Mcp.Startup");

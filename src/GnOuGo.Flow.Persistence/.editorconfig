@@ -1,0 +1,5 @@
+# EF Core 10.0.12 generated query interceptors omit #nullable and use the C# 13 location format.
+# This exact generated file exists only for precompiled publish queries. Source diagnostics stay enabled.
+[obj/**/EncryptedWorkflowRunStore.EFInterceptors.WorkflowRunDbContext.g.cs]
+dotnet_diagnostic.CS8669.severity = none
+dotnet_diagnostic.CS9270.severity = none

@@ -12,6 +12,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// </summary>
 public sealed class TemplateRenderExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.ReplaySafe;
     public string StepType => "template.render";
 
     public string DslSnippet => """

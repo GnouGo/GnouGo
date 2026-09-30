@@ -1,0 +1,42 @@
+{
+  "source_commit": "78b8b3468104e576358839c5315846957746c519",
+  "dotnet": {
+    "projects": 33,
+    "passed": 2848,
+    "failed": 0,
+    "opt_in_live_skips": 5,
+    "compiler_warnings": 0
+  },
+  "planner_tests": 141,
+  "python_tests": {
+    "core": 287,
+    "cli": 27
+  },
+  "ci": {
+    "successful_workflows": 5,
+    "passed_checks": 32,
+    "release_only_skips": 4,
+    "required_dependent_skips": 0
+  },
+  "local_published_checks": [
+    "Core, Planning, Integrations, Copilot and Persistence package metadata/dependency checks",
+    "CLI, Flow.Server, planning smoke and Copilot MCP Native AOT publication",
+    "Agent.Server trimmed publication",
+    "All eight business scenarios through the published planning smoke",
+    "CLI/server encrypted execution receipts, restart recovery, tenant isolation, durable human answers and revision checks",
+    "Published Agent.Server format-10 encrypted planning persistence and incompatible-record isolation"
+  ],
+  "local_result_provenance": "Completed and recorded in the pre-evaluation tool transcript. Temporary local logs and manifests did not survive the environment change; durable CI links and summaries are retained here.",
+  "framework_notices": "Local CLI/server publication emitted the existing documented EF Core 10.0.12 experimental AOT/query-precompilation notices; no unexpected compiler warnings.",
+  "pre_evaluation_failures": [
+    "44f9f81 CI: missing shared measurement helper in linked host tests; fixed in 0acc934.",
+    "Nested repair escaped through invalidated parent: reproduced by a failing test, then fixed and passed in 78b8b34.",
+    "Agent publication first hit Playwright CDN IPv6 failure; passed with IPv4 DNS preference.",
+    "Python packaging initially lacked the build module; existing uv build succeeded.",
+    "A repeated persistence smoke correctly refused the previously used run ID; a fresh isolated fixture directory passed."
+  ],
+  "limitations": [
+    "Real sandboxed Copilot edit/test command execution remains unverified.",
+    "Mocked workflow benchmarks do not validate actual Copilot command execution."
+  ]
+}

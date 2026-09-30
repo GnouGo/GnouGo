@@ -1,0 +1,797 @@
+{
+  "provenance": "Unmodified final response content from retained session da3119fc83e14b15a523bd79b5d685a1; provider raw payloads and private metadata remain encrypted.",
+  "prompt": "En entr\u00E9e accepte un article a rechercher, puis va sur amazon pour rechercher l\u2019article en question, (ex: chaussure geox homme 45) liste les articles, ensuite navigue sur la page de chaque article et extraits dans un fichier Excel: le nom, description et prix que tu sauvegarde sur le disque.",
+  "responses": [
+    {
+      "completionStatus": null,
+      "text": "{\u0022requirements\u0022:{\u0022summary\u0022:\u0022Cr\u00E9er un workflow d\u2019agent conversationnel qui accepte en entr\u00E9e un article \u00E0 rechercher, effectue une recherche Amazon, liste les articles trouv\u00E9s, visite la page de chaque article, extrait le nom, la description et le prix, puis sauvegarde ces donn\u00E9es dans un fichier Excel sur le disque sous workflows/\u003Cnom-purpose-specific\u003E.\u0022,\u0022outcomes\u0022:[{\u0022id\u0022:\u0022outcome_1\u0022,\u0022description\u0022:\u0022Accepter en entr\u00E9e un article \u00E0 rechercher, par exemple \u00AB chaussure geox homme 45 \u00BB.\u0022},{\u0022id\u0022:\u0022outcome_2\u0022,\u0022description\u0022:\u0022Naviguer sur Amazon et rechercher l\u2019article demand\u00E9.\u0022},{\u0022id\u0022:\u0022outcome_3\u0022,\u0022description\u0022:\u0022Lister les articles trouv\u00E9s dans les r\u00E9sultats de recherche.\u0022},{\u0022id\u0022:\u0022outcome_4\u0022,\u0022description\u0022:\u0022Naviguer sur la page de chaque article list\u00E9 et extraire le nom, la description et le prix.\u0022},{\u0022id\u0022:\u0022outcome_5\u0022,\u0022description\u0022:\u0022Cr\u00E9er et sauvegarder un fichier Excel contenant les colonnes nom, description et prix dans un dossier workflow-created sous workflows/\u003Cpurpose-specific-name\u003E.\u0022}]},\u0022discoveryRequests\u0022:[{\u0022sourceId\u0022:\u0022source_258c29d9064381a5dd37bf0c\u0022,\u0022cursor\u0022:null},{\u0022sourceId\u0022:\u0022source_0002e1b8daaf46eef1b331cc\u0022,\u0022cursor\u0022:null}],\u0022plan\u0022:null,\u0022explanation\u0022:\u0022Je dois d\u2019abord d\u00E9couvrir les op\u00E9rations disponibles pour la navigation Web Playwright et l\u2019\u00E9criture XLSX afin de produire un TaskPlan ex\u00E9cutable avec des op\u00E9rations d\u00E9clar\u00E9es plut\u00F4t que d\u2019inventer des capacit\u00E9s.\u0022}",
+      "json": {
+        "requirements": {
+          "summary": "Cr\u00E9er un workflow d\u2019agent conversationnel qui accepte en entr\u00E9e un article \u00E0 rechercher, effectue une recherche Amazon, liste les articles trouv\u00E9s, visite la page de chaque article, extrait le nom, la description et le prix, puis sauvegarde ces donn\u00E9es dans un fichier Excel sur le disque sous workflows/\u003Cnom-purpose-specific\u003E.",
+          "outcomes": [
+            {
+              "id": "outcome_1",
+              "description": "Accepter en entr\u00E9e un article \u00E0 rechercher, par exemple \u00AB chaussure geox homme 45 \u00BB."
+            },
+            {
+              "id": "outcome_2",
+              "description": "Naviguer sur Amazon et rechercher l\u2019article demand\u00E9."
+            },
+            {
+              "id": "outcome_3",
+              "description": "Lister les articles trouv\u00E9s dans les r\u00E9sultats de recherche."
+            },
+            {
+              "id": "outcome_4",
+              "description": "Naviguer sur la page de chaque article list\u00E9 et extraire le nom, la description et le prix."
+            },
+            {
+              "id": "outcome_5",
+              "description": "Cr\u00E9er et sauvegarder un fichier Excel contenant les colonnes nom, description et prix dans un dossier workflow-created sous workflows/\u003Cpurpose-specific-name\u003E."
+            }
+          ]
+        },
+        "discoveryRequests": [
+          {
+            "sourceId": "source_258c29d9064381a5dd37bf0c",
+            "cursor": null
+          },
+          {
+            "sourceId": "source_0002e1b8daaf46eef1b331cc",
+            "cursor": null
+          }
+        ],
+        "plan": null,
+        "explanation": "Je dois d\u2019abord d\u00E9couvrir les op\u00E9rations disponibles pour la navigation Web Playwright et l\u2019\u00E9criture XLSX afin de produire un TaskPlan ex\u00E9cutable avec des op\u00E9rations d\u00E9clar\u00E9es plut\u00F4t que d\u2019inventer des capacit\u00E9s."
+      }
+    },
+    {
+      "completionStatus": null,
+      "text": "{\u0022requirements\u0022:{\u0022summary\u0022:\u0022Cr\u00E9er un workflow d\u2019agent conversationnel qui accepte en entr\u00E9e un article \u00E0 rechercher, effectue une recherche Amazon, liste les articles trouv\u00E9s, visite la page de chaque article, extrait le nom, la description et le prix, puis sauvegarde ces donn\u00E9es dans un fichier Excel sur le disque sous workflows/\u003Cnom-purpose-specific\u003E.\u0022,\u0022outcomes\u0022:[{\u0022id\u0022:\u0022outcome_1\u0022,\u0022description\u0022:\u0022Accepter en entr\u00E9e un article \u00E0 rechercher, par exemple \u00AB chaussure geox homme 45 \u00BB.\u0022},{\u0022id\u0022:\u0022outcome_2\u0022,\u0022description\u0022:\u0022Naviguer sur Amazon et rechercher l\u2019article demand\u00E9.\u0022},{\u0022id\u0022:\u0022outcome_3\u0022,\u0022description\u0022:\u0022Lister les articles trouv\u00E9s dans les r\u00E9sultats de recherche.\u0022},{\u0022id\u0022:\u0022outcome_4\u0022,\u0022description\u0022:\u0022Naviguer sur la page de chaque article list\u00E9 et extraire le nom, la description et le prix.\u0022},{\u0022id\u0022:\u0022outcome_5\u0022,\u0022description\u0022:\u0022Cr\u00E9er et sauvegarder un fichier Excel contenant les colonnes nom, description et prix dans un dossier workflow-created sous workflows/\u003Cpurpose-specific-name\u003E.\u0022}]},\u0022discoveryRequests\u0022:null,\u0022plan\u0022:{\u0022inputs\u0022:[{\u0022name\u0022:\u0022articleARechercher\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[] }  , \u0022required\u0022:true  ,\u0022default\u0022:null},{\u0022name\u0022:\u0022nombreMaximumArticles\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022integer\u0022,\u0022nullable\u0022:true,\u0022items\u0022:null,\u0022fields\u0022:[]}  , \u0022required\u0022:false  ,\u0022default\u0022:  {\u0022kind\u0022:\u0022number\u0022,\u0022number\u0022:20}}],\u0022root\u0022:{\u0022tasks\u0022:[{\u0022id\u0022:\u0022preparer_recherche\u0022,\u0022kind\u0022:\u0022transform\u0022,\u0022objective\u0022:\u0022\u00C0 partir de l\u0027article demand\u00E9 et d\u0027un plafond optionnel, pr\u00E9parer les param\u00E8tres de navigation et de sauvegarde. Produire une URL de recherche Amazon France utilisant https://www.amazon.fr/s?k=\u003Crequ\u00EAte encod\u00E9e\u003E, un chemin relatif de fichier Excel sous workflows/amazon-recherche-produits/workflow-created/resultats_amazon.xlsx, et un plafond fini d\u0027articles \u00E0 traiter. Si le plafond fourni est nul ou inf\u00E9rieur \u00E0 1, utiliser 20; ne jamais d\u00E9passer 50.\u0022,\u0022dependsOn\u0022:[],\u0022inputs\u0022:[{\u0022name\u0022:\u0022articleARechercher\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022input\u0022,\u0022source\u0022:\u0022articleARechercher\u0022}},{\u0022name\u0022:\u0022nombreMaximumArticles\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022input\u0022,\u0022source\u0022:\u0022nombreMaximumArticles\u0022}}],\u0022resultType\u0022:{\u0022kind\u0022:\u0022object\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[{\u0022name\u0022:\u0022requete\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[] }  ,\u0022required\u0022:true  ,\u0022default\u0022:null},{\u0022name\u0022:\u0022urlRechercheAmazon\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[] } ,\u0022required\u0022:true,\u0022default\u0022:null},{\u0022name\u0022:\u0022cheminFichierExcel\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[] },\u0022required\u0022:true,\u0022default\u0022:null},{\u0022name\u0022:\u0022plafondArticles\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022integer\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null}]}},{\u0022id\u0022:\u0022obtenir_politique_documents\u0022,\u0022kind\u0022:\u0022operation\u0022,\u0022objective\u0022:\u0022V\u00E9rifier la politique du serveur de documents avant toute \u00E9criture de fichier.\u0022,\u0022dependsOn\u0022:[],\u0022operation\u0022:\u0022cap_33a30becd13a00f5e7a99b68\u0022,\u0022inputs\u0022:[]},{\u0022id\u0022:\u0022ouvrir_resultats_amazon\u0022,\u0022kind\u0022:\u0022operation\u0022,\u0022objective\u0022:\u0022Naviguer vers Amazon et ouvrir directement la page de recherche correspondant \u00E0 l\u0027article demand\u00E9.\u0022,\u0022dependsOn\u0022:[\u0022preparer_recherche\u0022],\u0022operation\u0022:\u0022cap_490d9e16075cbdca5954ec27\u0022,\u0022inputs\u0022:[{\u0022name\u0022:\u0022url\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022preparer_recherche\u0022,\u0022port\u0022:\u0022urlRechercheAmazon\u0022}},{\u0022name\u0022:\u0022format\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022text\u0022:\u0022html\u0022}},{\u0022name\u0022:\u0022waitUntil\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022text\u0022:\u0022domcontentloaded\u0022}},{\u0022name\u0022:\u0022maxCharacters\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022number\u0022,\u0022number\u0022:200000}},{\u0022name\u0022:\u0022selector\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022null\u0022}},{\u0022name\u0022:\u0022includeScriptContent\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022boolean\u0022,\u0022boolean\u0022:false}},{\u0022name\u0022:\u0022timeoutMs\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022number\u0022,\u0022number\u0022:45000}}]},{\u0022id\u0022:\u0022extraire_liste_articles\u0022,\u0022kind\u0022:\u0022transform\u0022,\u0022objective\u0022:\u0022Analyser le HTML de la page de r\u00E9sultats Amazon. Lister uniquement les r\u00E9sultats produits r\u00E9els visibles, en ignorant publicit\u00E9s non-produits, menus, filtres et \u00E9l\u00E9ments sans lien de d\u00E9tail. Pour chaque article, extraire un nom provisoire, une description courte si visible, un prix visible si disponible, et l\u0027URL absolue de la page produit. Limiter la liste au plafond fourni. Conserver aussi une version textuelle lisible de la liste des articles trouv\u00E9s.\u0022,\u0022dependsOn\u0022:[\u0022ouvrir_resultats_amazon\u0022],\u0022inputs\u0022:[{\u0022name\u0022:\u0022htmlResultats\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022ouvrir_resultats_amazon\u0022,\u0022port\u0022:\u0022content\u0022}},{\u0022name\u0022:\u0022urlPageResultats\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022ouvrir_resultats_amazon\u0022,\u0022port\u0022:\u0022url\u0022}},{\u0022name\u0022:\u0022plafondArticles\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022preparer_recherche\u0022,\u0022port\u0022:\u0022plafondArticles\u0022}}],\u0022resultType\u0022:{\u0022kind\u0022:\u0022object\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[{\u0022name\u0022:\u0022articles\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022array\u0022,\u0022nullable\u0022:false,\u0022items\u0022:{\u0022kind\u0022:\u0022object\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[{\u0022name\u0022:\u0022nomListe\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:true,\u0022items\u0022:null,\u0022fields\u0022:[] },\u0022required\u0022:true,\u0022default\u0022:null},{\u0022name\u0022:\u0022descriptionListe\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:true,\u0022items\u0022:null,\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null},{\u0022name\u0022:\u0022prixListe\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:true,\u0022items\u0022:null,\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null},{\u0022name\u0022:\u0022urlProduit\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null}]},\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null},{\u0022name\u0022:\u0022listeLisible\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null}]}},{\u0022id\u0022:\u0022visiter_chaque_article\u0022,\u0022kind\u0022:\u0022foreach\u0022,\u0022objective\u0022:\u0022Visiter chaque page produit list\u00E9e et extraire les donn\u00E9es demand\u00E9es avec un plafond fini.\u0022,\u0022dependsOn\u0022:[\u0022extraire_liste_articles\u0022],\u0022items\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022extraire_liste_articles\u0022,\u0022port\u0022:\u0022articles\u0022},\u0022body\u0022:{\u0022tasks\u0022:[{\u0022id\u0022:\u0022preparer_page_article\u0022,\u0022kind\u0022:\u0022transform\u0022,\u0022objective\u0022:\u0022Pr\u00E9parer l\u0027URL de page produit \u00E0 ouvrir pour l\u0027article courant. Utiliser l\u0027URL absolue d\u00E9j\u00E0 extraite; produire aussi les valeurs provisoires issues de la liste comme secours si la page d\u00E9tail n\u0027est pas pleinement lisible.\u0022,\u0022dependsOn\u0022:[],\u0022inputs\u0022:[{\u0022name\u0022:\u0022articleCourant\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022item\u0022}}],\u0022resultType\u0022:{\u0022kind\u0022:\u0022object\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[{\u0022name\u0022:\u0022urlProduit\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null},{\u0022name\u0022:\u0022nomSecours\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:true,\u0022items\u0022:null,\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null},{\u0022name\u0022:\u0022descriptionSecours\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:true,\u0022items\u0022:null,\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null},{\u0022name\u0022:\u0022prixSecours\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:true,\u0022items\u0022:null,\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null}]}},{\u0022id\u0022:\u0022ouvrir_page_article\u0022,\u0022kind\u0022:\u0022operation\u0022,\u0022objective\u0022:\u0022Naviguer sur la page Amazon de l\u0027article courant et r\u00E9cup\u00E9rer le HTML rendu.\u0022,\u0022dependsOn\u0022:[\u0022preparer_page_article\u0022],\u0022operation\u0022:\u0022cap_490d9e16075cbdca5954ec27\u0022,\u0022inputs\u0022:[{\u0022name\u0022:\u0022url\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022preparer_page_article\u0022,\u0022port\u0022:\u0022urlProduit\u0022}},{\u0022name\u0022:\u0022format\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022text\u0022:\u0022html\u0022}},{\u0022name\u0022:\u0022waitUntil\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022text\u0022:\u0022domcontentloaded\u0022}},{\u0022name\u0022:\u0022maxCharacters\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022number\u0022,\u0022number\u0022:200000}},{\u0022name\u0022:\u0022selector\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022null\u0022}},{\u0022name\u0022:\u0022includeScriptContent\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022boolean\u0022,\u0022boolean\u0022:false}},{\u0022name\u0022:\u0022timeoutMs\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022number\u0022,\u0022number\u0022:45000}}]},{\u0022id\u0022:\u0022extraire_details_article\u0022,\u0022kind\u0022:\u0022transform\u0022,\u0022objective\u0022:\u0022Analyser le HTML de la page produit Amazon et extraire pr\u00E9cis\u00E9ment le nom, la description et le prix. Pour le nom, privil\u00E9gier le titre produit principal. Pour la description, privil\u00E9gier les puces descriptives, le r\u00E9sum\u00E9 produit ou la description visible; sinon utiliser la description de secours. Pour le prix, privil\u00E9gier le prix d\u0027achat principal visible; sinon utiliser le prix de secours. Si une donn\u00E9e est absente, laisser la valeur nulle plut\u00F4t que d\u0027inventer. Inclure l\u0027URL produit pour tra\u00E7abilit\u00E9.\u0022,\u0022dependsOn\u0022:[\u0022ouvrir_page_article\u0022],\u0022inputs\u0022:[{\u0022name\u0022:\u0022htmlPageProduit\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022ouvrir_page_article\u0022,\u0022port\u0022:\u0022content\u0022}},{\u0022name\u0022:\u0022urlProduit\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022ouvrir_page_article\u0022,\u0022port\u0022:\u0022url\u0022}},{\u0022name\u0022:\u0022nomSecours\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022preparer_page_article\u0022,\u0022port\u0022:\u0022nomSecours\u0022}},{\u0022name\u0022:\u0022descriptionSecours\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022preparer_page_article\u0022,\u0022port\u0022:\u0022descriptionSecours\u0022}},{\u0022name\u0022:\u0022prixSecours\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022preparer_page_article\u0022,\u0022port\u0022:\u0022prixSecours\u0022}}],\u0022resultType\u0022:{\u0022kind\u0022:\u0022object\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[{\u0022name\u0022:\u0022nom\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:true,\u0022items\u0022:null,\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null},{\u0022name\u0022:\u0022description\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:true,\u0022items\u0022:null,\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null},{\u0022name\u0022:\u0022prix\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:true,\u0022items\u0022:null,\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null},{\u0022name\u0022:\u0022urlProduit\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null}]}}],\u0022outputs\u0022:[{\u0022name\u0022:\u0022articleExtrait\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022extraire_details_article\u0022,\u0022port\u0022:null}}],\u0022always\u0022:[]},\u0022parallel\u0022:false,\u0022maxItems\u0022:50,\u0022maxConcurrency\u0022:1},{\u0022id\u0022:\u0022preparer_excel\u0022,\u0022kind\u0022:\u0022transform\u0022,\u0022objective\u0022:\u0022Transformer les articles extraits en contenu tabul\u00E9 compatible Excel avec exactement les colonnes nom, description et prix, dans cet ordre. \u00C9chapper correctement les tabulations, retours \u00E0 la ligne et guillemets dans les valeurs. Produire aussi le chemin relatif de sauvegarde fourni par la pr\u00E9paration.\u0022,\u0022dependsOn\u0022:[\u0022visiter_chaque_article\u0022,\u0022preparer_recherche\u0022],\u0022inputs\u0022:[{\u0022name\u0022:\u0022articlesExtraits\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022visiter_chaque_article\u0022,\u0022port\u0022:null}},{\u0022name\u0022:\u0022cheminFichierExcel\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022preparer_recherche\u0022,\u0022port\u0022:\u0022cheminFichierExcel\u0022}}],\u0022resultType\u0022:{\u0022kind\u0022:\u0022object\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[{\u0022name\u0022:\u0022contenuXlsxTabule\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null},{\u0022name\u0022:\u0022cheminFichierExcel\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null},{\u0022name\u0022:\u0022nombreArticlesExtraits\u0022,\u0022type\u0022:{\u0022kind\u0022:\u0022integer\u0022,\u0022nullable\u0022:false,\u0022items\u0022:null,\u0022fields\u0022:[]},\u0022required\u0022:true,\u0022default\u0022:null}]}},{\u0022id\u0022:\u0022sauvegarder_excel\u0022,\u0022kind\u0022:\u0022operation\u0022,\u0022objective\u0022:\u0022Cr\u00E9er le dossier workflow-created si n\u00E9cessaire et sauvegarder le fichier Excel contenant les colonnes nom, description et prix sous workflows/amazon-recherche-produits/workflow-created/.\u0022,\u0022dependsOn\u0022:[\u0022obtenir_politique_documents\u0022,\u0022preparer_excel\u0022],\u0022operation\u0022:\u0022cap_37c513d225bb1b870053c5d3\u0022,\u0022inputs\u0022:[{\u0022name\u0022:\u0022filePath\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022preparer_excel\u0022,\u0022port\u0022:\u0022cheminFichierExcel\u0022}},{\u0022name\u0022:\u0022content\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022preparer_excel\u0022,\u0022port\u0022:\u0022contenuXlsxTabule\u0022}},{\u0022name\u0022:\u0022append\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022boolean\u0022,\u0022boolean\u0022:false}},{\u0022name\u0022:\u0022encoding\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022string\u0022,\u0022text\u0022:\u0022utf-8\u0022}}]}],\u0022outputs\u0022:[{\u0022name\u0022:\u0022articleRecherche\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022preparer_recherche\u0022,\u0022port\u0022:\u0022requete\u0022}},{\u0022name\u0022:\u0022articlesListes\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022extraire_liste_articles\u0022,\u0022port\u0022:\u0022listeLisible\u0022}},{\u0022name\u0022:\u0022articlesExtraits\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022visiter_chaque_article\u0022,\u0022port\u0022:null}},{\u0022name\u0022:\u0022nombreArticlesExtraits\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022preparer_excel\u0022,\u0022port\u0022:\u0022nombreArticlesExtraits\u0022}},{\u0022name\u0022:\u0022fichierExcel\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022sauvegarder_excel\u0022,\u0022port\u0022:\u0022relativePath\u0022}},{\u0022name\u0022:\u0022sauvegardeReussie\u0022,\u0022value\u0022:{\u0022kind\u0022:\u0022output\u0022,\u0022source\u0022:\u0022sauvegarder_excel\u0022,\u0022port\u0022:\u0022success\u0022}}],\u0022always\u0022:[{\u0022id\u0022:\u0022fermer_navigateur\u0022,\u0022kind\u0022:\u0022operation\u0022,\u0022objective\u0022:\u0022Nettoyer les ressources de navigation en fermant la page et le contexte du navigateur, m\u00EAme en cas d\u0027erreur pendant la recherche ou l\u0027extraction.\u0022,\u0022dependsOn\u0022:[],\u0022operation\u0022:\u0022cap_bdb7ba9ab04b18783883fa86\u0022,\u0022inputs\u0022:[]}]},\u0022groups\u0022:[],\u0022choices\u0022:[]},\u0022explanation\u0022:\u0022Plan complet propos\u00E9 avec les op\u00E9rations disponibles de navigation Web et d\u0027\u00E9criture documentaire. Le workflow accepte la requ\u00EAte utilisateur, recherche sur Amazon, liste les r\u00E9sultats, visite chaque fiche produit jusqu\u0027\u00E0 un plafond fini, extrait nom/description/prix, \u00E9crit un fichier .xlsx sous workflows/amazon-recherche-produits/workflow-created/, puis ferme toujours le navigateur.\u0022}",
+      "json": {
+        "requirements": {
+          "summary": "Cr\u00E9er un workflow d\u2019agent conversationnel qui accepte en entr\u00E9e un article \u00E0 rechercher, effectue une recherche Amazon, liste les articles trouv\u00E9s, visite la page de chaque article, extrait le nom, la description et le prix, puis sauvegarde ces donn\u00E9es dans un fichier Excel sur le disque sous workflows/\u003Cnom-purpose-specific\u003E.",
+          "outcomes": [
+            {
+              "id": "outcome_1",
+              "description": "Accepter en entr\u00E9e un article \u00E0 rechercher, par exemple \u00AB chaussure geox homme 45 \u00BB."
+            },
+            {
+              "id": "outcome_2",
+              "description": "Naviguer sur Amazon et rechercher l\u2019article demand\u00E9."
+            },
+            {
+              "id": "outcome_3",
+              "description": "Lister les articles trouv\u00E9s dans les r\u00E9sultats de recherche."
+            },
+            {
+              "id": "outcome_4",
+              "description": "Naviguer sur la page de chaque article list\u00E9 et extraire le nom, la description et le prix."
+            },
+            {
+              "id": "outcome_5",
+              "description": "Cr\u00E9er et sauvegarder un fichier Excel contenant les colonnes nom, description et prix dans un dossier workflow-created sous workflows/\u003Cpurpose-specific-name\u003E."
+            }
+          ]
+        },
+        "discoveryRequests": null,
+        "plan": {
+          "inputs": [
+            {
+              "name": "articleARechercher",
+              "type": {
+                "kind": "string",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "nombreMaximumArticles",
+              "type": {
+                "kind": "integer",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": false,
+              "default": {
+                "kind": "number",
+                "number": 20
+              }
+            }
+          ],
+          "root": {
+            "tasks": [
+              {
+                "id": "preparer_recherche",
+                "kind": "transform",
+                "objective": "\u00C0 partir de l\u0027article demand\u00E9 et d\u0027un plafond optionnel, pr\u00E9parer les param\u00E8tres de navigation et de sauvegarde. Produire une URL de recherche Amazon France utilisant https://www.amazon.fr/s?k=\u003Crequ\u00EAte encod\u00E9e\u003E, un chemin relatif de fichier Excel sous workflows/amazon-recherche-produits/workflow-created/resultats_amazon.xlsx, et un plafond fini d\u0027articles \u00E0 traiter. Si le plafond fourni est nul ou inf\u00E9rieur \u00E0 1, utiliser 20; ne jamais d\u00E9passer 50.",
+                "dependsOn": [],
+                "inputs": [
+                  {
+                    "name": "articleARechercher",
+                    "value": {
+                      "kind": "input",
+                      "source": "articleARechercher"
+                    }
+                  },
+                  {
+                    "name": "nombreMaximumArticles",
+                    "value": {
+                      "kind": "input",
+                      "source": "nombreMaximumArticles"
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "nullable": false,
+                  "items": null,
+                  "fields": [
+                    {
+                      "name": "requete",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "urlRechercheAmazon",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "cheminFichierExcel",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "plafondArticles",
+                      "type": {
+                        "kind": "integer",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "obtenir_politique_documents",
+                "kind": "operation",
+                "objective": "V\u00E9rifier la politique du serveur de documents avant toute \u00E9criture de fichier.",
+                "dependsOn": [],
+                "operation": "cap_33a30becd13a00f5e7a99b68",
+                "inputs": []
+              },
+              {
+                "id": "ouvrir_resultats_amazon",
+                "kind": "operation",
+                "objective": "Naviguer vers Amazon et ouvrir directement la page de recherche correspondant \u00E0 l\u0027article demand\u00E9.",
+                "dependsOn": [
+                  "preparer_recherche"
+                ],
+                "operation": "cap_490d9e16075cbdca5954ec27",
+                "inputs": [
+                  {
+                    "name": "url",
+                    "value": {
+                      "kind": "output",
+                      "source": "preparer_recherche",
+                      "port": "urlRechercheAmazon"
+                    }
+                  },
+                  {
+                    "name": "format",
+                    "value": {
+                      "kind": "string",
+                      "text": "html"
+                    }
+                  },
+                  {
+                    "name": "waitUntil",
+                    "value": {
+                      "kind": "string",
+                      "text": "domcontentloaded"
+                    }
+                  },
+                  {
+                    "name": "maxCharacters",
+                    "value": {
+                      "kind": "number",
+                      "number": 200000
+                    }
+                  },
+                  {
+                    "name": "selector",
+                    "value": {
+                      "kind": "null"
+                    }
+                  },
+                  {
+                    "name": "includeScriptContent",
+                    "value": {
+                      "kind": "boolean",
+                      "boolean": false
+                    }
+                  },
+                  {
+                    "name": "timeoutMs",
+                    "value": {
+                      "kind": "number",
+                      "number": 45000
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "extraire_liste_articles",
+                "kind": "transform",
+                "objective": "Analyser le HTML de la page de r\u00E9sultats Amazon. Lister uniquement les r\u00E9sultats produits r\u00E9els visibles, en ignorant publicit\u00E9s non-produits, menus, filtres et \u00E9l\u00E9ments sans lien de d\u00E9tail. Pour chaque article, extraire un nom provisoire, une description courte si visible, un prix visible si disponible, et l\u0027URL absolue de la page produit. Limiter la liste au plafond fourni. Conserver aussi une version textuelle lisible de la liste des articles trouv\u00E9s.",
+                "dependsOn": [
+                  "ouvrir_resultats_amazon"
+                ],
+                "inputs": [
+                  {
+                    "name": "htmlResultats",
+                    "value": {
+                      "kind": "output",
+                      "source": "ouvrir_resultats_amazon",
+                      "port": "content"
+                    }
+                  },
+                  {
+                    "name": "urlPageResultats",
+                    "value": {
+                      "kind": "output",
+                      "source": "ouvrir_resultats_amazon",
+                      "port": "url"
+                    }
+                  },
+                  {
+                    "name": "plafondArticles",
+                    "value": {
+                      "kind": "output",
+                      "source": "preparer_recherche",
+                      "port": "plafondArticles"
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "nullable": false,
+                  "items": null,
+                  "fields": [
+                    {
+                      "name": "articles",
+                      "type": {
+                        "kind": "array",
+                        "nullable": false,
+                        "items": {
+                          "kind": "object",
+                          "nullable": false,
+                          "items": null,
+                          "fields": [
+                            {
+                              "name": "nomListe",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true,
+                                "items": null,
+                                "fields": []
+                              },
+                              "required": true,
+                              "default": null
+                            },
+                            {
+                              "name": "descriptionListe",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true,
+                                "items": null,
+                                "fields": []
+                              },
+                              "required": true,
+                              "default": null
+                            },
+                            {
+                              "name": "prixListe",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true,
+                                "items": null,
+                                "fields": []
+                              },
+                              "required": true,
+                              "default": null
+                            },
+                            {
+                              "name": "urlProduit",
+                              "type": {
+                                "kind": "string",
+                                "nullable": false,
+                                "items": null,
+                                "fields": []
+                              },
+                              "required": true,
+                              "default": null
+                            }
+                          ]
+                        },
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "listeLisible",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "visiter_chaque_article",
+                "kind": "foreach",
+                "objective": "Visiter chaque page produit list\u00E9e et extraire les donn\u00E9es demand\u00E9es avec un plafond fini.",
+                "dependsOn": [
+                  "extraire_liste_articles"
+                ],
+                "items": {
+                  "kind": "output",
+                  "source": "extraire_liste_articles",
+                  "port": "articles"
+                },
+                "body": {
+                  "tasks": [
+                    {
+                      "id": "preparer_page_article",
+                      "kind": "transform",
+                      "objective": "Pr\u00E9parer l\u0027URL de page produit \u00E0 ouvrir pour l\u0027article courant. Utiliser l\u0027URL absolue d\u00E9j\u00E0 extraite; produire aussi les valeurs provisoires issues de la liste comme secours si la page d\u00E9tail n\u0027est pas pleinement lisible.",
+                      "dependsOn": [],
+                      "inputs": [
+                        {
+                          "name": "articleCourant",
+                          "value": {
+                            "kind": "item"
+                          }
+                        }
+                      ],
+                      "resultType": {
+                        "kind": "object",
+                        "nullable": false,
+                        "items": null,
+                        "fields": [
+                          {
+                            "name": "urlProduit",
+                            "type": {
+                              "kind": "string",
+                              "nullable": false,
+                              "items": null,
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          },
+                          {
+                            "name": "nomSecours",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true,
+                              "items": null,
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          },
+                          {
+                            "name": "descriptionSecours",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true,
+                              "items": null,
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          },
+                          {
+                            "name": "prixSecours",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true,
+                              "items": null,
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": "ouvrir_page_article",
+                      "kind": "operation",
+                      "objective": "Naviguer sur la page Amazon de l\u0027article courant et r\u00E9cup\u00E9rer le HTML rendu.",
+                      "dependsOn": [
+                        "preparer_page_article"
+                      ],
+                      "operation": "cap_490d9e16075cbdca5954ec27",
+                      "inputs": [
+                        {
+                          "name": "url",
+                          "value": {
+                            "kind": "output",
+                            "source": "preparer_page_article",
+                            "port": "urlProduit"
+                          }
+                        },
+                        {
+                          "name": "format",
+                          "value": {
+                            "kind": "string",
+                            "text": "html"
+                          }
+                        },
+                        {
+                          "name": "waitUntil",
+                          "value": {
+                            "kind": "string",
+                            "text": "domcontentloaded"
+                          }
+                        },
+                        {
+                          "name": "maxCharacters",
+                          "value": {
+                            "kind": "number",
+                            "number": 200000
+                          }
+                        },
+                        {
+                          "name": "selector",
+                          "value": {
+                            "kind": "null"
+                          }
+                        },
+                        {
+                          "name": "includeScriptContent",
+                          "value": {
+                            "kind": "boolean",
+                            "boolean": false
+                          }
+                        },
+                        {
+                          "name": "timeoutMs",
+                          "value": {
+                            "kind": "number",
+                            "number": 45000
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "extraire_details_article",
+                      "kind": "transform",
+                      "objective": "Analyser le HTML de la page produit Amazon et extraire pr\u00E9cis\u00E9ment le nom, la description et le prix. Pour le nom, privil\u00E9gier le titre produit principal. Pour la description, privil\u00E9gier les puces descriptives, le r\u00E9sum\u00E9 produit ou la description visible; sinon utiliser la description de secours. Pour le prix, privil\u00E9gier le prix d\u0027achat principal visible; sinon utiliser le prix de secours. Si une donn\u00E9e est absente, laisser la valeur nulle plut\u00F4t que d\u0027inventer. Inclure l\u0027URL produit pour tra\u00E7abilit\u00E9.",
+                      "dependsOn": [
+                        "ouvrir_page_article"
+                      ],
+                      "inputs": [
+                        {
+                          "name": "htmlPageProduit",
+                          "value": {
+                            "kind": "output",
+                            "source": "ouvrir_page_article",
+                            "port": "content"
+                          }
+                        },
+                        {
+                          "name": "urlProduit",
+                          "value": {
+                            "kind": "output",
+                            "source": "ouvrir_page_article",
+                            "port": "url"
+                          }
+                        },
+                        {
+                          "name": "nomSecours",
+                          "value": {
+                            "kind": "output",
+                            "source": "preparer_page_article",
+                            "port": "nomSecours"
+                          }
+                        },
+                        {
+                          "name": "descriptionSecours",
+                          "value": {
+                            "kind": "output",
+                            "source": "preparer_page_article",
+                            "port": "descriptionSecours"
+                          }
+                        },
+                        {
+                          "name": "prixSecours",
+                          "value": {
+                            "kind": "output",
+                            "source": "preparer_page_article",
+                            "port": "prixSecours"
+                          }
+                        }
+                      ],
+                      "resultType": {
+                        "kind": "object",
+                        "nullable": false,
+                        "items": null,
+                        "fields": [
+                          {
+                            "name": "nom",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true,
+                              "items": null,
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          },
+                          {
+                            "name": "description",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true,
+                              "items": null,
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          },
+                          {
+                            "name": "prix",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true,
+                              "items": null,
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          },
+                          {
+                            "name": "urlProduit",
+                            "type": {
+                              "kind": "string",
+                              "nullable": false,
+                              "items": null,
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "outputs": [
+                    {
+                      "name": "articleExtrait",
+                      "value": {
+                        "kind": "output",
+                        "source": "extraire_details_article",
+                        "port": null
+                      }
+                    }
+                  ],
+                  "always": []
+                },
+                "parallel": false,
+                "maxItems": 50,
+                "maxConcurrency": 1
+              },
+              {
+                "id": "preparer_excel",
+                "kind": "transform",
+                "objective": "Transformer les articles extraits en contenu tabul\u00E9 compatible Excel avec exactement les colonnes nom, description et prix, dans cet ordre. \u00C9chapper correctement les tabulations, retours \u00E0 la ligne et guillemets dans les valeurs. Produire aussi le chemin relatif de sauvegarde fourni par la pr\u00E9paration.",
+                "dependsOn": [
+                  "visiter_chaque_article",
+                  "preparer_recherche"
+                ],
+                "inputs": [
+                  {
+                    "name": "articlesExtraits",
+                    "value": {
+                      "kind": "output",
+                      "source": "visiter_chaque_article",
+                      "port": null
+                    }
+                  },
+                  {
+                    "name": "cheminFichierExcel",
+                    "value": {
+                      "kind": "output",
+                      "source": "preparer_recherche",
+                      "port": "cheminFichierExcel"
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "nullable": false,
+                  "items": null,
+                  "fields": [
+                    {
+                      "name": "contenuXlsxTabule",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "cheminFichierExcel",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "nombreArticlesExtraits",
+                      "type": {
+                        "kind": "integer",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "sauvegarder_excel",
+                "kind": "operation",
+                "objective": "Cr\u00E9er le dossier workflow-created si n\u00E9cessaire et sauvegarder le fichier Excel contenant les colonnes nom, description et prix sous workflows/amazon-recherche-produits/workflow-created/.",
+                "dependsOn": [
+                  "obtenir_politique_documents",
+                  "preparer_excel"
+                ],
+                "operation": "cap_37c513d225bb1b870053c5d3",
+                "inputs": [
+                  {
+                    "name": "filePath",
+                    "value": {
+                      "kind": "output",
+                      "source": "preparer_excel",
+                      "port": "cheminFichierExcel"
+                    }
+                  },
+                  {
+                    "name": "content",
+                    "value": {
+                      "kind": "output",
+                      "source": "preparer_excel",
+                      "port": "contenuXlsxTabule"
+                    }
+                  },
+                  {
+                    "name": "append",
+                    "value": {
+                      "kind": "boolean",
+                      "boolean": false
+                    }
+                  },
+                  {
+                    "name": "encoding",
+                    "value": {
+                      "kind": "string",
+                      "text": "utf-8"
+                    }
+                  }
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "articleRecherche",
+                "value": {
+                  "kind": "output",
+                  "source": "preparer_recherche",
+                  "port": "requete"
+                }
+              },
+              {
+                "name": "articlesListes",
+                "value": {
+                  "kind": "output",
+                  "source": "extraire_liste_articles",
+                  "port": "listeLisible"
+                }
+              },
+              {
+                "name": "articlesExtraits",
+                "value": {
+                  "kind": "output",
+                  "source": "visiter_chaque_article",
+                  "port": null
+                }
+              },
+              {
+                "name": "nombreArticlesExtraits",
+                "value": {
+                  "kind": "output",
+                  "source": "preparer_excel",
+                  "port": "nombreArticlesExtraits"
+                }
+              },
+              {
+                "name": "fichierExcel",
+                "value": {
+                  "kind": "output",
+                  "source": "sauvegarder_excel",
+                  "port": "relativePath"
+                }
+              },
+              {
+                "name": "sauvegardeReussie",
+                "value": {
+                  "kind": "output",
+                  "source": "sauvegarder_excel",
+                  "port": "success"
+                }
+              }
+            ],
+            "always": [
+              {
+                "id": "fermer_navigateur",
+                "kind": "operation",
+                "objective": "Nettoyer les ressources de navigation en fermant la page et le contexte du navigateur, m\u00EAme en cas d\u0027erreur pendant la recherche ou l\u0027extraction.",
+                "dependsOn": [],
+                "operation": "cap_bdb7ba9ab04b18783883fa86",
+                "inputs": []
+              }
+            ]
+          },
+          "groups": [],
+          "choices": []
+        },
+        "explanation": "Plan complet propos\u00E9 avec les op\u00E9rations disponibles de navigation Web et d\u0027\u00E9criture documentaire. Le workflow accepte la requ\u00EAte utilisateur, recherche sur Amazon, liste les r\u00E9sultats, visite chaque fiche produit jusqu\u0027\u00E0 un plafond fini, extrait nom/description/prix, \u00E9crit un fichier .xlsx sous workflows/amazon-recherche-produits/workflow-created/, puis ferme toujours le navigateur."
+      }
+    }
+  ]
+}

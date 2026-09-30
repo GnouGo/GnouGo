@@ -15,11 +15,15 @@ internal static class StepOutputTypeResolver
         return step.Type switch
         {
             "set" => ResolveSet(step, symbols),
-            "value.validate" => step.OutputSchema is null ? FlowTypeDescriptor.Any : FlowTypeDescriptorConverter.FromJsonSchema(step.OutputSchema),
+            "value.validate" or "array.project" or "value.project" => step.OutputSchema is null ? FlowTypeDescriptor.Any : FlowTypeDescriptorConverter.FromJsonSchema(step.OutputSchema),
             "assert.non_null" => ResolveAssertNonNull(step, symbols),
             "template.render" => ResolveTemplateRender(step),
             "llm.call" => ResolveLlmCall(step),
-            "mcp.call" => ResolveMcpCall(step, mcpContracts),
+            "mcp.call" => ResolveMcpCall(step, mcpContracts, stepContracts[step.Type].OutputType.ResolvePath(["status"]) ?? FlowTypeDescriptor.Any),
+            "agent.run" => Object(("status", FlowTypeDescriptor.String),
+                ("output", step.Input?["output_schema"] is JsonObject schema ? FlowTypeDescriptorConverter.FromJsonSchema(schema) : FlowTypeDescriptor.Any),
+                ("evidence", FlowTypeDescriptor.Array()), ("artifacts", FlowTypeDescriptor.Array()),
+                ("usage", Object()), ("verification", FlowTypeDescriptor.Array())),
             "workflow.call" => ResolveWorkflowCall(step, workflows),
             "human.input" => ResolveHumanInput(step),
             "decision.evaluate" => ResolveDecisionEvaluate(step),
@@ -107,14 +111,8 @@ internal static class StepOutputTypeResolver
 
     private static FlowTypeDescriptor ResolveTemplateRender(StepDef step)
     {
-        var mode = TryGetInputString(step, "mode") ?? "text";
-        return string.Equals(mode, "json", StringComparison.OrdinalIgnoreCase)
-            ? Object(
-                ("json", FlowTypeDescriptor.Any),
-                ("meta", Object(("engine", FlowTypeDescriptor.String))))
-            : Object(
-                ("text", FlowTypeDescriptor.String),
-                ("meta", Object(("engine", FlowTypeDescriptor.String))));
+        var mode = step.Input?["mode"] is null ? "text" : TryGetInputString(step, "mode");
+        return FlowTypeDescriptorConverter.FromJsonSchema(TemplateRenderContract.OutputSchema(mode));
     }
 
     private static FlowTypeDescriptor ResolveLlmCall(StepDef step)
@@ -130,7 +128,8 @@ internal static class StepOutputTypeResolver
 
     private static FlowTypeDescriptor ResolveMcpCall(
         StepDef step,
-        IReadOnlyDictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts)
+        IReadOnlyDictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
+        FlowTypeDescriptor statusType)
     {
         var input = step.Input as JsonObject;
         var kind = TryGetInputString(step, "kind") ?? "tool";
@@ -140,7 +139,7 @@ internal static class StepOutputTypeResolver
         if (hasLlmAssistedSelection)
         {
             return Object(
-                ("status", FlowTypeDescriptor.String),
+                ("status", statusType),
                 ("selection_mode", FlowTypeDescriptor.String),
                 ("text", FlowTypeDescriptor.String),
                 ("selection_text", FlowTypeDescriptor.String),
@@ -154,7 +153,7 @@ internal static class StepOutputTypeResolver
             if (structuredJsonType != null)
             {
                 return Object(
-                    ("status", FlowTypeDescriptor.String),
+                    ("status", statusType),
                     ("description", FlowTypeDescriptor.String),
                     ("messages", FlowTypeDescriptor.Array()),
                     ("text", FlowTypeDescriptor.String),
@@ -162,7 +161,7 @@ internal static class StepOutputTypeResolver
             }
 
             return Object(
-                ("status", FlowTypeDescriptor.String),
+                ("status", statusType),
                 ("description", FlowTypeDescriptor.String),
                 ("messages", FlowTypeDescriptor.Array()),
                 ("text", FlowTypeDescriptor.String));
@@ -183,7 +182,7 @@ internal static class StepOutputTypeResolver
         if (structuredJsonType != null)
         {
             return Object(
-                ("status", FlowTypeDescriptor.String),
+                ("status", statusType),
                 ("response", responseType),
                 ("error", Object()),
                 ("correlation_id", FlowTypeDescriptor.String),
@@ -193,7 +192,7 @@ internal static class StepOutputTypeResolver
         }
 
         return Object(
-            ("status", FlowTypeDescriptor.String),
+            ("status", statusType),
             ("response", responseType),
             ("error", Object()),
             ("correlation_id", FlowTypeDescriptor.String),

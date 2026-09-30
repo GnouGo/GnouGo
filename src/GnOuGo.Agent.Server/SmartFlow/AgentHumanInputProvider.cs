@@ -2,6 +2,8 @@
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Agent.Server.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace GnOuGo.Agent.Server.SmartFlow;
 
@@ -13,19 +15,23 @@ namespace GnOuGo.Agent.Server.SmartFlow;
 ///   1. The request is written to <see cref="PendingRequests"/> channel.
 ///   2. The workflow blocks on a <see cref="TaskCompletionSource{T}"/>.
 ///   3. The UI reads from the channel, renders the prompt/choices/fields.
-///   4. The UI calls <see cref="TrySubmitResponse"/> to unblock the workflow.
+///   4. The UI calls <see cref="TrySubmitResponseAsync"/> to unblock the workflow.
 /// </summary>
 public sealed class AgentHumanInputProvider : IHumanInputProvider
 {
+    private readonly IWorkflowRunStore? _runs;
+    private readonly string _tenant;
     private readonly ConcurrentDictionary<string, TaskCompletionSource<JsonNode?>> _pending = new();
     private readonly Channel<HumanInputRequest> _requestChannel;
 
-    public AgentHumanInputProvider()
+    public AgentHumanInputProvider(IWorkflowRunStore? runs = null, IOptions<OpenTelemetrySettings>? settings = null)
     {
+        _runs = runs;
+        _tenant = WorkflowExecutionTenant.Resolve(settings);
         _requestChannel = Channel.CreateUnbounded<HumanInputRequest>(new UnboundedChannelOptions
         {
             SingleReader = false,
-            SingleWriter = true
+            SingleWriter = false
         });
     }
 
@@ -33,6 +39,9 @@ public sealed class AgentHumanInputProvider : IHumanInputProvider
     /// Channel reader that the Blazor UI consumes to display pending human input requests.
     /// </summary>
     public ChannelReader<HumanInputRequest> PendingRequests => _requestChannel.Reader;
+
+    public Task PrepareAsync(HumanInputRequest request, CancellationToken ct)
+        => _runs is null ? Task.CompletedTask : WorkflowRunHumanResponses.PrepareAsync(_runs, _tenant, request, ct);
 
     public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
     {
@@ -56,13 +65,16 @@ public sealed class AgentHumanInputProvider : IHumanInputProvider
     /// Called by the Blazor UI when the user submits a response.
     /// Returns true if a matching pending request was found and resolved.
     /// </summary>
-    public bool TrySubmitResponse(string runId, string stepId, JsonNode? response)
+    public async Task<bool> TrySubmitResponseAsync(string runId, string stepId, JsonNode? response)
     {
         var key = $"{runId}:{stepId}";
-        if (_pending.TryRemove(key, out var tcs))
-            return tcs.TrySetResult(response);
-        return false;
+        if (!_pending.ContainsKey(key)) return false;
+        if (_runs is not null) await WorkflowRunHumanResponses.RecordAsync(_runs, _tenant, runId, stepId, response, CancellationToken.None);
+        return ReleaseRecordedResponse(runId, stepId, response);
     }
+
+    internal bool ReleaseRecordedResponse(string runId, string stepId, JsonNode? response)
+        => _pending.TryRemove($"{runId}:{stepId}", out var tcs) && tcs.TrySetResult(response);
 
     /// <summary>
     /// Returns true if there is a pending request for the given run+step.

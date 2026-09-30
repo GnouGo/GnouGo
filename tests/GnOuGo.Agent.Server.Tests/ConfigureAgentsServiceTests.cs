@@ -85,7 +85,7 @@ public sealed class ConfigureAgentsServiceTests
         {
             await foreach (var request in humanInput.PendingRequests.ReadAllAsync(cts.Token))
             {
-                humanInput.TrySubmitResponse(
+                await humanInput.TrySubmitResponseAsync(
                     request.RunId,
                     request.StepId,
                     new JsonObject { ["response"] = "confirm" });
@@ -310,7 +310,7 @@ public sealed class ConfigureAgentsServiceTests
                                 ? new JsonObject { ["response"] = "save" }
                                 : throw new InvalidOperationException($"Unexpected step id: {request.StepId}");
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
 
                 if (request.StepId.EndsWith("confirm_edit", StringComparison.Ordinal))
                     break;
@@ -393,7 +393,7 @@ public sealed class ConfigureAgentsServiceTests
             {
                 if (request.StepId.EndsWith("edit_name", StringComparison.Ordinal))
                 {
-                    humanInput.TrySubmitResponse(request.RunId, request.StepId, new JsonObject { ["agent_name"] = " dailyreporter " });
+                    await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, new JsonObject { ["agent_name"] = " dailyreporter " });
                     continue;
                 }
 

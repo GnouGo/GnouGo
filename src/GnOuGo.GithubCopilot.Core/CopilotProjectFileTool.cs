@@ -5,13 +5,13 @@ using Microsoft.Extensions.AI;
 namespace GnOuGo.GithubCopilot.Core;
 
 /// <summary>Explicit JSON-schema file tools keep real project I/O behind the host boundary.</summary>
-internal sealed class CopilotProjectFileTool(string operation, ICopilotSessionFileSystem files) : AIFunction
+internal sealed class CopilotProjectFileTool(string operation, ICopilotSessionFileSystem files, CopilotExecutionBounds? bounds = null) : AIFunction
 {
     internal static readonly string[] NativeFileTools =
     ["apply_patch", "view", "rg", "glob", "edit", "create", "edit_file", "read_file", "write_file", "create_file", "str_replace_editor", "task", "read_agent", "write_agent", "list_agents"];
     private static readonly string[] Operations = ["read", "write", "append", "list", "stat", "mkdir", "remove", "rename"];
-    internal static ICollection<AIFunctionDeclaration> Create(ICopilotSessionFileSystem files)
-        => Operations.Select(op => (AIFunctionDeclaration)new CopilotProjectFileTool(op, files)).ToArray();
+    internal static ICollection<AIFunctionDeclaration> Create(ICopilotSessionFileSystem files, CopilotExecutionBounds? bounds = null)
+        => Operations.Select(op => (AIFunctionDeclaration)new CopilotProjectFileTool(op, files, bounds)).ToArray();
     public override string Name => "project_" + operation;
     public override string Description => operation switch
     {
@@ -64,6 +64,7 @@ internal sealed class CopilotProjectFileTool(string operation, ICopilotSessionFi
     {
         static string Text(AIFunctionArguments args, string key) => args.TryGetValue(key, out var value)
             ? value is JsonElement json ? json.GetString() ?? "" : value?.ToString() ?? "" : throw new ArgumentException($"Missing '{key}'.");
+        using var admitted = bounds?.EnterFileOperation(Name);
         var path = Text(arguments, "path");
         var recursive = arguments.TryGetValue("recursive", out var flag) && (flag is true || flag is JsonElement { ValueKind: JsonValueKind.True });
         switch (operation)

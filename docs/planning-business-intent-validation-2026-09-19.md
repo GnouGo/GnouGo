@@ -1,5 +1,7 @@
 # Business-intent refactor validation — 2026-09-19
 
+> Historical pre-schema-9 evidence. Current architecture and migration: [schema 9](workflow-planning-v9.md).
+
 > Historical evidence: the Agent.Server review-publication subsystem described below was removed on 2026-09-24. Its draft, publication and replay checks describe the earlier implementation. Current workflows use configured MCP capabilities and generic approval mechanisms; see [migration details](github-mcp-workflow-execution.md).
 
 The planner now accepts compact business operations and constructs executable workflows deterministically. The eight offline cases pass generation and independent execution. Initial request size on the large-catalog case fell 73.0%. **Live-model reliability remains unmeasured for the candidate**: the baseline campaign stopped at an uncertain second dispatch and was not replaced or retried.
@@ -10,7 +12,7 @@ The planner now accepts compact business operations and constructs executable wo
 
 The builder owns contract inference, dependency ordering, scopes/captures, native control flow, transport envelopes, fallbacks and cleanup guards. The compiler preserves authoritative constraints and defaults in native port schemas. Static inference never uses samples to establish executable types. All singleton choices remain model-free. Compact cards shortlist at most 24 capabilities; unresolved operations search the full allowed domain with operation-specific context. Local corrections replace issued business targets atomically, followed by complete validation. Literal fixtures are requested only when deterministic samples cannot satisfy contracts.
 
-Removed graph-mirroring DTO fields, initial fixture payloads, model-authored executor configuration, whole-intent repair of parsed candidates, schema-6 persistence access, and graph-shaped revision prompts. The former contracts and tests were rewritten, with no compatibility adapter. There are no proof or semantic assessment phases. The normal path is coordinated in `TypedWorkflowPlanner.cs`, with construction and compilation in the two adjacent core files. See [architecture and public contracts](workflow-planning-v2.md).
+Removed graph-mirroring DTO fields, initial fixture payloads, model-authored executor configuration, whole-intent repair of parsed candidates, schema-6 persistence access, and graph-shaped revision prompts. The former contracts and tests were rewritten, with no compatibility adapter. There are no proof or semantic assessment phases. The normal path is coordinated in `TypedWorkflowPlanner.cs`, with construction and compilation in the two adjacent core files. See [architecture and public contracts](workflow-planning-v9.md).
 
 Schema-7 storage uses new encrypted record namespaces and a new default database. Hosts retain EF Core indexes, public KeyVault encryption, tenant isolation, revision conflicts, durable request reservations/receipts and cumulative budgets. Default limits remain eight calls, two repairs and medium reasoning. Approval, saving and execution retain exact-artifact and current-contract/policy checks. Workflow approval and runtime publication confirmation remain separate.
 

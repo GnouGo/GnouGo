@@ -1,0 +1,20 @@
+{
+  "provenance": "Sanitized generated bindings from the retained workflow; no execution or inference.",
+  "stepId": "n_cd64f2ff1eb4105a",
+  "type": "mcp.call",
+  "input": {
+    "request": {
+      "projectRoot": "${data.steps.n_b38520b0326007b0.value}",
+      "provider": "${data.steps.n_d4e7cc81db7fe60e.value}",
+      "model": "${data.steps.n_0a4173e038c3cc37.value}",
+      "permissionMode": "auto_approve_allowlist",
+      "permissionAllowlistJson": "[\u0022install dependencies detected from repository manifests\u0022,\u0022run repository linters\u0022,\u0022run unit tests\u0022,\u0022run integration tests\u0022,\u0022read project files\u0022,\u0022inspect git diff\u0022]",
+      "attachmentsJson": "${data.steps.n_6b9faddf87bd7254.value}",
+      "prompt": "Travaille uniquement dans ce r\u00E9pertoire d\u00E9j\u00E0 clon\u00E9. Installe les d\u00E9pendances selon les manifests d\u00E9tect\u00E9s, puis ex\u00E9cute tous les linters, tests unitaires et tests d\u2019int\u00E9gration pr\u00E9sents. N\u2019applique aucune modification au code. Retourne un rapport en JSON d\u00E9crivant chaque commande, son statut, les preuves pertinentes, les \u00E9checs et si ces \u00E9checs doivent bloquer l\u2019approbation de la PR."
+    },
+    "preserve_optional_nulls": true,
+    "server": "GnOuGo.GithubCopilot.Mcp",
+    "method": "copilot_one_shot",
+    "kind": "tool"
+  }
+}

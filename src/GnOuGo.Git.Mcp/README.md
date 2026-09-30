@@ -1,10 +1,10 @@
-﻿# GnOuGo.Git.Mcp
+# GnOuGo.Git.Mcp
 
 MCP stdio server for safe Git repository operations on local projects.
 
 ## MCP protocol compatibility
 
-This stdio server uses the stable C# MCP SDK `2.0.0` with automatic protocol negotiation: clients prefer `2026-07-28` discovery and can initialize with stable `2025-11-25`. Launch the built apphost, or use `dotnet GnOuGo.Git.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream.
+This stdio server uses the stable C# MCP SDK `2.2.0` with automatic protocol negotiation: clients prefer `2026-07-28` discovery and can initialize with stable `2025-11-25`. Launch the built apphost, or use `dotnet GnOuGo.Git.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream.
 
 ## Features
 
@@ -42,7 +42,13 @@ call `git_fetch` with `remoteName: "origin"` and `refSpec: "refs/heads/<branchNa
 
 The tool resolves project roots under `Git:DefaultWorkingDirectory` and `Git:AllowedWorkingRoots`. Relative paths are resolved below the default working directory, which defaults to `GnOuGo` on the current user's Desktop for local desktop usage.
 
-Every `git_clone.targetDirectory` must be a purpose-specific child below `workflows/`, for example `workflows/github-review-123`. Existing repositories used as `projectRoot` may live elsewhere in the visible workspace, but paths under the reserved `.GnOuGo/` internal subtree are rejected. The legacy `.GnOuGo/data/reviews/` location is no longer a valid Git workflow workspace.
+Every `git_clone.targetDirectory` must be a purpose-specific, workspace-relative child below `workflows/`, for example `workflows/github-review-123`. **Breaking change:** absolute targets are rejected, including absolute paths inside the workspace. Use forward slashes and nonempty segments; dot/parent segments, backslashes, wildcards and control characters are invalid. Values are not silently normalized or prefixed. Existing repositories used as `projectRoot` may live elsewhere in the visible workspace, but paths under the reserved `.GnOuGo/` internal subtree are rejected. The legacy `.GnOuGo/data/reviews/` location is no longer a valid Git workflow workspace.
+
+The producer publishes `pattern` and `minLength` in `tools/list` and enforces the same syntax before clone. Filesystem checks remain authoritative: a matching string does not prove that a destination is available or accessible. An absent or empty destination is accepted; creating it first is unnecessary. `git_get_policy` is optional inspection, not a required preliminary operation.
+
+Declare a creation location once and reuse the same business binding for clone and cleanup. A failed clone may leave partial content, so cleanup must retain that location without depending on clone success. Use the returned `projectRootRelative` for subsequent repository operations. Do not independently regenerate a path in an inference task or hardcode a different cleanup directory. Choose a location owned by this workflow; these checks do not allocate concurrent run directories.
+
+Deploy the updated bundled MCP, refresh capability discovery, then revise/regenerate and explicitly approve affected workflows. Existing encrypted records, failed runs and approvals are not rewritten. The contract fingerprint changes through normal discovery. See [the retained clone-path regression](../../docs/clone-path-contracts.md).
 
 Git credentials are optional and are resolved in this order:
 

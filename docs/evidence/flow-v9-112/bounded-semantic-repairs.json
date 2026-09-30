@@ -1,0 +1,62 @@
+{
+  "baselineRevision": "0346a63ddaa73880a37600d09e22d1cec3651531",
+  "session": "2e5d817e315a422b80f5349e6bec6bfb",
+  "fixture": "tests/GnOuGo.Agent.Server.Tests/Fixtures/RepairPatch/retained-repair.json",
+  "fixtureSha256": "88ad9269c24c732d393506f75873f078f43d2518f8ec4349cab481b4a73d33ff",
+  "historicalCalls": 7,
+  "historicalRepairs": 2,
+  "historicalResponsesPreserved": 7,
+  "measurement": "UTF-8/minified response; existing complete-request estimator; identical sanitized recorded states",
+  "repairs": [
+    {
+      "attempt": 1,
+      "before": {
+        "promptBytes": 56369,
+        "schemaBytes": 22032,
+        "estimatedInputTokens": 26390,
+        "responseBytes": 10050
+      },
+      "after": {
+        "promptBytes": 28887,
+        "schemaBytes": 5173,
+        "estimatedInputTokens": 11610,
+        "responseBytes": 172,
+        "scriptedCalls": 1,
+        "metadataReads": 0,
+        "sessionCalls": 6,
+        "sessionRepairs": 1,
+        "status": "final_review"
+      },
+      "inputReductionPercent": 56.01,
+      "responseReductionPercent": 98.29
+    },
+    {
+      "attempt": 2,
+      "before": {
+        "promptBytes": 57212,
+        "schemaBytes": 22032,
+        "estimatedInputTokens": 26671,
+        "responseBytes": 10932
+      },
+      "after": {
+        "promptBytes": 29730,
+        "schemaBytes": 5173,
+        "estimatedInputTokens": 11891,
+        "responseBytes": 172,
+        "scriptedCalls": 1,
+        "metadataReads": 0,
+        "sessionCalls": 7,
+        "sessionRepairs": 2,
+        "status": "final_review"
+      },
+      "inputReductionPercent": 55.42,
+      "responseReductionPercent": 98.43
+    }
+  ],
+  "paidCalls": 0,
+  "externalEffects": 0,
+  "inputAllowance": 24000,
+  "publicContractChanged": false,
+  "planningFormat": 10,
+  "executionJournalSchema": 9
+}

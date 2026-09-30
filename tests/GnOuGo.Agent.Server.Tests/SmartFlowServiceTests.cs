@@ -316,7 +316,7 @@ workflows:
     }
 
     [Fact]
-    public async Task ExecuteAsync_WhenPersistedAgentUsesUnrepresentableErrorPlumbing_RejectsRevision()
+    public async Task ExecuteAsync_WhenPersistedAgentRequiresNewContracts_CreatesUnapprovedRevision()
     {
         const string agentId = "8d8871b7-01cf-4a42-a95a-391d633d7d37";
         const string agentName = "git-agent";
@@ -367,7 +367,7 @@ workflows:
         string? persistedWorkflow = null;
         var agentMcp = BuildAgentMcpForRevision(agentId, agentName, handledErrorWorkflow, value => persistedWorkflow = value);
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        using var planning = PlanningSessionLifecycleTests.Create(fixture, new GnOuGo.Flow.Planning.TypedWorkflowPlanner(), agentMcp);
+        using var planning = PlanningSessionLifecycleTests.Create(fixture, new GnOuGo.Flow.Planning.HybridWorkflowPlanner(), agentMcp);
         var gitMcp = new FakeMcpSession("GnOuGo.Git.Mcp")
             .WithTool(
                 "git_clone",
@@ -413,13 +413,14 @@ workflows:
         await responder;
 
         Assert.Null(persistedWorkflow);
-        Assert.Empty(await planning.ListAsync(TestContext.Current.CancellationToken));
-        Assert.Contains(events, evt => evt.Type == "error" && evt.Text?.Contains("unambiguous locked capability binding", StringComparison.Ordinal) == true);
+        var revision = Assert.Single(await planning.ListAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(PlanningStatus.Created, revision.Status); Assert.Null(revision.Yaml); Assert.Null(revision.ApprovedHash);
+        Assert.NotNull(revision.Request.RevisionContext);
 
     }
 
     [Fact]
-    public async Task ExecuteAsync_WhenRoutedAgentUsesUnrepresentableErrorPlumbing_RejectsRevision()
+    public async Task ExecuteAsync_WhenRoutedAgentRequiresNewContracts_CreatesUnapprovedRevision()
     {
         const string agentId = "8d8871b7-01cf-4a42-a95a-391d633d7d37";
         const string agentName = "git-agent";
@@ -474,7 +475,7 @@ workflows:
         string? persistedWorkflow = null;
         var agentMcp = BuildAgentMcpForRevision(agentId, agentName, handledErrorWorkflow, value => persistedWorkflow = value);
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        using var planning = PlanningSessionLifecycleTests.Create(fixture, new GnOuGo.Flow.Planning.TypedWorkflowPlanner(), agentMcp);
+        using var planning = PlanningSessionLifecycleTests.Create(fixture, new GnOuGo.Flow.Planning.HybridWorkflowPlanner(), agentMcp);
         var gitMcp = new FakeMcpSession("GnOuGo.Git.Mcp")
             .WithTool(
                 "git_clone",
@@ -545,8 +546,9 @@ workflows:
         await responder;
 
         Assert.Null(persistedWorkflow);
-        Assert.Empty(await planning.ListAsync(TestContext.Current.CancellationToken));
-        Assert.Contains(events, evt => evt.Type == "error" && evt.Text?.Contains("unambiguous locked capability binding", StringComparison.Ordinal) == true);
+        var revision = Assert.Single(await planning.ListAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(PlanningStatus.Created, revision.Status); Assert.Null(revision.Yaml); Assert.Null(revision.ApprovedHash);
+        Assert.NotNull(revision.Request.RevisionContext);
 
     }
 
@@ -602,7 +604,7 @@ workflows:
             var field = Assert.Single(request.Fields!);
             Assert.Equal("repository_path", field.Name);
             Assert.Equal("string", field.Type);
-            Assert.True(humanInput.TrySubmitResponse(
+            Assert.True(await humanInput.TrySubmitResponseAsync(
                 request.RunId,
                 request.StepId,
                 new JsonObject { ["repository_path"] = "/workspace/gnougo" }));
@@ -1161,7 +1163,7 @@ workflows:
             await foreach (var request in humanInput.PendingRequests.ReadAllAsync(ct))
                 if (request.StepId == "agent_workflow_revision")
                 {
-                    Assert.True(humanInput.TrySubmitResponse(request.RunId, request.StepId, new JsonObject { ["response"] = "improve" }));
+                    Assert.True(await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, new JsonObject { ["response"] = "improve" }));
                     return;
                 }
         }, ct);

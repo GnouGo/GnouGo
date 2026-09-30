@@ -60,7 +60,6 @@ internal sealed class CodeTools
         [Description("Coding task to perform.")] string task,
         [Description("Optional JSON array of file paths relative to the existing projectRoot, for example [\"src/App.cs\"].")] string? contextFilesJson = null,
         [Description("Optional configured LLM provider name. When provided, Code:Copilot:Providers:<name> configures a custom Copilot provider for this call.")] string? provider = null,
-        string? tenantId = null,
         RequestContext<CallToolRequestParams>? requestContext = null,
         CancellationToken cancellationToken = default)
         => await ExecuteAsync("code_suggest_change", async () =>
@@ -69,7 +68,7 @@ internal sealed class CodeTools
             var contextFiles = ParseContextFiles(contextFilesJson);
             var files = _projectService.ReadContextFiles(projectRoot, contextFiles);
             var resolvedRoot = _projectService.GetSummary(projectRoot).RootPath;
-            return await _assistantClient.SuggestChangeAsync(task, resolvedRoot, files, provider, tenantId, cancellationToken);
+            return await _assistantClient.SuggestChangeAsync(task, resolvedRoot, files, provider, cancellationToken);
         });
 
     [McpServerTool(Name = "code_agent_edit", UseStructuredContent = true, OutputSchemaType = typeof(CodeAgentEditResult)), Description("Runs GitHub Copilot SDK in agent mode with controlled file editing inside an existing project root. Requires Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
@@ -79,7 +78,6 @@ internal sealed class CodeTools
         [Description("Coding task to implement by editing files.")] string task,
         [Description("Optional JSON array of file paths relative to the existing projectRoot, for example [\"src/App.cs\"].")] string? contextFilesJson = null,
         [Description("Optional configured LLM provider name. When provided, Code:Copilot:Providers:<name> configures a custom Copilot provider for this call.")] string? provider = null,
-        string? tenantId = null,
         RequestContext<CallToolRequestParams>? requestContext = null,
         CancellationToken cancellationToken = default)
         => await ExecuteAsync("code_agent_edit", async () =>
@@ -88,7 +86,7 @@ internal sealed class CodeTools
             var contextFiles = ParseContextFiles(contextFilesJson);
             var files = _projectService.ReadContextFiles(projectRoot, contextFiles);
             var resolvedRoot = _projectService.GetSummary(projectRoot).RootPath;
-            return await _assistantClient.AgentEditAsync(task, resolvedRoot, files, provider, tenantId, cancellationToken);
+            return await _assistantClient.AgentEditAsync(task, resolvedRoot, files, provider, cancellationToken);
         });
 
     [McpServerTool(Name = "code_write_file", UseStructuredContent = true, OutputSchemaType = typeof(CodeWriteResult)), Description("Writes one allowlisted text/code file inside an existing project root. Disabled unless Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
@@ -259,13 +257,16 @@ internal static class CodeMcpJson
 
     private static JsonSerializerOptions CreateSerializerOptions()
     {
-        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web) { AllowOutOfOrderMetadataProperties = true };
         options.TypeInfoResolverChain.Insert(0, CopilotCoreJsonContext.Default);
         options.TypeInfoResolverChain.Insert(0, CodeMcpJsonContext.Default);
         return options;
     }
 }
 
+[JsonSourceGenerationOptions(AllowOutOfOrderMetadataProperties = true)]
+[JsonSerializable(typeof(IReadOnlyList<CopilotAttachmentInput>))]
+[JsonSerializable(typeof(System.Text.Json.Nodes.JsonObject))]
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(IReadOnlyList<string>))]
 [JsonSerializable(typeof(Dictionary<string, JsonElement>))]

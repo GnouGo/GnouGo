@@ -1,0 +1,1511 @@
+{
+  "provenance": "Synthetic repair of the retained final proposal: only the two projectRoot field selections change to the declared artifact port. No inference or execution.",
+  "proposal": {
+    "discoveryRequests": null,
+    "plan": {
+      "inputs": [
+        {
+          "name": "pullRequestUrl",
+          "type": {
+            "kind": "string"
+          }
+        },
+        {
+          "name": "reviewInstructions",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ],
+      "root": {
+        "tasks": [
+          {
+            "id": "derive_pr_context",
+            "kind": "transform",
+            "objective": "Parse the GitHub pull request URL and declare the single working directory and PR fetch refs.",
+            "dependsOn": [],
+            "inputs": [
+              {
+                "name": "pullRequestUrl",
+                "value": {
+                  "kind": "input",
+                  "source": "pullRequestUrl"
+                }
+              }
+            ],
+            "resultType": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "owner",
+                  "type": {
+                    "kind": "string"
+                  }
+                },
+                {
+                  "name": "repo",
+                  "type": {
+                    "kind": "string"
+                  }
+                },
+                {
+                  "name": "pullNumber",
+                  "type": {
+                    "kind": "integer"
+                  }
+                },
+                {
+                  "name": "remoteUrl",
+                  "type": {
+                    "kind": "string"
+                  }
+                },
+                {
+                  "name": "workspacePath",
+                  "type": {
+                    "kind": "string"
+                  }
+                },
+                {
+                  "name": "refSpec",
+                  "type": {
+                    "kind": "string"
+                  }
+                },
+                {
+                  "name": "checkoutRef",
+                  "type": {
+                    "kind": "string"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "git_policy",
+            "kind": "operation",
+            "objective": "Read runtime Git policy before network Git operations.",
+            "dependsOn": [],
+            "operation": "cap_c8ed14899ec3dabd83690148",
+            "inputs": []
+          },
+          {
+            "id": "command_policy",
+            "kind": "operation",
+            "objective": "Read runtime command policy before cleanup command use.",
+            "dependsOn": [],
+            "operation": "cap_b0637a69d6a75958f9cf03e6",
+            "inputs": []
+          },
+          {
+            "id": "clone_repository_once",
+            "kind": "operation",
+            "objective": "Clone the repository exactly once into the declared workflow directory.",
+            "dependsOn": [
+              "derive_pr_context",
+              "git_policy"
+            ],
+            "operation": "cap_fa8aa0024ff2ec0a4f9e61ad",
+            "inputs": [
+              {
+                "name": "remoteUrl",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "remoteUrl"
+                }
+              },
+              {
+                "name": "targetDirectory",
+                "value": {
+                  "kind": "string",
+                  "text": "workflows/github-pr-auto-review-smartguide-610"
+                }
+              }
+            ]
+          },
+          {
+            "id": "fetch_pull_request_ref",
+            "kind": "operation",
+            "objective": "Fetch the pull request head into the single cloned repository.",
+            "dependsOn": [
+              "clone_repository_once"
+            ],
+            "operation": "cap_eab626017e78ccd5859fd279",
+            "inputs": [
+              {
+                "name": "projectRoot",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "clone_repository_once",
+                      "port": null
+                    }
+                  ],
+                  "port": "projectRootRelative"
+                }
+              },
+              {
+                "name": "refSpec",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "refSpec"
+                }
+              },
+              {
+                "name": "remoteName",
+                "value": {
+                  "kind": "string",
+                  "text": "origin"
+                }
+              }
+            ]
+          },
+          {
+            "id": "checkout_pull_request",
+            "kind": "operation",
+            "objective": "Checkout the fetched pull request head in the single cloned repository.",
+            "dependsOn": [
+              "fetch_pull_request_ref"
+            ],
+            "operation": "cap_c7be295ef004bf035f5e27e8",
+            "inputs": [
+              {
+                "name": "projectRoot",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "clone_repository_once",
+                      "port": null
+                    }
+                  ],
+                  "port": "projectRootRelative"
+                }
+              },
+              {
+                "name": "branchOrCommit",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "checkoutRef"
+                }
+              },
+              {
+                "name": "createBranch",
+                "value": {
+                  "kind": "boolean",
+                  "boolean": false
+                }
+              }
+            ]
+          },
+          {
+            "id": "read_pr_details",
+            "kind": "operation",
+            "objective": "Read pull request metadata needed for review context.",
+            "dependsOn": [
+              "derive_pr_context"
+            ],
+            "operation": "cap_e0b759aca76a490f87ad21ca",
+            "inputs": [
+              {
+                "name": "method",
+                "value": {
+                  "kind": "string",
+                  "text": "get"
+                }
+              },
+              {
+                "name": "owner",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "owner"
+                }
+              },
+              {
+                "name": "repo",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "repo"
+                }
+              },
+              {
+                "name": "pullNumber",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "pullNumber"
+                }
+              }
+            ]
+          },
+          {
+            "id": "read_pr_diff",
+            "kind": "operation",
+            "objective": "Read the pull request diff for review context and inline comment coordinates.",
+            "dependsOn": [
+              "derive_pr_context"
+            ],
+            "operation": "cap_e0b759aca76a490f87ad21ca",
+            "inputs": [
+              {
+                "name": "method",
+                "value": {
+                  "kind": "string",
+                  "text": "get_diff"
+                }
+              },
+              {
+                "name": "owner",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "owner"
+                }
+              },
+              {
+                "name": "repo",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "repo"
+                }
+              },
+              {
+                "name": "pullNumber",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "pullNumber"
+                }
+              }
+            ]
+          },
+          {
+            "id": "read_pr_files",
+            "kind": "operation",
+            "objective": "Read changed files for review scope.",
+            "dependsOn": [
+              "derive_pr_context"
+            ],
+            "operation": "cap_e0b759aca76a490f87ad21ca",
+            "inputs": [
+              {
+                "name": "method",
+                "value": {
+                  "kind": "string",
+                  "text": "get_files"
+                }
+              },
+              {
+                "name": "owner",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "owner"
+                }
+              },
+              {
+                "name": "repo",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "repo"
+                }
+              },
+              {
+                "name": "pullNumber",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "pullNumber"
+                }
+              },
+              {
+                "name": "page",
+                "value": {
+                  "kind": "number",
+                  "number": 1
+                }
+              },
+              {
+                "name": "perPage",
+                "value": {
+                  "kind": "number",
+                  "number": 100
+                }
+              }
+            ]
+          },
+          {
+            "id": "copilot_checks_and_review",
+            "kind": "operation",
+            "objective": "Using GitHub Copilot in the cloned workspace only: install detected dependencies, run available linters, unit tests and integration tests, then review the PR against the user instructions and report a decision with diff-comment findings.",
+            "dependsOn": [
+              "checkout_pull_request",
+              "read_pr_details",
+              "read_pr_diff",
+              "read_pr_files"
+            ],
+            "operation": "cap_7f56ce9a5bff2962504a89e2",
+            "inputs": [
+              {
+                "name": "workspace",
+                "value": {
+                  "kind": "string",
+                  "text": "workflows/github-pr-auto-review-smartguide-610"
+                }
+              },
+              {
+                "name": "budget",
+                "value": {
+                  "kind": "object",
+                  "members": [
+                    {
+                      "name": "max_elapsed_milliseconds",
+                      "value": {
+                        "kind": "number",
+                        "number": 1800000
+                      }
+                    },
+                    {
+                      "name": "max_model_calls",
+                      "value": {
+                        "kind": "number",
+                        "number": 20
+                      }
+                    },
+                    {
+                      "name": "max_total_tokens",
+                      "value": {
+                        "kind": "number",
+                        "number": 200000
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "capabilities",
+                "value": {
+                  "kind": "array",
+                  "items": [
+                    {
+                      "kind": "string",
+                      "text": "project.read"
+                    },
+                    {
+                      "kind": "string",
+                      "text": "command.execute"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "inputs",
+                "value": {
+                  "kind": "object",
+                  "members": [
+                    {
+                      "name": "pullRequestUrl",
+                      "value": {
+                        "kind": "input",
+                        "source": "pullRequestUrl"
+                      }
+                    },
+                    {
+                      "name": "reviewInstructions",
+                      "value": {
+                        "kind": "input",
+                        "source": "reviewInstructions"
+                      }
+                    },
+                    {
+                      "name": "prDetails",
+                      "value": {
+                        "kind": "output",
+                        "source": "read_pr_details",
+                        "port": null
+                      }
+                    },
+                    {
+                      "name": "prDiff",
+                      "value": {
+                        "kind": "output",
+                        "source": "read_pr_diff",
+                        "port": null
+                      }
+                    },
+                    {
+                      "name": "prFiles",
+                      "value": {
+                        "kind": "output",
+                        "source": "read_pr_files",
+                        "port": null
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "objective",
+                "value": {
+                  "kind": "string",
+                  "text": "Work only inside the supplied cloned repository. Detect the project stack. Install dependencies when needed. Run present linters, unit tests and integration tests. Do not create or modify repository files except transient tool caches required by the commands. Review only the pull request changes with GitHub Copilot, applying the user review instructions. Produce concise evidence for commands run, failures, important findings, inline diff comments with valid current RIGHT-side line numbers when possible, and a final APPROVE or REQUEST_CHANGES decision."
+                }
+              },
+              {
+                "name": "output_schema",
+                "value": {
+                  "kind": "object",
+                  "members": [
+                    {
+                      "name": "type",
+                      "value": {
+                        "kind": "string",
+                        "text": "object"
+                      }
+                    },
+                    {
+                      "name": "additionalProperties",
+                      "value": {
+                        "kind": "boolean",
+                        "boolean": false
+                      }
+                    },
+                    {
+                      "name": "required",
+                      "value": {
+                        "kind": "array",
+                        "items": [
+                          {
+                            "kind": "string",
+                            "text": "decision"
+                          },
+                          {
+                            "kind": "string",
+                            "text": "reviewBody"
+                          },
+                          {
+                            "kind": "string",
+                            "text": "comments"
+                          },
+                          {
+                            "kind": "string",
+                            "text": "checks"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "properties",
+                      "value": {
+                        "kind": "object",
+                        "members": [
+                          {
+                            "name": "decision",
+                            "value": {
+                              "kind": "object",
+                              "members": [
+                                {
+                                  "name": "type",
+                                  "value": {
+                                    "kind": "string",
+                                    "text": "string"
+                                  }
+                                },
+                                {
+                                  "name": "enum",
+                                  "value": {
+                                    "kind": "array",
+                                    "items": [
+                                      {
+                                        "kind": "string",
+                                        "text": "APPROVE"
+                                      },
+                                      {
+                                        "kind": "string",
+                                        "text": "REQUEST_CHANGES"
+                                      }
+                                    ]
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "name": "reviewBody",
+                            "value": {
+                              "kind": "object",
+                              "members": [
+                                {
+                                  "name": "type",
+                                  "value": {
+                                    "kind": "string",
+                                    "text": "string"
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "name": "comments",
+                            "value": {
+                              "kind": "object",
+                              "members": [
+                                {
+                                  "name": "type",
+                                  "value": {
+                                    "kind": "string",
+                                    "text": "array"
+                                  }
+                                },
+                                {
+                                  "name": "items",
+                                  "value": {
+                                    "kind": "object",
+                                    "members": [
+                                      {
+                                        "name": "type",
+                                        "value": {
+                                          "kind": "string",
+                                          "text": "object"
+                                        }
+                                      },
+                                      {
+                                        "name": "additionalProperties",
+                                        "value": {
+                                          "kind": "boolean",
+                                          "boolean": false
+                                        }
+                                      },
+                                      {
+                                        "name": "required",
+                                        "value": {
+                                          "kind": "array",
+                                          "items": [
+                                            {
+                                              "kind": "string",
+                                              "text": "path"
+                                            },
+                                            {
+                                              "kind": "string",
+                                              "text": "line"
+                                            },
+                                            {
+                                              "kind": "string",
+                                              "text": "body"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      {
+                                        "name": "properties",
+                                        "value": {
+                                          "kind": "object",
+                                          "members": [
+                                            {
+                                              "name": "path",
+                                              "value": {
+                                                "kind": "object",
+                                                "members": [
+                                                  {
+                                                    "name": "type",
+                                                    "value": {
+                                                      "kind": "string",
+                                                      "text": "string"
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            },
+                                            {
+                                              "name": "line",
+                                              "value": {
+                                                "kind": "object",
+                                                "members": [
+                                                  {
+                                                    "name": "type",
+                                                    "value": {
+                                                      "kind": "string",
+                                                      "text": "integer"
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            },
+                                            {
+                                              "name": "body",
+                                              "value": {
+                                                "kind": "object",
+                                                "members": [
+                                                  {
+                                                    "name": "type",
+                                                    "value": {
+                                                      "kind": "string",
+                                                      "text": "string"
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "name": "checks",
+                            "value": {
+                              "kind": "object",
+                              "members": [
+                                {
+                                  "name": "type",
+                                  "value": {
+                                    "kind": "string",
+                                    "text": "array"
+                                  }
+                                },
+                                {
+                                  "name": "items",
+                                  "value": {
+                                    "kind": "object",
+                                    "members": [
+                                      {
+                                        "name": "type",
+                                        "value": {
+                                          "kind": "string",
+                                          "text": "object"
+                                        }
+                                      },
+                                      {
+                                        "name": "additionalProperties",
+                                        "value": {
+                                          "kind": "boolean",
+                                          "boolean": false
+                                        }
+                                      },
+                                      {
+                                        "name": "required",
+                                        "value": {
+                                          "kind": "array",
+                                          "items": [
+                                            {
+                                              "kind": "string",
+                                              "text": "name"
+                                            },
+                                            {
+                                              "kind": "string",
+                                              "text": "command"
+                                            },
+                                            {
+                                              "kind": "string",
+                                              "text": "outcome"
+                                            },
+                                            {
+                                              "kind": "string",
+                                              "text": "evidence"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      {
+                                        "name": "properties",
+                                        "value": {
+                                          "kind": "object",
+                                          "members": [
+                                            {
+                                              "name": "name",
+                                              "value": {
+                                                "kind": "object",
+                                                "members": [
+                                                  {
+                                                    "name": "type",
+                                                    "value": {
+                                                      "kind": "string",
+                                                      "text": "string"
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            },
+                                            {
+                                              "name": "command",
+                                              "value": {
+                                                "kind": "object",
+                                                "members": [
+                                                  {
+                                                    "name": "type",
+                                                    "value": {
+                                                      "kind": "string",
+                                                      "text": "string"
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            },
+                                            {
+                                              "name": "outcome",
+                                              "value": {
+                                                "kind": "object",
+                                                "members": [
+                                                  {
+                                                    "name": "type",
+                                                    "value": {
+                                                      "kind": "string",
+                                                      "text": "string"
+                                                    }
+                                                  },
+                                                  {
+                                                    "name": "enum",
+                                                    "value": {
+                                                      "kind": "array",
+                                                      "items": [
+                                                        {
+                                                          "kind": "string",
+                                                          "text": "passed"
+                                                        },
+                                                        {
+                                                          "kind": "string",
+                                                          "text": "failed"
+                                                        },
+                                                        {
+                                                          "kind": "string",
+                                                          "text": "skipped"
+                                                        },
+                                                        {
+                                                          "kind": "string",
+                                                          "text": "not-present"
+                                                        }
+                                                      ]
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            },
+                                            {
+                                              "name": "evidence",
+                                              "value": {
+                                                "kind": "object",
+                                                "members": [
+                                                  {
+                                                    "name": "type",
+                                                    "value": {
+                                                      "kind": "string",
+                                                      "text": "string"
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "verification",
+                "value": {
+                  "kind": "array",
+                  "items": [
+                    {
+                      "kind": "object",
+                      "members": [
+                        {
+                          "name": "id",
+                          "value": {
+                            "kind": "string",
+                            "text": "workspace_command_available"
+                          }
+                        },
+                        {
+                          "name": "kind",
+                          "value": {
+                            "kind": "string",
+                            "text": "command.exit"
+                          }
+                        },
+                        {
+                          "name": "subject",
+                          "value": {
+                            "kind": "string",
+                            "text": "pwd"
+                          }
+                        },
+                        {
+                          "name": "facts_schema",
+                          "value": {
+                            "kind": "object",
+                            "members": [
+                              {
+                                "name": "type",
+                                "value": {
+                                  "kind": "string",
+                                  "text": "object"
+                                }
+                              },
+                              {
+                                "name": "additionalProperties",
+                                "value": {
+                                  "kind": "boolean",
+                                  "boolean": false
+                                }
+                              },
+                              {
+                                "name": "required",
+                                "value": {
+                                  "kind": "array",
+                                  "items": [
+                                    {
+                                      "kind": "string",
+                                      "text": "exit_code"
+                                    },
+                                    {
+                                      "kind": "string",
+                                      "text": "working_directory"
+                                    },
+                                    {
+                                      "kind": "string",
+                                      "text": "tool_success"
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "name": "properties",
+                                "value": {
+                                  "kind": "object",
+                                  "members": [
+                                    {
+                                      "name": "exit_code",
+                                      "value": {
+                                        "kind": "object",
+                                        "members": [
+                                          {
+                                            "name": "type",
+                                            "value": {
+                                              "kind": "string",
+                                              "text": "integer"
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "name": "working_directory",
+                                      "value": {
+                                        "kind": "object",
+                                        "members": [
+                                          {
+                                            "name": "type",
+                                            "value": {
+                                              "kind": "string",
+                                              "text": "string"
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "name": "tool_success",
+                                      "value": {
+                                        "kind": "object",
+                                        "members": [
+                                          {
+                                            "name": "type",
+                                            "value": {
+                                              "kind": "string",
+                                              "text": "boolean"
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "prepare_github_review",
+            "kind": "transform",
+            "objective": "Normalize Copilot output into a GitHub review body, approval decision, and safe line-level diff comments only.",
+            "dependsOn": [
+              "copilot_checks_and_review"
+            ],
+            "inputs": [
+              {
+                "name": "copilotResult",
+                "value": {
+                  "kind": "output",
+                  "source": "copilot_checks_and_review",
+                  "port": null
+                }
+              },
+              {
+                "name": "prDiff",
+                "value": {
+                  "kind": "output",
+                  "source": "read_pr_diff",
+                  "port": null
+                }
+              },
+              {
+                "name": "prFiles",
+                "value": {
+                  "kind": "output",
+                  "source": "read_pr_files",
+                  "port": null
+                }
+              }
+            ],
+            "resultType": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "decision",
+                  "type": {
+                    "kind": "string",
+                    "enum": [
+                      "APPROVE",
+                      "REQUEST_CHANGES"
+                    ]
+                  }
+                },
+                {
+                  "name": "body",
+                  "type": {
+                    "kind": "string"
+                  }
+                },
+                {
+                  "name": "comments",
+                  "type": {
+                    "kind": "array",
+                    "items": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "path",
+                          "type": {
+                            "kind": "string"
+                          }
+                        },
+                        {
+                          "name": "line",
+                          "type": {
+                            "kind": "integer"
+                          }
+                        },
+                        {
+                          "name": "body",
+                          "type": {
+                            "kind": "string"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "create_pending_review",
+            "kind": "operation",
+            "objective": "Create a pending pull request review to receive inline diff comments.",
+            "dependsOn": [
+              "prepare_github_review"
+            ],
+            "operation": "cap_9b6a3f4c1fab83fa518d4b62",
+            "inputs": [
+              {
+                "name": "method",
+                "value": {
+                  "kind": "string",
+                  "text": "create"
+                }
+              },
+              {
+                "name": "owner",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "owner"
+                }
+              },
+              {
+                "name": "repo",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "repo"
+                }
+              },
+              {
+                "name": "pullNumber",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "pullNumber"
+                }
+              }
+            ]
+          },
+          {
+            "id": "add_inline_review_comments",
+            "kind": "foreach",
+            "objective": "Add each safe Copilot finding as a GitHub diff comment on the pending review.",
+            "dependsOn": [
+              "create_pending_review"
+            ],
+            "items": {
+              "kind": "field",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "prepare_github_review",
+                  "port": null
+                }
+              ],
+              "port": "comments"
+            },
+            "body": {
+              "tasks": [
+                {
+                  "id": "add_inline_review_comment",
+                  "kind": "operation",
+                  "objective": "Add one line-level diff comment to the pending review.",
+                  "dependsOn": [],
+                  "operation": "cap_0c45707eabb02da3b0885cf0",
+                  "inputs": [
+                    {
+                      "name": "owner",
+                      "value": {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "derive_pr_context",
+                            "port": null
+                          }
+                        ],
+                        "port": "owner"
+                      }
+                    },
+                    {
+                      "name": "repo",
+                      "value": {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "derive_pr_context",
+                            "port": null
+                          }
+                        ],
+                        "port": "repo"
+                      }
+                    },
+                    {
+                      "name": "pullNumber",
+                      "value": {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "derive_pr_context",
+                            "port": null
+                          }
+                        ],
+                        "port": "pullNumber"
+                      }
+                    },
+                    {
+                      "name": "path",
+                      "value": {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "item"
+                          }
+                        ],
+                        "port": "path"
+                      }
+                    },
+                    {
+                      "name": "line",
+                      "value": {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "item"
+                          }
+                        ],
+                        "port": "line"
+                      }
+                    },
+                    {
+                      "name": "body",
+                      "value": {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "item"
+                          }
+                        ],
+                        "port": "body"
+                      }
+                    },
+                    {
+                      "name": "side",
+                      "value": {
+                        "kind": "string",
+                        "text": "RIGHT"
+                      }
+                    },
+                    {
+                      "name": "subjectType",
+                      "value": {
+                        "kind": "string",
+                        "text": "LINE"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "outputs": [],
+              "always": []
+            },
+            "parallel": false,
+            "maxItems": 50,
+            "maxConcurrency": 1
+          },
+          {
+            "id": "submit_review_decision",
+            "kind": "operation",
+            "objective": "Submit the GitHub pull request review with the approval or refusal decision and explanation.",
+            "dependsOn": [
+              "add_inline_review_comments"
+            ],
+            "operation": "cap_9b6a3f4c1fab83fa518d4b62",
+            "inputs": [
+              {
+                "name": "method",
+                "value": {
+                  "kind": "string",
+                  "text": "submit_pending"
+                }
+              },
+              {
+                "name": "event",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "prepare_github_review",
+                      "port": null
+                    }
+                  ],
+                  "port": "decision"
+                }
+              },
+              {
+                "name": "body",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "prepare_github_review",
+                      "port": null
+                    }
+                  ],
+                  "port": "body"
+                }
+              },
+              {
+                "name": "owner",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "owner"
+                }
+              },
+              {
+                "name": "repo",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "repo"
+                }
+              },
+              {
+                "name": "pullNumber",
+                "value": {
+                  "kind": "field",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "derive_pr_context",
+                      "port": null
+                    }
+                  ],
+                  "port": "pullNumber"
+                }
+              }
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "name": "reviewDecision",
+            "value": {
+              "kind": "field",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "prepare_github_review",
+                  "port": null
+                }
+              ],
+              "port": "decision"
+            }
+          },
+          {
+            "name": "reviewBody",
+            "value": {
+              "kind": "field",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "prepare_github_review",
+                  "port": null
+                }
+              ],
+              "port": "body"
+            }
+          },
+          {
+            "name": "inlineComments",
+            "value": {
+              "kind": "field",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "prepare_github_review",
+                  "port": null
+                }
+              ],
+              "port": "comments"
+            }
+          },
+          {
+            "name": "githubReviewSubmitted",
+            "value": {
+              "kind": "output",
+              "source": "submit_review_decision",
+              "port": null
+            }
+          }
+        ],
+        "always": [
+          {
+            "id": "cleanup_cloned_repository",
+            "kind": "operation",
+            "objective": "Always delete the cloned repository directory created for this workflow, even after partial failure.",
+            "dependsOn": [
+              "derive_pr_context",
+              "command_policy"
+            ],
+            "operation": "cap_5c01f9aa688163d23a30ff8b",
+            "inputs": [
+              {
+                "name": "commandName",
+                "value": {
+                  "kind": "string",
+                  "text": "delete_directory"
+                }
+              },
+              {
+                "name": "parametersJson",
+                "value": {
+                  "kind": "json",
+                  "items": [
+                    {
+                      "kind": "object",
+                      "members": [
+                        {
+                          "name": "path",
+                          "value": {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "derive_pr_context",
+                                "port": null
+                              }
+                            ],
+                            "port": "workspacePath"
+                          }
+                        },
+                        {
+                          "name": "recursive",
+                          "value": {
+                            "kind": "boolean",
+                            "boolean": true
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "timeoutMs",
+                "value": {
+                  "kind": "number",
+                  "number": 120000
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "groups": [],
+      "choices": []
+    }
+  }
+}

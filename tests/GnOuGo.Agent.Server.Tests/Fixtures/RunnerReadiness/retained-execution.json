@@ -1,0 +1,285 @@
+{
+  "provenance": "Sanitized retained execution 487579e92e6c40427c7e38024e06efa4. Receipt-only evidence; no replay of effects. Original encrypted records unchanged.",
+  "tenantId": "default",
+  "runId": "487579e92e6c40427c7e38024e06efa4",
+  "status": "failed",
+  "invocations": [
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_f5925a40d0be84a1",
+      "stepType": "mcp.call",
+      "status": "completed",
+      "isFinalization": false,
+      "resolvedInput": {
+        "request": {
+          "remoteUrl": "https://github.com/example-org/example-project.git",
+          "branch": "refs/pull/606/head",
+          "fetchAllBranches": true,
+          "historyDepth": 0,
+          "tagFetchMode": "auto",
+          "targetDirectory": "workflows/auto-pr-review/example-org-example-project-pr-610"
+        },
+        "preserve_optional_nulls": true,
+        "server": "GnOuGo.Git.Mcp",
+        "method": "git_clone",
+        "kind": "tool"
+      },
+      "output": {
+        "status": "ok",
+        "response": {
+          "repositoryRoot": "/workspace/workflows/auto-pr-review/example-org-example-project-pr-610",
+          "remoteUrl": "https://github.com/example-org/example-project.git",
+          "branch": "refs/pull/606/head",
+          "projectRootRelative": "workflows/auto-pr-review/example-org-example-project-pr-610",
+          "output": "Cloned \u0027https://github.com/example-org/example-project.git\u0027 into \u0027workflows/auto-pr-review/example-org-example-project-pr-610\u0027 on branch \u0027refs/pull/606/head\u0027 (historyDepth=0, fetchAllBranches=true, tagFetchMode=auto).",
+          "repositoryRootRelative": "workflows/auto-pr-review/example-org-example-project-pr-610",
+          "resolvedBranch": "refs/pull/606/head",
+          "historyDepth": 0,
+          "fetchAllBranches": true,
+          "tagFetchMode": "auto",
+          "success": true,
+          "error_code": null,
+          "error_message": null,
+          "ok": true
+        },
+        "error": null,
+        "correlation_id": "487579e92e6c40427c7e38024e06efa4",
+        "trace_id": "487579e92e6c40427c7e38024e06efa4"
+      },
+      "observation": {
+        "status": "ok",
+        "response": {
+          "repositoryRoot": "/workspace/workflows/auto-pr-review/example-org-example-project-pr-610",
+          "remoteUrl": "https://github.com/example-org/example-project.git",
+          "branch": "refs/pull/606/head",
+          "projectRootRelative": "workflows/auto-pr-review/example-org-example-project-pr-610",
+          "output": "Cloned \u0027https://github.com/example-org/example-project.git\u0027 into \u0027workflows/auto-pr-review/example-org-example-project-pr-610\u0027 on branch \u0027refs/pull/606/head\u0027 (historyDepth=0, fetchAllBranches=true, tagFetchMode=auto).",
+          "repositoryRootRelative": "workflows/auto-pr-review/example-org-example-project-pr-610",
+          "resolvedBranch": "refs/pull/606/head",
+          "historyDepth": 0,
+          "fetchAllBranches": true,
+          "tagFetchMode": "auto",
+          "success": true,
+          "error_code": null,
+          "error_message": null,
+          "ok": true
+        },
+        "error": null,
+        "correlation_id": "487579e92e6c40427c7e38024e06efa4",
+        "trace_id": "487579e92e6c40427c7e38024e06efa4"
+      },
+      "externalCompletionObserved": true,
+      "error": null
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/finally/step/n_5a8255fb09c4acd3",
+      "stepType": "agent.run",
+      "status": "failed",
+      "isFinalization": true,
+      "resolvedInput": {
+        "workspace": "workflows/auto-pr-review",
+        "budget": {
+          "max_elapsed_milliseconds": 300000,
+          "max_model_calls": 1,
+          "max_total_tokens": 4000
+        },
+        "capabilities": [
+          "project.read",
+          "project.write",
+          "command.execute"
+        ],
+        "inputs": {
+          "targetDirectory": "workflows/auto-pr-review/example-org-example-project-pr-606"
+        },
+        "objective": "Delete the targetDirectory recursively if it exists. Do not delete anything else. Succeed if the directory is already absent.",
+        "output_schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cleaned",
+            "targetDirectory"
+          ],
+          "properties": {
+            "cleaned": {
+              "type": "boolean"
+            },
+            "targetDirectory": {
+              "type": "string"
+            }
+          }
+        },
+        "verification": [
+          {
+            "id": "cleanup_target_absent",
+            "kind": "command.exit",
+            "subject": "test ! -e example-org-example-project-pr-610",
+            "facts_schema": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": [
+                "exit_code",
+                "working_directory",
+                "tool_success"
+              ],
+              "properties": {
+                "exit_code": {
+                  "type": "integer",
+                  "const": 0
+                },
+                "working_directory": {
+                  "type": "string"
+                },
+                "tool_success": {
+                  "type": "boolean",
+                  "const": true
+                }
+              }
+            }
+          }
+        ],
+        "runner": "coding"
+      },
+      "output": null,
+      "observation": {
+        "status": "rejected_before_dispatch"
+      },
+      "externalCompletionObserved": true,
+      "error": {
+        "code": "INPUT_VALIDATION",
+        "type": "INPUT_VALIDATION",
+        "message": "Agent execution requires tenant and run identities.",
+        "retryable": false,
+        "details": null
+      }
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_cdfeed3880a02014",
+      "stepType": "agent.run",
+      "status": "failed",
+      "isFinalization": false,
+      "resolvedInput": {
+        "workspace": "workflows/auto-pr-review/example-org-example-project-pr-610",
+        "budget": {
+          "max_elapsed_milliseconds": 3600000,
+          "max_model_calls": 8,
+          "max_total_tokens": 30000
+        },
+        "capabilities": [
+          "project.read",
+          "project.write",
+          "command.execute"
+        ],
+        "inputs": {
+          "pr_url": "https://github.com/example-org/example-project/pull/606",
+          "review_instructions": "Quality, Security",
+          "owner": "example-org",
+          "repo": "example-project",
+          "pullNumber": 606,
+          "projectRoot": "workflows/auto-pr-review/example-org-example-project-pr-610"
+        },
+        "objective": "Review this pull request. Work only inside the provided cloned repository. Install dependencies, run detected lint, unit test and integration test commands when present, and record failures without aborting the review. Use GitHub Copilot assistance to inspect the code changes and apply the user\u0027s review instructions. Produce actionable review findings as inline comments on changed RIGHT-side diff lines. If checks fail, requested review criteria are not met, or material issues are found, set decision to REQUEST_CHANGES; otherwise APPROVE. The summary must justify the decision and mention executed checks.",
+        "output_schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decision",
+            "summaryBody",
+            "inlineComments",
+            "checksSummary"
+          ],
+          "properties": {
+            "decision": {
+              "type": "string",
+              "enum": [
+                "APPROVE",
+                "REQUEST_CHANGES"
+              ]
+            },
+            "summaryBody": {
+              "type": "string"
+            },
+            "inlineComments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "line",
+                  "body"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "line": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "body": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "checksSummary": {
+              "type": "string"
+            }
+          }
+        },
+        "verification": [
+          {
+            "id": "repository_files_unmodified",
+            "kind": "command.exit",
+            "subject": "git diff --quiet -- .",
+            "facts_schema": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": [
+                "exit_code",
+                "working_directory",
+                "tool_success"
+              ],
+              "properties": {
+                "exit_code": {
+                  "type": "integer",
+                  "const": 0
+                },
+                "working_directory": {
+                  "type": "string"
+                },
+                "tool_success": {
+                  "type": "boolean",
+                  "const": true
+                }
+              }
+            }
+          }
+        ],
+        "runner": "coding"
+      },
+      "output": null,
+      "observation": {
+        "status": "failed",
+        "output": null,
+        "evidence": [],
+        "artifacts": [],
+        "usage": {
+          "model_calls": 0,
+          "total_tokens": 0,
+          "elapsed_milliseconds": 3333.438,
+          "metering": "reserved_upper_bound"
+        },
+        "message": "Bounded commands require an available mandatory host sandbox. Configure managed sandbox.enabled=true and sandbox.failIfUnavailable=true before approving command execution.",
+        "verification": []
+      },
+      "externalCompletionObserved": true,
+      "error": {
+        "code": "AGENT_TASK_FAILED",
+        "type": "AGENT_TASK_FAILED",
+        "message": "The agent did not complete the approved task.",
+        "retryable": false,
+        "details": null
+      }
+    }
+  ]
+}

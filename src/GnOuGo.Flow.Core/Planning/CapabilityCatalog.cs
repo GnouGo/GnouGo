@@ -1,0 +1,63 @@
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Runtime;
+
+namespace GnOuGo.Flow.Core.Planning;
+
+/// <summary>Discovery is not authorization. Only resolved and validated contracts enter the executable catalog.</summary>
+public interface ICapabilityCatalog
+{
+    Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct);
+    Task<CapabilityPage> ListAsync(string sourceId, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null);
+    Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct);
+}
+
+public sealed record CapabilitySource(string Id, string Description);
+public sealed record CapabilitySummary(string Id, string SourceId, string Name, string Description,
+    string StepType, string EffectKind, string Version, McpCapabilityComposition? Composition = null, PlanningOperation? Operation = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] McpArtifactContract? ArtifactContract = null);
+public sealed record CapabilityPage(string SourceId, string? Cursor, List<CapabilitySummary> Capabilities,
+    string? NextCursor, string? UnavailableReason = null, string? Query = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ProducedArtifactKind = null);
+
+public sealed class CapabilityDiscoveryState
+{
+    /// <summary>Retained batch query for historical receipts. Ranking derives source focus from pages and accepted intent.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? PresentationQuery { get; set; }
+    public List<CapabilitySource> Sources { get; set; } = [];
+    public List<CapabilityPage> Pages { get; set; } = [];
+    public List<PlanningCapability> Resolved { get; set; } = [];
+    public List<string> Limitations { get; set; } = [];
+    /// <summary>Per-source contract inspection selections, not execution authorization.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningDiscoveryRequest>? Inspections { get; set; }
+}
+
+/// <summary>Reviewable goals, not a second executable program.</summary>
+public sealed class PlanningRequirements
+{
+    public string Summary { get; set; } = "";
+    public List<PlanningRequirement> Outcomes { get; set; } = [];
+}
+
+public sealed record PlanningRequirement(string Id, string Description);
+
+/// <summary>A bounded discovery request or complete semantic task proposal; the host validates exclusivity.</summary>
+public sealed class PlanningProposal
+{
+    /// <summary>Issued once; omitted after the host accepts the requirements.</summary>
+    public PlanningRequirements? Requirements { get; set; }
+    public List<PlanningDiscoveryRequest>? DiscoveryRequests { get; set; }
+    public TaskPlan? Plan { get; set; }
+    public string Explanation { get; set; } = "";
+}
+
+public sealed record PlanningDiscoveryRequest(string SourceId, string? Cursor = null, string? Query = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] List<string>? OperationIds = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? ProducedArtifactKind = null);
+
+public static class PlanningPhase
+{
+    public const string Requirements = "requirements", Discovery = "discovery", Tasks = "tasks",
+        Validation = "validation", Review = "review", Replanning = "replanning";
+}

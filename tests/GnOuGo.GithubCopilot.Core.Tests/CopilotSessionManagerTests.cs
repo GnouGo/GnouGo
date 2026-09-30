@@ -8,6 +8,19 @@ public sealed class CopilotSessionManagerTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task PolicyInspectionNeverCreatesSessionAndDisposesClient(bool unavailable)
+    {
+        var factory = new FakeClientFactory { ReadinessException = unavailable ? new IOException("private host detail") : null };
+        await using var manager = new CopilotSessionManager(factory);
+        var readiness = await manager.ReadSandboxReadinessAsync(Configuration(), TestContext.Current.CancellationToken);
+        Assert.Equal(unavailable ? CopilotSandboxReadiness.Unavailable : CopilotSandboxReadiness.Configured, readiness);
+        Assert.Equal(1, factory.PolicyReads); Assert.Equal(1, factory.ClientDisposeCount);
+        Assert.Null(factory.LastSession); Assert.Null(factory.LastConfiguration); Assert.Empty(manager.List("tenant"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task ReviewCompletenessComesFromCompletedBatches(bool analyze)
     {
         var factory = new FakeClientFactory { Response = "[]" };
@@ -380,6 +393,8 @@ public sealed class CopilotSessionManagerTests
         public int DeleteCount;
         public int ClientDisposeCount;
         public int ResumeCount;
+        public int PolicyReads;
+        public Exception? ReadinessException { get; set; }
         public TimeSpan SendDelay { get; set; } = TimeSpan.FromMilliseconds(30);
         public Exception? CreateException { get; set; }
         public Exception? SendException { get; set; }
@@ -393,6 +408,8 @@ public sealed class CopilotSessionManagerTests
         private sealed class FakeClient(FakeClientFactory owner) : ICopilotSdkClient
         {
             public string ConnectionState => "connected";
+            public Task<CopilotSandboxReadiness> ReadSandboxReadinessAsync(CancellationToken ct)
+            { owner.PolicyReads++; if (owner.ReadinessException is { } e) throw e; return Task.FromResult(CopilotSandboxReadiness.Configured); }
             public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
             public Task<CopilotConnectivityResult> PingAsync(CancellationToken cancellationToken) => Task.FromResult(new CopilotConnectivityResult("ok", "now", "1"));
             public Task<CopilotStatusResult> GetStatusAsync(CancellationToken cancellationToken) => Task.FromResult(new CopilotStatusResult("1", "1", "connected"));

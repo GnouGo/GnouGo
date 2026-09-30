@@ -11,7 +11,8 @@ public sealed record StepContract(
     JsonObject InputSchema,
     JsonObject OutputSchema,
     bool InputRequired = false,
-    IReadOnlyList<IReadOnlyList<string>>? MutuallyExclusiveInputFields = null)
+    IReadOnlyList<IReadOnlyList<string>>? MutuallyExclusiveInputFields = null,
+    string? PlanningEffectKind = null)
 {
     internal FlowTypeDescriptor InputType { get; } = FlowTypeDescriptorConverter.FromJsonSchema(InputSchema);
     internal FlowTypeDescriptor OutputType { get; } = FlowTypeDescriptorConverter.FromJsonSchema(OutputSchema);
@@ -25,6 +26,12 @@ public static class BuiltInStepContracts
     private static readonly IReadOnlyDictionary<string, StepContract> Contracts =
         new Dictionary<string, StepContract>(StringComparer.Ordinal)
         {
+            ["agent.run"] = new Executors.AgentRunExecutor().Contract,
+            ["value.project"] = new Executors.ValueProjectExecutor().Contract,
+            ["array.project"] = new Executors.ArrayProjectExecutor().Contract,
+            ["number.add"] = new Executors.NumericTransformExecutor("number.add").Contract,
+            ["number.multiply"] = new Executors.NumericTransformExecutor("number.multiply").Contract,
+            ["number.default"] = new Executors.NumericTransformExecutor("number.default").Contract,
             ["sequence"] = Contract(ClosedObject(), OpenObject()),
             ["parallel"] = Contract(
                 Object(("max_concurrency", PositiveInteger())),
@@ -97,7 +104,7 @@ public static class BuiltInStepContracts
             ["mcp.call"] = Contract(
                 McpCallInput(),
                 Object(
-                    ("status", String()), ("response", Any()), ("error", OpenObject()),
+                    ("status", Enum("ok", "error")), ("response", Any()), ("error", OpenObject()),
                     ("correlation_id", String()), ("trace_id", String()), ("results", Array(Any())),
                     ("selection_mode", String()), ("text", String()), ("selection_text", String()),
                     ("tool_calls", Array(Any())), ("json", Any()), ("description", String()), ("messages", Array(Any()))),

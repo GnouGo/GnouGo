@@ -190,128 +190,6 @@ workflows:
     }
 
     [Fact]
-    public void WorkflowPlan_DryRun_TreatsOnlyInternalErrorAsInconclusive()
-    {
-        var validatorType = typeof(WorkflowEngine).Assembly.GetType(
-            "GnOuGo.Flow.Core.Runtime.WorkflowPlanDryRunValidator",
-            throwOnError: true)!;
-        var method = validatorType.GetMethod(
-            "IsInconclusiveInternalError",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
-
-        Assert.True((bool)method.Invoke(null, new object?[] { "INTERNAL_ERROR" })!);
-        Assert.False((bool)method.Invoke(null, new object?[] { ErrorCodes.EvalError })!);
-        Assert.False((bool)method.Invoke(null, new object?[] { ErrorCodes.InputValidation })!);
-    }
-
-    [Fact]
-    public void WorkflowPlan_DryRun_RecognizesHumanizedSnakeCaseInputInValidationDiagnostic()
-    {
-        var validatorType = typeof(WorkflowEngine).Assembly.GetType(
-            "GnOuGo.Flow.Core.Runtime.WorkflowPlanDryRunValidator",
-            throwOnError: true)!;
-        var method = validatorType.GetMethod(
-            "IsInconclusiveSyntheticInputValidation",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
-
-        var inconclusive = (bool)method.Invoke(
-            null,
-            new object?[]
-            {
-                ErrorCodes.ScriptError,
-                "Invalid pull-request URL: expected an absolute URL.",
-                new Dictionary<string, InputDef>
-                {
-                    ["pull_request_url"] = new() { Type = "string" },
-                    ["instructions"] = new() { Type = "string" }
-                }
-            })!;
-
-        Assert.True(inconclusive);
-    }
-
-    [Fact]
-    public void WorkflowPlan_DryRun_UsesProviderNeutralUrlSample()
-    {
-        var validatorType = typeof(WorkflowEngine).Assembly.GetType(
-            "GnOuGo.Flow.Core.Runtime.WorkflowPlanDryRunValidator",
-            throwOnError: true)!;
-        var method = validatorType.GetMethod(
-            "BuildSampleInputs",
-            BindingFlags.NonPublic | BindingFlags.Static)!;
-        var inputs = new Dictionary<string, InputDef>
-        {
-            ["resource_url"] = new()
-            {
-                Type = "url",
-                Description = "An absolute resource URL."
-            }
-        };
-
-        var sample = Assert.IsType<JsonObject>(method.Invoke(null, [inputs]));
-
-        Assert.Equal(
-            "https://example.invalid/dry-run",
-            sample["resource_url"]!.GetValue<string>());
-    }
-
-    [Fact]
-    public void WorkflowPlan_DryRun_UsesFirstDeclaredEnumValue()
-    {
-        var validatorType = typeof(WorkflowEngine).Assembly.GetType(
-            "GnOuGo.Flow.Core.Runtime.WorkflowPlanDryRunValidator",
-            throwOnError: true)!;
-        var method = validatorType.GetMethod(
-            "BuildSampleInputs",
-            BindingFlags.NonPublic | BindingFlags.Static)!;
-        var inputs = new Dictionary<string, InputDef>
-        {
-            ["mode"] = new()
-            {
-                Type = "string",
-                Enum = ["first", "second"]
-            }
-        };
-
-        var sample = Assert.IsType<JsonObject>(method.Invoke(null, [inputs]));
-
-        Assert.Equal("first", sample["mode"]!.GetValue<string>());
-    }
-
-    [Fact]
-    public void WorkflowPlan_Diagnostics_ExplainsThatOrdinaryMcpCallsHaveNoJsonOutput()
-    {
-        var semanticError = new WorkflowSemanticValidationError
-        {
-            Code = "STEP_OUTPUT_PROPERTY_UNKNOWN",
-            WorkflowName = "discover_projects",
-            Field = "outputs.modified_projects",
-            InvalidPath = "data.steps.call_cmd_run.json.modified_projects",
-            AllowedPaths =
-            [
-                "data.steps.call_cmd_run.response.stdout",
-                "data.steps.call_cmd_run.response.success"
-            ],
-            Message = "Property 'json' is not defined by the output schema."
-        };
-
-        var details = WorkflowPlanDiagnostics.BuildValidationFailureDetails(
-            [],
-            new WorkflowSemanticValidationException([semanticError]),
-            compilationException: null);
-        var diagnostic = Assert.IsType<JsonObject>(Assert.IsType<JsonArray>(details["diagnostics"])[0]);
-
-        Assert.Contains(
-            "ordinary mcp.call",
-            diagnostic["llm_guidance"]!.GetValue<string>(),
-            StringComparison.Ordinal);
-        Assert.Contains(
-            "separate llm.call with strict structured_output",
-            diagnostic["llm_guidance"]!.GetValue<string>(),
-            StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task WorkflowRuntime_ReportsFailingStepForExpressionErrors()
     {
         var workflow = CompileMain("""
@@ -333,14 +211,7 @@ workflows:
         Assert.Equal("step", result.Error.Details["execution_phase"]!.GetValue<string>());
         Assert.Contains("step 'project_missing_value'", result.Error.Message, StringComparison.Ordinal);
 
-        var dryRunDetails = WorkflowPlanDiagnostics.BuildDryRunFailureDetails(
-            result.Error.Code,
-            result.Error.Message,
-            "execution",
-            runtimeDetails: result.Error.Details);
-        var diagnostic = Assert.IsType<JsonObject>(Assert.IsType<JsonArray>(dryRunDetails["diagnostics"])[0]);
-        Assert.Equal("workflow:main/step:project_missing_value", diagnostic["location"]!.GetValue<string>());
-        Assert.Contains("Repair step 'project_missing_value'", diagnostic["llm_guidance"]!.GetValue<string>(), StringComparison.Ordinal);
+
     }
 
     [Fact]
@@ -373,14 +244,8 @@ workflows:
     }
 
     [Fact]
-    public async Task WorkflowPlan_DryRun_AllowsRepresentativeBoundedFinalizationLoop()
+    public async Task WorkflowRuntime_AllowsRepresentativeBoundedFinalizationLoop()
     {
-        var validatorType = typeof(WorkflowEngine).Assembly.GetType(
-            "GnOuGo.Flow.Core.Runtime.WorkflowPlanDryRunValidator",
-            throwOnError: true)!;
-        var method = validatorType.GetMethod(
-            "ValidateAsync",
-            BindingFlags.Public | BindingFlags.Static)!;
         var document = WorkflowParser.Parse("""
             version: 1
             skill:
@@ -408,11 +273,10 @@ workflows:
                           directory: "${data._loop.directory}"
             """);
 
-        var validation = Assert.IsAssignableFrom<Task>(method.Invoke(
-            null,
-            [document, null, null, CancellationToken.None]));
+        var compiled = new WorkflowCompiler().Compile(document);
+        var result = await new WorkflowEngine().ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], new JsonObject(), TestContext.Current.CancellationToken);
+        Assert.True(result.Success, result.Error?.Message);
 
-        await validation;
     }
 
     [Fact]

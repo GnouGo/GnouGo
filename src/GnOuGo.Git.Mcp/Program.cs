@@ -30,6 +30,12 @@ builder.Services
             Version = "1.0.0"
         };
         options.AddGnOuGoToolErrorNormalizer();
+        options.Filters.Request.ListToolsFilters.Add(next => async (request, ct) =>
+        {
+            var result = await next(request, ct);
+            foreach (var tool in result.Tools) GitCloneTargetContract.Publish(tool);
+            return result;
+        });
     })
     .WithStdioServerTransport()
     .WithTools<GitTools>(GitMcpJson.SerializerOptions);

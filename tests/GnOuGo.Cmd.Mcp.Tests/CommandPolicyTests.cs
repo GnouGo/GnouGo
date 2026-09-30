@@ -98,10 +98,10 @@ public class CommandPolicyTests
 
         Assert.Contains("Allowed commandName values:", description);
         Assert.Contains("- echo_test", description);
-        Assert.Contains("Parameters: none; omit parametersJson.", description);
+        Assert.Contains("Parameters: none; omit parameters.", description);
         Assert.Contains("- list_files: List workspace files.", description);
         Assert.Contains("path (required, workspace path, directory, Directory to list.)", description);
-        Assert.Contains("Pass parametersJson as a JSON object string", description);
+        Assert.Contains("Pass parameters as a JSON object with string values", description);
         Assert.Contains("reserved .GnOuGo", description);
         Assert.DoesNotContain("Get-ChildItem", description);
     }
@@ -131,7 +131,7 @@ public class CommandPolicyTests
             properties = new
             {
                 commandName = new { type = "string" },
-                parametersJson = new { type = new[] { "string", "null" } }
+                parameters = new { type = new[] { "object", "null" } }
             },
             required = new[] { "commandName" }
         });
@@ -154,8 +154,8 @@ public class CommandPolicyTests
             "Delete one existing workspace directory recursively.",
             deleteBranch.GetProperty("description").GetString(),
             StringComparison.Ordinal);
-        Assert.Equal("string", enriched.GetProperty("properties")
-            .GetProperty("parametersJson")
+        Assert.Equal("object", enriched.GetProperty("properties")
+            .GetProperty("parameters")
             .GetProperty("type")[0]
             .GetString());
     }
@@ -477,7 +477,7 @@ public class CommandPolicyTests
     }
 
     [Fact]
-    public void RenderScript_AcceptsLegacyArgsAlias_ForSingleParameterCommand()
+    public void RenderScript_RejectsUndeclaredArgsAlias_ForSingleParameterCommand()
     {
         var root = CreateTempDirectory();
         var settings = CreateSettings(root, "Get-ChildItem {{path}}", parameters: new Dictionary<string, CommandParameterSettings>
@@ -493,7 +493,8 @@ public class CommandPolicyTests
         var policy = new CommandPolicy(settings, root);
         var command = policy.GetRequiredCommand("test");
 
-        var rendered = policy.RenderScript(command, new JsonObject { ["args"] = "notes/today.md" }, root);
+        Assert.Throws<InvalidOperationException>(() => policy.RenderScript(command, new JsonObject { ["args"] = "notes/today.md" }, root));
+        var rendered = policy.RenderScript(command, new JsonObject { ["path"] = "notes/today.md" }, root);
 
         Assert.Equal($"Get-ChildItem '{Path.Combine(root, "notes", "today.md")}'", rendered);
     }
@@ -513,7 +514,7 @@ public class CommandPolicyTests
         var ex = Assert.Throws<InvalidOperationException>(() =>
             policy.RenderScript(command, new JsonObject { ["args"] = "notes" }, root));
 
-        Assert.Contains("Provide declared parameter names", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("not declared for this command", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -1,0 +1,9 @@
+# Composed-output planning recording
+
+`retained-composed-outputs.json` preserves the three original responses, issued request schemas and identities, effective generation settings, discovery receipts and exact contracts from session `959c840a609b4572853fe7ebaa9b22e4` at revision 8. It includes the stopped session and its two compiler findings. Export used public encrypted KeyVault record APIs; original records, timestamps and accounting were checked unchanged. Private local paths and repository URLs were redacted. No synthetic completion replaces a recorded response.
+
+Both `publish_review` branches explicitly export an object containing `status` and a selected `reviewEvent`. Lowering generates a checked `value.project` followed by a presence-guarded typed `set`. The success-availability proof omitted the projection executor, so both composed exports were rejected as unavailable. This is generated plumbing, not a missing semantic export or an MCP contract failure.
+
+`RecordedComposedOutputPlanningTests` replays the original responses through `HybridWorkflowPlanner`, serializing/recovering between advances and using each persisted request schema. The unchanged proposal reaches final review with three calls, zero repairs and no pending request. Recorded usage, settings, identities and discovery receipts remain unchanged. Final review adds its usual incomplete-discovery notices; the stopped session had not reached that step. Recompilation verifies the reviewed artifact, and changing an export invalidates it. No external approval or execution is performed.
+
+Separate provider-neutral fixtures execute composed exports at root, conditional, reusable-group and iteration boundaries, including nested/captured fields, ordered arrays, permitted nulls, invalid/missing values and cleanup after failure or cancellation. Their expected values are independent of the generated graph. These deterministic tests make no live planning or external-success claim.

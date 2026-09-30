@@ -1,5 +1,7 @@
 # Auto and Interactive planner decisions
 
+> Historical pre-schema-9 evidence. Current architecture and migration: [schema 9](workflow-planning-v9.md).
+
 The existing SemanticPlan → capability grounding → binding → validation/replanning → scenarios → FinalReview pipeline is unchanged. The planner now exposes one business-decision contract at eligible phase boundaries. New sessions default to Interactive.
 
 ## Contract and continuation

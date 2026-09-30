@@ -67,3 +67,6 @@ public sealed record StepCompletedStreamData(
 	IReadOnlyDictionary<string, object?> Attributes,
 	StepUsageSummary Usage);
 
+
+public sealed record WorkflowPhaseStartedStreamData(string Name, string? Phase, string? StepId, string? StepType, int? CallDepth, IReadOnlyDictionary<string, object?>? Attributes);
+public sealed record WorkflowPhaseCompletedStreamData(bool Success, double DurationMs, string? ErrorType, string? ErrorMessage);

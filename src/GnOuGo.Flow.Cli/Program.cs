@@ -1,3 +1,4 @@
+using GnOuGo.Flow.Copilot;
 
 using System.CommandLine;
 using System.Text.Json;
@@ -16,6 +17,7 @@ using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Integrations;
+using GnOuGo.Flow.Persistence;
 
 // Root command
 var rootCommand = new RootCommand("GnOuGo.Flow — YAML Workflow DSL Engine");
@@ -99,15 +101,17 @@ mockOption.Aliases.Add("-m");
 
 var runIdOption = new Option<string?>("--run-id")
 {
-    Description = "Stable run identity used to resume encrypted planning sessions"
+    Description = "Tenant-owned durable execution identity; inspect it before resuming"
 };
 
+var resumeRevisionOption = new Option<long?>("--resume-revision") { Description = "Resume the existing --run-id only if its inspected revision still matches" };
 var runCommand = new Command("run", "Run a workflow YAML file");
 runCommand.Add(runFileArg);
 runCommand.Add(inputOption);
 runCommand.Add(inputJsonOption);
 runCommand.Add(mockOption);
 runCommand.Add(runIdOption);
+runCommand.Add(resumeRevisionOption);
 runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellationToken) =>
 {
     var file = parseResult.GetValue(runFileArg);
@@ -170,7 +174,10 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
 
         ILLMClient llmClient;
         IMcpClientFactory mcpFactory;
-        IConfiguration? appConfig = null;
+        var appConfig = LoadHostConfiguration();
+        var runStore = CreateRunStore(appConfig);
+        var executionTenant = appConfig["OpenTelemetry:TenantId"]?.Trim();
+        var humanInput = new ConsoleHumanInputProvider(runStore, string.IsNullOrWhiteSpace(executionTenant) ? "default" : executionTenant);
 
         if (useMock)
         {
@@ -182,17 +189,6 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
         }
         else
         {
-            var currentDirectory = Directory.GetCurrentDirectory();
-            var appSettingsBasePath = File.Exists(Path.Combine(currentDirectory, "appsettings.json"))
-                ? currentDirectory
-                : AppContext.BaseDirectory;
-
-            appConfig = new ConfigurationBuilder()
-                .SetBasePath(appSettingsBasePath)
-                .AddJsonFile("appsettings.json", optional: true)
-                .AddEnvironmentVariables()
-                .Build();
-
             var llmOptions = appConfig.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
             var http = new HttpClient { Timeout = LLMHttpClientDefaults.MinimumTimeout };
             var llmLoggerFactory = LoggerFactory.Create(logging => logging.AddSimpleConsole());
@@ -201,16 +197,17 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
             mcpFactory = llmOptions.McpServers.Count > 0
                 ? new ConfiguredMcpClientFactory(
                     llmOptions.McpServers,
+                    humanInputProvider: humanInput,
                     defaultLlmProvider: llmOptions.DefaultProvider,
                     defaultLlmModel: llmOptions.DefaultModel)
                 : new InMemoryMcpClientFactory();
         }
 
-        var otelEndpoint = appConfig?["OpenTelemetry:OtlpEndpoint"];
-        var otelEnabled = bool.TryParse(appConfig?["OpenTelemetry:Enabled"], out var configuredOtelEnabled) && configuredOtelEnabled;
-        var otelServiceName = appConfig?["OpenTelemetry:ServiceName"] ?? "GnOuGo.Flow.Cli";
-        var otelProtocolStr = appConfig?["OpenTelemetry:Protocol"] ?? "HttpProtobuf";
-        var otelTenantId = appConfig?["OpenTelemetry:TenantId"];
+        var otelEndpoint = appConfig["OpenTelemetry:OtlpEndpoint"];
+        var otelEnabled = bool.TryParse(appConfig["OpenTelemetry:Enabled"], out var configuredOtelEnabled) && configuredOtelEnabled;
+        var otelServiceName = appConfig["OpenTelemetry:ServiceName"] ?? "GnOuGo.Flow.Cli";
+        var otelProtocolStr = appConfig["OpenTelemetry:Protocol"] ?? "HttpProtobuf";
+        var otelTenantId = appConfig["OpenTelemetry:TenantId"];
 
         var otelProtocol = otelProtocolStr.Equals("Grpc", StringComparison.OrdinalIgnoreCase)
             ? OtlpExportProtocol.Grpc
@@ -276,17 +273,21 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
         Console.WriteLine($"Run ID: {runId}");
         var engine = new WorkflowEngine
         {
+            RunStore = runStore,
             Limits = new ExecutionLimits { RunId = runId, TenantId = string.IsNullOrWhiteSpace(otelTenantId) ? "default" : otelTenantId.Trim() },
-            WorkflowPlanner = new GnOuGo.Flow.Planning.TypedWorkflowPlanner(),
-            PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
+            WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
+            PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(appConfig["KeyVault:DatabasePath"], appConfig["Flow:Planning:OwnerPath"]),
             LLMClient = llmClient,
             ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
             McpClientFactory = mcpFactory,
             McpCache = new MemoryCache(new MemoryCacheOptions()),
-            HumanInputProvider = new ConsoleHumanInputProvider(),
+            HumanInputProvider = humanInput,
             Telemetry = new OTelWorkflowTelemetry(),
             Logger = loggerFactory.CreateLogger("GnOuGo.Flow.WorkflowEngine"),
         };
+
+        engine.WithCopilotRunners(appConfig.GetSection("Flow:CopilotRunners").GetChildren()
+            .Select(c => new KeyValuePair<string, string>(c.Key, c.Value ?? throw new InvalidOperationException("A Copilot runner requires an MCP server name."))));
 
         var workflow = compiled.Workflows[entrypoint];
         inputObj = WorkflowInputDefaults.Apply(workflow.Source, inputObj);
@@ -297,7 +298,13 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(TimeSpan.FromMinutes(5));
-        var result = await engine.ExecuteAsync(workflow, inputObj, cts.Token);
+        var result = parseResult.GetValue(resumeRevisionOption) is { } revision
+            ? await engine.ResumeAsync(engine.Limits.TenantId!, runId, revision, workflow, cts.Token)
+            : await engine.ExecuteAsync(workflow, inputObj, cts.Token);
+        var journal = await engine.RunStore!.ReadAsync(engine.Limits.TenantId!, runId, cancellationToken);
+        Console.WriteLine($"Execution: {journal!.Status}; revision: {journal.Revision}; steps: {journal.StepsStarted}/{journal.Limits.MaxTotalStepsExecuted}");
+        foreach (var invocation in journal.Invocations.Values.Where(i => i.Status == "needs_reconciliation"))
+            Console.WriteLine($"Reconciliation required: {invocation.Id}");
 
         Console.WriteLine();
         if (result.Success)
@@ -414,12 +421,62 @@ inspectCommand.SetAction(async (ParseResult parseResult, CancellationToken cance
 });
 
 rootCommand.Add(validateCommand);
+var runsCommand = new Command("runs", "Inspect durable executions and issue revision-checked commands");
+var tenantOption = new Option<string>("--tenant") { DefaultValueFactory = _ => "default", Description = "Execution tenant" };
+var inspectIdOption = new Option<string?>("--id") { Description = "Execution identity; omit to list tenant runs" };
+var commandOption = new Option<string>("--command") { DefaultValueFactory = _ => "inspect", Description = "inspect, cancel or reconcile (resume uses run --resume-revision)" };
+var revisionOption = new Option<long?>("--revision") { Description = "Required inspected revision for commands" };
+var invocationOption = new Option<string?>("--invocation") { Description = "Exact invocation identity from the inspected journal" };
+var stoppedOption = new Option<string?>("--confirmed-stopped-reason") { Description = "Explicit confirmation of stopped external work; reconciliation records failure" };
+runsCommand.Add(invocationOption); runsCommand.Add(stoppedOption);
+runsCommand.Add(tenantOption); runsCommand.Add(inspectIdOption); runsCommand.Add(commandOption); runsCommand.Add(revisionOption);
+runsCommand.SetAction(async (ParseResult parsed, CancellationToken ct) =>
+{
+    try
+    {
+        var config = LoadHostConfiguration();
+        var store = CreateRunStore(config);
+        var tenant = parsed.GetValue(tenantOption)!;
+        var id = parsed.GetValue(inspectIdOption);
+        var command = parsed.GetValue(commandOption);
+        if (command == "cancel")
+        {
+            if (id is null || parsed.GetValue(revisionOption) is not { } revision) throw new ArgumentException("Cancellation requires --id and --revision.");
+            Console.WriteLine(JsonSerializer.Serialize(await store.CancelAsync(tenant, id, revision, ct), WorkflowRunJsonContext.Default.WorkflowRun));
+        }
+        else if (command == "reconcile")
+        {
+            if (id is null || parsed.GetValue(revisionOption) is not { } revision || parsed.GetValue(invocationOption) is not { } invocation)
+                throw new ArgumentException("Reconciliation requires --id, --revision and --invocation.");
+            var options = config.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
+            await using var transport = new ConfiguredMcpClientFactory(options.McpServers, new ConsoleHumanInputProvider(store, tenant), options.DefaultProvider, options.DefaultModel);
+            var engine = new WorkflowEngine { RunStore = store, McpClientFactory = transport }.WithCopilotRunners(
+                config.GetSection("Flow:CopilotRunners").GetChildren().Select(c => new KeyValuePair<string, string>(c.Key, c.Value ?? throw new ArgumentException("A Copilot runner requires a server name."))));
+            var reconciled = await engine.ReconcileAsync(tenant, id, revision, invocation, parsed.GetValue(stoppedOption), ct);
+            Console.WriteLine(JsonSerializer.Serialize(reconciled, WorkflowRunJsonContext.Default.WorkflowRun));
+        }
+        else if (command != "inspect") throw new ArgumentException("Unknown execution command.");
+        else if (id is null) Console.WriteLine(JsonSerializer.Serialize((await store.ListAsync(tenant, ct)).ToList(), WorkflowRunJsonContext.Default.ListWorkflowRun));
+        else Console.WriteLine(JsonSerializer.Serialize(await store.ReadAsync(tenant, id, ct), WorkflowRunJsonContext.Default.WorkflowRun));
+    }
+    catch (Exception ex) { Console.Error.WriteLine(ex.Message); Environment.ExitCode = 1; }
+});
+rootCommand.Add(runsCommand);
 rootCommand.Add(runCommand);
 rootCommand.Add(inspectCommand);
 
 return await rootCommand.Parse(args).InvokeAsync();
 
 // === Helpers ===
+
+static IConfiguration LoadHostConfiguration()
+{
+    var directory = File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json")) ? Directory.GetCurrentDirectory() : AppContext.BaseDirectory;
+    return new ConfigurationBuilder().SetBasePath(directory).AddJsonFile("appsettings.json", optional: true).AddEnvironmentVariables().Build();
+}
+static IWorkflowRunStore CreateRunStore(IConfiguration configuration) => EncryptedWorkflowRunStore.CreateWorkspace(
+    configuration["KeyVault:DatabasePath"], configuration["Flow:Execution:IndexPath"], ownerPath: configuration["Flow:Execution:OwnerPath"]);
+
 
 static void PrintSteps(List<GnOuGo.Flow.Core.Models.StepDef> steps, string indent)
 {

@@ -1,0 +1,48 @@
+{
+  "campaign": "flow-v9-112",
+  "cases": [
+    "conditional",
+    "review_french",
+    "review_distractors"
+  ],
+  "repetitions": 3,
+  "provider": "OpenAi",
+  "model": "gpt-5.5-2026-04-24",
+  "reasoning": "medium",
+  "max_input_tokens": 96000,
+  "max_output_tokens": 32768,
+  "physical_attempts_per_session": 8,
+  "repairs": 2,
+  "campaign_ceiling_eur": 50,
+  "baselines": {
+    "parent": "46c2c77fea19c952d3258d744d886fe52ef52d33",
+    "previous_candidate": "87acc5f0e41702e193795b45b4ddfab1055d2143",
+    "stabilization": "4cb8586440d22adf02bc0496565c4f9cc6064ef0"
+  },
+  "minimum_correct": {
+    "conditional": 3,
+    "review_french": 3,
+    "review_distractors": 2
+  },
+  "acceptance": "Complete comparable bounded evidence; no per-case correctness regression against the best retained baseline; zero unsafe or incorrectly approved executions. Calls, tokens and latency reported separately.",
+  "stopping_rule": "One new nine-outcome cohort, or terminal budget/journal stop. No subsequent implementation or paid evaluation.",
+  "implementation_commit": "0c584d19adba0e533a1f56b0442936faca2acb51",
+  "previous_taskplan": "78b8b3468104e576358839c5315846957746c519",
+  "sha256": {
+    "tests/Shared/PlanningBenchmarkCases.cs": "a25de6fc75d94a06c5dc8fce96d04eb09ba4132caec76f35e7f644912433f998",
+    "tests/Shared/PlanningCorpus.cs": "c560e212c4c60b56210caa71d0cbe6b8f04d15def07ec71c4c7efdaef9d06ad7",
+    "tests/Shared/PlanningBenchmarkMeasurements.cs": "3416e9e95a7a062003b8a8cddbb305a99fc681c95b933cb10c0e176fe8156450",
+    "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs": "fa564983491cf939d75426cb36c7760d9fbebd8393102337a44af3057c9d82e4",
+    "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs": "7a90c3052d5105e86c7101cbeec35bca4696cfd1d6a4f376e8efbca8219fcf03",
+    "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs": "c7cc80678bdb97fb2187bc7597aa327152f5c84def9b73fd19e36d23643e0690",
+    "tests/GnOuGo.Agent.Planning.Benchmark/Program.cs": "41688b458e923a31c6301a7bf81a6180b0266d890fc632a9f6b961268ecdd9b9",
+    "src/GnOuGo.Flow.Planning/TaskOperations.cs": "93b6376dcf812be06c4908c1aadd1d11fce8e67b2c10563117913f6528e15e7d",
+    "src/GnOuGo.Flow.Planning/Capabilities/CapabilityDiscovery.cs": "ba9c2b1ada496031a79a2974d922c436d458b97e2dba37bcad10d11a37af0cb9",
+    "src/GnOuGo.Flow.Planning/TaskPlanCompiler.cs": "fc7ff67a7a4c7aa62ffd32cfbb39d70ac91918f682a911d636843eaa5029443d",
+    "src/GnOuGo.Flow.Planning/TaskPlanRevisions.cs": "c220a16773a7bd7cb0d611b98bb1e809dc72715e4dfa8d733ebbd46de527b67f",
+    "src/GnOuGo.Flow.Planning/PlanningSchemas.cs": "ff2f9085fc737619d7c58057bc7c416e617cd910b6eb352d67f6fa763ca51318",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.cs": "46f722aed48501c857ce51d67e0b04d9b68bb7adf4a3b3d91e161a0288f57e4e"
+  },
+  "source_commit": "d636c998acd08b17cd21cb4a9b85c0911b3290ba",
+  "manifest_provenance": "Recorded on the frozen candidate before any new paid dispatch."
+}

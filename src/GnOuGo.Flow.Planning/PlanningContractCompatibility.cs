@@ -18,8 +18,8 @@ internal static class PlanningContractCompatibility
     private static bool Fits(JsonObject actual, JsonObject expected, JsonObject sourceRoot, JsonObject targetRoot, int depth, ProofWork work)
     {
         if (depth > 32 || --work.Remaining < 0) return false;
-        if (GroundedTypes.IsOpaque(expected)) return true;
-        if (GroundedTypes.IsOpaque(actual)) return expected.Count == 0;
+        if (PlanningContractShapes.IsOpaque(expected)) return true;
+        if (PlanningContractShapes.IsOpaque(actual)) return expected.Count == 0;
         // Only existing set/structured-fallback runtime assertions may establish
         // unresolved computation values. Explicit producer opacity is never narrowed.
         if (work.AllowUnresolved && actual.Count == 0) return true;
@@ -43,6 +43,17 @@ internal static class PlanningContractCompatibility
         }
         if (actual["type"] is JsonArray sourceUnion)
             return sourceUnion.All(type => { var branch = actual.DeepClone().AsObject(); branch["type"] = type!.DeepClone(); return Fits(branch, expected, sourceRoot, targetRoot, depth + 1, work); });
+        if (expected["if"] is JsonObject condition)
+        {
+            var siblings = expected.DeepClone().AsObject(); siblings.Remove("if"); siblings.Remove("then"); siblings.Remove("else");
+            if (!Fits(actual, siblings, sourceRoot, targetRoot, depth + 1, work)) return false;
+            if (Fits(actual, condition, sourceRoot, targetRoot, depth + 1, work))
+                return FitsNode(actual, expected["then"], sourceRoot, targetRoot, depth + 1, work);
+            if (Disjoint(actual, condition, sourceRoot, targetRoot, depth + 1, work))
+                return FitsNode(actual, expected["else"], sourceRoot, targetRoot, depth + 1, work);
+            return FitsNode(actual, expected["then"], sourceRoot, targetRoot, depth + 1, work) &&
+                FitsNode(actual, expected["else"], sourceRoot, targetRoot, depth + 1, work);
+        }
         if (expected["allOf"] is JsonArray targetParts)
         {
             var siblings = expected.DeepClone().AsObject(); siblings.Remove("allOf");

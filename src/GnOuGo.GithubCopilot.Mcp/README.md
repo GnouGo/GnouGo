@@ -41,6 +41,34 @@ additional external read operation. Legacy results deserialize with an empty lis
 
 Git repository workflows are provided by the separate `GnOuGo.Git.Mcp` tool.
 
+## Typed attachments (breaking contract)
+
+`copilot_session_send`, `copilot_one_shot` and `copilot_interactive_one_shot` accept
+`attachments`, an optional array of closed objects. `attachmentsJson` has been removed
+and is explicitly rejected. Omission, null and `[]` mean no attachments.
+
+```json
+{"attachments":[{"type":"file","path":"docs/design.md"},{"type":"blob","content":"aGVsbG8=","path":"note.txt","mimeType":"text/plain"}]}
+```
+
+File paths must be nonblank; files must exist inside the approved project and remain
+subject to read permissions and sandbox policy. Blob content must be base64. Blob
+`path` is an optional display name; omitted/null `mimeType` retains
+`application/octet-stream`. Unknown kinds, extra fields, null items, encoded JSON
+strings and arbitrary context objects are invalid. Syntax validation runs before
+session creation/sending and returns sanitized `INVALID_INPUT` locations. Discovery
+publishes the same types and constraints; it does not grant filesystem access.
+
+Put business context (such as a review URL and instructions) in `prompt`, never in
+attachments. Deploy the updated MCP, refresh discovery, then explicitly revise or
+regenerate and approve affected workflows. Saved executions and approvals are not
+rewritten or restarted. Attachment validation does not prove that a task will complete.
+
+Natural-language allowlist entries such as “install dependencies” or “run tests” do
+not grant command execution. Use the declared permission mechanism for the requested
+work; do not substitute `approve_all`. Sandbox restrictions, including dependency
+download restrictions, remain unchanged.
+
 ## Workspace path policy
 
 Code and Copilot `projectRoot` and file paths may target normal visible content below the configured workspace. The `.GnOuGo/` subtree is reserved for GnOuGo-managed state and is rejected. Recursive project summaries, searches, and session file discovery omit that reserved tree. Tools taking `projectRoot` advertise a required `workspace.directory` consumer contract and accept the exact validated workspace-relative value returned by any compatible MCP producer; they do not depend on a particular producer tool.
@@ -127,8 +155,7 @@ permission callbacks are installed on resume; active MCP context is captured per
 Commands retain existing CLI sandbox and Core HITL settings; filesystem routing alone
 does not contain shell commands.
 
-Legacy Copilot calls accept optional `tenantId`, or use `_meta.gnougo.tenantId` like the
-managed tools. Agentic execution defaults to interactive permission requests and fails
+Tenant-scoped calls require transport metadata `_meta.gnougo.tenantId`. Business tools no longer accept `tenantId`; there is no environment, activity or default-tenant fallback for ownership. Bounded task envelopes must match the transport tenant. Standalone callers must send metadata; Agent.Server supplies the execution owner. Refresh discovery and revise/regenerate workflows using the removed argument; do not turn tenant identity into a workflow input. Agentic execution defaults to interactive permission requests and fails
 closed when human input is unavailable. Broad approval is disabled in shipped defaults.
 `code_agent_edit` additionally exposes Core's `toolExecutions` observations.
 This lets Copilot edit files directly through the MCP process while still enforcing the same project policy as manual file writes:
@@ -197,3 +224,66 @@ The opt-in [controlled editing fixture](../../tests/GnOuGo.GithubCopilot.E2E.Tes
 runs both legacy and managed MCP entry points with a real model, bounded allow-once
 elicitation, failing/passing Python tests, SDK command receipts, reconnect, and refusal.
 It supports the published Native AOT binary and performs no remote publication.
+
+## Bounded Flow tasks (schema 9)
+
+`GnOuGo.Flow.Copilot` uses `copilot_task_contract`, `copilot_task_validate`,
+`copilot_task_run` and `copilot_task_inspect`. These adapter operations are hidden
+from general workflow capability discovery; planners select the registered
+`agent.run` contract instead. Each task uses the existing managed session lifecycle.
+
+Task scope, intent, cumulative inference reservations and final receipts are stored
+through encrypted KeyVault record APIs. An invocation is never dispatched twice.
+After a process crash, inspection returns a saved receipt or `needs_reconciliation`;
+it does not promise restoration of the SDK session. Cross-process ownership uses
+workspace-resolved owner files, so all hosts sharing the record store must share
+the same workspace owner directory.
+
+`copilot_task_contract` reads validated device policy through the existing SDK without
+creating a session or sending a prompt. Its schema omits `command.execute` and
+`command.exit` when mandatory policy is absent, invalid or unreadable, or host writes
+are disabled. File capabilities retain their existing policy. Discovery snapshots
+are versioned; refresh discovery after an administrator changes policy. Configured
+policy is not proof of working session enforcement: task validation rechecks policy
+and session preparation still probes actual enforcement before inference.
+
+Project tools retain the existing filesystem and permission policies. Adaptive
+commands require a mandatory, available Copilot sandbox: managed `sandbox.enabled`
+and `sandbox.failIfUnavailable` must both be enabled. The task disables sandbox
+bypass, outbound/local networking and Git/GitHub credential grants. It retains
+host-defined sandbox read-only access and allows writes in the task workspace.
+The adapter reads device policy through the SDK, enables managed policy and injects
+a restrictive bypass-permissions setting on creation and resume. Authentication
+stays on the existing client configuration, preserving BYOK providers; per-session
+GitHub tokens conflict with BYOK in runtime 1.0.88. No credentials are passed to
+task commands. Missing policy, invalid policy and unavailable enforcement fail
+before the task prompt is dispatched. See the [upstream managed
+sandbox policy](https://docs.github.com/en/copilot/reference/enterprise-administrators/enterprise-managed-settings).
+
+Inference retains the configured policy proxy. Supported text HTTP protocols have
+explicit output ceilings and conservative, non-refundable token reservations;
+opaque prior-conversation references, multimodal requests and unaccounted WebSockets
+are rejected. Receipts label reservations `reserved_upper_bound`.
+
+Terminal preparation failures carry an optional safe `failure` alongside the existing
+result/receipt fields. Codes distinguish `AGENT_ISOLATION_REQUIRED`,
+`AGENT_ISOLATION_POLICY_INVALID`, `AGENT_ISOLATION_UNAVAILABLE` and
+`AGENT_PREPARATION_FAILED`. These messages come from known host conditions, never
+assistant output or arbitrary exception bodies. Unknown external outcomes still
+require reconciliation. Update the MCP and Flow runtime together; old receipts remain
+readable, but older strict readers may reject the additive failure field.
+
+Verification evidence comes from SDK tool events and controlled file reads. Exact
+command subjects include the final exit code and retained attempt history; earlier
+failed tests are not erased. A test before a later file edit or non-verification
+command cannot establish final success. File evidence includes an SHA-256 digest of
+the observed UTF-8 content and whether it changed during this invocation. Required
+verification commands must themselves be suitable checks of the task outcome.
+
+```sh
+dotnet test tests/GnOuGo.GithubCopilot.Core.Tests
+dotnet test tests/GnOuGo.GithubCopilot.Mcp.Tests
+dotnet test tests/GnOuGo.Flow.Copilot.Tests
+```
+
+Agent budget stops retain safe admission diagnostics and execution observations. Only verified cessation permits a terminal failure and cleanup; unknown outcomes require explicit reconciliation. See [budget stops and recovery](../../docs/agent-budget-interruptions.md).

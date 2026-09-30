@@ -12,7 +12,7 @@ public sealed class PlanningRequest
     public string SessionId { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "generated";
     public string Prompt { get; set; } = "";
-    public SemanticPlan? Baseline { get; set; }
+    public TaskPlan? Baseline { get; set; }
     public string? RevisionContext { get; set; }
     public JsonObject? FailureEvidence { get; set; }
     public JsonObject Options { get; set; } = new();
@@ -44,41 +44,38 @@ public static class PlanningStatus
     public const string Created = "created", Generating = "generating", Clarification = "clarification",
         FinalReview = "final_review", Approved = "approved", Saving = "saving", Saved = "saved",
         Stopped = "stopped", Failed = "failed", Cancelled = "cancelled";
-    public const string WaitingForDecision = "waiting_for_decision";
-    public static bool IsWaiting(string status) => status is Clarification or FinalReview or WaitingForDecision;
+    public static bool IsWaiting(string status) => status is Clarification or FinalReview;
     public static bool IsTerminal(string status) => status is Approved or Saved or Stopped or Failed or Cancelled;
 }
 
 public sealed class PlanningCommand
 {
     public string? Mode { get; set; }
-    public PlanningDecisionAnswer? DecisionAnswer { get; set; }
     public string Kind { get; set; } = "advance";
     public long ExpectedRevision { get; set; }
     public string? ArtifactHash { get; set; }
     public string? Text { get; set; }
-    public JsonObject? Answers { get; set; }
+    public JsonObject? Selections { get; set; }
     public PlanningGenerationOptions? Generation { get; set; }
 }
 
 /// <summary>The sole durable state. Hosts encrypt its content and use optimistic revisions.</summary>
 public sealed class PlanningSession
 {
-    public IReadOnlyList<PlanningQuestion> GetQuestions() => PendingRepair?.Questions ?? SemanticPlan?.Questions ?? [];
+    public IReadOnlyList<PlanningChoice> GetChoices() => Plan?.Choices ?? [];
     public string? ComputeArtifactHash() => Yaml is null ? null : Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(new JsonObject
     {
-        ["yaml"] = Yaml,
-        ["groundedPlan"] = JsonSerializer.SerializeToNode(GroundedPlan, PlanningJsonContext.Default.GroundedPlan),
-        ["semanticPlan"] = JsonSerializer.SerializeToNode(SemanticPlan, PlanningJsonContext.Default.SemanticPlan),
-        ["grounding"] = JsonSerializer.SerializeToNode(Grounding, PlanningJsonContext.Default.CapabilityGrounding),
+        ["schemaVersion"] = SchemaVersion, ["yaml"] = Yaml,
+        ["requirements"] = JsonSerializer.SerializeToNode(Requirements, PlanningJsonContext.Default.PlanningRequirements),
+        ["taskPlan"] = JsonSerializer.SerializeToNode(Plan, PlanningJsonContext.Default.TaskPlan),
         ["graph"] = JsonSerializer.SerializeToNode(Graph, PlanningJsonContext.Default.PlanningGraph),
         ["catalog"] = JsonSerializer.SerializeToNode(Catalog, PlanningJsonContext.Default.PlanningCatalog),
-        ["diagnostics"] = JsonSerializer.SerializeToNode(Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic),
-        ["scenarios"] = JsonSerializer.SerializeToNode(Scenarios, PlanningJsonContext.Default.ListPlanningScenarioResult),
-        ["fixtures"] = JsonSerializer.SerializeToNode(Fixtures, PlanningJsonContext.Default.PlanningFixtures)
+        ["maxModelCalls"] = Request.MaxModelCalls, ["maxReplanAttempts"] = Request.MaxReplanAttempts,
+        ["options"] = Request.Options.DeepClone(),
+        ["diagnostics"] = JsonSerializer.SerializeToNode(Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)
     }.ToJsonString())));
 
-    public int SchemaVersion { get; set; } = 8;
+    public int SchemaVersion { get; set; } = 10;
     public PlanningRequest Request { get; set; } = new();
     public long Revision { get; set; }
     public string Status { get; set; } = PlanningStatus.Created;
@@ -87,22 +84,14 @@ public sealed class PlanningSession
     public double ActiveMilliseconds { get; set; }
     public double HumanWaitMilliseconds { get; set; }
     public PlanningCatalog? Catalog { get; set; }
-    public GroundedPlan? GroundedPlan { get; set; }
-    public SemanticPlan? SemanticPlan { get; set; }
-    public CapabilityGrounding? Grounding { get; set; }
-    public GroundedBindingProgress? BindingProgress { get; set; }
-    public string Phase { get; set; } = PlanningPhase.Semantic;
+    public PlanningRequirements? Requirements { get; set; }
+    public CapabilityDiscoveryState Discovery { get; set; } = new();
+    public List<string> RevisionScope { get; set; } = [];
+    public string Phase { get; set; } = PlanningPhase.Requirements;
+    public TaskPlan? Plan { get; set; }
     public PlanningGraph? Graph { get; set; }
     public List<PlanningDiagnostic> Diagnostics { get; set; } = [];
-    public List<PlanningScenarioResult> Scenarios { get; set; } = [];
-    public PlanningFixtures? Fixtures { get; set; }
-    public List<PlanningAnswer> Answers { get; set; } = [];
-    public PlanningDecision? PendingDecision { get; set; }
-    public PlanningDecisionContinuation? DecisionContinuation { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PlanningRepairCheckpoint? PendingRepair { get; set; }
-    public List<PlanningDecisionRecord> Decisions { get; set; } = [];
-    public int ClarificationRounds { get; set; }
+    public List<PlanningValidationResult> ValidationResults { get; set; } = [];
     public int ReplanAttempts { get; set; }
     public int ModelCalls { get; set; }
     public PlanningModelCall? PendingCall { get; set; }
@@ -116,7 +105,7 @@ public sealed class PlanningSession
 public sealed class PlanningModelCall
 {
     public string Id { get; set; } = "";
-    public string Purpose { get; set; } = "semantic";
+    public string Purpose { get; set; } = "tasks";
     public LLMRequest Request { get; set; } = new();
 }
 
@@ -141,6 +130,9 @@ public sealed class PlanningCapability
     public JsonObject FixedInput { get; set; } = new();
     public List<PlanningLiteralBinding> RequestBindings { get; set; } = [];
     public string EffectKind { get; set; } = "unknown";
+    public string Version { get; set; } = "";
+    public PlanningOperation? Operation { get; set; }
+    public McpCapabilityComposition? Composition { get; set; }
     public McpArtifactContract? ArtifactContract { get; set; }
     public JsonNode? Metadata { get; set; }
     public JsonNode? ExampleResponse { get; set; }
@@ -148,12 +140,8 @@ public sealed class PlanningCapability
 
 public sealed record PlanningLiteralBinding(string Path, JsonNode? Value);
 public sealed record PlanningBinding(string Id, string WorkflowKey, PlanningValue Value, JsonObject Schema, string Availability);
-public sealed record PlanningAnswer(string Question, JsonObject Answers);
 public sealed record PlanningDiagnostic(string Code, string Location, string Message, bool Required = true, string? ValidationStage = null, string? Rule = null)
 {
-    // Omit absent additions so existing artifact hashes and schema-8 histories remain stable.
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PlanningComputationContext? Computation { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PlanningPrerequisiteContext? Prerequisite { get; init; }
 }
@@ -161,22 +149,9 @@ public sealed record PlanningDiagnostic(string Code, string Location, string Mes
 public sealed record PlanningPrerequisiteContext(string Kind, string Description, string? Output = null,
     string? ConsumerCapability = null, string? ContractPath = null, string? RootActionId = null);
 
-/// <summary>A proposed semantic repair, saved separately from the accepted planning state.</summary>
-public sealed class PlanningRepairCheckpoint
-{
-    public string InputHash { get; set; } = "";
-    public string CandidateHash { get; set; } = "";
-    public List<string> ActionIds { get; set; } = [];
-    public SemanticPlan Candidate { get; set; } = new();
-    public List<PlanningQuestion> Questions { get; set; } = [];
-    public JsonObject? Answers { get; set; }
-}
-public sealed record PlanningComputationContext(string Expression, string Limitation, JsonObject ReceiverContract,
-    JsonObject ParameterContracts, string? OriginExpression = null, string? ProducerLocation = null);
-public sealed record PlanningScenarioResult(string Id, string Outcome, string Description, List<PlanningDiagnostic> Diagnostics);
+public sealed record PlanningValidationResult(string Id, string Outcome, string Description, List<PlanningDiagnostic> Diagnostics);
 public sealed record PlanningArtifactBinding(string Workflow, string Step, string CapabilityId);
 public sealed record PlanningArtifactValidationRequest(string Yaml, PlanningRequest Request, PlanningCatalog Catalog, IReadOnlyList<PlanningArtifactBinding> Bindings);
-public sealed record PlanningScenarioValidationRequest(string Yaml, PlanningCatalog Catalog, JsonObject? Inputs, JsonObject LoopItemSchemas, JsonObject Observations);
 
 public interface IWorkflowPlanner
 {
@@ -185,10 +160,10 @@ public interface IWorkflowPlanner
 
 public interface IPlanningRuntime
 {
+    ICapabilityCatalog Capabilities { get; }
     Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct);
     Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct);
     Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct);
-    Task<IReadOnlyList<PlanningScenarioResult>> ValidateScenariosAsync(PlanningScenarioValidationRequest request, CancellationToken ct);
     Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct);
     Task CheckpointAsync(PlanningSession session, CancellationToken ct);
 }
@@ -203,28 +178,26 @@ public interface IPlanningSessionStore
 public sealed class PlanningConflictException(string message) : InvalidOperationException(message);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, AllowOutOfOrderMetadataProperties = true)]
+[JsonSerializable(typeof(TaskPlan))]
+[JsonSerializable(typeof(PlanTask))]
+[JsonSerializable(typeof(TaskValue))]
+[JsonSerializable(typeof(TaskType))]
+[JsonSerializable(typeof(PlanningChoice))]
+[JsonSerializable(typeof(PlanningOperation))]
 [JsonSerializable(typeof(PlanningSession))]
+[JsonSerializable(typeof(PlanningRequirements))]
+[JsonSerializable(typeof(CapabilityDiscoveryState))]
+[JsonSerializable(typeof(CapabilityPage))]
+[JsonSerializable(typeof(CapabilitySummary))]
+[JsonSerializable(typeof(List<CapabilitySource>))]
+[JsonSerializable(typeof(PlanningProposal))]
 [JsonSerializable(typeof(PlanningPrerequisiteContext))]
-[JsonSerializable(typeof(PlanningRepairCheckpoint))]
 [JsonSerializable(typeof(List<PlanningSession>))]
 [JsonSerializable(typeof(PlanningRequest))]
 [JsonSerializable(typeof(PlanningCommand))]
-[JsonSerializable(typeof(PlanningDecision))]
-[JsonSerializable(typeof(PlanningDecisionAnswer))]
 [JsonSerializable(typeof(PlanningGenerationOptions))]
 [JsonSerializable(typeof(PlanningCatalog))]
 [JsonSerializable(typeof(PlanningCapability))]
-[JsonSerializable(typeof(GroundedPlan))]
-[JsonSerializable(typeof(SemanticPlan))]
-[JsonSerializable(typeof(SemanticAction))]
-[JsonSerializable(typeof(CapabilityGrounding))]
-[JsonSerializable(typeof(GroundingPageResult))]
-[JsonSerializable(typeof(GroundedOperation))]
-[JsonSerializable(typeof(GroundedValue))]
-[JsonSerializable(typeof(BusinessType))]
-[JsonSerializable(typeof(GroundedInput))]
-[JsonSerializable(typeof(GroundedOutput))]
-[JsonSerializable(typeof(PlanningFixtures))]
 [JsonSerializable(typeof(PlanningGraph))]
 [JsonSerializable(typeof(PlanningWorkflow))]
 [JsonSerializable(typeof(PlanningNode))]

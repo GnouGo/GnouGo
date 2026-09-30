@@ -1,0 +1,1611 @@
+{
+  "capabilities": [
+    {
+      "id": "cap_9b6a3f4c1fab83fa518d4b62",
+      "description": "",
+      "stepType": "mcp.call",
+      "server": "retained-source",
+      "method": "operation-0",
+      "kind": "tool",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "Review comment text"
+          },
+          "commitID": {
+            "type": "string",
+            "description": "SHA of commit to review"
+          },
+          "event": {
+            "type": "string",
+            "description": "Review action to perform.",
+            "enum": [
+              "APPROVE",
+              "REQUEST_CHANGES",
+              "COMMENT"
+            ]
+          },
+          "method": {
+            "type": "string",
+            "description": "The write operation to perform on pull request review.",
+            "enum": [
+              "create",
+              "submit_pending",
+              "delete_pending",
+              "resolve_thread",
+              "unresolve_thread"
+            ]
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner",
+            "x-mcp-header": "owner"
+          },
+          "pullNumber": {
+            "type": "number",
+            "description": "Pull request number"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name",
+            "x-mcp-header": "repo"
+          },
+          "threadId": {
+            "type": "string",
+            "description": "The node ID of the review thread (e.g., PRRT_kwDOxxx). Required for resolve_thread and unresolve_thread methods. Get thread IDs from pull_request_read with method get_review_comments."
+          }
+        },
+        "required": [
+          "method",
+          "owner",
+          "repo",
+          "pullNumber"
+        ]
+      },
+      "outputSchema": {},
+      "fixedInput": {},
+      "requestBindings": [],
+      "effectKind": "unknown",
+      "version": "retained-v1",
+      "operation": null,
+      "composition": null,
+      "artifactContract": null,
+      "metadata": null,
+      "exampleResponse": null
+    },
+    {
+      "id": "cap_0c45707eabb02da3b0885cf0",
+      "description": "",
+      "stepType": "mcp.call",
+      "server": "retained-source",
+      "method": "operation-1",
+      "kind": "tool",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The text of the review comment"
+          },
+          "line": {
+            "type": "number",
+            "description": "The line of the blob in the pull request diff that the comment applies to. For multi-line comments, the last line of the range"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner",
+            "x-mcp-header": "owner"
+          },
+          "path": {
+            "type": "string",
+            "description": "The relative path to the file that necessitates a comment"
+          },
+          "pullNumber": {
+            "type": "number",
+            "description": "Pull request number"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name",
+            "x-mcp-header": "repo"
+          },
+          "side": {
+            "type": "string",
+            "description": "The side of the diff to comment on. LEFT indicates the previous state, RIGHT indicates the new state",
+            "enum": [
+              "LEFT",
+              "RIGHT"
+            ]
+          },
+          "startLine": {
+            "type": "number",
+            "description": "For multi-line comments, the first line of the range that the comment applies to"
+          },
+          "startSide": {
+            "type": "string",
+            "description": "For multi-line comments, the starting side of the diff that the comment applies to. LEFT indicates the previous state, RIGHT indicates the new state",
+            "enum": [
+              "LEFT",
+              "RIGHT"
+            ]
+          },
+          "subjectType": {
+            "type": "string",
+            "description": "The level at which the comment is targeted",
+            "enum": [
+              "FILE",
+              "LINE"
+            ]
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pullNumber",
+          "path",
+          "body",
+          "subjectType"
+        ]
+      },
+      "outputSchema": {},
+      "fixedInput": {},
+      "requestBindings": [],
+      "effectKind": "unknown",
+      "version": "retained-v1",
+      "operation": null,
+      "composition": null,
+      "artifactContract": null,
+      "metadata": null,
+      "exampleResponse": null
+    },
+    {
+      "id": "cap_5c01f9aa688163d23a30ff8b",
+      "description": "",
+      "stepType": "mcp.call",
+      "server": "retained-source",
+      "method": "operation-2",
+      "kind": "tool",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "commandName": {
+            "description": "Allowlisted command alias to execute.",
+            "type": "string",
+            "enum": [
+              "cat_file",
+              "create_directory",
+              "delete_directory",
+              "delete_file",
+              "dotnet_build",
+              "dotnet_restore",
+              "dotnet_test",
+              "env",
+              "find_files",
+              "grep_recursive",
+              "head_file",
+              "list_relative_path",
+              "list_root",
+              "os_info",
+              "pnpm_install",
+              "pnpm_run",
+              "print_working_directory",
+              "rm",
+              "tail_file",
+              "tree",
+              "wc",
+              "which",
+              "write_file",
+              "write_markdown_file"
+            ]
+          },
+          "parametersJson": {
+            "description": "Optional JSON object string of named parameters, for example {\"path\":\"src\"}.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "timeoutMs": {
+            "description": "Optional timeout override in milliseconds. It will be clamped by the server policy.",
+            "type": [
+              "integer",
+              "null"
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "commandName"
+        ],
+        "oneOf": [
+          {
+            "description": "Print the contents of a file inside the default writable workspace. Parameters: path (required, workspace path, file, Relative file path to read inside the writable workspace.).",
+            "properties": {
+              "commandName": {
+                "const": "cat_file"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Create a subdirectory inside the default writable workspace and return its resolved path. Parameters: path (required, workspace path, directory, Relative directory path to create inside the writable workspace.).",
+            "properties": {
+              "commandName": {
+                "const": "create_directory"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Delete an existing subdirectory recursively inside the default writable workspace and return its resolved path. Parameters: path (required, workspace path, directory, Relative directory path to delete recursively inside the writable workspace.).",
+            "properties": {
+              "commandName": {
+                "const": "delete_directory"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Delete a file inside the default writable workspace. Parameters: path (required, workspace path, file, Relative file path to delete inside the writable workspace.).",
+            "properties": {
+              "commandName": {
+                "const": "delete_file"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Build a .NET project or solution in the default writable workspace. Parameters: path (optional, workspace path, file, Relative path to the .csproj or .sln file to build.).",
+            "properties": {
+              "commandName": {
+                "const": "dotnet_build"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Restore NuGet packages for a .NET project or solution in the default writable workspace. Parameters: path (optional, workspace path, file, Relative path to the .csproj or .sln file to restore.).",
+            "properties": {
+              "commandName": {
+                "const": "dotnet_restore"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Run tests for a .NET project or solution in the default writable workspace. Parameters: path (optional, workspace path, file, Relative path to the test .csproj or .sln file.).",
+            "properties": {
+              "commandName": {
+                "const": "dotnet_test"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Print the current environment variables (filtered to the allow list). Parameters: none; omit parametersJson.",
+            "properties": {
+              "commandName": {
+                "const": "env"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Find files by name pattern in the default writable workspace. Parameters: pattern (required, File name pattern (e.g. *.cs, *.csproj).).",
+            "properties": {
+              "commandName": {
+                "const": "find_files"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Search for a text pattern recursively in the default writable workspace. Parameters: glob (optional, File glob pattern to filter (e.g. *.cs, *.json).); pattern (required, Text or regex pattern to search for.).",
+            "properties": {
+              "commandName": {
+                "const": "grep_recursive"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Print the first N lines of a file in the writable workspace. Parameters: lines (optional, Number of lines to print (default 50).); path (required, workspace path, file, Relative file path to read.).",
+            "properties": {
+              "commandName": {
+                "const": "head_file"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "List the contents of a relative path located inside the default writable workspace. Parameters: path (required, workspace path, any, Relative path to inspect inside the writable workspace.).",
+            "properties": {
+              "commandName": {
+                "const": "list_relative_path"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "List top-level entries in the default writable workspace. Parameters: none; omit parametersJson.",
+            "properties": {
+              "commandName": {
+                "const": "list_root"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Display OS and architecture information. Parameters: none; omit parametersJson.",
+            "properties": {
+              "commandName": {
+                "const": "os_info"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Install Node.js dependencies using pnpm in the default writable workspace. Parameters: none; omit parametersJson.",
+            "properties": {
+              "commandName": {
+                "const": "pnpm_install"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Run a pnpm script in the default writable workspace. Parameters: script (required, Name of the npm script to run.).",
+            "properties": {
+              "commandName": {
+                "const": "pnpm_run"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Print the current working directory of the default writable workspace. Parameters: none; omit parametersJson.",
+            "properties": {
+              "commandName": {
+                "const": "print_working_directory"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Remove a file or directory recursively inside the default writable workspace. Parameters: path (required, workspace path, any, Relative path to remove inside the writable workspace.).",
+            "properties": {
+              "commandName": {
+                "const": "rm"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Print the last N lines of a file in the writable workspace. Parameters: lines (optional, Number of lines to print (default 50).); path (required, workspace path, file, Relative file path to read.).",
+            "properties": {
+              "commandName": {
+                "const": "tail_file"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Display the directory tree structure of a relative path in the writable workspace. Parameters: depth (optional, Max directory depth (default 3).); path (optional, workspace path, any, Relative path to inspect.).",
+            "properties": {
+              "commandName": {
+                "const": "tree"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Count lines, words, and characters of a file in the writable workspace. Parameters: path (required, workspace path, file, Relative file path.).",
+            "properties": {
+              "commandName": {
+                "const": "wc"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Locate an executable on the PATH. Parameters: name (required, Name of the executable to locate.).",
+            "properties": {
+              "commandName": {
+                "const": "which"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Create or overwrite any text file inside the default writable workspace. The content must be provided as UTF-8 base64. Parameters: contentBase64 (required, File content encoded as UTF-8 base64.); path (required, workspace path, file, Relative file path to create inside the writable workspace.).",
+            "properties": {
+              "commandName": {
+                "const": "write_file"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          },
+          {
+            "description": "Create or overwrite a Markdown file inside the default writable workspace. The content must be provided as UTF-8 base64. Parameters: contentBase64 (required, Markdown content encoded as UTF-8 base64.); path (required, workspace path, file, Relative .md file path to create inside the writable workspace.).",
+            "properties": {
+              "commandName": {
+                "const": "write_markdown_file"
+              }
+            },
+            "required": [
+              "commandName"
+            ]
+          }
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "commandName": {
+            "type": "string"
+          },
+          "shell": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workingDirectory": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "exitCode": {
+            "type": "integer"
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "timedOut": {
+            "type": "boolean"
+          },
+          "stdout": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stderr": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outputTruncated": {
+            "type": "boolean"
+          },
+          "startedAtUtc": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "finishedAtUtc": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "durationMs": {
+            "type": "number"
+          },
+          "error_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "error_message": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "workingDirectoryRelative": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": null
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "commandName",
+          "shell",
+          "workingDirectory",
+          "exitCode",
+          "success",
+          "timedOut",
+          "stdout",
+          "stderr",
+          "outputTruncated",
+          "startedAtUtc",
+          "finishedAtUtc",
+          "durationMs"
+        ]
+      },
+      "fixedInput": {},
+      "requestBindings": [],
+      "effectKind": "unknown",
+      "version": "retained-v1",
+      "operation": null,
+      "composition": null,
+      "artifactContract": null,
+      "metadata": null,
+      "exampleResponse": null
+    }
+  ],
+  "allowedStepTypes": [
+    "agent.run",
+    "array.project",
+    "assert.non_null",
+    "decision.evaluate",
+    "emit",
+    "human.input",
+    "llm.call",
+    "loop.parallel",
+    "loop.sequential",
+    "mcp.call",
+    "number.add",
+    "number.default",
+    "number.multiply",
+    "parallel",
+    "sequence",
+    "set",
+    "switch",
+    "template.render",
+    "value.project",
+    "value.validate",
+    "workflow.call"
+  ],
+  "stepContracts": {
+    "agent.run": {
+      "input": {
+        "type": "object",
+        "required": [
+          "runner",
+          "objective",
+          "output_schema",
+          "workspace",
+          "capabilities",
+          "budget",
+          "verification"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "runner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "objective": {
+            "type": "string",
+            "minLength": 1
+          },
+          "inputs": {
+            "type": "object"
+          },
+          "output_schema": {
+            "type": "object"
+          },
+          "workspace": {
+            "type": "string",
+            "minLength": 1
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "budget": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "max_elapsed_milliseconds",
+              "max_model_calls",
+              "max_total_tokens"
+            ],
+            "properties": {
+              "max_elapsed_milliseconds": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "max_model_calls": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "max_total_tokens": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          "verification": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "kind",
+                "subject",
+                "facts_schema"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "facts_schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "output": {},
+          "evidence": {
+            "type": "array"
+          },
+          "artifacts": {
+            "type": "array"
+          },
+          "usage": {
+            "type": "object"
+          },
+          "verification": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "output",
+          "evidence",
+          "artifacts",
+          "usage",
+          "verification"
+        ]
+      }
+    },
+    "array.project": {
+      "input": {
+        "type": "object",
+        "description": "Select path from every array item, preserving order and duplicates. Requires output_schema for the result object containing values.",
+        "required": [
+          "items",
+          "path"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array"
+          },
+          "path": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "output": {
+        "type": "object",
+        "required": [
+          "values"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "values": {
+            "type": "array"
+          }
+        }
+      }
+    },
+    "assert.non_null": {
+      "input": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "output": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "decision.evaluate": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "decisions": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "decisions"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "emit": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "thinking",
+              "info",
+              "progress",
+              "response"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "message"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "human.input": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "text",
+              "choice",
+              "confirm",
+              "form"
+            ]
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "allow_abandon": {
+            "type": "boolean"
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "x-gnougo-opaque": true
+            }
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "default": {
+                  "x-gnougo-opaque": true
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "x-gnougo-opaque": true
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "name"
+              ]
+            }
+          },
+          "context": {
+            "x-gnougo-opaque": true
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "prompt"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "llm.call": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "system": {
+            "type": "string"
+          },
+          "temperature": {
+            "type": "number"
+          },
+          "reasoning": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "max"
+            ]
+          },
+          "structured_output": {
+            "type": "object",
+            "properties": {
+              "schema_inline": {
+                "x-gnougo-opaque": true
+              },
+              "schema_ref": {
+                "x-gnougo-opaque": true
+              },
+              "strict": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "prompt"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "json": {
+            "x-gnougo-opaque": true
+          },
+          "usage": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "model": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "raw": {
+            "x-gnougo-opaque": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "loop.parallel": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "x-gnougo-opaque": true
+            }
+          },
+          "max_concurrency": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "x-gnougo-opaque": true
+            }
+          },
+          "count": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "loop.sequential": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "x-gnougo-opaque": true
+            }
+          },
+          "over": {
+            "type": "array",
+            "items": {
+              "x-gnougo-opaque": true
+            }
+          },
+          "times": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "while": {
+            "type": "boolean"
+          },
+          "max_times": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "x-gnougo-opaque": true
+            }
+          },
+          "count": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "mcp.call": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "server": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "tool",
+              "prompt"
+            ]
+          },
+          "method": {
+            "type": "string"
+          },
+          "methods": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "request": {
+            "x-gnougo-opaque": true
+          },
+          "request_template": {
+            "type": "string"
+          },
+          "template_data": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "context": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "temperature": {
+            "type": "number"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "x-gnougo-opaque": true
+            }
+          },
+          "prompts": {
+            "type": "array",
+            "items": {
+              "x-gnougo-opaque": true
+            }
+          },
+          "structured_output": {
+            "type": "object",
+            "properties": {
+              "schema_inline": {
+                "x-gnougo-opaque": true
+              },
+              "schema_ref": {
+                "x-gnougo-opaque": true
+              },
+              "strict": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "raise_on_error": {
+            "type": "boolean"
+          },
+          "preserve_optional_nulls": {
+            "type": "boolean"
+          },
+          "raiseOnError": {
+            "type": "boolean"
+          },
+          "error_policy": {
+            "type": "object",
+            "properties": {
+              "detect_result_errors": {
+                "type": "boolean"
+              },
+              "detectResultErrors": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "detect_result_errors": {
+            "type": "boolean"
+          },
+          "detectResultErrors": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "server"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "error"
+            ]
+          },
+          "response": {
+            "x-gnougo-opaque": true
+          },
+          "error": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "correlation_id": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "x-gnougo-opaque": true
+            }
+          },
+          "selection_mode": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "selection_text": {
+            "type": "string"
+          },
+          "tool_calls": {
+            "type": "array",
+            "items": {
+              "x-gnougo-opaque": true
+            }
+          },
+          "json": {
+            "x-gnougo-opaque": true
+          },
+          "description": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "x-gnougo-opaque": true
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "number.add": {
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "left",
+          "right"
+        ],
+        "properties": {
+          "left": {
+            "type": "number"
+          },
+          "right": {
+            "type": "number"
+          }
+        },
+        "description": "Add left and right."
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "number.default": {
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "left",
+          "right"
+        ],
+        "properties": {
+          "left": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "right": {
+            "type": "number"
+          }
+        },
+        "description": "Use left when non-null; otherwise use right. Preserves numeric zero."
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "number.multiply": {
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "left",
+          "right"
+        ],
+        "properties": {
+          "left": {
+            "type": "number"
+          },
+          "right": {
+            "type": "number"
+          }
+        },
+        "description": "Multiply left and right."
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "parallel": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "max_concurrency": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "branches": {
+            "type": "array",
+            "items": {
+              "x-gnougo-opaque": true
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "sequence": {
+      "input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "set": {
+      "input": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "output": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "switch": {
+      "input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "template.render": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "engine": {
+            "type": "string",
+            "enum": [
+              "mustache"
+            ]
+          },
+          "template": {
+            "type": "string"
+          },
+          "data": {
+            "x-gnougo-opaque": true
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "text",
+              "json"
+            ]
+          },
+          "strict": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "template"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "json": {
+            "x-gnougo-opaque": true
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "engine": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "value.project": {
+      "input": {
+        "type": "object",
+        "description": "Select the first present property path from value. Explicit null counts as present. Requires output_schema for the result object containing value.",
+        "required": [
+          "value",
+          "paths"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "value": {},
+          "paths": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "output": {
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "value": {}
+        }
+      }
+    },
+    "value.validate": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "x-gnougo-opaque": true
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "json_value",
+              "json_text"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "x-gnougo-opaque": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "workflow.call": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "agent": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "integrity": {
+                "type": "string"
+              },
+              "export": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "args": {
+            "x-gnougo-opaque": true
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "ref"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "outputs": {
+            "x-gnougo-opaque": true
+          },
+          "workflow": {
+            "type": "string"
+          },
+          "run": {
+            "type": "object",
+            "properties": {
+              "steps_executed": {
+                "type": "integer"
+              },
+              "success": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "policy": {
+    "allowedStepTypes": [],
+    "deniedCapabilityIds": [],
+    "requireExternalConfirmation": false,
+    "maxStepsTotal": 300,
+    "instructions": ""
+  }
+}

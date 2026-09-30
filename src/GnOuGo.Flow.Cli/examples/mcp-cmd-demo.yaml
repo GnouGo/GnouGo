@@ -2,9 +2,8 @@ version: 1
 name: mcp-cmd-demo
 meta:
   description: >
-    DÃ©monstration du serveur MCP sÃ©curisÃ© GnOuGo.Cmd.Mcp.
-    Le workflow liste les commandes autorisÃ©es, lit la policy, exÃ©cute
-    quelques alias sÃ»rs et retourne leurs sorties.
+    Demonstrate the filesystem MCP server GnOuGo.Cmd.Mcp.
+    List the configured commands, inspect the policy and read directory listings.
 
     Usage :
       dotnet run --project src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj -- run src/GnOuGo.Flow.Cli/examples/mcp-cmd-demo.yaml
@@ -18,7 +17,7 @@ workflows:
         description: Name of the MCP command server
       relative_path:
         type: string
-        default: src/GnOuGo.Cmd.Mcp
+        default: .
         description: Relative path to list via the command server
 
     steps:
@@ -49,13 +48,13 @@ workflows:
           request:
             commandName: print_working_directory
 
-      - id: list_src
+      - id: list_root
         type: mcp.call
         input:
           server: "${data.inputs.cmd_server}"
           method: cmd_run
           request:
-            commandName: list_src
+            commandName: list_root
 
       - id: list_relative
         type: mcp.call
@@ -64,7 +63,8 @@ workflows:
           method: cmd_run
           request:
             commandName: list_relative_path
-            parametersJson: "${json({ path: data.inputs.relative_path })}"
+            parameters:
+              path: "${data.inputs.relative_path}"
             timeoutMs: 15000
 
     outputs:
@@ -84,13 +84,12 @@ workflows:
         expr: "${data.steps.print_pwd.response}"
         type: object
         description: Current working directory
-      list_src_result:
-        expr: "${data.steps.list_src.response}"
+      list_root_result:
+        expr: "${data.steps.list_root.response}"
         type: object
-        description: Directory listing of src
+        description: Workspace root directory listing
       list_relative_result:
         expr: "${data.steps.list_relative.response}"
         type: object
         description: Relative directory listing
-
 

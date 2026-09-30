@@ -47,5 +47,16 @@ with `McpCapabilityCache.SlidingExpirationSeconds`.
 
 Telemetry is disabled by default. Use `--otlp-endpoint` or the `telemetry` settings
 to export OTLP HTTP traces. Workflow source telemetry is truncated at 64 KiB.
-`--run-id` identifies in-memory workflow checkpoints in this demo runtime; durable
-planning sessions belong to the .NET hosts.
+The local `run` command executes authored YAML without persistence. Its in-memory
+checkpoint option was removed. Durable runs and agent stages belong to schema-9 .NET
+hosts. Control an existing run with the shared tenant-scoped API:
+
+```bash
+gnougo-flow-cli runs --server http://localhost:5000 --tenant default
+gnougo-flow-cli runs --server http://localhost:5000 --tenant default --id RUN_ID
+gnougo-flow-cli runs --server http://localhost:5000 --tenant default --id RUN_ID --command resume --revision 7
+```
+
+`cancel` also requires `--revision`; `reconcile` additionally requires `--invocation`.
+After a transport failure, inspect the current run before retrying. Commands do not
+retry automatically. Old approvals require regeneration and approval with schema 9.

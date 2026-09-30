@@ -53,6 +53,7 @@ public sealed record SmartFlowEvent(
 /// </summary>
 public sealed class SmartFlowService
 {
+    private readonly IWorkflowRunStore? _runStore;
     private readonly PlanningSessionService _planning;
     private readonly ChatPlanningService? _chatPlanning;
     private readonly ILLMClient _llm;
@@ -100,8 +101,10 @@ public sealed class SmartFlowService
         IOptions<OpenTelemetrySettings>? openTelemetrySettings = null,
         LocalModelsService? localModels = null,
         ILLMUsageBudgetScopeFactory? llmUsageBudgetScopeFactory = null,
-        ChatPlanningService? chatPlanning = null)
+        ChatPlanningService? chatPlanning = null,
+        IWorkflowRunStore? runStore = null)
     {
+        _runStore = runStore;
         _planning = planning;
         _chatPlanning = chatPlanning;
         _llm = llm;
@@ -399,10 +402,11 @@ public sealed class SmartFlowService
                 state => channel.Writer.TryWrite(new SmartFlowEvent("planner_session", System.Text.Json.JsonSerializer.Serialize(state, GnOuGo.Agent.Shared.ChatJsonContext.Default.PlanningSessionDto))));
             var engine = new WorkflowEngine
             {
-                WorkflowPlanner = new GnOuGo.Flow.Planning.TypedWorkflowPlanner(),
+                RunStore = _runStore,
+                WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
                 PlanningPolicy = GnOuGo.Agent.Server.Planning.AgentPlanningPolicy.Create(),
                 PlanningRuntimeFactory = (GnOuGo.Flow.Core.Planning.IPlanningRuntimeFactory?)planningBridge ?? GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
-                PlanningDecisionProvider = planningBridge,
+                PlanningInteraction = planningBridge,
                 DefaultPlanningMode = workflowInputs?["planning_mode"]?.GetValue<string>() ?? GnOuGo.Flow.Core.Planning.PlanningMode.Interactive,
                 LLMClient = runtime.LlmClient,
                 ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(runtime.Options),
@@ -431,6 +435,7 @@ public sealed class SmartFlowService
                     TenantId = _tenantId
                 }
             };
+            runtime.ConfigureAgentRunners(engine);
             var inputs = BuildWorkflowInputs(task, selectedAgentName, correlationId, filesIds, workflowInputs);
             var resolvedInputs = WorkflowInputDefaults.Apply(workflow.Source, inputs);
 

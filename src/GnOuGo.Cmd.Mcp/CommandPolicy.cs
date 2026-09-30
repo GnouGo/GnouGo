@@ -149,7 +149,7 @@ public sealed class CommandPolicy
             sb.AppendLine();
         }
 
-        sb.Append("Pass parametersJson as a JSON object string using only the declared parameter names.");
+        sb.Append("Pass parameters as a JSON object with string values using only the declared parameter names.");
         return sb.ToString().TrimEnd();
     }
 
@@ -163,6 +163,9 @@ public sealed class CommandPolicy
             throw new InvalidOperationException("The generated cmd_run input schema must declare commandName.");
         }
 
+        properties["parameters"] = new JsonObject { ["type"] = new JsonArray("object", "null"),
+            ["additionalProperties"] = new JsonObject { ["type"] = new JsonArray("string", "null") },
+            ["description"] = "Declared named string parameters for the selected command." };
         commandName["enum"] = new JsonArray(_settings.AllowedCommands.Keys
             .Order(StringComparer.Ordinal)
             .Select(static name => (JsonNode?)JsonValue.Create(name))
@@ -181,15 +184,44 @@ public sealed class CommandPolicy
                     ["description"] = BuildCommandSelectorDescription(command),
                     ["properties"] = new JsonObject
                     {
-                        ["commandName"] = selector
+                        ["commandName"] = selector,
+                        ["parameters"] = ParameterSchema(command)
                     },
-                    ["required"] = new JsonArray("commandName")
+                    ["required"] = command.Parameters.Values.Any(p => p.Required) ? new JsonArray("commandName", "parameters") : new JsonArray("commandName")
                 };
                 return (JsonNode?)branch;
             })
             .ToArray());
         using var document = JsonDocument.Parse(root.ToJsonString());
         return document.RootElement.Clone();
+    }
+
+    private static JsonObject ParameterSchema(AllowedCommandSettings command)
+    {
+        var properties = new JsonObject();
+        foreach (var (name, settings) in command.Parameters.OrderBy(p => p.Key, StringComparer.Ordinal))
+        {
+            var schema = new JsonObject
+            {
+                ["type"] = settings.Required ? JsonValue.Create("string") : new JsonArray("string", "null"),
+                ["description"] = settings.Description,
+                ["maxLength"] = settings.MaxLength
+            };
+            if (!string.IsNullOrEmpty(settings.Pattern)) schema["pattern"] = settings.Pattern;
+            if (settings.Required)
+            {
+                schema["minLength"] = 1;
+                schema["allOf"] = new JsonArray(new JsonObject { ["pattern"] = @"[\S]" });
+            }
+            properties[name] = schema;
+        }
+        return new()
+        {
+            ["type"] = command.Parameters.Values.Any(p => p.Required) ? JsonValue.Create("object") : new JsonArray("object", "null"),
+            ["properties"] = properties,
+            ["required"] = new JsonArray(command.Parameters.Where(p => p.Value.Required).Select(p => (JsonNode?)JsonValue.Create(p.Key)).ToArray()),
+            ["additionalProperties"] = false
+        };
     }
 
     private static string BuildCommandSelectorDescription(AllowedCommandSettings command)
@@ -234,7 +266,7 @@ public sealed class CommandPolicy
             sb.AppendLine(".");
         }
 
-        sb.Append("For frozen workflow.plan requests, call cmd_run directly with one exact commandName above and pass parametersJson only when the chosen command declares parameters.");
+        sb.Append("For frozen workflow.plan requests, call cmd_run directly with one exact commandName above and pass parameters only when the chosen command declares parameters.");
         return sb.ToString().TrimEnd();
     }
 
@@ -325,6 +357,7 @@ public sealed class CommandPolicy
                 $"Working directory '{candidate}' is outside the allowed roots: {string.Join(", ", allowedRoots)}.");
 
         EnsureOutsideReservedWorkspace(candidate, "Working directory");
+        EnsureNoWorkspaceLinks(candidate, allowedRoots, "Working directory");
 
         // Ensure the directory exists (creates it if possible).
         if (!Directory.Exists(candidate))
@@ -383,7 +416,6 @@ public sealed class CommandPolicy
     public string RenderScript(AllowedCommandSettings command, JsonObject? parameters, string workingDirectory)
     {
         parameters ??= new JsonObject();
-        ApplyLegacyArgsAlias(parameters, command);
         var normalizedParameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var supplied in parameters.Select(kv => kv.Key))
@@ -431,45 +463,11 @@ public sealed class CommandPolicy
         return rendered;
     }
 
-    private static void ApplyLegacyArgsAlias(JsonObject parameters, AllowedCommandSettings command)
-    {
-        if (!parameters.TryGetPropertyValue("args", out var argsNode)
-            || command.Parameters.ContainsKey("args"))
-        {
-            return;
-        }
-
-        // Backward compatibility: some clients send {"args":"<value>"}.
-        // Accept it only when the command declares exactly one non-args parameter.
-        if (command.Parameters.Count != 1)
-        {
-            throw new InvalidOperationException(
-                "Parameter 'args' is not declared for this command. " +
-                "Provide declared parameter names in parametersJson (for example {\"path\":\"...\"}).");
-        }
-
-        var targetParameter = command.Parameters.Keys.Single();
-        if (parameters.ContainsKey(targetParameter))
-            return;
-
-        if (argsNode is null)
-            throw new InvalidOperationException("Parameter 'args' must not be null.");
-
-        if (argsNode is not JsonValue argsValue || !argsValue.TryGetValue<string>(out var legacyValue) || string.IsNullOrWhiteSpace(legacyValue))
-        {
-            throw new InvalidOperationException(
-                "Parameter 'args' must be a non-empty JSON string when used as legacy alias.");
-        }
-
-        parameters[targetParameter] = legacyValue;
-        parameters.Remove("args");
-    }
-
     private static string FormatParametersForDescription(
         Dictionary<string, CommandParameterSettings> parameters)
     {
         if (parameters.Count == 0)
-            return "none; omit parametersJson.";
+            return "none; omit parameters.";
 
         var parts = parameters
             .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
@@ -587,11 +585,34 @@ public sealed class CommandPolicy
         }
 
         EnsureOutsideReservedWorkspace(candidatePath, $"Parameter '{parameterName}'");
+        EnsureNoWorkspaceLinks(candidatePath, allowedRoots, $"Parameter '{parameterName}'");
 
         if (parameterSettings.MustExist)
             EnsureWorkspacePathExists(parameterName, candidatePath, parameterSettings.PathKind);
 
         return candidatePath;
+    }
+
+    // A lexical root check alone permits paths through a workspace symlink or
+    // junction to reach an unauthorized target. Configured roots are trusted;
+    // links below those roots are rejected before any shell is dispatched.
+    private static void EnsureNoWorkspaceLinks(string path, IReadOnlyList<string> roots, string subject)
+    {
+        var root = roots.Where(r => IsPathWithinRoot(path, r)).OrderBy(r => r.Length).First();
+        var relative = Path.GetRelativePath(root, path);
+        if (relative == ".") return;
+        var current = root;
+        foreach (var segment in relative.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            FileAttributes attributes;
+            try { attributes = File.GetAttributes(current); }
+            catch (FileNotFoundException) { break; }
+            catch (DirectoryNotFoundException) { break; }
+            catch (UnauthorizedAccessException ex) { throw new InvalidOperationException($"{subject} cannot be inspected within the workspace.", ex); }
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException($"{subject} must not traverse workspace symbolic links or reparse points.");
+        }
     }
 
     private static void EnsureWorkspacePathExists(string parameterName, string candidatePath, WorkspacePathKind pathKind)

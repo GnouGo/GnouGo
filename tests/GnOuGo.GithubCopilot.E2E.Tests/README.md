@@ -22,7 +22,9 @@ Secrets are decrypted in memory only and are never included in MCP arguments, te
 
 ## Controlled local editing
 
-This separate smoke requires only the configured encrypted model provider and `python3`.
+These opt-in fixtures require the configured encrypted model provider. Command
+fixtures also require `python3`; bounded command execution requires administrator-managed
+mandatory Copilot sandbox enforcement, as described in the [adapter README](../../src/GnOuGo.Flow.Copilot/README.md).
 It creates disposable Python fixtures in the workspace helper's `workflows/e2e` directory.
 The MCP client allows only fixture reads, writes to `calculator.py`, and the exact
 `python3 -m unittest -v` command, each with an explicit allow-once answer. Other requests
@@ -36,6 +38,17 @@ dotnet build src/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp.csproj
 GNOU_GO_LIVE_COPILOT_EDIT=1 \
 dotnet test tests/GnOuGo.GithubCopilot.E2E.Tests/GnOuGo.GithubCopilot.E2E.Tests.csproj \
   --filter FullyQualifiedName~LiveControlledEditingTests --logger 'console;verbosity=normal'
+```
+
+The bounded variants additionally check encrypted receipt reuse, observed verification
+facts and rejected objective expansion. File editing can be checked independently of
+command execution; it uses only the approved project file tools and verifies permission
+refusal. A pass for this variant does not establish a passing edit/test cycle.
+
+```bash
+GNOU_GO_LIVE_COPILOT_EDIT=1 \
+dotnet test tests/GnOuGo.GithubCopilot.E2E.Tests/GnOuGo.GithubCopilot.E2E.Tests.csproj \
+  --filter 'DisplayName~executeTests: False' --logger 'console;verbosity=normal'
 ```
 
 Set `GNOU_GO_COPILOT_SMOKE_PROVIDER` to override the default `OpenAi` configuration name.

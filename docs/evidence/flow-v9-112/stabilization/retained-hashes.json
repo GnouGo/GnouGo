@@ -1,0 +1,9 @@
+{
+  "parent-live.jsonl": "ce070a60c8dd2916ac42dc3323e715da50088e9e172a003504f8bb991505ab51",
+  "retained-pilots.jsonl": "bc14a56bf9a2897ddb8080e61eb942ab824c132ffd5ff77d92a448fc22f3dc82",
+  "candidate-live.jsonl": "16b4fcf0c3abe7810bdea49a74da05ffeabc24729a13ffcd6909e8530d6f4129",
+  "comparison-original.json": "dca84335e36de4ec5d9a96821b6e0d7d4e4d48d62d17b16243ff619a35a63e76",
+  "comparison-audited.json": "a81fd3d0bfcadd99ee027cd65ba76f681814b2f560bc891aaf5d79807aba3bba",
+  "candidate-inconclusive-closure.json": "df70fbfaa3947bb982ae34171b2ca88d091e95cb4f0be776e3dbb2d95cc5459e",
+  "campaign.json": "c1314060497d20ad61c3754f5f8e82f16767adda0e270c773e8869bd9895464d"
+}

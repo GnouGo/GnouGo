@@ -6,12 +6,13 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 from typing import Annotated, Any
+from urllib.error import HTTPError, URLError
 
 import typer
 import yaml
 from gnougo_flow_core import McpCacheHelper, WorkflowCompiler, WorkflowEngine, WorkflowParser
-from gnougo_flow_core.checkpointing import InMemoryWorkflowCheckpointer
 from gnougo_flow_core.models import StepStatus
+from gnougo_flow_core.run_client import WorkflowRunClient
 from gnougo_flow_core.runtime import apply_workflow_input_defaults
 from rich.console import Console
 from rich.table import Table
@@ -135,7 +136,6 @@ async def _run_async(
     settings_file: Path | None,
     llm_mode: str,
     mcp_mode: str,
-    run_id: str | None,
     json_output: bool,
 ) -> int:
     settings = load_settings(settings_file)
@@ -188,10 +188,6 @@ async def _run_async(
 
     engine.human_input_provider = AutoApproveHumanProvider()
     engine.telemetry = OTelWorkflowTelemetry()
-    if run_id:
-        engine.limits.run_id = run_id
-        engine.checkpointer = InMemoryWorkflowCheckpointer()
-
     workflow = compiled.workflows[target]
     merged_inputs = apply_workflow_input_defaults(workflow.source, copy.deepcopy(inputs))
     try:
@@ -201,13 +197,6 @@ async def _run_async(
             await real_factory.aclose()
 
     _print_run_summary(target, result, json_output=json_output)
-    if run_id and engine.checkpointer is not None:
-        checkpoint = await engine.checkpointer.load_async(run_id)
-        if checkpoint is not None and not json_output:
-            console.print(
-                f"\nCheckpoint: run_id={checkpoint.run_id}, "
-                f"next_step_index={checkpoint.next_step_index}, status={checkpoint.status}"
-            )
     return 0 if result.success else 1
 
 
@@ -234,10 +223,6 @@ def run_workflow(
     ] = None,
     llm: Annotated[str, typer.Option("--llm", help="LLM backend: auto | openai | stub")] = "auto",
     mcp: Annotated[str, typer.Option("--mcp", help="MCP backend: auto | real | stub")] = "auto",
-    run_id: Annotated[
-        str | None,
-        typer.Option("--run-id", help="Enable in-memory checkpoint saves for this run id"),
-    ] = None,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Emit machine-readable JSON payload"),
@@ -259,11 +244,46 @@ def run_workflow(
             settings_file,
             llm_mode,
             mcp_mode,
-            run_id,
             json_output,
         )
     )
     raise typer.Exit(code=code)
+
+
+@app.command("runs")
+def workflow_runs(
+    server: Annotated[str, typer.Option(help="Flow host base URL")],
+    tenant: Annotated[str, typer.Option(help="Tenant owning the run")],
+    run_id: Annotated[str | None, typer.Option("--id", help="Run to inspect or command")] = None,
+    command: Annotated[str | None, typer.Option(help="resume | cancel | reconcile")] = None,
+    revision: Annotated[int | None, typer.Option(help="Expected run revision")] = None,
+    invocation: Annotated[str | None, typer.Option(help="Invocation to reconcile")] = None,
+    confirmed_stopped_reason: Annotated[
+        str | None, typer.Option(help="Explicit confirmation of a stopped operation")
+    ] = None,
+) -> None:
+    async def execute():
+        client = WorkflowRunClient(server, tenant)
+        if command is not None:
+            if run_id is None or revision is None:
+                raise ValueError("Commands require --id and --revision.")
+            return await client.command_async(
+                run_id, command, revision, invocation_id=invocation,
+                confirmed_stopped_reason=confirmed_stopped_reason,
+            )
+        if revision is not None or invocation is not None or confirmed_stopped_reason is not None:
+            raise ValueError("Command arguments require --command.")
+        return await client.read_async(run_id) if run_id else await client.list_async()
+
+    try:
+        result = asyncio.run(execute())
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    except (URLError, TimeoutError) as exc:
+        status = f"HTTP {exc.code}" if isinstance(exc, HTTPError) else "transport error"
+        console.print(f"Flow host: {status}. Inspect the run before retrying a command.")
+        raise typer.Exit(code=1) from exc
+    console.print_json(json.dumps(result, ensure_ascii=False))
 
 
 @app.command("validate")
@@ -327,4 +347,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

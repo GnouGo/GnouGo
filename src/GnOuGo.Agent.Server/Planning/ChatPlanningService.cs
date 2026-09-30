@@ -21,15 +21,15 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
     PlanningSessionService designer, IOptions<OpenTelemetrySettings> telemetry, IHostApplicationLifetime lifetime, ILogger<ChatPlanningService> logger)
 {
     private readonly IKeyVaultRecordStore _records = records;
-    private const string Origins = "agent-chat-planning-origins-v1";
-    private const string Sessions = "flow-planning-sessions-v8";
+    private const string Origins = "agent-chat-planning-origins-v2";
+    private const string Sessions = "flow-planning-sessions-v10";
     private const string Author = "GnOuGo.Agent.Server.Planning";
     private string Tenant => WorkflowExecutionTenant.Resolve(telemetry);
     private readonly ConcurrentDictionary<string, Waiter> _waiting = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, byte> _owners = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, Task<PlanningSession>> _recoveries = new(StringComparer.Ordinal);
-    private WorkflowPlanningRuntimeFactory Factory() => new(_records, GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/flow-planning-v8/leases"));
+    private WorkflowPlanningRuntimeFactory Factory() => new(_records, GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/flow-planning-v10/leases"));
 
     public Bridge Attach(string conversationId, Action<PlanningSessionDto> changed) => new(this, conversationId, changed);
 
@@ -93,7 +93,7 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
     public async Task<PlanningSessionDto> SubmitAsync(string conversationId, string id, PlanningCommand command, CancellationToken ct)
     {
         // Planner-only transport cannot approve or execute a workflow.
-        if (command.Kind is not ("answer_decision" or "answer" or "configure_mode" or "cancel")) throw new ArgumentException("Unsupported chat planning command.");
+        if (command.Kind is not ("choose" or "configure_mode" or "cancel")) throw new ArgumentException("Unsupported chat planning command.");
         var origin = await OriginAsync(conversationId, id, ct);
         if (!origin.Workflow) return PlanningEndpoints.ToDto(await designer.SubmitAsync(id, command, ct));
         var gate = _gates.GetOrAdd(id, _ => new(1, 1));
@@ -103,7 +103,7 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
             if (_waiting.TryGetValue(id, out var waiter))
             {
                 // Validate without mutation before handing the command to the live workflow owner.
-                await new TypedWorkflowPlanner().AdvanceAsync(waiter.Session, command, new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask), ct);
+                await new HybridWorkflowPlanner().AdvanceAsync(waiter.Session, command, new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask), ct);
                 if (!waiter.Command.TrySetResult(command)) throw new PlanningConflictException("An answer is already being saved.");
                 return PlanningEndpoints.ToDto(await waiter.Saved.Task.WaitAsync(ct));
             }
@@ -131,11 +131,12 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
             await using var runtime = await runtimeFactory.CreateAsync(ct);
             var engine = new WorkflowEngine { LLMClient = runtime.LlmClient, LLMCapabilities = runtime.LlmCapabilityResolver,
                 McpClientFactory = runtime.McpClientFactory, ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(runtime.Options), PlanningPolicy = AgentPlanningPolicy.Create() };
+            runtime.ConfigureAgentRunners(engine);
             var context = new StepExecutionContext { Engine = engine, Data = new(), Step = new() { Source = new StepDef { Id = origin.StepId, Type = "workflow.plan" } },
                 Limits = new() { TenantId = Tenant, RunId = origin.RunId }, CallDepth = origin.CallDepth, CallStack = new(origin.CallStack, StringComparer.Ordinal) };
             await using var owned = await Factory().OpenAsync(context, new() { Request = JsonSerializer.Deserialize(JsonSerializer.Serialize(origin.Request, PlanningJsonContext.Default.PlanningRequest), PlanningJsonContext.Default.PlanningRequest)! }, ct);
             if (owned.Session.Request.SessionId != origin.Request.SessionId) throw new PlanningConflictException("Planning owner identity changed.");
-            var planner = new TypedWorkflowPlanner();
+            var planner = new HybridWorkflowPlanner();
             var state = await planner.AdvanceAsync(owned.Session, command, owned.Runtime, ct);
             while (!PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status))
                 state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, owned.Runtime, ct);
@@ -155,7 +156,7 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
         internal TaskCompletionSource<PlanningSession> Saved { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
-    public sealed class Bridge(ChatPlanningService owner, string conversation, Action<PlanningSessionDto> changed) : IPlanningDecisionProvider, IPlanningRuntimeFactory
+    public sealed class Bridge(ChatPlanningService owner, string conversation, Action<PlanningSessionDto> changed) : IPlanningInteraction, IPlanningRuntimeFactory
     {
         public async Task<IPlanningRuntimeSession> OpenAsync(StepExecutionContext context, PlanningSession initial, CancellationToken ct)
         {

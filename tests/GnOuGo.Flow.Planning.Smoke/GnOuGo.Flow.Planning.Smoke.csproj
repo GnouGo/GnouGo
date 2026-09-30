@@ -7,7 +7,7 @@
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
-  <!-- Matches Flow.Cli's existing Jint 4.16.0 publish boundary. The audit reports
+  <!-- Matches Flow.Cli's existing Jint 4.16.3 publish boundary. The audit reports
        only Jint CLR interop warnings; Flow disables CLR access and performs its
        own JsonNode conversion. No library analyzers are disabled. See README.md. -->
   <PropertyGroup Condition="'$(PublishAot)' == 'true' and '$(AuditKnownTrimWarnings)' != 'true'">
@@ -16,7 +16,7 @@
   <ItemGroup><ProjectReference Include="../../src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj" /></ItemGroup>
   <Import Project="../../build/GnOuGo.DarwinNativeCrypto.targets" />
   <ItemGroup><ProjectReference Include="../../src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj" /></ItemGroup>
-  <ItemGroup></ItemGroup>
   <ItemGroup><Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Shared/PlanningBenchmarkCases.cs" Link="PlanningBenchmarkCases.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../Shared/ProductTransformationFixture.cs" Link="ProductTransformationFixture.cs" /><Compile Include="../Shared/ProductTransformationPlan.cs" Link="ProductTransformationPlan.cs" /></ItemGroup>
 </Project>

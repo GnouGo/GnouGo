@@ -9,6 +9,9 @@ public interface ICopilotSdkClient : IAsyncDisposable
 {
     string ConnectionState { get; }
     Task StartAsync(CancellationToken cancellationToken);
+    /// <summary>Reads validated device policy without creating a session or dispatching inference.</summary>
+    Task<CopilotSandboxReadiness> ReadSandboxReadinessAsync(CancellationToken cancellationToken)
+        => Task.FromResult(CopilotSandboxReadiness.Unavailable);
     Task<CopilotConnectivityResult> PingAsync(CancellationToken cancellationToken);
     Task<CopilotStatusResult> GetStatusAsync(CancellationToken cancellationToken);
     Task<CopilotAuthResult> GetAuthStatusAsync(CancellationToken cancellationToken);

@@ -4,6 +4,31 @@ using GnOuGo.Flow.Core.Planning;
 namespace GnOuGo.Flow.Planning;
 public static class PlanningReviewFormatter
 {
+    public static string TaskDiagram(TaskPlan? plan)
+    {
+        var result = new StringBuilder("flowchart TD\n");
+        if (plan is null) return result.ToString();
+        Draw(plan.Root, "main");
+        foreach (var group in plan.Groups) Draw(group.Body, group.Id);
+        return result.ToString();
+        void Draw(TaskScope scope, string name)
+        {
+            result.AppendLine("subgraph g" + PlanningGraphCompiler.Fingerprint(name)[..12] + "[\"" + Label(name) + "\"]");
+            string? previous = null;
+            foreach (var task in scope.Tasks.Concat(scope.Always))
+            {
+                var id = "t" + PlanningGraphCompiler.Fingerprint(task.Id)[..12];
+                var businessResult = task.ResultType is null ? "" : " → " + string.Join(", ", task.ResultType.Fields.Select(f => f.Name + ": " + f.Type.Kind));
+                result.AppendLine(id + "[\"" + Label(task.Id + ": " + task.Objective + " (" + task.Kind + (scope.Always.Contains(task) ? ", always" : "") + ")" + businessResult) + "\"]");
+                if (previous is not null) result.AppendLine(previous + " --> " + id);
+                previous = id;
+                if (task.Body is not null) Draw(task.Body, task.Id + " body");
+                if (task.Otherwise is not null) Draw(task.Otherwise, task.Id + " otherwise");
+                for (var i = 0; i < task.Branches.Count; i++) Draw(task.Branches[i], task.Id + " branch " + i);
+            }
+            result.AppendLine("end");
+        }
+    }
     public static string Diagram(PlanningGraph? graph)
     {
         var result = new StringBuilder("flowchart TD\n");
@@ -26,7 +51,15 @@ public static class PlanningReviewFormatter
                 foreach (var node in nodes)
                 {
                     var id = prefix + "n" + PlanningGraphCompiler.Fingerprint(node.Key)[..12];
-                    result.AppendLine(id + "[\"" + Label(node.Key + ": " + node.Type + (node.If is null ? "" : " (conditional)")) + "\"]");
+                    var label = node.Key + ": " + node.Type + (node.If is null ? "" : " (conditional)");
+                    if (node.Type == "agent.run")
+                    {
+                        var calls = PlanningGraphValidation.Member(PlanningGraphValidation.Member(node.Input, "budget") ?? new(), "max_model_calls")?.Number;
+                        var evidence = PlanningGraphValidation.Member(node.Input, "verification")?.Items.Count ?? 0;
+                        label += $" · max {calls} calls · {evidence} evidence requirements";
+                        label += " · workspace: " + PlanningGraphValidation.Member(node.Input, "workspace")?.Text;
+                    }
+                    result.AppendLine(id + (node.Type == "agent.run" ? "{{\"" : "[\"") + Label(label) + (node.Type == "agent.run" ? "\"}}" : "\"]"));
                     foreach (var source in previous) result.AppendLine(source + " --> " + id);
                     var tails = new List<string>();
                     if (node.Branches.Count > 0) foreach (var branch in node.Branches) tails.AddRange(Draw(branch.Steps, [id]));

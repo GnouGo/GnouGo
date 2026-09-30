@@ -43,6 +43,28 @@ internal static class PlanningValueProvenance
                 return Proves(workflow, new() { Kind = "output", Source = value.Source, Path = value.Path.Skip(1).ToList() }, graph, source, visited);
             }
             if (source(producer, value)) return true;
+            if (producer.Type is "value.project" or "value.validate")
+            {
+                if (producer.OutputSchema is null || value.Path.FirstOrDefault() != "value" || producer.OnError.Any(h => h.Action == "continue")) return false;
+                var input = PlanningGraphValidation.Member(producer.Input, "value");
+                if (producer.Type == "value.validate")
+                    return Select(input, value.Path.Skip(1)) is { } selected && Proves(workflow, selected, graph, source, visited);
+                var paths = PlanningGraphValidation.Member(producer.Input, "paths");
+                // The executor chooses the first present path. Every reachable alternative
+                // must retain the declared origin; its checked type alone proves nothing.
+                return paths is { Kind: "array", Items.Count: > 0 } && paths.Items.All(path =>
+                    path.Kind == "array" && path.Items.All(p => p.Kind == "string" && p.Text is not null) &&
+                    Select(input, path.Items.Select(p => p.Text!).Concat(value.Path.Skip(1))) is { } projected && Proves(workflow, projected, graph, source, visited));
+            }
+            if (producer.Type == "array.project")
+            {
+                var path = PlanningGraphValidation.Member(producer.Input, "path");
+                return producer.OutputSchema is not null && !producer.OnError.Any(h => h.Action == "continue") &&
+                    value.Path.Count >= 2 && value.Path[0] == "values" && int.TryParse(value.Path[1], out var index) && index >= 0 &&
+                    path is { Kind: "array" } && path.Items.All(p => p.Kind == "string" && p.Text is not null) &&
+                    Select(PlanningGraphValidation.Member(producer.Input, "items"), new[] { value.Path[1] }.Concat(path.Items.Select(p => p.Text!)).Concat(value.Path.Skip(2))) is { } item &&
+                    Proves(workflow, item, graph, source, visited);
+            }
             if (producer.Type is "set" or "assert.non_null")
             {
                 var selected = Select(producer.Type == "set" ? producer.Input : PlanningGraphValidation.Member(producer.Input, "value"), value.Path);

@@ -13,17 +13,27 @@ internal sealed class CopilotTestHost : ICopilotSdkClientFactory
     public bool AgentEditCalled => Configuration?.Request.PermissionMode == CopilotPermissionMode.Interactive;
     public int DeleteCount { get; private set; }
     public int DisposedSessions { get; private set; }
+    public CodeMcpTraceContextAccessor Trace { get; } = new();
     public CopilotCodeService Service { get; }
+    public CopilotSessionManager Manager { get; }
+    public Func<CopilotSdkSessionConfiguration, string, CopilotSendRequest, CancellationToken, Task<CopilotSendResult>>? OnSend { get; set; }
+    public int Sends { get; private set; }
+    public CopilotSandboxReadiness Readiness { get; set; } = CopilotSandboxReadiness.Configured;
+    public int PolicyReads { get; private set; }
+    public int SessionsCreated { get; private set; }
+    public Exception? PreparationFailure { get; set; }
+    public Func<ValueTask>? OnDispose { get; set; }
     public McpCopilotHumanInputProvider Human { get; }
     public CopilotTestHost(CodeServerSettings settings, string root, CodePolicy? policy = null)
     {
         policy ??= new(settings, root);
-        var trace = new CodeMcpTraceContextAccessor();
+        var trace = Trace;
         var reporter = new CodeProgressReporter(trace);
         Human = new(reporter, trace);
         var options = Options.Create(settings);
         var manager = new CopilotSessionManager(this, humanInputProvider: Human,
             fileSystems: new LocalProjectSessionFsFactory(policy, options, NullLoggerFactory.Instance));
+        Manager = manager;
         Service = new(manager, new(policy, options, trace), policy, options, trace, reporter);
     }
     public ICopilotSdkClient Create(CopilotRuntimeConfiguration configuration) => new Client(this);
@@ -31,12 +41,14 @@ internal sealed class CopilotTestHost : ICopilotSdkClientFactory
     {
         public string ConnectionState => "connected";
         public Task StartAsync(CancellationToken ct) => Task.CompletedTask;
+        public Task<CopilotSandboxReadiness> ReadSandboxReadinessAsync(CancellationToken ct)
+        { owner.PolicyReads++; return Task.FromResult(owner.Readiness); }
         public Task<CopilotConnectivityResult> PingAsync(CancellationToken ct) => Task.FromResult(new CopilotConnectivityResult("ok", "now", "1"));
         public Task<CopilotStatusResult> GetStatusAsync(CancellationToken ct) => Task.FromResult(new CopilotStatusResult("1", "1", "connected"));
         public Task<CopilotAuthResult> GetAuthStatusAsync(CancellationToken ct) => Task.FromResult(new CopilotAuthResult(true, "test", null, null, null));
         public Task<IReadOnlyList<CopilotModelResult>> ListModelsAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<CopilotModelResult>>([]);
         public Task<ICopilotSdkSession> CreateSessionAsync(CopilotSdkSessionConfiguration configuration, CancellationToken ct)
-        { owner.Configuration = configuration; return Task.FromResult<ICopilotSdkSession>(new Session(owner)); }
+        { owner.SessionsCreated++; if (owner.PreparationFailure is { } failure) throw failure; owner.Configuration = configuration; return Task.FromResult<ICopilotSdkSession>(new Session(owner)); }
         public Task<ICopilotSdkSession> ResumeSessionAsync(string id, CopilotSdkSessionConfiguration configuration, CancellationToken ct) => CreateSessionAsync(configuration, ct);
         public Task DeleteSessionAsync(string id, CancellationToken ct) { owner.DeleteCount++; return Task.CompletedTask; }
         public Task<string?> GetForegroundSessionIdAsync(CancellationToken ct) => Task.FromResult<string?>(null);
@@ -48,7 +60,8 @@ internal sealed class CopilotTestHost : ICopilotSdkClientFactory
         public string SessionId { get; } = Guid.NewGuid().ToString("N");
         public async Task<CopilotSendResult> SendAsync(string handle, CopilotSendRequest request, CancellationToken ct)
         {
-            owner.LastRequest = request;
+            owner.LastRequest = request; owner.Sends++;
+            if (owner.OnSend is not null) return await owner.OnSend(owner.Configuration!, handle, request, ct);
             if (owner.AgentEditCalled) await owner.Configuration!.FileSystem!.WriteFileAsync("src/Program.cs", "// edited\n", null, ct);
             request.Progress?.Invoke(new("completed", "info", "fake suggestion completed", DateTimeOffset.UtcNow));
             return new(handle, SessionId, owner.AgentEditCalled ? "fake edit summary" : "fake suggestion", "fake-model", []);
@@ -64,6 +77,6 @@ internal sealed class CopilotTestHost : ICopilotSdkClientFactory
         public Task<IReadOnlyList<string>> ListWorkspaceFilesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<string>>([]);
         public Task<CopilotWorkspaceFileResult> ReadWorkspaceFileAsync(string path, CancellationToken ct) => Task.FromResult(new CopilotWorkspaceFileResult(path, null, false));
         public Task CreateWorkspaceFileAsync(string path, string content, CancellationToken ct) => Task.CompletedTask;
-        public ValueTask DisposeAsync() { owner.DisposedSessions++; return ValueTask.CompletedTask; }
+        public ValueTask DisposeAsync() { owner.DisposedSessions++; return owner.OnDispose?.Invoke() ?? ValueTask.CompletedTask; }
     }
 }

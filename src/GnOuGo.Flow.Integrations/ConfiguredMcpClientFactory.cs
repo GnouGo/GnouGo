@@ -278,7 +278,8 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IMcpExecutio
         var humanRequest = new HumanInputRequest
         {
             RunId = correlation?.RunId ?? correlation?.CorrelationId ?? Guid.NewGuid().ToString("N"),
-            StepId = correlation?.StepId ?? "mcp-elicitation",
+            StepId = (correlation?.StepId ?? "mcp-elicitation") + "/human/" + Guid.NewGuid().ToString("N"),
+            ParentInvocationId = correlation?.StepId,
             Prompt = request.Message,
             Mode = fields is { Count: > 1 } ? HumanInputContract.ModeForm : HumanInputContract.ModeChoice,
             Context = BuildMcpHumanInputContext(correlation),
@@ -293,6 +294,7 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IMcpExecutio
             StepId = humanRequest.StepId,
             StepType = "mcp.call"
         };
+        await provider.PrepareAsync(humanRequest, cancellationToken);
         PublishHumanInput(new McpHumanInputSignal(effectiveCorrelation, humanRequest, McpHumanInputSignalPhase.Waiting));
 
         JsonNode? response;

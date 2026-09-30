@@ -10,6 +10,21 @@ namespace GnOuGo.Flow.Tests.Runtime;
 public sealed class StepExpressionTypeValidationTests
 {
     [Theory]
+    [InlineData("data.steps.source != null", true)]
+    [InlineData("null == data.steps.source", true)]
+    [InlineData("data.steps.source !== null", true)]
+    [InlineData("data.steps.source === null", true)]
+    [InlineData("data.steps.source > null", false)]
+    public void NullEqualityIsValidWithoutChangingPresenceProofs(string expression, bool valid)
+    {
+        var outputs = new Dictionary<string, FlowTypeDescriptor> { ["source"] = FlowTypeDescriptor.Object(new Dictionary<string, FlowPropertyDescriptor>()) };
+        var mismatch = StepExpressionTypeValidator.ValidateExpression("${" + expression + "}", "if", FlowTypeDescriptor.Boolean,
+            new Dictionary<string, FlowTypeDescriptor>(), outputs);
+        Assert.Equal(valid, mismatch is null);
+        Assert.Equal(expression == "data.steps.source != null", WorkflowResultAvailability.ProvesPresence(expression, "source"));
+    }
+
+    [Theory]
     [InlineData("data.steps.source && data.steps.source.message || 'fallback'", "string")]
     [InlineData("data.steps.source && data.steps.source.items || []", "array")]
     [InlineData("false || 'fallback'", "string")]
@@ -21,6 +36,67 @@ public sealed class StepExpressionTypeValidationTests
         var schema = System.Text.Json.Nodes.JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"},"items":{"type":"array","items":{"type":"string"}}},"required":["message","items"]}""");
         var inferred = StepExpressionTypeValidator.InferValueSchema(System.Text.Json.Nodes.JsonValue.Create("${" + expression + "}"), null, new Dictionary<string, System.Text.Json.Nodes.JsonNode?> { ["source"] = schema });
         Assert.Equal(expected, inferred?["type"]?.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData("ok", true)]
+    [InlineData("error", true)]
+    [InlineData("success", false)]
+    public void CleanupGuardUsesExecutorStatusContract(string status, bool valid)
+    {
+        var document = Parse("""
+steps:
+  - id: acquire
+    type: mcp.call
+    input: { server: source, method: acquire, request: {} }
+finally:
+  - id: release
+    type: set
+    if: '${data.steps["acquire"] != null && data.steps["acquire"].status == "STATUS"}'
+    input: { released: true }
+""".Replace("STATUS", status, StringComparison.Ordinal));
+        if (valid) WorkflowPlanSemanticValidator.Validate(document);
+        else Assert.Contains(Assert.Throws<WorkflowSemanticValidationException>(() => WorkflowPlanSemanticValidator.Validate(document)).Errors, error => error.Message.Contains("outside the declared", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("data.inputs.mode == 'invented'", false)]
+    [InlineData("'invented' !== data.inputs.mode", false)]
+    [InlineData("!(data.inputs.mode === 'invented')", false)]
+    [InlineData("true ? data.inputs.mode === 'invented' : false", false)]
+    [InlineData("data.inputs.mode == 'read'", true)]
+    [InlineData("data.inputs.mode != null", true)]
+    public void ComparisonsRespectDeclaredEnumsWithoutProviderNames(string expression, bool valid)
+    {
+        var mismatch = StepExpressionTypeValidator.ValidateExpression("${" + expression + "}", "if", FlowTypeDescriptor.Boolean,
+            new Dictionary<string, FlowTypeDescriptor> { ["mode"] = FlowTypeDescriptor.Union([FlowTypeDescriptor.Enum("read", "write"), FlowTypeDescriptor.Null]) },
+            new Dictionary<string, FlowTypeDescriptor>());
+        Assert.Equal(valid, mismatch is null);
+    }
+
+    [Fact]
+    public void LiteralPropertyDotsCannotBeReinterpretedAsNestedEnumPaths()
+    {
+        var inputs = new Dictionary<string, FlowTypeDescriptor>
+        {
+            ["mode.detail"] = FlowTypeDescriptor.String,
+            ["mode"] = FlowTypeDescriptor.Object(new Dictionary<string, FlowPropertyDescriptor>
+            { ["detail"] = new(FlowTypeDescriptor.Enum("known"), true) })
+        };
+        Assert.Null(StepExpressionTypeValidator.ValidateExpression("${data.inputs['mode.detail'] == 'future'}", "if",
+            FlowTypeDescriptor.Boolean, inputs, new Dictionary<string, FlowTypeDescriptor>()));
+    }
+
+    [Fact]
+    public void OpenStringAndOpaqueAlternativesDoNotEstablishClosedEnums()
+    {
+        foreach (var alternative in new[] { FlowTypeDescriptor.String, FlowTypeDescriptor.Any })
+        {
+            var mismatch = StepExpressionTypeValidator.ValidateExpression("${data.inputs.mode == 'future'}", "if", FlowTypeDescriptor.Boolean,
+                new Dictionary<string, FlowTypeDescriptor> { ["mode"] = FlowTypeDescriptor.Union([FlowTypeDescriptor.Enum("known"), alternative]) },
+                new Dictionary<string, FlowTypeDescriptor>());
+            Assert.Null(mismatch);
+        }
     }
 
     [Fact]

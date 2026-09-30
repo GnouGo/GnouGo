@@ -1,0 +1,14 @@
+{
+  "files": [
+    ".agents/skills/gnougo-planning/SKILL.md",
+    "docs/workflow-planning-v9.md",
+    "docs/flow-hybrid-v9-implementation.md",
+    "src/GnOuGo.Flow.Planning/README.md",
+    "src/GnOuGo.Flow.Core/README.md",
+    "src/GnOuGo.Agent.Server/README.md"
+  ],
+  "local_links_checked": 25,
+  "broken": [],
+  "specification": "https://agentskills.io/specification",
+  "copilot_skill_location": "https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills"
+}

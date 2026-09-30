@@ -382,6 +382,7 @@ public sealed class McpCallExecutor : IStepExecutor
                     ["status"] = hasError ? "error" : "ok",
                     ["results"] = resultsArr
                 };
+                await ctx.RecordExternalCompletionAsync(batchResult, CancellationToken.None);
                 if (errorPolicy.RaiseOnError && hasError)
                     ThrowMcpBatchError(kind, serverName, batchMethods!, batchResult);
                 return await ApplyDirectStructuredOutputAsync(
@@ -399,6 +400,7 @@ public sealed class McpCallExecutor : IStepExecutor
                 // ── Single mode (backward compatible) ──
                 var singleCorrelation = correlation with { MethodName = singleMethod };
                 var singleResult = await CallSingleAsync(session, kind, singleMethod!, requestArgs, singleCorrelation, errorPolicy.DetectResultErrors, runtimeToolCatalog, GetBoolProperty(input, "preserve_optional_nulls") ?? false, ctx, realtimeProgressFingerprints, linkedCts.Token);
+                await ctx.RecordExternalCompletionAsync(singleResult, CancellationToken.None);
                 var statusStr = (singleResult as JsonObject)?["status"]?.GetValue<string>();
                 ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", statusStr == "error" ? "error" : "stop");
                 if (errorPolicy.RaiseOnError && statusStr == "error")
@@ -1180,15 +1182,15 @@ Produce the final answer strictly from the executed MCP results.
             ExtractUsageTelemetry(ctx, callResult.Usage, callResult.Model, provider: null);
             EmitMcpProgressEventsAsThinking(ctx, callResult.Content, correlation, realtimeProgressFingerprints);
 
-            // Strip verbose progress event arrays from the output (already emitted as telemetry)
-            var cleanedContent = StripProgressEvents(callResult.Content);
-            var isError = callResult.IsError || (detectResultErrors && IsMcpResultErrorEnvelope(cleanedContent));
+            // Telemetry observes the producer payload; it must not remove contract or business fields.
+            var responseContent = callResult.Content?.DeepClone();
+            var isError = callResult.IsError || (detectResultErrors && IsMcpResultErrorEnvelope(responseContent));
 
             var result = new JsonObject
             {
                 ["status"] = isError ? "error" : "ok",
-                ["response"] = cleanedContent,
-                ["error"] = isError ? BuildMcpErrorObject(cleanedContent, correlation) : null,
+                ["response"] = responseContent,
+                ["error"] = isError ? BuildMcpErrorObject(responseContent, correlation) : null,
                 ["correlation_id"] = correlation.CorrelationId,
                 ["trace_id"] = correlation.TraceId
             };
@@ -1427,34 +1429,6 @@ Produce the final answer strictly from the executed MCP results.
             yield return item;
     }
 
-    /// <summary>
-    /// Returns a deep clone of the MCP tool content with progress event arrays removed.
-    /// Progress events are already emitted as telemetry thinking events; keeping them in
-    /// the step output makes it unnecessarily verbose for downstream expression access.
-    /// </summary>
-    private static JsonNode? StripProgressEvents(JsonNode? content)
-    {
-        if (content is not JsonObject obj)
-            return content?.DeepClone();
-
-        var clone = obj.DeepClone() as JsonObject;
-        if (clone == null)
-            return content.DeepClone();
-
-        foreach (var key in ProgressEventPropertyNames)
-        {
-            // Case-insensitive removal
-            var toRemove = clone.FirstOrDefault(p => string.Equals(p.Key, key, StringComparison.OrdinalIgnoreCase));
-            if (toRemove.Value is JsonArray)
-                clone.Remove(toRemove.Key);
-        }
-
-        return clone;
-    }
-
-    private static readonly string[] ProgressEventPropertyNames =
-        ["progressEvents", "progress_events", "progress", "events"];
-
     private static JsonArray? GetArrayProperty(JsonObject obj, string name)
     {
         foreach (var property in obj)
@@ -1528,7 +1502,7 @@ Produce the final answer strictly from the executed MCP results.
             TraceId = traceId,
             SpanId = spanId,
             TraceParent = activity != null ? $"00-{activity.TraceId}-{activity.SpanId}-{(activity.ActivityTraceFlags.HasFlag(ActivityTraceFlags.Recorded) ? "01" : "00")}" : null,
-            StepId = ctx.Step.Id,
+            StepId = ctx.InvocationId,
             StepType = ctx.Step.Type,
             ServerName = serverName,
             MethodName = method,

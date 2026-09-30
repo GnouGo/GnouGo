@@ -60,6 +60,7 @@ public sealed record CopilotRuntimeConfiguration(
     /// </summary>
     public bool EnableSandboxBypassGrants { get; init; }
     public bool UseSessionFileSystem { get; init; }
+    [JsonIgnore] public CopilotExecutionBounds? ExecutionBounds { get; init; }
     public string? LogLevel { get; init; }
     public CopilotTelemetryConfiguration? Telemetry { get; init; }
 }
@@ -203,7 +204,11 @@ public sealed record CopilotToolExecutionObservation(
     bool? ToolSucceeded,
     bool ConflictingCompletion,
     IReadOnlyList<CopilotTerminalObservation> Terminals,
-    string? ErrorCode);
+    string? ErrorCode)
+{
+    public long? StartedSequence { get; init; }
+    public long? CompletedSequence { get; init; }
+}
 
 public sealed record CopilotTerminalObservation(
     string? WorkingDirectory,

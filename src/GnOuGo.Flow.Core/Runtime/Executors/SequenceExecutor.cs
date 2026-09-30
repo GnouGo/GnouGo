@@ -9,6 +9,7 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// </summary>
 public sealed class SequenceExecutor : IStepExecutor
 {
+    public StepRecovery Recovery => StepRecovery.Composite;
     public string StepType => "sequence";
 
     public IReadOnlyList<StepExceptionDoc>? DocumentedExceptions => new StepExceptionDoc[]

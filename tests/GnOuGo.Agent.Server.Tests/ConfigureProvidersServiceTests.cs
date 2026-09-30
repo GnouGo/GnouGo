@@ -328,7 +328,7 @@ public sealed class ConfigureProvidersServiceTests
                 Assert.Equal("git_token", field.Name);
                 Assert.DoesNotContain(request.Fields!, f => f.Name is "command" or "args" or "description");
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, new JsonObject
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, new JsonObject
                 {
                     ["git_token"] = "ghp-test-token"
                 });
@@ -394,7 +394,7 @@ public sealed class ConfigureProvidersServiceTests
                 Assert.Contains("openai", providerField.Options!);
                 Assert.Equal("Copilot", providerField.Default);
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, new JsonObject
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, new JsonObject
                 {
                     ["provider"] = "openai",
                     ["model"] = "fallback-model",
@@ -450,7 +450,7 @@ public sealed class ConfigureProvidersServiceTests
         {
             await foreach (var request in humanInput.PendingRequests.ReadAllAsync(token))
             {
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, new JsonObject
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, new JsonObject
                 {
                     ["provider"] = "missing-provider",
                     ["model"] = "fallback-model",
@@ -501,7 +501,7 @@ public sealed class ConfigureProvidersServiceTests
                 };
                 foreach (var field in request.Fields!.Where(field => field.Name != "inherit_fields"))
                     response[field.Name] = field.Default;
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
                 break;
             }
         }, token);
@@ -582,7 +582,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
 
                 if (request.StepId == "llm_default.confirm_save")
                     break;
@@ -669,7 +669,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
                 if (request.StepId == "llm_add.confirm_save")
                     break;
             }
@@ -739,7 +739,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
                 if (request.StepId == "llm_add.confirm_save")
                     break;
             }
@@ -834,7 +834,7 @@ public sealed class ConfigureProvidersServiceTests
                         _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                     };
 
-                    humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                    await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
 
                     if (request.StepId == "llm_default.confirm_save")
                         break;
@@ -1117,7 +1117,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
 
                 if (request.StepId == "llm_add.confirm_save")
                     break;
@@ -1186,7 +1186,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
 
                 if (request.StepId == "llm_add.confirm_save")
                     break;
@@ -1243,7 +1243,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
                 if (request.StepId == "llm_add.confirm_save")
                     break;
             }
@@ -1311,7 +1311,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
 
                 if (request.StepId == "llm_add.confirm_save")
                     break;
@@ -1391,7 +1391,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
 
                 if (request.StepId == "llm_add.confirm_save")
                     break;
@@ -1476,7 +1476,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
 
                 if (request.StepId == "llm_add.confirm_save")
                     break;
@@ -1535,7 +1535,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
 
                 if (request.StepId == "llm_add.confirm_save")
                     break;
@@ -1587,7 +1587,7 @@ public sealed class ConfigureProvidersServiceTests
             {
                 if (request.StepId == "llm_remove.confirm")
                 {
-                    humanInput.TrySubmitResponse(request.RunId, request.StepId, new JsonObject { ["response"] = "confirm" });
+                    await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, new JsonObject { ["response"] = "confirm" });
                     break;
                 }
             }
@@ -1643,7 +1643,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
 
                 if (request.StepId == "mcp_add.confirm_save")
                     break;
@@ -1696,7 +1696,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
 
                 if (request.StepId == "mcp_edit.confirm_save")
                     break;
@@ -1823,7 +1823,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
                 if (request.StepId == "mcp_edit.confirm_save")
                     break;
             }
@@ -1883,7 +1883,7 @@ public sealed class ConfigureProvidersServiceTests
             {
                 if (request.StepId == "mcp_remove.confirm")
                 {
-                    humanInput.TrySubmitResponse(request.RunId, request.StepId, new JsonObject { ["response"] = "confirm" });
+                    await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, new JsonObject { ["response"] = "confirm" });
                     break;
                 }
             }
@@ -2011,7 +2011,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
 
                 if (request.StepId == "llm_add.confirm_save")
                     break;
@@ -2082,7 +2082,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
 
                 if (request.StepId == "llm_edit.confirm_save")
                     break;
@@ -2165,7 +2165,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
 
                 if (request.StepId == "mcp_add.confirm_save")
                     break;
@@ -2223,7 +2223,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
 
                 if (request.StepId == "mcp_edit.confirm_save")
                     break;
@@ -2286,7 +2286,7 @@ public sealed class ConfigureProvidersServiceTests
                     _ => throw new InvalidOperationException($"Unexpected step id: {request.StepId}")
                 };
 
-                humanInput.TrySubmitResponse(request.RunId, request.StepId, response);
+                await humanInput.TrySubmitResponseAsync(request.RunId, request.StepId, response);
                 if (request.StepId == "mcp_edit.confirm_save")
                     break;
             }

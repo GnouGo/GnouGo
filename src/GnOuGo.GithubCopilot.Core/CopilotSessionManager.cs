@@ -33,6 +33,23 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         _fileSystems = fileSystems;
     }
 
+    /// <summary>Read-only policy inspection; never creates or sends to a managed task.</summary>
+    public async Task<CopilotSandboxReadiness> ReadSandboxReadinessAsync(CopilotRuntimeConfiguration configuration, CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        cancellationToken.ThrowIfCancellationRequested();
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(configuration.RequestTimeoutSeconds, 1, 10)));
+        try
+        {
+            await using var client = _clientFactory.Create(configuration);
+            await client.StartAsync(timeout.Token);
+            return await client.ReadSandboxReadinessAsync(timeout.Token);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { return CopilotSandboxReadiness.Unavailable; }
+    }
+
     public async Task<CopilotSessionDescriptor> CreateAsync(CopilotSessionCreateRequest request, CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
@@ -79,6 +96,8 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         ThrowIfDisposed();
         await SweepExpiredAsync(cancellationToken);
         var entry = GetOwnedEntry(request.Handle, request.Context.TenantId);
+        if (entry.Request.Configuration.ExecutionBounds is not null)
+            throw new InvalidOperationException("Bounded task sessions cannot be resumed through the managed-session API. Inspect the original task receipt.");
         await entry.Gate.WaitAsync(cancellationToken);
         try
         {
@@ -119,7 +138,7 @@ public sealed class CopilotSessionManager : IAsyncDisposable
         var now = _timeProvider.GetUtcNow();
         return _entries.Values
             .Where(entry => string.Equals(entry.TenantId, tenantId, StringComparison.Ordinal))
-            .Where(entry => entry.ExpiresAt > now)
+            .Where(entry => entry.ExpiresAt > now || entry.Request.Configuration.ExecutionBounds is not null)
             .OrderByDescending(static entry => entry.LastAccessedAt)
             .Select(entry => entry.Describe(now))
             .ToArray();
@@ -156,6 +175,7 @@ public sealed class CopilotSessionManager : IAsyncDisposable
 
         await SweepExpiredAsync(cancellationToken);
         var entry = GetOwnedEntry(request.Handle, request.Context.TenantId);
+        entry.Request.Configuration.ExecutionBounds?.BeginTurn(request.Prompt);
         await entry.Gate.WaitAsync(cancellationToken);
         try
         {
@@ -442,7 +462,7 @@ public sealed class CopilotSessionManager : IAsyncDisposable
     public async Task<int> SweepExpiredAsync(CancellationToken cancellationToken = default)
     {
         var now = _timeProvider.GetUtcNow();
-        var expired = _entries.Values.Where(entry => entry.ExpiresAt <= now).ToArray();
+        var expired = _entries.Values.Where(entry => entry.ExpiresAt <= now && entry.Request.Configuration.ExecutionBounds is null).ToArray();
         var deleted = 0;
         foreach (var entry in expired)
         {

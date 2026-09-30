@@ -7,6 +7,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <PackageId>GnOuGo.Flow.Integrations</PackageId>
+    <PackageReleaseNotes>Breaking planning format 10: semantic TaskPlan compilation and local business choices; regenerate and approve previous planning sessions. Execution journals remain schema 9.</PackageReleaseNotes>
     <Authors>GnOuGo</Authors>
     <Company>GnOuGo</Company>
     <Description>AI provider and MCP transport integrations for the autonomous GnOuGo.Flow.Core workflow engine.</Description>

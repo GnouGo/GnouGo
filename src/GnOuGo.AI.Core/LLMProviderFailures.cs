@@ -102,7 +102,8 @@ internal static partial class LLMProviderFailureClassifier
         ("permission_denied", LLMProviderFailureKind.Authorization, "permission_denied"),
         ("model_not_found", LLMProviderFailureKind.ModelUnavailable, "model_not_found"),
         ("model not found", LLMProviderFailureKind.ModelUnavailable, "model_not_found"),
-        ("rate_limit_exceeded", LLMProviderFailureKind.RateLimited, "rate_limit_exceeded")
+        ("rate_limit_exceeded", LLMProviderFailureKind.RateLimited, "rate_limit_exceeded"),
+        ("invalid_json_schema", LLMProviderFailureKind.InvalidRequest, "invalid_json_schema")
     ];
 
     public static LLMProviderException Classify(Exception exception)

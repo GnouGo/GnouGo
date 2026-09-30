@@ -13,7 +13,11 @@ Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human
 
 The Python package provides parsing, validation, and workflow execution. Workflow planning
 runs in the independently published .NET `GnOuGo.Flow.Planning` package and its hosts.
-This package executes saved artifacts and contains no separate planner implementation.
+The local Python runtime executes authored YAML without durable recovery or bounded agent stages.
+Use `WorkflowRunClient` with a schema-9 .NET host for durable run inspection, resume,
+cancellation, human answers and reconciliation; it uses the same authoritative encrypted journal.
+The removed top-level in-memory recovery path has no compatibility shim. Old approvals
+cannot transfer: regenerate and approve the workflow with the schema-9 planner.
 
 | Area | Status |
 |---|---|
@@ -25,7 +29,7 @@ This package executes saved artifacts and contains no separate planner implement
 | Runtime engine + step registry | Yes |
 | Step types, including `workflow.route` and `workflow.execute` | Yes |
 | Nullable contracts, conditional JSON Schema, recursive type assignment | Yes |
-| Workflow `finally` lifecycle, independent timeout/budget, nested/resumed cleanup | Yes |
+| Workflow `finally` lifecycle, independent timeout/budget, nested cleanup | Yes |
 | MCP integrations (`InMemoryMcpClientFactory`, `ConfiguredMcpClientFactory`, cache helper) | Yes |
 | MCP `progressEvents` -> thinking telemetry + stdio JSONL real-time progress | Yes |
 | MCP server-level `DiscoveryTimeoutSeconds` / `CallTimeoutSeconds` metadata | Yes |
@@ -35,7 +39,7 @@ This package executes saved artifacts and contains no separate planner implement
 | MCP tool `output_schema` / `example_response` planning contracts | Yes |
 | Workflow source telemetry (`source_text` / `source_format`) | Yes |
 | `JsonSchemaConverter` (inputs/outputs to JSON Schema) | Yes |
-| `WorkflowCheckpointer` + `WorkflowEngine.resume_async` | Yes |
+| Schema-9 durable recovery and agent stages | Via the .NET host; `WorkflowRunClient` controls existing runs |
 | CLI: `validate` / `inspect` / `run` subcommands | Yes |
 
 ---
@@ -91,7 +95,7 @@ librairies/python/gnougo-flow-core/
     compilation.py                  # Document validation + compilation
     runtime.py                      # Execution engine + executor registry
     runtime_contracts.py            # Protocols for LLM, MCP, HITL, workflow fetching, telemetry
-    checkpointing.py                # Workflow checkpoint contracts and in-memory implementation
+    run_client.py                   # Tenant-scoped schema-9 host commands
     integrations/                   # MCP and LLM adapter helpers
     runtime_steps/                  # Executor re-export modules for step families
   tests/                            # Dedicated Python unit tests
@@ -350,7 +354,7 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-Runtime integrations such as LLM clients, MCP clients, human input providers, workflow fetchers, telemetry, and checkpointing are injected through Python protocols in `gnougo_flow_core.runtime_contracts`.
+Runtime integrations such as LLM clients, MCP clients, human input providers, workflow fetchers, and telemetry are injected through Python protocols in `gnougo_flow_core.runtime_contracts`.
 
 ---
 
@@ -1595,7 +1599,8 @@ The Python package is not a NativeAOT binary; it is a Python 3.10+ library and C
   - `RoutingLLMClientAdapter` for adapting a routing LLM client.
 - The core has no mandatory MCP SDK and does not own HTTP/stdio process lifecycles. A supplied client adapter owns its transport; Flow owns discovery caching, request validation, correlation metadata, and optional elicitation-to-HITL bridging.
 - `WorkflowEngine.mcp_cache` defaults to `McpCacheHelper`, a 1-hour sliding TTL cache for MCP tools/resources/prompts per server. Set it to `None` to disable capability caching.
-- `WorkflowEngine.resume_async`, `WorkflowCheckpointer`, and `limits.run_id` support resumable workflow execution.
+- `WorkflowRunClient` sends tenant-scoped, revision-checked commands to the schema-9 host.
+  Local `limits.run_id` is correlation metadata only; it does not enable persistence.
 - Compatible Python extension: `loop.sequential.input.over` remains supported in addition to the shared `times` and `while` modes.
 Development commands:
 
@@ -1608,3 +1613,21 @@ python -m build
 ```
 
 The release pipeline injects the generated repository version into `pyproject.toml` before building and publishing the package to PyPI.
+
+## Durable run commands
+
+```python
+from gnougo_flow_core import WorkflowRunClient
+
+client = WorkflowRunClient("http://localhost:5000", "default")
+run = await client.read_async("run-id")
+run = await client.command_async("run-id", "resume", run["revision"])
+```
+
+`list_async`, `read_async`, `command_async` (`resume`, `cancel`, `reconcile`) and
+`answer_async` use the host's tenant-scoped run API. Reconciliation requires an
+`invocation_id`; `confirmed_stopped_reason` records a stopped operation as failed,
+never as a successful receipt. Optional `headers` supply host authentication in memory.
+Transport errors and cancellation do not authorize another dispatch: inspect the
+run's current revision and recovery status before issuing another command.
+The client never stores payloads, retries commands, or restores an internal agent session.

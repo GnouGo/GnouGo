@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging.Abstractions;
 using GnOuGo.Cmd.Mcp;
 using Xunit;
@@ -42,7 +43,7 @@ public class CommandExecutionHostTests
 
         var result = await host.RunAsync(
             "write_note",
-            parametersJson,
+            JsonNode.Parse(parametersJson)!.AsObject(),
             null,
             CancellationToken.None);
 
@@ -97,7 +98,7 @@ public class CommandExecutionHostTests
 
         var result = await host.RunAsync(
             "delete_directory_recursive",
-            "{\"path\":\"notes\"}",
+            JsonNode.Parse("{\"path\":\"notes\"}")!.AsObject(),
             null,
             CancellationToken.None);
 
@@ -142,7 +143,7 @@ public class CommandExecutionHostTests
         var host = new CommandExecutionHost(policy, NullLogger<CommandExecutionHost>.Instance);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            host.RunAsync("read_note", "{\"path\":\"../outside.txt\"}", null, CancellationToken.None));
+            host.RunAsync("read_note", JsonNode.Parse("{\"path\":\"../outside.txt\"}")!.AsObject(), null, CancellationToken.None));
 
         Assert.Contains("parent directory traversal", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -183,7 +184,7 @@ public class CommandExecutionHostTests
         var host = new CommandExecutionHost(policy, NullLogger<CommandExecutionHost>.Instance);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            host.RunAsync("delete_directory_recursive", "{\"path\":\"../outside\"}", null, CancellationToken.None));
+            host.RunAsync("delete_directory_recursive", JsonNode.Parse("{\"path\":\"../outside\"}")!.AsObject(), null, CancellationToken.None));
 
         Assert.Contains("does not match the required pattern", exception.Message, StringComparison.OrdinalIgnoreCase);
     }

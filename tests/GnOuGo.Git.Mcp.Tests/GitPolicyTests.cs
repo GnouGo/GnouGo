@@ -1,4 +1,4 @@
-﻿using Xunit;
+using Xunit;
 
 namespace GnOuGo.Git.Mcp.Tests;
 
@@ -89,14 +89,15 @@ public sealed class GitPolicyTests : IDisposable
     }
 
     [Fact]
-    public void ResolveCloneTargetDirectory_AllowsAbsoluteTargetInsideAllowedRoots()
+    public void ResolveCloneTargetDirectory_RejectsAbsoluteTargetEvenInsideAllowedRoots()
     {
         var policy = new GitPolicy(CreateSettings(), _root);
         var absoluteTarget = Path.GetFullPath(Path.Combine(_root, "workflows", "issue-544"));
 
-        var target = policy.ResolveCloneTargetDirectory(absoluteTarget);
+        var error = Assert.Throws<InvalidOperationException>(() => policy.ResolveCloneTargetDirectory(absoluteTarget));
 
-        Assert.Equal(absoluteTarget, target);
+        Assert.Contains("must be relative", error.Message);
+        Assert.False(Directory.Exists(absoluteTarget));
     }
 
     [Fact]
@@ -107,7 +108,7 @@ public sealed class GitPolicyTests : IDisposable
 
         var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveCloneTargetDirectory(outsideTarget));
 
-        Assert.Contains("outside the allowed roots", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("must be relative", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
@@ -159,7 +160,7 @@ public sealed class GitPolicyTests : IDisposable
         Directory.CreateDirectory(targetDirectory);
         File.WriteAllText(Path.Combine(targetDirectory, "README.md"), "not empty");
 
-        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveCloneTargetDirectory(targetDirectory));
+        var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveCloneTargetDirectory("workflows/existing-target"));
 
         Assert.Contains("already exists and is not empty", ex.Message, StringComparison.OrdinalIgnoreCase);
     }

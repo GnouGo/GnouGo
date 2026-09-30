@@ -1,3 +1,4 @@
+using GnOuGo.Planning.Examples;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
@@ -30,10 +31,98 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
             if (await records.GetAsync("planning-evaluation-receipts", "benchmark", request.Key, Author, ct) is null) return true;
         return false;
     }
+    // Closing an exhausted evaluation is not a receipt: unknown usage stays fully reserved forever.
+    // The caller holds the campaign's process lease. Original runs, requests and failures stay untouched.
+    internal async Task<JsonObject> RetainInconclusiveAsync(string runKey, CancellationToken ct)
+    {
+        var run = await LoadAsync("planning-evaluation-runs", runKey, ct) ?? throw new InvalidOperationException("No recorded run.");
+        var requestId = run["session"]?["pendingCall"]?["id"]?.ToString() ?? throw new InvalidOperationException("No uncertain request.");
+        if (await LoadAsync("planning-evaluation-closures", requestId, ct) is { } saved) return saved;
+        if (run["result"] is not JsonObject result || result["termination_reason"] is null || result["execution_correct"]?.GetValue<bool>() == true ||
+            await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null ||
+            await LoadAsync("planning-evaluation-failures", requestId, ct) is null ||
+            await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct) is null)
+            throw new InvalidOperationException("Only a saved failed run with uncertain HTTP evidence can be retained as inconclusive.");
+        var request = await LoadAsync("planning-evaluation-requests", requestId, ct) ?? throw new InvalidOperationException("No reserved request.");
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct);
+        if (accounting["session_calls"]!.GetValue<long>() < 8) throw new InvalidOperationException("The run still has an HTTP attempt allowance.");
+        var closure = new JsonObject { ["run_key"] = runKey, ["request_id"] = requestId, ["reason"] = "session_http_attempts_exhausted",
+            ["outcome"] = "inconclusive", ["retained_at"] = DateTimeOffset.UtcNow.ToString("O"),
+            ["request_hash"] = PlanningGraphCompiler.Fingerprint(request.ToJsonString()), ["run_hash"] = PlanningGraphCompiler.Fingerprint(run.ToJsonString()),
+            ["accounting_at_closure"] = accounting };
+        await SaveAsync("planning-evaluation-closures", requestId, closure, ct);
+        return closure;
+    }
+    // Read-only audit of a permanently closed admission denial. Zero attempts is
+    // proof of no dispatch because the HTTP layer persists intent before sending.
+    // A timeout, missing journal, changed record or any admitted attempt is ineligible.
+    internal async Task<JsonObject?> AuditAdmissionDenialAsync(string runKey, JsonObject run, CancellationToken ct = default)
+    {
+        if (run["result"]?["termination_reason"]?.ToString() != "session_http_budget" ||
+            run["result"]?["execution_correct"]?.GetValue<bool>() != false ||
+            run["session"]?["pendingCall"]?["id"]?.ToString() is not { } requestId) return null;
+        var closure = await LoadAsync("planning-evaluation-closures", requestId, ct);
+        var request = await LoadAsync("planning-evaluation-requests", requestId, ct);
+        var journal = await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
+        var failure = await LoadAsync("planning-evaluation-failures", requestId, ct);
+        if (closure?["reason"]?.ToString() != "session_http_attempts_exhausted" ||
+            closure["run_key"]?.ToString() != runKey || request is null ||
+            closure["run_hash"]?.ToString() != PlanningGraphCompiler.Fingerprint(run.ToJsonString()) ||
+            closure["request_hash"]?.ToString() != PlanningGraphCompiler.Fingerprint(request.ToJsonString()) ||
+            journal?["transport"]?["Attempts"] is not JsonArray { Count: 0 } || journal["usage"] is not null ||
+            failure?["stage"]?.ToString() != "dispatch" ||
+            run["usage_receipts"]?[requestId]?["transport_attempts"]?.GetValue<int>() != 0 ||
+            await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null) return null;
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct);
+        if (accounting["session_calls"]?.GetValue<long>() != 8 || closure["accounting_at_closure"]?["session_calls"]?.GetValue<long>() != 8) return null;
+        var usage = run["usage_receipts"]!.AsObject();
+        if (usage.Count != run["session"]?["modelCalls"]?.GetValue<int>() ||
+            usage.Any(p => p.Value?["transport_attempts"]?.GetValue<int>() is not >= 0) ||
+            usage.Sum(p => p.Value!["transport_attempts"]!.GetValue<int>()) != 8) return null;
+        return new()
+        {
+            ["run_key"] = runKey, ["request_id"] = requestId, ["reason"] = "closed_request_never_admitted_to_http",
+            ["original_run_hash"] = closure["run_hash"]!.DeepClone(), ["request_hash"] = closure["request_hash"]!.DeepClone(),
+            ["http_journal_hash"] = PlanningGraphCompiler.Fingerprint(journal.ToJsonString()),
+            ["failure_hash"] = PlanningGraphCompiler.Fingerprint(failure.ToJsonString()),
+            ["closure_hash"] = PlanningGraphCompiler.Fingerprint(closure.ToJsonString()),
+            ["admitted_request_attempts"] = 0, ["session_attempts"] = 8,
+            ["original_result"] = run["result"]!.DeepClone()
+        };
+    }
+    // Read-only proof for a closed exhausted session whose unknown attempts retain full reservations.
+    // This establishes bounds, not completed usage or a successful outcome.
+    internal async Task<JsonObject?> AuditClosedHttpSessionAsync(string runKey, JsonObject run, CancellationToken ct = default)
+    {
+        if (run["result"]?["termination_reason"]?.ToString() != "session_http_budget" || run["result"]?["execution_correct"]?.GetValue<bool>() != false ||
+            run["session"]?["pendingCall"]?["id"]?.ToString() is not { } pending || run["session"]?["request"]?["sessionId"]?.ToString() is not { } session) return null;
+        var closure = await LoadAsync("planning-evaluation-closures", pending, ct);
+        if (closure?["reason"]?.ToString() != "session_http_attempts_exhausted" || closure["run_key"]?.ToString() != runKey ||
+            closure["run_hash"]?.ToString() != PlanningGraphCompiler.Fingerprint(run.ToJsonString()) || closure["accounting_at_closure"]?["session_calls"]?.GetValue<long>() != 8) return null;
+        if (run["usage_receipts"] is not JsonObject receipts) return null;
+        var keys = receipts.Select(p => p.Key).Append(pending).Distinct(StringComparer.Ordinal).ToArray();
+        if (keys.Length != run["session"]?["modelCalls"]?.GetValue<int>() || keys.Any(k => !k.StartsWith(session + ":", StringComparison.Ordinal))) return null;
+        var hashes = new JsonObject(); var journals = new List<JsonObject>();
+        foreach (var key in keys)
+        {
+            var request = await LoadAsync("planning-evaluation-requests", key, ct);
+            var journal = await LoadAsync(BenchmarkHttpJournal.Collection, key, ct);
+            if (request?["clientRequestId"]?.ToString() != key || journal is null ||
+                key == pending && closure["request_hash"]?.ToString() != PlanningGraphCompiler.Fingerprint(request.ToJsonString())) return null;
+            hashes[key] = PlanningGraphCompiler.Fingerprint(journal.ToJsonString()); journals.Add(journal);
+        }
+        var measurement = PlanningBenchmarkMeasurements.ClosedHttpUsage(journals, 8);
+        if (measurement is null) return null;
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(this, pending, ct: ct);
+        if (accounting["session_calls"]?.GetValue<long>() != 8 || accounting["cost_upper_bound_eur"]?.GetValue<decimal>() is not <= 50m) return null;
+        return new() { ["run_key"] = runKey, ["reason"] = "closed_session_with_conservative_http_reservations", ["original_run_hash"] = closure["run_hash"]!.DeepClone(),
+            ["closure_hash"] = PlanningGraphCompiler.Fingerprint(closure.ToJsonString()), ["http_journal_hashes"] = hashes,
+            ["original_result"] = run["result"]!.DeepClone(), ["audited_usage"] = measurement };
+    }
     internal async Task<JsonObject> InspectAsync(CancellationToken ct = default)
     {
         var evidence = new List<KeyVaultRecordValue>();
-        foreach (var collection in new[] { "requests", "receipts", "failures", "runs", "summaries", "configuration", "budgets", "http-attempts" })
+        foreach (var collection in new[] { "requests", "receipts", "failures", "runs", "summaries", "configuration", "budgets", "http-attempts", "closures" })
             evidence.AddRange((await records.ListAsync("planning-evaluation-" + collection, "benchmark", Author, ct))
                 .Where(r => collection == "budgets" ? r.Key == Id : r.Key.StartsWith(Id + ":", StringComparison.Ordinal)));
         var requests = evidence.Where(r => r.Collection == "planning-evaluation-requests").ToArray();
@@ -43,6 +132,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         var snapshot = budget is null ? null : JsonSerializer.Deserialize(budget.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
         return new() { ["campaign"] = Id, ["reserved_requests"] = requests.Length, ["completed_receipts"] = receipts.Length,
             ["uncertain_requests"] = new JsonArray(missing.Select(r => (JsonNode)JsonValue.Create(r.Key[(Id.Length + 1)..])).ToArray()),
+            ["retained_inconclusive_requests"] = new JsonArray(evidence.Where(r => r.Collection == "planning-evaluation-closures").Select(r => (JsonNode)JsonValue.Create(r.Key[(Id.Length + 1)..])).ToArray()),
             ["transport_accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, ct: ct),
             ["recorded_failures"] = evidence.Count(r => r.Collection == "planning-evaluation-failures"),
             ["known_budget_cost"] = snapshot?.EstimatedCost, ["budget_currency"] = snapshot?.EstimatedCostCurrency,
@@ -54,8 +144,9 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
     internal async Task<(PlanningSession State, ILLMClient Client)> ReadReplayAsync(string runKey, CancellationToken ct = default)
     {
         var evidence = await LoadAsync("planning-evaluation-runs", runKey, ct) ?? throw new InvalidOperationException("No recorded run.");
+        if (evidence["session"]?["schemaVersion"]?.GetValue<int>() != 10) throw new InvalidOperationException("Regenerate and approve incompatible planning sessions; retained evidence remains unchanged.");
         var saved = JsonSerializer.Deserialize(evidence["session"], PlanningJsonContext.Default.PlanningSession) ?? throw new InvalidOperationException("No recorded session.");
-        if (saved.SchemaVersion != 8) throw new InvalidOperationException("Unsupported recorded session format.");
+        if (saved.SchemaVersion != 10) throw new InvalidOperationException("Unsupported recorded session format.");
         var prefix = Id + ":" + saved.Request.SessionId + ":1:";
         var reservations = (await records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct)).Where(r => r.Key.StartsWith(prefix, StringComparison.Ordinal)).ToArray();
         if (reservations.Length != 1) throw new InvalidOperationException("Replay requires one original interpretation reservation.");
@@ -87,6 +178,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
     internal async Task<LLMResponse> CallAsync(LLMRequest request, Func<CancellationToken, Task> preflight, Func<CancellationToken, Task<LLMResponse>> dispatch, CancellationToken ct, bool allowHttpRecovery = false)
     {
         var key = request.ClientRequestId ?? throw new InvalidOperationException("A reserved request identity is required.");
+        if (await LoadAsync("planning-evaluation-closures", key, ct) is not null) throw new InvalidOperationException("This request is permanently retained as inconclusive and cannot be dispatched again.");
         if (await LoadAsync("planning-evaluation-receipts", key, ct) is { } receipt)
             return JsonSerializer.Deserialize(receipt, PlanningJsonContext.Default.LLMResponse)!;
         var reserved = await LoadAsync("planning-evaluation-requests", key, ct);
@@ -94,7 +186,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
             throw new InvalidOperationException("The reserved request changed.");
         var resumable = allowHttpRecovery && await LoadAsync(BenchmarkHttpJournal.Collection, key, ct) is not null;
         foreach (var pending in (await records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct)).Where(r => r.Key.StartsWith(Id + ":", StringComparison.Ordinal)))
-            if (await records.GetAsync("planning-evaluation-receipts", "benchmark", pending.Key, Author, ct) is null && !(pending.Key == Id + ":" + key && resumable))
+            if (await records.GetAsync("planning-evaluation-receipts", "benchmark", pending.Key, Author, ct) is null && await records.GetAsync("planning-evaluation-closures", "benchmark", pending.Key, Author, ct) is null && !(pending.Key == Id + ":" + key && resumable))
             { StopReason = "uncertain_dispatch"; throw new InvalidOperationException("The campaign has an uncertain dispatch without recoverable HTTP evidence."); }
         await preflight(ct);
         if (reserved is null) await SaveAsync("planning-evaluation-requests", key, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), ct);
@@ -130,5 +222,5 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
             throw;
         }
     }
-    internal void BudgetExceeded() => StopReason = "campaign_budget";
+    internal void BudgetExceeded(bool session = false) => StopReason = session ? "session_http_budget" : "campaign_budget";
 }

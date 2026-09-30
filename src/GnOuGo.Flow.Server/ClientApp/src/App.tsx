@@ -1,6 +1,7 @@
 // ── App — thin shell: header + tab routing ──
 
 import { useState } from 'react'
+import { RunJournal } from './components/RunJournal'
 import './App.scss'
 import { FlowEditor } from './editor'
 import './editor/FlowEditor.scss'
@@ -37,8 +38,11 @@ export default function App() {
           >
             ▶ Runner
           </button>
+          <button className={`header__tab ${activeTab === 'executions' ? 'header__tab--active' : ''}`} onClick={() => setActiveTab('executions')}>Executions</button>
         </nav>
       </header>
+
+      {activeTab === 'executions' && <RunJournal initialTenant={stream.tenantId} />}
 
       {activeTab === 'editor' && (
         <FlowEditor yamlValue={workflow} onYamlChange={setWorkflow} />
