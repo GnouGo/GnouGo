@@ -1,5 +1,12 @@
 # Planner stabilization execution evidence
 
+**Final gate passed:** candidate `7d5d42b2` achieves **33/33** execution oracles
+(9 real local, 24 mocked), versus 26/33 baseline. All nine simple cases use one
+planning call and zero repairs. See the [final results and efficiency tables](results-7d5d42b2.md).
+Cumulative estimated campaign cost: **EUR 13.473417 / 50**; no unknown usage or
+outstanding reservations. Historical failures below remain in the denominator of
+their own cohorts and are never pooled into the final success rate.
+
 Baseline production: `7288b6997c704b8ca098761c030071d61da1ce1a` (merged PR #113).
 Frozen harness: `22bba1a5`. Campaign: `planner-stabilization-20260930`, pinned
 OpenAi `gpt-5.5-2026-04-24`, medium reasoning, 96,000 input / 32,768 output tokens,
@@ -120,4 +127,9 @@ alternatives from runtime approvals owned by operation contracts. The
 and [validation](validation-229cc2a3.json) remain separate. One successful filesystem
 run used a measured transport retry. Total cumulative estimated cost was EUR 11.711044;
 all usage is known, with no safety violations.
-Fresh evaluation is pending.
+The subsequent frozen candidate `7d5d42b2` passed its diagnostic after one scoped
+dependency repair, then passed all 33 final execution oracles. The final cohort also
+needed one dependency repair in a complex review; all simple cases met their target.
+Its [diagnostic](diagnostic-7d5d42b2.jsonl), [complete cohort](final-7d5d42b2.jsonl) and
+[passing comparison](comparison-7d5d42b2.json) are retained. See the
+[final report](results-7d5d42b2.md) for validation, efficiency changes and limitations.

@@ -2,6 +2,9 @@
 
 ## Planner stabilization comparison
 
+The [completed campaign report](../../docs/evidence/planner-stabilization/results-7d5d42b2.md)
+records the frozen final production revision, passing comparison and retained failures.
+
 `--stabilization` is the execution-based eleven-case campaign. It uses the eight
 unchanged corpus requests and three real filesystem workflows through the shipped
 Cmd MCP stdio process. Real effects are confined to a disposable workspace per run;
@@ -12,6 +15,7 @@ Build the benchmark and Cmd MCP in Release. Freeze the harness before collecting
 the baseline, and use that same harness against both production revisions:
 
 ```sh
+# Baseline worktree: 22bba1a5 (production 7288b699).
 dotnet build tests/GnOuGo.Agent.Planning.Benchmark -c Release -m:1 -warnaserror -p:SkipClientBuild=true
 dotnet build src/GnOuGo.Cmd.Mcp -c Release -m:1 -warnaserror
 STABILIZATION_CMD_DIR="$(mktemp -d)"
@@ -20,6 +24,8 @@ dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark
   --stabilization --campaign planner-stabilization-20260930 --cohort baseline \
   --source 7288b6997c704b8ca098761c030071d61da1ce1a \
   --cmd-executable "$STABILIZATION_CMD_DIR/GnOuGo.Cmd.Mcp"
+# Switch to the frozen candidate worktree; keep STABILIZATION_CMD_DIR unchanged.
+dotnet build tests/GnOuGo.Agent.Planning.Benchmark -c Release -m:1 -warnaserror -p:SkipClientBuild=true
 dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
   --stabilization --campaign planner-stabilization-20260930 --cohort final --source <candidate-sha> \
   --cmd-executable "$STABILIZATION_CMD_DIR/GnOuGo.Cmd.Mcp"
@@ -31,7 +37,11 @@ dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark
 Run collection in clean isolated worktrees at the recorded harness/production
 revisions: baseline harness `22bba1a5` over production `7288b699`, and the candidate
 revision linked in the evidence report. Build each runner in its own worktree and
-share only the frozen Cmd directory and encrypted campaign. The manifest hashes
+share only the frozen Cmd directory and encrypted campaign. The recorded Cmd binary
+was built at `456b05c7` (Cmd source identical to the production baseline); its exact
+assembly hash is retained in every manifest. Reuse that frozen binary for historical
+collection/replay. A separately authorized fresh campaign must freeze its own binary
+once and use that identical directory for both revisions. The manifest hashes
 must match before candidate dispatch. Existing retained identities are read-only
 replays; a new measurement campaign needs its own explicitly authorized allowance.
 
@@ -63,6 +73,8 @@ private output to plaintext files or commit it. All failure identities and budge
 reservations remain retained. Generic fixes and further diagnostic iterations are
 authorized for this campaign within its shared ceiling; failed final cohorts are
 not overwritten or pooled with a later revision.
+
+## Historical corpus campaigns
 
 Eight frozen requests cover arithmetic, read/transform, nullable values/defaults, routing, parallel collections/subflows, protected writes/cleanup, the original French PR review and an English review with 80 irrelevant tools. All external integrations are mocked. Expected results use independent alternate inputs and observations; review evaluation checks passing, failed and incomplete executions in one clone. All eight offline intent fixtures exercise construction and execution. They are not a live-model reliability score. Rejected confirmation and changed-head cases must prevent publication while preserving cleanup.
 

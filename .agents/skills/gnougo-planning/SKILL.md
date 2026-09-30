@@ -29,7 +29,7 @@ Requirements → Discovery → LLM TaskPlan → deterministic compiler → Plann
 - Reserve one proposal and one repair when allowed; additional repairs are opportunistic within saved ceilings. Successful discovery clears only resolved response errors, never history or counters. Enforce issued schemas and stop safely; token settings cannot replenish calls.
 - A missing artifact producer permits structural repair only with exact policy-allowed producer contracts. Every inserted task must lie on the diagnosed required-artifact dependency chain; unused additions fail atomically. Stop for explicit semantic revision when that proof is unavailable. Unavailable contracts are uncertainty, not proof of absence.
 - Invalid generated plumbing is a compiler defect, not a model repair. Do not remove guards or relax validation to accept it.
-- Keep agent scope literal and approved. Workspace alone may reference available `value` constants proven by the compiler and emitted as literals; inputs, operations, transforms, choices and loop-derived values cannot define it. Choices grant no permissions. Recompilation must reproduce the reviewed artifact; changed intent, selections, contracts or artifacts invalidate approval.
+- Keep agent scope literal and approved. Workspace alone may reference available `value` constants proven by the compiler and emitted as literals; inputs, operations, transforms, choices and loop-derived values cannot define it. Choices grant no permissions and never substitute for operation-owned runtime approval. Recompilation must reproduce the reviewed artifact; changed intent, selections, contracts or artifacts invalidate approval.
 
 ## Development
 
