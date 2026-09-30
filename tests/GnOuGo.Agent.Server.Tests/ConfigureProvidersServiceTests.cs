@@ -17,7 +17,7 @@ using OtlpTenantCollector.Models;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class ConfigureProvidersServiceTests
+public sealed partial class ConfigureProvidersServiceTests
 {
     [Fact]
     public async Task McpCopilotPermissions_ListsAndRevokesTenantScopedPersistentGrants()
@@ -57,7 +57,8 @@ public sealed class ConfigureProvidersServiceTests
         Assert.Contains(listEvents, item => item.Text?.Contains("| yes |", StringComparison.Ordinal) == true);
         Assert.Contains(revokeEvents, item => item.Text?.Contains("revoked", StringComparison.OrdinalIgnoreCase) == true);
         Assert.Equal("grant-1", revokeRequest?["grantId"]?.GetValue<string>());
-        Assert.Equal("tenant-test", revokeRequest?["tenantId"]?.GetValue<string>());
+        // Tenant identity is carried by trusted transport metadata, never business arguments.
+        Assert.False(revokeRequest!.ContainsKey("tenantId"));
     }
 
     private static ConfigureProvidersService CreatePermissionManagementService(IMcpClientFactory mcpFactory)
@@ -387,7 +388,7 @@ public sealed class ConfigureProvidersServiceTests
             {
                 Assert.Equal("mcp_edit.bundled_fields", request.StepId);
                 Assert.NotNull(request.Fields);
-                Assert.Equal(9, request.Fields!.Count);
+                Assert.Equal(10, request.Fields!.Count);
                 Assert.DoesNotContain(request.Fields!, field => field.Name is "command" or "args" or "allow_writes");
                 var providerField = Assert.Single(request.Fields!, field => field.Name == "provider");
                 Assert.Contains("Copilot", providerField.Options!);
@@ -2359,7 +2360,7 @@ public sealed class ConfigureProvidersServiceTests
                         ["provider"] = CopilotField("Provider override", "Provider", "select", "Copilot", optionsSource: "llm_providers"),
                         ["model"] = CopilotField("Fallback model", "Model", "string", "gpt-5.4-mini"),
                         ["reasoning_effort"] = CopilotField("Reasoning effort", "ReasoningEffort", "select", "high", ["low", "medium", "high", "xhigh"]),
-                        ["enable_approve_all"] = CopilotField("Enable broad approvals", "EnableApproveAll", "boolean", "true"),
+                        ["enable_approve_all"] = CopilotField("Enable broad approvals", "EnableApproveAll", "boolean", "false"),
                         ["enable_sandbox_bypass_grants"] = CopilotField(
                             "Enable reusable sandbox bypass",
                             "EnableSandboxBypassGrants",

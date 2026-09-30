@@ -697,3 +697,9 @@ Run `dotnet test tests/GnOuGo.Agent.Server.Tests -m:1 -warnaserror -p:SkipClient
 In Designer, **Inspect discovered tools** shows original request history, complete input estimates, source/page coverage, detailed versus index-only tools, retained omissions, unavailable/policy-excluded contracts, and explicit inspection selections separately from TaskPlan use. **Copy discovery report** exports identifiers, tool names and counts without raw prompts, arguments, schemas, descriptions or diagnostic message bodies. Historical exclusion reasons that were not recorded remain unavailable. Inspection and copying read tenant-owned encrypted records only; they dispatch no inference or MCP operation. Chat-owned sessions may lack historical request snapshots.
 
 Discovery can request exact contracts for known operation IDs within its existing call allowance. Selections survive paging; they never grant permissions or reset limits. See [evidence and limits](../../docs/controllable-discovery.md). Existing stopped sessions are not resumed automatically.
+
+## Agent-specific Copilot approval and nested animation
+
+Use `/mcp edit GnOuGo.GithubCopilot.Mcp`, choose **Configure agent permissions**, select the agent by name and stable ID, then choose **Allow All including sandbox bypass** and confirm the persistent grant. The editor also displays and removes the current grant. The grant applies to that tenant and agent's future permission callbacks; business questions and host restrictions remain enforced. Configuration is refreshed before grant creation and subsequent workflow runs.
+
+Nested workflow animation distinguishes outgoing calls from return handoffs, including calls inside loops and parallel branches. See [causes, boundaries and validation evidence](../../docs/agent-permissions-and-animation.md).

@@ -11,7 +11,7 @@ using ModelContextProtocol.Server;
 namespace GnOuGo.GithubCopilot.Mcp;
 
 [McpServerToolType]
-internal sealed class CopilotTools
+internal sealed partial class CopilotTools
 {
     private const string ReviewProjectRootDescription = "Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory; a URL, repository identifier, absolute path, or invented path is invalid.";
     private const string ReviewFilesJsonDescription = "Required JSON array of per-file exact comparison patches returned by a documented revision-comparison capability. A raw aggregate diff or invented file list is invalid.";

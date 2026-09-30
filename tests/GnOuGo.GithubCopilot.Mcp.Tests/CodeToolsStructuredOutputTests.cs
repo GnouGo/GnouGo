@@ -329,6 +329,7 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
 
         foreach (var name in new[]
                  {
+                     "copilot_permission_grant_create",
                      "copilot_permission_grants_list",
                      "copilot_permission_grant_revoke",
                      "copilot_permission_grants_revoke_agent"
