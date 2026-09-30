@@ -74,6 +74,10 @@ public sealed class RecordedArtifactPrerequisiteTests(ITestOutputHelper output)
             var enriched = page.Capabilities.Select(c => c with { ArtifactContract = replay.Contracts.FirstOrDefault(x => x.Id == c.Id && x.Version == c.Version)?.ArtifactContract }).ToList();
             state.Discovery.Pages[state.Discovery.Pages.IndexOf(page)] = page with { Capabilities = enriched };
         }
+        // This fresh synthetic revision explicitly inspects the consumer. Unadmitted
+        // directory entries no longer cause unrelated prerequisite searches.
+        var consumer = state.Discovery.Pages.SelectMany(p => p.Capabilities).First(c => c.Id == replay.Contracts.Single(c => c.Method == "copilot_review").Id);
+        state.Discovery.Inspections = [new(consumer.SourceId, null, OperationIds: [consumer.Operation!.Id])];
         replay.Proposal = replay.Corrected();
         var before = Snapshot(state);
         var result = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, replay, Ct);
@@ -89,7 +93,9 @@ public sealed class RecordedArtifactPrerequisiteTests(ITestOutputHelper output)
         var hash = recovered.ComputeArtifactHash(); recovered.Catalog!.Capabilities.Single(c => c.Id == replay.Producer.Id).ArtifactContract = null;
         Assert.NotEqual(hash, recovered.ComputeArtifactHash()); Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(recovered));
         var request = Assert.Single(replay.Requests);
-        Assert.Contains(replay.Producer.Id, request.Prompt); Assert.InRange(Estimate(request), 1, 24000);
+        Assert.Contains(replay.Producer.Id, request.StructuredOutputSchema!.ToJsonString());
+        Assert.Contains(result.Discovery.Resolved, c => c.Id == replay.Producer.Id);
+        Assert.InRange(Estimate(request), 1, 24000);
         Assert.InRange(replay.FilterReads, 1, state.Discovery.Pages.Select(p => p.SourceId).Distinct().Count());
         Assert.DoesNotContain(result.Discovery.Pages, p => p.ProducedArtifactKind is not null && p.Capabilities.Any(c => c.ArtifactContract?.Produces.All(a => a.Kind != p.ProducedArtifactKind) == true));
         output.WriteLine($"Original proposal: prompt bytes={Bytes(old.Prompt)}, schema bytes={Bytes(old.StructuredOutputSchema!.ToJsonString())}, estimated input={Estimate(old)}. Explicit revised proposal: bytes={Bytes(request.Prompt)}, schema bytes={Bytes(request.StructuredOutputSchema!.ToJsonString())}, estimated input={Estimate(request)}, metadata pages={replay.FilterReads}, resolutions={replay.Resolutions}, scripted new calls=1, cumulative calls=4, repairs=0. Historical calls=6, repairs=2. No live reliability claim.");

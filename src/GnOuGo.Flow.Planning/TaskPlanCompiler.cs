@@ -405,6 +405,7 @@ public sealed partial class TaskPlanCompiler
             case "array":
                 var items = value.Items.Select(i => Value(i, scope)).ToArray();
                 var schemas = items.Select(i => i.Schema).DistinctBy(s => s.ToJsonString()).ToArray();
+                if (items.Length == 0) return new(Array([]), new() { ["type"] = "array", ["const"] = new JsonArray() }, "[]");
                 return new(Array(items.Select(i => i.Value)), new() { ["type"] = "array", ["items"] = schemas.Length == 1 ? schemas[0].DeepClone() : schemas.Length == 0 ? new JsonObject() : new JsonObject { ["anyOf"] = new JsonArray(schemas.Select(s => s.DeepClone()).ToArray()) } }, "[" + string.Join(",", items.Select(i => i.Expression)) + "]");
             case "choice":
                 var choice = _plan.Choices.SingleOrDefault(c => c.Id == value.Source);

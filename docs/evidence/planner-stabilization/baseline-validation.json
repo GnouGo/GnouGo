@@ -1,0 +1,19 @@
+{
+  "source": "7288b6997c704b8ca098761c030071d61da1ce1a",
+  "harness": "22bba1a5",
+  "tests": {
+    "passed": 3719,
+    "failed": 0,
+    "skipped": 12,
+    "projects": 33
+  },
+  "harness_tests": 14,
+  "live_runs": 33,
+  "execution_correct": 26,
+  "logs": {
+    "baseline-tests.log": "dcbba6a1a1bcbf32835c67a086c46a1bc593a9574f2ebc777d1d0b1b0aa3db95",
+    "harness-tests-final.log": "3c8ceced1c2fc36bd2bcf8939c73b675a4ee8c5dd789f7dda4ca9ecde116e174",
+    "harness-build-final.log": "3f85483ca4ccc2f218a9384357cbeec4e97ef19b7c2a61ab9693a32271e6ec8e",
+    "structural-regressions-before.log": "a37869e991700f243b0c711aa3bceb1e55e17e63648db1bd5cb6f1c5ca998930"
+  }
+}

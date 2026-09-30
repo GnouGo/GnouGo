@@ -420,7 +420,7 @@ public static class PlanningGraphValidation
                     "template" => new JsonObject { ["type"] = "string" },
                     "null" => new JsonObject { ["type"] = "null" },
                     "object" => ObjectSchema(value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted).Select(m => (m.Name, ValueSchema(m.Value, visiting) ?? new JsonObject())), closed: true),
-                    "array" when value.Items.Count == 0 => new JsonObject { ["type"] = "array", ["maxItems"] = 0 },
+                    "array" when value.Items.Count == 0 => new JsonObject { ["type"] = "array", ["maxItems"] = 0, ["const"] = new JsonArray() },
                     "array" => new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["anyOf"] = new JsonArray(value.Items.Select(v => (JsonNode?)(ValueSchema(v, visiting) ?? new JsonObject())).ToArray()) } },
                     _ => null
                 };

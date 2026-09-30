@@ -171,10 +171,11 @@ public sealed class ProgressiveDiscoveryTests
         state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Diagnostics.ToList();
         state.RevisionScope = TaskPlanRevisions.Scope(state.Plan, state.Diagnostics).ToList();
         Assert.Contains("/tasks/work/operation", state.RevisionScope);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(new PlanningPrompt(state).Request().StructuredOutputSchema!, strict: true));
         var baseline = System.Text.Json.JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
         runtime.Proposal.Plan = null; runtime.Proposal.DiscoveryRequests = [new("source", Query: "declared value")];
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-        Assert.Equal(PlanningPhase.Discovery, state.Phase); Assert.Equal(1, state.ReplanAttempts);
+        Assert.True(state.Phase == PlanningPhase.Discovery, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message))); Assert.Equal(1, state.ReplanAttempts);
         Assert.Equal(baseline, System.Text.Json.JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
         runtime.Respond = (_, _) => new() { Json = new JsonObject { ["discoveryRequests"] = null,
             ["patch"] = new JsonObject { ["edits"] = new JsonArray((JsonNode)RepairPatchTests.Edit(state, "/tasks/work/operation", "replace", JsonValue.Create("selected"))) } } };

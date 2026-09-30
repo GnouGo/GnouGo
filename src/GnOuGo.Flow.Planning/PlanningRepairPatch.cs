@@ -63,13 +63,15 @@ internal static class PlanningRepairPatch
             ? new(null, parent, path[(split + 1)..], null, -1) : null;
     }
 
-    internal static IReadOnlyList<Slot> Slots(PlanningSession state, JsonObject definitions)
+    internal static IReadOnlyList<Slot> Slots(PlanningSession state, JsonObject definitions, bool structural = true)
     {
         var plan = state.Plan!; var symbols = new TaskPlanSymbols(plan);
         var index = Index(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!);
         var types = TaskPlanRevisions.TransformResultSlots(plan); var slots = new List<Slot>();
+        var structuralSlots = structural ? PlanningStructuralRepair.Slots(state, definitions) : [];
         foreach (var path in state.RevisionScope.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
+            if (path.EndsWith("/kind", StringComparison.Ordinal) && structuralSlots.Any(s => s.Kind == "task" && path == s.Location + "/kind")) continue;
             var kind = "value"; var schema = PlanningSchemas.Ref("value"); var actions = new List<string>();
             var site = FindSite(index, path);
             if (symbols.Values.ContainsKey(path) && site is not null)
@@ -139,7 +141,14 @@ internal static class PlanningRepairPatch
                     details: new JsonObject { ["location"] = path });
             slots.Add(new("s" + slots.Count.ToString(System.Globalization.CultureInfo.InvariantCulture), path, kind, schema, actions.ToArray()));
         }
-        return slots;
+        foreach (var slot in structuralSlots)
+        {
+            // Factor the payload outside the patch envelope without weakening its contract.
+            var name = "repairStructural" + slots.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            definitions[name] = slot.ValueSchema.DeepClone();
+            slots.Add(slot with { ValueSchema = PlanningSchemas.Ref(name) });
+        }
+        return slots.Select((s, i) => s with { Id = "s" + i.ToString(System.Globalization.CultureInfo.InvariantCulture) }).ToArray();
     }
 
     private static JsonObject FixedName(JsonObject schema, string property, string value)
@@ -156,7 +165,7 @@ internal static class PlanningRepairPatch
         var slots = Slots(state, definitions); var edits = new JsonArray();
         foreach (var slot in slots)
             foreach (var action in slot.Actions)
-                edits.Add((JsonNode)(action is "remove" or "remove_owned"
+                edits.Add((JsonNode)(action is "remove" or "remove_owned" or "remove_forwarder"
                     ? PlanningSchemas.Object(("slot", PlanningSchemas.Enum(slot.Id)), ("action", PlanningSchemas.Enum(action)))
                     : PlanningSchemas.Object(("slot", PlanningSchemas.Enum(slot.Id)), ("action", PlanningSchemas.Enum(action)), ("value", slot.ValueSchema.DeepClone().AsObject()))));
         var schema = PlanningSchemas.Object(("discoveryRequests", template["properties"]!["discoveryRequests"]!.DeepClone().AsObject()),
@@ -182,7 +191,13 @@ internal static class PlanningRepairPatch
         return schema;
     }
 
-    internal static string Authority(PlanningSession state) => PlanningGraphCompiler.Fingerprint(new JsonObject
+    internal static string Authority(PlanningSession state, int version = 1) => version == 2 ? PlanningGraphCompiler.Fingerprint(new JsonObject
+    {
+        ["baselineAuthority"] = Authority(state),
+        ["permissions"] = PermissionDescriptors(state),
+        ["diagnostics"] = new JsonArray(state.Diagnostics.Where(d => d.Required).OrderBy(d => d.Location, StringComparer.Ordinal).ThenBy(d => d.Code, StringComparer.Ordinal)
+            .Select(d => (JsonNode)new JsonObject { ["code"] = d.Code, ["location"] = d.Location }).ToArray())
+    }.ToJsonString()) : PlanningGraphCompiler.Fingerprint(new JsonObject
     {
         ["tenant"] = state.Request.TenantId, ["session"] = state.Request.SessionId,
         ["baseline"] = JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan),
@@ -195,6 +210,15 @@ internal static class PlanningRepairPatch
         ["options"] = state.Request.Options.DeepClone()
     }.ToJsonString());
 
+    private static JsonObject PermissionDescriptors(PlanningSession state)
+    {
+        var definitions = PlanningSchemas.FullProposal(state, compact: false)["$defs"]!.AsObject();
+        var slots = Slots(state, definitions);
+        return new() { ["definitions"] = definitions.DeepClone(), ["slots"] = new JsonArray(slots.Select(s => (JsonNode)new JsonObject
+        { ["id"] = s.Id, ["location"] = s.Location, ["kind"] = s.Kind, ["schema"] = s.ValueSchema.DeepClone(),
+            ["actions"] = new JsonArray(s.Actions.Select(a => (JsonNode?)JsonValue.Create(a)).ToArray()) }).ToArray()) };
+    }
+
     internal static JsonObject RequestContext(LLMRequest request)
     {
         var start = request.Prompt.IndexOf("\n{", StringComparison.Ordinal);
@@ -205,7 +229,8 @@ internal static class PlanningRepairPatch
     internal static void Verify(PlanningSession state, LLMRequest request)
     {
         var repair = RequestContext(request)["repair"];
-        if (repair?["version"]?.ToString() != "1" || repair["authority"]?.ToString() != Authority(state))
+        var version = repair?["version"]?.GetValue<int>();
+        if (version is not (1 or 2) || repair!["authority"]?.ToString() != Authority(state, version.Value))
             throw new PlanningConflictException("The repair baseline, scope or contracts changed. The retained request cannot be rebased or redispatched.");
     }
 
@@ -213,7 +238,15 @@ internal static class PlanningRepairPatch
     {
         Verify(state, request);
         var definitions = PlanningSchemas.FullProposal(state, compact: false)["$defs"]!.AsObject();
-        var slots = Slots(state, definitions).ToDictionary(s => s.Id, StringComparer.Ordinal);
+        var version = RequestContext(request)["repair"]!["version"]!.GetValue<int>();
+        var slots = Slots(state, definitions, structural: version == 2).ToDictionary(s => s.Id, StringComparer.Ordinal);
+        // Recovery and direct callers both enforce the exact issued response schema.
+        var response = new JsonObject { ["discoveryRequests"] = null, ["patch"] = JsonSerializer.SerializeToNode(patch, RepairJsonContext.Default.RepairPatch) };
+        // Removal actions omit the payload in the wire contract.
+        foreach (var edit in response["patch"]!["edits"]!.AsArray())
+            if (edit!["action"]?.ToString() is "remove" or "remove_owned" or "remove_forwarder") edit.AsObject().Remove("value");
+        if (PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!).Count > 0)
+            throw new PlanningResponseException([new("REVISION_SCOPE_CHANGED", "/patch/edits", "The patch does not satisfy its issued schema.")]);
         var selected = new List<Slot>();
         foreach (var edit in patch.Edits)
         {
@@ -224,8 +257,11 @@ internal static class PlanningRepairPatch
             selected.Add(slot);
         }
         var before = JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)!;
-        var tree = before.DeepClone(); var symbols = new TaskPlanSymbols(state.Plan!);
-        foreach (var edit in patch.Edits)
+        var structural = patch.Edits.Where(e => slots[e.Slot].Kind is "prerequisites" or "task" or "forwarder").ToArray();
+        var baseline = before.DeepClone().Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        foreach (var edit in structural) PlanningStructuralRepair.Apply(baseline, slots[edit.Slot], edit);
+        var tree = JsonSerializer.SerializeToNode(baseline, PlanningJsonContext.Default.TaskPlan)!; var symbols = new TaskPlanSymbols(baseline);
+        foreach (var edit in patch.Edits.Except(structural))
         {
             var slot = slots[edit.Slot]; var index = Index(tree); var site = FindSite(index, slot.Location);
             if (edit.Action == "remove") site!.Remove();
@@ -246,8 +282,9 @@ internal static class PlanningRepairPatch
             else site!.Set(edit.Value?.DeepClone());
         }
         var candidate = tree.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
-        var findings = TaskPlanRevisions.Validate(state.Plan, candidate, state.RevisionScope, state.Catalog).ToList();
+        var findings = TaskPlanRevisions.Validate(baseline, candidate, state.RevisionScope, state.Catalog).ToList();
         if (findings.Count > 0) throw new PlanningResponseException(findings);
+        if (structural.Length > 0) PlanningStructuralRepair.Validate(state, candidate, structural.Select(e => slots[e.Slot]).ToArray());
         if (JsonNode.DeepEquals(before, JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskPlan)))
             throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The repair did not change an authorized semantic slot. The baseline and accounting are retained.");
         return candidate;

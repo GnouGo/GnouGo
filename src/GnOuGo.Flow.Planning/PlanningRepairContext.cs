@@ -133,7 +133,7 @@ internal static class PlanningRepairContext
             selection.Tasks.Any(id => symbols.Tasks[id].Task.Group == g.Id));
         return new JsonObject
         {
-            ["version"] = 1, ["authority"] = PlanningRepairPatch.Authority(state),
+            ["version"] = 2, ["authority"] = PlanningRepairPatch.Authority(state, 2),
             ["slots"] = new JsonArray(slots.Select(s => (JsonNode)new JsonObject { ["id"] = s.Id, ["location"] = s.Location, ["kind"] = s.Kind,
                 ["actions"] = new JsonArray(s.Actions.Select(a => (JsonNode?)JsonValue.Create(a)).ToArray()) }).ToArray()),
             ["tasks"] = taskNodes, ["scopes"] = scopeNodes,

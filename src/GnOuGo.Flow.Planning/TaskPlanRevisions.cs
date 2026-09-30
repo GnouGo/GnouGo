@@ -7,7 +7,7 @@ namespace GnOuGo.Flow.Planning;
 internal static class TaskPlanRevisions
 {
     internal static bool FixedOperations(PlanningSession state) => state.Plan is not null && state.RevisionScope.Count > 0 &&
-        state.Diagnostics.Any(d => d.Required) && !state.RevisionScope.Any(p => p.EndsWith("/operation", StringComparison.Ordinal));
+        state.Diagnostics.Any(d => d.Required) && !PlanningStructuralRepair.CanChangeOperations(state) && !state.RevisionScope.Any(p => p.EndsWith("/operation", StringComparison.Ordinal));
 
     internal static IEnumerable<PlanTask> Tasks(TaskScope scope) => scope.Tasks.Concat(scope.Always).SelectMany(t => new[] { t }.Concat(
         (t.Body is null ? [] : Tasks(t.Body)).Concat(t.Otherwise is null ? [] : Tasks(t.Otherwise)).Concat(t.Branches.SelectMany(Tasks))));
@@ -19,9 +19,10 @@ internal static class TaskPlanRevisions
         var inputs = plan.Inputs.Select(i => "/inputs/" + i.Name).Concat(plan.Groups.SelectMany(g => g.Inputs.Select(i => "/groups/" + g.Id + "/inputs/" + i.Name))).ToHashSet(StringComparer.Ordinal);
         var scope = new HashSet<string>(StringComparer.Ordinal);
         var resultSlots = TransformResultSlots(plan);
-        foreach (var finding in findings.Where(d => d.Required && d.Code is not ("REVISION_SCOPE_CHANGED" or "TASK_ARTIFACT_PREREQUISITE_MISSING")))
+        foreach (var finding in findings.Where(d => d.Required && d.Code != "REVISION_SCOPE_CHANGED"))
         {
             var path = finding.Location;
+            if (finding.Code == "TASK_KIND_INVALID" && path.Split('/') is ["", "tasks", var invalidTask, "kind"] && symbols.Tasks.ContainsKey(invalidTask)) { scope.Add(path); continue; }
             if (finding.Code is "TASK_TRANSFORM_TYPE" or "TASK_TRANSFORM_CONSTRAINT" && resultSlots.Contains(path)) { scope.Add(path); continue; }
             if (symbols.Values.ContainsKey(path) || inputs.Contains(path) || plan.Choices.Any(c => path == "/choices/" + c.Id)) scope.Add(path);
             else if (finding.Code == "TASK_EXPORT_REQUIRED" && symbols.Scopes.Any(s => s.Path + "/outputs" == path)) scope.Add(path);
@@ -30,6 +31,17 @@ internal static class TaskPlanRevisions
                 field is "objective" or "operation" or "group" or "condition" or "items" or "dependsOn" or "maxItems" or "maxConcurrency") scope.Add(path);
             else if (finding.Code is "TASK_INPUT_REQUIRED" or "TASK_GROUP_INPUTS" && path.Split('/') is ["", "tasks", var taskId, "inputs", _] && symbols.Tasks.ContainsKey(taskId)) scope.Add(path);
         }
+        // One diagnosed cross-boundary reference grants its complete export route.
+        // Context reachability alone never authorizes task edits.
+        foreach (var path in scope.ToArray())
+            if (symbols.Values.TryGetValue(path, out var consumer))
+                foreach (var reference in TaskPlanCompiler.Values(consumer.Value).Where(v => v.Kind == "output" && v.Source is not null))
+                    foreach (var boundary in symbols.ExportRoute(consumer.Scope, reference.Source!))
+                    {
+                        scope.Add(boundary.Path + "/outputs");
+                        if (boundary.Owner?.Kind == "conditional")
+                            foreach (var alternative in symbols.Scopes.Where(s => s.Owner == boundary.Owner)) scope.Add(alternative.Path + "/outputs");
+                    }
         return scope.Order(StringComparer.Ordinal).ToArray();
     }
 
