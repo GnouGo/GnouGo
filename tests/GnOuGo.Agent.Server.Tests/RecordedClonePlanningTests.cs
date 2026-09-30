@@ -36,15 +36,18 @@ public sealed class RecordedClonePlanningTests
     {
         var current = await CurrentClone();
         var replay = new Replay(current); var state = await replay.Run();
-        var finding = Assert.Single(state.Diagnostics);
+        var finding = Assert.Single(state.Diagnostics, d => d.Code == "TASK_INPUT_TYPE");
+        var constraint = Assert.Single(state.Diagnostics, d => d.Code == "TASK_TRANSFORM_CONSTRAINT");
+        Assert.Equal(2, state.Diagnostics.Count);
+        Assert.Equal("/tasks/parse_pr/resultType/fields/targetDirectory/type/enum", constraint.Location);
         Assert.Equal("TASK_INPUT_TYPE", finding.Code); Assert.Equal("/tasks/clone_repository/inputs/targetDirectory", finding.Location);
         Assert.Contains("pattern", finding.Message); Assert.Contains("minLength", finding.Message);
         Assert.Contains("/tasks/parse_pr/resultType/fields/targetDirectory/type", finding.Message);
         Assert.Null(state.Graph); Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
-        Assert.Equal(new[] { finding.Location }, state.RevisionScope);
+        Assert.Equal(new[] { finding.Location, constraint.Location }, state.RevisionScope);
         var before = Recover(state);
         var proposal = Read("synthetic-shared-location")["proposal"]!.DeepClone();
-        // The semantic revision is legitimate only for a new/revised plan, not this one-slot repair.
+        // The semantic revision is legitimate only for a new/revised plan, not this binding/constraint repair.
         replay.NextResponse = proposal;
         state = await new HybridWorkflowPlanner().AdvanceAsync(Recover(state), new() { ExpectedRevision = state.Revision }, replay, TestContext.Current.CancellationToken);
         Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID" && d.Location == "/plan");
