@@ -98,7 +98,7 @@ Relevant Copilot settings:
 
 MCP transport sessions are never used as Copilot session identity. Managed calls use a `cps_*` opaque handle bound to `TenantId`; the session-create tool advertises that handle as a materialized `session.handle` artifact and lifecycle consumers declare the matching required artifact. One-shot calls create, execute, disconnect, and permanently delete one SDK session, and advertise a complete-operation composition encapsulating those lower-level session phases so a provider-neutral planner can avoid redundant wrapper-plus-phase execution. Request `_meta.gnougo` propagates tenant, correlation, stable execution and agent identity, run, step, repository, PR number, and head SHA. The host owns the execution and agent fields; workflow inputs cannot override them.
 
-Interactive permission, user-input, and nested MCP elicitation callbacks are bridged through stable MCP form elicitation. `copilot_session_create` publishes the managed-session permission enum and defaults to `interactive`. `copilot_one_shot` is deliberately non-interactive, publishes only `auto_approve_allowlist`, `deny`, and `approve_all`, and defaults to `deny`; its `permissionAllowlistJson` argument supplies the explicit allowlist when that mode is selected. Use `copilot_interactive_one_shot` for dependency installation, tests, linting, edits, or other one-turn work that may execute tools: it creates a managed interactive session and permanently deletes it after success, failure, or cancellation. `deny` is appropriate for pure review inference. `auto_approve_allowlist` permits only explicitly named read-only paths/tools. `approve_all` is rejected unless the host gate is enabled and must not be generated without explicit unattended intent and established host availability.
+Interactive permission, user-input, and nested MCP elicitation callbacks are bridged through stable MCP form elicitation. `copilot_session_create` publishes the managed-session permission enum and defaults to `interactive`. `copilot_one_shot` is deliberately non-interactive, publishes only `auto_approve_allowlist`, `deny`, and `approve_all`, and defaults to `deny`; its native `permissionAllowlist` array supplies the explicit allowlist when that mode is selected. Use `copilot_interactive_one_shot` for dependency installation, tests, linting, edits, or other one-turn work that may execute tools: it creates a managed interactive session and permanently deletes it after success, failure, or cancellation. `deny` is appropriate for pure review inference. `auto_approve_allowlist` permits only explicitly named read-only paths/tools. `approve_all` is rejected unless the host gate is enabled and must not be generated without explicit unattended intent and established host availability.
 Interactive permission prompts show the exact operation, warnings, sandbox-bypass status, and remembered scope. They offer **Allow once**, **Refuse**, and **Allow similar operations for this task** only when the SDK marks a matching scope as safe. When `EnableApproveAll` is enabled, the same interactive callback may also offer **Allow all for this Copilot task**, **Allow all for this workflow run**, and **Allow all future runs for this agent** when the required stable identities are available. Ordinary broad grants never include sandbox bypass. When `EnableSandboxBypassGrants` is also enabled, a bypass request offers explicit task, workflow, and future-agent choices that include ordinary and bypass operations. Future-agent approval requires a second confirmation and is stored by tenant plus stable agent ID, so it follows renames and survives restarts. Workflow grants are tenant/run scoped and expire after inactivity.
 Automatically reused permissions do not create an elicitation card. They emit redacted `permission.requested` and `permission.auto_approved` progress entries, including the sandbox-bypass flag, while explicit answers emit `permission.granted` or `permission.refused`. Grant revocation emits `permission.grant.revoked`. Raw model reasoning and likely credentials are never included.
 Every interactive elicitation carries the originating `_meta.gnougo` correlation back to the Flow client. The active tool cancellation token is linked to the Copilot callback, so cancelling the workflow releases the pending permission request instead of leaving the stdio server waiting. Interactive one-shot progress includes session creation, request processing, permission requested/resolved, completion or cancellation, and session deletion; it never includes raw reasoning.
@@ -206,6 +206,37 @@ dotnet build "C:\github\GnouGo\src\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot
 dotnet test "C:\github\GnouGo\tests\GnOuGo.GithubCopilot.Mcp.Tests\GnOuGo.GithubCopilot.Mcp.Tests.csproj" -p:SkipModelMetadataGeneration=true
 dotnet test "C:\github\GnouGo\tests\GnOuGo.GithubCopilot.Core.Tests\GnOuGo.GithubCopilot.Core.Tests.csproj"
 ```
+
+## Native list parameters (breaking migration)
+
+List inputs are native JSON arrays, visible to discovery and validated before tool
+binding, filesystem reads or session creation:
+
+| Tools | Optional list parameters |
+| --- | --- |
+| `copilot_session_create` | `permissionAllowlist`, `availableTools`, `excludedTools`, `skillDirectories`, `disabledSkills` |
+| `copilot_one_shot`, `copilot_interactive_one_shot` | `permissionAllowlist` |
+| `code_suggest_change`, `code_agent_edit` | `contextFiles` |
+
+For example, use `"contextFiles": ["src/App.cs"]`, with no JSON encoding around the
+array. Entries must be nonblank strings. Objects, encoded JSON strings, null items
+and blank entries produce a structured `INVALID_INPUT` error with the parameter
+and index, without echoing the supplied value. Omission and explicit null retain
+their previous defaults; `[]` remains an explicitly empty Copilot configuration
+list. Context-file omission/null/empty arrays all mean no supplied file context.
+Deduplication preserves the first occurrence, with ordinal comparison for Copilot
+configuration and ordinal case-insensitive comparison for context files.
+
+The corresponding six `*Json` argument names are removed and explicitly rejected,
+even when null or accompanied by the new argument. Refresh MCP discovery, revise
+the affected TaskPlan and approve the newly compiled artifact. Historical stored
+workflows and approvals are not rewritten. This does not change object-based JSON
+parameters such as review files/comments.
+
+An allowlist still permits only read-only operations: `["npm"]` does not authorize
+`npm install`. Installation/testing/editing uses `copilot_interactive_one_shot` with
+the existing tenant/agent grants or human approval. No command/scope object is
+flattened into broader permissions. See [diagnosis and execution evidence](../../docs/copilot-list-contracts.md).
 
 ## Native AOT publish
 

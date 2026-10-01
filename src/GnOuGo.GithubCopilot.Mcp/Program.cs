@@ -77,6 +77,7 @@ builder.Services
         };
         options.AddGnOuGoToolErrorNormalizer();
         CopilotAttachmentContract.Configure(options);
+        CopilotListContract.Configure(options);
         options.Filters.Request.CallToolFilters.Add(next => async (request, cancellationToken) =>
         {
             var accessor = request.Services is null ? null : request.Services.GetService<CodeMcpTraceContextAccessor>();

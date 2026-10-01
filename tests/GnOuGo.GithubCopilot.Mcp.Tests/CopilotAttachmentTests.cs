@@ -14,6 +14,7 @@ using Xunit;
 
 namespace GnOuGo.GithubCopilot.Mcp.Tests;
 
+[Collection("Copilot tool discovery")]
 public sealed class CopilotAttachmentTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
