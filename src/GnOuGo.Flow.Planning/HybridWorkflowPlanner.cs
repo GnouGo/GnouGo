@@ -176,7 +176,8 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         var legacyDiscovery = state.PendingCall is { } issued && !PlanningSchemas.HasQueryProperty(issued.Request.StructuredOutputSchema?["properties"]?["discoveryRequests"]);
         if (state.PendingCall is null)
         {
-            if (state.Requirements is null) state.IntentVersion = 1;
+            if (state.Requirements is null && state.IntentVersion is null)
+            { state.IntentVersion = 1; state.OutcomeVersion = 1; }
             await PlanningDiscoveryContext.DiscoverPrerequisitesAsync(state, runtime, ct);
             await PlanningDiscoveryContext.ResolveShortlistAsync(state, runtime, ct);
         }
@@ -191,7 +192,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             if ((change.DiscoveryRequests is null ? 0 : 1) + (change.Patch is null ? 0 : 1) + (change.Clarifications is null ? 0 : 1) != 1)
                 Reject("PROPOSAL_ACTION_INVALID", "/", "Return one permitted discovery batch, clarification or semantic patch.");
             proposal = new() { DiscoveryRequests = change.DiscoveryRequests, Clarifications = change.Clarifications,
-                Plan = change.Patch is null ? null : PlanningRepairPatch.Apply(state, change.Patch, issuedRequest) };
+                Plan = change.Patch is null ? null : PlanningRepairPatch.Apply(state, change.Patch, issuedRequest), OutcomeBindings = change.Patch is null ? null : state.OutcomeBindings };
         }
         else proposal = JsonSerializer.Deserialize(response, PlanningJsonContext.Default.PlanningProposal)!;
         if ((proposal.DiscoveryRequests is null ? 0 : 1) + (proposal.Plan is null ? 0 : 1) + (proposal.Clarifications is null ? 0 : 1) != 1)
@@ -199,7 +200,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         if (proposal.Clarifications is { } questions)
         {
             PlanningClarifications.ValidateQuestions(questions);
-            if (proposal.Requirements is not null) Reject("CLARIFICATION_INVALID", "/requirements", "Clarify intent before accepting new requirements.");
+            if (proposal.Requirements is not null || proposal.OutcomeBindings is not null) Reject("CLARIFICATION_INVALID", "/requirements", "Clarify intent before accepting new requirements.");
             state.PendingQuestions = questions; state.Graph = null; Invalidate(state);
             state.Status = PlanningStatus.Clarification; return;
         }
@@ -208,9 +209,10 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             (state.Requirements?.Inputs ?? proposal.Requirements?.Inputs) is null)
             Reject("REQUIREMENTS_INPUTS_REQUIRED", "/requirements/inputs", "Declare the intended caller input interface before proposing a plan, or clarify it with the user.");
         state.Requirements ??= proposal.Requirements;
-        if (state.IntentVersion == 1 && state.Requirements!.Inputs is null && proposal.Requirements?.Inputs is { } acceptedInputs) state.Requirements.Inputs = acceptedInputs;
+        if (state.IntentVersion == 1 && state.Requirements is { Inputs: null } && proposal.Requirements?.Inputs is { } acceptedInputs) state.Requirements.Inputs = acceptedInputs;
         if (proposal.DiscoveryRequests is { } requests)
         {
+            if (proposal.OutcomeBindings is not null) Reject("OUTCOME_BINDINGS_INVALID", "/outcomeBindings", "Only a plan can declare outcome bindings.");
             if (requests.Count is < 1 or > 4 || requests.Distinct().Count() != requests.Count)
                 Reject("DISCOVERY_BATCH_INVALID", "/discoveryRequests", "Request one to four distinct issued source pages.");
             // Admit the complete batch before reading any source. Fetches are metadata
@@ -264,6 +266,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             state.Diagnostics.RemoveAll(d => (d.Code is "DISCOVERY_BATCH_INVALID" or "SOURCE_UNKNOWN" or "CURSOR_UNKNOWN" or
                 "DISCOVERY_QUERY_INVALID" or "DISCOVERY_FILTER_INVALID" or "DISCOVERY_NO_PROGRESS" or "DISCOVERY_SELECTION_INVALID" or "PLANNING_RESPONSE_INVALID") &&
                 (d.Location == "/discoveryRequests" || d.Location.StartsWith("/discoveryRequests/", StringComparison.Ordinal)));
+            if (state.Requirements is null) state.Diagnostics.RemoveAll(d => d.Code == "REQUIREMENTS_INVALID");
             state.Phase = PlanningPhase.Discovery; return;
         }
         var plan = proposal.Plan!;
@@ -285,7 +288,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         }
         var findings = patchRequest ? [] : TaskPlanRevisions.Validate(state.Plan, plan, state.RevisionScope, state.Catalog).ToList();
         if (findings.Count > 0) throw new PlanningResponseException(findings);
-        state.Plan = plan; state.Graph = null; Invalidate(state);
+        state.Plan = plan; state.OutcomeBindings = proposal.OutcomeBindings; state.Graph = null; Invalidate(state);
         foreach (var operation in TaskPlanRevisions.Tasks(plan).Where(t => t.Kind == "operation").Select(t => t.Operation).Distinct(StringComparer.Ordinal))
         {
             if (state.Catalog.Capabilities.Any(c => TaskOperations.Describe(c).Id == operation)) continue;
@@ -331,6 +334,8 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         foreach (var choice in candidate.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
         var compilation = new TaskPlanCompiler().Compile(candidate, state.Catalog!);
         if (compilation.Diagnostics.Count > 0) { SemanticFailure(state, compilation.Diagnostics); return; }
+        if (PlanningOutcomeValidation.Findings(state) is { Count: > 0 } outcomeFindings)
+        { state.Diagnostics = outcomeFindings; state.RevisionScope.Clear(); state.Graph = null; Stop(state); return; }
         if (plan.Choices.Any(c => c.Selected is null))
         {
             if (state.Request.Mode == PlanningMode.Interactive) { state.Diagnostics.Clear(); state.Status = PlanningStatus.Clarification; return; }
@@ -359,6 +364,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
                     state.Discovery.Limitations.Add("Additional operation pages remain uninspected.");
                 state.Discovery.Limitations = state.Discovery.Limitations.Distinct(StringComparer.Ordinal).ToList();
                 state.Diagnostics.Clear(); state.ValidationResults = [new("static", "passed", "Business bindings, contracts and control flow validated. External execution has not been observed.", [])];
+                state.ValidationResults.AddRange(PlanningOutcomeValidation.Review(state));
                 state.Status = PlanningStatus.FinalReview; state.Phase = PlanningPhase.Review; return;
             }
         }
@@ -385,13 +391,17 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
     private static void ValidateRequirements(PlanningSession state, PlanningProposal proposal)
     {
         var requirements = proposal.Requirements;
-        if (requirements is null && state.Requirements is not null) return;
+        if (requirements is null && (state.Requirements is not null || proposal.DiscoveryRequests is not null)) return;
         if (requirements is null || string.IsNullOrWhiteSpace(requirements.Summary) || requirements.Outcomes.Count == 0 ||
             requirements.Outcomes.Any(o => string.IsNullOrWhiteSpace(o.Id) || string.IsNullOrWhiteSpace(o.Description)) ||
             requirements.Outcomes.Select(o => o.Id).Distinct().Count() != requirements.Outcomes.Count)
             Reject("REQUIREMENTS_INVALID", "/requirements", "Declare distinct concrete business outcomes.");
-        if (state.Requirements is { } accepted && (accepted.Summary != requirements!.Summary || !accepted.Outcomes.Select(o => (o.Id, o.Description)).Order()
-                .SequenceEqual(requirements.Outcomes.Select(o => (o.Id, o.Description)).Order()) ||
+        if (state.OutcomeVersion == 1 && requirements!.Outcomes.Any(o =>
+            o.Execution is not ("data" or "read" or "write" or "execute" or "lifecycle") || o.Always is null || o.Conditional is null ||
+            o.Execution == "data" && (o.Always == true || o.Conditional == true)))
+            Reject("REQUIREMENTS_EXECUTION_INVALID", "/requirements/outcomes", "Declare data production or an operation effect and its always/conditional expectations.");
+        if (state.Requirements is { } accepted && (accepted.Summary != requirements!.Summary || !accepted.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal)
+                .SequenceEqual(requirements.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal)) ||
                 accepted.Inputs is not null && !PlanningClarifications.SameInputs(accepted.Inputs, requirements.Inputs)))
             Reject("REQUIREMENTS_CHANGED", "/requirements", "Preserve accepted requirements. Only an explicit user revision may change their scope.");
     }
@@ -401,6 +411,6 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
     internal static string BuildPrompt(PlanningSession state, IReadOnlyList<CapabilitySummary> optional) => new PlanningPrompt(state).Build(optional);
 
     private static void Reject(string code, string location, string message) => throw new PlanningResponseException([new(code, location, message)]);
-    private static void Invalidate(PlanningSession state) { state.Yaml = null; state.ApprovedHash = null; }
+    private static void Invalidate(PlanningSession state) { state.Yaml = null; state.ApprovedHash = null; state.ValidationResults.Clear(); }
     private static void Stop(PlanningSession state) { state.Status = PlanningStatus.Stopped; Invalidate(state); }
 }

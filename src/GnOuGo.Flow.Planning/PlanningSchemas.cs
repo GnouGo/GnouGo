@@ -109,6 +109,18 @@ internal static class PlanningSchemas
                 foreach (var value in definitions["value"]!["anyOf"]!.AsArray().OfType<JsonObject>()) value.Remove("description");
             }
         }
+        if (state.OutcomeVersion == 1 && clarifications)
+        {
+            var outcome = definitions["requirements"]!["properties"]!["outcomes"]!["items"]!;
+            outcome["properties"]!["execution"] = Enum("data", "read", "write", "execute", "lifecycle");
+            outcome["properties"]!["always"] = Type("boolean");
+            outcome["properties"]!["conditional"] = Type("boolean");
+            foreach (var name in new[] { "execution", "always", "conditional" }) outcome["required"]!.AsArray().Add((JsonNode?)JsonValue.Create(name));
+            root["properties"]!["outcomeBindings"] = Nullable(Array(Object(
+                ("outcomeId", state.Requirements is { } accepted ? Enum(accepted.Outcomes.Select(o => o.Id).ToArray()) : Nonblank()),
+                ("taskIds", Array(Ref("id"))), ("outputs", Array(Nonblank()))), 1));
+            root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("outcomeBindings"));
+        }
         definitions["task"] = Tasks(state, definitions);
         if (state.Requirements is not null && (!clarifications || state.IntentVersion != 1 || state.Requirements.Inputs is not null)) root["$defs"]!.AsObject().Remove("requirements");
         if (compact) { ShareRepeatedSchemas(root, definitions); CompactDefinitionNames(root, definitions); }
@@ -155,7 +167,7 @@ internal static class PlanningSchemas
             else if (node is JsonArray array) foreach (var value in array) Visit(value);
         }
         Visit(root);
-        var groups = nodes.GroupBy(n => n.ToJsonString(), StringComparer.Ordinal).Where(g => g.Count() > 1 && g.Key.Length > 120)
+        var groups = nodes.GroupBy(n => n.ToJsonString(), StringComparer.Ordinal).Where(g => g.Count() > 1 && g.Key.Length > 80)
             .OrderByDescending(g => g.Key.Length).ThenBy(g => g.Key, StringComparer.Ordinal).ToArray();
         foreach (var group in groups)
         {

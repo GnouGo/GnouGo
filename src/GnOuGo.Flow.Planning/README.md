@@ -119,3 +119,7 @@ leaf alongside its consumer diagnostic, including nested fields and reusable gro
 A typed patch may change that nullable leaf only when accepted requirements permit it;
 the input name, requiredness, defaults and remaining type stay fixed. Full compilation
 validates the patch, and ambiguous display identities never grant broader permissions.
+
+## Outcome implementation validation
+
+New planning sessions bind accepted outcomes to executable tasks or data outputs. See [outcome validation and compatibility](../../docs/planning-outcome-validation.md) for discovery-before-requirements behavior, versioned annotations, repair authority and deterministic execution evidence. Static coverage does not establish external success.

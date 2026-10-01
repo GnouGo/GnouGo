@@ -197,7 +197,11 @@ internal static class PlanningRepairPatch
         return schema;
     }
 
-    internal static string Authority(PlanningSession state, int version = 1) => version == 3 ? PlanningGraphCompiler.Fingerprint(new JsonObject
+    internal static string Authority(PlanningSession state, int version = 1) => version == 4 ? PlanningGraphCompiler.Fingerprint(new JsonObject
+    {
+        ["baselineAuthority"] = Authority(state, 3), ["outcomeVersion"] = state.OutcomeVersion,
+        ["outcomeBindings"] = JsonSerializer.SerializeToNode(state.OutcomeBindings, PlanningJsonContext.Default.ListPlanningOutcomeBinding)
+    }.ToJsonString()) : version == 3 ? PlanningGraphCompiler.Fingerprint(new JsonObject
     {
         ["baselineAuthority"] = Authority(state, 2),
         ["requirements"] = JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements),
@@ -243,7 +247,7 @@ internal static class PlanningRepairPatch
     {
         var repair = RequestContext(request)["repair"];
         var version = repair?["version"]?.GetValue<int>();
-        if (version is not (1 or 2 or 3) || repair!["authority"]?.ToString() != Authority(state, version.Value))
+        if (version is not (1 or 2 or 3 or 4) || repair!["authority"]?.ToString() != Authority(state, version.Value))
             throw new PlanningConflictException("The repair baseline, scope or contracts changed. The retained request cannot be rebased or redispatched.");
     }
 

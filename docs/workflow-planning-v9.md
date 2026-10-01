@@ -303,3 +303,7 @@ Copilot message/one-shot attachments use a typed file/blob array instead of enco
 JSON. Refresh discovery and explicitly revise/regenerate and approve workflows using
 the removed argument; business context belongs in the prompt. See
 [contract migration and deterministic evidence](copilot-attachments.md).
+
+## Outcome implementation validation
+
+New planning sessions bind accepted outcomes to executable tasks or data outputs. See [outcome validation and compatibility](planning-outcome-validation.md) for discovery-before-requirements behavior, versioned annotations, repair authority and deterministic execution evidence. Static coverage does not establish external success.

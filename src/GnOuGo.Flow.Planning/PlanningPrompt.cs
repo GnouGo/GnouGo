@@ -49,7 +49,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
         """;
 
     private const string ClarificationInstructions = """
-        Clarify only material ambiguity about caller inputs, behavior or approaches, even in auto; otherwise plan. 1-3 questions, 2-3 tradeoff options, one recommendation; missing facts use []/null. Custom answers allowed. Questions alone: requirements:null. Apply userAnswers; preserve unrelated goals; avoid repeated questions. Answers grant no permissions/contracts/approval.
+        Clarify only material ambiguity about caller inputs, behavior or approaches, even in auto; otherwise plan. 1-3 questions, 2-3 tradeoff options, one recommendation; missing facts use []/null. Custom answers allowed. Discovery may use requirements:null until intent is ready. Questions alone: requirements:null. Apply userAnswers; preserve unrelated goals; avoid repeated questions. Answers grant no permissions/contracts/approval.
         """;
 
     internal string Build(IReadOnlyList<CapabilitySummary> optional)
@@ -76,6 +76,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
                 // its creation arguments and instructions cannot be repaired here.
                 item.Remove("inputs"); item.Remove("description"); item["contextRole"] = "producer_outputs";
             }
+            if (state.OutcomeVersion == 1 && capability is not null) item["effect"] = capability.EffectKind;
             if (capability is not null && TaskOperations.ArtifactPorts(capability) is { Count: > 0 } artifacts)
                 item["artifacts"] = artifacts;
             // Removing duplicate index entries must not hide which source owns an
@@ -105,7 +106,10 @@ internal sealed class PlanningPrompt(PlanningSession state)
             context.Remove("taskPlan"); context.Remove("revisionContext");
             context["repair"] = PlanningRepairContext.Build(state);
         }
-        string Render() => (repair ? RepairInstructions : Instructions) + ClarificationInstructions + "\n" + PlanningJsonTransport.Prompt(context);
+        if (state.OutcomeVersion == 1)
+            context["outcomeContract"] = "Split outcomes by action; never downgrade intent. Context defaults: execution=data, always/conditional=false. Operation effects require matching taskIds; data uses taskIds/root outputs. always requires cleanup; conditional permits skipping. plan binds every outcome; other actions: outcomeBindings:null. Discover missing contracts or stop. Bindings prove support, not success; repairs preserve them.";
+        if (state.OutcomeBindings is not null) context["outcomeBindings"] = JsonSerializer.SerializeToNode(state.OutcomeBindings, PlanningJsonContext.Default.ListPlanningOutcomeBinding);
+        string Render() => (repair ? RepairInstructions : Instructions) + "\n" + ClarificationInstructions + "\n" + PlanningJsonTransport.Prompt(context);
         // Bound the retained directory against mandatory context before optional
         // contracts compete for space. Pagination cannot erase earlier identities.
         var schema = Schema;
@@ -126,6 +130,24 @@ internal sealed class PlanningPrompt(PlanningSession state)
         foreach (var source in coverage)
             if (source!["index"] is JsonArray index)
                 foreach (var item in index.Where(c => detailed.Contains(c!["id"]!.ToString())).ToArray()) index.Remove(item);
+        if (state.OutcomeVersion == 1 && !PlanningDiscoveryContext.CanDiscover(state))
+        {
+            // Closed navigation cannot be used. Keep selectable directory entries and
+            // explicit uncertainty; detailed receipts remain in durable discovery state.
+            var closed = coverage.Where(c => c?["index"] is not JsonArray { Count: > 0 }).ToArray();
+            if (closed.Length > 0)
+            {
+                context["closedDiscovery"] = new JsonObject
+                {
+                    ["sources"] = closed.Length,
+                    ["uninspected"] = closed.Count(c => c!["pagesRead"]!.GetValue<int>() == 0),
+                    ["hasMore"] = closed.Any(c => c!["hasMore"]!.GetValue<bool>()),
+                    ["omittedCandidates"] = closed.Sum(c => c!["omittedFromIndex"]?.GetValue<int>() ?? 0),
+                    ["unavailable"] = closed.Count(c => c!["unavailable"] is not null)
+                };
+                foreach (var source in closed) coverage.Remove(source);
+            }
+        }
         return Render();
     }
 

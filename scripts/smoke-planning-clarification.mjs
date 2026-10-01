@@ -38,9 +38,21 @@ try {
       await confirm.focus(); await page.keyboard.press('Enter');
     }
     await page.getByText(name === 'cancel' ? 'Cancelled' : 'Ready for your review', { exact: true }).waitFor({ timeout: 30000 });
+    if (name !== 'cancel') {
+      const support = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Outcome implementation' }) });
+      await support.waitFor();
+      assert.match(await support.innerText(), /success has not been observed/);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Outcome review fits mobile');
+      await support.locator('summary').focus(); await page.keyboard.press('Enter');
+      assert.equal(await support.getAttribute('open'), null);
+      await page.keyboard.press('Enter');
+      await page.reload(); await support.waitFor();
+      await page.getByText('Ready for your review', { exact: true }).waitFor();
+      await page.screenshot({ path: `${output}/${name}-outcomes.png`, fullPage: true });
+    }
   }
   assert.deepEqual(errors, []);
-  await writeFile(`${output}/results.json`, JSON.stringify({ recommendation: true, custom: true, textOnly: true, reload: true, keyboard: true, mobile: true, cancellation: true, errors }, null, 2));
+  await writeFile(`${output}/results.json`, JSON.stringify({ recommendation: true, custom: true, textOnly: true, reload: true, keyboard: true, mobile: true, cancellation: true, outcomeSupport: true, separateApproval: true, errors }, null, 2));
 } catch (error) {
   await page.screenshot({ path: `${output}/failure.png`, fullPage: true });
   console.error((await page.locator('body').innerText()).slice(-6000)); console.error(errors); throw error;

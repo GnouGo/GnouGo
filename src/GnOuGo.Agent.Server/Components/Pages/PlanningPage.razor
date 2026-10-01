@@ -90,9 +90,9 @@
                 </li>
             }</ul>
         }
-        @if (_state.ValidationResults.Count > 0)
+        @if (_state.ValidationResults.Any(r => !r.Id.StartsWith("outcome:", StringComparison.Ordinal)))
         {
-            <h3>Validation results</h3><ul>@foreach (var scenario in _state.ValidationResults) { <li>@scenario.Id — @scenario.Outcome: @scenario.Description</li> }</ul>
+            <h3>Validation results</h3><ul>@foreach (var scenario in _state.ValidationResults.Where(r => !r.Id.StartsWith("outcome:", StringComparison.Ordinal))) { <li>@scenario.Id — @scenario.Outcome: @scenario.Description</li> }</ul>
             <p>Static or simulated validation does not establish external execution success.</p>
         }
         @if (_state.Yaml is { } yaml) { <details open><summary>Workflow YAML</summary><pre><code>@yaml</code></pre></details> }

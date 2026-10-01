@@ -43,7 +43,20 @@ public sealed class PlanningRequirements
     public List<TaskInput>? Inputs { get; set; }
 }
 
-public sealed record PlanningRequirement(string Id, string Description);
+public sealed record PlanningRequirement(string Id, string Description)
+{
+    /// <summary>Data production or an authoritative operation effect. Null retains historical intent.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Execution { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Always { get; init; }
+    /// <summary>Whether execution may depend on a branch or a possibly empty collection.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Conditional { get; init; }
+}
+
+/// <summary>Review annotations referencing the TaskPlan, never another executable representation.</summary>
+public sealed record PlanningOutcomeBinding(string OutcomeId, List<string> TaskIds, List<string> Outputs);
 
 /// <summary>A bounded discovery request or complete semantic task proposal; the host validates exclusivity.</summary>
 public sealed class PlanningProposal
@@ -52,6 +65,8 @@ public sealed class PlanningProposal
     public PlanningRequirements? Requirements { get; set; }
     public List<PlanningDiscoveryRequest>? DiscoveryRequests { get; set; }
     public TaskPlan? Plan { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningOutcomeBinding>? OutcomeBindings { get; set; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<PlanningQuestion>? Clarifications { get; set; }
     public string Explanation { get; set; } = "";

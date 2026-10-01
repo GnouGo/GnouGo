@@ -18,7 +18,9 @@ internal static class PlanningPersistenceSmoke
         var store = new EfPlanningSessionStore(factory, records);
         var state = new PlanningSession { Request = new() { TenantId = "smoke", SessionId = Guid.NewGuid().ToString("N"), Prompt = "Private published smoke content" } };
         state.Requirements = new() { Summary = "Private requirements", Outcomes = [new("result", "Private acceptance criterion")] };
-        state.IntentVersion = 1;
+        state.IntentVersion = 1; state.OutcomeVersion = 1;
+        state.Requirements.Outcomes[0] = state.Requirements.Outcomes[0] with { Execution = "data", Always = false, Conditional = false };
+        state.OutcomeBindings = [new("result", [], ["private"])];
         state.Requirements.Inputs = [new() { Name = "reference" }];
         state.PendingQuestions = [new("interface", "Private caller interface question", [new("compact", "Private compact interface"), new("explicit", "Private explicit interface")], "compact")];
         state.AnswerHistory = [new(0, [new("fact", "Private missing fact", [], null)], [new("fact", Text: "Private custom answer")])];
@@ -38,6 +40,7 @@ internal static class PlanningPersistenceSmoke
         var restored = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
         if (restored?.SchemaVersion != 10 || restored.Revision != 1 || restored.ModelCalls != 2 || restored.ReplanAttempts != 1 || restored.Requirements?.Summary != "Private requirements" || restored.Graph is null || restored.Plan?.Root.Outputs[0].Value.Text != "Private semantic value" || restored.Diagnostics.Count != 1 ||
             restored.Diagnostics[0].Prerequisite?.RootActionId != "producer" || !restored.RevisionScope.SequenceEqual(["main/consumer"]) ||
+            restored.OutcomeVersion != 1 || restored.OutcomeBindings?.Single().Outputs.Single() != "private" || restored.Requirements.Outcomes.Single().Execution != "data" ||
             restored.IntentVersion != 1 || restored.Requirements.Inputs?.Single().Name != "reference" || restored.PendingQuestions?.Single().Recommended != "compact" ||
             restored.AnswerHistory?.Single().Answers.Single().Text != "Private custom answer" ||
             await reopened.LoadAsync("another-tenant", state.Request.SessionId, CancellationToken.None) is not null || (await reopened.ListAsync("smoke", CancellationToken.None)).Count == 0)

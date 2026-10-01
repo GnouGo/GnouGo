@@ -92,6 +92,29 @@ public static class PlanningCorpus
         {
             value = value.DeepClone(); value["requirements"]!["inputs"] = plan["inputs"]?.DeepClone() ?? new JsonArray();
         }
+        // Legacy scripted outcomes describe returned data. Supply explicit annotations
+        // only for new response schemas; focused external-outcome fixtures set their own.
+        if (ReferenceEquals(schema, root) && schema["properties"]?["outcomeBindings"] is not null && value is JsonObject)
+        {
+            value = value.DeepClone();
+            if (value["requirements"]?["outcomes"] is JsonArray outcomes)
+                foreach (var outcome in outcomes)
+                    if (outcome!["execution"] is null)
+                    { outcome["execution"] = "data"; outcome["always"] = false; outcome["conditional"] = false; }
+            if (value["plan"] is JsonObject annotatedPlan && value["outcomeBindings"] is null && value["clarifications"] is null)
+            {
+                JsonNode Resolve(JsonNode node) => node["$ref"] is { } link ? Resolve(root["$defs"]![link.ToString().Split('/')[^1]]!) : node;
+                var bindingSchema = Resolve(schema["properties"]!["outcomeBindings"]!);
+                var arraySchema = bindingSchema["anyOf"]!.AsArray().Select(n => Resolve(n!)).Single(n => n["type"]?.ToString() == "array");
+                var ids = value["requirements"]?["outcomes"]?.AsArray().Select(o => o!["id"]!.ToString()).ToArray()
+                    ?? Resolve(Resolve(arraySchema["items"]!)["properties"]!["outcomeId"]!)["enum"]?.AsArray().Select(n => n!.ToString()).ToArray() ?? [];
+                var outputs = annotatedPlan["root"]?["outputs"]?.AsArray().Select(o => o!["name"]!.ToString()).ToArray() ?? [];
+                var tasks = outputs.Length > 0 ? [] : annotatedPlan["root"]?["tasks"]?.AsArray().Select(t => t!["id"]!.ToString()).ToArray() ?? [];
+                value["outcomeBindings"] = new JsonArray(ids.Select(id => (JsonNode)new JsonObject { ["outcomeId"] = id,
+                    ["taskIds"] = new JsonArray(tasks.Select(t => (JsonNode?)JsonValue.Create(t)).ToArray()),
+                    ["outputs"] = new JsonArray(outputs.Select(o => (JsonNode?)JsonValue.Create(o)).ToArray()) }).ToArray());
+            }
+        }
         if (schema["$ref"] is { } reference) return Transport(value, root["$defs"]![reference.ToString().Split('/')[^1]]!.AsObject(), root);
         if (schema["anyOf"] is JsonArray alternatives)
         {

@@ -67,17 +67,28 @@ public sealed class PlanningSession
     public IReadOnlyList<PlanningChoice> GetChoices() => Plan?.Choices ?? [];
     public IReadOnlyList<PlanningQuestion> GetQuestions() => PendingQuestions ?? GetChoices().Where(c => c.Selected is null)
         .Select(c => new PlanningQuestion(c.Id, c.Question, c.Alternatives.Select(a => new PlanningQuestionAlternative(a.Id, a.Description)).ToList(), c.Recommended)).ToList();
-    public string? ComputeArtifactHash() => Yaml is null ? null : Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(new JsonObject
+    public string? ComputeArtifactHash()
     {
-        ["schemaVersion"] = SchemaVersion, ["yaml"] = Yaml,
-        ["requirements"] = JsonSerializer.SerializeToNode(Requirements, PlanningJsonContext.Default.PlanningRequirements),
-        ["taskPlan"] = JsonSerializer.SerializeToNode(Plan, PlanningJsonContext.Default.TaskPlan),
-        ["graph"] = JsonSerializer.SerializeToNode(Graph, PlanningJsonContext.Default.PlanningGraph),
-        ["catalog"] = JsonSerializer.SerializeToNode(Catalog, PlanningJsonContext.Default.PlanningCatalog),
-        ["maxModelCalls"] = Request.MaxModelCalls, ["maxReplanAttempts"] = Request.MaxReplanAttempts,
-        ["options"] = Request.Options.DeepClone(),
-        ["diagnostics"] = JsonSerializer.SerializeToNode(Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)
-    }.ToJsonString())));
+        if (Yaml is null) return null;
+        var artifact = new JsonObject
+        {
+            ["schemaVersion"] = SchemaVersion, ["yaml"] = Yaml,
+            ["requirements"] = JsonSerializer.SerializeToNode(Requirements, PlanningJsonContext.Default.PlanningRequirements),
+            ["taskPlan"] = JsonSerializer.SerializeToNode(Plan, PlanningJsonContext.Default.TaskPlan),
+            ["graph"] = JsonSerializer.SerializeToNode(Graph, PlanningJsonContext.Default.PlanningGraph),
+            ["catalog"] = JsonSerializer.SerializeToNode(Catalog, PlanningJsonContext.Default.PlanningCatalog),
+            ["maxModelCalls"] = Request.MaxModelCalls, ["maxReplanAttempts"] = Request.MaxReplanAttempts,
+            ["options"] = Request.Options.DeepClone(),
+            ["diagnostics"] = JsonSerializer.SerializeToNode(Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)
+        };
+        // Absent annotations preserve byte-for-byte historical approval identities.
+        if (OutcomeVersion is not null)
+        {
+            artifact["outcomeVersion"] = OutcomeVersion;
+            artifact["outcomeBindings"] = JsonSerializer.SerializeToNode(OutcomeBindings, PlanningJsonContext.Default.ListPlanningOutcomeBinding);
+        }
+        return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(artifact.ToJsonString())));
+    }
 
     public int SchemaVersion { get; set; } = 10;
     public PlanningRequest Request { get; set; } = new();
@@ -92,6 +103,10 @@ public sealed class PlanningSession
     /// <summary>Null retains historical requirements semantics until an explicit revision.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? IntentVersion { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? OutcomeVersion { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningOutcomeBinding>? OutcomeBindings { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<PlanningQuestion>? PendingQuestions { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

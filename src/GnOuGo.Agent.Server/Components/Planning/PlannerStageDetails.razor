@@ -3,6 +3,14 @@
 {
     <PlannerAgentStages Graph="@(System.Text.Json.JsonSerializer.Deserialize(graph, PlanningJsonContext.Default.PlanningGraph)!)" />
 }
+@if (Session.ValidationResults.Any(r => r.Id.StartsWith("outcome:", StringComparison.Ordinal)))
+{
+    <details open><summary>Outcome implementation</summary>
+        <p>These checks establish executable support. Execution success has not been observed.</p>
+        <ul>@foreach (var outcome in Session.ValidationResults.Where(r => r.Id.StartsWith("outcome:", StringComparison.Ordinal)))
+        { <li>@outcome.Description</li> }</ul>
+    </details>
+}
 @if (Session.RevisionScope.Count > 0)
 {
     <p>Tasks open for revision: @string.Join(", ", Session.RevisionScope)</p>

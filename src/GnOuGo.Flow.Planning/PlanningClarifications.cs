@@ -50,7 +50,7 @@ internal static class PlanningClarifications
         if (state.Requirements is not null)
             state.Request.RevisionContext = "Preserve unrelated accepted outcomes and inputs when applying the explicit user revision. Previous requirements:\n" +
                 JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
-        state.Requirements = null; state.IntentVersion = null; state.Plan = null; state.Graph = null; state.PendingQuestions = null;
+        state.Requirements = null; state.IntentVersion = null; state.OutcomeVersion = null; state.OutcomeBindings = null; state.Plan = null; state.Graph = null; state.PendingQuestions = null;
         state.Diagnostics.Clear(); state.ValidationResults.Clear(); state.RevisionScope.Clear();
         state.Yaml = null; state.ApprovedHash = null; state.Status = PlanningStatus.Generating;
     }

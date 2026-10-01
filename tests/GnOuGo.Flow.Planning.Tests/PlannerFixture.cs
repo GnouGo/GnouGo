@@ -52,7 +52,7 @@ internal sealed class TestRuntime : IPlanningRuntime
     { Json = PlanningRepairPatch.Issued(request.StructuredOutputSchema?.AsObject())
         ? proposal.Plan is not null
             ? new JsonObject { ["discoveryRequests"] = null, ["plan"] = JsonSerializer.SerializeToNode(proposal.Plan, PlanningJsonContext.Default.TaskPlan) }
-            : PlanningCorpus.Transport(new JsonObject { ["discoveryRequests"] = JsonSerializer.SerializeToNode(proposal.DiscoveryRequests, PlanningJsonContext.Default.ListPlanningDiscoveryRequest), ["patch"] = null }, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())
+            : PlanningCorpus.Transport(new JsonObject { ["discoveryRequests"] = JsonSerializer.SerializeToNode(proposal.DiscoveryRequests, PlanningJsonContext.Default.ListPlanningDiscoveryRequest), ["clarifications"] = JsonSerializer.SerializeToNode(proposal.Clarifications, PlanningJsonContext.Default.ListPlanningQuestion), ["patch"] = null }, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())
         : PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal), request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
 
     // Existing scripted tests state the intended candidate. Convert only authorized

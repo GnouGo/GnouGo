@@ -35,6 +35,17 @@ public sealed class PlannerChoiceUiTests : BunitContext
         Assert.Contains("publish", cut.Markup); Assert.Contains("Additional sources", cut.Markup); Assert.Empty(cut.FindAll("button"));
     }
 
+    [Fact]
+    public void OutcomeSupportIsReadableEncodedAndSeparateFromExecutionApproval()
+    {
+        var state = new PlanningSession { Status = PlanningStatus.FinalReview, ValidationResults =
+            [new("outcome:publish", "supported", "Publish <script>unsafe()</script> via task send. External success has not been observed.", [])] };
+        var cut = Render<PlannerStageDetails>(p => p.Add(c => c.Session, PlanningEndpoints.ToDto(state)));
+        Assert.Contains("Outcome implementation", cut.Markup); Assert.Contains("send", cut.Markup);
+        Assert.Contains("success has not been observed", cut.Markup); Assert.Empty(cut.FindAll("script"));
+        Assert.Empty(cut.FindAll("button")); Assert.NotNull(cut.Find("details[open] summary"));
+    }
+
     private static PlanningQuestionDto Question(string id = "interface") => new(id, "Which interface?",
         [new("compact", "Reference and instructions", null), new("coordinates", "Explicit coordinates", null)], "compact");
 

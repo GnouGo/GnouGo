@@ -30,6 +30,15 @@ clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState,
 PlanningArtifactApproval.Verify(clarificationState);
 if (clarificationState.Status != PlanningStatus.FinalReview || clarificationState.ApprovedHash is not null || clarificationRuntime.Calls != 2)
     throw new InvalidOperationException("Clarification bypassed review or lost accounting.");
+if (clarificationState.OutcomeVersion != 1 || clarificationState.OutcomeBindings?.Count != 1 ||
+    clarificationState.Requirements?.Outcomes.Single().Execution != "data")
+    throw new InvalidOperationException("Outcome annotations did not survive Native AOT recovery.");
+var outcomeHash = clarificationState.ComputeArtifactHash();
+clarificationState.OutcomeBindings[0].Outputs.Clear();
+if (outcomeHash == clarificationState.ComputeArtifactHash()) throw new InvalidOperationException("Outcome annotations were not bound to approval.");
+try { PlanningArtifactApproval.Verify(clarificationState); throw new InvalidOperationException("Invalid outcome coverage was accepted."); }
+catch (PlanningConflictException) { }
+Console.WriteLine("outcomes: persisted coverage, approval identity and rejection survive Native AOT serialization");
 Console.WriteLine("clarification: auto pause, custom answer, restart, unchanged budget and separate approval passed with deterministic inference");
 
 // A shared location is lowered to an approved literal without an agent dispatch.
@@ -69,6 +78,17 @@ workspaceCatalog.AllowedStepTypes.AddRange(["human.input", "assert.non_null", "w
 PlanningConfirmationGuards.Apply(outputGraph, workspaceCatalog);
 _ = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(outputGraph, workspaceCatalog)));
 Console.WriteLine("operation outputs: approved payload and partial envelope survive source-generated serialization and YAML compilation");
+workspaceCatalog.Capabilities[0].EffectKind = "execute";
+var boundedOutcome = new PlanningSession
+{
+    IntentVersion = 1, OutcomeVersion = 1, Plan = workspacePlan, Catalog = workspaceCatalog, Graph = outputGraph,
+    Requirements = new() { Summary = "Check the project", Inputs = [], Outcomes =
+        [new("check", "Run the bounded project check") { Execution = "execute", Always = false, Conditional = false }] },
+    OutcomeBindings = [new("check", ["work"], [])]
+};
+boundedOutcome.Yaml = new PlanningGraphCompiler().Compile(outputGraph, workspaceCatalog, boundedOutcome.Request.Name);
+PlanningArtifactApproval.Verify(boundedOutcome);
+Console.WriteLine("bounded agent outcome: resolved execution contract supports the declared task; execution remains unobserved");
 
 foreach (var name in PlanningCorpus.Names)
 {
