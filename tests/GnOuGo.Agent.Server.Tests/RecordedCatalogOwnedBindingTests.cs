@@ -104,7 +104,13 @@ public sealed class RecordedCatalogOwnedBindingTests
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) => Task.FromResult(Discovery.Resolved.Single(c => c.Id == summary.Id && c.Version == summary.Version));
         public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
         {
-            if (Expected is null) { Identities.Add(request.ClientRequestId!); return Task.FromResult(new LLMResponse { Json = FileData("synthetic-owned-omission")["proposal"]!.DeepClone() }); }
+            if (Expected is null)
+            {
+                Identities.Add(request.ClientRequestId!);
+                var proposal = FileData("synthetic-owned-omission")["proposal"]!.DeepClone().AsObject();
+                proposal["clarifications"] = null; // New synthetic response; retained issued responses remain unchanged.
+                return Task.FromResult(new LLMResponse { Json = proposal });
+            }
             var issued = Expected["pendingSession"]!["pendingCall"]!;
             Assert.Equal(issued["id"]!.ToString(), request.ClientRequestId);
             Assert.Equal(issued["request"]!["prompt"]!.ToString(), request.Prompt);

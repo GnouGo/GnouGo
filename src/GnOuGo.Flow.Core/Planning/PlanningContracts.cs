@@ -56,6 +56,8 @@ public sealed class PlanningCommand
     public string? ArtifactHash { get; set; }
     public string? Text { get; set; }
     public JsonObject? Selections { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningAnswer>? Answers { get; set; }
     public PlanningGenerationOptions? Generation { get; set; }
 }
 
@@ -63,6 +65,8 @@ public sealed class PlanningCommand
 public sealed class PlanningSession
 {
     public IReadOnlyList<PlanningChoice> GetChoices() => Plan?.Choices ?? [];
+    public IReadOnlyList<PlanningQuestion> GetQuestions() => PendingQuestions ?? GetChoices().Where(c => c.Selected is null)
+        .Select(c => new PlanningQuestion(c.Id, c.Question, c.Alternatives.Select(a => new PlanningQuestionAlternative(a.Id, a.Description)).ToList(), c.Recommended)).ToList();
     public string? ComputeArtifactHash() => Yaml is null ? null : Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(new JsonObject
     {
         ["schemaVersion"] = SchemaVersion, ["yaml"] = Yaml,
@@ -85,6 +89,13 @@ public sealed class PlanningSession
     public double HumanWaitMilliseconds { get; set; }
     public PlanningCatalog? Catalog { get; set; }
     public PlanningRequirements? Requirements { get; set; }
+    /// <summary>Null retains historical requirements semantics until an explicit revision.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? IntentVersion { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningQuestion>? PendingQuestions { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningAnswerBatch>? AnswerHistory { get; set; }
     public CapabilityDiscoveryState Discovery { get; set; } = new();
     public List<string> RevisionScope { get; set; } = [];
     public string Phase { get; set; } = PlanningPhase.Requirements;

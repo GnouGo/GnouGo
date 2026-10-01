@@ -58,6 +58,7 @@ public sealed class RecordedBudgetDiscoveryTests(ITestOutputHelper output)
         // the successful compiler replay; no simplification of their types or bindings.
         var recording = Read("retained-review.json");
         var original = recording["finalSession"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+        original.Requirements!.Inputs = original.Plan!.Inputs;
         var catalog = new RecordedContracts(original.Discovery);
         var runtime = new TestRuntime { Capabilities = catalog };
         runtime.Respond = (request, _) => TestRuntime.Response(request, new()

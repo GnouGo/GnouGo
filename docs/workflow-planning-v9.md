@@ -61,7 +61,7 @@ requests with the superseded singular `sourceId`/`cursor` contract stop with
 `PLANNING_REQUEST_INCOMPATIBLE`: regenerate in a new session. Their encrypted records,
 reservations and accounting are preserved. Planning storage remains format 10.
 
-Requirements are reviewable intent, not another executable program. They are generated once and then owned by the host: subsequent discovery, TaskPlan and repair responses omit them. Only explicit user revision resets them. Recovery validates responses against their original persisted request schemas; identical historical requirements are accepted without replacing the saved intent, while changes are rejected. New generated glue permits literals, typed references,
+Requirements are reviewable intent, not another executable program. Accepted requirements are host-owned. New sessions also declare the caller input interface; an unresolved interface may remain null during discovery but must be declared before proposing a plan. Further responses omit the accepted requirements. Only explicit user revision, including a submitted clarification answer, resets them. Recovery validates responses against their original persisted request schemas; identical historical requirements are accepted without replacing saved intent, while changes are rejected. New generated glue permits literals, typed references,
 simple conditions, deterministic JSON encoding and registered typed transformations. Authored YAML retains its
 existing expression runtime. Opaque output needs whole-value validation before
 field access; assistant descriptions and sample values cannot establish a contract.
@@ -237,11 +237,15 @@ gnougo-flow runs --tenant default --id RUN_ID --command reconcile --revision REV
 
 ## Business choices
 
+Material ambiguities can now pause the existing planning loop before a TaskPlan exists, or during repair. An exclusive clarification response presents up to three questions, recommended alternatives and custom text, including in auto mode. Clear requests do not acquire a mandatory confirmation round. Answer batches persist before continuation and consume the existing cumulative allowance when another model request is needed. Caller inputs are frozen in accepted requirements; tool arguments cannot silently change that interface. See [clarification behavior, contracts and evidence](planning-clarification.md).
+
 Each `PlanningChoice` targets one semantic value slot and supplies typed literal
 alternatives, a recommendation and a host-owned selection. Interactive mode presents
 the alternatives. Auto mode validates and records the recommendation without another
 model call. Selection recompiles deterministically. Choices cannot change agent scope,
 grant permissions, raise budgets or replace runtime confirmation.
+
+A custom answer to a literal choice requests an intent revision; it is never inserted as an unchecked literal or expression. Repair envelope version 3 adds clarification as an exclusive action and fingerprints accepted requirements. Retained version-1/2 requests preserve their original schemas, permissions and fingerprints. Nullable interaction metadata leaves absent historical fields and stored approval hashes unchanged.
 
 ## Migration to planning format 10
 

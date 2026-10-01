@@ -38,6 +38,9 @@ public sealed class PlanningRequirements
 {
     public string Summary { get; set; } = "";
     public List<PlanningRequirement> Outcomes { get; set; } = [];
+    /// <summary>Accepted caller interface. Null is unresolved or a historical declaration; empty means no caller inputs.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<TaskInput>? Inputs { get; set; }
 }
 
 public sealed record PlanningRequirement(string Id, string Description);
@@ -49,8 +52,16 @@ public sealed class PlanningProposal
     public PlanningRequirements? Requirements { get; set; }
     public List<PlanningDiscoveryRequest>? DiscoveryRequests { get; set; }
     public TaskPlan? Plan { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<PlanningQuestion>? Clarifications { get; set; }
     public string Explanation { get; set; } = "";
 }
+
+/// <summary>Intent clarification, never executable values or permission grants.</summary>
+public sealed record PlanningQuestion(string Id, string Question, List<PlanningQuestionAlternative> Alternatives, string? Recommended);
+public sealed record PlanningQuestionAlternative(string Id, string Description);
+public sealed record PlanningAnswer(string QuestionId, string? AlternativeId = null, string? Text = null);
+public sealed record PlanningAnswerBatch(long Revision, List<PlanningQuestion> Questions, List<PlanningAnswer> Answers);
 
 public sealed record PlanningDiscoveryRequest(string SourceId, string? Cursor = null, string? Query = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] List<string>? OperationIds = null,

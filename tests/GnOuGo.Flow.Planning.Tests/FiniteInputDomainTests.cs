@@ -20,7 +20,7 @@ public sealed class FiniteInputDomainTests
 
     private static JsonObject Proposal(JsonNode value, string operation = "op") => new JsonObject
     {
-        ["discoveryRequests"] = null,
+        ["discoveryRequests"] = null, ["clarifications"] = null,
         ["plan"] = JsonNode.Parse("""{"inputs":[],"root":{"tasks":[],"outputs":[],"always":[]},"groups":[],"choices":[]}""")
     }.WithTask(value, operation);
 

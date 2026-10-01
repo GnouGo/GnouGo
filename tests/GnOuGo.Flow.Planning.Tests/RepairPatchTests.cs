@@ -30,7 +30,7 @@ public sealed class RepairPatchTests
     internal static IReadOnlyList<PlanningRepairPatch.Slot> Slots(PlanningSession state) => PlanningRepairPatch.Slots(state, PlanningSchemas.FullProposal(state, compact: false)["$defs"]!.AsObject());
     internal static LLMRequest Request(PlanningSession state) => new()
     {
-        StructuredOutputSchema = PlanningRepairPatch.Schema(state, PlanningSchemas.FullProposal(state, compact: false)),
+        StructuredOutputSchema = PlanningRepairPatch.Schema(state, PlanningSchemas.FullProposal(state, compact: false, clarifications: false)),
         Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = 1, ["authority"] = PlanningRepairPatch.Authority(state) } }.ToJsonString()
     };
     internal static JsonObject Edit(PlanningSession state, string path, string action, JsonNode? value = null)

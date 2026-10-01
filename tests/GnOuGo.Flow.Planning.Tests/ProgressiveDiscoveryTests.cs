@@ -177,7 +177,7 @@ public sealed class ProgressiveDiscoveryTests
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.True(state.Phase == PlanningPhase.Discovery, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message))); Assert.Equal(1, state.ReplanAttempts);
         Assert.Equal(baseline, System.Text.Json.JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
-        runtime.Respond = (_, _) => new() { Json = new JsonObject { ["discoveryRequests"] = null,
+        runtime.Respond = (_, _) => new() { Json = new JsonObject { ["discoveryRequests"] = null, ["clarifications"] = null,
             ["patch"] = new JsonObject { ["edits"] = new JsonArray((JsonNode)RepairPatchTests.Edit(state, "/tasks/work/operation", "replace", JsonValue.Create("selected"))) } } };
         state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(3, state.ModelCalls); Assert.Equal(2, state.ReplanAttempts);

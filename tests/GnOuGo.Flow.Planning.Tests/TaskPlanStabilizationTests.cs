@@ -99,7 +99,7 @@ public sealed class TaskPlanStabilizationTests
     [Fact]
     public void InputSchemaRequiresDefaultsWithoutRequiringDefaultsForOptionalObjectFields()
     {
-        var schema = PlanningSchemas.Proposal(PlannerFixture.Session());
+        var schema = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false);
         var inputSchema = PlanningSchemas.Ref("input"); inputSchema["$defs"] = schema["$defs"]!.DeepClone();
         var input = JsonNode.Parse("""{"name":"value","type":{"kind":"string"},"required":false,"default":null}""")!;
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(input, inputSchema));

@@ -29,6 +29,9 @@ public sealed class RecordedTargetedDiscoveryTests(ITestOutputHelper output)
             var proposal = call <= 5
                 ? failure["responses"]!.AsArray()[call - 1]!["response"]!["json"]!.Deserialize(PlanningJsonContext.Default.PlanningProposal)!
                 : new PlanningProposal { DiscoveryRequests = call == 6 ? inspections : null, Plan = call == 7 ? successful.Plan : null };
+            // This scripted continuation already knows the retained plan's caller interface.
+            // Declare it in the new requirements contract; historical recording stays untouched.
+            if (proposal.Requirements is { } requirements) requirements.Inputs = successful.Plan!.Inputs;
             try { return TestRuntime.Response(request, proposal); }
             catch (Exception ex) { output.WriteLine($"Scripted response {call}: {ex}"); throw; }
         };

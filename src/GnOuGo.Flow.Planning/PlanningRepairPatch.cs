@@ -13,6 +13,7 @@ internal sealed class PlanningRepairResponse
 {
     public List<PlanningDiscoveryRequest>? DiscoveryRequests { get; set; }
     public RepairPatch? Patch { get; set; }
+    public List<PlanningQuestion>? Clarifications { get; set; }
 }
 internal sealed class RepairPatch { public List<RepairEdit> Edits { get; set; } = []; }
 internal sealed class RepairEdit
@@ -170,6 +171,11 @@ internal static class PlanningRepairPatch
                     : PlanningSchemas.Object(("slot", PlanningSchemas.Enum(slot.Id)), ("action", PlanningSchemas.Enum(action)), ("value", slot.ValueSchema.DeepClone().AsObject()))));
         var schema = PlanningSchemas.Object(("discoveryRequests", template["properties"]!["discoveryRequests"]!.DeepClone().AsObject()),
             ("patch", PlanningSchemas.Nullable(PlanningSchemas.Object(("edits", PlanningSchemas.Array(new JsonObject { ["anyOf"] = edits }, 0, slots.Count))))));
+        if (template["properties"]?["clarifications"] is not null)
+        {
+            schema["properties"]!["clarifications"] = PlanningSchemas.Nullable(PlanningSchemas.Clarifications());
+            schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("clarifications"));
+        }
         schema["$defs"] = definitions;
         // Unreachable task/plan definitions must not leak back into repair responses.
         var used = new HashSet<string>(StringComparer.Ordinal);
@@ -191,7 +197,12 @@ internal static class PlanningRepairPatch
         return schema;
     }
 
-    internal static string Authority(PlanningSession state, int version = 1) => version == 2 ? PlanningGraphCompiler.Fingerprint(new JsonObject
+    internal static string Authority(PlanningSession state, int version = 1) => version == 3 ? PlanningGraphCompiler.Fingerprint(new JsonObject
+    {
+        ["baselineAuthority"] = Authority(state, 2),
+        ["requirements"] = JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements),
+        ["clarifications"] = PlanningSchemas.Clarifications()
+    }.ToJsonString()) : version == 2 ? PlanningGraphCompiler.Fingerprint(new JsonObject
     {
         ["baselineAuthority"] = Authority(state),
         ["permissions"] = PermissionDescriptors(state),
@@ -212,7 +223,9 @@ internal static class PlanningRepairPatch
 
     private static JsonObject PermissionDescriptors(PlanningSession state)
     {
-        var definitions = PlanningSchemas.FullProposal(state, compact: false)["$defs"]!.AsObject();
+        // Version 2 authorities included all template definitions, including unreachable ones.
+        // Recreate that exact template so historical pending requests retain their authority.
+        var definitions = PlanningSchemas.FullProposal(state, compact: false, clarifications: false)["$defs"]!.AsObject();
         var slots = Slots(state, definitions);
         return new() { ["definitions"] = definitions.DeepClone(), ["slots"] = new JsonArray(slots.Select(s => (JsonNode)new JsonObject
         { ["id"] = s.Id, ["location"] = s.Location, ["kind"] = s.Kind, ["schema"] = s.ValueSchema.DeepClone(),
@@ -230,7 +243,7 @@ internal static class PlanningRepairPatch
     {
         var repair = RequestContext(request)["repair"];
         var version = repair?["version"]?.GetValue<int>();
-        if (version is not (1 or 2) || repair!["authority"]?.ToString() != Authority(state, version.Value))
+        if (version is not (1 or 2 or 3) || repair!["authority"]?.ToString() != Authority(state, version.Value))
             throw new PlanningConflictException("The repair baseline, scope or contracts changed. The retained request cannot be rebased or redispatched.");
     }
 
@@ -239,9 +252,10 @@ internal static class PlanningRepairPatch
         Verify(state, request);
         var definitions = PlanningSchemas.FullProposal(state, compact: false)["$defs"]!.AsObject();
         var version = RequestContext(request)["repair"]!["version"]!.GetValue<int>();
-        var slots = Slots(state, definitions, structural: version == 2).ToDictionary(s => s.Id, StringComparer.Ordinal);
+        var slots = Slots(state, definitions, structural: version >= 2).ToDictionary(s => s.Id, StringComparer.Ordinal);
         // Recovery and direct callers both enforce the exact issued response schema.
         var response = new JsonObject { ["discoveryRequests"] = null, ["patch"] = JsonSerializer.SerializeToNode(patch, RepairJsonContext.Default.RepairPatch) };
+        if (request.StructuredOutputSchema?["properties"]?["clarifications"] is not null) response["clarifications"] = null;
         // Removal actions omit the payload in the wire contract.
         foreach (var edit in response["patch"]!["edits"]!.AsArray())
             if (edit!["action"]?.ToString() is "remove" or "remove_owned" or "remove_forwarder") edit.AsObject().Remove("value");

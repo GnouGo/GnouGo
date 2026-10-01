@@ -1,0 +1,10 @@
+form { background: var(--gnougo-surface-2); border: 1px solid var(--gnougo-border); border-radius: 10px; padding: 1rem; margin: 1rem 0; }
+.planner-question { margin-bottom: 1rem; min-width: 0; }
+.planner-question label { display: block; margin-bottom: .35rem; overflow-wrap: anywhere; }
+.planner-question select, .planner-question textarea { width: 100%; max-width: 100%; box-sizing: border-box; border: 1px solid var(--gnougo-border); border-radius: 6px; padding: .7rem; font: inherit; color: inherit; background: var(--gnougo-surface); }
+.planner-question textarea { margin-top: .35rem; resize: vertical; }
+button { min-height: 44px; border: 1px solid var(--gnougo-border); border-radius: 6px; padding: .65rem 1rem; margin: .35rem .35rem .35rem 0; font: inherit; color: inherit; background: var(--gnougo-surface); cursor: pointer; }
+button[type="submit"] { color: white; background: var(--gnougo-accent); border-color: var(--gnougo-accent); }
+button:disabled, select:disabled, textarea:disabled { cursor: default; opacity: .55; }
+button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--gnougo-accent); outline-offset: 3px; }
+[role="alert"] { border-left: 4px solid #cf222e; padding: .8rem; }

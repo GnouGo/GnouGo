@@ -301,6 +301,9 @@ public sealed class PlanningSessionService(
         activity?.SetTag("gnougo.planning.status", updated.Status);
         activity?.SetTag("gnougo.planning.calls", updated.ModelCalls);
         activity?.SetTag("gnougo.planning.replans", updated.ReplanAttempts);
+        activity?.SetTag("gnougo.planning.clarifications.pending", updated.PendingQuestions?.Count ?? 0);
+        activity?.SetTag("gnougo.planning.clarifications.answered", updated.AnswerHistory?.Sum(b => b.Answers.Count) ?? 0);
+        activity?.SetTag("gnougo.planning.human_wait_ms", updated.HumanWaitMilliseconds);
         activity?.SetTag("gnougo.planning.diagnostics", string.Join(",", updated.Diagnostics.Select(d => d.Code).Distinct()));
         PhaseDuration.Record(clock.Elapsed.TotalSeconds, new KeyValuePair<string, object?>("tenant.id", Tenant));
         return updated;

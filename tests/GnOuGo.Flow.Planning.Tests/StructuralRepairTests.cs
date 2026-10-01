@@ -105,6 +105,23 @@ public sealed class StructuralRepairTests
         Assert.Throws<PlanningConflictException>(() => PlanningRepairPatch.Verify(recovered, v2));
     }
     [Fact]
+    public async Task RetainedV2StructuralAuthorityAndSchemaRemainUsableWithoutClarificationPermission()
+    {
+        var state = await MissingProducer();
+        var request = new LLMRequest
+        {
+            StructuredOutputSchema = PlanningRepairPatch.Schema(state, PlanningSchemas.FullProposal(state, compact: false, clarifications: false)),
+            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = 2, ["authority"] = PlanningRepairPatch.Authority(state, 2) } }.ToJsonString()
+        };
+        var schema = request.StructuredOutputSchema.ToJsonString();
+        Assert.Null(request.StructuredOutputSchema["properties"]!["clarifications"]);
+        var restored = PlannerFixture.Clone(state);
+        var repaired = Apply(restored, "prerequisites", "insert_prerequisites", Prerequisite(), request);
+        Assert.Empty(new TaskPlanCompiler().Compile(repaired, state.Catalog!).Diagnostics);
+        Assert.Equal(schema, request.StructuredOutputSchema.ToJsonString());
+        Assert.True(PlanningSchemas.Proposal(state)["properties"]!.AsObject().ContainsKey("clarifications"));
+    }
+    [Fact]
     public async Task InvalidOperationReplacementPreservesIdentityObjectiveAndDependencies()
     {
         var state = await MissingProducer(); state.Plan!.Root.Tasks.Clear(); state.Plan.Root.Outputs.Clear();

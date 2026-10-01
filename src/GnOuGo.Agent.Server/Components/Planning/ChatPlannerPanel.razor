@@ -13,7 +13,9 @@
             { <p>The graph is ready for review. Execution requires approval of its stages, scopes, evidence requirements and budgets.</p> }
             @if (session.Status == PlanningStatus.Clarification)
             {
-                <PlannerChoiceCard Choices="session.Choices" Busy="_busy" Select='selections => Submit(session, new() { Kind = "choose", Selections = selections })' Cancel="() => Cancel(session)" />
+                <PlannerChoiceCard Choices="session.Choices" Questions="session.Questions" DecisionKey="@(session.Id + ":" + session.Revision)" Busy="_busy"
+                    Select='selections => Submit(session, new() { Kind = "choose", Selections = selections })'
+                    Answer='answers => Submit(session, new() { Kind = "answer", Answers = answers.Select(a => new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList() })' Cancel="() => Cancel(session)" />
             }
             <PlannerStageDetails Session="session" />
             <a href="@($"/planning/{Uri.EscapeDataString(session.Id)}" + (session.WorkflowSession ? "?source=workflow" : ""))">Planning details</a>

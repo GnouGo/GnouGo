@@ -202,6 +202,8 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
                 // The explicitly synthetic fixture uses today's wire representation;
                 // historical recordings below still use their original request schemas.
                 var proposal = responses[Calls++]!.Deserialize(PlanningJsonContext.Default.PlanningProposal)!;
+                if (proposal.Requirements is not null)
+                    proposal.Requirements.Inputs = responses[1]!["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!.Inputs;
                 var json = JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal);
                 return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(json,
                     request.StructuredOutputSchema.AsObject(), request.StructuredOutputSchema.AsObject()) });

@@ -13,7 +13,8 @@ internal static class PlanningEndpoints
             Results.Json((await service.ListAsync(conversationId, ct)).ToList(), ChatJsonContext.Default.ListPlanningSessionDto));
         app.MapPost("/api/chat/conversations/{conversationId}/planning/{id}/commands", async (string conversationId, string id, PlanningCommandDto request, ChatPlanningService service, CancellationToken ct) =>
         {
-            try { return Results.Json(await service.SubmitAsync(conversationId, id, new() { Kind = request.Kind, ExpectedRevision = request.ExpectedRevision, Mode = request.Mode, Selections = request.Selections }, ct), ChatJsonContext.Default.PlanningSessionDto); }
+            try { return Results.Json(await service.SubmitAsync(conversationId, id, new() { Kind = request.Kind, ExpectedRevision = request.ExpectedRevision, Mode = request.Mode, Selections = request.Selections,
+                Answers = request.Answers?.Select(a => a is null ? throw new ArgumentException("Invalid planner answer.") : new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList() }, ct), ChatJsonContext.Default.PlanningSessionDto); }
             catch (PlanningConflictException ex) { return Results.Conflict(ex.Message); }
             catch (KeyNotFoundException) { return Results.NotFound(); }
             catch (ArgumentException) { return Results.BadRequest("Invalid planner decision command."); }
@@ -40,6 +41,7 @@ internal static class PlanningEndpoints
                     ArtifactHash = request.ArtifactHash,
                     Text = request.Text,
                     Selections = request.Selections,
+                    Answers = request.Answers?.Select(a => a is null ? throw new ArgumentException("Invalid planner answer.") : new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList(),
                     Generation = request.Generation is { } options ? new() { Reasoning = options.Reasoning, MaxInputTokensPerRequest = options.MaxInputTokensPerRequest, MaxOutputTokens = options.MaxOutputTokens } : null
                 }, ct);
                 return Results.Json(ToDto(state), ChatJsonContext.Default.PlanningSessionDto);
@@ -68,6 +70,8 @@ internal static class PlanningEndpoints
         SchemaVersion = state.SchemaVersion,
         RevisionScope = state.RevisionScope.ToArray(),
         DiscoveryLimitations = state.Discovery.Limitations.ToArray(),
+        Questions = state.PendingQuestions?.Select(q => new PlanningQuestionDto(q.Id, q.Question,
+            q.Alternatives.Select(a => new PlanningAlternativeDto(a.Id, a.Description, null)).ToArray(), q.Recommended)).ToArray() ?? [],
         TaskPlan = state.Plan is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)!.AsObject()
     };
 

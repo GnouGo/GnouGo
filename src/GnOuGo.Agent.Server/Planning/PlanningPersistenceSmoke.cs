@@ -18,6 +18,10 @@ internal static class PlanningPersistenceSmoke
         var store = new EfPlanningSessionStore(factory, records);
         var state = new PlanningSession { Request = new() { TenantId = "smoke", SessionId = Guid.NewGuid().ToString("N"), Prompt = "Private published smoke content" } };
         state.Requirements = new() { Summary = "Private requirements", Outcomes = [new("result", "Private acceptance criterion")] };
+        state.IntentVersion = 1;
+        state.Requirements.Inputs = [new() { Name = "reference" }];
+        state.PendingQuestions = [new("interface", "Private caller interface question", [new("compact", "Private compact interface"), new("explicit", "Private explicit interface")], "compact")];
+        state.AnswerHistory = [new(0, [new("fact", "Private missing fact", [], null)], [new("fact", Text: "Private custom answer")])];
         state.Discovery.Limitations.Add("Private unavailable source detail");
         if (!await store.TrySaveAsync(state, null, CancellationToken.None)) throw new InvalidOperationException("Insert failed.");
         state.Revision = 1; state.Status = PlanningStatus.Stopped; state.ModelCalls = 2; state.ReplanAttempts = 1;
@@ -34,6 +38,8 @@ internal static class PlanningPersistenceSmoke
         var restored = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
         if (restored?.SchemaVersion != 10 || restored.Revision != 1 || restored.ModelCalls != 2 || restored.ReplanAttempts != 1 || restored.Requirements?.Summary != "Private requirements" || restored.Graph is null || restored.Plan?.Root.Outputs[0].Value.Text != "Private semantic value" || restored.Diagnostics.Count != 1 ||
             restored.Diagnostics[0].Prerequisite?.RootActionId != "producer" || !restored.RevisionScope.SequenceEqual(["main/consumer"]) ||
+            restored.IntentVersion != 1 || restored.Requirements.Inputs?.Single().Name != "reference" || restored.PendingQuestions?.Single().Recommended != "compact" ||
+            restored.AnswerHistory?.Single().Answers.Single().Text != "Private custom answer" ||
             await reopened.LoadAsync("another-tenant", state.Request.SessionId, CancellationToken.None) is not null || (await reopened.ListAsync("smoke", CancellationToken.None)).Count == 0)
             throw new InvalidOperationException("Published persistence or tenant isolation failed.");
         state.Revision = 2;
@@ -55,7 +61,8 @@ internal static class PlanningPersistenceSmoke
         catch (PlanningConflictException) { }
         foreach (var file in Directory.EnumerateFiles(directory, "*.db"))
             if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)) is { } bytes &&
-                (bytes.Contains("Private published smoke content", StringComparison.Ordinal) || bytes.Contains("Private requirements", StringComparison.Ordinal)))
+                (bytes.Contains("Private published smoke content", StringComparison.Ordinal) || bytes.Contains("Private requirements", StringComparison.Ordinal) ||
+                 bytes.Contains("Private custom answer", StringComparison.Ordinal) || bytes.Contains("Private caller interface question", StringComparison.Ordinal)))
                 throw new InvalidOperationException("Sensitive session content was persisted unencrypted.");
         Console.WriteLine("Format-10 planning persistence smoke passed; execution journal schema 9 is unchanged.");
     }

@@ -13,7 +13,7 @@ public sealed class CompactWireDefaultsTests
         var state = PlannerFixture.Session(); state.Requirements = PlannerFixture.Requirements();
         var schema = PlanningSchemas.Proposal(state);
         var json = JsonNode.Parse("""
-            {"discoveryRequests":null,"plan":{"inputs":[{"name":"text","type":{"kind":"string"}}],"groups":[],"choices":[],
+            {"discoveryRequests":null,"clarifications":null,"plan":{"inputs":[{"name":"text","type":{"kind":"string"}}],"groups":[],"choices":[],
             "root":{"tasks":[{"id":"interpret","kind":"transform","objective":"Interpret the supplied text","dependsOn":[],
             "inputs":[{"name":"text","value":{"kind":"input","source":"text"}}],
             "resultType":{"kind":"object","fields":[{"name":"items","type":{"kind":"array","items":{"kind":"string","nullable":true}}}]}}],
@@ -42,7 +42,7 @@ public sealed class CompactWireDefaultsTests
     [Fact]
     public void OptionalObjectFieldsAndWorkflowInputsKeepDifferentDefaultRules()
     {
-        var schema = PlanningSchemas.Proposal(PlannerFixture.Session());
+        var schema = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false);
         var input = JsonNode.Parse("""{"name":"value","type":{"kind":"string","nullable":true},"required":false}""")!;
         IReadOnlyList<string> Errors(string type) { var contract = PlanningSchemas.Ref(type); contract["$defs"] = schema["$defs"]!.DeepClone(); return PlanningContractValidation.ValidateInstance(input, contract); }
         Assert.Empty(Errors("field")); Assert.NotEmpty(Errors("input"));
@@ -110,7 +110,7 @@ public sealed class CompactWireDefaultsTests
         var compact = PlanningJsonTransport.TaskPlanPrompt(plan)!;
         var after = compact.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
         Assert.Equal(before, JsonSerializer.Serialize(after, PlanningJsonContext.Default.TaskPlan));
-        var schema = PlanningSchemas.Proposal(PlannerFixture.Session());
+        var schema = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false);
         var wire = TestRuntime.Response(new() { StructuredOutputSchema = schema }, new() { Plan = plan, Requirements = PlannerFixture.Requirements() }).Json!;
         Assert.Empty(PlanningContractValidation.ValidateInstance(wire, schema));
         Assert.Equal(before, JsonSerializer.Serialize(wire["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan));

@@ -72,7 +72,7 @@ internal static class PlanningModelCalls
             throw new PlanningResponseException(findings.Select(f => new PlanningDiagnostic("PLANNING_RESPONSE_INVALID",
                 f.InstancePointer, f.Message, ValidationStage: purpose)).ToList());
         }
-        if (canDecline && json["plan"] is null)
+        if (canDecline && json["plan"] is null && json["clarifications"] is null)
             throw new WorkflowRuntimeException("DISCOVERY_INCOMPLETE",
                 "The model could not propose a TaskPlan from the inspected capabilities before discovery closed. No workflow was approved. Refine the requirements and start a new planning session; existing limits and accounting are unchanged.",
                 details: new JsonObject { ["location"] = "/discoveryRequests" });

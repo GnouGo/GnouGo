@@ -4,7 +4,9 @@ A separately publishable package depending only on Flow.Core.
 
 `Requirements → progressive discovery → LLM TaskPlan → deterministic compilation → PlanningGraph → YAML → validation → scoped TaskPlan repair → approval`
 
-Requirements are generated once, then host-owned until explicit user revision. Discovery and repair responses omit them. Historical responses use the original persisted schema and cannot change accepted requirements.
+Requirements are host-owned until explicit user revision. New sessions declare the caller input interface in `requirements.inputs`; null is unresolved during discovery, and a plan requires an explicit array, including empty for no caller inputs. Once accepted, names, types, requiredness and defaults must match the plan. Subsequent responses omit accepted requirements. Historical responses use their original persisted schemas and requirements semantics.
+
+The existing loop also accepts an exclusive `clarifications` response before a plan or during repair. One to three material questions offer two or three alternatives with one recommendation, or text-only input for missing facts. Designer/chat share recommended selections and custom text; generic Flow hosts reuse human-input forms. Questions pause in auto mode too. `answer` saves an atomic revision-checked batch before continuation; custom literal-choice answers revise intent, while declared literal selections still compile locally. No answer approves execution, widens host policy or resets budgets. See [interaction contracts and validation](../../docs/planning-clarification.md).
 
 `TaskPlan` is editable business intent. `PlanningGraph` is the sole executable representation. `HybridWorkflowPlanner` uses one bounded discovery/planning/repair loop; resolving selected operations and compiling them do not call a model. Static validation and simulations do not establish external success.
 

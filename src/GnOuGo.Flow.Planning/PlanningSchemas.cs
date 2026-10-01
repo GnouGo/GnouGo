@@ -20,7 +20,7 @@ internal static class PlanningSchemas
     internal static JsonObject Proposal(PlanningSession state) => PlanningRepairPatch.Active(state)
         ? PlanningRepairPatch.Schema(state, FullProposal(state, compact: false)) : FullProposal(state);
 
-    internal static JsonObject FullProposal(PlanningSession state, bool compact = true)
+    internal static JsonObject FullProposal(PlanningSession state, bool compact = true, bool clarifications = true)
     {
         var actions = new List<JsonNode?>();
         if (PlanningDiscoveryContext.CanDiscover(state))
@@ -51,9 +51,14 @@ internal static class PlanningSchemas
         var root = Object(
             ("discoveryRequests", actions.Count == 0 ? Type("null") : Nullable(Array(new JsonObject { ["anyOf"] = new JsonArray(actions.ToArray()) }, 1, 4))),
             ("plan", Nullable(Ref("plan"))));
-        if (state.Requirements is null)
+        if (clarifications)
         {
-            root["properties"]!["requirements"] = Ref("requirements");
+            root["properties"]!["clarifications"] = Nullable(Clarifications());
+            root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("clarifications"));
+        }
+        if (state.Requirements is null || clarifications && state.IntentVersion == 1 && state.Requirements.Inputs is null)
+        {
+            root["properties"]!["requirements"] = clarifications ? Nullable(Ref("requirements")) : Ref("requirements");
             root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("requirements"));
         }
         root["$defs"] = new JsonObject
@@ -93,10 +98,44 @@ internal static class PlanningSchemas
                 ("recommended", String()))
         };
         var definitions = root["$defs"]!.AsObject();
+        if (clarifications)
+        {
+            definitions["requirements"]!["properties"]!["inputs"] = Nullable(Array(Ref("input")));
+            definitions["requirements"]!["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("inputs"));
+            if (compact)
+            {
+                // Already explained in the prompt; omit duplicate annotations only.
+                definitions["input"]!.AsObject().Remove("description");
+                foreach (var value in definitions["value"]!["anyOf"]!.AsArray().OfType<JsonObject>()) value.Remove("description");
+            }
+        }
         definitions["task"] = Tasks(state, definitions);
-        if (state.Requirements is not null) root["$defs"]!.AsObject().Remove("requirements");
-        if (compact) ShareRepeatedSchemas(root, definitions);
+        if (state.Requirements is not null && (!clarifications || state.IntentVersion != 1 || state.Requirements.Inputs is not null)) root["$defs"]!.AsObject().Remove("requirements");
+        if (compact) { ShareRepeatedSchemas(root, definitions); CompactDefinitionNames(root, definitions); }
         return root;
+    }
+
+    internal static JsonObject Clarifications() => Array(Object(("id", Nonblank()), ("question", Nonblank()),
+        ("alternatives", Array(Object(("id", Nonblank()), ("description", Nonblank())), 0, 3)),
+        ("recommended", Nullable(Nonblank()))), 1, 3);
+
+    private static void CompactDefinitionNames(JsonObject root, JsonObject definitions)
+    {
+        var names = definitions.Select((p, i) => (p.Key, Name: "d" + i.ToString("x", System.Globalization.CultureInfo.InvariantCulture)))
+            .ToDictionary(p => p.Key, p => p.Name, StringComparer.Ordinal);
+        void Visit(JsonNode? node)
+        {
+            if (node is JsonObject obj)
+            {
+                if (obj["$ref"]?.ToString() is { } reference && reference.StartsWith("#/$defs/", StringComparison.Ordinal))
+                    obj["$ref"] = "#/$defs/" + names[reference[8..]];
+                foreach (var value in obj.Select(p => p.Value)) Visit(value);
+            }
+            else if (node is JsonArray array) foreach (var value in array) Visit(value);
+        }
+        Visit(root);
+        var renamed = definitions.Select(p => (Name: names[p.Key], p.Value)).ToArray();
+        definitions.Clear(); foreach (var (name, value) in renamed) definitions.Add(name, value);
     }
 
     // Lossless JSON Schema factoring keeps per-operation domains affordable.
@@ -117,15 +156,22 @@ internal static class PlanningSchemas
         }
         Visit(root);
         var groups = nodes.GroupBy(n => n.ToJsonString(), StringComparer.Ordinal).Where(g => g.Count() > 1 && g.Key.Length > 120)
-            .OrderBy(g => g.Key.Length).ThenBy(g => g.Key, StringComparer.Ordinal).ToArray();
+            .OrderByDescending(g => g.Key.Length).ThenBy(g => g.Key, StringComparer.Ordinal).ToArray();
         foreach (var group in groups)
         {
-            var schema = group.First(); var name = "s" + definitions.Count;
+            // Factoring a parent detaches its old children. Count only live sites.
+            var attached = group.Where(n =>
+            {
+                JsonNode top = n; while (top.Parent is not null) top = top.Parent;
+                return ReferenceEquals(top, root);
+            }).ToArray();
+            if (attached.Length < 2) continue;
+            var schema = attached[0]; var name = "s" + definitions.Count;
             var referenceLength = Ref(name).ToJsonString().Length;
             var size = schema.ToJsonString().Length;
-            if ((size - referenceLength) * group.Count() <= size + name.Length + 4) continue;
+            if ((size - referenceLength) * attached.Length <= size + name.Length + 4) continue;
             definitions[name] = schema.DeepClone();
-            foreach (var node in group)
+            foreach (var node in attached)
                 if (node.Parent is JsonArray array) array[array.IndexOf(node)] = Ref(name);
                 else if (node.Parent is JsonObject obj) obj[obj.Single(p => ReferenceEquals(p.Value, node)).Key] = Ref(name);
         }

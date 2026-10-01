@@ -70,7 +70,9 @@
         }
         @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification)
         {
-            <PlannerChoiceCard Choices="PlanningEndpoints.ToDto(_state).Choices" Busy="_busy" Select='selections => SubmitAsync("choose", selections: selections)' Cancel='() => SubmitAsync("cancel")' />
+            <PlannerChoiceCard Choices="PlanningEndpoints.ToDto(_state).Choices" Questions="PlanningEndpoints.ToDto(_state).Questions"
+                DecisionKey="@(_state.Request.SessionId + ":" + _state.Revision)" Busy="_busy" Select='selections => SubmitAsync("choose", selections: selections)'
+                Answer='answers => SubmitAsync("answer", answers: answers)' Cancel='() => SubmitAsync("cancel")' />
         }
         <PlannerStageDetails Session="PlanningEndpoints.ToDto(_state)" ShowFindings="false" />
         @if (_state.Diagnostics.Count > 0)
@@ -213,11 +215,12 @@
         catch (Exception ex) { _error = ex.Message; }
         finally { _busy = false; }
     }
-    private async Task SubmitAsync(string kind, string? text = null, JsonObject? selections = null, PlanningGenerationOptions? generation = null, string? mode = null)
+    private async Task SubmitAsync(string kind, string? text = null, JsonObject? selections = null, PlanningGenerationOptions? generation = null, string? mode = null, IReadOnlyList<PlanningAnswerDto>? answers = null)
     {
         if (_state is null || IsWorkflowSession) return;
         _busy = true; _error = null;
-        try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Selections = selections, Generation = generation, Mode = mode }, _lifetime.Token); }
+        try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Selections = selections, Generation = generation, Mode = mode,
+            Answers = answers?.Select(a => new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList() }, _lifetime.Token); }
         catch (Exception ex) { _error = ex.Message; await RefreshAsync(); }
         finally { _busy = false; }
     }
@@ -226,7 +229,7 @@
     private static string Phase(string status) => status switch
     {
         PlanningStatus.Created => "Discovering capabilities", PlanningStatus.Generating => "Building and validating workflow",
-        PlanningStatus.Clarification => "Choose a business alternative", PlanningStatus.FinalReview => "Ready for your review",
+        PlanningStatus.Clarification => "Clarify the intended workflow", PlanningStatus.FinalReview => "Ready for your review",
         PlanningStatus.Approved => "Approved", PlanningStatus.Saving => "Saving", PlanningStatus.Saved => "Saved",
         PlanningStatus.Stopped or PlanningStatus.Failed => "Planning stopped", PlanningStatus.Cancelled => "Cancelled", _ => status
     };

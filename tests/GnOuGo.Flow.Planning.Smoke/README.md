@@ -2,6 +2,8 @@
 
 Exercises typed HTML → product records → tabular text transformations with mocked inference, ordered collection and cleanup, plus batched-discovery serialization and the eight-case corpus, strict semantic TaskPlan transport, source-generated format-10 restart after each advance, deterministic compiler, contract validation, final approval and independently asserted outputs/effects.
 
+Also checks early clarification in automatic mode, a custom answer checkpoint, restart with cumulative budgets and separate artifact approval; caller input contracts and version-three repair authority use the same source-generated serializers. All model responses are deterministic adapters, not live provider evaluation.
+
 ```bash
 dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 -m:1 -warnaserror
 tests/GnOuGo.Flow.Planning.Smoke/bin/Release/net10.0/osx-arm64/publish/GnOuGo.Flow.Planning.Smoke

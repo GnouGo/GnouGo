@@ -138,6 +138,69 @@ public sealed class ChatPlanningChoiceTests
         Assert.Single(result.Choices); Assert.Null(result.ApprovedHash); Assert.Equal(1, model.Calls);
         await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.SubmitAsync("scope-chat", id, command, Ct));
     }
+    [Theory]
+    [InlineData("recommendation")]
+    [InlineData("custom")]
+    [InlineData("cancel")]
+    public async Task EarlyClarificationSurvivesEncryptedRestartAndHttpAnswer(string action)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); var model = new Model { EarlyQuestion = true };
+        using var designer = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
+        var first = Service(fixture, designer, model); string id; long revision;
+        await using (var owned = await first.Attach("early-chat", _ => { }).OpenAsync(Context(model), Initial(), Ct))
+        {
+            var state = await new HybridWorkflowPlanner().AdvanceAsync(owned.Session, new(), owned.Runtime, Ct);
+            Assert.Equal(PlanningStatus.Clarification, state.Status); Assert.Null(state.Plan); Assert.Empty(state.GetChoices());
+            id = state.Request.SessionId; revision = state.Revision;
+        }
+        var reopened = Service(fixture, designer, model);
+        var pending = Assert.Single(await reopened.ListAsync("early-chat", Ct)); Assert.Single(pending.Questions); Assert.Empty(pending.Choices);
+        Assert.Empty(await reopened.ListAsync("unrelated", Ct));
+        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+            Assert.DoesNotContain("PRIVATE_INPUT_CONTEXT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.Configuration.Sources.Clear(); builder.WebHost.ConfigureKestrel(o => o.Listen(System.Net.IPAddress.Loopback, 0)); builder.Logging.ClearProviders();
+        builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.TypeInfoResolverChain.Insert(0, ChatJsonContext.Default));
+        builder.Services.AddSingleton(reopened); builder.Services.AddSingleton(designer);
+        await using var app = builder.Build(); app.MapPlanningEndpoints(); await app.StartAsync(Ct);
+        using var http = new HttpClient { BaseAddress = new Uri(app.Urls.Single()) };
+        var command = new PlanningCommandDto(action == "cancel" ? "cancel" : "answer", revision, Answers: action == "cancel" ? null :
+            [action == "custom" ? new("interface", Text: "PRIVATE_CUSTOM_ANSWER: only a reference and checklist") : new("interface", "reference")]);
+        var endpoint = "/api/chat/conversations/early-chat/planning/" + id + "/commands";
+        var wrong = await http.PostAsJsonAsync(endpoint.Replace("early-chat", "unrelated", StringComparison.Ordinal), command, ChatJsonContext.Default.PlanningCommandDto, Ct);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, wrong.StatusCode);
+        var invalid = await http.PostAsJsonAsync(endpoint, command with { Kind = "answer", Answers = [null!] }, ChatJsonContext.Default.PlanningCommandDto, Ct);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, invalid.StatusCode); Assert.Equal(1, model.Calls);
+        var response = await http.PostAsJsonAsync(endpoint, command, ChatJsonContext.Default.PlanningCommandDto, Ct); response.EnsureSuccessStatusCode();
+        var result = (await response.Content.ReadFromJsonAsync(ChatJsonContext.Default.PlanningSessionDto, Ct))!;
+        Assert.Equal(action == "cancel" ? PlanningStatus.Cancelled : PlanningStatus.FinalReview, result.Status);
+        Assert.Equal(action == "cancel" ? 1 : 2, model.Calls); Assert.Null(result.ApprovedHash);
+        var replay = await http.PostAsJsonAsync(endpoint, command, ChatJsonContext.Default.PlanningCommandDto, Ct);
+        Assert.Equal(System.Net.HttpStatusCode.Conflict, replay.StatusCode);
+        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+            Assert.DoesNotContain("PRIVATE_CUSTOM_ANSWER", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
+    }
+
+    [Fact]
+    public async Task LiveClarificationAnswerIsAcknowledgedBeforeContinuationDispatch()
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); var model = new Model { EarlyQuestion = true };
+        using var designer = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog());
+        var service = Service(fixture, designer, model); var bridge = service.Attach("live-early", _ => { });
+        await using var owned = await bridge.OpenAsync(Context(model), Initial(), Ct);
+        var planner = new HybridWorkflowPlanner(); var state = await planner.AdvanceAsync(owned.Session, new(), owned.Runtime, Ct);
+        var waiting = bridge.RequestAsync(state, Ct);
+        var submitted = service.SubmitAsync("live-early", state.Request.SessionId, new() { Kind = "answer", ExpectedRevision = state.Revision,
+            Answers = [new("interface", "reference")] }, Ct);
+        var command = await waiting; Assert.False(submitted.IsCompleted);
+        state = await planner.AdvanceAsync(state, command, owned.Runtime, Ct);
+        Assert.Equal(1, model.Calls); Assert.Single(state.AnswerHistory!);
+        await bridge.CheckpointedAsync(state, Ct);
+        Assert.Equal(PlanningStatus.Generating, (await submitted).Status);
+        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, owned.Runtime, Ct);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(2, model.Calls); Assert.Null(state.ApprovedHash);
+    }
+
     private sealed class Lifetime : IHostApplicationLifetime
     {
         public CancellationToken ApplicationStarted => CancellationToken.None;
@@ -149,17 +212,25 @@ public sealed class ChatPlanningChoiceTests
     {
         public int Calls;
         internal bool ScopeRevision;
+        internal bool EarlyQuestion;
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             Calls++;
+            if (EarlyQuestion && Calls == 1)
+            {
+                var question = new PlanningProposal { Clarifications = [new("interface", "PRIVATE_INPUT_CONTEXT: Which caller interface?",
+                    [new("reference", "Reference plus checklist"), new("coordinates", "Separate coordinates plus checklist")], "reference")] };
+                return Task.FromResult(new LLMResponse { Json = GnOuGo.Planning.Examples.PlanningCorpus.Transport(JsonSerializer.SerializeToNode(question, PlanningJsonContext.Default.PlanningProposal),
+                    request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()), Usage = new JsonObject { ["total_tokens"] = 15 } });
+            }
             var plan = GnOuGo.Planning.Examples.PlanningCorpus.LiteralResult();
             var choice = new PlanningChoice { Id = ScopeRevision ? "accept_scope_revision" : "tone", Question = "PRIVATE_DECISION_CONTEXT: Include the detailed presentation?",
                 Recommended = ScopeRevision ? "include" : "brief", Alternatives = ScopeRevision
                     ? [new("include", "Include detail", new() { Kind = "string", Text = "detailed" }), new("omit", "Omit detail", new() { Kind = "string", Text = "brief" })]
                     : [new("brief", "Brief", new() { Kind = "string", Text = "brief" }), new("full", "Full", new() { Kind = "string", Text = "full" })] };
-            plan.Choices.Add(choice); plan.Root.Outputs.Add(new("presentation", new() { Kind = "choice", Source = choice.Id }));
+            if (!EarlyQuestion) { plan.Choices.Add(choice); plan.Root.Outputs.Add(new("presentation", new() { Kind = "choice", Source = choice.Id })); }
             var proposal = new PlanningProposal { Requirements = GnOuGo.Planning.Examples.PlanningCorpus.Requirements("local"), Plan = plan };
             return Task.FromResult(new LLMResponse
             {

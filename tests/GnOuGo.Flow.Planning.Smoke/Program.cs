@@ -14,6 +14,24 @@ var restoredFailure = JsonSerializer.Deserialize(JsonSerializer.Serialize(taskFa
 if (restoredFailure.Failure?.Code != taskFailure.Failure.Code) throw new InvalidOperationException("Agent failure serialization failed");
 Console.WriteLine("agent failure: structured host diagnostic survives source-generated serialization");
 
+// Clarification is a response in the existing planning loop, not a separate model phase.
+var clarificationRuntime = new ClarificationRuntime(); var clarificationPlanner = new HybridWorkflowPlanner();
+var clarificationState = new PlanningSession { Request = new() { TenantId = "smoke", Mode = "auto", Prompt = "Return a value with the intended interface" } };
+clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState, new(), clarificationRuntime, CancellationToken.None);
+clarificationState = JsonSerializer.Deserialize(JsonSerializer.Serialize(clarificationState, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+if (clarificationState.Status != PlanningStatus.Clarification || clarificationState.Plan is not null || clarificationState.PendingQuestions?.Count != 1)
+    throw new InvalidOperationException("Early clarification did not survive Native AOT recovery.");
+clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState, new() { Kind = "answer", ExpectedRevision = clarificationState.Revision,
+    Answers = [new("interface", Text: "Use no caller inputs")] }, clarificationRuntime, CancellationToken.None);
+if (clarificationRuntime.Calls != 1 || clarificationState.AnswerHistory?.Single().Answers.Single().Text != "Use no caller inputs")
+    throw new InvalidOperationException("Answer was not retained before dispatch.");
+clarificationState = JsonSerializer.Deserialize(JsonSerializer.Serialize(clarificationState, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState, new() { ExpectedRevision = clarificationState.Revision }, clarificationRuntime, CancellationToken.None);
+PlanningArtifactApproval.Verify(clarificationState);
+if (clarificationState.Status != PlanningStatus.FinalReview || clarificationState.ApprovedHash is not null || clarificationRuntime.Calls != 2)
+    throw new InvalidOperationException("Clarification bypassed review or lost accounting.");
+Console.WriteLine("clarification: auto pause, custom answer, restart, unchanged budget and separate approval passed with deterministic inference");
+
 // A shared location is lowered to an approved literal without an agent dispatch.
 var workspacePlan = JsonSerializer.Deserialize("""
 {"root":{"tasks":[
@@ -117,7 +135,7 @@ var bounded = new PlanningSession { Request = new() { TenantId = "smoke", Prompt
 bounded.Discovery.Sources.Add(new("declared", "Declared source"));
 var boundedSchema = PlanningSchemas.Proposal(bounded);
 var noPlan = new JsonObject { ["requirements"] = new JsonObject { ["summary"] = "Return data", ["outcomes"] =
-    new JsonArray(new JsonObject { ["id"] = "data", ["description"] = "Return declared data" }) }, ["discoveryRequests"] = null, ["plan"] = null };
+    new JsonArray(new JsonObject { ["id"] = "data", ["description"] = "Return declared data" }), ["inputs"] = null }, ["discoveryRequests"] = null, ["plan"] = null, ["clarifications"] = null };
 if (!PlanningSchemas.AllowsNoPlan(boundedSchema) || PlanningContractValidation.ValidateInstance(noPlan, boundedSchema).Count != 0)
     throw new InvalidOperationException("Closed discovery must permit a safe no-plan response");
 bounded.PendingCall = new() { Id = "retained", Purpose = "tasks", Request = new() { StructuredOutputSchema = boundedSchema } };
@@ -251,7 +269,7 @@ var repairState = new PlanningSession { Request = new() { TenantId = "smoke", Pr
     Diagnostics = ownedRejection.Diagnostics.ToList(), RevisionScope = TaskPlanRevisions.Scope(ownedPlan, ownedRejection.Diagnostics).ToList() };
 var repairSchema = PlanningSchemas.Proposal(repairState);
 var repairRequest = new LLMRequest { Prompt = HybridWorkflowPlanner.Prompt(repairState), StructuredOutputSchema = repairSchema };
-var removeOwned = JsonNode.Parse("""{"discoveryRequests":null,"patch":{"edits":[{"slot":"s0","action":"remove"}]}}""")!;
+var removeOwned = JsonNode.Parse("""{"discoveryRequests":null,"clarifications":null,"patch":{"edits":[{"slot":"s0","action":"remove"}]}}""")!;
 if (PlanningContractValidation.ValidateSchema(repairSchema, strict: true).Count != 0 || PlanningContractValidation.ValidateInstance(removeOwned, repairSchema).Count != 0)
     throw new InvalidOperationException("Typed repair schema failed");
 var patchResponse = removeOwned.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!;
@@ -263,7 +281,7 @@ if (repairedPlan.Root.Tasks[0].Inputs.Any(i => i.Name == "selector") || repairSt
     throw new InvalidOperationException("Atomic source-generated repair failed");
 Console.WriteLine("typed repair patches: passed; source-generated recovery; owned removal; immutable baseline; no inference");
 
-// Version-two replacement must preserve business arguments under Native AOT too.
+// Structural replacement must preserve business arguments under Native AOT too.
 repairState.Plan = repairedPlan;
 repairState.Plan.Root.Tasks[0].Operation = "unresolved_operation";
 repairState.Diagnostics = new TaskPlanCompiler().Compile(repairState.Plan, ownedCatalog).Diagnostics.ToList();
@@ -277,4 +295,22 @@ structuralPatch = JsonSerializer.Deserialize(JsonSerializer.Serialize(structural
 var structurallyRepaired = PlanningRepairPatch.Apply(repairState, structuralPatch, structuralRequest);
 if (structurallyRepaired.Root.Tasks[0].Operation != "owned_operation" || structurallyRepaired.Root.Tasks[0].Inputs.Single().Value.Text != "business" ||
     repairState.Plan.Root.Tasks[0].Operation != "unresolved_operation") throw new InvalidOperationException("Structural repair lost authority or business intent");
-Console.WriteLine("structural repair: passed; version-two authority, preserved arguments and atomic AOT round trip; no inference");
+Console.WriteLine("structural repair: passed; version-three authority, preserved arguments and atomic AOT round trip; no inference");
+
+sealed class ClarificationRuntime : IPlanningRuntime
+{
+    private readonly WorkflowPlanningRuntime _inner = new(new(), (_, _) => Task.CompletedTask);
+    internal int Calls;
+    public ICapabilityCatalog Capabilities => _inner.Capabilities;
+    public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => _inner.DiscoverAsync(request, ct);
+    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => _inner.ValidateAsync(request, ct);
+    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => _inner.ValidateCatalogAsync(catalog, ct);
+    public Task CheckpointAsync(PlanningSession state, CancellationToken ct) => Task.CompletedTask;
+    public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
+    {
+        var proposal = ++Calls == 1 ? new PlanningProposal { Clarifications = [new("interface", "Which caller interface?", [new("none", "No caller inputs"), new("value", "A caller-supplied value")], "none")] }
+            : new PlanningProposal { Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult() };
+        return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal),
+            request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) });
+    }
+}

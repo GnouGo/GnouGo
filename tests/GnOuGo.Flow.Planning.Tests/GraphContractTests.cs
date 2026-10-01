@@ -9,7 +9,7 @@ public sealed class GraphContractTests
     [Fact]
     public void ModelContractExcludesExecutorPlumbingAndArbitraryExpressions()
     {
-        var root = PlanningSchemas.Proposal(new() { Catalog = new() });
+        var root = PlanningSchemas.FullProposal(new() { Catalog = new() }, compact: false);
         var contract = root.ToJsonString();
         foreach (var forbidden in new[] { "schemaPointer", "capabilityId", "structuredOutput", "workflow.call", "mcp.call", "expression", "projection", "graph" })
             Assert.DoesNotContain("\"" + forbidden + "\"", contract);

@@ -57,7 +57,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
                     else { state.ApprovedHash = command.ArtifactHash; state.Status = PlanningStatus.Approved; }
                     break;
                 case "choose":
-                    if (state.Status != PlanningStatus.Clarification || command.Selections is null || state.Plan is null)
+                    if (state.Status != PlanningStatus.Clarification || command.Selections is null || state.Plan is null || state.PendingQuestions is not null)
                         throw new PlanningConflictException("No business choice is awaiting selection.");
                     var pending = state.Plan.Choices.Where(c => c.Selected is null).ToArray();
                     if (!command.Selections.Select(p => p.Key).Order().SequenceEqual(pending.Select(c => c.Id).Order()))
@@ -69,23 +69,23 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
                         choice.Selected = selected;
                     }
                     Invalidate(state); await CompileAsync(state, runtime, deadline.Token); break;
+                case "answer":
+                    PlanningClarifications.Answer(state, command); break;
                 case "configure_mode":
                     PlanningMode.Validate(command.Mode ?? ""); state.Request.Mode = command.Mode!;
-                    if (state.Status == PlanningStatus.Clarification && state.Request.Mode == PlanningMode.Auto)
+                    if (state.Status == PlanningStatus.Clarification && state.PendingQuestions is null && state.Request.Mode == PlanningMode.Auto)
                         await CompileAsync(state, runtime, deadline.Token);
                     break;
                 case "configure_generation":
-                    if (state.PendingCall is not null || command.Generation is null) throw new PlanningConflictException("Generation settings cannot replace a pending call.");
+                    if (state.PendingCall is not null || state.PendingQuestions is not null || command.Generation is null) throw new PlanningConflictException("Generation settings cannot replace a pending call or clarification.");
                     PlanningGenerationPolicy.Validate(command.Generation); state.Request.Generation = command.Generation;
                     state.Diagnostics.RemoveAll(d => d.Code is "MODEL_INPUT_LIMIT" or "MODEL_OUTPUT_LIMIT");
                     state.Status = PlanningStatus.Generating; break;
                 case "revise":
                     if (state.PendingCall is not null) throw new PlanningConflictException("Reconcile the pending model request before revising.");
                     ArgumentException.ThrowIfNullOrWhiteSpace(command.Text);
-                    state.Request.Baseline = state.Plan;
                     state.Request.Prompt += "\nRequested revision: " + command.Text;
-                    state.Requirements = null; state.Plan = null; state.Graph = null; state.Diagnostics.Clear(); state.ValidationResults.Clear();
-                    state.RevisionScope.Clear(); Invalidate(state); state.Status = PlanningStatus.Generating; break;
+                    PlanningClarifications.Revise(state); break;
                 case "cancel": state.Status = PlanningStatus.Cancelled; state.ApprovedHash = null; break;
                 default: throw new ArgumentException("Unsupported planning command.");
             }
@@ -176,6 +176,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         var legacyDiscovery = state.PendingCall is { } issued && !PlanningSchemas.HasQueryProperty(issued.Request.StructuredOutputSchema?["properties"]?["discoveryRequests"]);
         if (state.PendingCall is null)
         {
+            if (state.Requirements is null) state.IntentVersion = 1;
             await PlanningDiscoveryContext.DiscoverPrerequisitesAsync(state, runtime, ct);
             await PlanningDiscoveryContext.ResolveShortlistAsync(state, runtime, ct);
         }
@@ -187,14 +188,27 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         if (patchRequest)
         {
             var change = response.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!;
-            if ((change.DiscoveryRequests is null) == (change.Patch is null)) Reject("PROPOSAL_ACTION_INVALID", "/", "Return one permitted discovery batch or a semantic patch.");
-            proposal = new() { DiscoveryRequests = change.DiscoveryRequests,
+            if ((change.DiscoveryRequests is null ? 0 : 1) + (change.Patch is null ? 0 : 1) + (change.Clarifications is null ? 0 : 1) != 1)
+                Reject("PROPOSAL_ACTION_INVALID", "/", "Return one permitted discovery batch, clarification or semantic patch.");
+            proposal = new() { DiscoveryRequests = change.DiscoveryRequests, Clarifications = change.Clarifications,
                 Plan = change.Patch is null ? null : PlanningRepairPatch.Apply(state, change.Patch, issuedRequest) };
         }
         else proposal = JsonSerializer.Deserialize(response, PlanningJsonContext.Default.PlanningProposal)!;
+        if ((proposal.DiscoveryRequests is null ? 0 : 1) + (proposal.Plan is null ? 0 : 1) + (proposal.Clarifications is null ? 0 : 1) != 1)
+            Reject("PROPOSAL_ACTION_INVALID", "/", "Return one discovery batch, clarification or complete TaskPlan.");
+        if (proposal.Clarifications is { } questions)
+        {
+            PlanningClarifications.ValidateQuestions(questions);
+            if (proposal.Requirements is not null) Reject("CLARIFICATION_INVALID", "/requirements", "Clarify intent before accepting new requirements.");
+            state.PendingQuestions = questions; state.Graph = null; Invalidate(state);
+            state.Status = PlanningStatus.Clarification; return;
+        }
         ValidateRequirements(state, proposal);
-        if ((proposal.DiscoveryRequests is null) == (proposal.Plan is null)) Reject("PROPOSAL_ACTION_INVALID", "/", "Return one discovery batch or a complete TaskPlan.");
+        if (proposal.Plan is not null && state.IntentVersion == 1 &&
+            (state.Requirements?.Inputs ?? proposal.Requirements?.Inputs) is null)
+            Reject("REQUIREMENTS_INPUTS_REQUIRED", "/requirements/inputs", "Declare the intended caller input interface before proposing a plan, or clarify it with the user.");
         state.Requirements ??= proposal.Requirements;
+        if (state.IntentVersion == 1 && state.Requirements!.Inputs is null && proposal.Requirements?.Inputs is { } acceptedInputs) state.Requirements.Inputs = acceptedInputs;
         if (proposal.DiscoveryRequests is { } requests)
         {
             if (requests.Count is < 1 or > 4 || requests.Distinct().Count() != requests.Count)
@@ -305,6 +319,8 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
     private static async Task CompileAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
     {
         var plan = state.Plan!;
+        if (PlanningClarifications.InputFindings(state) is { Count: > 0 } inputFindings)
+        { state.Diagnostics = inputFindings; state.Graph = null; Stop(state); return; }
         var selectedOperations = TaskPlanRevisions.Tasks(plan).Where(t => t.Kind == "operation").Select(t => t.Operation).ToHashSet(StringComparer.Ordinal);
         foreach (var capability in state.Catalog!.Capabilities.Where(c => c.Kind != "registered" && !selectedOperations.Contains(TaskOperations.Describe(c).Id)))
             if (!state.Discovery.Resolved.Any(c => c.Id == capability.Id && c.Version == capability.Version)) state.Discovery.Resolved.Add(capability);
@@ -375,7 +391,8 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             requirements.Outcomes.Select(o => o.Id).Distinct().Count() != requirements.Outcomes.Count)
             Reject("REQUIREMENTS_INVALID", "/requirements", "Declare distinct concrete business outcomes.");
         if (state.Requirements is { } accepted && (accepted.Summary != requirements!.Summary || !accepted.Outcomes.Select(o => (o.Id, o.Description)).Order()
-                .SequenceEqual(requirements.Outcomes.Select(o => (o.Id, o.Description)).Order())))
+                .SequenceEqual(requirements.Outcomes.Select(o => (o.Id, o.Description)).Order()) ||
+                accepted.Inputs is not null && !PlanningClarifications.SameInputs(accepted.Inputs, requirements.Inputs)))
             Reject("REQUIREMENTS_CHANGED", "/requirements", "Preserve accepted requirements. Only an explicit user revision may change their scope.");
     }
 

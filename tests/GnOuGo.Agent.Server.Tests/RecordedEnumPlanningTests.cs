@@ -126,7 +126,13 @@ public sealed class RecordedEnumPlanningTests
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct) => Task.FromResult(Discovery.Resolved.Single(c => c.Id == summary.Id && c.Version == summary.Version));
         public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
         {
-            if (Expected is null) { Identities.Add(request.ClientRequestId!); Requests.Add(request); return Task.FromResult(new LLMResponse { Json = (NextProposal ?? FileData("synthetic-corrected")["proposal"]!).DeepClone() }); }
+            if (Expected is null)
+            {
+                Identities.Add(request.ClientRequestId!); Requests.Add(request);
+                var proposal = (NextProposal ?? FileData("synthetic-corrected")["proposal"]!).DeepClone().AsObject();
+                proposal["clarifications"] = null; // New synthetic response; retained issued responses remain unchanged.
+                return Task.FromResult(new LLMResponse { Json = proposal });
+            }
             var issued = Expected["pendingSession"]!["pendingCall"]!;
             Assert.Equal(issued["id"]!.ToString(), request.ClientRequestId);
             Assert.Equal(issued["request"]!["prompt"]!.ToString(), request.Prompt);

@@ -157,7 +157,7 @@ public sealed class RecordedRepairPatchTests(ITestOutputHelper output)
                 if (action == "replace") edit["value"] = false;
                 return edit;
             }
-            PatchResponse = new() { ["discoveryRequests"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray(
+            PatchResponse = new() { ["discoveryRequests"] = null, ["clarifications"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray(
                 Edit("/tasks/add_inline_comment/inputs/startLine", "remove"),
                 Edit("/tasks/pr_refs/resultType/fields/baseRef/type/nullable", "replace"),
                 Edit("/tasks/pr_refs/resultType/fields/headSha/type/nullable", "replace")) } };

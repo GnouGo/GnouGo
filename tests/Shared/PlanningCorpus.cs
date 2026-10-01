@@ -84,6 +84,14 @@ public static class PlanningCorpus
     /// <summary>Projects fixture DTOs to the exact strict transport schema. Never used in production.</summary>
     public static JsonNode? Transport(JsonNode? value, JsonObject schema, JsonObject root)
     {
+        // Older scripted proposals specify their caller interface on the plan only.
+        // Advertise that same interface explicitly in NEW request schemas; never alter
+        // a fixture that supplies an independent requirements interface for comparison.
+        if (ReferenceEquals(schema, root) && schema["properties"]?["clarifications"] is not null &&
+            value?["requirements"] is JsonObject requirements && requirements["inputs"] is null && value["plan"] is JsonObject plan)
+        {
+            value = value.DeepClone(); value["requirements"]!["inputs"] = plan["inputs"]?.DeepClone() ?? new JsonArray();
+        }
         if (schema["$ref"] is { } reference) return Transport(value, root["$defs"]![reference.ToString().Split('/')[^1]]!.AsObject(), root);
         if (schema["anyOf"] is JsonArray alternatives)
         {
