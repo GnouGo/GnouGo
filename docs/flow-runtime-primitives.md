@@ -118,3 +118,26 @@ Python runtime implementations are outside this change. Shared historical fixtur
 Baseline: 177 focused existing tests passed with `-warnaserror` before editing. New regressions cover checked projection, strict parsing, decision compositions, retired steps in all control-flow positions, unchanged durable journals and custom executors. Compiler regressions cover strict confirmation, collection bounds and literal projection configuration. Existing local product execution independently inspects generated XLSX cells.
 
 All execution evidence for this change is deterministic and local. No paid inference, real marketplace browsing, external repository execution or saved-workflow rerun is included.
+
+Final local validation of implementation commit `542195149462a1533d4bb1b25ec7cbf251ef98d4` (macOS ARM64, .NET 10.0.300):
+
+- Full solution: **4,082 passed, zero failures, 12 skips**, across 33 test projects with `-warnaserror`. Skips are seven Windows-only Cmd cases and five opt-in Copilot end-to-end cases.
+- Included suites: **983 Flow runtime, 783 planning, 593 Agent.Server and 12 Mermaid tests**. Browser clarification is enabled in the final solution run and also passed separately.
+- Six four-task business product variants execute real Flow with actual Document writing; seven local-site variants additionally exercise Browser/Document stdio. Independent XLSX, empty/missing collection, permission-denial and cleanup assertions pass. These are deterministic local executions, not live-provider evidence.
+- The eight original Native AOT corpus scenarios pass with one scripted planning call and zero repairs each, including unchanged decimal arithmetic oracles. Typed collections, conditional branches, cleanup and repair recovery also pass in the published binary. No provider token/cost or general latency improvement is claimed.
+- Release packs pass for Core, Planning, Integrations, Copilot, Persistence and Mermaid. Planning Native AOT publish/execution and the frontend production build pass without new warning suppressions.
+
+The first full run retained two failures: an offline revised proposal reused an old native projection contract, and an existing Copilot cancellation test raced temporary-directory cleanup. New offline revisions now refresh native contracts while preserving original recordings and pending-request tests. The final complete run passed without changing Copilot production or test code; that unrelated cleanup race remains a known intermittent limitation.
+
+Reproduce from the repository root; the browser module points to an installed Playwright package:
+
+```sh
+PLAYWRIGHT_MODULE_PATH=/absolute/path/to/playwright/index.mjs dotnet test GnOuGo.Agent.sln -m:1 -warnaserror
+for component in Core Planning Integrations Copilot Persistence Mermaid; do
+  dotnet pack "src/GnOuGo.Flow.$component/GnOuGo.Flow.$component.csproj" -c Release -warnaserror
+done
+dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 --self-contained true -warnaserror -o /tmp/flow-primitives-smoke
+/tmp/flow-primitives-smoke/GnOuGo.Flow.Planning.Smoke
+```
+
+Use the supported RID for the target platform. CI additionally exercises Linux builds and published contracts; its current results are attached to PR #117. Historical evidence files and shared benchmark inputs are unchanged.
