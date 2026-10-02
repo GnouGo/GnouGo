@@ -8,7 +8,7 @@ internal static class PlanningOutcomeValidation
     internal static List<PlanningDiagnostic> Findings(PlanningSession state)
     {
         if (state.OutcomeVersion is null) return [];
-        if (state.OutcomeVersion == 2) return PlanningOutcomeCoverage.Findings(state);
+        if (state.OutcomeVersion is 2 or 3) return PlanningOutcomeCoverage.Findings(state);
         var findings = new List<PlanningDiagnostic>();
         void Fail(string code, string path, string message) => findings.Add(new(code, path, message));
         if (state.OutcomeVersion != 1 || state.Requirements is null || state.Plan is null || state.Catalog is null)
@@ -111,7 +111,7 @@ internal static class PlanningOutcomeValidation
         }
     }
 
-    internal static IEnumerable<PlanningValidationResult> Review(PlanningSession state) => state.OutcomeVersion is not (1 or 2) ? [] :
+    internal static IEnumerable<PlanningValidationResult> Review(PlanningSession state) => state.OutcomeVersion is not (1 or 2 or 3) ? [] :
         state.Requirements!.Outcomes.Select(o =>
         {
             var binding = state.OutcomeBindings!.Single(b => b.OutcomeId == o.Id);

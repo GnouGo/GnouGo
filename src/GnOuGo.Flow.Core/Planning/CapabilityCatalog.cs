@@ -45,6 +45,9 @@ public sealed class PlanningRequirements
 
 public sealed record PlanningRequirement(string Id, string Description)
 {
+    /// <summary>Version 3 review evidence: an inspected operation determines the external effect.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Operation { get; init; }
     /// <summary>Data production or an authoritative operation effect. Null retains historical intent.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? Execution { get; init; }
@@ -61,6 +64,9 @@ public sealed record PlanningRequirement(string Id, string Description)
 /// <summary>Review annotations referencing the TaskPlan, never another executable representation.</summary>
 public sealed record PlanningOutcomeBinding(string OutcomeId, List<string> TaskIds, List<string> Outputs)
 {
+    /// <summary>Accepted public inputs supporting a data-only outcome; never external execution evidence.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Inputs { get; init; }
     /// <summary>Existing TaskPlan foreach identity for an accepted each_item outcome; never executable structure.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? ForEachTaskId { get; init; }

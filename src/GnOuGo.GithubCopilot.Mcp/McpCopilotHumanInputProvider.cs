@@ -45,6 +45,9 @@ internal sealed class McpCopilotHumanInputProvider : ICopilotHumanInputProvider
     {
         if (current is null)
             throw new InvalidOperationException("Interactive Copilot callbacks require an active MCP request context.");
+        // SDK callbacks may arrive on a transport thread without the tool call's
+        // ambient metadata. Restore only the identity captured by this host request.
+        using var identity = _traceContext.Push(current.TraceContext);
         using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
             current.CancellationToken);

@@ -50,13 +50,19 @@ public sealed class ComposedOutcomeTests
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    [InlineData(true, true)]
-    public async Task PerItemSupportsEmptyCollectionsAndParallelScopesButDoesNotProveOnce(bool parallel, bool empty)
+    [InlineData(false, false, 2)]
+    [InlineData(true, false, 2)]
+    [InlineData(false, true, 2)]
+    [InlineData(true, true, 2)]
+    [InlineData(false, false, 3)]
+    [InlineData(true, false, 3)]
+    [InlineData(false, true, 3)]
+    [InlineData(true, true, 3)]
+    public async Task PerItemSupportsEmptyCollectionsAndParallelScopesButDoesNotProveOnce(bool parallel, bool empty, int version)
     {
-        var state = await State(); var body = state.Plan!.Root;
+        var state = await State(); state.OutcomeVersion = version;
+        if (version == 3) state.Requirements!.Outcomes[0] = state.Requirements.Outcomes[0] with { Operation = "external" };
+        var body = state.Plan!.Root;
         state.Plan.Root = new() { Tasks = [new() { Id = "batch", Kind = "foreach", Objective = "Process each entry", Parallel = parallel,
             Items = empty ? new() { Kind = "array" } : PlanningCorpus.Business("input", "entries"), Body = body }] };
         state.Plan.Inputs = [new() { Name = "entries", Type = new() { Kind = "array", Items = new() { Kind = "string" } } }];

@@ -22,6 +22,7 @@ internal sealed partial class CopilotTools
     private const string CompleteReviewMetadataJson = """{"artifacts":{"version":1,"consumes":[{"kind":"workspace.directory","pointer":"/projectRoot","required":true},{"kind":"revision.comparison.files","pointer":"/filesJson","required":true}]},"composition":{"version":1,"kind":"complete_operation","encapsulates":[{"kind":"tool","method":"copilot_review_start"},{"kind":"tool","method":"copilot_review_analyze_batch"},{"kind":"tool","method":"copilot_review_finish"}]}}""";
 
     private readonly CopilotSessionManager _sessions;
+    private readonly CopilotLogicalOperations _logical;
     private readonly CopilotMcpConfiguration _configuration;
     private readonly CopilotReviewManager _reviews;
     private readonly CodePolicy _policy;
@@ -40,9 +41,11 @@ internal sealed partial class CopilotTools
         McpCopilotHumanInputProvider humanInput,
         CodeProgressReporter progress,
         ICopilotPermissionGrantStore permissionGrants,
-        CopilotMcpConfiguration configuration)
+        CopilotMcpConfiguration configuration,
+        CopilotLogicalOperations logical)
     {
         _sessions = sessions;
+        _logical = logical;
         _configuration = configuration;
         _reviews = reviews;
         _policy = policy;
@@ -225,6 +228,7 @@ internal sealed partial class CopilotTools
         [Description(CopilotAttachmentContract.Description)] IReadOnlyList<CopilotAttachmentInput>? attachments = null,
         CancellationToken cancellationToken = default)
         => WithServerAsync(requestContext, cancellationToken, () => InteractiveOneShotWithProgressAsync(
+            requestContext.Server,
             new CopilotSessionCreateRequest(
                 BuildContext(),
                 BuildConfiguration(projectRoot, provider, model, permissionAllowlist),
@@ -408,17 +412,14 @@ internal sealed partial class CopilotTools
     }
 
     private async Task<CopilotSendResult> InteractiveOneShotWithProgressAsync(
+        McpServer server,
         CopilotSessionCreateRequest request,
         string prompt,
         IReadOnlyList<CopilotAttachment>? attachments,
         CancellationToken cancellationToken)
     {
-        var result = await _sessions.InteractiveOneShotAsync(
-            request,
-            prompt,
-            attachments,
-            cancellationToken,
-            CaptureProgress("copilot_interactive_one_shot"), _configuration.RequestHeaders());
+        var result = await _logical.RunAsync(request, prompt, attachments, server,
+            CaptureProgress("copilot_interactive_one_shot"), _configuration.RequestHeaders(), cancellationToken);
         return result;
     }
 

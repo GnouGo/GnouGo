@@ -9,6 +9,7 @@ using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Copilot;
 using GnOuGo.Flow.Integrations;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Flow.Persistence;
 
 // Explicit live test host. It never changes a saved workflow or host permission
 // policy and never connects the GitHub publication server.
@@ -48,6 +49,7 @@ internal static class LiveWorkflowEvaluation
         });
         var measured = new ExecutionModel(model, label);
         var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = measured,
+            RunStore = EncryptedWorkflowRunStore.CreateWorkspace(baseDirectory: root),
             Limits = new() { TenantId = "benchmark", RunId = label, AgentId = campaign.Id + "-" + scenario, AgentName = "Live evaluation " + scenario },
             HumanInputProvider = human, LlmDefaults = new() { Model = model.Model, Provider = model.Provider } };
         if (scenario == "code") engine.WithCopilotRunners(configurations.Keys.Where(k => k.Contains("GithubCopilot", StringComparison.Ordinal)).Select(k => new KeyValuePair<string, string>("coding", k)));
@@ -102,6 +104,7 @@ internal static class LiveWorkflowEvaluation
                 var page = await runtime.Capabilities.ListAsync(source.Id, null, CancellationToken.None);
                 foreach (var c in page.Capabilities) Console.WriteLine(JsonSerializer.SerializeToNode(c, PlanningJsonContext.Default.CapabilitySummary));
             }
+            if (scenario == "amazon") await LiveExecutionReadiness.VerifyAsync(observed, root);
             return;
         }
         if (retained is not null) throw new InvalidOperationException("Run already retained; inspect it instead of overwriting.");

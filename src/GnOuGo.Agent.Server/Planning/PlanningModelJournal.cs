@@ -59,10 +59,13 @@ internal sealed class PlanningModelJournal(
 
         await records.UpsertAsync(RequestCollection, tenantId, row.PayloadKey, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), EfPlanningSessionStore.Author, ct);
         var response = await budget.CallAsync(new MeasuredClient(inner, tenantId), estimator, request, "workflow.plan.typed.model", ct);
+        using var flush = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        // Publish replayable evidence only after its usage is durable. Neither flush
+        // inherits a cancellation that arrived alongside the completed response.
+        await records.UpsertAsync(Collection, tenantId, row.PayloadKey, JsonSerializer.Serialize(response, PlanningJsonContext.Default.LLMResponse), EfPlanningSessionStore.Author, flush.Token);
         RecordTokens(response.Usage, request.Model);
-        await records.UpsertAsync(Collection, tenantId, row.PayloadKey, JsonSerializer.Serialize(response, PlanningJsonContext.Default.LLMResponse), EfPlanningSessionStore.Author, ct);
         row.Status = "completed";
-        await db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(flush.Token);
         return response;
     }
 

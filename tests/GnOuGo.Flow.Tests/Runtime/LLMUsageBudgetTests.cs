@@ -9,6 +9,37 @@ namespace GnOuGo.Flow.Tests.Runtime;
 public sealed class LLMUsageBudgetTests
 {
     [Fact]
+    public async Task CompletedUsageIsDurableWhenCancellationArrivesWithTheResponse()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var sink = new CancellationCheckingSink();
+        var scope = new LLMUsageBudgetScope(new() { MaxCalls = 2, MaxTotalTokens = 100 }, sink: sink);
+        await scope.CallAsync(new CancelAfterResponseClient(cancellation), null, Request(), "neutral.stage", cancellation.Token);
+        Assert.Equal(5, sink.Last!.TotalTokens);
+        Assert.Equal(1, sink.Last.Calls);
+    }
+
+    private sealed class CancelAfterResponseClient(CancellationTokenSource cancellation) : ILLMClient
+    {
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            cancellation.Cancel();
+            return Task.FromResult(new LLMResponse { Json = new JsonObject(), Usage = Usage(2, 3) });
+        }
+    }
+
+    private sealed class CancellationCheckingSink : ILLMUsageBudgetSink
+    {
+        internal LLMUsageBudgetSnapshot? Last;
+        public ValueTask PersistAsync(LLMUsageBudgetSnapshot snapshot, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            Last = snapshot;
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    [Fact]
     public async Task CallBudget_RejectsBeforeDispatchAtCallLimit()
     {
         var client = new StubClient(Usage(2, 3));

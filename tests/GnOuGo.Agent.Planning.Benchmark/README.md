@@ -351,3 +351,20 @@ includes human waiting; provider attempts, verified tokens, unknown reservations
 and costs are separate. Costs are provider-usage/FX estimates, not invoices.
 Absent and interrupted runs stay in the six-run denominator. Compilation or
 FinalReview alone never passes the execution gate.
+
+### Recovery and MCP Tasks follow-up
+
+The recovery follow-up continues `schema-portability-20261002`; do not create a new
+budget or overwrite final4. Use a new cohort (for example `recovery1`) and its six
+`recovery1-{amazon,code}-{1,2,3}` identities after freezing the tested candidate.
+The manifest also pins the execution PATH hash. Keep the disposable toolchain PATH
+identical for planning and execution: Node 24.20.0, pnpm 10.34.5 and Python 3.11.13.
+The repository manifests and recorded command results must independently confirm
+those versions. Installing a toolchain does not grant a workflow new permissions.
+
+Run the existing `--schema-portability readiness --case amazon` and `--case code`
+commands first, using the same `--workspace` and campaign. Verify Browser closure,
+a writable disposable workbook destination, exact SmartGuide head/base availability,
+dependency installation and command permissions. Record missing services/toolchains
+as explicit blockers. The [recovery report](../../docs/planning-recovery-and-live-blockers.md)
+separates deterministic adapter execution from live-provider results.

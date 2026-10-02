@@ -69,13 +69,15 @@ internal static class PlanningRepairPatch
         var plan = state.Plan!; var symbols = new TaskPlanSymbols(plan);
         var index = Index(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!);
         var types = TaskPlanRevisions.ProducerConstraintSlots(plan); var slots = new List<Slot>();
+        var exportRepair = state.OutcomeVersion == 3 ? new PlanningExportRepair(plan, state.RevisionScope) : null;
+        var sources = state.OutcomeVersion == 3 ? TaskPlanCompiler.RepairSources(plan, state.Catalog!) : [];
         var structuralSlots = structural ? PlanningStructuralRepair.Slots(state, definitions) : [];
         foreach (var path in state.RevisionScope.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
             if (path.EndsWith("/kind", StringComparison.Ordinal) && structuralSlots.Any(s => s.Kind == "task" && path == s.Location + "/kind")) continue;
             var kind = "value"; var schema = PlanningSchemas.Ref("value"); var actions = new List<string>();
             var site = FindSite(index, path);
-            if (state.OutcomeVersion == 2 && path.Split('/') is ["", "outcomeBindings", var outcomeId] &&
+            if (state.OutcomeVersion is 2 or 3 && path.Split('/') is ["", "outcomeBindings", var outcomeId] &&
                 state.Requirements?.Outcomes.SingleOrDefault(o => o.Id == outcomeId) is { } outcome &&
                 state.OutcomeBindings?.Count(b => b.OutcomeId == outcomeId) == 1)
             {
@@ -84,7 +86,26 @@ internal static class PlanningRepairPatch
                 schema = PlanningSchemas.Object(("taskIds", PlanningSchemas.Array(PlanningSchemas.Enum(symbols.Tasks.Keys.Order(StringComparer.Ordinal).ToArray()))),
                     ("outputs", state.Plan!.Root.Outputs.Count == 0 ? PlanningSchemas.Array(PlanningSchemas.String(), 0, 0) : PlanningSchemas.Array(PlanningSchemas.Enum(state.Plan.Root.Outputs.Select(o => o.Name).ToArray()))),
                     ("forEachTaskId", outcome.Coverage == "each_item" && loops.Length > 0 ? PlanningSchemas.Enum(loops) : PlanningSchemas.Type("null")));
+                if (state.OutcomeVersion == 3)
+                {
+                    var inputs = outcome.Execution == "data" ? state.Requirements.Inputs?.Select(i => i.Name).ToArray() ?? [] : [];
+                    schema["properties"]!["inputs"] = inputs.Length > 0 ? PlanningSchemas.Array(PlanningSchemas.Enum(inputs)) : PlanningSchemas.Array(PlanningSchemas.String(), 0, 0);
+                    schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("inputs"));
+                }
             }
+            else if (exportRepair?.Additions.TryGetValue(path, out var export) == true)
+            {
+                kind = "binding"; actions.Add("add");
+                if (export.Value is { } forwarding) schema = PlanningExportRepair.Exact(forwarding, definitions);
+                else
+                {
+                    var contract = sources.GetValueOrDefault(export.ProducerScope.Path + "/outputs")?.FirstOrDefault(s => PlanningExportRepair.Same(s.Value, export.Producer))?.Schema;
+                    if (contract is null) throw new WorkflowRuntimeException("REPAIR_SCOPE_INVALID", "The missing conditional export has no authoritative producer contract.");
+                    schema = RepairValue(contract, export.Scope.Path + "/outputs");
+                }
+            }
+            else if (exportRepair?.Consumers.TryGetValue(path, out var reference) == true)
+            { actions.Add("replace"); schema = PlanningExportRepair.Exact(reference, definitions); }
             else if (symbols.Values.ContainsKey(path) && site is not null)
             {
                 var owned = TaskPlanRevisions.OwnedInput(symbols, path, state.Catalog);
@@ -101,7 +122,9 @@ internal static class PlanningRepairPatch
                     {
                         var contracts = state.Catalog!.Capabilities.Where(c => TaskOperations.Describe(c).Id == task.Task.Operation).ToArray();
                         if (contracts.Length == 1 && TaskOperations.Describe(contracts[0]).Inputs.SingleOrDefault(p => p.Name == name) is { } port)
-                            schema = state.OutcomeVersion == 2 ? PlanningBindingSchemas.For(port.Schema, definitions,
+                            schema = state.OutcomeVersion == 3 ? RepairValue(port.Schema, path,
+                                literalOnly: contracts[0].StepType == "agent.run" && name is "objective" or "capabilities" or "budget" or "verification" or "output_schema",
+                                workspace: contracts[0].StepType == "agent.run" && name == "workspace") : state.OutcomeVersion == 2 ? PlanningBindingSchemas.For(port.Schema, definitions,
                                 literalOnly: contracts[0].StepType == "agent.run" && name is "objective" or "capabilities" or "budget" or "verification" or "output_schema",
                                 workspace: contracts[0].StepType == "agent.run" && name == "workspace") : PlanningSchemas.DomainValue(port.Schema, definitions);
                         if (TaskPlanRevisions.RemovableInput(task.Task, name, state.Catalog)) actions.Add("remove");
@@ -162,6 +185,17 @@ internal static class PlanningRepairPatch
             slots.Add(slot with { ValueSchema = PlanningSchemas.Ref(name) });
         }
         return slots.Select((s, i) => s with { Id = "s" + i.ToString(System.Globalization.CultureInfo.InvariantCulture) }).ToArray();
+
+        JsonObject RepairValue(JsonObject contract, string location, bool literalOnly = false, bool workspace = false)
+        {
+            var literal = PlanningBindingSchemas.For(contract, definitions, literalOnly: true);
+            var alternatives = new JsonArray(literal);
+            if (!literalOnly)
+                foreach (var source in sources.GetValueOrDefault(location) ?? [])
+                    if ((!workspace || source.Value.Kind == "output") && PlanningGraphValidation.TypesFit(source.Schema, contract))
+                        alternatives.Add((JsonNode)PlanningExportRepair.Exact(source.Value));
+            return alternatives.Count == 1 ? literal.DeepClone().AsObject() : new() { ["anyOf"] = alternatives };
+        }
     }
 
     private static JsonObject FixedName(JsonObject schema, string property, string value)
@@ -209,7 +243,7 @@ internal static class PlanningRepairPatch
         return schema;
     }
 
-    internal static string Authority(PlanningSession state, int version = 1) => version == 5 ? Authority5(state) : version == 4 ? PlanningGraphCompiler.Fingerprint(new JsonObject
+    internal static string Authority(PlanningSession state, int version = 1) => version == 6 ? Authority6(state) : version == 5 ? Authority5(state) : version == 4 ? PlanningGraphCompiler.Fingerprint(new JsonObject
     {
         ["baselineAuthority"] = Authority(state, 3), ["outcomeVersion"] = state.OutcomeVersion,
         ["outcomeBindings"] = JsonSerializer.SerializeToNode(state.OutcomeBindings, PlanningJsonContext.Default.ListPlanningOutcomeBinding)
@@ -236,6 +270,14 @@ internal static class PlanningRepairPatch
         ["generation"] = JsonSerializer.SerializeToNode(state.Request.Generation, PlanningJsonContext.Default.PlanningGenerationOptions),
         ["options"] = state.Request.Options.DeepClone()
     }.ToJsonString());
+
+    private static string Authority6(PlanningSession state)
+    {
+        var stable = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession)!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+        stable.Diagnostics.RemoveAll(d => d.Code is "MODEL_DISPATCH_UNVERIFIABLE" or "LLM_BUDGET_UNVERIFIABLE" or "PLANNING_HOST_FAILURE");
+        return PlanningGraphCompiler.Fingerprint(new JsonObject
+        { ["baselineAuthority"] = Authority5(stable), ["permissions"] = PermissionDescriptors(stable), ["contractVersion"] = 3 }.ToJsonString());
+    }
 
     private static string Authority5(PlanningSession state)
     {
@@ -271,7 +313,7 @@ internal static class PlanningRepairPatch
     {
         var repair = RequestContext(request)["repair"];
         var version = repair?["version"]?.GetValue<int>();
-        if (version is not (1 or 2 or 3 or 4 or 5) || repair!["authority"]?.ToString() != Authority(state, version.Value))
+        if (version is not (1 or 2 or 3 or 4 or 5 or 6) || repair!["authority"]?.ToString() != Authority(state, version.Value))
             throw new PlanningConflictException("The repair baseline, scope or contracts changed. The retained request cannot be rebased or redispatched.");
     }
 

@@ -16,6 +16,14 @@ try {
   for (const [name, id] of Object.entries(cases)) {
     await page.setViewportSize(name === 'text' ? { width: 390, height: 844 } : { width: 1440, height: 1080 });
     await page.goto(`${url}/planning/${id}`);
+    if (name === 'recovery') {
+      const resume = page.getByRole('button', { name: 'Resume from saved response', exact: true });
+      await resume.waitFor(); await page.reload(); await resume.waitFor();
+      await page.waitForFunction(() => window.Blazor?._internal?.navigationManager != null);
+      await page.waitForTimeout(300);
+      assert.equal(await page.getByRole('button', { name: 'Retry with retained usage', exact: true }).count(), 0);
+      await resume.focus(); await page.keyboard.press('Enter');
+    }
     const confirm = page.getByRole('button', { name: 'Confirm selections', exact: true });
     await confirm.waitFor();
     // Reload a pending question; no answer or model continuation has been submitted.
@@ -52,7 +60,7 @@ try {
     }
   }
   assert.deepEqual(errors, []);
-  await writeFile(`${output}/results.json`, JSON.stringify({ recommendation: true, custom: true, textOnly: true, reload: true, keyboard: true, mobile: true, cancellation: true, outcomeSupport: true, separateApproval: true, errors }, null, 2));
+  await writeFile(`${output}/results.json`, JSON.stringify({ recommendation: true, custom: true, textOnly: true, reload: true, keyboard: true, mobile: true, cancellation: true, outcomeSupport: true, separateApproval: true, savedResponseRecovery: true, errors }, null, 2));
 } catch (error) {
   await page.screenshot({ path: `${output}/failure.png`, fullPage: true });
   console.error((await page.locator('body').innerText()).slice(-6000)); console.error(errors); throw error;

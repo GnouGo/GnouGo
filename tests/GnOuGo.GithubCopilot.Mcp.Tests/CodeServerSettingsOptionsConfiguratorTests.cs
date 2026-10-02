@@ -5,6 +5,32 @@ namespace GnOuGo.GithubCopilot.Mcp.Tests;
 
 public sealed class CodeServerSettingsOptionsConfiguratorTests
 {
+    [Theory]
+    [InlineData("Sessions", "4")]
+    [InlineData("Interactions", "65")]
+    [InlineData("Seconds", "1801")]
+    [InlineData("InferenceAttempts", "33")]
+    [InlineData("ReservedTokens", "2000001")]
+    [InlineData("Sessions", "0")]
+    [InlineData("Sessions", "not-a-number")]
+    public void LogicalLimitsCannotSilentlyExceedTheHostCeilings(string field, string value)
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Code:Copilot:LogicalLimits:" + field] = value }).Build();
+        Assert.ThrowsAny<Exception>(() => new CodeServerSettingsOptionsConfigurator(configuration).Configure(new()));
+    }
+
+    [Fact]
+    public void StricterLogicalLimitsAreReadByTheSameHostConfiguration()
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        { ["Code:Copilot:LogicalLimits:Sessions"] = "1", ["Code:Copilot:LogicalLimits:Interactions"] = "12", ["Code:Copilot:LogicalLimits:Seconds"] = "60",
+          ["Code:Copilot:LogicalLimits:InferenceAttempts"] = "4", ["Code:Copilot:LogicalLimits:ReservedTokens"] = "100000" }).Build();
+        var settings = new CodeServerSettings(); new CodeServerSettingsOptionsConfigurator(configuration).Configure(settings);
+        Assert.Equal(1, settings.Copilot.LogicalLimits.Sessions); Assert.Equal(12, settings.Copilot.LogicalLimits.Interactions);
+        Assert.Equal(60, settings.Copilot.LogicalLimits.Seconds); Assert.Equal(4, settings.Copilot.LogicalLimits.InferenceAttempts);
+        Assert.Equal(100000, settings.Copilot.LogicalLimits.ReservedTokens);
+    }
+
     [Fact]
     public void Configure_AppliesConfiguredValuesWithoutConfigurationBinder()
     {

@@ -73,7 +73,7 @@ public sealed class PlanningOutcomeTests(ITestOutputHelper output)
     public async Task ClearDataPlanRetainsOneCallAndExplicitReviewSupport()
     {
         var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(2, state.OutcomeVersion); Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(3, state.OutcomeVersion); Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal("data", Assert.Single(state.Requirements!.Outcomes).Execution);
         Assert.Equal("message", Assert.Single(Assert.Single(state.OutcomeBindings!).Outputs));
         Assert.Contains(state.ValidationResults, r => r.Id == "outcome:message" && r.Description.Contains("not been observed", StringComparison.Ordinal));

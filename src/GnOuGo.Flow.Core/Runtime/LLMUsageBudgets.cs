@@ -231,6 +231,9 @@ public sealed class LLMUsageBudgetScope
             throw;
         }
 
+        // Dispatch remains cancellable. Once a response exists, its accounting is a
+        // bounded durable flush: caller cancellation cannot erase incurred usage.
+        using var completion = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         Exception? completionFailure = null;
         try
         {
@@ -244,7 +247,7 @@ public sealed class LLMUsageBudgetScope
                         costEstimator,
                         request,
                         safeStage,
-                        ct).ConfigureAwait(false);
+                        completion.Token).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {

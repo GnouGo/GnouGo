@@ -55,7 +55,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
     internal string Build(IReadOnlyList<CapabilitySummary> optional)
     {
         var repair = PlanningRepairPatch.Active(state);
-        if (state.OutcomeVersion == 2 && !repair)
+        if (state.OutcomeVersion is 2 or 3 && !repair)
             Schema = PlanningContractValidation.ProjectStructuredOutputSchema(PlanningSchemas.Proposal(state,
                 _required.Select(o => o.Id).Concat(optional.Select(c => c.Operation!.Id)).ToHashSet(StringComparer.Ordinal)));
         var repairSelection = repair ? PlanningRepairContext.Select(state) : null;
@@ -79,7 +79,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
                 // its creation arguments and instructions cannot be repaired here.
                 item.Remove("inputs"); item.Remove("description"); item["contextRole"] = "producer_outputs";
             }
-            if (state.OutcomeVersion is 1 or 2 && capability is not null) item["effect"] = capability.EffectKind;
+            if (state.OutcomeVersion is 1 or 2 or 3 && capability is not null) item["effect"] = capability.EffectKind;
             if (capability is not null && TaskOperations.ArtifactPorts(capability) is { Count: > 0 } artifacts)
                 item["artifacts"] = artifacts;
             // Removing duplicate index entries must not hide which source owns an
@@ -109,11 +109,13 @@ internal sealed class PlanningPrompt(PlanningSession state)
             context.Remove("taskPlan"); context.Remove("revisionContext");
             context["repair"] = PlanningRepairContext.Build(state);
         }
-        if (state.OutcomeVersion is 1 or 2)
+        if (state.OutcomeVersion is 1 or 2 or 3)
             context["outcomeContract"] = "Split outcomes by action; never downgrade intent. Context defaults: execution=data, always/conditional=false. Operation effects require matching taskIds; data uses taskIds/root outputs. always requires cleanup; conditional permits skipping. plan binds every outcome; other actions: outcomeBindings:null. Discover missing contracts or stop. Bindings prove support, not success; repairs preserve them.";
-        if (state.OutcomeVersion == 2)
+        if (state.OutcomeVersion is 2 or 3)
             context["outcomeContract"] = "Every plan MUST include outcomeBindings: one per accepted outcomeId; null only for discovery/clarifications. Preserve outcomes. taskIds=connected operations/helpers/containers; outputs=names in plan.root.outputs only, never nested ports ([] allowed). Match execution to declared effects, not business verbs. execute cannot witness write; select a writer. always=true=cleanup/finally after failure; cleanup may use execute/write, not lifecycle. Normal work: always=false. Explicitly permitted skipped paths: conditional=true. A repair cannot weaken an accepted unconditional outcome. data:false/false/once. once requires a witness on every required path; each_item requires forEachTaskId body coverage (empty valid). Inspect selected contracts by operationIds before requirements. Inadequate runner capabilities: discover compatible alternatives and clarify with recommendation/custom text; otherwise report limitation. Preserve commands/evidence, fixed creation/workspace/cleanup locations. Support is not success.";
-        if (state.OutcomeVersion == 2)
+        if (state.OutcomeVersion == 3)
+            context["outcomeContract"] = "Bind every outcomeId once; null bindings only for discovery/questions. External outcome.operation selects an inspected allowed contract; host derives effect. Missing contract: discover or stop, never relabel work as data. placement=normal or cleanup (finally after failure, stored as always); independent of effect. conditional=false requires every path; true permits requested skips. once requires invocation; each_item binds forEachTaskId and every body path (empty valid). taskIds=connected support; outputs=root outputs only; inputs=accepted caller inputs, data-only. Data: operation:null, normal/false/once. Values never prove external execution. Preserve objectives/interface/evidence/coverage/fixed workspace. Inadequate runner: discover compatible alternatives, clarify with recommendation/custom text; no permission grant. Repairs reuse exports; add only missing chain/counterparts. Support is not success.";
+        if (state.OutcomeVersion is 2 or 3)
             foreach (var key in new[] { "revisionContext", "userAnswers", "instructions", "revisionScope" })
                 if (context[key] is null || context[key] is JsonArray { Count: 0 } || context[key]?.ToString() == "") context.Remove(key);
         if (state.OutcomeBindings is not null) context["outcomeBindings"] = JsonSerializer.SerializeToNode(state.OutcomeBindings, PlanningJsonContext.Default.ListPlanningOutcomeBinding);
@@ -138,7 +140,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
         foreach (var source in coverage)
             if (source!["index"] is JsonArray index)
                 foreach (var item in index.Where(c => detailed.Contains(c!["id"]!.ToString())).ToArray()) index.Remove(item);
-        if (state.OutcomeVersion is 1 or 2 && !PlanningDiscoveryContext.CanDiscover(state))
+        if (state.OutcomeVersion is 1 or 2 or 3 && !PlanningDiscoveryContext.CanDiscover(state))
         {
             // Closed navigation cannot be used. Keep selectable directory entries and
             // explicit uncertainty; detailed receipts remain in durable discovery state.

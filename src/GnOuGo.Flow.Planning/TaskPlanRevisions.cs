@@ -12,7 +12,7 @@ internal static class TaskPlanRevisions
     internal static IEnumerable<PlanTask> Tasks(TaskScope scope) => scope.Tasks.Concat(scope.Always).SelectMany(t => new[] { t }.Concat(
         (t.Body is null ? [] : Tasks(t.Body)).Concat(t.Otherwise is null ? [] : Tasks(t.Otherwise)).Concat(t.Branches.SelectMany(Tasks))));
     internal static IEnumerable<PlanTask> Tasks(TaskPlan plan) => Tasks(plan.Root).Concat(plan.Groups.SelectMany(g => Tasks(g.Body)));
-    internal static IReadOnlyList<string> Scope(TaskPlan plan, IReadOnlyList<PlanningDiagnostic> findings)
+    internal static IReadOnlyList<string> Scope(TaskPlan plan, IReadOnlyList<PlanningDiagnostic> findings, bool minimalExports = false)
     {
         if (TaskPlanCompiler.InvalidDeclarations(plan).Count > 0) return [];
         var symbols = new TaskPlanSymbols(plan);
@@ -42,6 +42,12 @@ internal static class TaskPlanRevisions
                         if (boundary.Owner?.Kind == "conditional")
                             foreach (var alternative in symbols.Scopes.Where(s => s.Owner == boundary.Owner)) scope.Add(alternative.Path + "/outputs");
                     }
+        if (minimalExports)
+        {
+            var exports = new PlanningExportRepair(plan, scope);
+            scope.RemoveWhere(path => symbols.Scopes.Any(s => path == s.Path + "/outputs"));
+            scope.UnionWith(exports.Additions.Keys);
+        }
         return scope.Order(StringComparer.Ordinal).ToArray();
     }
 
@@ -101,17 +107,25 @@ internal static class TaskPlanRevisions
                 var current = replacement;
                 foreach (var boundary in routes.Reverse())
                 {
-                    if (!scope.Contains(boundary.Path + "/outputs") || current.Kind != "output" || current.Source != boundary.Owner!.Id || current.Port is null) return false;
+                    if (current.Kind != "output" || current.Source != boundary.Owner!.Id || current.Port is null) return false;
                     var replacementScope = revised.Scopes.SingleOrDefault(s => s.Path == boundary.Path);
                     var exports = replacementScope?.Source.Outputs.Where(o => o.Name == current.Port).ToArray();
                     if (exports is not { Length: 1 }) return false;
-                    if (boundary.Source.Outputs.All(o => o.Name != current.Port)) used.Add(boundary.Path + "/outputs/" + current.Port);
+                    if (boundary.Source.Outputs.All(o => o.Name != current.Port))
+                    {
+                        if (!scope.Contains(boundary.Path + "/outputs") && !scope.Contains(boundary.Path + "/outputs/" + current.Port)) return false;
+                        used.Add(boundary.Path + "/outputs/" + current.Port);
+                    }
                     if (boundary.Owner.Kind == "conditional")
                     {
                         var other = symbols.Scopes.Single(s => s.Owner == boundary.Owner && s != boundary);
                         var counterpart = revised.Scopes.SingleOrDefault(s => s.Path == other.Path);
-                        if (!scope.Contains(other.Path + "/outputs") || counterpart?.Source.Outputs.Count(o => o.Name == current.Port) != 1) return false;
-                        if (other.Source.Outputs.All(o => o.Name != current.Port)) used.Add(other.Path + "/outputs/" + current.Port);
+                        if (counterpart?.Source.Outputs.Count(o => o.Name == current.Port) != 1) return false;
+                        if (other.Source.Outputs.All(o => o.Name != current.Port))
+                        {
+                            if (!scope.Contains(other.Path + "/outputs") && !scope.Contains(other.Path + "/outputs/" + current.Port)) return false;
+                            used.Add(other.Path + "/outputs/" + current.Port);
+                        }
                     }
                     current = exports[0].Value;
                 }

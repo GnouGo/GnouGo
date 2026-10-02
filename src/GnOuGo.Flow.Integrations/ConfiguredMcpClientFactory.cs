@@ -1199,7 +1199,9 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
     public async Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct)
     {
         var args = ConvertArguments(arguments);
-        var result = await _client.CallToolAsync(toolName, args, progress: null, CreateRequestOptions(), ct);
+        var result = McpTaskPolling.Supported(_client)
+            ? await McpTaskPolling.CallAsync(_client, toolName, arguments, CreateRequestOptions().Meta, ct)
+            : await _client.CallToolAsync(toolName, args, progress: null, CreateRequestOptions(), ct);
 
         return new McpCallResult
         {

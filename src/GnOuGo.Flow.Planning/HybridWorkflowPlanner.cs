@@ -168,7 +168,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             foreach (var choice in candidate.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
             var baselineFindings = new TaskPlanCompiler().Compile(candidate, state.Catalog!).Diagnostics;
             state.Diagnostics = state.Diagnostics.Concat(baselineFindings.Where(d => d.Code == "TASK_TRANSFORM_CONSTRAINT")).Distinct().ToList();
-            state.RevisionScope = TaskPlanRevisions.Scope(baseline, state.Diagnostics).ToList();
+            state.RevisionScope = TaskPlanRevisions.Scope(baseline, state.Diagnostics, state.OutcomeVersion == 3).ToList();
         }
         if (repair && state.PendingCall is null && state.ReplanAttempts >= state.Request.MaxReplanAttempts) { Stop(state); return; }
         state.Phase = repair ? PlanningPhase.Replanning : state.Requirements is null ? PlanningPhase.Requirements : PlanningPhase.Tasks;
@@ -177,7 +177,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         if (state.PendingCall is null)
         {
             if (state.Requirements is null && state.IntentVersion is null)
-            { state.IntentVersion = 1; state.OutcomeVersion = 2; }
+            { state.IntentVersion = 1; state.OutcomeVersion = 3; }
             await PlanningDiscoveryContext.DiscoverPrerequisitesAsync(state, runtime, ct);
             await PlanningDiscoveryContext.ResolveShortlistAsync(state, runtime, ct);
         }
@@ -196,7 +196,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             proposal = new() { DiscoveryRequests = change.DiscoveryRequests, Clarifications = change.Clarifications,
                 Plan = repaired, OutcomeBindings = change.Patch is null ? null : bindings };
         }
-        else proposal = JsonSerializer.Deserialize(response, PlanningJsonContext.Default.PlanningProposal)!;
+        else proposal = JsonSerializer.Deserialize(PlanningOutcomeAnnotations.Normalize(state, response), PlanningJsonContext.Default.PlanningProposal)!;
         if ((proposal.DiscoveryRequests is null ? 0 : 1) + (proposal.Plan is null ? 0 : 1) + (proposal.Clarifications is null ? 0 : 1) != 1)
             Reject("PROPOSAL_ACTION_INVALID", "/", "Return one discovery batch, clarification or complete TaskPlan.");
         if (proposal.Clarifications is { } questions)
@@ -339,7 +339,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         if (PlanningOutcomeValidation.Findings(state) is { Count: > 0 } outcomeFindings)
         {
             state.Diagnostics = outcomeFindings; state.RevisionScope.Clear(); state.Graph = null; Invalidate(state);
-            if (state.OutcomeVersion == 2 && state.OutcomeBindings is not null)
+            if (state.OutcomeVersion is 2 or 3 && state.OutcomeBindings is not null)
                 state.RevisionScope = outcomeFindings.Where(d => d.Required).Select(d => d.Location.Split('/'))
                     .Where(p => p is ["", "outcomeBindings", _] && state.OutcomeBindings.Count(b => b.OutcomeId == p[2]) == 1)
                     .Select(p => "/outcomeBindings/" + p[2]).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
@@ -387,7 +387,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
     private static void SemanticFailure(PlanningSession state, IReadOnlyList<PlanningDiagnostic> findings)
     {
         state.Diagnostics = findings.ToList(); state.Graph = null;
-        state.RevisionScope = TaskPlanRevisions.Scope(state.Plan!, findings).ToList();
+        state.RevisionScope = TaskPlanRevisions.Scope(state.Plan!, findings, state.OutcomeVersion == 3).ToList();
         Invalidate(state);
         var structural = PlanningStructuralRepair.Slots(state, PlanningSchemas.FullProposal(state, compact: false)["$defs"]!.AsObject());
         state.RevisionScope.RemoveAll(p => findings.Any(d => d.Code == "TASK_KIND_INVALID" && d.Location == p) &&
@@ -407,11 +407,14 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             requirements.Outcomes.Any(o => string.IsNullOrWhiteSpace(o.Id) || string.IsNullOrWhiteSpace(o.Description)) ||
             requirements.Outcomes.Select(o => o.Id).Distinct().Count() != requirements.Outcomes.Count)
             Reject("REQUIREMENTS_INVALID", "/requirements", "Declare distinct concrete business outcomes.");
-        if (state.OutcomeVersion is 1 or 2 && requirements!.Outcomes.Any(o =>
+        if (state.OutcomeVersion is 1 or 2 or 3 && requirements!.Outcomes.Any(o =>
             o.Execution is not ("data" or "read" or "write" or "execute" or "lifecycle") || o.Always is null || o.Conditional is null ||
             o.Execution == "data" && (o.Always == true || o.Conditional == true) ||
-            state.OutcomeVersion == 2 && (o.Coverage is not (null or "once" or "each_item") || o.Execution == "data" && o.Coverage == "each_item")))
+            state.OutcomeVersion is 2 or 3 && (o.Coverage is not (null or "once" or "each_item") || o.Execution == "data" && o.Coverage == "each_item")))
             Reject("REQUIREMENTS_EXECUTION_INVALID", "/requirements/outcomes", "Declare data production or an operation effect. Data outcomes require always=false, conditional=false and coverage=once. For external effects, always=true means cleanup/finally after failure, not mandatory normal work; normal work uses always=false. conditional=true permits skipped paths.");
+        if (state.OutcomeVersion == 3 && requirements!.Outcomes.Any(o => o.Execution == "data" ? o.Operation is not null :
+            PlanningOutcomeAnnotations.Contracts(state).Count(c => TaskOperations.Describe(c).Id == o.Operation && c.EffectKind == o.Execution) != 1))
+            Reject("REQUIREMENTS_OPERATION_REQUIRED", "/requirements/outcomes", "Select an inspected policy-allowed operation for each external outcome; its authoritative effect determines execution evidence.");
         if (state.Requirements is { } accepted && (accepted.Summary != requirements!.Summary || !accepted.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal)
                 .SequenceEqual(requirements.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal)) ||
                 accepted.Inputs is not null && !PlanningClarifications.SameInputs(accepted.Inputs, requirements.Inputs)))

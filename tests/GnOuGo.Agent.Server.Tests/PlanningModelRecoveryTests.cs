@@ -113,6 +113,45 @@ public sealed class PlanningModelRecoveryTests
     private static Task PrepareAsync(PlanningSession state, PlanningPersistenceTests.StoreFixture fixture)
         => PlanningModelRecovery.PrepareAsync(state, fixture.Records, Limits, new Estimator(), new TestExchangeRateProvider(), Ct);
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("missing_receipt")]
+    [InlineData("stale_identity")]
+    [InlineData("changed_schema")]
+    public async Task SavedResponseResumeValidatesOriginalAuthorityAndRestoresUsage(string? invalid)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
+        var state = await SeedAsync(fixture);
+        var request = state.PendingCall!.Request;
+        request.ClientRequestId = null;
+        request.StructuredOutputSchema = JsonNode.Parse("""{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}""");
+        request.ClientRequestId = "recovery:4:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        state.PendingCall.Id = request.ClientRequestId;
+        var key = "recovery:" + request.ClientRequestId;
+        await fixture.Records.UpsertAsync(PlanningModelJournal.RequestCollection, "planning-tests", key,
+            JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), EfPlanningSessionStore.Author, Ct);
+        if (invalid != "missing_receipt")
+            await fixture.Records.UpsertAsync(PlanningModelJournal.Collection, "planning-tests", key,
+                JsonSerializer.Serialize(new LLMResponse { Json = new JsonObject { ["answer"] = "retained" } }, PlanningJsonContext.Default.LLMResponse), EfPlanningSessionStore.Author, Ct);
+        if (invalid == "changed_schema") request.StructuredOutputSchema!["properties"]!["answer"]!["type"] = "number";
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        if (invalid is not null)
+        {
+            await Assert.ThrowsAsync<PlanningConflictException>(() => PlanningModelRecovery.ResumeAsync(state, fixture.Records,
+                invalid == "stale_identity" ? "other-request" : request.ClientRequestId, Ct));
+            Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        }
+        else
+        {
+            await PlanningModelRecovery.ResumeAsync(state, fixture.Records, request.ClientRequestId, Ct);
+            Assert.Equal(PlanningStatus.Generating, state.Status);
+            Assert.Equal(4, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+            Assert.Equal(15, state.Usage!.TotalTokens); Assert.Equal(4, state.Usage.Calls);
+            Assert.Equal(request.ClientRequestId, state.PendingCall.Id);
+            Assert.Empty(state.Diagnostics); Assert.Null(state.ApprovedHash);
+        }
+    }
+
     private static async Task<PlanningSession> SeedAsync(PlanningPersistenceTests.StoreFixture fixture)
     {
         var request = PlanningGenerationPolicy.Apply(new LLMRequest { Provider = "openai", Model = "gpt-4o-mini", Prompt = "PRIVATE_RETRY_PROMPT", MaxTokens = 64 }, new());

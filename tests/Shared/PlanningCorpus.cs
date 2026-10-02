@@ -104,6 +104,7 @@ public static class PlanningCorpus
                     { outcome["execution"] = "data"; outcome["always"] = false; outcome["conditional"] = false; }
                     // Test-only legacy corpus uses once coverage; per-item fixtures declare it explicitly.
                     outcome["coverage"] ??= "once";
+                    outcome["placement"] ??= outcome["always"]?.GetValue<bool>() == true ? "cleanup" : "normal";
                 }
             if (value["plan"] is JsonObject annotatedPlan && value["outcomeBindings"] is null && value["clarifications"] is null)
             {
@@ -118,6 +119,8 @@ public static class PlanningCorpus
                     ["taskIds"] = new JsonArray(tasks.Select(t => (JsonNode?)JsonValue.Create(t)).ToArray()),
                     ["outputs"] = new JsonArray(outputs.Select(o => (JsonNode?)JsonValue.Create(o)).ToArray()) }).ToArray());
             }
+            if (value["outcomeBindings"] is JsonArray bindings)
+                foreach (var binding in bindings) binding!["inputs"] ??= new JsonArray();
         }
         if (schema["$ref"] is { } reference) return Transport(value, root["$defs"]![reference.ToString().Split('/')[^1]]!.AsObject(), root);
         if (schema["anyOf"] is JsonArray alternatives)

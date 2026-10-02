@@ -54,6 +54,8 @@ public sealed class PlanningCommand
     public string Kind { get; set; } = "advance";
     public long ExpectedRevision { get; set; }
     public string? ArtifactHash { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RequestId { get; set; }
     public string? Text { get; set; }
     public JsonObject? Selections { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

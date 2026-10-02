@@ -58,8 +58,8 @@ internal static class PlanningDiscoveryContext
         var plan = state.Plan ?? state.Request.Baseline;
         var used = plan is null ? [] : TaskPlanRevisions.Tasks(plan).Select(t => t.Operation).ToHashSet(StringComparer.Ordinal);
         var operations = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).DistinctBy(c => (c.Id, c.Version))
-            .Where(c => state.OutcomeVersion != 2 || plan is not null || state.Catalog.AllowedStepTypes.Contains(c.StepType) && !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id))
-            .Where(c => c.Kind == "registered" || used.Contains(TaskOperations.Describe(c).Id) || state.OutcomeVersion == 2 && plan is null && state.Catalog.Capabilities.Contains(c))
+            .Where(c => state.OutcomeVersion is not (2 or 3) || plan is not null || state.Catalog.AllowedStepTypes.Contains(c.StepType) && !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id))
+            .Where(c => c.Kind == "registered" || used.Contains(TaskOperations.Describe(c).Id) || state.OutcomeVersion is 2 or 3 && plan is null && state.Catalog.Capabilities.Contains(c))
             .Select(PlanningCapabilityArguments.Editable);
         return operations.Concat(Inspected(state).Select(c => c.Operation!)).Concat(PlanningStructuralRepair.Operations(state)).DistinctBy(o => o.Id)
             .OrderBy(o => o.Id, StringComparer.Ordinal).ToList();
@@ -172,7 +172,7 @@ internal static class PlanningDiscoveryContext
         // one page per inspected source; receipts cache empty/unavailable source/kind pairs.
         var visible = PlanningDiscoveryContext.Candidates(state);
         var relevant = new PlanningPrompt(state).Shortlist().Concat(Inspected(state)).Select(c => c.Operation!.Id)
-            .Concat(state.OutcomeVersion == 2 ? Required(state).Select(o => o.Id) : [])
+            .Concat(state.OutcomeVersion is 2 or 3 ? Required(state).Select(o => o.Id) : [])
             .Concat(state.Plan is null ? [] : TaskPlanRevisions.Tasks(state.Plan).Select(t => t.Operation).OfType<string>()).ToHashSet(StringComparer.Ordinal);
         var kinds = state.Discovery.Pages.SelectMany(p => p.Capabilities).Where(c => c.Operation is not null && relevant.Contains(c.Operation.Id))
             .SelectMany(c => Artifacts(state, c)?.Consumes ?? []).Where(a => a.Required).Select(a => a.Kind).Distinct(StringComparer.Ordinal)

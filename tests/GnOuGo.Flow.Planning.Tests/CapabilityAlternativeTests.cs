@@ -30,6 +30,7 @@ public sealed class CapabilityAlternativeTests
         Assert.Contains("file.content", runtime.Calls.Single().Prompt); Assert.Contains("external", runtime.Calls.Single().Prompt);
         Assert.Contains("compatible alternatives", runtime.Calls.Single().Prompt);
         var expected = state.Requirements;
+        expected!.Outcomes[0] = expected.Outcomes[0] with { Operation = "external" };
         state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state), new() { Kind = "answer", ExpectedRevision = state.Revision,
             Answers = [custom ? new("implementation", Text: "Use the discovered external operation and preserve installation and tests") : new("implementation", "external")] }, runtime, PlannerFixture.Ct);
         Assert.Equal(1, state.ModelCalls); Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);

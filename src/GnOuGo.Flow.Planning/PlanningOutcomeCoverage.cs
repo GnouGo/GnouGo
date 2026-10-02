@@ -46,7 +46,15 @@ internal static class PlanningOutcomeCoverage
             if (outcome.Execution is not ("data" or "read" or "write" or "execute" or "lifecycle") || outcome.Always is null || outcome.Conditional is null ||
                 outcome.Coverage is not (null or "once" or "each_item") || outcome.Execution == "data" && (perItem || outcome.Always == true || outcome.Conditional == true))
             { Fail("REQUIREMENTS_EXECUTION_INVALID", "/requirements/outcomes/" + outcome.Id, "Declare the effect, placement and once/each_item coverage without weakening accepted intent."); continue; }
-            if (binding.TaskIds is null || binding.Outputs is null || binding.TaskIds.Count + binding.Outputs.Count == 0 ||
+            var inputNames = state.OutcomeVersion == 3 ? binding.Inputs ?? [] : [];
+            if (state.OutcomeVersion == 3 && (outcome.Execution == "data" ? outcome.Operation is not null :
+                PlanningOutcomeAnnotations.Contracts(state).Count(c => TaskOperations.Describe(c).Id == outcome.Operation && c.EffectKind == outcome.Execution) != 1))
+            { Fail("OUTCOME_CONTRACT_INVALID", "/requirements/outcomes/" + outcome.Id, "External outcomes require their inspected, policy-allowed operation and its unchanged authoritative effect."); continue; }
+            if (inputNames.Any(string.IsNullOrWhiteSpace) || inputNames.Distinct(StringComparer.Ordinal).Count() != inputNames.Count ||
+                inputNames.Any(name => state.Requirements.Inputs?.Count(i => i.Name == name) != 1 || state.Plan.Inputs.Count(i => i.Name == name) != 1) ||
+                inputNames.Count > 0 && outcome.Execution != "data")
+                Fail("OUTCOME_INPUT_INVALID", path, "Only accepted public inputs may support a data-only outcome; input declarations never establish external work.");
+            if (binding.TaskIds is null || binding.Outputs is null || binding.TaskIds.Count + binding.Outputs.Count + inputNames.Count == 0 ||
                 binding.TaskIds.Any(string.IsNullOrWhiteSpace) || binding.Outputs.Any(string.IsNullOrWhiteSpace) ||
                 binding.TaskIds.Distinct(StringComparer.Ordinal).Count() != binding.TaskIds.Count || binding.Outputs.Distinct(StringComparer.Ordinal).Count() != binding.Outputs.Count)
             { Fail("OUTCOME_BINDINGS_INVALID", path, "Supply distinct supporting task identities and reported outputs."); continue; }
@@ -89,7 +97,7 @@ internal static class PlanningOutcomeCoverage
                 if (contracts.Length != 1 || !state.Catalog.AllowedStepTypes.Contains(contracts[0].StepType) || state.Catalog.Policy.DeniedCapabilityIds.Contains(contracts[0].Id))
                 { Fail("OUTCOME_OPERATION_UNAVAILABLE", path, "Supporting operation '" + id + "' has no resolved policy-allowed contract."); continue; }
                 if (contracts[0].EffectKind == "unknown") unknown.Add(id);
-                if (contracts[0].EffectKind == outcome.Execution) witnesses.Add(id);
+                if (contracts[0].EffectKind == outcome.Execution && (state.OutcomeVersion != 3 || task.Operation == outcome.Operation)) witnesses.Add(id);
             }
             if (witnesses.Count == 0)
             {

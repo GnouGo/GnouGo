@@ -60,7 +60,7 @@ internal static class PlanningStructuralRepair
         JsonObject OperationSchema() => new() { ["anyOf"] = new JsonArray(catalog.Capabilities.Where(c => allowed.Contains(TaskOperations.Describe(c).Id)).Select(c =>
         {
             var operation = PlanningCapabilityArguments.Editable(c);
-            var inputs = operation.Inputs.Select(p => (JsonNode)PlanningSchemas.Object(("name", PlanningSchemas.Enum(p.Name)), ("value", state.OutcomeVersion == 2 ? PlanningBindingSchemas.For(p.Schema, definitions) : PlanningSchemas.DomainValue(p.Schema, definitions)))).ToArray();
+            var inputs = operation.Inputs.Select(p => (JsonNode)PlanningSchemas.Object(("name", PlanningSchemas.Enum(p.Name)), ("value", state.OutcomeVersion is 2 or 3 ? PlanningBindingSchemas.For(p.Schema, definitions) : PlanningSchemas.DomainValue(p.Schema, definitions)))).ToArray();
             return (JsonNode)PlanningSchemas.Object(("id", PlanningSchemas.Ref("id")), ("kind", PlanningSchemas.Enum("operation")), ("objective", PlanningSchemas.Ref("goal")),
                 ("dependsOn", PlanningSchemas.Ref("identities")), ("operation", PlanningSchemas.Enum(operation.Id)),
                 ("inputs", inputs.Length == 0 ? PlanningSchemas.Array(PlanningSchemas.Ref("output"), 0, 0) : PlanningSchemas.Array(new JsonObject { ["anyOf"] = new JsonArray(inputs) })));

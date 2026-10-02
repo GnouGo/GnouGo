@@ -2,7 +2,7 @@ namespace GnOuGo.GithubCopilot.Core;
 
 public static class GaCapabilityCatalog
 {
-    public const string McpPackageVersion = "2.0.0";
+    public const string McpPackageVersion = "2.2.0";
     public const string RequiredMcpRevision = "2026-07-28";
     public const string FallbackMcpRevision = "2025-11-25";
     public const string CopilotSdkPackageVersion = "1.0.14";

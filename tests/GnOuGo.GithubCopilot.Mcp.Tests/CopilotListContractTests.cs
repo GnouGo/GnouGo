@@ -1,3 +1,6 @@
+using GnOuGo.Flow.Integrations;
+using GnOuGo.KeyVault.Core.Services;
+using Microsoft.Extensions.DependencyInjection;
 using System.IO.Pipelines;
 using System.Reflection;
 using System.Text.Json;
@@ -117,6 +120,8 @@ public sealed class CopilotListContractTests
         private readonly string root = Directory.CreateTempSubdirectory("copilot-list-contract-").FullName;
         internal CopilotTestHost Host = null!;
         internal readonly Dictionary<string, JsonNode> Schemas = [];
+        private KeyVaultCopilotTaskStore tasks = null!;
+        private ServiceProvider services = null!;
         private McpServer server = null!; private McpClient client = null!; private Task running = null!;
         private readonly CancellationTokenSource stop = CancellationTokenSource.CreateLinkedTokenSource(Ct);
 
@@ -129,8 +134,10 @@ public sealed class CopilotListContractTests
             var policy = new CodePolicy(settings, f.root); var options = Options.Create(settings);
             f.Host = new(settings, f.root, policy);
             f.Host.OnSend = (_, handle, _, _) => Task.FromResult(new CopilotSendResult(handle, "mock-session", "mock result", "mock", []));
+            f.tasks = new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(Path.Combine(f.root, "vault.db"), f.root), f.Host.Trace, Path.Combine(f.root, "leases"));
+            var logical = new CopilotLogicalOperations(f.Host.Manager, f.tasks, f.Host.Human, options);
             var copilot = new CopilotTools(f.Host.Manager, new(f.Host.Manager), policy, options, f.Host.Trace, f.Host.Human,
-                new(f.Host.Trace), null!, new(policy, options, f.Host.Trace));
+                new(f.Host.Trace), null!, new(policy, options, f.Host.Trace), logical);
             var code = new CodeTools(new(policy, options), f.Host.Service, NullLogger<CodeTools>.Instance, f.Host.Human);
             var serverOptions = new McpServerOptions { ServerInfo = new() { Name = "lists-fixture", Version = "1" }, ToolCollection = [] };
             serverOptions.AddGnOuGoToolErrorNormalizer(); CopilotAttachmentContract.Configure(serverOptions); CopilotListContract.Configure(serverOptions);
@@ -144,20 +151,25 @@ public sealed class CopilotListContractTests
             foreach (var method in target.GetType().GetMethods().Where(m => m.GetCustomAttribute<McpServerToolAttribute>() is not null))
                 serverOptions.ToolCollection.Add(McpServerTool.Create(method, target, new() { SerializerOptions = CodeMcpJson.SerializerOptions }));
             var incoming = new Pipe(); var outgoing = new Pipe();
-            f.server = McpServer.Create(new StreamServerTransport(incoming.Reader.AsStream(), outgoing.Writer.AsStream()), serverOptions);
+            var registrations = new ServiceCollection(); registrations.AddLogging();
+            registrations.AddMcpServer().WithCopilotTasks(f.tasks, f.Host.Trace);
+            f.services = registrations.BuildServiceProvider();
+            foreach (var configure in f.services.GetServices<IConfigureOptions<McpServerOptions>>()) configure.Configure(serverOptions);
+            f.server = McpServer.Create(new StreamServerTransport(incoming.Reader.AsStream(), outgoing.Writer.AsStream()), serverOptions, serviceProvider: f.services);
             f.running = f.server.RunAsync(f.stop.Token);
             f.client = await McpClient.CreateAsync(new StreamClientTransport(incoming.Writer.AsStream(), outgoing.Reader.AsStream()), cancellationToken: Ct);
             foreach (var tool in await f.client.ListToolsAsync(cancellationToken: Ct)) f.Schemas.Add(tool.Name, JsonNode.Parse(tool.JsonSchema.GetRawText())!);
             return f;
         }
 
-        internal ValueTask<CallToolResult> Call(string name, Dictionary<string, object?> args, string? tenant = null)
-            => client.CallToolAsync(name, args, progress: null, new RequestOptions { Meta = tenant is null ? null : new JsonObject { ["gnougo"] = new JsonObject { ["tenantId"] = tenant } } }, Ct);
+        internal Task<CallToolResult> Call(string name, Dictionary<string, object?> args, string? tenant = null)
+            => McpTaskPolling.CallAsync(client, name, JsonSerializer.SerializeToNode(args),
+                tenant is null ? null : new JsonObject { ["gnougo"] = new JsonObject { ["tenantId"] = tenant } }, Ct);
 
         public async ValueTask DisposeAsync()
         {
             await client.DisposeAsync(); await stop.CancelAsync(); await running; await server.DisposeAsync();
-            await Host.Manager.DisposeAsync(); stop.Dispose(); Directory.Delete(root, true);
+            await Host.Manager.DisposeAsync(); await tasks.DisposeAsync(); await services.DisposeAsync(); stop.Dispose(); Directory.Delete(root, true);
         }
     }
 }

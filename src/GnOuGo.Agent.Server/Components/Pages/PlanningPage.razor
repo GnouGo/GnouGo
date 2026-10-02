@@ -60,7 +60,12 @@
             <p>The session model-call allowance is exhausted. Input/output token limits do not extend this cumulative budget.
                 <a href="/planning">Start a new planning session</a>. Existing requests and accounting are retained.</p>
         }
-        @if (_state.Usage is { } usage) { <p>Estimated cost @usage.EstimatedCost.ToString("0.00") @usage.EstimatedCostCurrency</p> }
+        @if (_inspectionDto is { } inspected) { <p>Estimated cost @inspected.EstimatedCost.ToString("0.00") @inspected.Currency</p> }
+        else if (_state.Usage is { } usage) { <p>Estimated cost @usage.EstimatedCost.ToString("0.00") @usage.EstimatedCostCurrency</p> }
+        @if (_requestInspection?.CancellationRequested == true)
+        { <p role="status">Cancellation requested. Waiting for the owner to stop; completed responses and accounting will be retained.</p> }
+        else if (_requestInspection?.State == "active" && _state.Status != PlanningStatus.Stopped)
+        { <p role="status">A worker owns this planning request. Its completion will be recorded before further planning.</p> }
         <p>@_state.Requirements?.Summary</p>
         <PlannerDiscovery @key="(_state.Request.SessionId, IsWorkflowSession)" Session="_state" Workflow="IsWorkflowSession" />
         @if (_state.Graph is { } graph)
@@ -105,6 +110,15 @@
             @if (_state.Diagnostics.Any(d => d.Code == GnOuGo.Flow.Core.Models.ErrorCodes.ModelRequestRejected))
             {
                 <p>The provider rejected this request. Correct the request or provider configuration, then start a new planning session. The original request and its accounting are retained.</p>
+            }
+            else if (_requestInspection?.State == "active")
+            {
+                <p>The original request is active in another worker. Waiting for its completion; no request will be repeated.</p>
+            }
+            else if (_requestInspection?.State == "receipt_available")
+            {
+                <p>A saved response is available. Resume will consume it under its original schema without another call reservation. Further planning may require subsequent calls.</p>
+                <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("resume_response")'>Resume from saved response</button>
             }
             else
             {
@@ -175,6 +189,8 @@
         try { await Js.InvokeVoidAsync("GnOuGo.Agent.markdown.enhance", "planningReview"); _renderedRevision = _state.Revision; }
         catch (JSDisconnectedException) { }
     }
+    private PlanningRequestInspectionDto? _requestInspection;
+    private PlanningSessionDto? _inspectionDto;
     private async Task RefreshAsync()
     {
         var version = _viewVersion; var id = SessionId; var workflow = IsWorkflowSession;
@@ -190,7 +206,8 @@
             else
             {
                 var inspection = await Planning.InspectAsync(id, workflow, _lifetime.Token);
-                if (version == _viewVersion) { _state = inspection?.Session; _entry = inspection?.Entry; _error = null; }
+                var dto = !workflow && inspection?.Session is { } inspected ? await Planning.ToDtoAsync(inspected, _lifetime.Token) : null;
+                if (version == _viewVersion) { _inspectionDto = dto; _requestInspection = dto?.RequestInspection; _state = inspection?.Session; _entry = inspection?.Entry; _error = null; }
             }
         }
         finally { if (version == _viewVersion) _loading = false; }
@@ -219,7 +236,7 @@
     {
         if (_state is null || IsWorkflowSession) return;
         _busy = true; _error = null;
-        try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Selections = selections, Generation = generation, Mode = mode,
+        try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, RequestId = _requestInspection?.RequestId, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Selections = selections, Generation = generation, Mode = mode,
             Answers = answers?.Select(a => new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList() }, _lifetime.Token); }
         catch (Exception ex) { _error = ex.Message; await RefreshAsync(); }
         finally { _busy = false; }

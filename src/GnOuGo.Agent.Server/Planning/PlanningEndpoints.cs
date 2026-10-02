@@ -20,9 +20,9 @@ internal static class PlanningEndpoints
             catch (ArgumentException) { return Results.BadRequest("Invalid planner decision command."); }
         });
         app.MapGet("/api/planning", async (PlanningSessionService service, CancellationToken ct) =>
-            Results.Json((await service.ListAsync(ct)).Select(ToDto).ToList(), ChatJsonContext.Default.ListPlanningSessionDto));
+            Results.Json((await Task.WhenAll((await service.ListAsync(ct)).Select(state => service.ToDtoAsync(state, ct)))).ToList(), ChatJsonContext.Default.ListPlanningSessionDto));
         app.MapGet("/api/planning/{id}", async (string id, PlanningSessionService service, CancellationToken ct) =>
-            await service.GetAsync(id, ct) is { } state ? Results.Json(ToDto(state), ChatJsonContext.Default.PlanningSessionDto) : Results.NotFound());
+            await service.GetAsync(id, ct) is { } state ? Results.Json(await service.ToDtoAsync(state, ct), ChatJsonContext.Default.PlanningSessionDto) : Results.NotFound());
         app.MapPost("/api/planning", async (PlanningStartDto request, PlanningSessionService service, CancellationToken ct) =>
         {
             try { return Results.Json(ToDto(await service.StartAsync(request.Name, request.Prompt, request.ReviseExisting, ct, mode: request.Mode)), ChatJsonContext.Default.PlanningSessionDto); }
@@ -39,12 +39,13 @@ internal static class PlanningEndpoints
                     Mode = request.Mode,
                     ExpectedRevision = request.ExpectedRevision,
                     ArtifactHash = request.ArtifactHash,
+                    RequestId = request.RequestId,
                     Text = request.Text,
                     Selections = request.Selections,
                     Answers = request.Answers?.Select(a => a is null ? throw new ArgumentException("Invalid planner answer.") : new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList(),
                     Generation = request.Generation is { } options ? new() { Reasoning = options.Reasoning, MaxInputTokensPerRequest = options.MaxInputTokensPerRequest, MaxOutputTokens = options.MaxOutputTokens } : null
                 }, ct);
-                return Results.Json(ToDto(state), ChatJsonContext.Default.PlanningSessionDto);
+                return Results.Json(await service.ToDtoAsync(state, ct), ChatJsonContext.Default.PlanningSessionDto);
             }
             catch (PlanningConflictException ex) { return Results.Conflict(ex.Message); }
             catch (KeyNotFoundException) { return Results.NotFound(); }

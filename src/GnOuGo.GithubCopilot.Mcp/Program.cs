@@ -2,6 +2,7 @@ using GnOuGo.GithubCopilot.Mcp;
 using GnOuGo.Mcp.Core;
 using GnOuGo.GithubCopilot.Core;
 using GnOuGo.KeyVault.Core.Services;
+using GnOuGo.KeyVault.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -9,6 +10,12 @@ using Microsoft.Extensions.Options;
 using ModelContextProtocol.Protocol;
 using GnOuGo.Observability.Core;
 using Microsoft.Extensions.Configuration;
+
+if (args is ["--copilot-task-persistence-smoke", var smokeRoot])
+{
+    await CopilotTaskPersistenceSmoke.RunAsync(smokeRoot);
+    return;
+}
 
 var builder = CodeHostBootstrap.CreateBuilder(args);
 
@@ -34,10 +41,16 @@ builder.Services.AddHttpClient(nameof(ConfigurationCopilotProviderConfigResolver
 builder.Services.AddSingleton<IKeyVaultSecretCatalogReader>(keyVaultReader);
 builder.Services.AddSingleton<IKeyVaultSecretReader>(sp =>
     sp.GetRequiredService<IKeyVaultSecretCatalogReader>());
-builder.Services.AddSingleton<IKeyVaultRecordStore>(_ =>
-    KeyVaultRecordStoreFactory.CreateWorkspaceStore(
-        builder.Configuration["KeyVault:DatabasePath"],
-        AppContext.BaseDirectory));
+var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(builder.Configuration["KeyVault:DatabasePath"], AppContext.BaseDirectory);
+var trace = new CodeMcpTraceContextAccessor();
+var taskSettings = new CodeServerSettings();
+new CodeServerSettingsOptionsConfigurator(builder.Configuration).Configure(taskSettings);
+var logicalLimits = taskSettings.Copilot.LogicalLimits;
+await using var taskStore = new KeyVaultCopilotTaskStore(records, trace,
+    KeyVaultDatabasePathResolver.Resolve(builder.Configuration["KeyVault:DatabasePath"], AppContext.BaseDirectory) + ".copilot-tasks", logicalLimits);
+builder.Services.AddSingleton<IKeyVaultRecordStore>(records);
+builder.Services.AddSingleton(taskStore);
+builder.Services.AddSingleton<CopilotLogicalOperations>();
 builder.Services.AddSingleton<ICopilotProviderConfigResolver, ConfigurationCopilotProviderConfigResolver>();
 builder.Services.AddSingleton<ICopilotProviderResolver, CoreCopilotProviderResolver>();
 builder.Services.AddHttpClient(nameof(CopilotInferenceProxyHandler), client => client.Timeout = Timeout.InfiniteTimeSpan)
@@ -58,7 +71,7 @@ builder.Services.AddSingleton<CopilotSessionManager>();
 builder.Services.AddSingleton<CopilotReviewManager>();
 builder.Services.AddSingleton<CodePolicy>();
 builder.Services.AddSingleton<CodeProjectService>();
-builder.Services.AddSingleton<CodeMcpTraceContextAccessor>();
+builder.Services.AddSingleton(trace);
 builder.Services.AddSingleton<CodeProgressReporter>();
 builder.Services.AddSingleton<ICopilotSessionFileSystemFactory, LocalProjectSessionFsFactory>();
 builder.Services.AddSingleton<CopilotMcpConfiguration>();
@@ -106,6 +119,7 @@ builder.Services
             return await next(request, cancellationToken);
         });
     })
+    .WithCopilotTasks(taskStore, trace)
     .WithStdioServerTransport()
     .WithTools<CodeTools>(CodeMcpJson.SerializerOptions)
     .WithTools<CopilotTools>(CodeMcpJson.SerializerOptions)

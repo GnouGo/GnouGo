@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Runtime;
 using Bunit;
 using GnOuGo.Agent.Server.Components.Pages;
 using GnOuGo.Agent.Server.Components.Tracing;
@@ -16,6 +18,50 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class PlanningTraceUiTests : BunitContext
 {
     private static CancellationToken Ct => Xunit.TestContext.Current.CancellationToken;
+
+    [Theory]
+    [InlineData("active")]
+    [InlineData("receipt_available")]
+    [InlineData("completion_unknown")]
+    [InlineData("provider_rejection")]
+    public async Task DesignerSeparatesActiveSavedUnknownAndRejectedRequests(string kind)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
+        var state = Session("receipt-ui", "Recovery", PlanningStatus.Stopped);
+        var request = new LLMRequest { Prompt = "Private original request", StructuredOutputSchema = JsonNode.Parse("{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}") };
+        request.ClientRequestId = state.Request.SessionId + ":1:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        state.PendingCall = new() { Id = request.ClientRequestId, Request = request, Purpose = "tasks" };
+        state.Diagnostics = [new(kind == "provider_rejection" ? "MODEL_REQUEST_REJECTED" : "LLM_BUDGET_UNVERIFIABLE", "/", "Retained interruption")];
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var key = state.Request.SessionId + ":" + request.ClientRequestId;
+        if (kind == "receipt_available")
+        {
+            await using (var db = fixture.CreateDbContext())
+            {
+                db.Calls.Add(new() { TenantId = "planning-tests", SessionId = state.Request.SessionId, RequestHash = request.ClientRequestId, PayloadKey = key });
+                await db.SaveChangesAsync(Ct);
+            }
+            await fixture.Records.UpsertAsync(PlanningModelJournal.RequestCollection, "planning-tests", key, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), EfPlanningSessionStore.Author, Ct);
+            await fixture.Records.UpsertAsync(PlanningModelJournal.Collection, "planning-tests", key, JsonSerializer.Serialize(new LLMResponse { Json = new JsonObject() }, PlanningJsonContext.Default.LLMResponse), EfPlanningSessionStore.Author, Ct);
+            await fixture.Records.UpsertAsync(PlanningBudgetSink.Collection, "planning-tests", state.Request.SessionId, JsonSerializer.Serialize(new LLMUsageBudgetSnapshot { StartedAtUtc = DateTimeOffset.UtcNow, EstimatedCostCurrency = "EUR", Calls = 1, InputTokens = 10, OutputTokens = 5, TotalTokens = 15 }, PlanningJsonContext.Default.LLMUsageBudgetSnapshot), EfPlanningSessionStore.Author, Ct);
+        }
+        await using var lease = kind == "active" ? await PlanningSessionLease.TryAcquireAsync(fixture, "planning-tests", state.Request.SessionId, Ct) : null;
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/receipt-ui");
+        var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "receipt-ui"));
+        cut.WaitForAssertion(() => Assert.Contains("Retained interruption", cut.Markup));
+        Assert.Equal(kind == "receipt_available", cut.Markup.Contains("Resume from saved response", StringComparison.Ordinal));
+        Assert.Equal(kind == "completion_unknown", cut.Markup.Contains("Retry with retained usage", StringComparison.Ordinal));
+        Assert.Equal(state.Revision, (await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct))!.Revision);
+        if (kind == "receipt_available")
+        {
+            cut.FindAll("button").Single(b => b.TextContent == "Resume from saved response").Click();
+            cut.WaitForAssertion(() => Assert.DoesNotContain("Resume from saved response", cut.Markup));
+            var resumed = (await fixture.Store.LoadAsync("planning-tests", state.Request.SessionId, Ct))!;
+            Assert.Equal(PlanningStatus.Generating, resumed.Status); Assert.Equal(1, resumed.ModelCalls); Assert.Equal(15, resumed.Usage!.TotalTokens);
+            Assert.Null(resumed.ApprovedHash); Assert.Equal(request.ClientRequestId, resumed.PendingCall!.Id);
+        }
+        await DisposeComponentsAsync();
+    }
 
     [Fact]
     public async Task PrerequisiteCauseAndUnappliedRepairSurvivePersistenceAndDesignerRendering()

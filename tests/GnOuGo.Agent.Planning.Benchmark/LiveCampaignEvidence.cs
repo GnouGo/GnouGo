@@ -17,6 +17,7 @@ internal static class LiveCampaignEvidence
             ["browser_keep_open"] = false,
             ["os"] = RuntimeInformation.OSDescription, ["architecture"] = RuntimeInformation.ProcessArchitecture.ToString(),
             ["framework"] = RuntimeInformation.FrameworkDescription,
+            ["execution_path_hash"] = PlanningGraphCompiler.Fingerprint(Environment.GetEnvironmentVariable("PATH") ?? ""),
             ["amazon_prompt"] = PlanningGraphCompiler.Fingerprint(LiveWorkflowEvaluation.AmazonPrompt),
             ["code_prompt"] = PlanningGraphCompiler.Fingerprint(LiveWorkflowEvaluation.CodePrompt),
             ["harness_tree"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD:tests/GnOuGo.Agent.Planning.Benchmark"),

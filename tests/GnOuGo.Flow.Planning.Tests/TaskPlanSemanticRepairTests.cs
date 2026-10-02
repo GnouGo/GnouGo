@@ -167,13 +167,13 @@ public sealed class TaskPlanSemanticRepairTests
         runtime.Proposal.Plan!.Root.Tasks[0].Objective = "Unrelated rewrite";
         state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
         Assert.Equal(baseline, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
-        Assert.Equal(originalScope, state.RevisionScope); Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts);
+        Assert.Equal(originalScope, state.RevisionScope); Assert.True(state.ModelCalls == 2, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message))); Assert.Equal(1, state.ReplanAttempts);
         Assert.Equal(discovery, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
         runtime.Proposal.Plan = Clone(state.Plan!);
         runtime.Proposal.Plan.Root.Tasks[0].Body!.Outputs.Add(new("message", PlanningCorpus.Business("output", "inner", "message")));
         runtime.Proposal.Plan.Root.Outputs[0].Value.Members[0].Value.Source = "outer";
         state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(3, state.ModelCalls); Assert.Equal(2, state.ReplanAttempts);
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message))); Assert.Equal(3, state.ModelCalls); Assert.Equal(2, state.ReplanAttempts);
         Assert.Equal(1, runtime.Discoveries); Assert.NotNull(state.Yaml);
     }
 

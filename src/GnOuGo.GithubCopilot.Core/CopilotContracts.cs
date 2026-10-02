@@ -61,6 +61,8 @@ public sealed record CopilotRuntimeConfiguration(
     public bool EnableSandboxBypassGrants { get; init; }
     public bool UseSessionFileSystem { get; init; }
     [JsonIgnore] public CopilotExecutionBounds? ExecutionBounds { get; init; }
+    [JsonIgnore] public CopilotInferenceBudget? LogicalInferenceBudget { get; init; }
+    [JsonIgnore] public CopilotLogicalPermissions? LogicalPermissions { get; init; }
     public string? LogLevel { get; init; }
     public CopilotTelemetryConfiguration? Telemetry { get; init; }
 }
@@ -173,6 +175,7 @@ public sealed record CopilotSendRequest(
 {
     public IReadOnlyDictionary<string, string>? RequestHeaders { get; init; }
     [JsonIgnore] public Action<CopilotStreamEvent>? Progress { get; init; }
+    [JsonIgnore] public CopilotInferenceBudget? LogicalAuthority { get; init; }
 }
 
 public sealed record CopilotSendResult(

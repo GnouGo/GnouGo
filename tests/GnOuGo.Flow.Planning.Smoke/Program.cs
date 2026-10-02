@@ -38,7 +38,7 @@ clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState,
 PlanningArtifactApproval.Verify(clarificationState);
 if (clarificationState.Status != PlanningStatus.FinalReview || clarificationState.ApprovedHash is not null || clarificationRuntime.Calls != 2)
     throw new InvalidOperationException("Clarification bypassed review or lost accounting.");
-if (clarificationState.OutcomeVersion != 2 || clarificationState.OutcomeBindings?.Count != 1 ||
+if (clarificationState.OutcomeVersion != 3 || clarificationState.OutcomeBindings?.Count != 1 ||
     clarificationState.Requirements?.Outcomes.Single().Execution != "data")
     throw new InvalidOperationException("Outcome annotations did not survive Native AOT recovery.");
 var outcomeHash = clarificationState.ComputeArtifactHash();
@@ -112,6 +112,22 @@ boundedOutcome.OutcomeBindings = mapped;
 if (PlanningRepairPatch.RequestContext(mappingRequest)["repair"]!["version"]!.GetValue<int>() != 5 || PlanningOutcomeValidation.Findings(boundedOutcome).Count != 0)
     throw new InvalidOperationException("Version-five mapping repair did not survive AOT recovery");
 Console.WriteLine("outcome v2: version-five atomic mapping repair and issued authority survive source-generated recovery");
+
+boundedOutcome.OutcomeVersion = 3;
+boundedOutcome.Requirements!.Outcomes[0] = boundedOutcome.Requirements.Outcomes[0] with
+{ Operation = workspacePlan.Root.Tasks.Single(t => t.Id == "work").Operation, Coverage = "once" };
+boundedOutcome.OutcomeBindings![0].TaskIds.Clear();
+boundedOutcome.Diagnostics = PlanningOutcomeValidation.Findings(boundedOutcome);
+boundedOutcome.RevisionScope = ["/outcomeBindings/check"];
+var mappingV6 = new PlanningPrompt(boundedOutcome).Request();
+mappingPatch.Edits[0].Value!["inputs"] = new JsonArray();
+boundedOutcome = JsonSerializer.SerializeToNode(boundedOutcome, PlanningJsonContext.Default.PlanningSession)!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+boundedOutcome.Plan = PlanningRepairPatch.Apply(boundedOutcome, mappingPatch, mappingV6, out mapped);
+boundedOutcome.OutcomeBindings = mapped;
+if (PlanningRepairPatch.RequestContext(mappingV6)["repair"]!["version"]!.GetValue<int>() != 6 || PlanningOutcomeValidation.Findings(boundedOutcome).Count != 0)
+    throw new InvalidOperationException("Version-six contract-derived outcome recovery failed");
+Console.WriteLine("outcome v3: authoritative operation metadata and version-six repair survive Native AOT recovery");
+
 
 foreach (var name in PlanningCorpus.Names)
 {

@@ -75,7 +75,7 @@ public sealed partial class TaskPlanCompiler
 
     // Validate business symbols and contracts before emitting any graph node. Bound
     // values reuse the compiler's existing type rules; no executable plan is built here.
-    private IReadOnlyList<PlanningDiagnostic> Preflight()
+    private IReadOnlyList<PlanningDiagnostic> Preflight(Action<string, Scope>? inspect = null)
     {
         var findings = IdentityDiagnostics(_plan).ToList();
         var symbols = _symbols;
@@ -111,6 +111,7 @@ public sealed partial class TaskPlanCompiler
         }
         Bound? Read(TaskValue value, Scope scope, string location)
         {
+            inspect?.Invoke(location, scope);
             if (value.Kind is "output" or "present" or "choice" && symbols.InvalidIds.Contains(value.Source!)) return null;
             Bound? result = null;
             var children = value.Members.Select(m => m.Value).Concat(value.Items).ToArray();
@@ -163,6 +164,7 @@ public sealed partial class TaskPlanCompiler
                 if (value is not null && scope.Workflow.Outputs.All(o => o.Name != output.Name))
                     scope.Workflow.Outputs.Add(new() { Name = output.Name, Value = value.Value, Schema = Contract(value.Schema) });
             }
+            inspect?.Invoke(path + "/outputs", scope);
         }
         void InspectTasks(List<PlanTask> tasks, Scope scope)
         {

@@ -109,7 +109,7 @@ internal static class PlanningSchemas
                 foreach (var value in definitions["value"]!["anyOf"]!.AsArray().OfType<JsonObject>()) value.Remove("description");
             }
         }
-        if (state.OutcomeVersion is 1 or 2 && clarifications)
+        if (state.OutcomeVersion is 1 or 2 or 3 && clarifications)
         {
             var outcome = definitions["requirements"]!["properties"]!["outcomes"]!["items"]!;
             outcome["properties"]!["execution"] = Enum("data", "read", "write", "execute", "lifecycle");
@@ -120,7 +120,7 @@ internal static class PlanningSchemas
                 ("outcomeId", state.Requirements is { } accepted ? Enum(accepted.Outcomes.Select(o => o.Id).ToArray()) : Nonblank()),
                 ("taskIds", Array(Ref("id"))), ("outputs", Array(Nonblank()))), 1));
             root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("outcomeBindings"));
-            if (state.OutcomeVersion == 2)
+            if (state.OutcomeVersion is 2 or 3)
             {
                 root["properties"]!["outcomeBindings"]!["description"] = "Required non-null with a plan: bind every accepted outcomeId exactly once. Null only for discovery or clarification.";
                 outcome["properties"]!["coverage"] = Enum("once", "each_item");
@@ -140,12 +140,13 @@ internal static class PlanningSchemas
                 binding["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("forEachTaskId"));
             }
         }
+        if (state.OutcomeVersion == 3 && clarifications) PlanningOutcomeAnnotations.Schema(state, root, definitions, admitted);
         definitions["task"] = Tasks(state, definitions, admitted);
         if (state.Requirements is not null && (!clarifications || state.IntentVersion != 1 || state.Requirements.Inputs is not null)) root["$defs"]!.AsObject().Remove("requirements");
         if (compact)
         {
             ShareRepeatedSchemas(root, definitions);
-            if (state.OutcomeVersion == 2)
+            if (state.OutcomeVersion is 2 or 3)
             {
                 for (var pass = 0; pass < 3; pass++) { ShareRepeatedSchemas(root, definitions, 30); CollapseAliases(root, definitions); PruneDefinitions(root, definitions); }
             }
@@ -307,11 +308,11 @@ internal static class PlanningSchemas
         var fixedOperations = TaskPlanRevisions.FixedOperations(state)
             ? TaskPlanRevisions.Tasks(state.Plan!).Where(t => t.Kind == "operation").Select(t => t.Operation).ToHashSet(StringComparer.Ordinal) : null;
         var resolved = (state.Catalog?.Capabilities ?? []).Concat(state.Discovery.Resolved).DistinctBy(c => (c.Id, c.Version))
-            .Where(c => state.OutcomeVersion != 2 || state.Catalog!.AllowedStepTypes.Contains(c.StepType) && !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id))
+            .Where(c => state.OutcomeVersion is not (2 or 3) || state.Catalog!.AllowedStepTypes.Contains(c.StepType) && !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id))
             .GroupBy(c => TaskOperations.Describe(c).Id, StringComparer.Ordinal).Where(g => g.Count() == 1 && TaskOperations.Validate(g.First()).Count == 0)
             .Select(g => PlanningCapabilityArguments.Editable(g.First()))
             .Where(o => (fixedOperations is null || fixedOperations.Contains(o.Id)) && (admitted is null || admitted.Contains(o.Id))).OrderBy(o => o.Id, StringComparer.Ordinal).ToArray();
-        if (state.OutcomeVersion != 2 && resolved.Length == 0 && fixedOperations is null && !state.Discovery.Pages.SelectMany(p => p.Capabilities).Any(c => c.Operation is not null))
+        if (state.OutcomeVersion is not (2 or 3) && resolved.Length == 0 && fixedOperations is null && !state.Discovery.Pages.SelectMany(p => p.Capabilities).Any(c => c.Operation is not null))
         { yield return task(String(), Array(Ref("output"))); yield break; }
         // Index-only domains are compact discovery hints, not resolved contracts.
         // Historical schemas kept these selectable. Version 2 requires inspection
@@ -323,7 +324,7 @@ internal static class PlanningSchemas
         var unresolved = state.Discovery.Pages.SelectMany(p => p.Capabilities).Select(c => c.Operation?.Id)
             .OfType<string>().Where(id => !known.Contains(id) && (fixedOperations is null || fixedOperations.Contains(id)))
             .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
-        if (state.OutcomeVersion != 2 && unresolved.Length > 0) yield return task(Enum(unresolved), Array(Ref("output")));
+        if (state.OutcomeVersion is not (2 or 3) && unresolved.Length > 0) yield return task(Enum(unresolved), Array(Ref("output")));
 
         bool Agent(string id) => state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).Any(c => TaskOperations.Describe(c).Id == id && c.StepType == "agent.run");
         bool AgentLiteral(string id, string name) => Agent(id) && name is "objective" or "capabilities" or "budget" or "verification" or "output_schema";
@@ -332,7 +333,7 @@ internal static class PlanningSchemas
         JsonObject Inputs(PlanningOperation operation)
         {
             var ports = operation.Inputs.OrderBy(p => p.Name, StringComparer.Ordinal)
-                .Select(p => (p.Name, Value: state.OutcomeVersion == 2 ? PlanningBindingSchemas.For(p.Schema, definitions,
+                .Select(p => (p.Name, Value: state.OutcomeVersion is 2 or 3 ? PlanningBindingSchemas.For(p.Schema, definitions,
                     literalOnly: AgentLiteral(operation.Id, p.Name), workspace: AgentWorkspace(operation.Id, p.Name)) : DomainValue(p.Schema, definitions))).ToArray();
             if (ports.Length == 0) return Array(Ref("output"), 0, 0);
             var bindings = ports.GroupBy(p => p.Value.ToJsonString(), StringComparer.Ordinal)
@@ -373,7 +374,7 @@ internal static class PlanningSchemas
 
     private static JsonObject Described(JsonObject schema, string description) { schema["description"] = description; return schema; }
     private static JsonObject Identity() => new() { ["type"] = "string", ["pattern"] = TaskPlanCompiler.IdentityPattern };
-    private static JsonObject Nonblank() => new() { ["type"] = "string", ["pattern"] = @"\S" };
+    internal static JsonObject Nonblank() => new() { ["type"] = "string", ["pattern"] = @"\S" };
     internal static JsonObject Integer(int minimum, int maximum) => new() { ["type"] = "integer", ["minimum"] = minimum, ["maximum"] = maximum };
     internal static JsonObject String() => Type("string");
     internal static JsonObject Type(string type) => new() { ["type"] = type };

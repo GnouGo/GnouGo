@@ -111,7 +111,7 @@ public sealed class CopilotAttachmentPlanningTests
 
     private static Type Revisions => typeof(HybridWorkflowPlanner).Assembly.GetType("GnOuGo.Flow.Planning.TaskPlanRevisions")!;
     private static IReadOnlyList<string> Scope(TaskPlan plan, IReadOnlyList<PlanningDiagnostic> diagnostics)
-        => (IReadOnlyList<string>)Revisions.GetMethod("Scope", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [plan, diagnostics])!;
+        => (IReadOnlyList<string>)Revisions.GetMethod("Scope", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [plan, diagnostics, false])!;
     private static IEnumerable<PlanningDiagnostic> ValidateRevision(TaskPlan plan, TaskPlan changed, IReadOnlyList<string> scope, PlanningCatalog catalog)
         => (IEnumerable<PlanningDiagnostic>)Revisions.GetMethod("Validate", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [plan, changed, scope, catalog])!;
 
