@@ -112,11 +112,16 @@ jobs:
             --token $env:WINGET_CREATE_GITHUB_TOKEN
 
   publish_homebrew:
-    name: Publish Homebrew cask (${{ inputs.version_tag }})
+    name: Publish Homebrew packages (${{ inputs.version_tag }})
     needs: publish_release_main
     if: inputs.channel_tag == 'release'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout release tooling
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
       - name: Download build artifacts
         uses: actions/download-artifact@v8.0.1
         with:
@@ -129,6 +134,14 @@ jobs:
           repository: GnouGo/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
           path: homebrew-tap
+
+      - name: Update ProxyCopilot Homebrew formula
+        env:
+          RELEASE_VERSION_TAG: ${{ inputs.version_tag }}
+        run: |
+          python3 scripts/update-proxy-copilot-homebrew.py \
+            --version-tag "$RELEASE_VERSION_TAG" \
+            --artifacts release-assets --tap homebrew-tap
 
       - name: Update Homebrew cask
         shell: pwsh
@@ -168,10 +181,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Casks/gnougo.rb
+          git add Casks/gnougo.rb Formula/gnougo-proxy-copilot.rb
           if git diff --cached --quiet; then
-            echo "Homebrew cask is already up to date."
+            echo "Homebrew packages are already up to date."
           else
-            git commit -m "Update gnougo to ${{ inputs.version_tag }}"
+            git commit -m "Update gnougo and gnougo-proxy-copilot to ${{ inputs.version_tag }}" \
+              -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
             git push
           fi
