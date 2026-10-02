@@ -41,4 +41,67 @@ That run also reported `closed=false` because the configured browser had `KeepBr
 
 The `final3` code execution retained two transport failures: concurrent permission callbacks violated MCP's single outstanding request rule, and the client eventually exceeded its ten input-required rounds. Eight concurrent callbacks reproduce the first error without inference; a per-invocation gate now serializes them and preserves individual refusals/answers. All 200 Copilot MCP tests pass. The [SDK 2.2.0 client](https://github.com/modelcontextprotocol/csharp-sdk/blob/v2.2.0/src/ModelContextProtocol.Core/Client/McpClientImpl.cs) hardcodes the ten-round limit; that separate dependency limitation remains open. No broad grant, permission bypass, protocol downgrade or automatic replay was introduced. [Sanitized execution failures](planning-schema-portability-final3-failures.json) retain both the Amazon and code observations.
 
-Live execution results are pending. The historical 33/33 benchmark is unchanged and is not evidence for this correction. Deployment requires rebuilding/restarting the updated host and new planning sessions; the rejected session is not replayed automatically.
+## Final live result: acceptance not met
+
+Frozen source and harness: `3e8869676b6099dff6f445143f8368c16eaf709e`, cohort `final4`. The [manifest and six measurements](evidence/schema-portability/final4.json) record corpus/harness hashes, configured-policy fingerprint, model, limits, OS and framework. The [statistical summary](evidence/schema-portability/final4-summary.json) uses nearest-rank p95. Earlier cohorts and diagnostics remain separately identified in encrypted storage; none is pooled into this result.
+
+**0/6 execution oracles passed**: Amazon 0/3, code 0/3. Five plans stopped before execution. The one valid code artifact was explicitly reviewed and executed against the pinned disposable checkout. Version checks and repository inspection reached permission callbacks, but the MCP client stopped at its ten-round input-required limit. The concurrent-callback error did not recur. Cleanup independently succeeded; no review.json or complete command receipts were produced. Installation, lint/tests and complete review are **not established**. [Sanitized final execution evidence](evidence/schema-portability/final4-code-failure.json) excludes repository feedback and private payloads.
+
+| Evaluation | Planning calls / attempts | Discovery reads | Repairs | Planning input / output tokens | Planning seconds |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Amazon 1 | 4 / 4 | 2 | 2 | 26,208 / 5,621 | 78.3 |
+| Amazon 2 | 4 / 4 | 2 | 2 | 26,497 / 8,731 | 185.2 |
+| Amazon 3 | 5 / 5 | 2 | 2 | 37,450 / 9,836 | 115.2 |
+| Code 1 | 3 / 3 | 3 | 0 | 40,345 / 8,957 | 115.1 |
+| Code 2 | 5 / 5 | 3 | 2 | 52,633 / 8,386 | 115.4 |
+| Code 3 | 5 / 5 | 3 | 2 | 48,272 / 10,346 | 155.6 |
+
+Code 1 execution added **3 logical calls / 3 physical attempts**, **27,139 input / 1,207 output tokens**, **405.4 seconds** execution and **520.5 seconds** total latency. Other final runs had no execution inference. Final-cohort cost: **EUR 2.5538** (planning 2.4016, execution 0.1522); final verified tokens: **258,544 input / 53,084 output**.
+
+Across all six evaluations, planning median/p95: **4.5/5 calls**, **2.5/3 tools/list reads**, **2/2 repairs**, **38,897.5/52,633 input tokens**, **8,844/10,346 output tokens**, and **115.3/185.2 seconds**. Total median/p95 latency is **135.5/520.5 seconds**. Failed planning ends the measured run with zero execution time; these zeros do not demonstrate efficient execution. Human waiting is included. Missing or interrupted slots remain failures; unknown usage is never imputed as successful work.
+
+The entire new campaign, including the original diagnostic and every failed iteration, recorded **102 physical attempts**, **1,111,677 verified input / 173,498 output tokens**, and **EUR 9.5268** estimated cost, with **zero uncertain cost reservations**. Costs use provider usage, model price metadata and FX quotes, not invoices. The terminal HTTP 400 diagnostic has no token-usage receipt; its verified rejection is retained separately. The EUR 50 ceiling was not reached. Paid collection has stopped after the failed final evaluation.
+
+Before correction, the retained session stopped on its second planning call with zero repairs; the separately authorized exact-request diagnostic confirmed the provider rejection in **4.456 seconds**. After correction, **78/78 admitted planning requests** across the new campaign completed without a provider-schema rejection, including discovery expansions and repairs. This establishes schema acceptance, not workflow correctness. There is no comparable successful baseline execution, so no execution speedup or universal reduction in calls/tokens is claimed.
+
+Remaining issues:
+
+- Amazon 1–2: generated outcome mappings, required-path coverage and normal/cleanup placement remain invalid. Amazon 3: missing scope exports/references and an unauthorized repair change. All stopped before external execution; the final cohort produced no XLSX for comparison.
+- Code 2–3: accepted cleanup effects (`write` or `lifecycle`) conflict with the selected command contract's `execute` effect. Scoped repair preserves accepted requirements rather than relabelling them to pass.
+- Code execution: the SDK's fixed input-required-round limit blocks longer interactive calls. Required repository toolchains, successful dependency installation and complete check evidence remain unverified. No broad approval, sandbox expansion, protocol downgrade or automatic reconciliation was used.
+- Real Amazon navigation was observed only in the separately retained `final3` execution before its telemetry failure; no full product extraction was validated. CAPTCHA or absent data cannot be inferred from an unexecuted search.
+
+## Reproduction, validation and rollout
+
+[Collection/review/execution/report commands](../tests/GnOuGo.Agent.Planning.Benchmark/README.md#authorized-schema-portability-live-campaign) use the encrypted journal. Reproduce the frozen build from the recorded SHA in an isolated checkout. Further collection requires a fresh cohort identity within the existing authorization and remaining campaign ceiling; a separate campaign needs separate authorization. Never overwrite or replay these runs. Reports reject mismatched or missing manifests.
+
+Recompute the published summaries from the sanitized report (zero execution duration means execution never started):
+
+```sh
+python3 - docs/evidence/schema-portability/final4.json <<'PYTHON'
+import json, math, statistics, sys
+rows = json.load(open(sys.argv[1]))["runs"]
+for name, read in {
+    "calls": lambda r: r["calls"],
+    "discovery_reads": lambda r: r["discovery_reads"],
+    "repairs": lambda r: r["repairs"],
+    "input_tokens": lambda r: r["accounting"]["planning"]["known_input_tokens"],
+    "output_tokens": lambda r: r["accounting"]["planning"]["known_output_tokens"],
+    "planning_ms": lambda r: r["planning_ms"],
+    "total_ms": lambda r: r.get("total_ms", r["planning_ms"]),
+}.items():
+    values = sorted(map(read, rows))
+    print(name, "median", statistics.median(values), "p95", values[math.ceil(.95 * len(values)) - 1])
+PYTHON
+```
+
+Validation on the frozen implementation:
+
+- `dotnet test GnOuGo.Agent.sln -m:1 -warnaserror`: **4,040 passed, 0 failed, 13 opt-in/platform skips**, 33 projects. Focused schema/projection, wire-payload, recovery, permission, usage and benchmark regressions pass. The unchanged 24,000-token discovery regression passes.
+- All 200 Copilot MCP tests pass; four permission-management tests also pass against the published Native AOT executable. Published Git/Cmd contract checks pass. Flow packages pack independently without warnings.
+- Native AOT planning smoke passes, including authoritative path rejection after projection. The trimmed published Agent.Server encrypted recovery smoke passes; planning format 10 / execution journal 9 remain unchanged. Frontend production build and planning-skill validation pass.
+- The [Linux planner pipeline](https://github.com/GnouGo/GnouGo/actions/runs/37005432309) passes on `3e886967`; [stable .NET/Python, Agent.Server and Linux server-publish jobs](https://github.com/GnouGo/GnouGo/actions/runs/37005432743) also pass. Other platform/package jobs may still be running; they do not change the failed live gate.
+
+The updated source host was rebuilt/restarted and verified at `http://127.0.0.1:5168`. All 43 saved Designer sessions were inactive before restart; none was replayed or modified. The process's embedded OTLP listener is disabled because the existing local collector already owns its ports; saved configuration is unchanged. Refresh MCP discovery and create new planning sessions. Keep the rejected session as evidence. For automated browser cleanup, the target host's existing `KeepBrowserOpen` debug option must be disabled; this campaign changed only its disposable browser process.
+
+PR #117 remains **draft** because the six execution oracles failed. No SmartGuide feedback or proposed diff comments were published; publication remains untested. The historical **33/33** benchmark is unchanged and is not evidence for these later corrections.
