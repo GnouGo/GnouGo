@@ -54,7 +54,8 @@ internal static class SchemaPortabilityCampaign
             const string key = "original-rejection";
             if (await campaign.LoadAsync(Collection, key) is not null) throw new InvalidOperationException("Diagnostic identity already retained; do not repeat.");
             var saved = (await records.ListAsync("agent-planning-model-requests-v10", "default", BenchmarkCampaign.Author))
-                .Where(r => r.Key.StartsWith(OriginalSession + ":2:", StringComparison.Ordinal)).Single();
+                .Where(r => r.Key.StartsWith(OriginalSession + ":", StringComparison.Ordinal))
+                .Single(r => JsonSerializer.Deserialize(r.Value, PlanningJsonContext.Default.LLMRequest)!.ClientRequestId!.StartsWith(OriginalSession + ":2:", StringComparison.Ordinal));
             var request = JsonSerializer.Deserialize(saved.Value, PlanningJsonContext.Default.LLMRequest)!;
             var originalHash = PlanningGraphCompiler.Fingerprint(saved.Value);
             request.ClientRequestId = "schema-diagnostic:1:" + originalHash;
