@@ -57,6 +57,36 @@ sudo apt install ./gnougo_*_amd64.deb
 
 You can also download the Windows, macOS, and Linux archives from the GitHub Releases page.
 
+### Standalone ProxyCopilot on macOS
+
+Install the local VS Code Chat/Agent proxy independently of the desktop application
+on Apple Silicon or Intel Macs:
+
+```bash
+brew update
+brew install gnougo/tap/gnougo-proxy-copilot
+# To run ProxyCopilot (foreground; Ctrl+C to stop)
+gnougo-proxy-copilot
+```
+
+If macOS blocks the executable because it is quarantined, first verify that it
+came from the official tap, then remove the quarantine attribute from that
+installed binary only and run it again:
+
+```bash
+xattr -d com.apple.quarantine "$(brew --prefix gnougo-proxy-copilot)/libexec/GnOuGo.ProxyCopilot.Server"
+gnougo-proxy-copilot
+```
+
+No `sudo` or .NET runtime is required. From another terminal, open the dashboard:
+
+```bash
+open http://127.0.0.1:5087/ui/
+```
+
+Follow the
+[ProxyCopilot configuration instructions](src/GnOuGo.ProxyCopilot.Server/README.md#homebrew-macos).
+
 ## Downloads
 
 > Download badges below track GitHub Release asset downloads. They are useful distribution metrics, but they are not strict Winget/Homebrew install counters.

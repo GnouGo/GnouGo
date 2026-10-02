@@ -165,6 +165,57 @@ Only loopback listen addresses and same-origin browser requests are accepted. Co
 
 ## Test and publish
 
+### Homebrew (macOS)
+
+Install the standalone server on Apple Silicon or Intel Macs (macOS Monterey 12
+or later), without installing the desktop application or a .NET SDK/runtime:
+
+```bash
+brew update
+brew install gnougo/tap/gnougo-proxy-copilot
+# To run ProxyCopilot (foreground; Ctrl+C to stop)
+gnougo-proxy-copilot
+```
+
+If Homebrew asks you to trust the third-party formula, review
+[`Formula/gnougo-proxy-copilot.rb`](https://github.com/GnouGo/homebrew-tap/blob/main/Formula/gnougo-proxy-copilot.rb)
+and run `brew trust --formula gnougo/tap/gnougo-proxy-copilot` before retrying.
+
+If macOS blocks the executable because it is quarantined, first verify that it
+came from the official tap, then remove the quarantine attribute from that
+installed binary only and run it again:
+
+```bash
+xattr -d com.apple.quarantine "$(brew --prefix gnougo-proxy-copilot)/libexec/GnOuGo.ProxyCopilot.Server"
+gnougo-proxy-copilot
+```
+
+No `sudo` is needed. From another terminal, open the dashboard:
+
+```bash
+open http://127.0.0.1:5087/ui/
+```
+
+The server runs in the foreground and listens only on loopback; no service starts
+automatically. Stop it with Ctrl+C.
+It starts with no configured providers. Supply provider settings using
+`ProxyCopilot__Providers__...` environment variables, as described in
+[Configure providers](#configure-providers). Included examples are under
+`$(brew --prefix gnougo-proxy-copilot)/libexec/examples`.
+Do not edit the installed `appsettings.json` or place private settings in the
+Homebrew Cellar: upgrades replace the versioned installation directory.
+
+```bash
+brew update
+brew upgrade gnougo/tap/gnougo-proxy-copilot
+# Remove the package when no longer needed:
+brew uninstall gnougo-proxy-copilot
+```
+
+The stable GitHub release workflow updates this formula and the existing desktop
+cask together, using separate SHA-256 checksums for the ARM64 and x64 archives.
+Alpha, beta, and development builds do not update the formula.
+
 ### GitHub release binaries
 
 GitHub releases include standalone Native AOT archives for **Windows, Linux, and macOS**, each in **x64 and ARM64** variants:
