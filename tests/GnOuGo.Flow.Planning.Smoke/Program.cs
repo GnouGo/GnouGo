@@ -260,6 +260,31 @@ if (!JsonNode.DeepEquals(JsonNode.Parse("""[{"state":"deny"},{"state":"allow"}]"
     throw new InvalidOperationException("Composite scope exports changed their values or order");
 Console.WriteLine("typed field bindings: passed; checked MCP selectors; ordered records and composed exports; no inference");
 
+// A typed collection and a literal empty branch retain their element contract.
+var conditionalRows = JsonSerializer.Deserialize(JsonSerializer.Serialize(fieldPlan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
+conditionalRows.Inputs.Add(new() { Name = "selected", Type = new() { Kind = "boolean" } });
+conditionalRows.Root.Tasks[0].Items = new() { Kind = "output", Source = "choose_rows", Port = "rows" };
+conditionalRows.Root.Tasks.Insert(0, new() { Id = "choose_rows", Kind = "conditional", Objective = "Select rows",
+    Condition = new() { Kind = "input", Source = "selected" },
+    Body = new() { Outputs = [new("rows", new() { Kind = "input", Source = "records" })] },
+    Otherwise = new() { Outputs = [new("rows", new() { Kind = "array" })] } });
+var conditionalRowsGraph = new TaskPlanCompiler().Compile(conditionalRows, encodingCatalog);
+if (conditionalRowsGraph.Graph is null || conditionalRowsGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Conditional array compilation failed");
+var conditionalRowsYaml = new PlanningGraphCompiler().Compile(conditionalRowsGraph.Graph, encodingCatalog);
+if ((await encodingRuntime.ValidateAsync(new(conditionalRowsYaml, new(), encodingCatalog, PlanningGraphCompiler.CapabilityBindings(conditionalRowsGraph.Graph)), CancellationToken.None)).Count != 0)
+    throw new InvalidOperationException("Conditional array validation failed");
+var conditionalRowsDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(conditionalRowsYaml));
+foreach (var selected in new[] { false, true })
+{
+    selectedStates.Clear();
+    var result = await encodingEngine.ExecuteAsync(conditionalRowsDocument.Workflows["main"], new JsonObject
+        { ["selected"] = selected, ["records"] = new JsonArray(new JsonObject { ["state"] = "deny" }, new JsonObject { ["state"] = "allow" }) }, CancellationToken.None);
+    var expected = selected ? new JsonArray("deny", "allow") : new JsonArray();
+    if (!result.Success || !JsonNode.DeepEquals(expected, result.Outputs!["states"]) || selectedStates.Count != expected.Count)
+        throw new InvalidOperationException("Conditional array execution changed values or ran an empty body");
+}
+Console.WriteLine("conditional arrays: passed; typed and empty branches execute with preserved contracts; no inference");
+
 // Literal null exports use authoritative schemas across conditional boundaries.
 var nullPlan = new TaskPlan { Inputs = [new() { Name = "selected", Type = new() { Kind = "boolean" } }],
     Root = new() { Tasks = [new() { Id = "choose", Kind = "conditional", Objective = "Choose a continuation", Condition = new() { Kind = "input", Source = "selected" },

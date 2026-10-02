@@ -311,6 +311,15 @@ workflow outcomes do not establish real sandboxed Copilot command execution.
 
 ## Authorized schema-portability live campaign
 
+Replay a retained proposal against its original discovered contracts without inference,
+execution, approval or mutation of the saved session:
+
+```sh
+dotnet run --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability replay-compile --workspace "$GNOU_GO_WORKSPACE" \
+  --campaign schema-portability-20261002 --run recovery2-amazon-2
+```
+
 The [schema-portability report](../../docs/planning-schema-portability-2026-10-02.md)
 retains the original provider rejection, diagnostic iterations and separate frozen
 cohorts. This campaign performs paid inference and real external execution only

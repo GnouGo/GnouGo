@@ -44,6 +44,23 @@ internal static class SchemaPortabilityCampaign
         var campaignId = Option(args, "--campaign") ?? throw new ArgumentException("Supply a new --campaign.");
         var campaign = new BenchmarkCampaign(records, campaignId);
         if (phase == "report") { Console.WriteLine((await LiveCampaignEvidence.ReportAsync(campaign, Option(args, "--cohort") ?? "final")).ToJsonString()); return; }
+        if (phase == "replay-compile")
+        {
+            var label = Option(args, "--run") ?? throw new ArgumentException("Supply --run.");
+            var saved = await campaign.LoadAsync(Collection, "run:" + label) ?? throw new ArgumentException("No run.");
+            var session = saved["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+            var catalog = session.Catalog ?? throw new InvalidOperationException("No retained contracts.");
+            var compilation = new TaskPlanCompiler().Compile(session.Plan ?? throw new InvalidOperationException("No retained plan."), catalog);
+            var diagnostics = compilation.Diagnostics.ToList();
+            if (compilation.Graph is { } graph) diagnostics.AddRange(PlanningGraphValidation.Validate(graph, catalog));
+            Console.WriteLine(new JsonObject { ["run"] = label, ["source"] = Git("rev-parse", "HEAD"),
+                ["working_tree_dirty"] = Git("status", "--porcelain").Length != 0,
+                ["compiled"] = compilation.Graph is not null, ["valid"] = diagnostics.Count == 0,
+                ["diagnostics"] = new JsonArray(diagnostics.Select(d => (JsonNode)new JsonObject
+                    { ["code"] = d.Code, ["message"] = d.Message, ["location"] = d.Location }).ToArray()),
+                ["model_calls"] = 0, ["repairs"] = 0, ["saved_session_modified"] = false }.ToJsonString());
+            return;
+        }
         if (phase == "inspect-run")
         {
             var label = Option(args, "--run") ?? throw new ArgumentException("Supply --run.");

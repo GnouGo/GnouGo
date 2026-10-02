@@ -207,7 +207,7 @@ public sealed partial class TaskPlanCompiler
                 if (task.Kind == "foreach")
                 {
                     var items = task.Items is null ? null : Read(task.Items, scope, path + "/items");
-                    if (items?.Schema["type"]?.ToString() == "array" && items.Schema["items"] is JsonObject itemSchema)
+                    if (items is not null && PlanningContractShapes.IterationItems(items.Schema) is { } itemSchema)
                     { child.Item = new(new() { Kind = "loop_item" }, itemSchema, "data.item", TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null); child.Index = new(Number(0), new() { ["type"] = "integer" }, "data.index"); }
                     else
                     {

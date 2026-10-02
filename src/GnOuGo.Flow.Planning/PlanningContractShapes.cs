@@ -5,6 +5,32 @@ internal static class PlanningContractShapes
     internal static JsonObject Opaque() => new() { ["x-gnougo-opaque"] = true };
     internal static bool IsOpaque(JsonObject schema) => schema["x-gnougo-opaque"]?.ToString() == "true";
 
+    // An empty alternative contributes no possible element. Keep the complete
+    // collection contract at the runtime guard; derive only the iteration's item type.
+    internal static JsonObject? IterationItems(JsonObject schema)
+    {
+        var items = new List<JsonObject>();
+        if (!Collect(schema, 0)) return null;
+        var distinct = items.DistinctBy(s => s.ToJsonString()).ToArray();
+        return distinct.Length switch
+        {
+            0 => Opaque(),
+            1 => distinct[0].DeepClone().AsObject(),
+            _ => new() { ["anyOf"] = new JsonArray(distinct.Select(s => (JsonNode)s.DeepClone()).ToArray()) }
+        };
+        bool Collect(JsonObject current, int depth)
+        {
+            if (depth > 32) return false;
+            if ((current["anyOf"] ?? current["oneOf"]) is JsonArray alternatives)
+                return alternatives.Count > 0 && alternatives.All(a => a is JsonObject variant && Collect(variant, depth + 1));
+            if (current["type"]?.ToString() != "array") return false;
+            if (current["const"] is JsonArray { Count: 0 }) return true;
+            // Unspecified contents can pass through but cannot establish typed fields.
+            items.Add(current["items"] is JsonObject item ? item : Opaque());
+            return true;
+        }
+    }
+
     // Import only schema positions, never instance data in const/enum/default.
     // Unknown contents stay opaque while their containing types and constraints survive.
     internal static JsonObject Producer(JsonObject schema)

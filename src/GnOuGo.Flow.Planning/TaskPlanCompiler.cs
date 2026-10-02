@@ -266,9 +266,10 @@ public sealed partial class TaskPlanCompiler
             case "foreach":
                 if (task.MaxItems is < 1 or > 10000 || task.MaxConcurrency is < 1 or > 100) Fail("TASK_ITERATION_BOUND", "Iteration requires finite positive item and concurrency ceilings.");
                 var items = Value(task.Items ?? MissingValue(), scope);
-                if (items.Schema["type"]?.ToString() != "array" || items.Schema["items"] is not JsonObject itemSchema) Fail("TASK_ITEMS_INVALID", "Iteration needs an authoritative array contract.");
-                itemSchema = items.Schema["items"]!.AsObject();
-                var bounded = items.Schema.DeepClone().AsObject(); bounded["maxItems"] = task.MaxItems;
+                var itemSchema = PlanningContractShapes.IterationItems(items.Schema);
+                if (itemSchema is null) Fail("TASK_ITEMS_INVALID", "Iteration needs an authoritative array contract.");
+                var bounded = items.Schema.DeepClone().AsObject();
+                bounded["type"] = "array"; bounded["items"] = itemSchema!.DeepClone(); bounded["maxItems"] = task.MaxItems;
                 var checkedKey = Key(key, "bound"); _sources[checkedKey] = _location;
                 target.Add(new() { Key = checkedKey, Type = "value.validate", Input = Object([new("value", items.Value)]), OutputSchema = Contract(ObjectSchema([("value", bounded)])) });
                 var iteration = new Scope(scope.Workflow, scope) { Item = new(new() { Kind = "loop_item", Source = key }, itemSchema, "data.item", TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null), Index = new(new() { Kind = "loop_index", Source = key }, new() { ["type"] = "integer" }, "data.index") };

@@ -107,3 +107,21 @@ agents. This is guidance, not a proof of natural-language equivalence.
 [Sanitized diagnostic measurements](evidence/planning-recovery/diagnostic-recovery1.json)
 retain both failures separately from the final cohort; full proposals and execution
 observations remain in the encrypted campaign.
+
+The superseded `recovery2` cohort exposed a compiler defect: a conditional exported a
+typed array on one branch and an empty array on the other. The compiler represented
+both correctly as alternatives, but loop validation required a direct `type: array`.
+Two model repairs could not resolve that valid binding. Element resolution now considers
+all array alternatives, excluding impossible elements from literal empty arrays, while
+the runtime guard retains the complete collection contract. Unknown elements remain
+opaque; non-array branches and incompatible consumers are rejected. The original
+retained proposal compiles and passes graph validation without a model call or repair.
+Eight generic regressions cover nested exports, sequential/parallel execution, both
+branches, unknown contents and incompatible alternatives; Native AOT also executes
+both branches. No saved session or approval is changed by the read-only replay command.
+
+The other executed `recovery2` Amazon run returned a status-only workbook after its
+model found no product URLs in a truncated page response. Execution completed and
+cleanup ran, but independent workbook validation failed. That remains a failure;
+successful compilation or truthful missing-data reporting does not satisfy the
+requested spreadsheet oracle.
