@@ -33,7 +33,17 @@ builder.Services
         options.Filters.Request.ListToolsFilters.Add(next => async (request, ct) =>
         {
             var result = await next(request, ct);
-            foreach (var tool in result.Tools) GitCloneTargetContract.Publish(tool);
+            foreach (var tool in result.Tools)
+            {
+                GitCloneTargetContract.Publish(tool);
+                McpEffectMetadata.Publish(tool, tool.Name switch
+                {
+                    "git_get_policy" or "git_repository_info" or "git_status" or "git_diff" or "git_compare_refs" or "git_log" or "git_branches" or "git_conflicts" => "read",
+                    "git_clone" or "git_fetch" or "git_pull" or "git_push" or "git_delete_remote_branch" or "git_create_branch" or "git_delete_branch" or
+                    "git_checkout" or "git_switch_branch" or "git_stage" or "git_unstage" or "git_commit" or "git_merge" or "git_resolve_conflict" => "write",
+                    _ => null
+                });
+            }
             return result;
         });
     })

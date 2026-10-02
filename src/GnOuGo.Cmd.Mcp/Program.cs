@@ -48,6 +48,8 @@ try
 
                 foreach (var tool in result.Tools)
                 {
+                    McpEffectMetadata.Publish(tool, tool.Name switch
+                    { "cmd_get_policy" or "cmd_list_allowed_commands" => "read", "cmd_run" => "execute", _ => null });
                     tool.Description = tool.Name switch
                     {
                         "cmd_run" => policy.BuildCmdRunToolDescription(),

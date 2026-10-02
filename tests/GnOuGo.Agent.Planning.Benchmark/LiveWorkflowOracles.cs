@@ -61,6 +61,7 @@ internal static class LiveWorkflowOracles
         }
         else
         {
+            LiveCodeEvidence.Verify(run, Path.Combine(folder, "repository"));
             if (Directory.Exists(Path.Combine(folder, "repository"))) findings.Add("repository_not_cleaned_by_workflow");
             if (!File.Exists(Path.Combine(folder, "review.json"))) findings.Add("local_review_missing");
             var commands = events.SelectMany(e => (e["result"]?["toolExecutions"] as JsonArray ?? []).OfType<JsonObject>())
@@ -76,6 +77,13 @@ internal static class LiveWorkflowOracles
             if (run["checkout_head"]?.ToString() != LiveWorkflowEvaluation.Head || run["checkout_base"]?.ToString() != LiveWorkflowEvaluation.Base)
                 findings.Add("pinned_checkout_not_independently_verified");
             if (run["required_checks_verified"]?.GetValue<bool>() != true) findings.Add("repository_required_checks_not_independently_verified");
+            if (File.Exists(Path.Combine(folder, "review.json")))
+            {
+                var review = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(folder, "review.json")));
+                var failedChecks = run["observed_commands"]!.AsArray().Any(c => c!["exit_code"]!.GetValue<long>() != 0);
+                if (review is not JsonObject || review["decision"]?.ToString() is not ("approve" or "request_changes") || review["findings"] is not JsonArray ||
+                    failedChecks && review["decision"]?.ToString() == "approve") findings.Add("review_missing_or_false_success");
+            }
         }
         return new JsonObject { ["passed"] = findings.Count == 0, ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()) };
     }

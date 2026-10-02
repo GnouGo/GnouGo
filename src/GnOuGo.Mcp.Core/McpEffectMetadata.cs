@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using ModelContextProtocol.Protocol;
 
 namespace GnOuGo.Mcp.Core;
 
@@ -9,6 +10,18 @@ public static class McpEffectMetadata
     public const string Write = """{"effect":{"version":1,"kind":"write"}}""";
     public const string Execute = """{"effect":{"version":1,"kind":"execute"}}""";
     public const string Lifecycle = """{"effect":{"version":1,"kind":"lifecycle"}}""";
+
+    /// <summary>Merge an explicit producer declaration without dropping artifact,
+    /// composition or management metadata already owned by that producer.</summary>
+    public static void Publish(Tool tool, string? kind)
+    {
+        if (kind is null) return;
+        var metadata = tool.Meta?.DeepClone().AsObject() ?? new JsonObject();
+        metadata["gnougo"] ??= new JsonObject();
+        metadata["gnougo"]!["effect"] = new JsonObject { ["version"] = 1, ["kind"] = kind };
+        _ = Resolve(metadata, tool.Annotations?.ReadOnlyHint);
+        tool.Meta = metadata;
+    }
 
     /// <summary>Absent declarations preserve the standard read-only hint fallback; invalid declarations fail discovery.</summary>
     public static string Resolve(JsonNode? metadata, bool? readOnlyHint = null)

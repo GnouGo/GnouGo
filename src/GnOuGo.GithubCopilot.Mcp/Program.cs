@@ -78,6 +78,26 @@ builder.Services
         options.AddGnOuGoToolErrorNormalizer();
         CopilotAttachmentContract.Configure(options);
         CopilotListContract.Configure(options);
+        options.Filters.Request.ListToolsFilters.Add(next => async (request, ct) =>
+        {
+            var result = await next(request, ct);
+            foreach (var tool in result.Tools)
+                McpEffectMetadata.Publish(tool, tool.Name switch
+                {
+                    "code_get_policy" or "code_project_summary" or "code_read_file" or "code_search_text" or "code_suggest_change" or
+                    "copilot_get_capabilities" or "copilot_connectivity" or "copilot_status" or "copilot_auth_status" or "copilot_list_models" or
+                    "copilot_session_list" or "copilot_session_get_configuration" or "copilot_session_history" or "copilot_session_get_mode" or
+                    "copilot_plan_read" or "copilot_session_get_foreground" or "copilot_workspace_list_files" or "copilot_workspace_read_file" or
+                    "copilot_review" or "copilot_review_analyze_batch" or "copilot_task_contract" or "copilot_task_validate" or "copilot_task_inspect" or "copilot_permission_grants_list" => "read",
+                    "code_write_file" or "copilot_plan_update" or "copilot_workspace_create_file" => "write",
+                    "code_agent_edit" or "copilot_one_shot" or "copilot_interactive_one_shot" or "copilot_session_send" or "copilot_task_run" => "execute",
+                    "copilot_session_create" or "copilot_session_resume" or "copilot_session_disconnect" or "copilot_session_delete" or "copilot_session_abort" or
+                    "copilot_session_set_model" or "copilot_session_set_mode" or "copilot_session_set_foreground" or "copilot_plan_delete" or
+                    "copilot_review_start" or "copilot_review_finish" or "copilot_permission_grant_create" or "copilot_permission_grant_revoke" or "copilot_permission_grants_revoke_agent" => "lifecycle",
+                    _ => null
+                });
+            return result;
+        });
         options.Filters.Request.CallToolFilters.Add(next => async (request, cancellationToken) =>
         {
             var accessor = request.Services is null ? null : request.Services.GetService<CodeMcpTraceContextAccessor>();

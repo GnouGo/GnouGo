@@ -23,4 +23,6 @@ The first fresh Amazon diagnosis passed provider validation but stopped after fo
 
 A second diagnosis passed three provider requests, then correctly rejected a proposal with `outcomeBindings: null`. The version-2 prompt had lost the version-1 requirement to bind every outcome when supplying a plan. That instruction and a wire-property description are restored; the unchanged semantic validator still rejects unsupported plans. The original response is retained in `live-missing-bindings.json`.
 
+A code diagnosis passed four provider requests but exposed missing producer effect metadata on Git, Cmd and Copilot operations. The original responses and diagnostics are retained in `live-code-metadata.json`. These producers now publish explicit version-1 effects through the existing MCP metadata transport, preserving artifact metadata, argument schemas and permission enforcement. Five real-process discovery regressions failed before the correction and pass afterward. Refresh discovery after upgrading these MCP servers; changed contracts invalidate affected approvals through existing fingerprints.
+
 Live execution results are pending. The historical 33/33 benchmark is unchanged and is not evidence for this correction. Deployment requires rebuilding/restarting the updated host and new planning sessions; the rejected session is not replayed automatically.

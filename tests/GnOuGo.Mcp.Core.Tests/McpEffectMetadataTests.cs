@@ -4,6 +4,19 @@ namespace GnOuGo.Mcp.Core.Tests;
 
 public sealed class McpEffectMetadataTests
 {
+    [Fact]
+    public void PublicationPreservesOtherMetadataAndRejectsContradictionsAtomically()
+    {
+        var tool = new ModelContextProtocol.Protocol.Tool { Name = "arbitrary", Meta = JsonNode.Parse("""{"gnougo":{"artifacts":{"version":1},"management":{"visibility":"management_only"}}}""")!.AsObject() };
+        var original = tool.Meta.DeepClone();
+        McpEffectMetadata.Publish(tool, "read");
+        Assert.Equal("read", McpEffectMetadata.Resolve(tool.Meta));
+        Assert.True(JsonNode.DeepEquals(original["gnougo"]!["artifacts"], tool.Meta["gnougo"]!["artifacts"]));
+        Assert.True(JsonNode.DeepEquals(original["gnougo"]!["management"], tool.Meta["gnougo"]!["management"]));
+        tool.Annotations = new() { ReadOnlyHint = true }; var before = tool.Meta.ToJsonString();
+        Assert.Throws<ArgumentException>(() => McpEffectMetadata.Publish(tool, "write"));
+        Assert.Equal(before, tool.Meta.ToJsonString());
+    }
     [Theory]
     [InlineData("read")]
     [InlineData("write")]

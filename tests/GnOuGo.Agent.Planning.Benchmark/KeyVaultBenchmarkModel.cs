@@ -145,11 +145,11 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
                 !upstream.AbsolutePath.StartsWith(endpoint.AbsolutePath.TrimEnd('/') + "/", StringComparison.Ordinal))
                 throw new InvalidOperationException("Inference upstream is outside the pinned provider.");
             if (!headers.TryGetValue("X-GnOuGo-Inference-Request", out var sdkId) || string.IsNullOrWhiteSpace(sdkId)) throw new InvalidOperationException("Missing SDK request identity.");
-            var payload = JsonNode.Parse(body)!.AsObject();
-            if (payload["model"]?.ToString() != Model) throw new InvalidOperationException("Execution model differs from the pinned model.");
+            var payload = PrepareProxyPayload(JsonNode.Parse(body)!.AsObject(), Model, upstream.AbsolutePath);
+            body = payload.ToJsonString();
             var output = (payload["max_completion_tokens"] ?? payload["max_tokens"] ?? payload["max_output_tokens"])?.GetValue<int>();
             if (output is null || output <= 0 || output > 32768) throw new InvalidOperationException("Execution inference lacks a bounded output allowance.");
-            var input = Math.Max(96000, Encoding.UTF8.GetByteCount(body));
+            var input = Math.Max(96000, checked(Encoding.UTF8.GetByteCount(body) + 4096));
             if (input > 96000) throw new InvalidOperationException("Execution request exceeds the campaign input allowance.");
             var id = run + "-copilot:" + PlanningGraphCompiler.Fingerprint(sdkId);
             var request = new LLMRequest { ClientRequestId = id, Provider = Provider, Model = Model, Prompt = body, MaxTokens = output };
@@ -189,6 +189,34 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
             return (response.Json!["status"]!.GetValue<int>(), response.Json["content_type"]!.ToString(), response.Text);
         }
         finally { _dispatchGate.Release(); }
+    }
+    internal static JsonObject PrepareProxyPayload(JsonObject original, string model, string path)
+    {
+        if (original["model"]?.ToString() != model || original["n"] is { } n && n.GetValue<int>() != 1 ||
+            original["previous_response_id"] is not null || original["conversation"] is not null || !TextOnly(original))
+            throw new InvalidOperationException("Execution inference requires the pinned model, one completion and fully visible text input.");
+        var responses = path.EndsWith("/responses", StringComparison.Ordinal);
+        if (!responses && !path.EndsWith("/chat/completions", StringComparison.Ordinal)) throw new InvalidOperationException("Unsupported inference protocol.");
+        var result = original.DeepClone().AsObject();
+        var field = responses ? "max_output_tokens" : "max_completion_tokens";
+        var requested = (result[field] ?? result["max_tokens"])?.GetValue<int>() ?? 32768;
+        if (requested <= 0) throw new InvalidOperationException("Invalid inference output ceiling.");
+        result.Remove("max_tokens"); result[field] = Math.Min(requested, 32768);
+        if (responses) { result["reasoning"] ??= new JsonObject(); result["reasoning"]!["effort"] = "medium"; }
+        else
+        {
+            result["reasoning_effort"] = "medium";
+            if (result["stream"]?.GetValue<bool>() == true)
+            { result["stream_options"] ??= new JsonObject(); result["stream_options"]!["include_usage"] = true; }
+        }
+        return result;
+
+        static bool TextOnly(JsonNode? node) => node switch
+        {
+            JsonObject obj => !obj.Any(p => p.Key is "image_url" or "input_audio" or "audio" or "file_data" or "file_id" ||
+                p.Key == "type" && p.Value?.ToString() is "input_image" or "input_audio" or "input_file" or "image" or "audio") && obj.All(p => TextOnly(p.Value)),
+            JsonArray items => items.All(TextOnly), _ => true
+        };
     }
     public void Dispose() { _http.Dispose(); _dispatchGate.Dispose(); }
 }

@@ -11,6 +11,18 @@ public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     [Theory]
+    [InlineData("/v1/responses", "max_output_tokens")]
+    [InlineData("/v1/chat/completions", "max_completion_tokens")]
+    public void ExecutionInferenceUsesBoundedVisibleInputAndPinnedReasoning(string path, string field)
+    {
+        var original = JsonNode.Parse("""{"model":"pinned","messages":[{"role":"user","content":"Review"}],"max_tokens":65536,"stream":true,"reasoning_effort":"high"}""")!.AsObject();
+        var before = original.ToJsonString(); var prepared = KeyVaultBenchmarkModel.PrepareProxyPayload(original, "pinned", path);
+        Assert.Equal(before, original.ToJsonString()); Assert.Equal(32768, prepared[field]!.GetValue<int>()); Assert.Null(prepared["max_tokens"]);
+        Assert.Equal("medium", (path.EndsWith("responses", StringComparison.Ordinal) ? prepared["reasoning"]!["effort"] : prepared["reasoning_effort"])!.ToString());
+        foreach (var invalid in new[] { "{\"model\":\"other\"}", "{\"model\":\"pinned\",\"n\":2}", "{\"model\":\"pinned\",\"conversation\":\"hidden\"}", "{\"model\":\"pinned\",\"messages\":[{\"type\":\"input_image\"}]}" })
+            Assert.Throws<InvalidOperationException>(() => KeyVaultBenchmarkModel.PrepareProxyPayload(JsonNode.Parse(invalid)!.AsObject(), "pinned", path));
+    }
+    [Theory]
     [InlineData(400, true)]
     [InlineData(200, false)]
     [InlineData(null, false)]

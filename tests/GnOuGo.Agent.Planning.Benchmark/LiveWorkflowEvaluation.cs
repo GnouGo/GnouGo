@@ -33,7 +33,12 @@ internal static class LiveWorkflowEvaluation
         await using var transport = new ConfiguredMcpClientFactory(configurations, human, model.Provider, model.Model);
         var run = phase == "execute" ? retained ?? throw new InvalidOperationException("No retained plan.") : new JsonObject { ["scenario"] = scenario, ["label"] = label, ["source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"),
             ["phase"] = label.StartsWith("final-", StringComparison.Ordinal) ? "final" : "diagnostic", ["events"] = new JsonArray() };
-        var observed = new ObservedMcp(transport, async e => { run["events"]!.AsArray().Add(e); await Save(); });
+        var observed = new ObservedMcp(transport, async e =>
+        {
+            run["events"]!.AsArray().Add(e);
+            if (scenario == "code" && run["workspace_relative"] is not null) await LiveCodeEvidence.ObserveCheckoutAsync(root, run);
+            await Save();
+        });
         var measured = new ExecutionModel(model, label);
         var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = measured,
             Limits = new() { TenantId = "benchmark", RunId = label, AgentId = campaign.Id + "-" + scenario, AgentName = "Live evaluation " + scenario },
