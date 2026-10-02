@@ -58,3 +58,20 @@ For published producer checks, run the same product tests with `GNOU_GO_BROWSER_
 These historical counts are not a matched baseline for deterministic execution. The new product fixtures use one planning adapter call and zero repairs. The contract-cost comparison interleaves three repetitions of outcome-v1 and outcome-v2 on one build with the same simple execution oracle, reporting conservative input estimates and host planning/execution latency. Missing provider usage remains unknown; these measurements do not establish live provider speed or reliability.
 
 Final sanitized measurements and validation are retained in `docs/evidence/contract-aware-planning/`. The historical 33/33 campaign is unchanged and does not cover these failures. No paid evaluation, real-site browsing, external repository execution, host-policy change or automatic reconciliation is included. Real-site availability and the file-only Copilot host limitation remain open.
+
+## Measured correction
+
+The solution run passed **3,980 tests across 33 projects**, with zero failures and 13 existing opt-in/platform skips. This includes 788 planner tests, 553 Agent.Server tests, 85 integration tests, 43 Browser tests, 63 Document tests and 42 MCP-core tests. Release packages, planning Native AOT, Document Native AOT, managed Browser publishing, the frontend build and published encrypted recovery pass. The seven product variants pass on development and published components; eight local agent lifecycle variants pass with deterministic runner evidence.
+
+| Isolated simple fixture | Outcome v1 | Outcome v2 |
+| --- | ---: | ---: |
+| Execution oracles | 3/3 | 3/3 |
+| Planning calls / discovery / repairs | 1 / 0 / 0 | 1 / 0 / 0 |
+| Estimated input tokens | 6,270 | 6,677 |
+| Planning median / p95 | 9.50 / 9.62 ms | 29.91 / 30.03 ms |
+| Execution median / p95 | 0.81 / 1.10 ms | 0.86 / 1.28 ms |
+| Total median / p95 | 10.30 / 10.72 ms | 30.69 / 30.88 ms |
+
+The new contract costs 407 estimated input tokens and about 20 ms of median host planning time in this fixture. Deterministic schema construction/factoring adds work; no universal call or latency reduction is claimed. The retained 74-operation catalog still fits its original 24,000-token ceiling after explicit inspections.
+
+Published execution initially exposed a test-configuration gap: Browser's `KeepBrowserOpen` setting prevents closure. Tests now pin it false inside disposable subprocess configuration and assert there is no active page after cleanup. The production/host setting remains unchanged. Retained [iteration findings](evidence/contract-aware-planning/iterations.json), [comparison samples](evidence/contract-aware-planning/comparison.json), [execution observations](evidence/contract-aware-planning/execution.json), [validation](evidence/contract-aware-planning/validation.json) and [manifest](evidence/contract-aware-planning/manifest.json) distinguish historical failures, deterministic adapters and real local component execution.

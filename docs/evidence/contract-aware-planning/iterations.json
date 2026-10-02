@@ -1,0 +1,39 @@
+{
+  "description": "Deterministic failures found during implementation; not paid runs and not pooled into historical benchmark results.",
+  "iterations": [
+    {
+      "finding": "Integral minLength and related JSON Schema keywords depended on int/long storage.",
+      "regression": "SchemaIntegerRepresentationTests",
+      "correction": "Use integral numeric value and Int64 bounds; preserve constraints."
+    },
+    {
+      "finding": "Typed agent response schema copied uniqueItems into an unsupported strict profile and nested to depth 14.",
+      "regression": "CapabilityAlternativeTests; TypedBindingSchemaTests",
+      "correction": "Keep uniqueness in full semantic validation and factor nested structured bindings into definitions."
+    },
+    {
+      "finding": "Definition pruning made count-based schema names collide; the projected output acquired an array schema.",
+      "regression": "CapabilityAlternativeTests; existing full request-schema suite",
+      "correction": "Allocate unused definition names and collapse aliases without overwriting definitions."
+    },
+    {
+      "finding": "Explicitly inspected retained contracts exceeded the original 24,000-token request ceiling.",
+      "regression": "RecordedTargetedDiscoveryTests.FullRetainedCatalogKeepsRequestedReviewContractsVisibleWithinSevenCalls",
+      "correction": "Lossless definition factoring, alias collapse and omitted empty context; unchanged limits and receipts."
+    },
+    {
+      "finding": "A transport error appended MODEL_DISPATCH_UNVERIFIABLE and changed the pending version-5 repair authority.",
+      "regression": "ComposedOutcomeTests.InterruptedMappingRepairReplaysIssuedVersionFiveWithoutResettingBudgets",
+      "correction": "Exclude transport-only evidence from version-5 permission authority; preserve original schema, budgets and versions 1\u20134."
+    },
+    {
+      "finding": "Published Browser configuration has KeepBrowserOpen=true, so the fixture cleanup oracle failed for all seven variants.",
+      "correction": "Pin KeepBrowserOpen=false, zero slow/hold time and loopback confinement only in disposable test process configuration; no host policy or production setting changed."
+    },
+    {
+      "finding": "The retained agent evidence schema required presence of exit_code but not success.",
+      "regression": "SharedWorkspaceExecutionTests verification variant",
+      "correction": "The new negative fixture explicitly declares const:0 and returns 1; compiler and execution then enforce that accepted declaration."
+    }
+  ]
+}
