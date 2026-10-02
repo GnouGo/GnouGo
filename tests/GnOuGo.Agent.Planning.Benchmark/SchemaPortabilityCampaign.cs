@@ -43,12 +43,24 @@ internal static class SchemaPortabilityCampaign
         }
         var campaignId = Option(args, "--campaign") ?? throw new ArgumentException("Supply a new --campaign.");
         var campaign = new BenchmarkCampaign(records, campaignId);
-        if (phase == "inspect") { Console.WriteLine((await campaign.InspectAsync()).ToJsonString()); return; }
+        if (phase == "inspect")
+        {
+            var diagnostic = await campaign.LoadAsync(Collection, "original-rejection");
+            if (diagnostic?["request_id"]?.ToString() is { } id && await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id) is { } journal)
+            {
+                var body = journal["transport"]?["Attempts"]?.AsArray().LastOrDefault()?["Body"]?.ToString();
+                var message = body is null ? null : JsonNode.Parse(body)?["error"]?["message"]?.ToString();
+                Console.WriteLine(new JsonObject { ["provider_message"] = message }.ToJsonString());
+            }
+            Console.WriteLine((await campaign.InspectAsync()).ToJsonString()); return;
+        }
         var leasePath = GnOuGoWorkspace.ResolveDatabasePath(null, root, ".GnOuGo/data/planning-evaluation/" + campaignId + ".lock");
         Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
         await using var lease = new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         if (Git("status", "--porcelain").Length != 0) throw new InvalidOperationException("Commit the tested source and harness before paid dispatch.");
         using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Model, campaign, root, CancellationToken.None);
+        if (phase is "readiness" or "plan" or "inspect-run")
+        { await LiveWorkflowEvaluation.RunAsync(args, phase, campaign, model, root); return; }
         if (phase == "diagnose")
         {
             const string key = "original-rejection";

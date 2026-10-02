@@ -22,6 +22,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
     private readonly ILLMClient _client;
     private readonly EcbExchangeRateProvider _rates;
     private readonly ModelMetadataUsageCostEstimator _estimator;
+    private readonly SemaphoreSlim _dispatchGate = new(1, 1);
     private KeyVaultBenchmarkModel(BenchmarkCampaign campaign, LLMOptions options)
     {
         _campaign = campaign; _options = options;
@@ -31,6 +32,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
     }
     internal string Model => _options.DefaultModel;
     internal string Provider => _options.DefaultProvider;
+    internal IReadOnlyDictionary<string, McpServerOptions> McpServers => _options.McpServers;
     internal static async Task<KeyVaultBenchmarkModel> CreateAsync(string providerName, string? expectedModel, BenchmarkCampaign campaign, string root, CancellationToken ct)
     {
         var services = new ServiceCollection(); services.AddLogging();
@@ -65,7 +67,11 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
         return dispatched;
     }
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
-        => await DispatchAsync(request, singleAttempt: false, ct);
+    {
+        await _dispatchGate.WaitAsync(ct);
+        try { return await DispatchAsync(request, singleAttempt: false, ct); }
+        finally { _dispatchGate.Release(); }
+    }
 
     internal Task<LLMResponse> DiagnosticAsync(LLMRequest request, CancellationToken ct)
         => DispatchAsync(request, singleAttempt: true, ct);
@@ -116,5 +122,61 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
             ["reserved_output_tokens"] = pending * record["output_ceiling"]!.GetValue<long>(),
             ["reserved_cost_eur"] = pending * record["cost_ceiling_eur"]!.GetValue<decimal>() };
     }
-    public void Dispose() => _http.Dispose();
+    internal async Task<(int Status, string ContentType, string Body)> ProxyInferenceAsync(string run, Dictionary<string, string> headers, string body, CancellationToken ct)
+    {
+        await _dispatchGate.WaitAsync(ct);
+        try
+        {
+            var endpoint = new Uri(_options.ResolveProvider(Provider)!.Url);
+            if (!headers.TryGetValue("X-GnOuGo-Inference-Upstream", out var upstreamText) || !Uri.TryCreate(upstreamText, UriKind.Absolute, out var upstream) ||
+                upstream.GetLeftPart(UriPartial.Authority) != endpoint.GetLeftPart(UriPartial.Authority) ||
+                !upstream.AbsolutePath.StartsWith(endpoint.AbsolutePath.TrimEnd('/') + "/", StringComparison.Ordinal))
+                throw new InvalidOperationException("Inference upstream is outside the pinned provider.");
+            if (!headers.TryGetValue("X-GnOuGo-Inference-Request", out var sdkId) || string.IsNullOrWhiteSpace(sdkId)) throw new InvalidOperationException("Missing SDK request identity.");
+            var payload = JsonNode.Parse(body)!.AsObject();
+            if (payload["model"]?.ToString() != Model) throw new InvalidOperationException("Execution model differs from the pinned model.");
+            var output = (payload["max_completion_tokens"] ?? payload["max_tokens"] ?? payload["max_output_tokens"])?.GetValue<int>();
+            if (output is null || output <= 0 || output > 32768) throw new InvalidOperationException("Execution inference lacks a bounded output allowance.");
+            var input = Math.Max(96000, Encoding.UTF8.GetByteCount(body));
+            if (input > 96000) throw new InvalidOperationException("Execution request exceeds the campaign input allowance.");
+            var id = run + "-copilot:" + PlanningGraphCompiler.Fingerprint(sdkId);
+            var request = new LLMRequest { ClientRequestId = id, Provider = Provider, Model = Model, Prompt = body, MaxTokens = output };
+            var price = _estimator.EstimateCostWithCurrency(Model, input, output.Value, Provider) ?? throw new InvalidOperationException("No model price metadata.");
+            var quote = await _rates.GetQuoteAsync(price.Currency, "EUR", ct) ?? throw new InvalidOperationException("No currency quote.");
+            var journal = new BenchmarkHttpJournal(_campaign, id, input, output.Value, price.Amount * quote.Rate);
+            var response = await _campaign.CallAsync(request, token => journal.PrepareAsync(token), async token =>
+            {
+                var state = await journal.LoadAsync(token) ?? new();
+                if (state.Attempts.Count != 0) throw new InvalidOperationException("Unknown SDK inference cannot be dispatched again.");
+                state.Fingerprint = PlanningGraphCompiler.Fingerprint(body); state.Attempts.Add(new() { Id = id });
+                await journal.SaveAsync(state, token);
+                using var message = new HttpRequestMessage(HttpMethod.Post, upstream) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+                foreach (var header in headers)
+                    if (!header.Key.StartsWith("X-GnOuGo-Inference-", StringComparison.OrdinalIgnoreCase) && header.Key is not ("Host" or "Content-Length" or "Content-Type"))
+                        message.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                using var result = await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, token);
+                var text = await result.Content.ReadAsStringAsync(token); var contentType = result.Content.Headers.ContentType?.ToString() ?? "application/json";
+                state.Attempts[0].Status = (int)result.StatusCode; state.Attempts[0].Body = text; state.Attempts[0].ContentType = contentType;
+                await journal.SaveAsync(state, CancellationToken.None);
+                JsonNode? usage = null;
+                if (contentType.StartsWith("text/event-stream", StringComparison.OrdinalIgnoreCase))
+                {
+                    foreach (var line in text.Split('\n').Where(l => l.StartsWith("data: ", StringComparison.Ordinal) && l != "data: [DONE]"))
+                    { var item = JsonNode.Parse(line[6..]); usage = item?["usage"] ?? item?["response"]?["usage"] ?? usage; }
+                }
+                else usage = JsonNode.Parse(text)?["usage"];
+                JsonObject? measured = null;
+                if (result.IsSuccessStatusCode && (usage?["input_tokens"] ?? usage?["prompt_tokens"])?.GetValue<long>() is { } usedInput &&
+                    (usage?["output_tokens"] ?? usage?["completion_tokens"])?.GetValue<long>() is { } usedOutput)
+                {
+                    var actual = _estimator.EstimateCostWithCurrency(Model, usedInput, usedOutput, Provider) ?? throw new InvalidOperationException("No model price metadata.");
+                    measured = await journal.CompleteAsync(new() { ["input_tokens"] = usedInput, ["output_tokens"] = usedOutput, ["benchmark_cost_eur"] = actual.Amount * quote.Rate }, CancellationToken.None);
+                }
+                return new LLMResponse { Text = text, Json = new JsonObject { ["status"] = (int)result.StatusCode, ["content_type"] = contentType }, Usage = measured };
+            }, ct);
+            return (response.Json!["status"]!.GetValue<int>(), response.Json["content_type"]!.ToString(), response.Text);
+        }
+        finally { _dispatchGate.Release(); }
+    }
+    public void Dispose() { _http.Dispose(); _dispatchGate.Dispose(); }
 }
