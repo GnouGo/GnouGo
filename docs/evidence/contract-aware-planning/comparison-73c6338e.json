@@ -1,6 +1,6 @@
 {
   "description": "Interleaved deterministic contract comparison on one candidate build, after one warm-up pair. No live provider baseline/candidate reliability claim.",
-  "productionCommit": "c20750e3a7ab4d2d2a6a2d4c97dafec3a82d0e31",
+  "productionCommit": "73c6338e04f35938d1c6e185ec93db07bfd995b1",
   "providerInputTokens": null,
   "providerOutputTokens": null,
   "providerCalls": 0,
@@ -12,9 +12,9 @@
       "repairs": 0,
       "discoveryReads": 0,
       "inputTokenEstimate": 6270,
-      "planningMs": 5.4075,
-      "executionMs": 0.587,
-      "totalMs": 5.9944999999999995,
+      "planningMs": 8.531,
+      "executionMs": 0.7615,
+      "totalMs": 9.2925,
       "executionSuccess": true,
       "oracleCorrect": true
     },
@@ -25,9 +25,9 @@
       "repairs": 0,
       "discoveryReads": 0,
       "inputTokenEstimate": 6677,
-      "planningMs": 19.8209,
-      "executionMs": 0.6397,
-      "totalMs": 20.460600000000003,
+      "planningMs": 29.9142,
+      "executionMs": 0.7758,
+      "totalMs": 30.69,
       "executionSuccess": true,
       "oracleCorrect": true
     },
@@ -38,9 +38,9 @@
       "repairs": 0,
       "discoveryReads": 0,
       "inputTokenEstimate": 6270,
-      "planningMs": 6.6295,
-      "executionMs": 0.5957,
-      "totalMs": 7.2252,
+      "planningMs": 9.6229,
+      "executionMs": 1.0964,
+      "totalMs": 10.7193,
       "executionSuccess": true,
       "oracleCorrect": true
     },
@@ -51,9 +51,9 @@
       "repairs": 0,
       "discoveryReads": 0,
       "inputTokenEstimate": 6677,
-      "planningMs": 17.7049,
-      "executionMs": 0.6722,
-      "totalMs": 18.3771,
+      "planningMs": 30.0262,
+      "executionMs": 0.8564,
+      "totalMs": 30.8826,
       "executionSuccess": true,
       "oracleCorrect": true
     },
@@ -64,9 +64,9 @@
       "repairs": 0,
       "discoveryReads": 0,
       "inputTokenEstimate": 6270,
-      "planningMs": 6.4697,
-      "executionMs": 0.6044,
-      "totalMs": 7.0741,
+      "planningMs": 9.4954,
+      "executionMs": 0.809,
+      "totalMs": 10.3044,
       "executionSuccess": true,
       "oracleCorrect": true
     },
@@ -77,9 +77,9 @@
       "repairs": 0,
       "discoveryReads": 0,
       "inputTokenEstimate": 6677,
-      "planningMs": 17.2547,
-      "executionMs": 0.6696,
-      "totalMs": 17.9243,
+      "planningMs": 26.6891,
+      "executionMs": 1.2773,
+      "totalMs": 27.9664,
       "executionSuccess": true,
       "oracleCorrect": true
     }
@@ -93,16 +93,16 @@
         "p95NearestRank": 6270
       },
       "planningMs": {
-        "median": 6.4697,
-        "p95NearestRank": 6.6295
+        "median": 9.4954,
+        "p95NearestRank": 9.6229
       },
       "executionMs": {
-        "median": 0.5957,
-        "p95NearestRank": 0.6044
+        "median": 0.809,
+        "p95NearestRank": 1.0964
       },
       "totalMs": {
-        "median": 7.0741,
-        "p95NearestRank": 7.2252
+        "median": 10.3044,
+        "p95NearestRank": 10.7193
       }
     },
     "outcome-v2": {
@@ -113,16 +113,16 @@
         "p95NearestRank": 6677
       },
       "planningMs": {
-        "median": 17.7049,
-        "p95NearestRank": 19.8209
+        "median": 29.9142,
+        "p95NearestRank": 30.0262
       },
       "executionMs": {
-        "median": 0.6696,
-        "p95NearestRank": 0.6722
+        "median": 0.8564,
+        "p95NearestRank": 1.2773
       },
       "totalMs": {
-        "median": 18.3771,
-        "p95NearestRank": 20.460600000000003
+        "median": 30.69,
+        "p95NearestRank": 30.8826
       }
     }
   }

@@ -1,13 +1,13 @@
 {
   "baseCommit": "92037fd0",
-  "productionCommit": "73c6338e04f35938d1c6e185ec93db07bfd995b1",
+  "productionCommit": "c20750e3a7ab4d2d2a6a2d4c97dafec3a82d0e31",
   "harnessHashes": {
     "tests/GnOuGo.Flow.Planning.Tests/Fixtures/ContractAwarePlanning/retained-products.json": "78090b88f8c7ea992e37c01ce602d936488b2241a148b5587b4625f5a4c5456c",
     "tests/GnOuGo.Flow.Planning.Tests/Fixtures/ContractAwarePlanning/retained-copilot.json": "93c4cb71ecfd6e0a6fc8e5852fcb7effa14b3c665299317891656a2d98c15f3e",
-    "tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.cs": "ef6f7868af56189ccadc678b87043f022ed1f5142e4286a80ebc0efa24714906",
+    "tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.cs": "886f31da857064ef26dd7ca10ed9cca2cb9a946f07f2b8306d1696776e301922",
     "tests/GnOuGo.Agent.Server.Tests/SharedWorkspaceExecutionTests.cs": "21e48c9bbe52ec7aa46849c0161dd1946145eb49b95d2f67c725bd89b700a19a",
     "tests/GnOuGo.Flow.Planning.Tests/PlanningOutcomeTests.cs": "9aaa42de51bae026fb45e79f02c64aa8c20edf4e7384f2230e207e9323581621",
-    "tests/GnOuGo.Flow.Planning.Tests/ComposedOutcomeTests.cs": "5712fb1c25643c03db2b1645d0e9352b5ad27df00724c0569648f2389dea145f",
+    "tests/GnOuGo.Flow.Planning.Tests/ComposedOutcomeTests.cs": "71868eccb5cb99821cc99f04337bcd7f50c858d354b99c19d1829faf0d4daadb",
     "tests/GnOuGo.Flow.Planning.Tests/CapabilityAlternativeTests.cs": "fb22b10b1605f6fe638ed697f9d47cc4144da7e104a8e6dd767a835b6f6b3855"
   },
   "environment": {
@@ -31,11 +31,14 @@
   "commands": [
     "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror --logger trx",
     "dotnet test tests/GnOuGo.Flow.Planning.Tests --no-build --filter FullyQualifiedName~ComparableContractOverhead --logger 'console;verbosity=detailed'",
-    "dotnet test tests/GnOuGo.Agent.Server.Tests -m:1 -warnaserror -p:SkipClientBuild=true --filter FullyQualifiedName~LocalProductOutcomeExecutionTests --logger trx"
+    "dotnet test tests/GnOuGo.Agent.Server.Tests -m:1 -warnaserror -p:SkipClientBuild=true --filter FullyQualifiedName~LocalProductOutcomeExecutionTests --logger trx",
+    "dotnet publish src/GnOuGo.Agent.Server -c Release -r osx-arm64 --self-contained true -m:1 -warnaserror -p:PublishTrimmed=true -p:PublishAot=false -p:UseAppHost=true -p:SkipClientBuild=true -p:SkipBundledServerTools=true -o artifacts/contract-aware/server",
+    "artifacts/contract-aware/server/GnOuGo.Agent.Server --planning-persistence-smoke <disposable-directory>"
   ],
   "providerInputTokens": null,
   "providerOutputTokens": null,
   "paidDispatches": 0,
   "historical33Of33Changed": false,
-  "harnessCommit": "3ac60adda215a7a63fd69225e04ba6ba4133c0ab"
+  "harnessCommit": "c20750e3a7ab4d2d2a6a2d4c97dafec3a82d0e31",
+  "earlierIsolatedComparison": "comparison-73c6338e.json"
 }

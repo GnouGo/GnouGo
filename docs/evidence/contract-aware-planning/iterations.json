@@ -45,6 +45,10 @@
       "evidence": "https://github.com/GnouGo/GnouGo/actions/runs/36976503919",
       "correction": "Clear ambient fixture configuration and bind one loopback ephemeral listener. Keep production configuration unchanged and install Chromium system dependencies in both CI hosts.",
       "recheck": "All seven variants passed locally with the same two conflicting ambient endpoints."
+    },
+    {
+      "finding": "The final server publish command omitted PublishAot=false and a referenced Files project entered its experimental AOT query-precompilation path, promoting the existing EF notices to errors.",
+      "correction": "Use the documented managed/trimmed server profile with PublishAot=false and UseAppHost=true; keep -warnaserror and preserve all source/build policy."
     }
   ]
 }

@@ -1,9 +1,9 @@
 {
-  "sourceCommit": "73c6338e04f35938d1c6e185ec93db07bfd995b1",
+  "sourceCommit": "c20750e3a7ab4d2d2a6a2d4c97dafec3a82d0e31",
   "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror --logger trx",
   "projects": [
     {
-      "project": "DocIngestor.Tests",
+      "project": "GnOuGo.DocIngestor.Tests",
       "passed": 89,
       "failed": 0,
       "total": 89,
@@ -200,9 +200,9 @@
     },
     {
       "project": "GnOuGo.Flow.Planning.Tests",
-      "passed": 788,
+      "passed": 794,
       "failed": 0,
-      "total": 788,
+      "total": 794,
       "skipped": 0
     },
     {
@@ -235,19 +235,19 @@
     }
   ],
   "existingSkippedTests": [
-    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 0)",
-    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: False)",
-    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 3)",
-    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: True)",
     "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"using namespace System\\n[Console]::WriteLine('names\"\u00b7\u00b7\u00b7, expected: \"namespace declaration\", exitCode: 0)",
     "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.DefaultLaunchUsesOnlyTheSelectedShellsBuiltInModulePath",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: False)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 3)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 0)",
     "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"param([string]$text = 'parameter default'); [Conso\"\u00b7\u00b7\u00b7, expected: \"parameter default\", exitCode: 3)",
+    "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: True)",
     "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission",
-    "GnOuGo.GithubCopilot.E2E.Tests.LivePullRequestReviewTests.ConfiguredOpenAiProvider_CanReviewExactDiffWithoutPublishing",
     "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: False, bounded: False, executeTests: True)",
     "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: False)",
+    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: True)",
     "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: False, executeTests: True)",
-    "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: True)"
+    "GnOuGo.GithubCopilot.E2E.Tests.LivePullRequestReviewTests.ConfiguredOpenAiProvider_CanReviewExactDiffWithoutPublishing"
   ],
   "additionalChecks": {
     "planningNativeAot": "passed",
@@ -270,15 +270,27 @@
         "passed": 7,
         "total": 7
       },
-      "harnessRevision": "3ac60adda215a7a63fd69225e04ba6ba4133c0ab",
-      "note": "Exact error-code/method and disposable-parent assertions were strengthened after the full solution run; all seven cases are rerun on both development and published components."
+      "harnessRevision": "c20750e3a7ab4d2d2a6a2d4c97dafec3a82d0e31",
+      "note": "The complete final suite includes exact error-code/method, disposable-parent, XLSX and cleanup oracles. The local-site host ignores ambient endpoints; all seven cases also pass with two conflicting injected Kestrel endpoints."
     }
   },
   "totals": {
     "projects": 33,
-    "total": 3993,
-    "passed": 3980,
+    "total": 3999,
+    "passed": 3986,
     "failed": 0,
     "skipped": 13
+  },
+  "ci": {
+    "sourceCommit": "c20750e3a7ab4d2d2a6a2d4c97dafec3a82d0e31",
+    "deterministicPlanner": {
+      "status": "success",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/36977798575"
+    },
+    "stableDotnetAgentServerAndLinuxPublication": {
+      "status": "success",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/36977798927"
+    },
+    "scope": "Named jobs passed on the implementation commit. Unrelated desktop/container matrix jobs may still be running; this report does not claim their completion."
   }
 }
