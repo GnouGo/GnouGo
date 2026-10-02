@@ -1,5 +1,7 @@
 # Safe planning recovery and live execution blockers
 
+> Historical implementation evidence. The outcome annotations and repair versions described below are superseded by [business TaskPlan simplification](planner-simplification.md). Measurements and failed cohorts remain unchanged.
+
 ## Reproduced failure
 
 Designer session `40944cd07bd54be5823f47ad019e131e` retained a valid response despite

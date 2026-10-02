@@ -1,6 +1,6 @@
 # Executable support for accepted outcomes
 
-This document retains version-1 diagnosis and measurements. Fresh sessions now use [outcome version 2 and contract-aware generation](planning-contract-aware-outcomes.md); historical evidence below is unchanged.
+This document retains version-1 diagnosis and measurements. Fresh sessions now use [business requirements plus TaskPlan](planner-simplification.md), without outcome proofs; historical evidence below is unchanged.
 
 Session `cb5a5d2d946246948aaa66597209b6f0` retained its original request, but its generated workflow did not implement it. Two discovery responses omitted requirements and were rejected, consuming two repairs. The third response used a transformation for external work and a constant describing cleanup. Offline replay confirmed that compilation and artifact validation accepted that historical plan. No clarification questions or answers occurred.
 

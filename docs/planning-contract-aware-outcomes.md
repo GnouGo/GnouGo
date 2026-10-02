@@ -1,5 +1,7 @@
 # Contract-aware generation and compositional outcomes
 
+> Historical implementation evidence. The outcome annotations and repair versions described below are superseded by [business TaskPlan simplification](planner-simplification.md). Measurements and failed cohorts remain unchanged.
+
 This correction covers Copilot session `4ad7dd6c82af4bd3924ea25a3edc44cd` and product-search session `fba8eeb59c3240c8b147267abff64945`. Sanitized responses, issued requests, diagnostics and repair history are retained in `tests/GnOuGo.Flow.Planning.Tests/Fixtures/ContractAwarePlanning`. Neither saved workflow is modified or rerun.
 
 The Copilot proposal bound prose to an evidence array and used a runtime clone result as the approved workspace, although creation already specified a fixed destination. Two repairs missed both bindings. A numeric schema-reader defect also rejected integral `minLength: 1`. The recorded runner supports files, not command execution: correcting types and scope cannot authorize installation/testing.
