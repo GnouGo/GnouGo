@@ -1,5 +1,7 @@
 # GnOuGo.GithubCopilot.Mcp
 
+Interactive permission and business-question callbacks are serialized within each MCP invocation, including captured asynchronous callbacks. Each question still requires its own answer and retains cancellation, tenant context and permission checks. MCP SDK 2.2.0 has a separate ten-round input-required limit; sufficiently long interactive calls can still stop at that limit. See the [live validation evidence](../../docs/planning-schema-portability-2026-10-02.md).
+
 MCP stdio server for safe code operations on a local project.
 
 Optional `Code:Copilot:InferenceProxyEndpoint` routes both managed Copilot sessions

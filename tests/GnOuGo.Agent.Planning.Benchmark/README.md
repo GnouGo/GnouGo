@@ -308,3 +308,46 @@ replenish an allowance or raise the campaign ceiling.
 
 Execution journals and the real Copilot edit/test limitation remain unchanged. Mocked
 workflow outcomes do not establish real sandboxed Copilot command execution.
+
+## Authorized schema-portability live campaign
+
+The [schema-portability report](../../docs/planning-schema-portability-2026-10-02.md)
+retains the original provider rejection, diagnostic iterations and separate frozen
+cohorts. This campaign performs paid inference and real external execution only
+under the explicit authorization recorded for `schema-portability-20261002`.
+It shares one encrypted EUR 50 ledger across planning, Flow inference and intercepted
+Copilot SDK inference. Missing receipts retain conservative reservations.
+
+Build a clean committed checkout before collection. Keep the same source and
+configuration for every run within a cohort; a changed candidate requires a new
+cohort identity under the same campaign. Do not repeat the original diagnostic.
+
+```sh
+dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror -p:SkipClientBuild=true
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability plan --workspace "$GNOU_GO_WORKSPACE" \
+  --campaign schema-portability-20261002 --cohort final4 --case amazon --run final4-amazon-1
+# Review the retained artifact first, then provide its exact printed hash:
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability execute --workspace "$GNOU_GO_WORKSPACE" \
+  --campaign schema-portability-20261002 --cohort final4 --case amazon --run final4-amazon-1 \
+  --artifact-hash <reviewed-artifact-hash>
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability report --workspace "$GNOU_GO_WORKSPACE" \
+  --campaign schema-portability-20261002 --cohort final4
+```
+
+Use repetitions 1–3 for `amazon` and `code`, preserving every failed slot. Execution
+requires a terminal with explicit human answers. Recommendations never approve a
+call, and a started execution cannot be replayed. Browser debug `KeepBrowserOpen`
+is disabled only in the spawned disposable process so cleanup can be checked.
+Code feedback remains local; GitHub publication is excluded and untested.
+
+`inspect-run --run <identity>` returns private retained requests, responses,
+execution events and oracles; redirect only to an access-restricted local file.
+`report` returns sanitized counters and rejects mismatched or missing manifests.
+`discovery_reads` counts actual MCP `tools/list` calls. Planning/execution latency
+includes human waiting; provider attempts, verified tokens, unknown reservations
+and costs are separate. Costs are provider-usage/FX estimates, not invoices.
+Absent and interrupted runs stay in the six-run denominator. Compilation or
+FinalReview alone never passes the execution gate.

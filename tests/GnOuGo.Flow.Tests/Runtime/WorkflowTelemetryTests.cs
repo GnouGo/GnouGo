@@ -491,7 +491,7 @@ workflows:
         Assert.Equal("stop", llmSpan.Attributes["gen_ai.response.finish_reason"]);
         Assert.Equal(10L, llmSpan.Attributes["gen_ai.usage.input_tokens"]);
         Assert.Equal(20L, llmSpan.Attributes["gen_ai.usage.output_tokens"]);
-        Assert.Equal(30, llmSpan.Attributes["gen_ai.usage.total_tokens"]);
+        Assert.Equal(30L, llmSpan.Attributes["gen_ai.usage.total_tokens"]);
         Assert.Equal(ExpectedCost("gpt-5.5", 10, 20, "openai"), Assert.IsType<double>(llmSpan.Attributes["gen_ai.usage.cost"]), precision: 8);
     }
 

@@ -785,6 +785,7 @@ public sealed partial class ConfigureProvidersServiceTests
         var agentMcpAddress = $"http://127.0.0.1:{agentMcpPort}";
         var app = AgentMcpWebHost.Build([
             $"--Agent:DatabasePath={dbPath}",
+            "--OtlpCollector:Enabled=false",
             $"--Kestrel:Endpoints:Http:Url={agentMcpAddress}"
         ], urls: agentMcpAddress);
 
