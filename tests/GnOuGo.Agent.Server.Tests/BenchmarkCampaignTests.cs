@@ -11,6 +11,29 @@ public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     [Fact]
+    public async Task LiveReportsRejectMissingManifestsAndRetainInterruptedRuns()
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "interrupted-live");
+        var run = new JsonObject { ["phase"] = "final" };
+        await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:final-amazon-1", run, Ct);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => LiveCampaignEvidence.ReportAsync(campaign));
+        var manifest = new JsonObject { ["production_sha"] = "frozen" };
+        await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "final-manifest", manifest, Ct);
+        run["manifest"] = manifest.DeepClone();
+        await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:final-amazon-1", run, Ct);
+        var report = await LiveCampaignEvidence.ReportAsync(campaign);
+        Assert.Equal("interrupted", report["runs"]![0]!["status"]!.ToString());
+        Assert.Equal(6, report["runs"]!.AsArray().Count);
+        Assert.Equal(0, report["passed"]!.GetValue<int>());
+        run["result"] = new JsonObject { ["status"] = "final_review", ["execution_oracle"] = true };
+        run["execution_started"] = "retained-before-dispatch";
+        await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:final-amazon-1", run, Ct);
+        report = await LiveCampaignEvidence.ReportAsync(campaign);
+        Assert.Equal("interrupted", report["runs"]![0]!["execution_status"]!.ToString());
+        Assert.Equal(0, report["passed"]!.GetValue<int>());
+    }
+
+    [Fact]
     public void ExecutionInputLimitCountsTokensInsteadOfJsonBytes()
     {
         var body = new JsonObject { ["messages"] = new JsonArray(new JsonObject { ["role"] = "user", ["content"] = string.Concat(Enumerable.Repeat("A local repository file.\n", 6000)) }) }.ToJsonString();

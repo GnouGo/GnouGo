@@ -10,6 +10,34 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class LlmCallStructuredOutputValidationTests
 {
+    [Theory]
+    [InlineData("int")]
+    [InlineData("long")]
+    [InlineData("parsed")]
+    public async Task ValidUsageIntegersDoNotTurnCompletedInferenceIntoNetworkFailure(string representation)
+    {
+        var usage = representation switch
+        {
+            "int" => new JsonObject { ["input_tokens"] = 47546, ["output_tokens"] = 147, ["total_tokens"] = 47693 },
+            "long" => new JsonObject { ["input_tokens"] = 47546L, ["output_tokens"] = 147L, ["total_tokens"] = 47693L },
+            _ => JsonNode.Parse("""{"input_tokens":2147483648,"output_tokens":147,"total_tokens":2147483795}""")!.AsObject()
+        };
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse { Json = new JsonObject { ["observed"] = true }, Usage = usage });
+        var result = await RunMainAsync("""
+        schema_inline:
+          type: object
+          properties:
+            observed: { type: boolean }
+          required: [observed]
+          additionalProperties: false
+        strict: true
+        """, llm.Object);
+        Assert.True(result.Success, result.Error?.Message);
+        llm.Verify(client => client.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private static async Task<RunResult> RunMainAsync(string structuredOutputYaml, ILLMClient llm)
     {
         var document = WorkflowParser.Parse($$"""

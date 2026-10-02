@@ -661,7 +661,7 @@ public sealed class LLMUsageBudgetScope
         return new ParsedUsage(input, output, total.Value);
     }
 
-    private static long? ReadLong(JsonObject obj, string key)
+    internal static long? ReadLong(JsonObject obj, string key)
     {
         if (!obj.TryGetPropertyValue(key, out var node) || node is not JsonValue value)
             return null;

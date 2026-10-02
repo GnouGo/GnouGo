@@ -14,6 +14,7 @@ internal static class LiveCampaignEvidence
             ["host_configuration_hash"] = configurationFingerprint,
             ["max_input_tokens"] = 96000, ["max_output_tokens"] = 32768,
             ["planning_attempts"] = 8, ["repairs"] = 2, ["cost_ceiling_eur"] = 50,
+            ["browser_keep_open"] = false,
             ["os"] = RuntimeInformation.OSDescription, ["architecture"] = RuntimeInformation.ProcessArchitecture.ToString(),
             ["framework"] = RuntimeInformation.FrameworkDescription,
             ["amazon_prompt"] = PlanningGraphCompiler.Fingerprint(LiveWorkflowEvaluation.AmazonPrompt),
@@ -70,9 +71,15 @@ internal static class LiveCampaignEvidence
             {
                 var label = $"{cohort}-{scenario}-{repetition}";
                 var run = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:" + label);
-                if (run is not null && run["manifest"] is JsonObject manifest)
-                    RequireMatch((await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, cohort + "-manifest"))!, manifest);
-                var result = run?["result"]?.DeepClone().AsObject() ?? new JsonObject { ["status"] = "not_started", ["execution_oracle"] = false };
+                if (run is not null)
+                {
+                    if (run["manifest"] is not JsonObject manifest || await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, cohort + "-manifest") is not { } saved)
+                        throw new InvalidOperationException("An existing final run has no comparable manifest.");
+                    RequireMatch(saved, manifest);
+                }
+                var result = run?["result"]?.DeepClone().AsObject() ?? new JsonObject { ["status"] = run is null ? "not_started" : "interrupted", ["execution_oracle"] = false };
+                if (run?["execution_started"] is not null && run["execution_ms"] is null)
+                { result["execution_status"] = "interrupted"; result["execution_oracle"] = false; }
                 if (result["execution_oracle"]?.GetValue<bool>() == true) passed++;
                 result["run"] = label; result["accounting"] = await AccountingAsync(campaign, label); rows.Add(result);
             }

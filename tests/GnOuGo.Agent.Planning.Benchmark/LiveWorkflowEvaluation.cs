@@ -155,6 +155,9 @@ internal static class LiveWorkflowEvaluation
             if (!File.Exists(assembly)) throw new InvalidOperationException("Build the current MCP first: " + key);
             clone.Type = "stdio"; clone.Command = "dotnet"; clone.Args = [assembly];
             clone.EnvironmentVariables ??= new();
+            // This disposable evaluation must exercise the workflow's cleanup.
+            // Override only the spawned browser's debug setting, not saved host policy.
+            if (name == "Browser") clone.EnvironmentVariables["Browser__KeepBrowserOpen"] = "false";
             if (name == "GithubCopilot") clone.EnvironmentVariables["Code__Copilot__InferenceProxyEndpoint"] = inferenceEndpoint;
             result.Add(key, clone);
         }
