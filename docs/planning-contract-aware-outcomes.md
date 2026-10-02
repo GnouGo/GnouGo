@@ -20,7 +20,7 @@ Agent scope remains literal. Fixed creation arguments become read-only repair co
 
 ## Outcome version 2 and repair version 5
 
-Bindings describe a supporting computation within the existing TaskPlan. Resolved, policy-allowed operations witness the accepted effect. Connected prerequisites, consumers, transforms and structural containers may contribute. A shared predecessor alone does not make an unrelated sibling relevant. Root outputs may report results but never witness external work.
+Bindings describe a supporting computation within the existing TaskPlan. Resolved, policy-allowed operations witness the accepted effect. Connected prerequisites, consumers, transforms and structural containers may contribute. Dependencies follow consumed group inputs, captured values and enclosing loop/branch controls. Unused arguments and unreachable calls cannot lend support. A shared predecessor alone does not make an unrelated sibling relevant. Root outputs may report results but never witness external work.
 
 Traversal covers invoked groups, branches, sequential/parallel loops and cleanup. `coverage: "once"` (also the absent-field meaning) requires an invocation on every required path. `coverage: "each_item"` binds an existing `forEachTaskId` and requires a witness on every body path. Empty collections satisfy per-item coverage without claiming an invocation. Conditional and cleanup guarantees stay explicit. Missing effects produce `OUTCOME_EFFECT_UNDECLARED` instead of misclassifying real operations as values.
 

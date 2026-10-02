@@ -20,6 +20,11 @@ internal static class PlanningOutcomeCoverage
         { Fail("OUTCOME_BINDINGS_INVALID", "/outcomeBindings", "Bind every accepted outcome exactly once."); return findings; }
         var symbols = new TaskPlanSymbols(state.Plan);
         var groups = state.Plan.Groups.ToDictionary(g => g.Id, StringComparer.Ordinal);
+        var groupScopes = state.Plan.Groups.ToDictionary(g => g.Body);
+        var scopes = symbols.Scopes.ToDictionary(s => s.Source);
+        var callable = Reach(state.Plan.Root, false, true).Select(r => r.Id).ToHashSet(StringComparer.Ordinal);
+        var callers = symbols.Tasks.Values.Where(s => s.Task.Kind == "call" && s.Task.Group is not null && callable.Contains(s.Task.Id))
+            .ToLookup(s => s.Task.Group!, StringComparer.Ordinal);
         var links = symbols.Tasks.Keys.ToDictionary(k => k, _ => new HashSet<string>(StringComparer.Ordinal), StringComparer.Ordinal);
         void Link(string a, string? b)
         { if (b is not null && links.ContainsKey(b)) links[a].Add(b); }
@@ -28,10 +33,10 @@ internal static class PlanningOutcomeCoverage
             foreach (var dependency in site.Task.DependsOn) Link(id, dependency);
             foreach (var value in site.Task.Inputs.Concat(site.Task.Outputs).Select(v => v.Value)
                 .Concat(site.Task.Items is { } items ? [items] : []).Concat(site.Task.Condition is { } condition ? [condition] : []))
-                foreach (var reference in TaskPlanCompiler.Values(value).Where(v => v.Kind is "output" or "present")) Link(id, reference.Source);
+                foreach (var producer in Producers(value, site.Scope, [])) Link(id, producer);
+            LinkControls(id, site.Scope, []);
             foreach (var scope in Children(site.Task, true))
-                foreach (var reference in scope.Outputs.SelectMany(o => TaskPlanCompiler.Values(o.Value)).Where(v => v.Kind is "output" or "present"))
-                    Link(id, reference.Source);
+                foreach (var producer in scope.Outputs.SelectMany(o => Producers(o.Value, scopes[scope], []))) Link(id, producer);
         }
         foreach (var outcome in outcomes)
         {
@@ -121,6 +126,48 @@ internal static class PlanningOutcomeCoverage
         }
         return findings;
 
+        // Follow the actual group arguments and captured values. Containment alone is
+        // not a dependency: connecting all children through their parent would admit
+        // unrelated siblings or unused group arguments as execution evidence.
+        IEnumerable<string> Producers(TaskValue value, TaskPlanSymbols.Scope scope, HashSet<(TaskValue, TaskPlanSymbols.Scope)> visited)
+        {
+            if (!visited.Add((value, scope))) yield break;
+            foreach (var reference in TaskPlanCompiler.Values(value))
+            {
+                if (reference.Kind is "output" or "present" && reference.Source is { } source) yield return source;
+                else if (reference.Kind == "input")
+                {
+                    var root = scope; while (root.Parent is not null) root = root.Parent;
+                    if (groupScopes.TryGetValue(root.Source, out var group))
+                        foreach (var caller in callers[group.Id])
+                            foreach (var argument in caller.Task.Inputs.Where(i => i.Name == reference.Source))
+                                foreach (var producer in Producers(argument.Value, caller.Scope, visited)) yield return producer;
+                }
+                else if (reference.Kind == "choice")
+                {
+                    var choice = state.Plan.Choices.SingleOrDefault(c => c.Id == reference.Source);
+                    if (choice?.Alternatives.SingleOrDefault(a => a.Id == choice.Selected) is { } alternative)
+                        foreach (var producer in Producers(alternative.Value, scope, visited)) yield return producer;
+                }
+            }
+        }
+        void LinkControls(string id, TaskPlanSymbols.Scope scope, HashSet<TaskPlanSymbols.Scope> visited)
+        {
+            if (!visited.Add(scope)) return;
+            if (scope.Parent is { } parent && scope.Owner is { } owner)
+            {
+                foreach (var dependency in owner.DependsOn) Link(id, dependency);
+                foreach (var value in new[] { owner.Items, owner.Condition }.OfType<TaskValue>())
+                    foreach (var producer in Producers(value, parent, [])) Link(id, producer);
+                LinkControls(id, parent, visited);
+            }
+            else if (groupScopes.TryGetValue(scope.Source, out var group))
+                foreach (var caller in callers[group.Id])
+                {
+                    foreach (var dependency in caller.Task.DependsOn) Link(id, dependency);
+                    LinkControls(id, caller.Scope, visited);
+                }
+        }
         IEnumerable<TaskScope> Children(PlanTask task, bool perItem)
         {
             if (task.Kind == "call") return groups.TryGetValue(task.Group ?? "", out var group) ? [group.Body] : [];

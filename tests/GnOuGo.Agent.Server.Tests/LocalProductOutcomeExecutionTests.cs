@@ -12,6 +12,7 @@ using GnOuGo.Flow.Integrations;
 using GnOuGo.Flow.Planning;
 using GnOuGo.Planning.Examples;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -32,8 +33,9 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("gnougo-local-products-").FullName;
         var workspace = Path.Combine(root, "workspace"); Directory.CreateDirectory(workspace);
-        var builder = WebApplication.CreateBuilder(); builder.Logging.ClearProviders();
-        await using var site = builder.Build(); site.Urls.Add("http://127.0.0.1:0");
+        var builder = WebApplication.CreateBuilder(); builder.Configuration.Sources.Clear();
+        builder.WebHost.ConfigureKestrel(o => o.Listen(System.Net.IPAddress.Loopback, 0)); builder.Logging.ClearProviders();
+        await using var site = builder.Build();
         var visits = new List<string>();
         site.MapGet("/{**path}", async (HttpContext context) =>
         {

@@ -34,6 +34,17 @@
       "finding": "The retained agent evidence schema required presence of exit_code but not success.",
       "regression": "SharedWorkspaceExecutionTests verification variant",
       "correction": "The new negative fixture explicitly declares const:0 and returns 1; compiler and execution then enforce that accepted declaration."
+    },
+    {
+      "finding": "A producer feeding an invoked group input or enclosing loop control was rejected as disconnected in four compiled regressions.",
+      "regression": "ComposedOutcomeTests.ScopeInputsAndIterationControlConnectOnlyTheirActualProducers; UnusedArgumentsAndUnreachableGroupCallsCannotLendSupport",
+      "correction": "Follow consumed group arguments, captured values and enclosing control prerequisites; exclude unreachable callers and retain directed traversal so unrelated siblings and unused arguments remain rejected."
+    },
+    {
+      "finding": "Both Linux CI test jobs failed all seven local product variants because the fixture inherited multiple host Kestrel endpoints. Reproduced locally by injecting two Kestrel endpoint environment values.",
+      "evidence": "https://github.com/GnouGo/GnouGo/actions/runs/36976503919",
+      "correction": "Clear ambient fixture configuration and bind one loopback ephemeral listener. Keep production configuration unchanged and install Chromium system dependencies in both CI hosts.",
+      "recheck": "All seven variants passed locally with the same two conflicting ambient endpoints."
     }
   ]
 }

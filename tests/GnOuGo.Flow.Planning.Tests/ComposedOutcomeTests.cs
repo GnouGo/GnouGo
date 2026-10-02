@@ -131,6 +131,64 @@ public sealed class ComposedOutcomeTests
     }
 
     [Theory]
+    [InlineData("group", false)]
+    [InlineData("group", true)]
+    [InlineData("loop", false)]
+    [InlineData("loop", true)]
+    public async Task ScopeInputsAndIterationControlConnectOnlyTheirActualProducers(string boundary, bool nested)
+    {
+        var state = await State(); var operation = state.Plan!.Root.Tasks[0];
+        state.Catalog!.Capabilities.Single(c => c.Id == "external").InputSchema = JsonNode.Parse("""{"type":"object","properties":{"payload":{"type":"string"}},"required":["payload"],"additionalProperties":false}""")!.AsObject();
+        var seed = new PlanTask { Id = "seed", Kind = "value", Objective = "Prepare the requested data", Outputs = [new("payload", boundary == "group" ? PlanningCorpus.String("content") : new() { Kind = "array", Items = [PlanningCorpus.String("content")] })] };
+        var body = new TaskScope { Tasks = [operation] };
+        if (nested) body = new() { Tasks = [new() { Id = "nested", Kind = "sequence", Objective = "Nested work", Body = body }] };
+        PlanTask container;
+        if (boundary == "group")
+        {
+            operation.Inputs = [new("payload", PlanningCorpus.Business("input", "payload"))];
+            state.Plan.Groups = [new() { Id = "worker", Inputs = [new() { Name = "payload", Type = new() { Kind = "string" } }], Body = body }];
+            container = new() { Id = "invoke", Kind = "call", Objective = "Perform grouped work", Group = "worker", Inputs = [new("payload", PlanningCorpus.Business("output", "seed", "payload"))] };
+        }
+        else
+        {
+            // Even an operation using a literal is controlled by the collection source.
+            operation.Inputs = [new("payload", PlanningCorpus.String("content"))];
+            container = new() { Id = "invoke", Kind = "foreach", Objective = "Perform each item", Parallel = nested, Items = PlanningCorpus.Business("output", "seed", "payload"), Body = body };
+            state.Requirements!.Outcomes[0] = state.Requirements.Outcomes[0] with { Coverage = "each_item" };
+        }
+        state.Plan.Root.Tasks = [seed, container];
+        state.OutcomeBindings = [new("work", ["seed", "invoke"], ["report"]) { ForEachTaskId = boundary == "loop" ? "invoke" : null }];
+        Assert.Empty(new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Diagnostics);
+        Assert.Empty(PlanningOutcomeValidation.Findings(state));
+        state.Plan.Root.Tasks.Add(new() { Id = "sibling", Kind = "value", Objective = "Unrelated sibling", Outputs = [new("payload", PlanningCorpus.Business("output", "seed", "payload"))] });
+        state.OutcomeBindings[0].TaskIds.Add("sibling");
+        Assert.Contains(PlanningOutcomeValidation.Findings(state), d => d.Code == "OUTCOME_SUPPORT_DISCONNECTED");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UnusedArgumentsAndUnreachableGroupCallsCannotLendSupport(bool unreachable)
+    {
+        var state = await State(); var operation = state.Plan!.Root.Tasks[0];
+        var seed = new PlanTask { Id = "seed", Kind = "value", Objective = "Other data", Outputs = [new("payload", PlanningCorpus.String("unrelated"))] };
+        state.Plan.Groups = [new() { Id = "worker", Inputs = [new() { Name = "payload", Type = new() { Kind = "string" } }], Body = new() { Tasks = [operation] } }];
+        var call = new PlanTask { Id = "invoke", Kind = "call", Objective = "Perform work", Group = "worker", Inputs = [new("payload", PlanningCorpus.Business("output", "seed", "payload"))] };
+        state.Plan.Root.Tasks = [seed, call];
+        if (unreachable)
+        {
+            state.Catalog!.Capabilities.Single(c => c.Id == "external").InputSchema = JsonNode.Parse("""{"type":"object","properties":{"payload":{"type":"string"}},"required":["payload"],"additionalProperties":false}""")!.AsObject();
+            operation.Inputs = [new("payload", PlanningCorpus.Business("input", "payload"))];
+            call.Inputs = [new("payload", PlanningCorpus.String("used"))];
+            state.Plan.Root.Tasks.Add(new() { Id = "skipped", Kind = "conditional", Objective = "Unreachable work", Condition = new() { Kind = "boolean", Boolean = false },
+                Body = new() { Tasks = [new() { Id = "unreachable", Kind = "call", Objective = "Unused invocation", Group = "worker", Inputs = [new("payload", PlanningCorpus.Business("output", "seed", "payload"))] }] }, Otherwise = new() });
+        }
+        state.OutcomeBindings = [new("work", ["seed", "invoke"], ["report"])];
+        Assert.Empty(new TaskPlanCompiler().Compile(state.Plan, state.Catalog!).Diagnostics);
+        Assert.Contains(PlanningOutcomeValidation.Findings(state), d => d.Code == "OUTCOME_SUPPORT_DISCONNECTED");
+    }
+
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
