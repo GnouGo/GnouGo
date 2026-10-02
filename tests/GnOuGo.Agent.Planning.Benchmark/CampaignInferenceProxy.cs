@@ -28,7 +28,7 @@ internal sealed class CampaignInferenceProxy(WebApplication app) : IAsyncDisposa
             var body = await reader.ReadToEndAsync(context.RequestAborted);
             try
             {
-                var result = await model.ProxyInferenceAsync(run, context.Request.Headers.ToDictionary(p => p.Key, p => p.Value.ToString()), body, context.RequestAborted);
+                var result = await model.ProxyInferenceAsync(run, context.Request.Headers.ToDictionary(p => p.Key, p => p.Value.ToString(), StringComparer.OrdinalIgnoreCase), body, context.RequestAborted);
                 context.Response.StatusCode = result.Status;
                 context.Response.ContentType = result.ContentType;
                 await context.Response.WriteAsync(result.Body, context.RequestAborted);

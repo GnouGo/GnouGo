@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Integrations;
@@ -13,6 +14,7 @@ using GnOuGo.KeyVault.Core.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 /// <summary>One configured live model and one EUR 50 ledger; workflow effects never leave the fake integrations.</summary>
 internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
@@ -40,8 +42,17 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
         var vault = KeyVaultDatabasePathResolver.Resolve(null, root);
         services.AddDbContext<KeyVaultDbContext>(o => o.UseSqlite("Data Source=" + vault)); services.AddScoped<KeyVaultService>();
         await using var provider = services.BuildServiceProvider();
-        var config = new KeyVaultRuntimeConfigStore(provider.GetRequiredService<IServiceScopeFactory>(), NullLogger<KeyVaultRuntimeConfigStore>.Instance);
-        var options = await config.BuildEffectiveOptionsAsync(new LLMOptions { DefaultProvider = providerName, DefaultModel = expectedModel ?? "" }, ct);
+        var baseline = new LLMOptions { DefaultProvider = providerName, DefaultModel = expectedModel ?? "" };
+        // Bundled definitions are host defaults; KeyVault applies the same current
+        // per-server overrides as Agent.Server. No credentials are printed/exported.
+        var hostDefaults = Path.Combine("src", "GnOuGo.Agent.Server", "appsettings.json");
+        var host = File.Exists(hostDefaults) ? JsonNode.Parse(await File.ReadAllTextAsync(hostDefaults, ct)) : null;
+        if (host?["LLM"]?["McpServers"] is { } servers)
+            baseline.McpServers = JsonSerializer.Deserialize<Dictionary<string, McpServerOptions>>(servers, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+        var bundled = host?["BundledMcp"]?.Deserialize<BundledMcpSettings>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+        var config = new KeyVaultRuntimeConfigStore(provider.GetRequiredService<IServiceScopeFactory>(), NullLogger<KeyVaultRuntimeConfigStore>.Instance,
+            Options.Create(bundled), Options.Create(new KeyVaultSettings { DatabasePath = vault }));
+        var options = await config.BuildEffectiveOptionsAsync(baseline, ct);
         if (string.IsNullOrWhiteSpace(options.DefaultModel) || expectedModel is not null && options.DefaultModel != expectedModel)
             throw new InvalidOperationException("The configured model does not match the evaluation model.");
         var settings = options.ResolveProvider(options.DefaultProvider) ?? throw new InvalidOperationException("No configured provider.");
