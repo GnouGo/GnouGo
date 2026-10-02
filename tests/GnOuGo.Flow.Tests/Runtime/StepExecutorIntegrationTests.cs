@@ -100,8 +100,9 @@ public class StepExecutorIntegrationTests
                       CONDITION
                     steps:
                       - id: require_index
-                        type: assert.non_null
-                        input: {value: '${data.position}'}
+                        type: value.project
+                        output_schema: {type: object, required: [value], properties: {value: {type: integer}}}
+                        input: {paths: [[]], value: '${data.position}'}
             """.Replace("CONDITION", condition, StringComparison.Ordinal));
         Assert.True(result.Success, result.Error?.Message);
     }

@@ -15,8 +15,7 @@ internal static class StepOutputTypeResolver
         return step.Type switch
         {
             "set" => ResolveSet(step, symbols),
-            "value.validate" or "array.project" or "value.project" => step.OutputSchema is null ? FlowTypeDescriptor.Any : FlowTypeDescriptorConverter.FromJsonSchema(step.OutputSchema),
-            "assert.non_null" => ResolveAssertNonNull(step, symbols),
+            "value.project" => step.OutputSchema is null ? FlowTypeDescriptor.Any : FlowTypeDescriptorConverter.FromJsonSchema(step.OutputSchema),
             "template.render" => ResolveTemplateRender(step),
             "llm.call" => ResolveLlmCall(step),
             "mcp.call" => ResolveMcpCall(step, mcpContracts, stepContracts[step.Type].OutputType.ResolvePath(["status"]) ?? FlowTypeDescriptor.Any),
@@ -26,34 +25,10 @@ internal static class StepOutputTypeResolver
                 ("usage", Object()), ("verification", FlowTypeDescriptor.Array())),
             "workflow.call" => ResolveWorkflowCall(step, workflows),
             "human.input" => ResolveHumanInput(step),
-            "decision.evaluate" => ResolveDecisionEvaluate(step),
             _ => stepContracts.TryGetValue(step.Type, out var contract)
                 ? contract.OutputType
                 : FlowTypeDescriptor.Any
         };
-    }
-
-    private static FlowTypeDescriptor ResolveDecisionEvaluate(StepDef step)
-    {
-        if (step.Input?["decisions"] is not JsonObject decisions)
-            return Object();
-
-        var properties = new Dictionary<string, FlowPropertyDescriptor>(StringComparer.Ordinal);
-        foreach (var (field, node) in decisions)
-        {
-            var values = (node as JsonObject)?["allowed_values"] is JsonArray allowedValues
-                ? allowedValues.OfType<JsonValue>()
-                    .Select(static value => value.TryGetValue<string>(out var text) ? text : null)
-                    .Where(static value => !string.IsNullOrWhiteSpace(value))
-                    .Select(static value => value!)
-                    .Distinct(StringComparer.Ordinal)
-                    .ToArray()
-                : Array.Empty<string>();
-            properties[field] = Property(values.Length > 0
-                ? FlowTypeDescriptor.Enum(values)
-                : FlowTypeDescriptor.String);
-        }
-        return FlowTypeDescriptor.Object(properties);
     }
 
     private static FlowTypeDescriptor ResolveSet(StepDef step, WorkflowSymbolTable symbols)
@@ -87,23 +62,6 @@ internal static class StepOutputTypeResolver
                 inferred == null || inferred.IsOpaque
                     ? InferFromExample(value)
                     : inferred);
-        }
-
-        return FlowTypeDescriptor.Object(properties);
-    }
-
-    private static FlowTypeDescriptor ResolveAssertNonNull(StepDef step, WorkflowSymbolTable symbols)
-    {
-        if (step.Input is not JsonObject input)
-            return Object();
-
-        var properties = new Dictionary<string, FlowPropertyDescriptor>(StringComparer.Ordinal);
-        foreach (var (key, value) in input)
-        {
-            var inferred = StepExpressionTypeValidator.InferValueType(value, symbols.WorkflowInputs, symbols.StepOutputs, symbols.DataVariables);
-            if (inferred == null || inferred.IsOpaque)
-                inferred = InferFromExample(value);
-            properties[key] = Property(inferred.RemoveNullDeep());
         }
 
         return FlowTypeDescriptor.Object(properties);

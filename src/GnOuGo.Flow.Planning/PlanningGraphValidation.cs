@@ -130,23 +130,29 @@ public static class PlanningGraphValidation
                             }
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Dedicated reference diagnostics follow. */ }
-                if (node.Type is "value.project" or "array.project")
+                if (node.Type == "value.project")
                 {
                     try
                     {
-                        var array = node.Type == "array.project";
-                        var source = Member(node.Input, array ? "items" : "value") ?? throw new InvalidOperationException("Projection needs a source value.");
-                        var contract = ValueSchema(source, new(StringComparer.Ordinal)) ?? throw new InvalidOperationException("Establish the whole source contract with value.validate before projecting fields.");
-                        if (array) contract = contract["items"] as JsonObject ?? throw new InvalidOperationException("Array projection needs an established item contract.");
-                        var paths = array ? new[] { Member(node.Input, "path") } : Member(node.Input, "paths")?.Items.ToArray() ?? [];
-                        foreach (var projection in paths)
+                        var each = Member(node.Input, "each");
+                        if (each is not null && each is not { Kind: "boolean", Boolean: not null })
+                            throw new InvalidOperationException("Projection mode must be a literal boolean.");
+                        var source = Member(node.Input, "value") ?? throw new InvalidOperationException("Projection needs a source value.");
+                        var paths = Member(node.Input, "paths");
+                        if (paths is not { Kind: "array", Items.Count: > 0 })
+                            throw new InvalidOperationException("Projection needs declared property paths.");
+                        foreach (var projection in paths.Items)
                         {
-                            if (projection is not { Kind: "array" } || projection.Items.Any(p => p.Kind != "string"))
+                            if (projection is not { Kind: "array" } || projection.Items.Any(p => p.Kind != "string" || p.Text is null))
                                 throw new InvalidOperationException("Projection paths must be declared literal property names.");
-                            var parts = projection.Items.Select(p => p.Text ?? "").ToList();
-                            var selected = AtPath(contract, parts, projection: true, partial: !array);
+                            // Identity projection validates the whole value before establishing its type.
+                            // It never grants field access on an unchecked opaque producer.
+                            if (projection.Items.Count == 0) continue;
+                            var contract = ValueSchema(source, new(StringComparer.Ordinal)) ?? throw new InvalidOperationException("Check the whole source with value.project and an empty path before projecting fields.");
+                            if (each?.Boolean == true) contract = contract["items"] as JsonObject ?? throw new InvalidOperationException("Per-item projection needs an established item contract.");
+                            var selected = AtPath(contract, projection.Items.Select(p => p.Text!).ToList(), projection: true, partial: true);
                             var output = node.OutputSchema is null ? null : PlanningGraphCompiler.ToJsonSchema(node.OutputSchema, catalog);
-                            var expected = (array ? output?["properties"]?["values"]?["items"] : output?["properties"]?["value"]) as JsonObject;
+                            var expected = (each?.Boolean == true ? output?["properties"]?["value"]?["items"] : output?["properties"]?["value"]) as JsonObject;
                             if (expected is not null && !TypesFit(selected, expected))
                                 throw new InvalidOperationException("The projected field does not satisfy the declared output contract.");
                         }
@@ -365,7 +371,7 @@ public static class PlanningGraphValidation
                             var target = graph.Workflows.FirstOrDefault(w => w.Key == Member(producer.Input, "ref")?.Source);
                             schema = target is null ? null : ObjectSchema(target.Outputs.Select(o => (o.Name, PlanningGraphCompiler.ToJsonSchema(o.Schema, catalog))));
                         }
-                        else if (producer.Type is "set" or "value.validate" or "array.project" or "value.project") schema = producer.OutputSchema is not null ? PlanningGraphCompiler.ToJsonSchema(producer.OutputSchema, catalog) : ValueSchema(producer.Input, visiting);
+                        else if (producer.Type is "set" or "value.project") schema = producer.OutputSchema is not null ? PlanningGraphCompiler.ToJsonSchema(producer.OutputSchema, catalog) : ValueSchema(producer.Input, visiting);
                         else if (producer.Type == "template.render")
                         {
                             var mode = Member(producer.Input, "mode");
@@ -405,9 +411,6 @@ public static class PlanningGraphValidation
                         }
                         else if (producer.Type == "human.input")
                             schema = HumanSchema(producer.Input);
-                        else if (producer.Type == "decision.evaluate")
-                            schema = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId) is { } decision
-                                ? PlanningOperationResults.Resolve(producer.Type, decision.OutputSchema, null) : null;
                         else
                         {
                             var contract = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema

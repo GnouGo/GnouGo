@@ -52,6 +52,7 @@ public sealed class RecordedArtifactPrerequisiteTests(ITestOutputHelper output)
         replay.Proposal = replay.Corrected(); state.Requirements!.Inputs = replay.Proposal.Inputs;
         RecordedPlanCompilation.InspectSelected(state, replay.Proposal);
         state.Request.Generation.MaxInputTokensPerRequest = 96000;
+        RecordedPlanCompilation.RefreshNativeContracts(state);
         var before = Snapshot(state);
         var result = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, replay, Ct);
         Assert.True(result.Status == PlanningStatus.FinalReview, string.Join("; ", result.Diagnostics.Select(d => d.Code + ": " + d.Message)));

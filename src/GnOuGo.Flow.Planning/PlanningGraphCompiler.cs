@@ -180,7 +180,7 @@ public sealed partial class PlanningGraphCompiler
         else if (input.Count > 0 || node.Type == "set") result["input"] = input;
         if (node.If is not null) result["if"] = ToExpression(node.If, scope);
         if (node.Expr is not null) result["expr"] = ToExpression(node.Expr, scope);
-        if (node.OutputSchema is not null && node.Type is "set" or "value.validate" or "array.project" or "value.project") result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Catalog);
+        if (node.OutputSchema is not null && node.Type is "set" or "value.project") result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Catalog);
         if (node.StructuredOutput is { } structured)
         {
             if (input.ContainsKey("structured_output")) throw new InvalidOperationException("Use one typed structured-output declaration, not a second input schema.");

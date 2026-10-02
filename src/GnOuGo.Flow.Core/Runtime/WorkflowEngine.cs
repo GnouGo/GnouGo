@@ -66,7 +66,27 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
     }
 
     public Task<RunResult> ExecuteAsync(CompiledWorkflow workflow, JsonNode? inputs, CancellationToken ct)
-        => RunStore is null ? ExecuteCoreAsync(workflow, inputs, ct) : ExecuteDurableAsync(workflow, inputs, null, ct);
+    {
+        RejectRetiredSteps(workflow);
+        return RunStore is null ? ExecuteCoreAsync(workflow, inputs, ct) : ExecuteDurableAsync(workflow, inputs, null, ct);
+    }
+
+    private void RejectRetiredSteps(CompiledWorkflow workflow)
+    {
+        foreach (var current in workflow.Document.Workflows.Values.Append(workflow).Distinct())
+            Check(current.Steps.Concat(current.Finally));
+
+        static void Check(IEnumerable<CompiledStep> steps)
+        {
+            foreach (var step in steps)
+            {
+                if (Compilation.WorkflowValidator.IsRetiredStep(step.Type))
+                    throw new WorkflowRuntimeException(ErrorCodes.StepTypeRetired,
+                        $"Retired step type '{step.Type}'. Revise and approve a new workflow; existing runs cannot be migrated automatically.");
+                Check((step.Steps ?? []).Concat(step.Default ?? []).Concat((step.Branches ?? []).SelectMany(b => b)).Concat((step.Cases ?? []).SelectMany(c => c.Steps)));
+            }
+        }
+    }
 
     private async Task<RunResult> ExecuteCoreAsync(CompiledWorkflow workflow, JsonNode? inputs, CancellationToken ct)
     {
@@ -187,6 +207,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         CancellationToken ct,
         string? invocationPath = null)
     {
+        RejectRetiredSteps(workflow);
         _totalStepsExecuted = 0;
         CompiledDocument = workflow.Document;
         var executionScope = PrepareEvaluator(workflow);
@@ -1088,14 +1109,10 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         registry.Register(new Executors.LoopSequentialExecutor());
         registry.Register(new Executors.LoopParallelExecutor());
         registry.Register(new Executors.SwitchExecutor());
-        registry.Register(new Executors.DecisionEvaluateExecutor());
         registry.Register(new Executors.SetExecutor());
-        registry.Register(new Executors.ValidateValueExecutor());
-        registry.Register(new Executors.ArrayProjectExecutor());
         registry.Register(new Executors.ValueProjectExecutor());
         foreach (var type in new[] { "number.add", "number.multiply", "number.default" })
             registry.Register(new Executors.NumericTransformExecutor(type));
-        registry.Register(new Executors.AssertNonNullExecutor());
         registry.Register(new Executors.TemplateRenderExecutor());
         registry.Register(new Executors.LlmCallExecutor());
         registry.Register(new Executors.AgentRunExecutor());

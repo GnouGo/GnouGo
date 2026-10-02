@@ -79,7 +79,7 @@ var outputSchema = outputGraph.Workflows[0].Outputs[0].Schema.Contract!;
 if (outputSchema["properties"]?["output"]?["type"]?.ToString() != "object" ||
     outputSchema["properties"]?["output"]?["additionalProperties"]?["x-gnougo-opaque"]?.ToString() != "true")
     throw new InvalidOperationException("Output schema specialization or nested opacity was lost");
-workspaceCatalog.AllowedStepTypes.AddRange(["human.input", "assert.non_null", "workflow.call"]);
+workspaceCatalog.AllowedStepTypes.AddRange(["human.input", "set", "workflow.call"]);
 PlanningConfirmationGuards.Apply(outputGraph, workspaceCatalog);
 _ = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(outputGraph, workspaceCatalog)));
 Console.WriteLine("operation outputs: approved payload and partial envelope survive source-generated serialization and YAML compilation");

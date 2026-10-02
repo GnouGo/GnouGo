@@ -10,7 +10,6 @@ public static class ErrorCodes
     public const string ExprTypeMismatch = "EXPR_TYPE_MISMATCH";
     public const string EvalError = "EVAL_ERROR";
     public const string InputValidation = "INPUT_VALIDATION";
-    public const string DecisionEvaluationUnresolved = "DECISION_EVALUATION_UNRESOLVED";
     public const string TemplatePlan = "TEMPLATE_PLAN";
     public const string TemplatePolicy = "TEMPLATE_POLICY";
     public const string TemplateSyntax = "TEMPLATE_SYNTAX";
@@ -41,6 +40,7 @@ public static class ErrorCodes
     public const string LoopLimit = "LOOP_LIMIT";
     public const string ParallelLimit = "PARALLEL_LIMIT";
     public const string ScriptError = "SCRIPT_ERROR";
+    public const string StepTypeRetired = "STEP_TYPE_RETIRED";
     public const string StepTypeUnknown = "STEP_TYPE_UNKNOWN";
     public const string SkillRequired = "SKILL_REQUIRED";
 

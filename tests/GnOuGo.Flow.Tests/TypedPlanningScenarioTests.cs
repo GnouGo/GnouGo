@@ -209,8 +209,9 @@ public sealed class TypedPlanningScenarioTests
                           additionalProperties: false
                         strict: true
                   - id: use
-                    type: assert.non_null
-                    input: {value: "${data.steps.read.json.value}"}
+                    type: value.project
+                    output_schema: {type: object, required: [value], properties: {value: {type: string}}}
+                    input: {paths: [[]], value: "${data.steps.read.json.value}"}
                 finally:
                   - id: cleanup
                     type: set
@@ -261,13 +262,14 @@ public sealed class TypedPlanningScenarioTests
               main:
                 steps:
                   - id: required_value
-                    type: assert.non_null
-                    input: {value: null}
+                    type: value.project
+                    output_schema: {type: object, required: [value], properties: {value: {type: string}}}
+                    input: {paths: [[]], value: null}
             """);
         var result = Assert.Single(await SimulatedWorkflowValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken));
         var finding = Assert.Single(result.Diagnostics);
         Assert.Equal("workflow:main/step:required_value", finding.Location);
-        Assert.Contains("null", finding.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("contract", finding.Message, StringComparison.OrdinalIgnoreCase);
         Assert.NotEqual("passed", result.Outcome);
     }
 
@@ -343,8 +345,9 @@ public sealed class TypedPlanningScenarioTests
                     input: {items: []}
                     steps:
                       - id: check
-                        type: assert.non_null
-                        input: {value: '${data.entry.name}'}
+                        type: value.project
+                        output_schema: {type: object, required: [value], properties: {value: {type: string}}}
+                        input: {paths: [[]], value: '${data.entry.name}'}
                       - id: model
                         type: llm.call
                         input: {model: fake, prompt: '${data.entry.name}'}
@@ -376,8 +379,9 @@ public sealed class TypedPlanningScenarioTests
                     input: {ok: true}
                 finally:
                   - id: cleanup
-                    type: assert.non_null
-                    input: {value: null}
+                    type: value.project
+                    output_schema: {type: object, required: [value], properties: {value: {type: string}}}
+                    input: {paths: [[]], value: null}
             """);
         var result = Assert.Single(await SimulatedWorkflowValidator.ValidateAsync(document, null, TestContext.Current.CancellationToken));
         Assert.Equal("failed", result.Outcome);

@@ -48,8 +48,10 @@ public sealed class WorkflowFinalizationTests
               main:
                 steps:
                   - id: fail
-                    type: assert.non_null
+                    type: value.project
+                    output_schema: {type: object, required: [value], properties: {value: {type: string}}}
                     input:
+                      paths: [[]]
                       value: null
                 finally:
                   - id: cleanup
@@ -166,13 +168,17 @@ public sealed class WorkflowFinalizationTests
               main:
                 steps:
                   - id: primary_failure
-                    type: assert.non_null
+                    type: value.project
+                    output_schema: {type: object, required: [value], properties: {value: {type: string}}}
                     input:
+                      paths: [[]]
                       value: null
                 finally:
                   - id: cleanup_failure
-                    type: assert.non_null
+                    type: value.project
+                    output_schema: {type: object, required: [value], properties: {value: {type: string}}}
                     input:
+                      paths: [[]]
                       value: null
             """, cancellationToken: TestContext.Current.CancellationToken);
 

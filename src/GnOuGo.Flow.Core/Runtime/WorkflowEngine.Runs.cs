@@ -12,6 +12,7 @@ public sealed partial class WorkflowEngine
 {
     public Task<RunResult> ResumeAsync(string tenantId, string runId, long expectedRevision, CompiledWorkflow workflow, CancellationToken ct)
     {
+        RejectRetiredSteps(workflow);
         if (RunStore is null) throw new InvalidOperationException("Resume requires an IWorkflowRunStore.");
         Limits.TenantId = tenantId;
         Limits.RunId = runId;

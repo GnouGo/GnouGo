@@ -145,8 +145,8 @@ public sealed class ComposedOutputAvailabilityTests
             {"workflows":[{"key":"main","inputs":[{"name":"records","required":true,"schema":{"contract":{"type":"array","items":{"type":"object","required":["event"],"properties":{"event":{"type":["string","null"]}}}}}}],
             "steps":[{"key":"noop","type":"set","input":{"kind":"object"}}],
             "finally":[
-              {"key":"project","type":"array.project","input":{"kind":"object","members":[{"name":"items","value":{"kind":"input","source":"records"}},{"name":"path","value":{"kind":"array","items":[{"kind":"string","text":"event"}]}}]},"outputSchema":{"contract":{"type":"object","required":["values"],"properties":{"values":{"type":"array","items":{"type":["string","null"]}}}}}},
-              {"key":"export","type":"set","if":{"kind":"present","source":"project"},"input":{"kind":"object","members":[{"name":"events","value":{"kind":"output","source":"project","path":["values"]}}]}}
+              {"key":"project","type":"value.project","input":{"kind":"object","members":[{"name":"value","value":{"kind":"input","source":"records"}},{"name":"paths","value":{"kind":"array","items":[{"kind":"array","items":[{"kind":"string","text":"event"}]}]}},{"name":"each","value":{"kind":"boolean","boolean":true}}]},"outputSchema":{"contract":{"type":"object","required":["value"],"properties":{"value":{"type":"array","items":{"type":["string","null"]}}}}}},
+              {"key":"export","type":"set","if":{"kind":"present","source":"project"},"input":{"kind":"object","members":[{"name":"events","value":{"kind":"output","source":"project","path":["value"]}}]}}
             ],"outputs":[{"name":"publication","value":{"kind":"output","source":"export"},"schema":{"contract":{"type":"object","required":["events"],"properties":{"events":{"type":"array","items":{"type":["string","null"]}}}}}}]}]}
             """, PlanningJsonContext.Default.PlanningGraph)!;
         var engine = new WorkflowEngine(); var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
@@ -162,8 +162,6 @@ public sealed class ComposedOutputAvailabilityTests
 
     [Theory]
     [InlineData("value.project")]
-    [InlineData("array.project")]
-    [InlineData("value.validate")]
     public void SuccessfulProjectionEnvelopesSupportGuardedExportsButUnsafeChainsDoNot(string type)
     {
         var project = new PlanningNode { Key = "project", Type = type };

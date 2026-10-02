@@ -48,8 +48,9 @@ internal static class PlanningConfirmationGuards
         Steps =
         [
             new() { Key = Confirm, Type = "human.input", InternalRole = "confirmation", Input = PlanningJsonTransport.Literal(HumanInputContract.ConfirmationInput(summary)) },
-            new() { Key = Assert, Type = "assert.non_null", InternalRole = "permission", Input = new() { Kind = "object", Members =
-                [new("value", new() { Kind = "expression", Text = "data.steps." + Confirm + ".response === true ? true : null" })] } },
+            new() { Key = Assert, Type = "set", InternalRole = "permission", Input = new() { Kind = "object", Members =
+                [new("value", new() { Kind = "expression", Text = "data.steps." + Confirm + ".response === true" })] },
+                OutputSchema = new() { Contract = JsonNode.Parse("""{"type":"object","required":["value"],"additionalProperties":false,"properties":{"value":{"type":"boolean","enum":[true]}}}""")!.AsObject() } },
             new() { Key = Call, Type = "workflow.call", InternalRole = "approved_body", Input = new() { Kind = "object", Members =
                 [new("ref", new() { Kind = "workflow", Source = Body }), new("args", new() { Kind = "expression", Text = "data.inputs" })] } }
         ]

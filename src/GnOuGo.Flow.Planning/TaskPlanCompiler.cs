@@ -271,7 +271,7 @@ public sealed partial class TaskPlanCompiler
                 var bounded = items.Schema.DeepClone().AsObject();
                 bounded["type"] = "array"; bounded["items"] = itemSchema!.DeepClone(); bounded["maxItems"] = task.MaxItems;
                 var checkedKey = Key(key, "bound"); _sources[checkedKey] = _location;
-                target.Add(new() { Key = checkedKey, Type = "value.validate", Input = Object([new("value", items.Value)]), OutputSchema = Contract(ObjectSchema([("value", bounded)])) });
+                target.Add(new() { Key = checkedKey, Type = "value.project", Input = Object([new("value", items.Value), new("paths", Array([Strings([])]))]), OutputSchema = Contract(ObjectSchema([("value", bounded)])) });
                 var iteration = new Scope(scope.Workflow, scope) { Item = new(new() { Kind = "loop_item", Source = key }, itemSchema, "data.item", TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null), Index = new(new() { Kind = "loop_index", Source = key }, new() { ["type"] = "integer" }, "data.index") };
                 var body = Child(task.Body ?? MissingScope(), iteration, key, "iteration");
                 target.Add(new() { Key = key, Purpose = task.Objective, Type = task.Parallel ? "loop.parallel" : "loop.sequential", ItemVar = "item", IndexVar = "index",
@@ -281,8 +281,8 @@ public sealed partial class TaskPlanCompiler
                 {
                     var schema = new JsonObject { ["type"] = "array", ["items"] = PlanningGraphCompiler.ToJsonSchema(output.Schema, _catalog) };
                     var projection = Key(key, "collect:" + output.Name); _sources[projection] = _location;
-                    target.Add(new() { Key = projection, Type = "array.project", Input = Object([new("items", Reference(key, "results")), new("path", Strings([body.Call.Key, "outputs", output.Name]))]), OutputSchema = Contract(ObjectSchema([("values", schema)])) });
-                    outputs.Add(output.Name, Output(projection, "array.project", ["values"], schema));
+                    target.Add(new() { Key = projection, Type = "value.project", Input = Object([new("value", Reference(key, "results")), new("paths", Array([Strings([body.Call.Key, "outputs", output.Name])])), new("each", new() { Kind = "boolean", Boolean = true })]), OutputSchema = Contract(ObjectSchema([("value", schema)])) });
+                    outputs.Add(output.Name, Output(projection, "value.project", ["value"], schema));
                 }
                 outputs = Aggregate(outputs, key, target); break;
             default: Fail("TASK_KIND_INVALID", "Unknown semantic task kind."); return;

@@ -28,10 +28,22 @@ internal static class RecordedPlanCompilation
         state.IntentVersion = 2; state.OutcomeVersion = null; state.OutcomeBindings = null; state.PendingCall = null; state.ApprovedHash = null;
         state.RevisionScope.Clear(); state.Graph = null; state.Yaml = null;
         state.Diagnostics.Clear(); state.Status = PlanningStatus.Clarification;
+        RefreshNativeContracts(state);
         // Public model-free choice compilation path; no provider, journal replay or dispatch.
         return await new HybridWorkflowPlanner().AdvanceAsync(state,
             new() { Kind = "configure_mode", Mode = PlanningMode.Auto, ExpectedRevision = state.Revision },
             new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask), TestContext.Current.CancellationToken);
+    }
+
+    // A newly labelled offline revision targets the current runtime. Original
+    // recordings, issued requests and retired-session recovery never use this path.
+    internal static void RefreshNativeContracts(PlanningSession state)
+    {
+        var contracts = new GnOuGo.Flow.Core.Runtime.WorkflowEngine().Registry.GetContracts();
+        state.Catalog!.AllowedStepTypes.RemoveAll(t => !contracts.ContainsKey(t));
+        state.Catalog.StepContracts = new JsonObject(state.Catalog.AllowedStepTypes.Select(t =>
+            new KeyValuePair<string, JsonNode?>(t, new JsonObject
+            { ["input"] = contracts[t].InputSchema.DeepClone(), ["output"] = contracts[t].OutputSchema.DeepClone() })));
     }
 
     // A new scripted proposal must explicitly inspect the operations it intends to select.
