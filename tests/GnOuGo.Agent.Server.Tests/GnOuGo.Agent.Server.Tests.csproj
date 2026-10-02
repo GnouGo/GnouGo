@@ -47,6 +47,7 @@
   <ItemGroup>
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveCampaignEvidence.cs" Link="LiveCampaignEvidence.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs" Link="LiveWorkflowEvaluation.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveExecutionReadiness.cs" Link="LiveExecutionReadiness.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs" Link="LiveWorkflowOracles.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveCodeEvidence.cs" Link="LiveCodeEvidence.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/SchemaPortabilityCampaign.cs" Link="SchemaPortabilityCampaign.cs" />

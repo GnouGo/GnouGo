@@ -69,7 +69,8 @@ build, six independent Release packages (Flow Core/Planning/Integrations/Copilot
 and Copilot Core), planning and Copilot Native AOT smokes, published Copilot stdio discovery,
 and encrypted recovery in the trimmed Agent.Server binary. The server publish skipped
 bundling tools, which were built and checked independently. Linux/Windows publication
-remains a CI check; local validation used macOS ARM64. Final live results follow collection. The existing `schema-portability-20261002` EUR 50 campaign is retained:
+remains a CI check; local validation used macOS ARM64. The linked readiness helper is also compiled by Agent.Server.Tests; CI caught its
+initial missing source link, which is corrected. Final live results follow collection. The existing `schema-portability-20261002` EUR 50 campaign is retained:
 the pre-dispatch ledger has 102 physical attempts, 1,111,677 verified input tokens,
 173,498 verified output tokens and EUR 9.526752522570366 in estimated cost, with zero
 unknown transport reservations. Historical diagnostic inconclusiveness is retained.
@@ -84,3 +85,25 @@ Use fresh sessions for new outcome annotations. Existing stopped sessions remain
 stopped until explicit saved-response recovery or conservative retry. Do not replay
 unknown external work or copy permissions between agents. Live feedback and proposed
 diff comments remain local; GitHub review publication is excluded.
+
+## Retained diagnostic executions
+
+On candidate `2aedd3db`, Amazon reached review in two calls without repair. Its
+generated loop bound was one despite requesting up to three products; the runtime
+rejected the larger collection and closed the browser. The existing deterministic
+oversized-collection regression reproduces this safe rejection. No approved bound
+was silently widened.
+
+Code reached review in four calls and one repair. Its interactive Copilot call
+completed with 21 tool observations and more than ten individual permission
+exchanges, without the former MCP limit. Required full-check/install/version
+evidence remained absent. A subsequent bounded agent rejected its 362,996-token
+conservative input reservation against an approved 20,000-token allowance before
+inference, then the workflow cleaned up. No missing checks were called successful.
+Generic generation guidance now requires delegated instructions to retain all
+requested checks/constraints and discourages duplicate transcripts in downstream
+agents. This is guidance, not a proof of natural-language equivalence.
+
+[Sanitized diagnostic measurements](evidence/planning-recovery/diagnostic-recovery1.json)
+retain both failures separately from the final cohort; full proposals and execution
+observations remain in the encrypted campaign.

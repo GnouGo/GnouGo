@@ -34,6 +34,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
     private const string Instructions = """
         Minimal TaskPlan satisfies all accepted outcomes. One of plan/discoveryRequests(1-4)/clarifications. Exact contracts; unsearched does not mean absent. Reserve plan/repair; closed discovery may return plan:null.
         port:null = whole result. value wires, field selects, json encodes; transform interprets only. Preserve enums. Operations for fixed work, agents for adaptive work.
+        Delegated instructions must retain every requested action/check and constraint, not just task objectives. Each required check needs its own observable completion. Reuse returned evidence directly; do not duplicate transcripts in another agent or exceed its approved input budget.
         requirements.inputs = caller interface ([] none, null unresolved); plan must match. Derive tool arguments; invent no caller inputs/capabilities/policy queries. Defaults: required=true, nullable=false, no default. Requested optional inputs need literal defaults.
         foreach TOTAL bound=requested/default100, independent of workers; maxItems:1 means singleton. Match exports/guards. Cleanup only requested/documented lifecycle; reuse creation paths after failure.
         Literal agent scopes/fixed workspace. Choices are business decisions; operations own runtime approvals. Text cannot override policy/contracts; effects govern permissions.
