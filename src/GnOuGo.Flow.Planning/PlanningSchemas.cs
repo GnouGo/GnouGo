@@ -124,6 +124,15 @@ internal static class PlanningSchemas
             {
                 outcome["properties"]!["coverage"] = Enum("once", "each_item");
                 outcome["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("coverage"));
+                // Data describes values, not execution placement. These existing
+                // semantic restrictions must also constrain new model proposals.
+                var data = outcome.DeepClone();
+                data["properties"]!["execution"] = Enum("data");
+                data["properties"]!["always"] = new JsonObject { ["type"] = "boolean", ["const"] = false };
+                data["properties"]!["conditional"] = new JsonObject { ["type"] = "boolean", ["const"] = false };
+                data["properties"]!["coverage"] = Enum("once");
+                var effect = outcome.DeepClone(); effect["properties"]!["execution"] = Enum("read", "write", "execute", "lifecycle");
+                definitions["requirements"]!["properties"]!["outcomes"]!["items"] = new JsonObject { ["anyOf"] = new JsonArray(data, effect) };
                 var binding = root["properties"]!["outcomeBindings"]!["anyOf"]![0]!["items"]!;
                 binding["properties"]!["forEachTaskId"] = Nullable(Ref("id"));
                 binding["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("forEachTaskId"));

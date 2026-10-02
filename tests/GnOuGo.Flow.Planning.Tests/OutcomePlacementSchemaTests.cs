@@ -1,0 +1,44 @@
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Planning;
+
+namespace GnOuGo.Flow.Planning.Tests;
+
+public sealed class OutcomePlacementSchemaTests
+{
+    [Theory]
+    [InlineData("data", false, false, "once", true)]
+    [InlineData("data", true, false, "once", false)]
+    [InlineData("data", false, true, "once", false)]
+    [InlineData("data", false, false, "each_item", false)]
+    [InlineData("read", false, false, "once", true)]
+    [InlineData("write", true, false, "once", true)]
+    [InlineData("lifecycle", true, true, "each_item", true)]
+    public void NewSchemasMatchExistingPlacementSemantics(string effect, bool always, bool conditional, string coverage, bool valid)
+    {
+        var schema = RequirementsSchema();
+        var requirements = JsonNode.Parse("""{"summary":"Requested work","outcomes":[{"id":"arbitrary","description":"Requested result"}],"inputs":[]}""")!;
+        var outcome = requirements["outcomes"]![0]!;
+        outcome["execution"] = effect; outcome["always"] = always; outcome["conditional"] = conditional; outcome["coverage"] = coverage;
+        Assert.Equal(valid, PlanningContractValidation.ValidateInstance(requirements, schema).Count == 0);
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, true));
+    }
+
+    [Fact]
+    public async Task RetainedLiveResponsesFailAtWireValidationWithoutConsumingSemanticRepairs()
+    {
+        var fixture = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "SchemaPortability", "live-outcome-placement.json")))!;
+        foreach (var requirements in fixture["requirements"]!.AsArray())
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(requirements, RequirementsSchema()));
+        var state = PlannerFixture.Session(); state.IntentVersion = 1; state.OutcomeVersion = 2;
+        state.Catalog = await new TestRuntime().DiscoverAsync(state.Request, PlannerFixture.Ct);
+        Assert.Contains("cleanup/finally after failure", new PlanningPrompt(state).Request().Prompt);
+    }
+
+    private static JsonObject RequirementsSchema()
+    {
+        var state = PlannerFixture.Session(); state.IntentVersion = 1; state.OutcomeVersion = 2;
+        var proposal = PlanningSchemas.FullProposal(state, compact: false);
+        var schema = proposal["$defs"]!["requirements"]!.DeepClone().AsObject();
+        schema["$defs"] = proposal["$defs"]!.DeepClone(); return schema;
+    }
+}

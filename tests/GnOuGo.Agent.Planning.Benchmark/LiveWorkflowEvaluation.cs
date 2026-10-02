@@ -3,6 +3,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Copilot;
 using GnOuGo.Flow.Integrations;
@@ -27,19 +29,53 @@ internal static class LiveWorkflowEvaluation
         if (phase == "inspect-run") { Console.WriteLine(retained?.ToJsonString() ?? "No run."); return; }
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, label);
         var configurations = Configuration(model.McpServers, scenario, proxy.Endpoint);
-        await using var transport = new ConfiguredMcpClientFactory(configurations, new PendingHuman(), model.Provider, model.Model);
-        var run = new JsonObject { ["scenario"] = scenario, ["label"] = label, ["source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"),
+        var human = new ConsoleHuman(campaign, label);
+        await using var transport = new ConfiguredMcpClientFactory(configurations, human, model.Provider, model.Model);
+        var run = phase == "execute" ? retained ?? throw new InvalidOperationException("No retained plan.") : new JsonObject { ["scenario"] = scenario, ["label"] = label, ["source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"),
             ["phase"] = label.StartsWith("final-", StringComparison.Ordinal) ? "final" : "diagnostic", ["events"] = new JsonArray() };
         var observed = new ObservedMcp(transport, async e => { run["events"]!.AsArray().Add(e); await Save(); });
         var measured = new ExecutionModel(model, label);
         var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = measured,
-            HumanInputProvider = new PendingHuman(), LlmDefaults = new() { Model = model.Model, Provider = model.Provider } };
+            Limits = new() { TenantId = "benchmark", RunId = label, AgentId = campaign.Id + "-" + scenario, AgentName = "Live evaluation " + scenario },
+            HumanInputProvider = human, LlmDefaults = new() { Model = model.Model, Provider = model.Provider } };
         if (scenario == "code") engine.WithCopilotRunners(configurations.Keys.Where(k => k.Contains("GithubCopilot", StringComparison.Ordinal)).Select(k => new KeyValuePair<string, string>("coding", k)));
         var runtime = new WorkflowPlanningRuntime(engine, async (s, _) =>
         {
             run["session"] = JsonSerializer.SerializeToNode(s, PlanningJsonContext.Default.PlanningSession);
             await Save(); Console.WriteLine($"{label}: revision={s.Revision}, status={s.Status}, calls={s.ModelCalls}, repairs={s.ReplanAttempts}");
         });
+        if (phase == "execute")
+        {
+            if (run["execution_started"] is not null) throw new InvalidOperationException("Execution already started; never rerun an uncertain workflow.");
+            var session = run["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+            if (session.Status != PlanningStatus.FinalReview || session.ComputeArtifactHash() != SchemaPortabilityCampaign.Option(args, "--artifact-hash"))
+                throw new InvalidOperationException("Review the generated artifact and supply its exact --artifact-hash.");
+            PlanningArtifactApproval.Verify(session);
+            session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision, ArtifactHash = session.ComputeArtifactHash() }, runtime, CancellationToken.None);
+            if (session.Status != PlanningStatus.Approved) throw new InvalidOperationException("Artifact approval failed.");
+            if (scenario == "code" && !proxy.Ready) throw new InvalidOperationException("SDK inference interception is not attested.");
+            proxy.ExecutionEnabled = true;
+            var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(session.Yaml!));
+            run["execution_started"] = DateTimeOffset.UtcNow.ToString("O"); await Save();
+            var timer = Stopwatch.StartNew(); using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(30));
+            try
+            {
+                var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], run["inputs"]!.DeepClone(), deadline.Token);
+                run["execution"] = new JsonObject { ["success"] = result.Success, ["outputs"] = result.Outputs?.DeepClone(),
+                    ["error"] = result.Error is null ? null : JsonSerializer.SerializeToNode(result.Error) };
+            }
+            catch (Exception ex) { run["execution"] = new JsonObject { ["success"] = false, ["exception"] = ex.ToString() }; }
+            finally { proxy.ExecutionEnabled = false; run["execution_ms"] = timer.ElapsedMilliseconds; await Save(); }
+            var oracle = await LiveWorkflowOracles.VerifyAsync(scenario, root, run, observed);
+            run["oracle"] = oracle;
+            run["result"]!["execution_success"] = run["execution"]!["success"]!.DeepClone();
+            run["result"]!["execution_oracle"] = oracle["passed"]!.DeepClone();
+            run["result"]!["execution_status"] = "completed";
+            run["result"]!["execution_ms"] = timer.ElapsedMilliseconds;
+            run["result"]!["total_ms"] = run["result"]!["planning_ms"]!.GetValue<long>() + timer.ElapsedMilliseconds;
+            run["result"]!["accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign, label + ":");
+            await Save(); Console.WriteLine(run["result"]!.ToJsonString()); Console.WriteLine(oracle.ToJsonString()); return;
+        }
         if (phase == "readiness")
         {
             foreach (var server in configurations.Keys)
@@ -87,7 +123,9 @@ internal static class LiveWorkflowEvaluation
             ["diagnostics"] = JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic),
             ["execution_success"] = false, ["execution_oracle"] = false, ["execution_status"] = "not_started",
             ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign, label + ":") };
+        run["artifact_hash"] = state.Yaml is null ? null : state.ComputeArtifactHash();
         await Save(); Console.WriteLine(run["result"]!.ToJsonString());
+        if (run["artifact_hash"] is not null) Console.WriteLine("artifact_hash=" + run["artifact_hash"]);
 
         Task Save() => campaign.SaveAsync(SchemaPortabilityCampaign.Collection, key, run, CancellationToken.None);
     }
@@ -111,10 +149,23 @@ internal static class LiveWorkflowEvaluation
         return result;
     }
 
-    private sealed class PendingHuman : IHumanInputProvider
+    private sealed class ConsoleHuman(BenchmarkCampaign campaign, string run) : IHumanInputProvider
     {
-        public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
-            => throw new InvalidOperationException("Live evaluation requires an explicit answer; no recommendation or permission is accepted automatically.");
+        private int _count;
+        public async Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+        {
+            var key = run + ":dialog:" + (++_count);
+            var payload = HumanInputContract.BuildRequestPayload(request);
+            await campaign.SaveAsync("planning-evaluation-dialogs", key, new() { ["request"] = payload }, ct);
+            Console.WriteLine("Explicit interaction required; submit one JSON response. No default is accepted:");
+            Console.WriteLine(payload.ToJsonString());
+            var line = await Console.In.ReadLineAsync(ct) ?? throw new InvalidOperationException("No interaction provider is attached.");
+            var answer = JsonNode.Parse(line);
+            var schema = HumanInputContract.ResolveOutputSchema(payload);
+            if (PlanningContractValidation.ValidateInstance(answer, schema).Count != 0) throw new InvalidOperationException("The submitted interaction response violates its contract.");
+            await campaign.SaveAsync("planning-evaluation-dialogs", key, new() { ["request"] = payload.DeepClone(), ["answer"] = answer?.DeepClone() }, CancellationToken.None);
+            return answer;
+        }
     }
 
     private sealed class ExecutionModel(KeyVaultBenchmarkModel model, string run) : ILLMClient
@@ -127,10 +178,12 @@ internal static class LiveWorkflowEvaluation
         }
     }
 
-    internal sealed class ObservedMcp(IMcpClientFactory inner, Func<JsonObject, Task> save) : IMcpClientFactory
+    internal sealed class ObservedMcp(IMcpClientFactory inner, Func<JsonObject, Task> save) : IMcpClientFactory, IMcpExecutionHooks
     {
         private readonly Func<JsonObject, Task> _save = save;
         internal int DiscoveryReads;
+        public IDisposable BeginCall(McpCallExecutionContext context) => ((IMcpExecutionHooks)inner).BeginCall(context);
+        public string FormatFailureDiagnostics(string serverName, Exception exception) => ((IMcpExecutionHooks)inner).FormatFailureDiagnostics(serverName, exception);
         public IReadOnlyList<McpServerMetadata> ServerMetadata => inner.ServerMetadata;
         public async Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct) => new Session(this, await inner.GetClientAsync(serverName, ct));
         private sealed class Session(ObservedMcp owner, IMcpSession inner) : IMcpSession

@@ -43,6 +43,26 @@ internal static class SchemaPortabilityCampaign
         }
         var campaignId = Option(args, "--campaign") ?? throw new ArgumentException("Supply a new --campaign.");
         var campaign = new BenchmarkCampaign(records, campaignId);
+        if (phase == "inspect-run")
+        {
+            var label = Option(args, "--run") ?? throw new ArgumentException("Supply --run.");
+            var saved = await campaign.LoadAsync(Collection, "run:" + label) ?? throw new ArgumentException("No run.");
+            var responses = new JsonArray();
+            foreach (var receipt in (await records.ListAsync("planning-evaluation-receipts", "benchmark", BenchmarkCampaign.Author))
+                .Where(r => r.Key.StartsWith(campaignId + ":" + label + ":", StringComparison.Ordinal)).OrderBy(r => r.UpdatedAt))
+            {
+                var content = JsonNode.Parse(receipt.Value)!;
+                responses.Add(new JsonObject { ["id"] = receipt.Key, ["response"] = content["json"]?.DeepClone() ?? (content["text"] is { } responseText ? JsonNode.Parse(responseText.ToString()) : null) });
+            }
+            Console.WriteLine(new JsonObject
+            {
+                ["responses"] = responses,
+                ["result"] = saved["result"]?.DeepClone(), ["status"] = saved["session"]?["status"]?.DeepClone(),
+                ["diagnostics"] = saved["session"]?["diagnostics"]?.DeepClone(), ["questions"] = saved["session"]?["pendingQuestions"]?.DeepClone(),
+                ["plan"] = saved["session"]?["plan"]?.DeepClone(), ["yaml"] = saved["session"]?["yaml"]?.DeepClone(),
+                ["failure"] = saved["failure"]?.DeepClone()
+            }.ToJsonString()); return;
+        }
         if (phase == "inspect")
         {
             var diagnostic = await campaign.LoadAsync(Collection, "original-rejection");
@@ -59,7 +79,7 @@ internal static class SchemaPortabilityCampaign
         await using var lease = new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         if (Git("status", "--porcelain").Length != 0) throw new InvalidOperationException("Commit the tested source and harness before paid dispatch.");
         using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Model, campaign, root, CancellationToken.None);
-        if (phase is "readiness" or "plan" or "inspect-run")
+        if (phase is "readiness" or "plan" or "execute")
         { await LiveWorkflowEvaluation.RunAsync(args, phase, campaign, model, root); return; }
         if (phase == "diagnose")
         {

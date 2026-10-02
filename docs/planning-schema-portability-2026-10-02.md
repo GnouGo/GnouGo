@@ -17,4 +17,8 @@ dotnet run --project tests/GnOuGo.Agent.Planning.Benchmark -- --schema-portabili
 
 The diagnostic uses a new identity, one physical attempt, the original schema and the existing encrypted EUR 50 campaign gate. It cannot overwrite or repeat its identity. A verified terminal schema rejection is retained as failure, never as a completed model response; uncertain transport outcomes remain conservatively reserved. Model/policy and limits are pinned by the existing adapter (`gpt-5.5-2026-04-24`, medium, 96,000 input, 32,768 output, eight planning attempts, two repairs).
 
+The bounded diagnostic confirmed the provider message: “Invalid JSON schema: regex lookaround is not supported.” It identified the imported workspace pattern in `$defs.d10`, with one physical attempt and no execution.
+
+The first fresh Amazon diagnosis passed provider validation but stopped after four calls and two repairs: the model treated `always` as mandatory normal work rather than cleanup placement, and repeatedly assigned execution placement to data-only outcomes. The three responses are retained in `live-outcome-placement.json`. Version-2 prompting now defines the existing placement semantics explicitly, and new schemas constrain data outcomes to `always=false`, `conditional=false`, `coverage=once`. No accepted outcome or saved request is rewritten.
+
 Live execution results are pending. The historical 33/33 benchmark is unchanged and is not evidence for this correction. Deployment requires rebuilding/restarting the updated host and new planning sessions; the rejected session is not replayed automatically.

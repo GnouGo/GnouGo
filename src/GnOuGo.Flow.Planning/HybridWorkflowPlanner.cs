@@ -411,7 +411,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             o.Execution is not ("data" or "read" or "write" or "execute" or "lifecycle") || o.Always is null || o.Conditional is null ||
             o.Execution == "data" && (o.Always == true || o.Conditional == true) ||
             state.OutcomeVersion == 2 && (o.Coverage is not (null or "once" or "each_item") || o.Execution == "data" && o.Coverage == "each_item")))
-            Reject("REQUIREMENTS_EXECUTION_INVALID", "/requirements/outcomes", "Declare data production or an operation effect and its always/conditional expectations.");
+            Reject("REQUIREMENTS_EXECUTION_INVALID", "/requirements/outcomes", "Declare data production or an operation effect. Data outcomes require always=false, conditional=false and coverage=once. For external effects, always=true means cleanup/finally after failure, not mandatory normal work; normal work uses always=false. conditional=true permits skipped paths.");
         if (state.Requirements is { } accepted && (accepted.Summary != requirements!.Summary || !accepted.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal)
                 .SequenceEqual(requirements.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal)) ||
                 accepted.Inputs is not null && !PlanningClarifications.SameInputs(accepted.Inputs, requirements.Inputs)))
