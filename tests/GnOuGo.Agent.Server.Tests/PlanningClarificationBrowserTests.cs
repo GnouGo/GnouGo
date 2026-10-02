@@ -31,7 +31,7 @@ public sealed class PlanningClarificationBrowserTests
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); var model = new Model();
         using var service = PlanningSessionLifecycleTests.Create(fixture, new HybridWorkflowPlanner(), PlanningSessionLifecycleTests.AgentCatalog(), model);
         var cases = new JsonObject();
-        foreach (var name in new[] { "recommended", "custom", "text", "cancel", "recovery" })
+        foreach (var name in new[] { "recommended", "custom", "text", "cancel", "recovery", "legacy" })
         {
             var state = new PlanningSession { Request = new() { TenantId = "planning-tests", Name = "Browser " + name,
                 // Match the lifecycle fixture's pricing metadata; all dispatches use the injected Model below.
@@ -41,6 +41,11 @@ public sealed class PlanningClarificationBrowserTests
             { if (checkpoint.PendingCall is not null) issued = JsonSerializer.SerializeToNode(checkpoint, PlanningJsonContext.Default.PlanningSession)!.Deserialize(PlanningJsonContext.Default.PlanningSession); return Task.CompletedTask; });
             state = await new HybridWorkflowPlanner().AdvanceAsync(state, new(), runtime, ct);
             Assert.Equal(PlanningStatus.Clarification, state.Status);
+            if (name == "legacy")
+            {
+                state.IntentVersion = 1; state.PendingQuestions = null; state.Status = PlanningStatus.Stopped;
+                state.Diagnostics = [new("PLANNING_REVISION_REQUIRED", "/", "Explicit revision required")];
+            }
             if (name == "recovery")
             {
                 state = issued!; state.Status = PlanningStatus.Stopped;
@@ -84,10 +89,10 @@ public sealed class PlanningClarificationBrowserTests
         foreach (var (name, id) in cases)
         {
             var state = (await service.GetAsync(id!.ToString(), ct))!;
-            Assert.Equal(name == "cancel" ? PlanningStatus.Cancelled : PlanningStatus.FinalReview, state.Status);
-            Assert.Null(state.ApprovedHash); Assert.Equal(name == "cancel" ? 1 : 2, state.ModelCalls);
+            Assert.Equal(name == "cancel" ? PlanningStatus.Cancelled : name == "legacy" ? PlanningStatus.Stopped : PlanningStatus.FinalReview, state.Status);
+            Assert.Null(state.ApprovedHash); Assert.Equal(name is "cancel" or "legacy" ? 1 : 2, state.ModelCalls);
         }
-        Assert.Equal(9, model.Calls); // Five initial questions, four continuations; receipt replay dispatches nothing.
+        Assert.Equal(10, model.Calls); // Six initial questions, four continuations; receipt replay dispatches nothing.
     }
 
     private sealed class Model : ILLMClient

@@ -51,7 +51,7 @@ public sealed class PlanningOutcomeExecutionTests
         try
         {
             var engine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human(variant != "denied") };
-            var runtime = new TestRuntime(engine); var state = PlannerFixture.Session(); state.OutcomeVersion = 1; state.IntentVersion = 1;
+            var runtime = new TestRuntime(engine); var state = PlannerFixture.Session(); state.IntentVersion = 2;
             state.Catalog = await TaskPlanCompilerTests.Catalog(runtime.Actual);
             PlanTask Op(string id, string method, bool consumes) => new() { Id = id, Objective = "Perform declared local work",
                 Operation = TaskOperations.Describe(state.Catalog.Capabilities.Single(c => c.Method == method)).Id,

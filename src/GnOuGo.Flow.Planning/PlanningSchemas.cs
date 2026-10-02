@@ -56,7 +56,7 @@ internal static class PlanningSchemas
             root["properties"]!["clarifications"] = Nullable(Clarifications());
             root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("clarifications"));
         }
-        if (state.Requirements is null || clarifications && state.IntentVersion == 1 && state.Requirements.Inputs is null)
+        if (state.Requirements is null || clarifications && state.IntentVersion == 2 && state.Requirements.Inputs is null)
         {
             root["properties"]!["requirements"] = clarifications ? Nullable(Ref("requirements")) : Ref("requirements");
             root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("requirements"));
@@ -109,49 +109,17 @@ internal static class PlanningSchemas
                 foreach (var value in definitions["value"]!["anyOf"]!.AsArray().OfType<JsonObject>()) value.Remove("description");
             }
         }
-        if (state.OutcomeVersion is 1 or 2 or 3 && clarifications)
-        {
-            var outcome = definitions["requirements"]!["properties"]!["outcomes"]!["items"]!;
-            outcome["properties"]!["execution"] = Enum("data", "read", "write", "execute", "lifecycle");
-            outcome["properties"]!["always"] = Type("boolean");
-            outcome["properties"]!["conditional"] = Type("boolean");
-            foreach (var name in new[] { "execution", "always", "conditional" }) outcome["required"]!.AsArray().Add((JsonNode?)JsonValue.Create(name));
-            root["properties"]!["outcomeBindings"] = Nullable(Array(Object(
-                ("outcomeId", state.Requirements is { } accepted ? Enum(accepted.Outcomes.Select(o => o.Id).ToArray()) : Nonblank()),
-                ("taskIds", Array(Ref("id"))), ("outputs", Array(Nonblank()))), 1));
-            root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("outcomeBindings"));
-            if (state.OutcomeVersion is 2 or 3)
-            {
-                root["properties"]!["outcomeBindings"]!["description"] = "Required non-null with a plan: bind every accepted outcomeId exactly once. Null only for discovery or clarification.";
-                outcome["properties"]!["coverage"] = Enum("once", "each_item");
-                outcome["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("coverage"));
-                // Data describes values, not execution placement. These existing
-                // semantic restrictions must also constrain new model proposals.
-                var data = outcome.DeepClone();
-                data["properties"]!["execution"] = Enum("data");
-                data["properties"]!["always"] = new JsonObject { ["type"] = "boolean", ["const"] = false };
-                data["properties"]!["conditional"] = new JsonObject { ["type"] = "boolean", ["const"] = false };
-                data["properties"]!["coverage"] = Enum("once");
-                var effect = outcome.DeepClone(); effect["properties"]!["execution"] = Enum("read", "write", "execute", "lifecycle");
-                definitions["requirements"]!["properties"]!["outcomes"]!["items"] = new JsonObject { ["anyOf"] = new JsonArray(data, effect) };
-                var binding = root["properties"]!["outcomeBindings"]!["anyOf"]![0]!["items"]!;
-                binding["properties"]!["outputs"]!["description"] = "Names declared in plan.root.outputs only, never task ports or nested scope exports. Use [] if no root output is reported.";
-                binding["properties"]!["forEachTaskId"] = Nullable(Ref("id"));
-                binding["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("forEachTaskId"));
-            }
-        }
-        if (state.OutcomeVersion == 3 && clarifications) PlanningOutcomeAnnotations.Schema(state, root, definitions, admitted);
         definitions["task"] = Tasks(state, definitions, admitted);
-        if (state.Requirements is not null && (!clarifications || state.IntentVersion != 1 || state.Requirements.Inputs is not null)) root["$defs"]!.AsObject().Remove("requirements");
-        if (compact)
-        {
-            ShareRepeatedSchemas(root, definitions);
-            if (state.OutcomeVersion is 2 or 3)
-            {
-                for (var pass = 0; pass < 3; pass++) { ShareRepeatedSchemas(root, definitions, 30); CollapseAliases(root, definitions); PruneDefinitions(root, definitions); }
-            }
-            CompactDefinitionNames(root, definitions);
-        }
+        if (state.Requirements is not null && (!clarifications || state.IntentVersion != 2 || state.Requirements.Inputs is not null)) root["$defs"]!.AsObject().Remove("requirements");
+        return compact ? Compact(root) : root;
+    }
+
+    internal static JsonObject Compact(JsonObject root)
+    {
+        var definitions = root["$defs"]!.AsObject();
+        ShareRepeatedSchemas(root, definitions);
+        for (var pass = 0; pass < 3; pass++) { ShareRepeatedSchemas(root, definitions, 30); CollapseAliases(root, definitions); PruneDefinitions(root, definitions); }
+        CompactDefinitionNames(root, definitions);
         return root;
     }
 
@@ -225,7 +193,7 @@ internal static class PlanningSchemas
             if (node is JsonObject obj)
             {
                 if ((obj["type"] is JsonValue || obj["anyOf"] is JsonArray) && obj["properties"]?["dependsOn"] is null &&
-                    !(obj.Parent is JsonObject parent && ReferenceEquals(parent["kind"], obj)))
+                    !(obj.Parent is JsonObject parent && (ReferenceEquals(parent["kind"], obj) || ReferenceEquals(parent["slot"], obj) || ReferenceEquals(parent["action"], obj))))
                     nodes.Add(obj);
                 foreach (var value in obj.Select(p => p.Value)) Visit(value);
             }
@@ -308,68 +276,25 @@ internal static class PlanningSchemas
         var fixedOperations = TaskPlanRevisions.FixedOperations(state)
             ? TaskPlanRevisions.Tasks(state.Plan!).Where(t => t.Kind == "operation").Select(t => t.Operation).ToHashSet(StringComparer.Ordinal) : null;
         var resolved = (state.Catalog?.Capabilities ?? []).Concat(state.Discovery.Resolved).DistinctBy(c => (c.Id, c.Version))
-            .Where(c => state.OutcomeVersion is not (2 or 3) || state.Catalog!.AllowedStepTypes.Contains(c.StepType) && !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id))
+            .Where(c => state.Catalog!.AllowedStepTypes.Contains(c.StepType) && !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id))
             .GroupBy(c => TaskOperations.Describe(c).Id, StringComparer.Ordinal).Where(g => g.Count() == 1 && TaskOperations.Validate(g.First()).Count == 0)
             .Select(g => PlanningCapabilityArguments.Editable(g.First()))
             .Where(o => (fixedOperations is null || fixedOperations.Contains(o.Id)) && (admitted is null || admitted.Contains(o.Id))).OrderBy(o => o.Id, StringComparer.Ordinal).ToArray();
-        if (state.OutcomeVersion is not (2 or 3) && resolved.Length == 0 && fixedOperations is null && !state.Discovery.Pages.SelectMany(p => p.Capabilities).Any(c => c.Operation is not null))
-        { yield return task(String(), Array(Ref("output"))); yield break; }
-        // Index-only domains are compact discovery hints, not resolved contracts.
-        // Historical schemas kept these selectable. Version 2 requires inspection
-        // and admission before generation can select an exact operation contract.
-        var known = resolved.Select(o => o.Id).ToHashSet(StringComparer.Ordinal);
         var operations = resolved.Select(o => (o.Id, Inputs: Inputs(o))).ToArray();
         foreach (var group in operations.GroupBy(o => o.Inputs.ToJsonString(), StringComparer.Ordinal))
             yield return task(Enum(group.Select(o => o.Id).ToArray()), group.First().Inputs);
-        var unresolved = state.Discovery.Pages.SelectMany(p => p.Capabilities).Select(c => c.Operation?.Id)
-            .OfType<string>().Where(id => !known.Contains(id) && (fixedOperations is null || fixedOperations.Contains(id)))
-            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
-        if (state.OutcomeVersion is not (2 or 3) && unresolved.Length > 0) yield return task(Enum(unresolved), Array(Ref("output")));
-
-        bool Agent(string id) => state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).Any(c => TaskOperations.Describe(c).Id == id && c.StepType == "agent.run");
-        bool AgentLiteral(string id, string name) => Agent(id) && name is "objective" or "capabilities" or "budget" or "verification" or "output_schema";
-        bool AgentWorkspace(string id, string name) => name == "workspace" && Agent(id);
+        string StepType(string id) => state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).First(c => TaskOperations.Describe(c).Id == id).StepType;
 
         JsonObject Inputs(PlanningOperation operation)
         {
             var ports = operation.Inputs.OrderBy(p => p.Name, StringComparer.Ordinal)
-                .Select(p => (p.Name, Value: state.OutcomeVersion is 2 or 3 ? PlanningBindingSchemas.For(p.Schema, definitions,
-                    literalOnly: AgentLiteral(operation.Id, p.Name), workspace: AgentWorkspace(operation.Id, p.Name)) : DomainValue(p.Schema, definitions))).ToArray();
+                .Select(p => (p.Name, Value: PlanningBindingSchemas.For(p.Schema, definitions,
+                    literalOnly: TaskPlanCompiler.LiteralScopeInput(StepType(operation.Id), p.Path[0]), workspace: TaskPlanCompiler.FixedWorkspaceInput(StepType(operation.Id), p.Path[0])))).ToArray();
             if (ports.Length == 0) return Array(Ref("output"), 0, 0);
             var bindings = ports.GroupBy(p => p.Value.ToJsonString(), StringComparer.Ordinal)
                 .Select(g => (JsonNode?)Object(("name", Enum(g.Select(p => p.Name).ToArray())), ("value", g.First().Value))).ToArray();
             return Array(bindings.Length == 1 ? bindings[0]!.AsObject() : new JsonObject { ["anyOf"] = new JsonArray(bindings) });
         }
-    }
-
-    internal static JsonObject DomainValue(JsonObject schema, JsonObject definitions)
-    {
-        var declared = TaskOperations.FiniteDomain(schema);
-        var values = declared.ContainsKey("const") ? new JsonArray([declared["const"]?.DeepClone()]) : declared["enum"]?.DeepClone() as JsonArray;
-        if (values is null || values.Any(v => v is JsonObject or JsonArray)) return Ref("value");
-        if (declared.ContainsKey("const") && declared["enum"] is JsonArray allowed && !allowed.Any(v => JsonNode.DeepEquals(v, declared["const"]))) values.Clear();
-        if (!definitions.ContainsKey("binding"))
-        {
-            var all = definitions["value"]!["anyOf"]!.AsArray();
-            var bindings = all.Where(v => v!["properties"]!["kind"]!["enum"]![0]!.ToString() is not ("null" or "string" or "number" or "boolean" or "object" or "array")).ToArray();
-            definitions["binding"] = new JsonObject { ["anyOf"] = new JsonArray(bindings.Select(v => v!.DeepClone()).ToArray()) };
-            foreach (var binding in bindings) all.Remove(binding);
-            all.Add((JsonNode)Ref("binding"));
-        }
-        var alternatives = new JsonArray(Ref("binding"));
-        foreach (var group in values.GroupBy(v => v?.GetValueKind() ?? System.Text.Json.JsonValueKind.Null).OrderBy(g => g.Key))
-        {
-            var type = group.Key switch { System.Text.Json.JsonValueKind.String => "string", System.Text.Json.JsonValueKind.Number => "number",
-                System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False => "boolean", _ => "null" };
-            if (type == "null") alternatives.Add((JsonNode)Object(("kind", Enum("null"))));
-            else alternatives.Add((JsonNode)Object(("kind", Enum(type)), (type == "string" ? "text" : type,
-                new JsonObject { ["type"] = type, ["enum"] = new JsonArray(group.OrderBy(v => v!.ToJsonString(), StringComparer.Ordinal)
-                    .DistinctBy(v => v!.ToJsonString()).Select(v => v!.DeepClone()).ToArray()) })));
-        }
-        var domain = new JsonObject { ["anyOf"] = alternatives };
-        var existing = definitions.FirstOrDefault(d => d.Key.StartsWith("domain", StringComparison.Ordinal) && JsonNode.DeepEquals(d.Value, domain));
-        if (existing.Key is not null) return Ref(existing.Key);
-        var name = "domain" + definitions.Count; definitions[name] = domain; return Ref(name);
     }
 
     private static JsonObject Described(JsonObject schema, string description) { schema["description"] = description; return schema; }

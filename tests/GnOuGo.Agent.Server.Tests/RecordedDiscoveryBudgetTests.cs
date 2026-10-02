@@ -13,76 +13,28 @@ public sealed class RecordedDiscoveryBudgetTests
     [Fact]
     public async Task SevenDisplacementResponsesRetainTheirNullPlanStopAndOriginalRequests()
     {
-        var runtime = new Replay("retained-discovery-displacement.json"); var planner = new HybridWorkflowPlanner();
-        PlanningSession? state = null;
+        var runtime = new Replay("retained-discovery-displacement.json");
         foreach (var entry in runtime.Recording["responses"]!.AsArray())
-        {
-            runtime.Expected = entry!.AsObject(); state = runtime.State(entry["pendingSession"]!);
-            var usage = JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
-            var id = state.PendingCall!.Id; var calls = state.ModelCalls;
-            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-            Assert.Equal(calls, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
-            Assert.Equal(usage, JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
-            Assert.Equal(id, runtime.Identities[^1]); Assert.Null(state.PendingCall);
-            if (calls < 7) Assert.Empty(state.Diagnostics);
-        }
-        Assert.Equal(PlanningStatus.Stopped, state!.Status);
-        Assert.Equal("DISCOVERY_INCOMPLETE", Assert.Single(state.Diagnostics).Code);
-        Assert.Equal(7, runtime.Identities.Count); Assert.Equal(20, runtime.MetadataReads);
-        Assert.Equal(74, state.Discovery.Pages.SelectMany(p => p.Capabilities).Select(c => c.Id).Distinct().Count());
-        Assert.Null(state.Plan); Assert.Null(state.ApprovedHash);
+            await RecordedPlanCompilation.RetiredAsync(runtime.State(entry!["pendingSession"]!), runtime);
+        Assert.Empty(runtime.Identities); Assert.Equal(0, runtime.MetadataReads);
     }
 
     [Fact]
     public async Task SixHistoricalResponsesKeepTheirOriginalNullPlanStopAndAccounting()
     {
-        var runtime = new Replay("retained-discovery-incomplete.json"); var planner = new HybridWorkflowPlanner();
-        PlanningSession? state = null;
+        var runtime = new Replay("retained-discovery-incomplete.json");
         foreach (var entry in runtime.Recording["responses"]!.AsArray())
-        {
-            runtime.Expected = entry!.AsObject(); state = runtime.State(entry["pendingSession"]!);
-            var usage = JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
-            var id = state.PendingCall!.Id; var calls = state.ModelCalls;
-            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-            Assert.Equal(calls, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
-            Assert.Equal(usage, JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
-            Assert.Equal(id, runtime.Identities[^1]); Assert.Null(state.PendingCall);
-            if (calls < 6) Assert.Empty(state.Diagnostics);
-        }
-        Assert.Equal(PlanningStatus.Stopped, state!.Status);
-        Assert.Equal("DISCOVERY_INCOMPLETE", Assert.Single(state.Diagnostics).Code);
-        Assert.Equal(6, runtime.Identities.Count); Assert.Equal(17, runtime.MetadataReads);
-        Assert.Equal(90, state.Discovery.Pages.SelectMany(p => p.Capabilities).Select(c => c.Id).Distinct().Count());
-        Assert.Null(state.Plan); Assert.Null(state.ApprovedHash);
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-        Assert.Equal(6, runtime.Identities.Count); Assert.Equal(6, state.ModelCalls);
+            await RecordedPlanCompilation.RetiredAsync(runtime.State(entry!["pendingSession"]!), runtime);
+        Assert.Empty(runtime.Identities); Assert.Equal(0, runtime.MetadataReads);
     }
 
     [Fact]
     public async Task EightPreviouslyIssuedDiscoveryResponsesRecoverWithoutChangingTheirSchemasOrAccounting()
     {
-        var runtime = new Replay(); var planner = new HybridWorkflowPlanner();
-        PlanningSession? state = null;
+        var runtime = new Replay("retained-discovery-exhaustion.json");
         foreach (var entry in runtime.Recording["responses"]!.AsArray())
-        {
-            runtime.Expected = entry!.AsObject();
-            state = runtime.State(entry["pendingSession"]!);
-            var id = state.PendingCall!.Id; var calls = state.ModelCalls; var repairs = state.ReplanAttempts;
-            state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-            Assert.True(state.Diagnostics.Count == 0, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message)));
-            Assert.Equal(PlanningPhase.Discovery, state.Phase); Assert.Null(state.Plan);
-            Assert.Equal(calls, state.ModelCalls); Assert.Equal(repairs, state.ReplanAttempts);
-            Assert.Equal(id, runtime.Identities[^1]); Assert.Null(state.PendingCall);
-        }
-        Assert.Equal(8, runtime.Identities.Count); Assert.Equal(28, runtime.MetadataReads);
-        Assert.Equal(85, state!.Discovery.Pages.SelectMany(p => p.Capabilities).Select(c => c.Id).Distinct().Count());
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Single(state.Diagnostics);
-        Assert.Equal("LLM_BUDGET_EXCEEDED", state.Diagnostics[0].Code);
-        Assert.Equal(8, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
-        Assert.Equal(8, runtime.Identities.Count); Assert.Null(state.Plan);
-        // The historical record, including its repeated settings-resume failures, remains evidence.
-        Assert.Equal(3, runtime.Recording["finalSession"]!["diagnostics"]!.AsArray().Count);
+            await RecordedPlanCompilation.RetiredAsync(runtime.State(entry!["pendingSession"]!), runtime);
+        Assert.Empty(runtime.Identities); Assert.Equal(0, runtime.MetadataReads);
     }
 
     [Fact]
@@ -92,7 +44,7 @@ public sealed class RecordedDiscoveryBudgetTests
         var entry = runtime.Recording["responses"]!.AsArray()[6]!;
         runtime.Expected = entry.AsObject();
         var state = runtime.State(entry["pendingSession"]!);
-        state.PendingCall = null; state.ModelCalls = 6;
+        state.IntentVersion = 2; if (state.Requirements is not null) state.Requirements.Inputs ??= state.Plan?.Inputs ?? []; state.PendingCall = null; state.ModelCalls = 6;
         var planner = new HybridWorkflowPlanner();
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.Equal(PlanningStatus.Stopped, state.Status);

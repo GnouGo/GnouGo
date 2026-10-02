@@ -9,45 +9,16 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class RecordedOperationOutputTests
 {
     [Fact]
-    public async Task OriginalResponsesReachReviewWithTheSamePlanReceiptsAndAccounting()
+    public async Task RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting()
     {
-        var replay = new Replay(); var planner = new HybridWorkflowPlanner(); PlanningSession? result = null;
+        var replay = new Replay();
         foreach (var entry in replay.Recording["responses"]!.AsArray())
         {
-            replay.Expected = entry!.AsObject(); var pending = replay.State(entry["pendingSession"]!);
-            var before = JsonSerializer.Serialize(pending, PlanningJsonContext.Default.PlanningSession);
-            result = await planner.AdvanceAsync(pending, new() { ExpectedRevision = pending.Revision }, replay, TestContext.Current.CancellationToken);
-            Assert.Equal(before, JsonSerializer.Serialize(pending, PlanningJsonContext.Default.PlanningSession));
-            Assert.Equal(pending.ModelCalls, result.ModelCalls); Assert.Equal(pending.ReplanAttempts, result.ReplanAttempts);
-            Assert.Equal(JsonSerializer.Serialize(pending.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot), JsonSerializer.Serialize(result.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
-            Assert.Null(result.PendingCall); Assert.Null(result.ApprovedHash);
+            replay.Expected = entry!.AsObject();
+            var pending = replay.State(entry["pendingSession"]!);
+            await RecordedPlanCompilation.RetiredAsync(pending, replay);
         }
-        Assert.Equal(4, replay.Identities.Count); Assert.Equal(4, result!.ModelCalls); Assert.Equal(1, result.ReplanAttempts);
-        Assert.True(result.Status == PlanningStatus.FinalReview, string.Join("; ", result.Diagnostics.Select(d => d.Code + ": " + d.Message)));
-        Assert.Empty(result.Diagnostics);
-        var retained = replay.State(replay.Recording["finalSession"]!);
-        Assert.Equal(JsonSerializer.Serialize(retained.Plan, PlanningJsonContext.Default.TaskPlan), JsonSerializer.Serialize(result.Plan, PlanningJsonContext.Default.TaskPlan));
-        Assert.Equal(JsonSerializer.Serialize(retained.Discovery.Pages, PlanningJsonContext.Default.ListCapabilityPage), JsonSerializer.Serialize(result.Discovery.Pages, PlanningJsonContext.Default.ListCapabilityPage));
-        Assert.Equal(JsonSerializer.Serialize(retained.Discovery.Resolved, PlanningJsonContext.Default.ListPlanningCapability), JsonSerializer.Serialize(result.Discovery.Resolved, PlanningJsonContext.Default.ListPlanningCapability));
-        Assert.Equal(JsonSerializer.Serialize(retained.Discovery.Inspections, PlanningJsonContext.Default.ListPlanningDiscoveryRequest), JsonSerializer.Serialize(result.Discovery.Inspections, PlanningJsonContext.Default.ListPlanningDiscoveryRequest));
-        Assert.Contains(result.Discovery.Limitations, l => l.StartsWith("Discovery is incomplete:", StringComparison.Ordinal));
-        Assert.Single(retained.Diagnostics); Assert.All(retained.Diagnostics, d => Assert.Equal("TASK_COMPILER_VALIDATION", d.Code));
-        PlanningArtifactApproval.Verify(result);
-
-        // Recovery uses the original request/schema/patch authority, with no new request or metadata.
-        var recoveredRuntime = new Replay(); recoveredRuntime.Expected = recoveredRuntime.Recording["responses"]!.AsArray().Last()!.AsObject();
-        var recovered = await planner.AdvanceAsync(recoveredRuntime.State(recoveredRuntime.Expected["pendingSession"]!),
-            new() { ExpectedRevision = recoveredRuntime.Expected["pendingSession"]!["revision"]!.GetValue<long>() }, recoveredRuntime, TestContext.Current.CancellationToken);
-        Assert.Equal(PlanningStatus.FinalReview, recovered.Status); Assert.Single(recoveredRuntime.Identities); Assert.Equal(0, recoveredRuntime.MetadataReads);
-        Assert.Equal(result.Yaml, recovered.Yaml); Assert.Equal(result.ComputeArtifactHash(), recovered.ComputeArtifactHash());
-        PlanningArtifactApproval.Verify(recovered);
-        var hash = recovered.ComputeArtifactHash(); recovered.Plan!.Root.Always[0].Objective += " changed";
-        Assert.NotEqual(hash, recovered.ComputeArtifactHash()); Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(recovered));
-        var stale = recoveredRuntime.State(recoveredRuntime.Expected["pendingSession"]!);
-        stale.Plan!.Root.Tasks[0].Objective += " unauthorized revision";
-        var staleBefore = JsonSerializer.Serialize(stale, PlanningJsonContext.Default.PlanningSession);
-        await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(stale, new() { ExpectedRevision = stale.Revision }, recoveredRuntime, TestContext.Current.CancellationToken));
-        Assert.Single(recoveredRuntime.Identities); Assert.Equal(staleBefore, JsonSerializer.Serialize(stale, PlanningJsonContext.Default.PlanningSession));
+        Assert.Empty(replay.Identities);
     }
 
     private sealed class Replay : IPlanningRuntime, ICapabilityCatalog

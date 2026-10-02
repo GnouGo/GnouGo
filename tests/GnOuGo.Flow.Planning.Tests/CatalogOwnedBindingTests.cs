@@ -248,10 +248,10 @@ public sealed class CatalogOwnedBindingTests
     }
 
     [Fact]
-    public async Task IndexOnlySelectionResolvesOnceAndRejectsOwnershipBeforeLowering()
+    public async Task IndexOnlySelectionIsRejectedBeforeResolutionOrLowering()
     {
         var (plan, catalog, cap) = await Fixture(true); catalog.Capabilities.Remove(cap);
-        // An oversized optional contract remains index-only until the proposal selects it.
+        // An oversized optional contract requires explicit inspection before selection.
         cap.InputSchema["properties"]!["text"]!["description"] = new string('x', 90000);
         plan.Root.Tasks[0].Inputs.Add(new("selector", Text("host")));
         var source = new ExactCatalog(cap); var runtime = new TestRuntime { Capabilities = source,
@@ -261,8 +261,9 @@ public sealed class CatalogOwnedBindingTests
         state.Discovery.Pages = [new("source", null, [new(cap.Id, "source", "name", "description", cap.StepType, cap.EffectKind, cap.Version,
             Operation: TaskOperations.Describe(cap))], null)];
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Equal(1, source.Resolutions); Assert.Single(runtime.Calls);
-        Assert.Contains(state.Diagnostics, d => d.Code == "TASK_INPUT_HOST_OWNED");
+        Assert.Equal(0, source.Resolutions); Assert.Single(runtime.Calls);
+        Assert.DoesNotContain(cap.Id, runtime.Calls[0].StructuredOutputSchema!.ToJsonString());
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
         Assert.Null(state.Graph); Assert.Null(state.Yaml);
     }
 

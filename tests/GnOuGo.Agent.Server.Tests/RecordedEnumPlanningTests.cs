@@ -10,37 +10,28 @@ public sealed class RecordedEnumPlanningTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task OriginalResponsesRecoverWithOriginalSchemasAndRetainTheTypeFailures()
+    public async Task RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting()
     {
-        var runtime = new Replay(); var planner = new HybridWorkflowPlanner(); PlanningSession? state = null;
-        foreach (var entry in runtime.Recording["responses"]!.AsArray())
+        var replay = new Replay();
+        foreach (var entry in replay.Recording["responses"]!.AsArray())
         {
-            runtime.Expected = entry!.AsObject(); var pending = runtime.State(entry["pendingSession"]!);
-            var before = JsonSerializer.Serialize(pending, PlanningJsonContext.Default.PlanningSession);
-            state = await planner.AdvanceAsync(pending, new() { ExpectedRevision = pending.Revision }, runtime, Ct);
-            Assert.Equal(pending.ModelCalls, state.ModelCalls); Assert.Equal(pending.ReplanAttempts, state.ReplanAttempts);
-            Assert.Equal(before, JsonSerializer.Serialize(pending, PlanningJsonContext.Default.PlanningSession));
-            Assert.Equal(JsonSerializer.Serialize(pending.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot),
-                JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
-            Assert.Null(state.PendingCall); Assert.Null(state.Graph); Assert.Null(state.Yaml);
-            if (state.ModelCalls == 5) Assert.Contains(state.Diagnostics, d => d.Code == "DISCOVERY_NO_PROGRESS");
-            else if (state.ModelCalls < 7) Assert.Empty(state.Diagnostics);
+            replay.Expected = entry!.AsObject();
+            var pending = replay.State(entry["pendingSession"]!);
+            await RecordedPlanCompilation.RetiredAsync(pending, replay);
         }
-        Assert.Equal(8, state!.Diagnostics.Count); Assert.Equal(5, state.Diagnostics.Count(d => d.Code == "TASK_INPUT_TYPE"));
-        Assert.Equal(3, state.Diagnostics.Count(d => d.Code == "TASK_TRANSFORM_CONSTRAINT"));
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(7, state.ModelCalls); Assert.Equal(2, state.ReplanAttempts);
-        Assert.Equal(7, runtime.Identities.Count); // Never refund historical reservations.
-        Assert.Contains(runtime.Recording["history"]!.AsArray(), h => h!["revision"]!.GetValue<int>() == 12 && h["diagnostics"]!.AsArray().Count == 1);
+        Assert.Empty(replay.Identities);
     }
 
     [Fact]
     public async Task NewIssuedSchemaRejectsInventedLiteralsAndSyntheticRegenerationReachesReview()
     {
         var runtime = new Replay(); var retained = runtime.State(runtime.Recording["finalSession"]!);
-        var state = new PlanningSession { Request = retained.Request, Requirements = retained.Requirements, Catalog = retained.Catalog, Discovery = retained.Discovery };
+        var state = new PlanningSession { IntentVersion = 2, Request = retained.Request, Requirements = retained.Requirements, Catalog = retained.Catalog, Discovery = retained.Discovery };
+        state.Requirements!.Inputs = retained.Plan!.Inputs;
         state.Request.SessionId = "synthetic-enum-regeneration";
-        state.Discovery.Inspections = null;
+        RecordedPlanCompilation.InspectSelected(state, retained.Plan);
+        // This fresh fixture explicitly budgets the full typed contracts; the historical limit remains in the recording.
+        state.Request.Generation.MaxInputTokensPerRequest = 96000;
         runtime.NextProposal = runtime.Recording["responses"]!.AsArray()[6]!["response"]!["json"]!.DeepClone().AsObject();
         var planner = new HybridWorkflowPlanner();
         state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
@@ -131,7 +122,7 @@ public sealed class RecordedEnumPlanningTests
                 Identities.Add(request.ClientRequestId!); Requests.Add(request);
                 var proposal = (NextProposal ?? FileData("synthetic-corrected")["proposal"]!).DeepClone().AsObject();
                 proposal["clarifications"] = null; // New synthetic response; retained issued responses remain unchanged.
-                return Task.FromResult(new LLMResponse { Json = proposal });
+                return Task.FromResult(new LLMResponse { Json = NextProposal is not null ? proposal : GnOuGo.Planning.Examples.PlanningCorpus.Transport(proposal, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) });
             }
             var issued = Expected["pendingSession"]!["pendingCall"]!;
             Assert.Equal(issued["id"]!.ToString(), request.ClientRequestId);

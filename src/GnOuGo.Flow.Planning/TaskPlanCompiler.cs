@@ -384,6 +384,9 @@ public sealed partial class TaskPlanCompiler
 
     private Bound Value(TaskValue value, Scope scope, bool consume = true)
     {
+        if (value.Kind == "output" && value.Source is not null && !scope.Tasks.ContainsKey(value.Source) &&
+            _symbols.Values.TryGetValue(_location, out var site) && _symbols.ExportedReference(site.Scope, value) is { } exported)
+            value = exported;
         if (scope.Blocked.Contains((value.Kind, value.Source ?? "", value.Port ?? "")) ||
             scope.Blocked.Contains((value.Kind, value.Source ?? "", "*"))) throw new UnavailableValue();
         switch (value.Kind)

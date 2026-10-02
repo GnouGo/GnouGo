@@ -95,23 +95,24 @@ public sealed class StructuralRepairTests
         Assert.Equal("operation", Apply(state, "task", "replace_task", task).Root.Tasks[0].Kind);
     }
     [Fact]
-    public async Task V1RecoveryRetainsNarrowAuthorityEvenWhenV2CanInsert()
+    public async Task RetiredRepairEnvelopesCannotBeReinterpretedAsCurrentAuthority()
     {
         var state = await MissingProducer(); var v1 = RepairPatchTests.Request(state);
-        Assert.Throws<PlanningResponseException>(() => Apply(state, "prerequisites", "insert_prerequisites", Prerequisite(), v1));
+        v1.Prompt = v1.Prompt.Replace("\"version\":7", "\"version\":1", StringComparison.Ordinal);
+        Assert.Throws<PlanningConflictException>(() => Apply(state, "prerequisites", "insert_prerequisites", Prerequisite(), v1));
         var v2 = new PlanningPrompt(state).Request(); var recovered = PlannerFixture.Clone(state);
         Assert.Empty(new TaskPlanCompiler().Compile(Apply(recovered, "prerequisites", "insert_prerequisites", Prerequisite(), v2), state.Catalog!).Diagnostics);
         recovered.Catalog!.Capabilities.Single(c => c.Id == "allocate").Version = "changed";
         Assert.Throws<PlanningConflictException>(() => PlanningRepairPatch.Verify(recovered, v2));
     }
     [Fact]
-    public async Task RetainedV2StructuralAuthorityAndSchemaRemainUsableWithoutClarificationPermission()
+    public async Task IssuedStructuralAuthorityAndSchemaRemainUsableWithoutClarificationPermission()
     {
         var state = await MissingProducer();
         var request = new LLMRequest
         {
             StructuredOutputSchema = PlanningRepairPatch.Schema(state, PlanningSchemas.FullProposal(state, compact: false, clarifications: false)),
-            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = 2, ["authority"] = PlanningRepairPatch.Authority(state, 2) } }.ToJsonString()
+            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = 7, ["authority"] = PlanningRepairPatch.Authority(state) } }.ToJsonString()
         };
         var schema = request.StructuredOutputSchema.ToJsonString();
         Assert.Null(request.StructuredOutputSchema["properties"]!["clarifications"]);
@@ -162,7 +163,7 @@ public sealed class StructuralRepairTests
         var plan = new TaskPlan { Root = new() { Tasks = [new() { Id = "outer", Kind = "sequence", Objective = "Outer", Body = new() { Tasks = [new() { Id = "inner", Kind = "sequence", Objective = "Inner", Body = PlanningCorpus.Greeting().Root }] } }],
             Outputs = [new("result", new() { Kind = "output", Source = "greet", Port = "message" })] } };
         var scope = TaskPlanRevisions.Scope(plan, [new("TASK_REFERENCE_UNKNOWN", "/root/outputs/result", "Not visible")]);
-        Assert.Contains("/tasks/inner/body/outputs", scope); Assert.Contains("/tasks/outer/body/outputs", scope);
+        Assert.DoesNotContain(scope, p => p.StartsWith("/tasks/inner/body/outputs", StringComparison.Ordinal)); Assert.Contains("/tasks/outer/body/outputs/message", scope);
         Assert.DoesNotContain("/tasks/greet", scope);
     }
     [Fact]

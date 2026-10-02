@@ -81,7 +81,8 @@ public sealed class RecordedTargetedDiscoveryTests(ITestOutputHelper output)
             var before = PlanningJsonTransport.EstimateInputTokens(issued.Prompt, issued.StructuredOutputSchema!.AsObject());
             state.PendingCall = null; state.ModelCalls--; if (state.Usage is not null) state.Usage = state.Usage with { Calls = state.ModelCalls };
             var shortlist = HybridWorkflowPlanner.Shortlist(state); var prompt = HybridWorkflowPlanner.BuildPrompt(state, shortlist);
-            var after = PlanningJsonTransport.EstimateInputTokens(prompt, PlanningSchemas.Proposal(state));
+            var measured = new PlanningPrompt(state); prompt = measured.Build(shortlist);
+            var after = PlanningJsonTransport.EstimateInputTokens(prompt, measured.Schema);
             Assert.InRange(after, 1, 21600); beforeTotal += before; afterTotal += after;
             output.WriteLine($"Displacement request {++i}: input {before} -> {after}, bytes {Encoding.UTF8.GetByteCount(issued.Prompt)} -> {Encoding.UTF8.GetByteCount(prompt)}, detailed {TargetedDiscoveryTests.Context(issued.Prompt)["operations"]!.AsArray().Count} -> {TargetedDiscoveryTests.Context(prompt)["operations"]!.AsArray().Count}; pages={pages}.");
         }

@@ -145,9 +145,9 @@ public sealed class TaskPlanSemanticRepairTests
         var failed = new TaskPlanCompiler().Compile(plan, new());
         Assert.Equal(2, failed.Diagnostics.Count(d => d.Code == "TASK_EXPORT_REQUIRED"));
         var scope = TaskPlanRevisions.Scope(plan, failed.Diagnostics); var repaired = Clone(plan);
-        repaired.Root.Tasks[0].Body!.Outputs.Add(new("text", PlanningCorpus.Business("output", "greet", "message")));
-        repaired.Root.Tasks[0].Otherwise!.Outputs.Add(new("text", PlanningCorpus.String("Explicit alternative")));
-        repaired.Root.Outputs[0].Value.Source = "decide"; repaired.Root.Outputs[0].Value.Port = "text";
+        repaired.Root.Tasks[0].Body!.Outputs.Add(new("message", PlanningCorpus.Business("output", "greet", "message")));
+        repaired.Root.Tasks[0].Otherwise!.Outputs.Add(new("message", PlanningCorpus.String("Explicit alternative")));
+        repaired.Root.Outputs[0].Value.Source = "decide"; repaired.Root.Outputs[0].Value.Port = "message";
         Assert.Empty(TaskPlanRevisions.Validate(plan, repaired, scope));
         Assert.Empty(new TaskPlanCompiler().Compile(repaired, new()).Diagnostics);
         repaired.Root.Tasks[0].Otherwise!.Outputs.Clear();

@@ -110,7 +110,8 @@ public sealed class CompactWireDefaultsTests
         var compact = PlanningJsonTransport.TaskPlanPrompt(plan)!;
         var after = compact.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
         Assert.Equal(before, JsonSerializer.Serialize(after, PlanningJsonContext.Default.TaskPlan));
-        var schema = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false);
+        var state = PlannerFixture.Session(); state.Catalog = catalog;
+        var schema = PlanningSchemas.FullProposal(state, compact: false);
         var wire = TestRuntime.Response(new() { StructuredOutputSchema = schema }, new() { Plan = plan, Requirements = PlannerFixture.Requirements() }).Json!;
         Assert.Empty(PlanningContractValidation.ValidateInstance(wire, schema));
         Assert.Equal(before, JsonSerializer.Serialize(wire["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan));

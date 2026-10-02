@@ -73,7 +73,7 @@
             <MarkdownContent Content="@("```mermaid\n" + PlanningReviewFormatter.Diagram(graph) + "\n```")" />
 
         }
-        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification)
+        @if (!IsWorkflowSession && !_state.RequiresPlanningRevision && _state.Status == PlanningStatus.Clarification)
         {
             <PlannerChoiceCard Choices="PlanningEndpoints.ToDto(_state).Choices" Questions="PlanningEndpoints.ToDto(_state).Questions"
                 DecisionKey="@(_state.Request.SessionId + ":" + _state.Revision)" Busy="_busy" Select='selections => SubmitAsync("choose", selections: selections)'
@@ -101,7 +101,11 @@
             <p>Static or simulated validation does not establish external execution success.</p>
         }
         @if (_state.Yaml is { } yaml) { <details open><summary>Workflow YAML</summary><pre><code>@yaml</code></pre></details> }
-        @if (!IsWorkflowSession && _state.Status == PlanningStatus.FinalReview)
+        @if (_state.RequiresPlanningRevision && _state.Status is not (PlanningStatus.Saved or PlanningStatus.Approved or PlanningStatus.Saving or PlanningStatus.Cancelled))
+        {
+            <p role="status">This session uses a retired planning contract. Enter an explicit revision to continue with business tasks. Its saved responses, artifacts and usage remain retained; a new artifact requires approval.</p>
+        }
+        @if (!IsWorkflowSession && !_state.RequiresPlanningRevision && _state.Status == PlanningStatus.FinalReview)
         { <button class="btn btn-primary" disabled="@_busy" @onclick="ApproveAndSaveAsync">Approve this revision and save</button> }
         @if (!IsWorkflowSession && _state.Status == PlanningStatus.Approved)
         { <button class="btn btn-primary" disabled="@_busy" @onclick='() => SubmitAsync("save")'>Save approved workflow</button> }
@@ -117,13 +121,15 @@
             }
             else if (_requestInspection?.State == "receipt_available")
             {
-                <p>A saved response is available. Resume will consume it under its original schema without another call reservation. Further planning may require subsequent calls.</p>
-                <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("resume_response")'>Resume from saved response</button>
+                <p>@(_state.RequiresPlanningRevision ? "Validate the saved response and restore its accounting before revising. Its old proposal will not be applied or dispatched again." : "A saved response is available. Resume will consume it under its original schema without another call reservation. Further planning may require subsequent calls.")</p>
+                <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("resume_response")'>@(_state.RequiresPlanningRevision ? "Settle saved response" : "Resume from saved response")</button>
             }
             else
             {
-                <p>The previous request has no confirmed result. Retrying retains its call count and adds a conservative token and cost estimate before using another call. Session limits remain unchanged.</p>
-                <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("retry_model")'>Retry with retained usage</button>
+                @if (_state.RequiresPlanningRevision)
+                { <p>The retired request cannot be retried. Unknown completion requires reconciliation; its reservation is retained.</p> }
+                else
+                { <p>The previous request has no confirmed result. Retrying retains its call count and conservatively reserves unknown usage.</p><button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("retry_model")'>Retry with retained usage</button> }
             }
         }
         @if (!IsWorkflowSession && _state.Status is not (PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled))
@@ -131,7 +137,7 @@
             <label for="plan-revision">Requested changes</label><textarea id="plan-revision" class="form-control" rows="3" @bind="_revision"></textarea>
             <button class="btn btn-secondary" disabled="@(_busy || IsCallBudgetExhausted || string.IsNullOrWhiteSpace(_revision))" @onclick='() => SubmitAsync("revise", _revision)'>Revise workflow</button>
             <button class="btn btn-outline-secondary" disabled="@_busy" @onclick='() => SubmitAsync("cancel")'>Cancel planning</button>
-            @if (PlanningStatus.IsWaiting(_state.Status) || _state.Status == PlanningStatus.Stopped)
+            @if (!_state.RequiresPlanningRevision && (PlanningStatus.IsWaiting(_state.Status) || _state.Status == PlanningStatus.Stopped))
             {
                 <label>Planning mode<select @bind="_mode"><option value="interactive">Interactive</option><option value="auto">Auto</option></select></label>
                 <button disabled="@_busy" @onclick='() => SubmitAsync("configure_mode", mode: _mode)'>Apply planning mode</button>

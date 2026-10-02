@@ -281,6 +281,16 @@ public sealed partial class PlanningSessionService(
 
         if (command.Kind is "cancel" or "revise" or "configure_generation" or "answer" or "configure_mode")
         {
+            if (command.Kind == "revise" && current.RequiresPlanningRevision && current.PendingCall is { } legacy)
+            {
+                await using var db = await contexts.CreateDbContextAsync(ct);
+                if (!await db.Calls.AnyAsync(c => c.TenantId == Tenant && c.SessionId == current.Request.SessionId &&
+                    c.RequestHash == legacy.Id && c.PayloadKey == current.Request.SessionId + ":" + legacy.Id, ct))
+                    throw new PlanningConflictException("The original reservation is unavailable. Reconcile it before revising.");
+                // Work on a clone: a rejected revision must not partially settle the session.
+                current = JsonSerializer.SerializeToNode(current, PlanningJsonContext.Default.PlanningSession)!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+                await PlanningModelRecovery.ResumeAsync(current, records, legacy.Id, ct);
+            }
             var recordedUsage = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, current.Request.SessionId, EfPlanningSessionStore.Author, ct);
             if (recordedUsage is not null) current.Usage = JsonSerializer.Deserialize(recordedUsage.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
             var result = await planner.AdvanceAsync(current, command, new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask), ct);
@@ -300,6 +310,8 @@ public sealed partial class PlanningSessionService(
         var estimator = new ModelMetadataUsageCostEstimator(runtime.Options);
         if (command.Kind is "retry_model" or "resume_response")
         {
+            if (current.RequiresPlanningRevision && command.Kind == "retry_model")
+                throw new PlanningConflictException("PLANNING_REVISION_REQUIRED: The old request cannot be dispatched. Settle its receipt or reconcile unknown completion, then explicitly revise.");
             var previousRevision = current.Revision;
             if (command.Kind == "resume_response")
             {

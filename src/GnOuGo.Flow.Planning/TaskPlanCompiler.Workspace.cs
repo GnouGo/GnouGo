@@ -4,6 +4,10 @@ namespace GnOuGo.Flow.Planning;
 
 public sealed partial class TaskPlanCompiler
 {
+    internal static bool FixedWorkspaceInput(string stepType, string port) => stepType == "agent.run" && port == "workspace";
+    internal static bool LiteralScopeInput(string stepType, string port) => stepType == "agent.run" &&
+        port is "objective" or "capabilities" or "budget" or "verification" or "output_schema";
+
     // Only workspace references may reduce to constants. Normal Value/Read first
     // checks availability; schema const/default annotations never establish this proof.
     private TaskValue ScopeValue(PlanTask consumer, string port, TaskValue value)
@@ -11,7 +15,7 @@ public sealed partial class TaskPlanCompiler
         if (port == "workspace" && !Literal(value) && _symbols.Tasks.TryGetValue(consumer.Id, out var site) &&
             Constant(value, site.Scope, new(StringComparer.Ordinal)) is { Kind: "string" } constant)
             return constant;
-        if (port is "objective" or "workspace" or "capabilities" or "budget" or "verification" or "output_schema" && !Literal(value))
+        if ((FixedWorkspaceInput("agent.run", port) || LiteralScopeInput("agent.run", port)) && !Literal(value))
             Fail("AGENT_SCOPE_DYNAMIC", "Agent scope must be literal before approval. Workspace may reference an available, fixed value; runtime inputs, choices and computed paths cannot change it.");
         return value;
     }

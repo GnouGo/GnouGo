@@ -40,6 +40,7 @@ public sealed class CopilotAttachmentPlanningTests
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory, LLMClient = model }, (_, _) => Task.CompletedTask);
         var state = new PlanningSession
         {
+            IntentVersion = 2,
             Request = new() { TenantId = "fixture", Mode = PlanningMode.Auto, Prompt = "Summarize the supplied review context without executing commands.", Generation = new() { MaxInputTokensPerRequest = 24000, MaxOutputTokens = 32768 } },
             Requirements = new() { Summary = "Summarize supplied review context", Outcomes = [new("report", "Return the summary")] },
             Phase = PlanningPhase.Tasks,
@@ -76,6 +77,7 @@ public sealed class CopilotAttachmentPlanningTests
 
         // Explicitly synthetic corrected intent, not an edited historical recording.
         model.Plan = SyntheticCorrectedProposal(clone.Id, send.Id);
+        state.Requirements!.Inputs = model.Plan.Inputs;
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + " " + d.Location + " " + d.Message)));
         Assert.Equal(1, model.Calls); Assert.Equal(0, state.ReplanAttempts); Assert.Equal(0, factory.InvocationAttempts);
@@ -111,7 +113,7 @@ public sealed class CopilotAttachmentPlanningTests
 
     private static Type Revisions => typeof(HybridWorkflowPlanner).Assembly.GetType("GnOuGo.Flow.Planning.TaskPlanRevisions")!;
     private static IReadOnlyList<string> Scope(TaskPlan plan, IReadOnlyList<PlanningDiagnostic> diagnostics)
-        => (IReadOnlyList<string>)Revisions.GetMethod("Scope", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [plan, diagnostics, false])!;
+        => (IReadOnlyList<string>)Revisions.GetMethod("Scope", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [plan, diagnostics])!;
     private static IEnumerable<PlanningDiagnostic> ValidateRevision(TaskPlan plan, TaskPlan changed, IReadOnlyList<string> scope, PlanningCatalog catalog)
         => (IEnumerable<PlanningDiagnostic>)Revisions.GetMethod("Validate", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [plan, changed, scope, catalog])!;
 

@@ -7,7 +7,7 @@ namespace GnOuGo.Flow.Planning.Tests;
 internal static class PlannerFixture
 {
     internal static CancellationToken Ct => TestContext.Current.CancellationToken;
-    internal static PlanningSession Session() => new() { Request = new() { TenantId = "test", Prompt = "Return a greeting" } };
+    internal static PlanningSession Session() => new() { IntentVersion = 2, Request = new() { TenantId = "test", Prompt = "Return a greeting" } };
     internal static PlanningGraph Greeting(string message = "Hello") => new()
     {
         Summary = "Return a greeting", Workflows = [new()
@@ -16,7 +16,7 @@ internal static class PlannerFixture
             Outputs = [new() { Name = "message", Value = PlanningCorpus.Ref("output", "greet", "message") }]
         }]
     };
-    internal static PlanningRequirements Requirements() => new() { Summary = "Return a greeting", Outcomes = [new("message", "Return a greeting")] };
+    internal static PlanningRequirements Requirements() => new() { Summary = "Return a greeting", Inputs = [], Outcomes = [new("message", "Return a greeting")] };
     internal static PlanningSession Clone(PlanningSession state) => JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
     internal static async Task<PlanningSession> RunAsync(TestRuntime runtime, PlanningSession? state = null)
     {

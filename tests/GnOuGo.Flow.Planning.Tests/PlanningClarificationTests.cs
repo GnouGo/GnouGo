@@ -183,19 +183,24 @@ public sealed class PlanningClarificationTests
     }
 
     [Fact]
-    public async Task HistoricalPendingProposalKeepsItsSchemaAndApprovalMaterial()
+    public async Task HistoricalPendingProposalRequiresExplicitRevisionWithoutDispatchOrMutation()
     {
-        var state = PlannerFixture.Session(); var runtime = new TestRuntime();
+        var state = PlannerFixture.Session(); state.IntentVersion = 1; var runtime = new TestRuntime();
         state.Catalog = await runtime.DiscoverAsync(state.Request, Ct);
         var request = new LLMRequest { ClientRequestId = "historical", Prompt = "Original prompt", StructuredOutputSchema = PlanningSchemas.FullProposal(state, clarifications: false) };
         state.PendingCall = new() { Id = "historical", Purpose = "tasks", Request = request }; state.ModelCalls = 1;
         var schema = request.StructuredOutputSchema.ToJsonString();
         state = await PlannerFixture.RunAsync(runtime, PlannerFixture.Clone(state));
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Null(state.IntentVersion); Assert.Null(state.Requirements!.Inputs);
-        Assert.Equal(schema, Assert.Single(runtime.Calls).StructuredOutputSchema!.ToJsonString()); Assert.Equal("Original prompt", runtime.Calls[0].Prompt);
-        var hash = state.ComputeArtifactHash(); var stored = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-        Assert.DoesNotContain("intentVersion", stored); Assert.DoesNotContain("pendingQuestions", stored); Assert.DoesNotContain("answerHistory", stored);
-        state = PlannerFixture.Clone(state); Assert.Equal(hash, state.ComputeArtifactHash()); PlanningArtifactApproval.Verify(state);
+        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(1, state.IntentVersion);
+        Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_REVISION_REQUIRED");
+        Assert.Empty(runtime.Calls); Assert.Equal(1, state.ModelCalls);
+        Assert.Equal(schema, state.PendingCall!.Request.StructuredOutputSchema!.ToJsonString());
+        Assert.Equal("Original prompt", state.PendingCall.Request.Prompt);
+        var stored = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var repeated = await PlannerFixture.RunAsync(runtime, PlannerFixture.Clone(state));
+        Assert.Equal(stored, JsonSerializer.Serialize(repeated, PlanningJsonContext.Default.PlanningSession));
+        await Assert.ThrowsAsync<PlanningConflictException>(() => new HybridWorkflowPlanner().AdvanceAsync(state,
+            new() { Kind = "revise", ExpectedRevision = state.Revision, Text = "Retain the business request" }, runtime, Ct));
     }
 
     [Fact]

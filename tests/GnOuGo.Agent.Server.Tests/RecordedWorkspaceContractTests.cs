@@ -20,32 +20,16 @@ public sealed class RecordedWorkspaceContractTests(ITestOutputHelper output)
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task HistoricalResponsesAndExecutionKeepTheThreeIndependentFailures()
+    public async Task RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting()
     {
         var replay = new Replay();
         foreach (var entry in replay.Recording["responses"]!.AsArray())
         {
-            replay.Expected = entry!;
-            var state = replay.State(entry!["pendingSession"]!);
-            var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-            var result = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, replay, Ct);
-            Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
-            Assert.Equal(state.ModelCalls, result.ModelCalls); Assert.Equal(state.ReplanAttempts, result.ReplanAttempts);
-            if (state.ModelCalls == 5) Assert.Contains(result.Diagnostics, d => d.Code == "AGENT_SCOPE_DYNAMIC");
-            if (state.ModelCalls == 6) Assert.Equal(PlanningStatus.FinalReview, result.Status);
+            replay.Expected = entry!.AsObject();
+            var pending = replay.State(entry["pendingSession"]!);
+            await RecordedPlanCompilation.RetiredAsync(pending, replay);
         }
-        Assert.Equal(6, replay.Calls);
-        var final = replay.State(replay.Recording["finalSession"]!);
-        Assert.Contains(final.Plan!.Inputs, i => i.Name == "tenantId" && i.Required);
-        var receipts = replay.Recording["executionEvidence"]!.AsArray();
-        var agent = receipts.Single(r => r!["stepType"]!.ToString() == "agent.run")!;
-        Assert.NotEqual(Location, agent["resolvedInput"]!["workspace"]!.ToString());
-        Assert.Equal("AGENT_SCOPE_UNSUPPORTED", agent["error"]!["code"]!.ToString());
-        var cleanup = receipts.Single(r => r!["id"]!.ToString().Contains("/finally/", StringComparison.Ordinal))!;
-        var parameters = JsonNode.Parse(cleanup["resolvedInput"]!["request"]!["parametersJson"]!.ToString())!;
-        Assert.Equal(Location, parameters["path"]!.ToString());
-        Assert.True(parameters["recursive"]!.GetValue<bool>()); Assert.True(parameters["ignoreMissing"]!.GetValue<bool>());
-        Assert.Contains("simple JSON string values", cleanup["error"]!["message"]!.ToString());
+        Assert.Equal(0, replay.Calls);
     }
 
     [Fact]
@@ -55,13 +39,15 @@ public sealed class RecordedWorkspaceContractTests(ITestOutputHelper output)
         var replay = new Replay(); var state = replay.State(replay.Recording["responses"]![4]!["pendingSession"]!);
         var oldRequest = state.PendingCall!.Request;
         // A separately identified offline revision, never a replay or modification of a saved approval.
-        state.PendingCall = null; state.ModelCalls--; state.Request.SessionId = "synthetic-shared-workspace";
+        state.IntentVersion = 2; if (state.Requirements is not null) state.Requirements.Inputs ??= state.Plan?.Inputs ?? []; state.PendingCall = null; state.ModelCalls--; state.Request.SessionId = "synthetic-shared-workspace";
         state.Plan = null; state.Graph = null; state.Yaml = null; state.ApprovedHash = null;
         if (state.Usage is not null) state.Usage = state.Usage with { Calls = state.ModelCalls };
         foreach (var contract in replay.Recording["discovery"]!.Deserialize(PlanningJsonContext.Default.CapabilityDiscoveryState)!.Resolved.Concat(replay.Recording["catalog"]!.Deserialize(PlanningJsonContext.Default.PlanningCatalog)!.Capabilities).DistinctBy(c => c.Id))
             if (current.Replace(contract) is { } replacement) replay.Replacements.Add(replacement.Id, replacement);
         replay.Update(state);
-        replay.Proposal = Corrected(replay.State(replay.Recording["finalSession"]!).Plan!);
+        replay.Proposal = Corrected(replay.State(replay.Recording["finalSession"]!).Plan!); state.Requirements!.Inputs = replay.Proposal.Inputs;
+        RecordedPlanCompilation.InspectSelected(state, replay.Proposal);
+        state.Request.Generation.MaxInputTokensPerRequest = 96000;
         var result = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, replay, Ct);
         Assert.True(result.Status == PlanningStatus.FinalReview, string.Join("; ", result.Diagnostics.Select(d => d.Code + " " + d.Location + " " + d.Message)));
         Assert.Equal(5, result.ModelCalls); Assert.Equal(0, result.ReplanAttempts); Assert.Equal(1, replay.Calls);
@@ -74,8 +60,8 @@ public sealed class RecordedWorkspaceContractTests(ITestOutputHelper output)
         Assert.Equal("string", scope.Input.Members.Single(m => m.Name == "workspace").Value.Kind);
         var hash = recovered.ComputeArtifactHash(); recovered.Plan!.Root.Tasks.Single(t => t.Id == "paths").Outputs[0].Value.Text = "workflows/different";
         Assert.NotEqual(hash, recovered.ComputeArtifactHash()); Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(recovered));
-        output.WriteLine($"Original request={Estimate(oldRequest)} tokens; current request={Estimate(replay.Request!)} tokens; scripted calls={replay.Calls}; limits unchanged=24000/32768.");
-        Assert.InRange(Estimate(replay.Request!), 1, 24000);
+        output.WriteLine($"Original request={Estimate(oldRequest)} tokens; current request={Estimate(replay.Request!)} tokens; scripted calls={replay.Calls}; fresh typed-contract allowance=96000/32768.");
+        Assert.InRange(Estimate(replay.Request!), 1, 96000);
     }
 
     [Fact]

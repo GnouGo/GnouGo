@@ -38,15 +38,12 @@ clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState,
 PlanningArtifactApproval.Verify(clarificationState);
 if (clarificationState.Status != PlanningStatus.FinalReview || clarificationState.ApprovedHash is not null || clarificationRuntime.Calls != 2)
     throw new InvalidOperationException("Clarification bypassed review or lost accounting.");
-if (clarificationState.OutcomeVersion != 3 || clarificationState.OutcomeBindings?.Count != 1 ||
-    clarificationState.Requirements?.Outcomes.Single().Execution != "data")
-    throw new InvalidOperationException("Outcome annotations did not survive Native AOT recovery.");
-var outcomeHash = clarificationState.ComputeArtifactHash();
-clarificationState.OutcomeBindings[0].Outputs.Clear();
-if (outcomeHash == clarificationState.ComputeArtifactHash()) throw new InvalidOperationException("Outcome annotations were not bound to approval.");
-try { PlanningArtifactApproval.Verify(clarificationState); throw new InvalidOperationException("Invalid outcome coverage was accepted."); }
-catch (PlanningConflictException) { }
-Console.WriteLine("outcomes: persisted coverage, approval identity and rejection survive Native AOT serialization");
+if (clarificationState.IntentVersion != 2 || clarificationState.OutcomeVersion is not null || clarificationState.OutcomeBindings is not null)
+    throw new InvalidOperationException("Business planning profile did not survive Native AOT recovery.");
+var intentHash = clarificationState.ComputeArtifactHash();
+clarificationState.Requirements!.Summary += " revised";
+if (intentHash == clarificationState.ComputeArtifactHash()) throw new InvalidOperationException("Requirements were not bound to approval.");
+Console.WriteLine("business intent: persisted requirements and approval identity survive Native AOT serialization");
 Console.WriteLine("clarification: auto pause, custom answer, restart, unchanged budget and separate approval passed with deterministic inference");
 
 // A shared location is lowered to an approved literal without an agent dispatch.
@@ -86,47 +83,6 @@ workspaceCatalog.AllowedStepTypes.AddRange(["human.input", "assert.non_null", "w
 PlanningConfirmationGuards.Apply(outputGraph, workspaceCatalog);
 _ = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(outputGraph, workspaceCatalog)));
 Console.WriteLine("operation outputs: approved payload and partial envelope survive source-generated serialization and YAML compilation");
-workspaceCatalog.Capabilities[0].EffectKind = "execute";
-var boundedOutcome = new PlanningSession
-{
-    IntentVersion = 1, OutcomeVersion = 1, Plan = workspacePlan, Catalog = workspaceCatalog, Graph = outputGraph,
-    Requirements = new() { Summary = "Check the project", Inputs = [], Outcomes =
-        [new("check", "Run the bounded project check") { Execution = "execute", Always = false, Conditional = false }] },
-    OutcomeBindings = [new("check", ["work"], [])]
-};
-boundedOutcome.Yaml = new PlanningGraphCompiler().Compile(outputGraph, workspaceCatalog, boundedOutcome.Request.Name);
-PlanningArtifactApproval.Verify(boundedOutcome);
-Console.WriteLine("bounded agent outcome: resolved execution contract supports the declared task; execution remains unobserved");
-
-// New mapping repair authority is an optional review annotation, not another IR.
-boundedOutcome.OutcomeVersion = 2;
-boundedOutcome.Request.TenantId = "smoke";
-boundedOutcome.OutcomeBindings[0].TaskIds.Clear();
-boundedOutcome.Diagnostics = PlanningOutcomeValidation.Findings(boundedOutcome);
-boundedOutcome.RevisionScope = ["/outcomeBindings/check"];
-var mappingRequest = new PlanningPrompt(boundedOutcome).Request();
-var mappingPatch = new RepairPatch { Edits = [new() { Slot = "s0", Action = "replace", Value = JsonNode.Parse("""{"taskIds":["work"],"outputs":["observed"],"forEachTaskId":null}""") }] };
-boundedOutcome = JsonSerializer.Deserialize(JsonSerializer.Serialize(boundedOutcome, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-boundedOutcome.Plan = PlanningRepairPatch.Apply(boundedOutcome, mappingPatch, mappingRequest, out var mapped);
-boundedOutcome.OutcomeBindings = mapped;
-if (PlanningRepairPatch.RequestContext(mappingRequest)["repair"]!["version"]!.GetValue<int>() != 5 || PlanningOutcomeValidation.Findings(boundedOutcome).Count != 0)
-    throw new InvalidOperationException("Version-five mapping repair did not survive AOT recovery");
-Console.WriteLine("outcome v2: version-five atomic mapping repair and issued authority survive source-generated recovery");
-
-boundedOutcome.OutcomeVersion = 3;
-boundedOutcome.Requirements!.Outcomes[0] = boundedOutcome.Requirements.Outcomes[0] with
-{ Operation = workspacePlan.Root.Tasks.Single(t => t.Id == "work").Operation, Coverage = "once" };
-boundedOutcome.OutcomeBindings![0].TaskIds.Clear();
-boundedOutcome.Diagnostics = PlanningOutcomeValidation.Findings(boundedOutcome);
-boundedOutcome.RevisionScope = ["/outcomeBindings/check"];
-var mappingV6 = new PlanningPrompt(boundedOutcome).Request();
-mappingPatch.Edits[0].Value!["inputs"] = new JsonArray();
-boundedOutcome = JsonSerializer.SerializeToNode(boundedOutcome, PlanningJsonContext.Default.PlanningSession)!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
-boundedOutcome.Plan = PlanningRepairPatch.Apply(boundedOutcome, mappingPatch, mappingV6, out mapped);
-boundedOutcome.OutcomeBindings = mapped;
-if (PlanningRepairPatch.RequestContext(mappingV6)["repair"]!["version"]!.GetValue<int>() != 6 || PlanningOutcomeValidation.Findings(boundedOutcome).Count != 0)
-    throw new InvalidOperationException("Version-six contract-derived outcome recovery failed");
-Console.WriteLine("outcome v3: authoritative operation metadata and version-six repair survive Native AOT recovery");
 
 
 foreach (var name in PlanningCorpus.Names)
@@ -349,7 +305,7 @@ Console.WriteLine("catalog-owned bindings: passed; host injection and explicit o
 
 // Patch-only repair is a private wire contract, round-tripped through source generation.
 var repairState = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = "Use the declared business text" },
-    Requirements = new() { Summary = "Use text", Outcomes = [new("text", "Use business text")] }, Plan = ownedPlan, Catalog = ownedCatalog,
+    IntentVersion = 2, Requirements = new() { Summary = "Use text", Inputs = [], Outcomes = [new("text", "Use business text")] }, Plan = ownedPlan, Catalog = ownedCatalog,
     Diagnostics = ownedRejection.Diagnostics.ToList(), RevisionScope = TaskPlanRevisions.Scope(ownedPlan, ownedRejection.Diagnostics).ToList() };
 var repairSchema = PlanningSchemas.Proposal(repairState);
 var repairRequest = new LLMRequest { Prompt = HybridWorkflowPlanner.Prompt(repairState), StructuredOutputSchema = repairSchema };
@@ -371,7 +327,7 @@ repairState.Plan.Root.Tasks[0].Operation = "unresolved_operation";
 repairState.Diagnostics = new TaskPlanCompiler().Compile(repairState.Plan, ownedCatalog).Diagnostics.ToList();
 repairState.RevisionScope = TaskPlanRevisions.Scope(repairState.Plan, repairState.Diagnostics).ToList();
 var structuralRequest = new PlanningPrompt(repairState).Request();
-var structuralSlot = PlanningRepairPatch.Slots(repairState, structuralRequest.StructuredOutputSchema!["$defs"]!.DeepClone().AsObject()).Single(s => s.Kind == "task");
+var structuralSlot = PlanningRepairPatch.Slots(repairState, PlanningSchemas.FullProposal(repairState, compact: false)["$defs"]!.AsObject()).Single(s => s.Kind == "task");
 var structuralPatch = new RepairPatch { Edits = [new() { Slot = structuralSlot.Id, Action = "replace_task", Value = JsonNode.Parse("""
 {"id":"work","kind":"operation","objective":"Use the business text","dependsOn":[],"operation":"owned_operation","inputs":[{"name":"text","value":{"kind":"string","text":"business"}}]}
 """) }] };
@@ -379,7 +335,7 @@ structuralPatch = JsonSerializer.Deserialize(JsonSerializer.Serialize(structural
 var structurallyRepaired = PlanningRepairPatch.Apply(repairState, structuralPatch, structuralRequest);
 if (structurallyRepaired.Root.Tasks[0].Operation != "owned_operation" || structurallyRepaired.Root.Tasks[0].Inputs.Single().Value.Text != "business" ||
     repairState.Plan.Root.Tasks[0].Operation != "unresolved_operation") throw new InvalidOperationException("Structural repair lost authority or business intent");
-Console.WriteLine("structural repair: passed; version-three authority, preserved arguments and atomic AOT round trip; no inference");
+Console.WriteLine("structural repair: passed; version-seven authority, preserved arguments and atomic AOT round trip; no inference");
 
 sealed class ClarificationRuntime : IPlanningRuntime
 {

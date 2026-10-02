@@ -28,11 +28,12 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
         var root = Path.GetTempPath();
         var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new DocumentPolicy(new DocumentServerSettings { DefaultWorkingDirectory = root }, root)));
         var replay = new Replay(recording, Recording("exact-prompt-output-limit-schemas"));
-        var session = await Plan(factory, replay);
-        Assert.Equal(PlanningStatus.Stopped, session.Status);
-        Assert.Contains(session.Diagnostics, d => d.Code == "MODEL_OUTPUT_LIMIT");
-        Assert.Equal(3, session.ModelCalls); Assert.Equal(3, replay.Calls); Assert.Equal(0, session.ReplanAttempts);
-        Assert.Null(session.Plan); Assert.Null(session.Yaml); Assert.Equal(0, factory.InvocationAttempts);
+        var schemas = Recording("exact-prompt-output-limit-schemas")["schemas"]!.AsArray();
+        var state = new PlanningSession { Request = new() { TenantId = "test", Prompt = RealProductContracts.Prompt }, ModelCalls = 3,
+            PendingCall = new() { Id = "retained-limit", Request = new() { StructuredOutputSchema = schemas[^1]!.DeepClone() } } };
+        await RecordedPlanCompilation.RetiredAsync(state, new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask));
+        Assert.Equal("output_limit", recording["responses"]![2]!["completionStatus"]!.ToString());
+        Assert.Equal(0, replay.Calls); Assert.Equal(0, factory.InvocationAttempts);
     }
 
     [Fact]
@@ -88,7 +89,7 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
             var replay = compact ? new Replay(Recording("synthetic-compact")) : new Replay(Recording("retained-complete"), Recording("retained-complete-schemas"));
             var session = await Plan(factory, replay);
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join("; ", session.Diagnostics.Select(d => d.Code + ": " + d.Location + ": " + d.Message)));
-            Assert.Equal(2, replay.Calls); Assert.Equal(2, session.Discovery.Pages.Count);
+            Assert.Equal(compact ? 2 : 0, replay.Calls); Assert.Equal(2, session.Discovery.Pages.Count);
             if (compact) Assert.Equal(new[] { "browser", "document" }, factory.DiscoveryReads.Order(StringComparer.Ordinal));
             Assert.Equal(0, factory.InvocationAttempts);
             PlanningArtifactApproval.Verify(session);
@@ -165,17 +166,27 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
     {
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine { McpClientFactory = factory, LLMClient = replay }, (_, _) => Task.CompletedTask);
         var session = new PlanningSession { Request = new() { TenantId = "test", Prompt = RealProductContracts.Prompt, Mode = PlanningMode.Auto, Generation = new() { MaxInputTokensPerRequest = 24000, MaxOutputTokens = 32768 } } };
+        if (replay.Schemas is not null)
+        {
+            var catalog = await runtime.DiscoverAsync(session.Request, TestContext.Current.CancellationToken);
+            foreach (var source in await runtime.Capabilities.ListSourcesAsync(TestContext.Current.CancellationToken))
+            {
+                var page = await runtime.Capabilities.ListAsync(source.Id, null, TestContext.Current.CancellationToken);
+                session.Discovery.Sources.Add(source); session.Discovery.Pages.Add(page);
+                foreach (var entry in page.Capabilities) catalog.Capabilities.Add(await runtime.Capabilities.ResolveAsync(entry, TestContext.Current.CancellationToken));
+            }
+            var responses = replay.Recording["responses"]!.AsArray();
+            for (var i = 0; i < responses.Count; i++)
+                Assert.Empty(PlanningContractValidation.ValidateInstance(responses[i]!["json"], replay.Schemas[i]!.AsObject()));
+            session.Requirements = responses.Select(e => e!["json"]?["requirements"]).First(r => r is not null)!.Deserialize(PlanningJsonContext.Default.PlanningRequirements);
+            var compiledFixture = new JsonObject { ["session"] = JsonSerializer.SerializeToNode(session, PlanningJsonContext.Default.PlanningSession),
+                ["catalog"] = JsonSerializer.SerializeToNode(catalog, PlanningJsonContext.Default.PlanningCatalog),
+                ["responses"] = new JsonArray(), ["plan"] = responses[^1]!["json"]!["plan"]!.DeepClone() };
+            return await RecordedPlanCompilation.CompileAsync(compiledFixture);
+        }
         string? accepted = null;
         for (var i = 0; i < 10 && !PlanningStatus.IsTerminal(session.Status) && !PlanningStatus.IsWaiting(session.Status); i++)
         {
-            // Simulate recovery of an already dispatched historical request. Replay
-            // its original schema and response; never project old data onto today's schema.
-            if (replay.Schemas is { } schemas)
-            {
-                var id = "historical-replay:" + ++session.ModelCalls;
-                session.PendingCall = new() { Id = id, Purpose = "tasks", Request = new() { ClientRequestId = id,
-                    StructuredOutputSchema = schemas[replay.Calls]!.DeepClone() } };
-            }
             session = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
             session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, runtime, TestContext.Current.CancellationToken);
             var requirements = JsonSerializer.Serialize(session.Requirements, PlanningJsonContext.Default.PlanningRequirements);
@@ -186,6 +197,7 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
     }
     private sealed class Replay(JsonObject recording, JsonObject? schemas = null) : ILLMClient
     {
+        internal JsonObject Recording => recording;
         public JsonArray? Schemas { get; } = schemas?["schemas"]!.AsArray();
         public int Calls { get; private set; }
         public List<LLMRequest> Requests { get; } = [];

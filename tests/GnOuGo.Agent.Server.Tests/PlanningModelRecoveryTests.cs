@@ -115,6 +115,8 @@ public sealed class PlanningModelRecoveryTests
 
     [Theory]
     [InlineData(null)]
+    [InlineData("legacy")]
+    [InlineData("legacy_running")]
     [InlineData("missing_receipt")]
     [InlineData("stale_identity")]
     [InlineData("changed_schema")]
@@ -122,6 +124,9 @@ public sealed class PlanningModelRecoveryTests
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = await SeedAsync(fixture);
+        var legacy = invalid is "legacy" or "legacy_running";
+        if (legacy) state.IntentVersion = 1;
+        if (invalid == "legacy_running") state.Status = PlanningStatus.Generating;
         var request = state.PendingCall!.Request;
         request.ClientRequestId = null;
         request.StructuredOutputSchema = JsonNode.Parse("""{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"],"additionalProperties":false}""");
@@ -135,7 +140,7 @@ public sealed class PlanningModelRecoveryTests
                 JsonSerializer.Serialize(new LLMResponse { Json = new JsonObject { ["answer"] = "retained" } }, PlanningJsonContext.Default.LLMResponse), EfPlanningSessionStore.Author, Ct);
         if (invalid == "changed_schema") request.StructuredOutputSchema!["properties"]!["answer"]!["type"] = "number";
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-        if (invalid is not null)
+        if (invalid is not (null or "legacy" or "legacy_running"))
         {
             await Assert.ThrowsAsync<PlanningConflictException>(() => PlanningModelRecovery.ResumeAsync(state, fixture.Records,
                 invalid == "stale_identity" ? "other-request" : request.ClientRequestId, Ct));
@@ -144,11 +149,21 @@ public sealed class PlanningModelRecoveryTests
         else
         {
             await PlanningModelRecovery.ResumeAsync(state, fixture.Records, request.ClientRequestId, Ct);
-            Assert.Equal(PlanningStatus.Generating, state.Status);
+            Assert.Equal(legacy ? PlanningStatus.Stopped : PlanningStatus.Generating, state.Status);
             Assert.Equal(4, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
             Assert.Equal(15, state.Usage!.TotalTokens); Assert.Equal(4, state.Usage.Calls);
-            Assert.Equal(request.ClientRequestId, state.PendingCall.Id);
-            Assert.Empty(state.Diagnostics); Assert.Null(state.ApprovedHash);
+            if (legacy)
+            {
+                Assert.Null(state.PendingCall); Assert.Null(state.Plan);
+                Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_REVISION_REQUIRED");
+                var revised = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { Kind = "revise", ExpectedRevision = state.Revision, Text = "Keep the original business request" },
+                    new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask), Ct);
+                Assert.Equal(2, revised.IntentVersion); Assert.Equal(4, revised.ModelCalls); Assert.Equal(15, revised.Usage!.TotalTokens);
+                Assert.Null(revised.ApprovedHash);
+                Assert.NotNull(await fixture.Records.GetAsync(PlanningModelJournal.Collection, "planning-tests", key, EfPlanningSessionStore.Author, Ct));
+            }
+            else { Assert.Equal(request.ClientRequestId, state.PendingCall!.Id); Assert.Empty(state.Diagnostics); }
+            Assert.Null(state.ApprovedHash);
         }
     }
 
@@ -156,7 +171,7 @@ public sealed class PlanningModelRecoveryTests
     {
         var request = PlanningGenerationPolicy.Apply(new LLMRequest { Provider = "openai", Model = "gpt-4o-mini", Prompt = "PRIVATE_RETRY_PROMPT", MaxTokens = 64 }, new());
         request.ClientRequestId = "recovery:4:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
-        var state = new PlanningSession { Request = new() { TenantId = "planning-tests", SessionId = "recovery", Prompt = request.Prompt },
+        var state = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "planning-tests", SessionId = "recovery", Prompt = request.Prompt },
             Status = PlanningStatus.Stopped, ModelCalls = 4, ActiveMilliseconds = 100,
             PendingCall = new() { Id = request.ClientRequestId, Purpose = "intent", Request = request },
             Diagnostics = [new("MODEL_DISPATCH_UNVERIFIABLE", "$", "No receipt")] };

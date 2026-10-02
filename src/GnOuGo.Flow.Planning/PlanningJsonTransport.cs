@@ -59,10 +59,7 @@ internal static class PlanningJsonTransport
             }
             else if (obj.ContainsKey("id") && obj.ContainsKey("description") && obj["execution"] is not null)
             {
-                // Outcome prompt defaults are explicit in the prompt, not storage or wire defaults.
-                if (obj["execution"]?.ToString() == "data") obj.Remove("execution");
-                foreach (var key in new[] { "always", "conditional" })
-                    if (obj[key] is JsonValue flag && flag.TryGetValue<bool>(out var enabled) && !enabled) obj.Remove(key);
+                foreach (var key in new[] { "execution", "always", "conditional", "coverage", "operation" }) obj.Remove(key);
             }
             else if (obj.ContainsKey("name") && obj["type"] is JsonObject)
             {

@@ -201,7 +201,7 @@ public sealed class ContractAwareRepairTests
         state.RevisionScope = TaskPlanRevisions.Scope(plan, state.Diagnostics).ToList();
         var runtime = new TestRuntime { Proposal = new() { Plan = repaired } };
         state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Empty(state.Diagnostics);
+        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message))); Assert.Empty(state.Diagnostics);
         Assert.Equal(8, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts); Assert.Single(runtime.Calls);
         Assert.Null(state.ApprovedHash); PlanningArtifactApproval.Verify(state);
         Assert.Equal("deny", state.Plan!.Root.Tasks[1].Inputs.Single(i => i.Name == "permission").Value.Text);

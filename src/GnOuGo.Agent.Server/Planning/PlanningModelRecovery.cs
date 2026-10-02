@@ -13,7 +13,8 @@ internal static class PlanningModelRecovery
 {
     internal static async Task ResumeAsync(PlanningSession state, IKeyVaultRecordStore records, string? requestId, CancellationToken ct, LLMUsageBudgetLimits? limits = null)
     {
-        if (state.Status != PlanningStatus.Stopped || state.PendingCall is not { } pending || requestId != pending.Id ||
+        if (state.Status != PlanningStatus.Stopped && !(state.RequiresPlanningRevision && state.Status == PlanningStatus.Generating) ||
+            state.PendingCall is not { } pending || requestId != pending.Id ||
             state.Diagnostics.Any(d => d.Code == ErrorCodes.ModelRequestRejected))
             throw new PlanningConflictException("Resume must identify the stopped request with a saved completion response.");
         var tenant = state.Request.TenantId;
@@ -36,6 +37,17 @@ internal static class PlanningModelRecovery
             PlanningContractValidation.ValidateInstanceFindings(json, original.StructuredOutputSchema).Count != 0)
             throw new PlanningConflictException("The saved response does not satisfy its original issued schema.");
         await RestoreUsageAsync(state, records, ct, limits);
+        if (state.RequiresPlanningRevision)
+        {
+            // The original envelope remains in the journal. Settle its accounting,
+            // but never apply an obsolete proposal under current planning semantics.
+            state.PendingCall = null;
+            ClearTransportDiagnostics(state);
+            state.Status = PlanningStatus.Stopped;
+            if (!state.Diagnostics.Any(d => d.Code == "PLANNING_REVISION_REQUIRED"))
+                state.Diagnostics.Add(new("PLANNING_REVISION_REQUIRED", "/", "The saved response was accounted for. Explicitly revise this retired planning contract before continuing."));
+            return;
+        }
         state.Status = PlanningStatus.Generating;
         ClearTransportDiagnostics(state);
         state.ApprovedHash = null;

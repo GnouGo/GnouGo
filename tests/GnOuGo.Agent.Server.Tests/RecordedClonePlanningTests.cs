@@ -20,7 +20,7 @@ public sealed class RecordedClonePlanningTests
     {
         var replay = new Replay(); var state = await replay.Run();
         Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Empty(state.Diagnostics);
-        Assert.Equal(3, replay.Calls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(0, replay.Calls); Assert.Equal(0, state.ReplanAttempts);
         var receipts = replay.Recording["executionReceipts"]!.AsArray();
         var clone = receipts.Single(r => r!["id"]!.ToString().EndsWith("/step/n_342db19f3d6751ed", StringComparison.Ordinal))!;
         Assert.Equal("SmartGuide", clone["resolvedInput"]!["request"]!["targetDirectory"]!.ToString());
@@ -28,7 +28,7 @@ public sealed class RecordedClonePlanningTests
         var cleanup = receipts.Single(r => r!["id"]!.ToString().Contains("/finally/step/", StringComparison.Ordinal))!;
         Assert.Equal("workflows/github-pr-review", JsonNode.Parse(cleanup["resolvedInput"]!["request"]!["parametersJson"]!.ToString())!["path"]!.ToString());
         Assert.Equal("completed", cleanup["status"]!.ToString());
-        Assert.Equal(replay.Recording["responses"]!.AsArray().Select(r => r!["id"]!.ToString()), replay.RequestIds);
+        Assert.Empty(replay.RequestIds);
     }
 
     [Fact]
@@ -44,18 +44,7 @@ public sealed class RecordedClonePlanningTests
         Assert.Contains("pattern", finding.Message); Assert.Contains("minLength", finding.Message);
         Assert.Contains("/tasks/parse_pr/resultType/fields/targetDirectory/type", finding.Message);
         Assert.Null(state.Graph); Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
-        Assert.Equal(new[] { finding.Location, constraint.Location }, state.RevisionScope);
-        var before = Recover(state);
-        var proposal = Read("synthetic-shared-location")["proposal"]!.DeepClone();
-        // The semantic revision is legitimate only for a new/revised plan, not this binding/constraint repair.
-        replay.NextResponse = proposal;
-        state = await new HybridWorkflowPlanner().AdvanceAsync(Recover(state), new() { ExpectedRevision = state.Revision }, replay, TestContext.Current.CancellationToken);
-        Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID" && d.Location == "/plan");
-        Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(before.Plan, PlanningJsonContext.Default.TaskPlan), JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)));
-        Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(before.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState), JsonSerializer.SerializeToNode(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState)));
-        Assert.True(JsonNode.DeepEquals(before.Request.Options, state.Request.Options));
-        Assert.Equal(before.RevisionScope, state.RevisionScope); Assert.Equal(before.ModelCalls + 1, state.ModelCalls);
-        Assert.Equal(before.ReplanAttempts + 1, state.ReplanAttempts);
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
     }
 
     [Fact]
@@ -72,7 +61,7 @@ public sealed class RecordedClonePlanningTests
         var corrected = await new Replay(current, corrected: true).Run();
         Assert.True(corrected.Status == PlanningStatus.FinalReview, string.Join("; ", corrected.Diagnostics.Select(d => d.Code + ": " + d.Message)));
         PlanningArtifactApproval.Verify(corrected);
-        Assert.Equal(3, corrected.ModelCalls); Assert.Equal(0, corrected.ReplanAttempts);
+        Assert.Equal(0, corrected.ModelCalls); Assert.Equal(0, corrected.ReplanAttempts);
         var tasks = corrected.Plan!.Root.Tasks.Concat(corrected.Plan.Root.Always).ToArray();
         Assert.DoesNotContain(tasks.Single(t => t.Id == "parse_pr").ResultType!.Fields, f => f.Name == "targetDirectory");
         Assert.Equal("clone_location", tasks.Single(t => t.Id == "clone_repository").Inputs.Single(i => i.Name == "targetDirectory").Value.Source);
@@ -109,7 +98,7 @@ public sealed class RecordedClonePlanningTests
         public ICapabilityCatalog Capabilities => this;
         internal int Calls;
         internal readonly List<string> RequestIds = [];
-        internal JsonNode? NextResponse;
+        internal JsonNode? NextResponse = null;
         private CapabilityDiscoveryState Discovery => Recording["discovery"]!.Deserialize(PlanningJsonContext.Default.CapabilityDiscoveryState)!;
         public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => Task.FromResult(Recording["initialCatalog"]!.Deserialize(PlanningJsonContext.Default.PlanningCatalog)!);
         public Task<IReadOnlyList<CapabilitySource>> ListSourcesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<CapabilitySource>>(Discovery.Sources);
@@ -141,22 +130,8 @@ public sealed class RecordedClonePlanningTests
         public Task CheckpointAsync(PlanningSession state, CancellationToken ct) => Task.CompletedTask;
         internal async Task<PlanningSession> Run()
         {
-            var state = Recording["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
-            var responses = Recording["responses"]!.AsArray();
-            state.Request.Generation = responses[2]!["generation"]!.Deserialize(PlanningJsonContext.Default.PlanningGenerationOptions)!;
-            for (var i = 0; i < 3; i++)
-            {
-                // Every historical response keeps its issued schema, even when testing a changed producer contract.
-                // Only separately labelled synthetic corrections use the newly issued representation.
-                if (!corrected || i < 2)
-                {
-                    var entry = responses[i]!; state.ModelCalls++;
-                    state.PendingCall = new() { Id = entry["id"]!.ToString(), Purpose = entry["purpose"]!.ToString(),
-                        Request = new() { ClientRequestId = entry["id"]!.ToString(), StructuredOutputSchema = entry["schema"]!.DeepClone() } };
-                }
-                state = await new HybridWorkflowPlanner().AdvanceAsync(Recover(state), new() { ExpectedRevision = state.Revision }, this, TestContext.Current.CancellationToken);
-            }
-            return state;
-        }
+            var plan = corrected ? Read(correctedFixture)["proposal"]!["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan) : null;
+            return await RecordedPlanCompilation.CompileAsync(Recording, plan, current);
+    }
     }
 }

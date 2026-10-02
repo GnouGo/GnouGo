@@ -83,6 +83,7 @@ public sealed class PlanningSession
             ["options"] = Request.Options.DeepClone(),
             ["diagnostics"] = JsonSerializer.SerializeToNode(Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)
         };
+        if (IntentVersion == 2) artifact["intentVersion"] = IntentVersion;
         // Absent annotations preserve byte-for-byte historical approval identities.
         if (OutcomeVersion is not null)
         {
@@ -91,6 +92,10 @@ public sealed class PlanningSession
         }
         return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(artifact.ToJsonString())));
     }
+
+    [JsonIgnore]
+    public bool RequiresPlanningRevision => IntentVersion != 2 &&
+        (IntentVersion is not null || OutcomeVersion is not null || Requirements is not null || Plan is not null || PendingCall is not null || ModelCalls > 0);
 
     public int SchemaVersion { get; set; } = 10;
     public PlanningRequest Request { get; set; } = new();

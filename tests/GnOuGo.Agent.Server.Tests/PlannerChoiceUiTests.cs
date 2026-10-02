@@ -36,14 +36,25 @@ public sealed class PlannerChoiceUiTests : BunitContext
     }
 
     [Fact]
-    public void OutcomeSupportIsReadableEncodedAndSeparateFromExecutionApproval()
+    public void HistoricalChecksRemainReadableAndSeparateFromExecutionApproval()
     {
         var state = new PlanningSession { Status = PlanningStatus.FinalReview, ValidationResults =
             [new("outcome:publish", "supported", "Publish <script>unsafe()</script> via task send. External success has not been observed.", [])] };
         var cut = Render<PlannerStageDetails>(p => p.Add(c => c.Session, PlanningEndpoints.ToDto(state)));
-        Assert.Contains("Outcome implementation", cut.Markup); Assert.Contains("send", cut.Markup);
+        Assert.Contains("Historical outcome checks", cut.Markup); Assert.Contains("send", cut.Markup);
         Assert.Contains("success has not been observed", cut.Markup); Assert.Empty(cut.FindAll("script"));
         Assert.Empty(cut.FindAll("button")); Assert.NotNull(cut.Find("details[open] summary"));
+    }
+
+    [Fact]
+    public void BusinessRequirementsAreReviewedWithoutTechnicalProofAnnotations()
+    {
+        var state = new PlanningSession { IntentVersion = 2, Requirements = new() { Summary = "Make a report", Inputs = [],
+            Outcomes = [new("report", "Write <script>unsafe()</script> rows")] } };
+        var cut = Render<PlannerStageDetails>(p => p.Add(c => c.Session, PlanningEndpoints.ToDto(state)));
+        Assert.Contains("Business requirements", cut.Markup); Assert.Contains("Caller inputs: none", cut.Markup);
+        Assert.Contains("does not prove business completeness", cut.Markup); Assert.Empty(cut.FindAll("script"));
+        Assert.DoesNotContain("Historical outcome checks", cut.Markup); Assert.Empty(cut.FindAll("button"));
     }
 
     private static PlanningQuestionDto Question(string id = "interface") => new(id, "Which interface?",

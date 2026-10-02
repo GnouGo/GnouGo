@@ -38,7 +38,7 @@ public sealed class CapabilityAlternativeTests
         runtime.Proposal = new() { Plan = plan, Requirements = expected, OutcomeBindings = [new("work", ["perform"], ["report"])] };
         state = await PlannerFixture.RunAsync(runtime, PlannerFixture.Clone(state));
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + " " + d.Message))); Assert.Null(state.ApprovedHash); Assert.Equal(2, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
-        Assert.Equal("execute", state.Requirements!.Outcomes.Single().Execution);
+        Assert.Null(state.Requirements!.Outcomes.Single().Execution);
         PlanningArtifactApproval.Verify(state);
     }
 }

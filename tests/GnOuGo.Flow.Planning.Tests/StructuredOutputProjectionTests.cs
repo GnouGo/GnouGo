@@ -102,10 +102,10 @@ public sealed class StructuredOutputProjectionTests
         Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema!, true));
         state.Diagnostics = [new("TASK_INPUT_TYPE", "/tasks/perform/inputs/value", "Invalid value")];
         state.RevisionScope = ["/tasks/perform/inputs/value"];
-        var authority = PlanningRepairPatch.Authority(state, 5);
+        var authority = PlanningRepairPatch.Authority(state);
         var repair = new PlanningPrompt(state).Request();
         Assert.Empty(PlanningContractValidation.ValidateSchema(repair.StructuredOutputSchema!, true));
-        Assert.Equal(authority, PlanningRepairPatch.Authority(state, 5));
+        Assert.Equal(authority, PlanningRepairPatch.Authority(state));
         PlanningRepairPatch.Verify(state, repair);
         Assert.Equal(catalog, JsonSerializer.Serialize(state.Catalog, PlanningJsonContext.Default.PlanningCatalog));
         Assert.Contains("pattern", PlanningRepairPatch.RequestContext(repair).ToJsonString());

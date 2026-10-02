@@ -61,8 +61,10 @@ public sealed class SharedWorkspaceExecutionTests
         var compilation = new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Empty(compilation.Diagnostics); Assert.Empty(PlanningGraphValidation.Validate(compilation.Graph!, catalog));
         var generation = replay.State(replay.Recording["responses"]![4]!["pendingSession"]!);
-        generation.PendingCall = null; generation.ModelCalls--; generation.Plan = null; generation.Graph = null; generation.Yaml = null;
+        generation.IntentVersion = 2; generation.Requirements!.Inputs = plan.Inputs; generation.PendingCall = null; generation.ModelCalls--; generation.Plan = null; generation.Graph = null; generation.Yaml = null;
         generation.Catalog = catalog; replay.Proposal = plan;
+        var used = plan.Root.Tasks.Concat(plan.Root.Always).Select(t => t.Operation).ToHashSet();
+        generation.Catalog.Capabilities.RemoveAll(c => c.Kind != "registered" && !used.Contains(c.Id));
         var reviewed = await new HybridWorkflowPlanner().AdvanceAsync(generation, new() { ExpectedRevision = generation.Revision }, replay, TestContext.Current.CancellationToken);
         Assert.True(reviewed.Status == PlanningStatus.FinalReview, string.Join("; ", reviewed.Diagnostics.Select(d => d.Code + " " + d.Message)));
         PlanningArtifactApproval.Verify(reviewed);

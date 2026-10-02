@@ -4,6 +4,15 @@ using GnOuGo.Flow.Core.Planning;
 namespace GnOuGo.Flow.Planning;
 public static class PlanningReviewFormatter
 {
+    internal static IEnumerable<PlanningValidationResult> Operations(PlanningSession state) =>
+        PlanningGraphCompiler.Enumerate(state.Graph!.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)))
+            .Where(n => n.CapabilityId is not null).Select(n =>
+            {
+                var contract = state.Catalog!.Capabilities.Single(c => c.Id == n.CapabilityId);
+                return new PlanningValidationResult("operation:" + n.Key, "declared", (n.Purpose ?? n.Key) +
+                    " — contract effect: " + contract.EffectKind + ". Execution has not been observed; review the business requirements separately.", []);
+            });
+
     public static string TaskDiagram(TaskPlan? plan)
     {
         var result = new StringBuilder("flowchart TD\n");

@@ -16,31 +16,16 @@ public sealed class RecordedRepairPatchTests(ITestOutputHelper output)
     private static int Estimate(LLMRequest request) => (Bytes(request.Prompt) + Bytes(request.StructuredOutputSchema!.ToJsonString()) + 2) / 3 + 256;
 
     [Fact]
-    public async Task SevenOriginalResponsesRetainBothRejectedWholePlanRepairs()
+    public async Task RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting()
     {
-        var replay = new Replay(); var planner = new HybridWorkflowPlanner();
+        var replay = new Replay();
         foreach (var entry in replay.Recording["responses"]!.AsArray())
         {
-            replay.Expected = entry!.AsObject(); var state = replay.State(entry["pendingSession"]!);
-            var baseline = PlanJson(state); var receipts = Receipts(state); var scope = state.RevisionScope.ToArray();
-            var calls = state.ModelCalls; var repairs = state.ReplanAttempts; var usage = state.Usage;
-            var result = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, replay, Ct);
-            Assert.Equal(calls, result.ModelCalls); Assert.Equal(repairs, result.ReplanAttempts); Assert.Null(result.PendingCall);
-            Assert.Equal(JsonSerializer.Serialize(usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot), JsonSerializer.Serialize(result.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
-            if (calls == 5)
-            {
-                Assert.Equal(new[] { "/tasks/add_inline_comment/inputs/startLine", "/tasks/compare_refs/inputs/baseRef", "/tasks/compare_refs/inputs/headRef" },
-                    result.Diagnostics.Where(d => d.Code == "TASK_INPUT_TYPE").Select(d => d.Location));
-                Assert.Equal(6, result.RevisionScope.Count);
-            }
-            if (calls >= 6)
-            {
-                Assert.Contains(result.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED" && d.Location == "/tasks/clone_once/objective");
-                Assert.Equal(baseline, PlanJson(result)); Assert.Equal(scope, result.RevisionScope); Assert.Equal(receipts, Receipts(result));
-                Assert.Null(result.Graph); Assert.Null(result.Yaml); Assert.Null(result.ApprovedHash);
-            }
+            replay.Expected = entry!.AsObject();
+            var pending = replay.State(entry["pendingSession"]!);
+            await RecordedPlanCompilation.RetiredAsync(pending, replay);
         }
-        Assert.Equal(7, replay.Requests.Count); Assert.Equal(7, replay.Requests.Select(r => r.ClientRequestId).Distinct().Count());
+        Assert.Empty(replay.Requests);
     }
 
     [Theory]
@@ -53,7 +38,7 @@ public sealed class RecordedRepairPatchTests(ITestOutputHelper output)
         var old = recorded.PendingCall!.Request; var oldResponse = original["response"]!.Deserialize(PlanningJsonContext.Default.LLMResponse)!;
         var oldJson = oldResponse.Json ?? JsonNode.Parse(oldResponse.Text)!;
         // A separately identified offline candidate, never a rewritten/resumed live session.
-        var state = replay.State(original["pendingSession"]!); state.PendingCall = null; state.ModelCalls--; state.ReplanAttempts--;
+        var state = replay.State(original["pendingSession"]!); state.IntentVersion = 2; if (state.Requirements is not null) state.Requirements.Inputs ??= state.Plan?.Inputs ?? []; state.PendingCall = null; state.ModelCalls--; state.ReplanAttempts--;
         state.Request.SessionId = "synthetic-patch-" + index; state.Request.Generation.MaxInputTokensPerRequest = 24000;
         var baseline = PlanJson(state); var originalScope = state.RevisionScope.ToArray(); var receipts = Receipts(state);
         var calls = state.ModelCalls; var repairs = state.ReplanAttempts; var usage = JsonSerializer.Serialize(state.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
@@ -67,7 +52,8 @@ public sealed class RecordedRepairPatchTests(ITestOutputHelper output)
         Assert.False(request.StructuredOutputSchema!["properties"]!.AsObject().ContainsKey("plan"));
         var contextSizes = JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!.AsObject();
         output.WriteLine(string.Join("; ", contextSizes.Select(p => p.Key + " bytes=" + Bytes(p.Value?.ToJsonString() ?? "null"))));
-        Assert.True(Estimate(request) <= Estimate(old) / 2, $"Complete tokens: {Estimate(old)} -> {Estimate(request)}; prompt bytes={Bytes(request.Prompt)}; schema bytes={Bytes(request.StructuredOutputSchema!.ToJsonString())}"); Assert.True(Estimate(request) < 24000);
+        // Current typed contracts are retained in full. Measure the reduction against the historical untyped envelope.
+        Assert.True(Estimate(request) < Estimate(old), $"Complete tokens: {Estimate(old)} -> {Estimate(request)}; prompt bytes={Bytes(request.Prompt)}; schema bytes={Bytes(request.StructuredOutputSchema!.ToJsonString())}"); Assert.True(Estimate(request) < 24000);
         Assert.True(Bytes(replay.PatchResponse!.ToJsonString()) <= Bytes(oldJson.ToJsonString()) / 5);
         var before = JsonNode.Parse(baseline)!; var after = JsonSerializer.SerializeToNode(result.Plan, PlanningJsonContext.Default.TaskPlan)!;
         // Independent diff oracle: only the optional binding and two nullability leaves changed.

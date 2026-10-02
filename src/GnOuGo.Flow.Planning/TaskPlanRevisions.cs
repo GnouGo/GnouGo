@@ -6,13 +6,61 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Only diagnosed semantic slots are editable. Revalidation never grants edit permission.</summary>
 internal static class TaskPlanRevisions
 {
+    internal sealed record Export(TaskPlanSymbols.Scope Scope, string Name, TaskValue? Value, TaskValue Producer, TaskPlanSymbols.Scope ProducerScope);
+
+    internal static (Dictionary<string, TaskValue> Consumers, Dictionary<string, Export> Additions) Exports(TaskPlan plan, IEnumerable<string> paths)
+    {
+        var consumers = new Dictionary<string, TaskValue>(StringComparer.Ordinal);
+        var additions = new Dictionary<string, Export>(StringComparer.Ordinal);
+        var symbols = new TaskPlanSymbols(plan);
+        foreach (var path in paths.Order(StringComparer.Ordinal))
+            if (symbols.Values.TryGetValue(path, out var site))
+            {
+                var rewritten = Rewrite(site.Value, site.Scope);
+                if (!Same(rewritten, site.Value)) consumers[path] = rewritten;
+            }
+
+        return (consumers, additions);
+
+        TaskValue Rewrite(TaskValue value, TaskPlanSymbols.Scope scope)
+        {
+            var copy = JsonSerializer.SerializeToNode(value, PlanningJsonContext.Default.TaskValue)!.Deserialize(PlanningJsonContext.Default.TaskValue)!;
+            if (value.Kind == "output" && value.Source is { } id && symbols.ExportRoute(scope, id) is { Count: > 0 } route)
+            {
+                var current = copy;
+                foreach (var boundary in route)
+                {
+                    var existing = boundary.Source.Outputs.Where(o => Same(o.Value, current)).OrderBy(o => o.Name, StringComparer.Ordinal).FirstOrDefault();
+                    var name = existing?.Name ?? additions.Values.FirstOrDefault(e => e.Scope == boundary && e.Value is not null && Same(e.Value, current))?.Name;
+                    if (name is null)
+                    {
+                        var basis = boundary.Owner?.Kind == "parallel" ? current.Source + "_" + current.Port : current.Port ?? current.Source + "Result";
+                        name = basis;
+                        for (var suffix = 2; boundary.Source.Outputs.Any(o => o.Name == name) || additions.ContainsKey(boundary.Path + "/outputs/" + name); suffix++)
+                            name = basis + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        additions.Add(boundary.Path + "/outputs/" + name, new(boundary, name, current, value, route[0]));
+                    }
+                    if (boundary.Owner?.Kind == "conditional")
+                        foreach (var other in symbols.Scopes.Where(s => s.Owner == boundary.Owner && s != boundary && s.Source.Outputs.All(o => o.Name != name)))
+                            additions.TryAdd(other.Path + "/outputs/" + name, new(other, name, null, value, route[0]));
+                    current = new() { Kind = "output", Source = boundary.Owner!.Id, Port = name };
+                }
+                return current;
+            }
+            copy.Items = value.Items.Select(v => Rewrite(v, scope)).ToList();
+            copy.Members = value.Members.Select(m => new TaskOutput(m.Name, Rewrite(m.Value, scope))).ToList();
+            return copy;
+        }
+    }
+
+
     internal static bool FixedOperations(PlanningSession state) => state.Plan is not null && state.RevisionScope.Count > 0 &&
         state.Diagnostics.Any(d => d.Required) && !PlanningStructuralRepair.CanChangeOperations(state) && !state.RevisionScope.Any(p => p.EndsWith("/operation", StringComparison.Ordinal));
 
     internal static IEnumerable<PlanTask> Tasks(TaskScope scope) => scope.Tasks.Concat(scope.Always).SelectMany(t => new[] { t }.Concat(
         (t.Body is null ? [] : Tasks(t.Body)).Concat(t.Otherwise is null ? [] : Tasks(t.Otherwise)).Concat(t.Branches.SelectMany(Tasks))));
     internal static IEnumerable<PlanTask> Tasks(TaskPlan plan) => Tasks(plan.Root).Concat(plan.Groups.SelectMany(g => Tasks(g.Body)));
-    internal static IReadOnlyList<string> Scope(TaskPlan plan, IReadOnlyList<PlanningDiagnostic> findings, bool minimalExports = false)
+    internal static IReadOnlyList<string> Scope(TaskPlan plan, IReadOnlyList<PlanningDiagnostic> findings)
     {
         if (TaskPlanCompiler.InvalidDeclarations(plan).Count > 0) return [];
         var symbols = new TaskPlanSymbols(plan);
@@ -31,23 +79,10 @@ internal static class TaskPlanRevisions
                 field is "objective" or "operation" or "group" or "condition" or "items" or "dependsOn" or "maxItems" or "maxConcurrency") scope.Add(path);
             else if (finding.Code is "TASK_INPUT_REQUIRED" or "TASK_GROUP_INPUTS" && path.Split('/') is ["", "tasks", var taskId, "inputs", _] && symbols.Tasks.ContainsKey(taskId)) scope.Add(path);
         }
-        // One diagnosed cross-boundary reference grants its complete export route.
-        // Context reachability alone never authorizes task edits.
-        foreach (var path in scope.ToArray())
-            if (symbols.Values.TryGetValue(path, out var consumer))
-                foreach (var reference in TaskPlanCompiler.Values(consumer.Value).Where(v => v.Kind == "output" && v.Source is not null))
-                    foreach (var boundary in symbols.ExportRoute(consumer.Scope, reference.Source!))
-                    {
-                        scope.Add(boundary.Path + "/outputs");
-                        if (boundary.Owner?.Kind == "conditional")
-                            foreach (var alternative in symbols.Scopes.Where(s => s.Owner == boundary.Owner)) scope.Add(alternative.Path + "/outputs");
-                    }
-        if (minimalExports)
-        {
-            var exports = new PlanningExportRepair(plan, scope);
-            scope.RemoveWhere(path => symbols.Scopes.Any(s => path == s.Path + "/outputs"));
-            scope.UnionWith(exports.Additions.Keys);
-        }
+        // Compute only the necessary missing ports; existing exports stay immutable.
+        var exports = Exports(plan, scope);
+        scope.RemoveWhere(path => symbols.Scopes.Any(s => path == s.Path + "/outputs"));
+        scope.UnionWith(exports.Additions.Keys);
         return scope.Order(StringComparer.Ordinal).ToArray();
     }
 

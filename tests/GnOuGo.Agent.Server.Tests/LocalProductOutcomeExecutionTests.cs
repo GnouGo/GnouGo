@@ -86,9 +86,8 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             plan.Root.Outputs[0] = new("file", ProductTransformationPlan.Ref("write", "filePath"));
             plan.Root.Tasks.Single(t => t.Kind == "foreach").MaxItems = 3;
             var proposal = new PlanningProposal { Plan = plan, Requirements = new() { Summary = "Read products and save an XLSX document, always close the browser", Inputs = plan.Inputs,
-                Outcomes = [new("search", "Read search results") { Operation = catalog.Capabilities.Single(c => c.Method == "browser_get_content").Id, Execution = "read", Always = false, Conditional = false, Coverage = "once" }, new("products", "Read each product") { Operation = catalog.Capabilities.Single(c => c.Method == "browser_get_content").Id, Execution = "read", Always = false, Conditional = false, Coverage = "each_item" },
-                    new("save", "Save workbook") { Operation = catalog.Capabilities.Single(c => c.Method == "document_write").Id, Execution = "write", Always = false, Conditional = false, Coverage = "once" }, new("close", "Close browser") { Operation = catalog.Capabilities.Single(c => c.Method == "browser_close").Id, Execution = "lifecycle", Always = true, Conditional = false, Coverage = "once" }] },
-                OutcomeBindings = [new("search", ["search", "urls"], []), new("products", ["products"], []) { ForEachTaskId = "products" }, new("save", ["table", "write"], ["file"]), new("close", ["cleanup"], [])] };
+                Outcomes = [new("search", "Read search results"), new("products", "Read each product"),
+                    new("save", "Save workbook"), new("close", "Close browser")] } };
             var planning = new ProposalRuntime(runtime, proposal);
             var session = new PlanningSession { Catalog = catalog, Request = new() { Prompt = proposal.Requirements.Summary, TenantId = "local", Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } };
             var timer = Stopwatch.StartNew();
@@ -131,7 +130,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         finally { await site.StopAsync(ct); Directory.Delete(root, true); }
     }
 
-    private sealed class ProposalRuntime(WorkflowPlanningRuntime actual, PlanningProposal proposal) : IPlanningRuntime
+    internal sealed class ProposalRuntime(WorkflowPlanningRuntime actual, PlanningProposal proposal) : IPlanningRuntime
     {
         public int InputEstimate;
         public ICapabilityCatalog Capabilities => actual.Capabilities;

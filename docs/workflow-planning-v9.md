@@ -2,7 +2,7 @@
 
 Flow uses one semantic planner, one executable graph and one execution journal.
 
-Fresh sessions use [contract-aware generation and outcome version 2](planning-contract-aware-outcomes.md), including per-item coverage and scoped mapping repairs. TaskPlan, PlanningGraph and storage format 10 remain unchanged.
+Fresh sessions use the [simplified business-intent profile](planner-simplification.md), with contract-aware generation and TaskPlan-only repairs. TaskPlan, PlanningGraph and storage format 10 remain unchanged.
 
 ```mermaid
 flowchart LR
@@ -247,7 +247,7 @@ the alternatives. Auto mode validates and records the recommendation without ano
 model call. Selection recompiles deterministically. Choices cannot change agent scope,
 grant permissions, raise budgets or replace runtime confirmation.
 
-A custom answer to a literal choice requests an intent revision; it is never inserted as an unchecked literal or expression. Repair envelope version 3 adds clarification as an exclusive action and fingerprints accepted requirements. Retained version-1/2 requests preserve their original schemas, permissions and fingerprints. Nullable interaction metadata leaves absent historical fields and stored approval hashes unchanged.
+A custom answer to a literal choice requests an intent revision; it is never inserted as an unchecked literal or expression. Repair envelope 7 includes clarification as an exclusive action and fingerprints accepted requirements. Retired requests preserve their original schemas and fingerprints for accounting; unfinished sessions require explicit revision. Nullable interaction metadata leaves absent historical fields and stored approval hashes unchanged.
 
 ## Migration to planning format 10
 
@@ -306,6 +306,6 @@ JSON. Refresh discovery and explicitly revise/regenerate and approve workflows u
 the removed argument; business context belongs in the prompt. See
 [contract migration and deterministic evidence](copilot-attachments.md).
 
-## Outcome implementation validation
+## Business requirements and review
 
-New planning sessions bind accepted outcomes to executable tasks or data outputs. See [outcome validation and compatibility](planning-outcome-validation.md) for discovery-before-requirements behavior, versioned annotations, repair authority and deterministic execution evidence. Static coverage does not establish external success.
+Accepted requirements and public inputs remain host-owned until explicit revision. Fresh requests no longer ask the model for outcome proofs or mappings. Technical review derives from compiled operations and authoritative contracts; it does not prove business completeness or execution success. See [simplification and compatibility](planner-simplification.md). Historical outcome reports remain evidence of earlier implementations, not current planning rules.

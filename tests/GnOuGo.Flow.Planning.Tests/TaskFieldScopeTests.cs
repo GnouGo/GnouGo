@@ -106,7 +106,7 @@ public sealed class TaskFieldScopeTests
         Assert.Contains(result.Diagnostics, d => d.Code == "TASK_OUTPUT_POLICY"); Assert.Null(result.Graph);
         catalog.AllowedStepTypes.Add("value.project");
         var graph = new TaskPlanCompiler().Compile(plan, catalog).Graph!;
-        var session = PlannerFixture.Session(); session.Requirements = PlannerFixture.Requirements(); session.Plan = plan; session.Catalog = catalog; session.Graph = graph;
+        var session = PlannerFixture.Session(); session.Requirements = PlannerFixture.Requirements(); session.Requirements.Inputs = plan.Inputs; session.Plan = plan; session.Catalog = catalog; session.Graph = graph;
         session.Yaml = new PlanningGraphCompiler().Compile(graph, catalog, session.Request.Name);
         PlanningArtifactApproval.Verify(session); var hash = PlanningArtifactApproval.Hash(session);
         plan.Root.Outputs[0].Value.Port = "other";

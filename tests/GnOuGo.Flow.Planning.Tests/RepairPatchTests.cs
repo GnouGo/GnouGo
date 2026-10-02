@@ -27,11 +27,16 @@ public sealed class RepairPatchTests
         state.RevisionScope = TaskPlanRevisions.Scope(state.Plan, state.Diagnostics).ToList();
         return state;
     }
+    private static PlanningSession ValidState()
+    {
+        var state = State(); state.Plan!.Root.Tasks[0].ResultType!.Fields.ForEach(f => f.Type.Nullable = false);
+        return state;
+    }
     internal static IReadOnlyList<PlanningRepairPatch.Slot> Slots(PlanningSession state) => PlanningRepairPatch.Slots(state, PlanningSchemas.FullProposal(state, compact: false)["$defs"]!.AsObject());
     internal static LLMRequest Request(PlanningSession state) => new()
     {
         StructuredOutputSchema = PlanningRepairPatch.Schema(state, PlanningSchemas.FullProposal(state, compact: false, clarifications: false)),
-        Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = 1, ["authority"] = PlanningRepairPatch.Authority(state) } }.ToJsonString()
+        Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = 7, ["authority"] = PlanningRepairPatch.Authority(state) } }.ToJsonString()
     };
     internal static JsonObject Edit(PlanningSession state, string path, string action, JsonNode? value = null)
     {
@@ -121,7 +126,7 @@ public sealed class RepairPatchTests
     [Fact]
     public void OwnedWholeBindingOffersOnlyRemoval()
     {
-        var state = State(); state.Plan!.Root.Tasks[1].Inputs.Add(new("fixed", new() { Kind = "string", Text = "host" }));
+        var state = ValidState(); state.Plan!.Root.Tasks[1].Inputs.Add(new("fixed", new() { Kind = "string", Text = "host" }));
         state.RevisionScope = ["/tasks/consumer/inputs/fixed"];
         Assert.Equal(new[] { "remove" }, Assert.Single(Slots(state)).Actions);
         var plan = Apply(state, Edit(state, state.RevisionScope[0], "remove"));
@@ -138,8 +143,8 @@ public sealed class RepairPatchTests
         state.Plan.Root.Outputs = [new("text", new() { Kind = "output", Source = "producer", Port = "text" })];
         state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog!).Diagnostics.ToList();
         state.RevisionScope = TaskPlanRevisions.Scope(state.Plan, state.Diagnostics).ToList();
-        JsonObject Export() => Edit(state, "/tasks/container/body/outputs", "add", JsonNode.Parse("""[{"name":"message","value":{"kind":"output","source":"producer","port":"text"}}]"""));
-        var fixedPlan = Apply(state, Export(), Edit(state, "/root/outputs/text", "replace", JsonNode.Parse("""{"kind":"output","source":"container","port":"message"}""")));
+        JsonObject Export() => Edit(state, "/tasks/container/body/outputs/text", "add", JsonNode.Parse("""{"kind":"output","source":"producer","port":"text"}"""));
+        var fixedPlan = Apply(state, Export(), Edit(state, "/root/outputs/text", "replace", JsonNode.Parse("""{"kind":"output","source":"container","port":"text"}""")));
         Assert.Empty(new TaskPlanCompiler().Compile(fixedPlan, state.Catalog!).Diagnostics);
         Assert.Throws<PlanningResponseException>(() => Apply(state, Export()));
         Assert.Empty(state.Plan.Root.Tasks[0].Body!.Outputs);
@@ -175,7 +180,7 @@ public sealed class RepairPatchTests
     [Fact]
     public void MissingGroupInputAndDependencyRepairsPreserveInterfacesAndOrder()
     {
-        var state = State(); state.Plan!.Groups.Add(new() { Id = "reuse", Inputs = [new() { Name = "text" }], Body = new() { Outputs = [new("text", new() { Kind = "input", Source = "text" })] } });
+        var state = ValidState(); state.Plan!.Groups.Add(new() { Id = "reuse", Inputs = [new() { Name = "text" }], Body = new() { Outputs = [new("text", new() { Kind = "input", Source = "text" })] } });
         state.Plan.Root.Tasks.Add(new() { Id = "call_group", Kind = "call", Objective = "Use the declared interface", Group = "reuse", DependsOn = ["unknown"] });
         state.RevisionScope = ["/tasks/call_group/inputs/text", "/tasks/call_group/dependsOn"];
         var repaired = Apply(state, Edit(state, state.RevisionScope[0], "add", JsonNode.Parse("""{"kind":"string","text":"explicit"}""")),
@@ -189,7 +194,7 @@ public sealed class RepairPatchTests
     [Fact]
     public void MissingTransformTypeIsAClosedBusinessDeclarationNotAReplacementTask()
     {
-        var state = State(); state.Plan!.Root.Tasks[0].ResultType = null;
+        var state = ValidState(); state.Plan!.Root.Tasks[1].Inputs.RemoveAll(i => i.Name == "position"); state.Plan.Root.Tasks[0].ResultType = null;
         state.RevisionScope = ["/tasks/producer/resultType"];
         var payload = JsonNode.Parse("""{"kind":"object","fields":[{"name":"text","type":{"kind":"string"}}]}""");
         var repaired = Apply(state, Edit(state, state.RevisionScope[0], "replace", payload));
@@ -201,7 +206,7 @@ public sealed class RepairPatchTests
     [Fact]
     public void ChoicesCannotChangeHostSelectionsAndAlternativeValuesRemainLiteral()
     {
-        var state = State(); state.Plan!.Choices = [new() { Id = "decision", Question = "Which value?", Type = new() { Kind = "string" },
+        var state = ValidState(); state.Plan!.Root.Tasks[1].Inputs[0] = new("text", new() { Kind = "choice", Source = "decision" }); state.Plan.Choices = [new() { Id = "decision", Question = "Which value?", Type = new() { Kind = "string" },
             Alternatives = [new("a", "First", new() { Kind = "string", Text = "A" }), new("b", "Second", new() { Kind = "string", Text = "B" })], Recommended = "missing" }];
         state.RevisionScope = ["/choices/decision"];
         var payload = JsonNode.Parse("""{"id":"decision","question":"Which value?","type":{"kind":"string"},"alternatives":[{"id":"a","description":"First","value":{"kind":"string","text":"A"}},{"id":"b","description":"Second","value":{"kind":"string","text":"B"}}],"recommended":"a"}""");
@@ -221,13 +226,15 @@ public sealed class RepairPatchTests
         state.Plan.Root.Outputs = [new("text", new() { Kind = "output", Source = "producer", Port = "text" })];
         state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog!).Diagnostics.ToList();
         state.RevisionScope = TaskPlanRevisions.Scope(state.Plan, state.Diagnostics).ToList();
-        JsonObject[] Edits() => [Edit(state, "/tasks/branch/body/outputs", "add", JsonNode.Parse("""[{"name":"text","value":{"kind":"output","source":"producer","port":"text"}}]""")),
-            Edit(state, "/tasks/branch/otherwise/outputs", "add", JsonNode.Parse("""[{"name":"text","value":{"kind":"string","text":"explicit fallback"}}]""")),
+        JsonObject[] Edits() => [Edit(state, "/tasks/branch/body/outputs/text", "add", JsonNode.Parse("""{"kind":"output","source":"producer","port":"text"}""")),
+            Edit(state, "/tasks/branch/otherwise/outputs/text", "add", JsonNode.Parse("""{"kind":"string","text":"explicit fallback"}""")),
             Edit(state, "/root/outputs/text", "replace", JsonNode.Parse("""{"kind":"output","source":"branch","port":"text"}"""))];
         Assert.Empty(new TaskPlanCompiler().Compile(Apply(state, Edits()), state.Catalog!).Diagnostics);
         var partial = Edits(); Assert.Throws<PlanningResponseException>(() => Apply(state, partial[0], partial[2]));
-        var extra = Edits(); extra[0]["value"]!.AsArray().Add((JsonNode)JsonNode.Parse("""{"name":"unused","value":{"kind":"string","text":"unrelated"}}""")!);
-        Assert.Throws<PlanningResponseException>(() => Apply(state, extra));
+        var extra = Edits(); extra[0]["value"]!["unused"] = "unrelated";
+        var request = Request(state);
+        var patch = new RepairPatch { Edits = extra.Select(e => e.Deserialize(RepairJsonContext.Default.RepairEdit)!).ToList() };
+        Assert.Throws<PlanningResponseException>(() => PlanningRepairPatch.Apply(state, patch, request));
     }
 
 }

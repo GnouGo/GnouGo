@@ -79,7 +79,7 @@ public sealed class CopilotListPlanningTests
             .GetMethod("Apply", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!.Invoke(null, [compilation.Graph, catalog]);
         var yaml = new PlanningGraphCompiler().Compile(compilation.Graph, catalog, request.Name);
         Assert.Empty(await runtime.ValidateAsync(new(yaml, request, catalog, PlanningGraphCompiler.CapabilityBindings(compilation.Graph)), Ct));
-        var state = new PlanningSession { Request = request, Requirements = new() { Summary = request.Prompt, Outcomes = [new("result", "Return observed results")] },
+        var state = new PlanningSession { IntentVersion = 2, Request = request, Requirements = new() { Summary = request.Prompt, Outcomes = [new("result", "Return observed results")] },
             Catalog = catalog, Plan = plan, Graph = compilation.Graph, Yaml = yaml, Status = PlanningStatus.FinalReview };
         PlanningArtifactApproval.Verify(state);
         var hash = state.ComputeArtifactHash();

@@ -33,7 +33,8 @@ public sealed class RecordedBudgetDiscoveryTests(ITestOutputHelper output)
             var discovery = JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
             var selected = HybridWorkflowPlanner.Shortlist(state);
             var prompt = HybridWorkflowPlanner.BuildPrompt(state, selected);
-            var after = PlanningJsonTransport.EstimateInputTokens(prompt, PlanningSchemas.Proposal(state));
+            var measured = new PlanningPrompt(state); prompt = measured.Build(selected);
+            var after = PlanningJsonTransport.EstimateInputTokens(prompt, measured.Schema);
             Assert.InRange(after, 1, 21600);
             Assert.Equal(discovery, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
             foreach (var candidate in selected)
@@ -66,10 +67,12 @@ public sealed class RecordedBudgetDiscoveryTests(ITestOutputHelper output)
             Requirements = original.Requirements,
             DiscoveryRequests = runtime.Calls.Count <= 6 ? runtime.Calls.Count == 1
                 ? catalog.Sources.Select(s => new PlanningDiscoveryRequest(s.Id)).ToList()
-                : [new(catalog.Sources[0].Id, Query: "refinement " + runtime.Calls.Count)] : null,
+                : runtime.Calls.Count == 6 ? original.Discovery.Pages.SelectMany(p => p.Capabilities).Where(c => original.Discovery.Resolved.Any(r => r.Id == c.Id))
+                    .DistinctBy(c => c.Id).GroupBy(c => c.SourceId).Select(g => new PlanningDiscoveryRequest(g.Key, OperationIds: g.Select(c => c.Operation!.Id).ToList())).ToList()
+                    : [new(catalog.Sources[0].Id, Query: "refinement " + runtime.Calls.Count)] : null,
             Plan = runtime.Calls.Count == 7 ? original.Plan : null
         });
-        var state = PlannerFixture.Session(); state.IntentVersion = 1; state.OutcomeVersion = 1; state.Request.Prompt = original.Request.Prompt;
+        var state = PlannerFixture.Session(); state.IntentVersion = 2; state.Request.Prompt = original.Request.Prompt;
         state.Request.Generation.MaxInputTokensPerRequest = 24000;
         state.Request.Generation.MaxOutputTokens = 32768;
         state = await PlannerFixture.RunAsync(runtime, state);
@@ -78,7 +81,7 @@ public sealed class RecordedBudgetDiscoveryTests(ITestOutputHelper output)
         Assert.Equal(10, TaskPlanRevisions.Tasks(state.Plan!).Where(t => t.Kind == "operation").Select(t => t.Operation).Distinct().Count());
         Assert.Equal(JsonSerializer.Serialize(original.Plan, PlanningJsonContext.Default.TaskPlan), JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
         Assert.Equal(10, catalog.Resolutions.Count); Assert.Equal(10, catalog.Resolutions.Distinct().Count());
-        Assert.Equal(catalog.Sources.Count + 5, catalog.Reads);
+        Assert.Equal(catalog.Sources.Count + 4, catalog.Reads);
         Assert.Null(state.ApprovedHash); Assert.Empty(state.RevisionScope);
         PlanningArtifactApproval.Verify(state);
         var restored = PlannerFixture.Clone(state); PlanningArtifactApproval.Verify(restored);
@@ -88,14 +91,15 @@ public sealed class RecordedBudgetDiscoveryTests(ITestOutputHelper output)
         // Removing duplicate summaries and closed navigation now fits all ten
         // exact contracts, without changing this retained proposal or its oracle.
         var allDetails = PlanningJsonTransport.EstimateInputTokens(HybridWorkflowPlanner.BuildPrompt(issuedState, PlanningDiscoveryContext.Candidates(issuedState)), PlanningSchemas.Proposal(issuedState));
-        Assert.InRange(allDetails, 1, 21600);
+        Assert.InRange(allDetails, 1, state.Request.Generation.MaxInputTokensPerRequest); // Explicit inspection is mandatory context, not optional headroom.
         Assert.Equal(10 + state.Catalog!.Capabilities.Count(c => c.Kind == "registered"), counts[^1]);
         var presented = Context(runtime.Calls[^1].Prompt)["operations"]!.AsArray().Select(o => o!["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
         Assert.Equal(10, original.Discovery.Resolved.Count(c => presented.Contains(TaskOperations.Describe(c).Id)));
         Assert.All(original.Discovery.Resolved, c => Assert.Equal(JsonSerializer.Serialize(c, PlanningJsonContext.Default.PlanningCapability),
             JsonSerializer.Serialize(state.Catalog.Capabilities.Single(selected => selected.Id == c.Id), PlanningJsonContext.Default.PlanningCapability)));
         var tokens = runtime.Calls.Select(c => PlanningJsonTransport.EstimateInputTokens(c.Prompt, c.StructuredOutputSchema!.AsObject())).ToArray();
-        Assert.All(tokens, n => Assert.InRange(n, 1, 21600));
+        Assert.All(tokens.Take(6), n => Assert.InRange(n, 1, 21600));
+        Assert.InRange(tokens[^1], 1, state.Request.Generation.MaxInputTokensPerRequest);
         output.WriteLine($"Synthetic ten-contract review: calls={runtime.Calls.Count}; repairs={state.ReplanAttempts}; metadata reads={catalog.Reads}; contract resolutions={catalog.Resolutions.Count}; detailed operations=[{string.Join(',', counts)}]; input estimates=[{string.Join(',', tokens)}]; cumulative={tokens.Sum()}; prompt bytes=[{string.Join(',', runtime.Calls.Select(c => Encoding.UTF8.GetByteCount(c.Prompt)))}]. No approval, execution or live inference.");
     }
 

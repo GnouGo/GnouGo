@@ -20,6 +20,24 @@ public sealed class PlanningTraceUiTests : BunitContext
     private static CancellationToken Ct => Xunit.TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData(PlanningStatus.FinalReview)]
+    [InlineData(PlanningStatus.Stopped)]
+    public async Task RetiredUnapprovedSessionOffersExplicitRevisionWithoutApprovalOrRetry(string status)
+    {
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(); Configure(fixture);
+        var state = Session("legacy-ui", "Retired", status); state.IntentVersion = 1;
+        if (status == PlanningStatus.Stopped) state.PendingCall = new() { Id = "original", Request = new() { Prompt = "Original" } };
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/legacy-ui");
+        var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "legacy-ui"));
+        cut.WaitForAssertion(() => Assert.Contains("retired planning contract", cut.Markup));
+        Assert.Contains("Revise workflow", cut.Markup);
+        Assert.DoesNotContain("Approve this revision", cut.Markup); Assert.DoesNotContain("Retry with retained usage", cut.Markup);
+        Assert.Equal(state.Revision, (await fixture.Store.LoadAsync("planning-tests", "legacy-ui", Ct))!.Revision);
+        await DisposeComponentsAsync();
+    }
+
+    [Theory]
     [InlineData("active")]
     [InlineData("receipt_available")]
     [InlineData("completion_unknown")]
@@ -314,7 +332,7 @@ public sealed class PlanningTraceUiTests : BunitContext
     private static PlanningSession Session(string id, string name, string status) => new()
     {
         Request = new() { TenantId = "planning-tests", SessionId = id, Name = name, Prompt = "Return a value" },
-        Status = status, ModelCalls = 1, Revision = 3
+        IntentVersion = 2, Status = status, ModelCalls = 1, Revision = 3
     };
 
     private static Task StoreWorkflow(PlanningPersistenceTests.StoreFixture fixture, PlanningSession state)

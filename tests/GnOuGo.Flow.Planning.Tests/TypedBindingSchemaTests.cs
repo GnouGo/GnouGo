@@ -26,7 +26,7 @@ public sealed class TypedBindingSchemaTests
     [Fact]
     public void RetainedAgentRepairPinsScopeTypesAndExposesFixedCreationArgumentsReadOnly()
     {
-        var state = ComposedOutcomeTests.Recorded("copilot"); state.OutcomeVersion = 2;
+        var state = ComposedOutcomeTests.Recorded("copilot"); state.IntentVersion = 2; state.OutcomeVersion = null;
         var request = new PlanningPrompt(state).Request(); var context = PlanningRepairPatch.RequestContext(request);
         var source = context["repair"]!["tasks"]!.AsArray().Single(t => t!["id"]!.ToString() == "clone_repository_once")!;
         Assert.Null(source["inputs"]); Assert.Contains(source["fixedInputs"]!.AsArray(), i => i!["name"]!.ToString() == "targetDirectory");
@@ -36,14 +36,14 @@ public sealed class TypedBindingSchemaTests
         var response = new JsonObject { ["discoveryRequests"] = null, ["clarifications"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray(new JsonObject
             { ["slot"] = verification, ["action"] = "replace", ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "still prose" } }) } };
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!));
-        var hash = PlanningRepairPatch.Authority(state, 5);
+        var hash = PlanningRepairPatch.Authority(state);
         state.Catalog!.Capabilities.Single(c => c.StepType == "agent.run").InputSchema["properties"]!["verification"]!["minItems"] = 2;
-        Assert.NotEqual(hash, PlanningRepairPatch.Authority(state, 5));
+        Assert.NotEqual(hash, PlanningRepairPatch.Authority(state));
         Assert.Throws<PlanningConflictException>(() => PlanningRepairPatch.Verify(state, request));
     }
 
     [Fact]
-    public async Task NewRequestSelectsExactlyItsDetailedContractsAndLegacyRequestsKeepTheirBroadSchema()
+    public async Task NewRequestsSelectOnlyDetailedPolicyAllowedContracts()
     {
         var state = await ComposedOutcomeTests.State(); state.Plan = null; state.Requirements = null;
         var indexed = new PlanningOperation { Id = "index_only", Description = "Inspection is required", Version = "1" };
@@ -56,7 +56,6 @@ public sealed class TypedBindingSchemaTests
         state.Catalog!.Policy.DeniedCapabilityIds.Add("external");
         Assert.DoesNotContain("\"external\"", new PlanningPrompt(state).Request().StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
         state.Catalog.Policy.DeniedCapabilityIds.Clear();
-        state.OutcomeVersion = 1;
-        Assert.Contains("index_only", new PlanningPrompt(state).Request().StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+
     }
 }
