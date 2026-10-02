@@ -1,7 +1,6 @@
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using Jint;
-using Jint.Runtime;
+using Acornima;
 
 namespace GnOuGo.Flow.Core.Runtime;
 
@@ -10,7 +9,6 @@ namespace GnOuGo.Flow.Core.Runtime;
 internal sealed class StructuredOutputPatterns
 {
     private readonly Dictionary<string, Compatibility> _cache = new(StringComparer.Ordinal);
-    private Engine? _engine;
     internal enum Compatibility { Invalid, Nonportable, Portable }
 
     internal Compatibility Check(string pattern)
@@ -28,11 +26,12 @@ internal sealed class StructuredOutputPatterns
         try
         {
             _ = new Regex(pattern, RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1));
-            _engine ??= new Engine(options => options.TimeoutInterval(TimeSpan.FromSeconds(1)).MaxStatements(100).LimitMemory(8_000_000));
-            _engine.SetValue("pattern", pattern).Evaluate("new RegExp(pattern, 'u')");
-            return Compatibility.Portable;
+            // Parse the pattern directly using the same ECMAScript parser as
+            // the expression engine. No engine, CLR interop or script execution
+            // is needed (including in Native AOT MCP consumers).
+            return Tokenizer.ValidateRegExp(pattern, "u", out _) ? Compatibility.Portable : Compatibility.Nonportable;
         }
-        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or JavaScriptException)
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
         { return Compatibility.Nonportable; }
     }
 

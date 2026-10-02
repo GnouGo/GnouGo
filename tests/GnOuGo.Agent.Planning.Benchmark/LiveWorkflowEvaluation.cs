@@ -31,7 +31,7 @@ internal static class LiveWorkflowEvaluation
         if (phase == "execute" && retained?["source"]?.ToString() != sourceRevision)
             throw new InvalidOperationException("Execution must use the retained planning build.");
         var manifest = label.StartsWith("final-", StringComparison.Ordinal)
-            ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model) : null;
+            ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model, model.ConfigurationFingerprint) : null;
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, label);
         var configurations = Configuration(model.McpServers, scenario, proxy.Endpoint);
         var human = new ConsoleHuman(campaign, label);

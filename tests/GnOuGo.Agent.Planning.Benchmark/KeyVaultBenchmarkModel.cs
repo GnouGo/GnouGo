@@ -36,6 +36,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
     internal string Model => _options.DefaultModel;
     internal string Provider => _options.DefaultProvider;
     internal IReadOnlyDictionary<string, McpServerOptions> McpServers => _options.McpServers;
+    internal string ConfigurationFingerprint => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(_options));
     internal static async Task<KeyVaultBenchmarkModel> CreateAsync(string providerName, string? expectedModel, BenchmarkCampaign campaign, string root, CancellationToken ct)
     {
         var services = new ServiceCollection(); services.AddLogging();

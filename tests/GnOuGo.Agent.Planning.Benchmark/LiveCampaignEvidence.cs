@@ -5,12 +5,13 @@ using GnOuGo.Flow.Planning;
 
 internal static class LiveCampaignEvidence
 {
-    internal static async Task<JsonObject> PinAsync(BenchmarkCampaign campaign, string source, string provider, string model)
+    internal static async Task<JsonObject> PinAsync(BenchmarkCampaign campaign, string source, string provider, string model, string configurationFingerprint)
     {
         var manifest = new JsonObject
         {
             ["production_sha"] = source, ["harness_sha"] = source,
             ["provider"] = provider, ["model"] = model, ["reasoning"] = "medium",
+            ["host_configuration_hash"] = configurationFingerprint,
             ["max_input_tokens"] = 96000, ["max_output_tokens"] = 32768,
             ["planning_attempts"] = 8, ["repairs"] = 2, ["cost_ceiling_eur"] = 50,
             ["os"] = RuntimeInformation.OSDescription, ["architecture"] = RuntimeInformation.ProcessArchitecture.ToString(),
