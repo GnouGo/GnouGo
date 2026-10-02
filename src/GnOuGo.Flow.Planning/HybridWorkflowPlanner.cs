@@ -177,7 +177,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         if (state.PendingCall is null)
         {
             if (state.Requirements is null && state.IntentVersion is null)
-            { state.IntentVersion = 1; state.OutcomeVersion = 1; }
+            { state.IntentVersion = 1; state.OutcomeVersion = 2; }
             await PlanningDiscoveryContext.DiscoverPrerequisitesAsync(state, runtime, ct);
             await PlanningDiscoveryContext.ResolveShortlistAsync(state, runtime, ct);
         }
@@ -191,8 +191,10 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             var change = response.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!;
             if ((change.DiscoveryRequests is null ? 0 : 1) + (change.Patch is null ? 0 : 1) + (change.Clarifications is null ? 0 : 1) != 1)
                 Reject("PROPOSAL_ACTION_INVALID", "/", "Return one permitted discovery batch, clarification or semantic patch.");
+            var bindings = state.OutcomeBindings;
+            var repaired = change.Patch is null ? null : PlanningRepairPatch.Apply(state, change.Patch, issuedRequest, out bindings);
             proposal = new() { DiscoveryRequests = change.DiscoveryRequests, Clarifications = change.Clarifications,
-                Plan = change.Patch is null ? null : PlanningRepairPatch.Apply(state, change.Patch, issuedRequest), OutcomeBindings = change.Patch is null ? null : state.OutcomeBindings };
+                Plan = repaired, OutcomeBindings = change.Patch is null ? null : bindings };
         }
         else proposal = JsonSerializer.Deserialize(response, PlanningJsonContext.Default.PlanningProposal)!;
         if ((proposal.DiscoveryRequests is null ? 0 : 1) + (proposal.Plan is null ? 0 : 1) + (proposal.Clarifications is null ? 0 : 1) != 1)
@@ -335,7 +337,16 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         var compilation = new TaskPlanCompiler().Compile(candidate, state.Catalog!);
         if (compilation.Diagnostics.Count > 0) { SemanticFailure(state, compilation.Diagnostics); return; }
         if (PlanningOutcomeValidation.Findings(state) is { Count: > 0 } outcomeFindings)
-        { state.Diagnostics = outcomeFindings; state.RevisionScope.Clear(); state.Graph = null; Stop(state); return; }
+        {
+            state.Diagnostics = outcomeFindings; state.RevisionScope.Clear(); state.Graph = null; Invalidate(state);
+            if (state.OutcomeVersion == 2 && state.OutcomeBindings is not null)
+                state.RevisionScope = outcomeFindings.Where(d => d.Required).Select(d => d.Location.Split('/'))
+                    .Where(p => p is ["", "outcomeBindings", _] && state.OutcomeBindings.Count(b => b.OutcomeId == p[2]) == 1)
+                    .Select(p => "/outcomeBindings/" + p[2]).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+            if (state.RevisionScope.Count == 0 || outcomeFindings.Any(d => !state.RevisionScope.Contains(d.Location))) Stop(state);
+            else state.Status = PlanningStatus.Generating;
+            return;
+        }
         if (plan.Choices.Any(c => c.Selected is null))
         {
             if (state.Request.Mode == PlanningMode.Interactive) { state.Diagnostics.Clear(); state.Status = PlanningStatus.Clarification; return; }
@@ -396,9 +407,10 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             requirements.Outcomes.Any(o => string.IsNullOrWhiteSpace(o.Id) || string.IsNullOrWhiteSpace(o.Description)) ||
             requirements.Outcomes.Select(o => o.Id).Distinct().Count() != requirements.Outcomes.Count)
             Reject("REQUIREMENTS_INVALID", "/requirements", "Declare distinct concrete business outcomes.");
-        if (state.OutcomeVersion == 1 && requirements!.Outcomes.Any(o =>
+        if (state.OutcomeVersion is 1 or 2 && requirements!.Outcomes.Any(o =>
             o.Execution is not ("data" or "read" or "write" or "execute" or "lifecycle") || o.Always is null || o.Conditional is null ||
-            o.Execution == "data" && (o.Always == true || o.Conditional == true)))
+            o.Execution == "data" && (o.Always == true || o.Conditional == true) ||
+            state.OutcomeVersion == 2 && (o.Coverage is not (null or "once" or "each_item") || o.Execution == "data" && o.Coverage == "each_item")))
             Reject("REQUIREMENTS_EXECUTION_INVALID", "/requirements/outcomes", "Declare data production or an operation effect and its always/conditional expectations.");
         if (state.Requirements is { } accepted && (accepted.Summary != requirements!.Summary || !accepted.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal)
                 .SequenceEqual(requirements.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal)) ||

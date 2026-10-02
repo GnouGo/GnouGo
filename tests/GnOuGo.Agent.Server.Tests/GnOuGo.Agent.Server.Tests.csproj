@@ -50,5 +50,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../Shared/RealProductContracts.cs" Link="RealProductContracts.cs" />
+    <Compile Include="../Shared/ProductTransformationFixture.cs" Link="ProductTransformationFixture.cs" />
+    <Compile Include="../Shared/ProductTransformationPlan.cs" Link="ProductTransformationPlan.cs" />
   </ItemGroup>
 </Project>

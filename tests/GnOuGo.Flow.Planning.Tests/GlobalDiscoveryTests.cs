@@ -34,7 +34,8 @@ public sealed class GlobalDiscoveryTests
     [Fact]
     public async Task ConflictingVersionsCannotReuseAPreviouslyResolvedOperation()
     {
-        var state = State(); var first = state.Discovery.Pages[0].Capabilities[0];
+        var state = State(); state.IntentVersion = 1; state.OutcomeVersion = 1; // Replay the historical broad selection schema.
+        var first = state.Discovery.Pages[0].Capabilities[0];
         state.Discovery.Pages.Add(new("a", "next-a", [first with { Version = "changed" }], null, Query: "find needle records"));
         var runtime = new TestRuntime();
         runtime.Proposal.Plan = new() { Root = new() { Tasks = [new() { Id = "use", Objective = "Use selected operation", Operation = first.Operation!.Id }] } };

@@ -42,6 +42,8 @@ internal static class PlanningRepairContext
                 foreach (var output in child.Source.Outputs.Where(o => port is null || o.Name == port)) References(output.Value);
             }
         }
+        if (state.OutcomeVersion == 2 && state.RevisionScope.Any(p => p.StartsWith("/outcomeBindings/", StringComparison.Ordinal)))
+            foreach (var (id, site) in symbols.Tasks) { tasks.Add(id); Scope(site.Scope); }
         foreach (var path in state.RevisionScope)
         {
             if (symbols.Values.TryGetValue(path, out var value)) { Scope(value.Scope); References(value.Value); }
@@ -100,7 +102,12 @@ internal static class PlanningRepairContext
             var task = symbols.Tasks[id].Task;
             var node = JsonSerializer.SerializeToNode(task, PlanningJsonContext.Default.PlanTask)!.AsObject();
             node.Remove("body"); node.Remove("otherwise"); node.Remove("branches");
-            if (!selection.EditableTasks.Contains(id) && task.Kind is "operation" or "transform") node.Remove("inputs");
+            if (!selection.EditableTasks.Contains(id) && task.Kind is "operation" or "transform")
+            {
+                node.Remove("inputs");
+                if (state.OutcomeVersion == 2)
+                    node["fixedInputs"] = PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(task.Inputs.Where(i => IsLiteral(i.Value)).ToList(), PlanningJsonContext.Default.ListTaskOutput));
+            }
             // A context task is not a replacement payload; omitted bodies stay host-owned.
             taskNodes.Add(PlanningJsonTransport.TaskPlanPart(node));
             foreach (var value in task.Inputs.Concat(task.Outputs).Select(o => o.Value)) Referenced(value);
@@ -131,9 +138,10 @@ internal static class PlanningRepairContext
         var groups = state.Plan!.Groups.Where(g => selection.Scopes.Any(p => p.StartsWith("/groups/" + g.Id + "/", StringComparison.Ordinal)) ||
             state.RevisionScope.Any(p => p.StartsWith("/groups/" + g.Id + "/", StringComparison.Ordinal)) ||
             selection.Tasks.Any(id => symbols.Tasks[id].Task.Group == g.Id));
+        var version = state.OutcomeVersion == 2 ? 5 : state.OutcomeVersion is null ? 3 : 4;
         return new JsonObject
         {
-            ["version"] = state.OutcomeVersion is null ? 3 : 4, ["authority"] = PlanningRepairPatch.Authority(state, state.OutcomeVersion is null ? 3 : 4),
+            ["version"] = version, ["authority"] = PlanningRepairPatch.Authority(state, version),
             ["slots"] = new JsonArray(slots.Select(s => (JsonNode)new JsonObject { ["id"] = s.Id, ["location"] = s.Location, ["kind"] = s.Kind,
                 ["actions"] = new JsonArray(s.Actions.Select(a => (JsonNode?)JsonValue.Create(a)).ToArray()) }).ToArray()),
             ["tasks"] = taskNodes, ["scopes"] = scopeNodes,
@@ -143,6 +151,9 @@ internal static class PlanningRepairContext
             ["choices"] = JsonSerializer.SerializeToNode(state.Plan.Choices.Where(c => choices.Contains(c.Id)).ToList(), PlanningJsonContext.Default.ListPlanningChoice)
         };
     }
+
+    private static bool IsLiteral(TaskValue value) => value.Kind is "null" or "string" or "number" or "boolean" ||
+        value.Kind == "object" && value.Members.All(m => IsLiteral(m.Value)) || value.Kind == "array" && value.Items.All(IsLiteral);
 
     private static IEnumerable<string> Ports(PlanTask task, PlanningSession state)
     {

@@ -2,6 +2,8 @@
 
 Flow uses one semantic planner, one executable graph and one execution journal.
 
+Fresh sessions use [contract-aware generation and outcome version 2](planning-contract-aware-outcomes.md), including per-item coverage and scoped mapping repairs. TaskPlan, PlanningGraph and storage format 10 remain unchanged.
+
 ```mermaid
 flowchart LR
   Requirements --> Discovery[Progressive discovery]

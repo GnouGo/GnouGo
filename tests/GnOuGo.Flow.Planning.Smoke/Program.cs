@@ -30,7 +30,7 @@ clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState,
 PlanningArtifactApproval.Verify(clarificationState);
 if (clarificationState.Status != PlanningStatus.FinalReview || clarificationState.ApprovedHash is not null || clarificationRuntime.Calls != 2)
     throw new InvalidOperationException("Clarification bypassed review or lost accounting.");
-if (clarificationState.OutcomeVersion != 1 || clarificationState.OutcomeBindings?.Count != 1 ||
+if (clarificationState.OutcomeVersion != 2 || clarificationState.OutcomeBindings?.Count != 1 ||
     clarificationState.Requirements?.Outcomes.Single().Execution != "data")
     throw new InvalidOperationException("Outcome annotations did not survive Native AOT recovery.");
 var outcomeHash = clarificationState.ComputeArtifactHash();
@@ -89,6 +89,21 @@ var boundedOutcome = new PlanningSession
 boundedOutcome.Yaml = new PlanningGraphCompiler().Compile(outputGraph, workspaceCatalog, boundedOutcome.Request.Name);
 PlanningArtifactApproval.Verify(boundedOutcome);
 Console.WriteLine("bounded agent outcome: resolved execution contract supports the declared task; execution remains unobserved");
+
+// New mapping repair authority is an optional review annotation, not another IR.
+boundedOutcome.OutcomeVersion = 2;
+boundedOutcome.Request.TenantId = "smoke";
+boundedOutcome.OutcomeBindings[0].TaskIds.Clear();
+boundedOutcome.Diagnostics = PlanningOutcomeValidation.Findings(boundedOutcome);
+boundedOutcome.RevisionScope = ["/outcomeBindings/check"];
+var mappingRequest = new PlanningPrompt(boundedOutcome).Request();
+var mappingPatch = new RepairPatch { Edits = [new() { Slot = "s0", Action = "replace", Value = JsonNode.Parse("""{"taskIds":["work"],"outputs":["observed"],"forEachTaskId":null}""") }] };
+boundedOutcome = JsonSerializer.Deserialize(JsonSerializer.Serialize(boundedOutcome, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+boundedOutcome.Plan = PlanningRepairPatch.Apply(boundedOutcome, mappingPatch, mappingRequest, out var mapped);
+boundedOutcome.OutcomeBindings = mapped;
+if (PlanningRepairPatch.RequestContext(mappingRequest)["repair"]!["version"]!.GetValue<int>() != 5 || PlanningOutcomeValidation.Findings(boundedOutcome).Count != 0)
+    throw new InvalidOperationException("Version-five mapping repair did not survive AOT recovery");
+Console.WriteLine("outcome v2: version-five atomic mapping repair and issued authority survive source-generated recovery");
 
 foreach (var name in PlanningCorpus.Names)
 {

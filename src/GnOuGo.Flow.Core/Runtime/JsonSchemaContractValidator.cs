@@ -595,15 +595,15 @@ internal static class JsonSchemaContractValidator
     private static bool TryReadInteger(JsonNode? node, out long value)
     {
         value = 0;
-        if (node is not JsonValue jsonValue)
-            return false;
-        if (jsonValue.TryGetValue<long>(out value))
-            return true;
-        if (jsonValue.TryGetValue<int>(out var intValue))
-        {
-            value = intValue;
-            return true;
-        }
+        if (node is not JsonValue scalar) return false;
+        if (scalar.TryGetValue<long>(out value)) return true;
+        if (scalar.TryGetValue<int>(out var integer)) { value = integer; return true; }
+        if (scalar.TryGetValue<decimal>(out var number) && number == decimal.Truncate(number) && number >= long.MinValue && number <= long.MaxValue)
+        { value = (long)number; return true; }
+        // The upper bound is exclusive: double cannot represent Int64.MaxValue exactly.
+        if (scalar.TryGetValue<double>(out var floating) && double.IsFinite(floating) && floating == Math.Truncate(floating) &&
+            floating >= -9223372036854775808d && floating < 9223372036854775808d)
+        { value = (long)floating; return true; }
         return false;
     }
 

@@ -53,10 +53,18 @@ public sealed record PlanningRequirement(string Id, string Description)
     /// <summary>Whether execution may depend on a branch or a possibly empty collection.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public bool? Conditional { get; init; }
+    /// <summary>Null/once requires an invocation; each_item requires coverage of every iteration of the bound foreach.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Coverage { get; init; }
 }
 
 /// <summary>Review annotations referencing the TaskPlan, never another executable representation.</summary>
-public sealed record PlanningOutcomeBinding(string OutcomeId, List<string> TaskIds, List<string> Outputs);
+public sealed record PlanningOutcomeBinding(string OutcomeId, List<string> TaskIds, List<string> Outputs)
+{
+    /// <summary>Existing TaskPlan foreach identity for an accepted each_item outcome; never executable structure.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ForEachTaskId { get; init; }
+}
 
 /// <summary>A bounded discovery request or complete semantic task proposal; the host validates exclusivity.</summary>
 public sealed class PlanningProposal

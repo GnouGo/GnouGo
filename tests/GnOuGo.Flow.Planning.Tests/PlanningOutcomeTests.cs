@@ -38,7 +38,7 @@ public sealed class PlanningOutcomeTests(ITestOutputHelper output)
             foreach (var legacy in new[] { true, false })
             {
                 var runtime = new TestRuntime(); var state = PlannerFixture.Session();
-                if (legacy) state.IntentVersion = 1;
+                if (legacy) { state.IntentVersion = 1; state.OutcomeVersion = 1; }
                 var clock = System.Diagnostics.Stopwatch.StartNew(); state = await PlannerFixture.RunAsync(runtime, state);
                 var planningMs = clock.Elapsed.TotalMilliseconds; PlanningArtifactApproval.Verify(state);
                 var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
@@ -46,7 +46,7 @@ public sealed class PlanningOutcomeTests(ITestOutputHelper output)
                 var executionMs = clock.Elapsed.TotalMilliseconds;
                 Assert.True(result.Success); Assert.Equal("Hello", result.Outputs!["message"]!.ToString());
                 Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
-                if (repetition >= 0) samples.Add(new { contract = legacy ? "compatibility" : "outcome-v1", repetition,
+                if (repetition >= 0) samples.Add(new { contract = legacy ? "outcome-v1" : "outcome-v2", repetition,
                     planningCalls = state.ModelCalls, repairs = state.ReplanAttempts, discoveryReads = state.Discovery.Pages.Count,
                     inputTokenEstimate = PlanningJsonTransport.EstimateInputTokens(runtime.Calls[0].Prompt, runtime.Calls[0].StructuredOutputSchema!.AsObject()),
                     planningMs, executionMs, totalMs = planningMs + executionMs, executionSuccess = result.Success, oracleCorrect = true });
@@ -73,7 +73,7 @@ public sealed class PlanningOutcomeTests(ITestOutputHelper output)
     public async Task ClearDataPlanRetainsOneCallAndExplicitReviewSupport()
     {
         var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(1, state.OutcomeVersion); Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Equal(2, state.OutcomeVersion); Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal("data", Assert.Single(state.Requirements!.Outcomes).Execution);
         Assert.Equal("message", Assert.Single(Assert.Single(state.OutcomeBindings!).Outputs));
         Assert.Contains(state.ValidationResults, r => r.Id == "outcome:message" && r.Description.Contains("not been observed", StringComparison.Ordinal));

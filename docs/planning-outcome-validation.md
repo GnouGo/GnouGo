@@ -1,5 +1,7 @@
 # Executable support for accepted outcomes
 
+This document retains version-1 diagnosis and measurements. Fresh sessions now use [outcome version 2 and contract-aware generation](planning-contract-aware-outcomes.md); historical evidence below is unchanged.
+
 Session `cb5a5d2d946246948aaa66597209b6f0` retained its original request, but its generated workflow did not implement it. Two discovery responses omitted requirements and were rejected, consuming two repairs. The third response used a transformation for external work and a constant describing cleanup. Offline replay confirmed that compilation and artifact validation accepted that historical plan. No clarification questions or answers occurred.
 
 The sanitized TaskPlan is retained in `tests/GnOuGo.Flow.Planning.Tests/Fixtures/OutcomeCoverage/retained-placeholder-plan.json`. Its regression executes the old YAML with an injected deterministic model: it returns a success claim without any external operation. That observation demonstrates why structured JSON and a successful Flow result alone do not prove fulfillment of the request. New outcome validation rejects its claimed external implementations.

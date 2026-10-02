@@ -99,8 +99,12 @@ public static class PlanningCorpus
             value = value.DeepClone();
             if (value["requirements"]?["outcomes"] is JsonArray outcomes)
                 foreach (var outcome in outcomes)
+                {
                     if (outcome!["execution"] is null)
                     { outcome["execution"] = "data"; outcome["always"] = false; outcome["conditional"] = false; }
+                    // Test-only legacy corpus uses once coverage; per-item fixtures declare it explicitly.
+                    outcome["coverage"] ??= "once";
+                }
             if (value["plan"] is JsonObject annotatedPlan && value["outcomeBindings"] is null && value["clarifications"] is null)
             {
                 JsonNode Resolve(JsonNode node) => node["$ref"] is { } link ? Resolve(root["$defs"]![link.ToString().Split('/')[^1]]!) : node;
@@ -133,9 +137,10 @@ public static class PlanningCorpus
         if (schema["anyOf"] is JsonArray alternatives) return alternatives.OfType<JsonObject>().Any(s => Matches(value, s, root));
         if (schema["type"]?.ToString() == "null") return value is null;
         if (value is null) return false;
+        JsonNode? Resolve(JsonNode? node) => node?["$ref"] is { } link ? Resolve(root["$defs"]![link.ToString().Split('/')[^1]]) : node;
         var properties = schema["properties"] as JsonObject;
         if (properties?.ContainsKey("sourceId") == true &&
-            (properties["operationIds"]?["type"]?.ToString() == "array") != (value["operationIds"] is not null)) return false;
+            (Resolve(properties["operationIds"])?["type"]?.ToString() == "array") != (value["operationIds"] is not null)) return false;
         if (properties?.ContainsKey("sourceId") == true && properties.ContainsKey("producedArtifactKind") != (value["producedArtifactKind"] is not null)) return false;
         if (value is JsonObject obj && obj.ContainsKey("nullable") && properties?["kind"] is not null &&
             (properties.ContainsKey("nullable") ? !Matches(obj["nullable"], properties["nullable"]!.AsObject(), root) : obj["nullable"]?.ToString() == "true")) return false;

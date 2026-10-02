@@ -145,7 +145,8 @@ public sealed class ProgressiveDiscoveryTests
         runtime.Proposal.Plan!.Root.Tasks.Add(new() { Id = "work", Objective = "Read the requested value", Operation = "selected",
             Inputs = [new("value", GnOuGo.Planning.Examples.PlanningCorpus.Number(1))] });
         var planner = new HybridWorkflowPlanner();
-        var state = await planner.AdvanceAsync(PlannerFixture.Session(), new(), runtime, Ct);
+        var legacy = PlannerFixture.Session(); legacy.IntentVersion = 1; legacy.OutcomeVersion = 1;
+        var state = await planner.AdvanceAsync(legacy, new(), runtime, Ct);
         Assert.Contains(state.Diagnostics, d => d.Code == "TASK_INPUT_TYPE"); Assert.Equal(["/tasks/work/inputs/value"], state.RevisionScope);
         var receipt = System.Text.Json.JsonSerializer.Serialize(state.Discovery.Resolved[0], PlanningJsonContext.Default.PlanningCapability);
         runtime.Proposal.Plan.Root.Tasks[1].Inputs[0].Value.Kind = "string"; runtime.Proposal.Plan.Root.Tasks[1].Inputs[0].Value.Text = "business value";

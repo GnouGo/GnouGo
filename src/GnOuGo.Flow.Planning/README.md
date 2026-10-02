@@ -123,3 +123,5 @@ validates the patch, and ambiguous display identities never grant broader permis
 ## Outcome implementation validation
 
 New planning sessions bind accepted outcomes to executable tasks or data outputs. See [outcome validation and compatibility](../../docs/planning-outcome-validation.md) for discovery-before-requirements behavior, versioned annotations, repair authority and deterministic execution evidence. Static coverage does not establish external success.
+
+Fresh sessions use outcome version 2: supporting computations and reported outputs may accompany actual effect witnesses; explicit per-item coverage permits empty collections without claiming an invocation. Repair envelope 5 permits diagnosed mapping corrections while preserving accepted outcomes. Prompt details and typed response schemas share admitted exact contracts. Historical semantics and issued envelopes remain intact. See [contract-aware generation, local execution and migration](../../docs/planning-contract-aware-outcomes.md).

@@ -10,7 +10,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
 {
     private readonly List<CapabilitySummary> _candidates = PlanningDiscoveryContext.Candidates(state);
     private readonly List<PlanningOperation> _required = PlanningDiscoveryContext.Required(state);
-    internal JsonObject Schema { get; } = PlanningSchemas.Proposal(state);
+    internal JsonObject Schema { get; private set; } = PlanningSchemas.Proposal(state);
     internal IEnumerable<CapabilitySummary> OptionalCandidates => _candidates.Where(c => !_required.Any(o => o.Id == c.Operation!.Id));
     internal LLMRequest Request()
     {
@@ -55,6 +55,8 @@ internal sealed class PlanningPrompt(PlanningSession state)
     internal string Build(IReadOnlyList<CapabilitySummary> optional)
     {
         var repair = PlanningRepairPatch.Active(state);
+        if (state.OutcomeVersion == 2 && !repair)
+            Schema = PlanningSchemas.Proposal(state, _required.Select(o => o.Id).Concat(optional.Select(c => c.Operation!.Id)).ToHashSet(StringComparer.Ordinal));
         var repairSelection = repair ? PlanningRepairContext.Select(state) : null;
         var relevant = repairSelection?.Tasks.Select(id => repairSelection.Symbols.Tasks[id].Task.Operation).OfType<string>().ToHashSet(StringComparer.Ordinal);
         var editableOperations = repairSelection?.EditableTasks.Select(id => repairSelection.Symbols.Tasks[id].Task.Operation).OfType<string>().ToHashSet(StringComparer.Ordinal);
@@ -76,7 +78,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
                 // its creation arguments and instructions cannot be repaired here.
                 item.Remove("inputs"); item.Remove("description"); item["contextRole"] = "producer_outputs";
             }
-            if (state.OutcomeVersion == 1 && capability is not null) item["effect"] = capability.EffectKind;
+            if (state.OutcomeVersion is 1 or 2 && capability is not null) item["effect"] = capability.EffectKind;
             if (capability is not null && TaskOperations.ArtifactPorts(capability) is { Count: > 0 } artifacts)
                 item["artifacts"] = artifacts;
             // Removing duplicate index entries must not hide which source owns an
@@ -106,8 +108,13 @@ internal sealed class PlanningPrompt(PlanningSession state)
             context.Remove("taskPlan"); context.Remove("revisionContext");
             context["repair"] = PlanningRepairContext.Build(state);
         }
-        if (state.OutcomeVersion == 1)
+        if (state.OutcomeVersion is 1 or 2)
             context["outcomeContract"] = "Split outcomes by action; never downgrade intent. Context defaults: execution=data, always/conditional=false. Operation effects require matching taskIds; data uses taskIds/root outputs. always requires cleanup; conditional permits skipping. plan binds every outcome; other actions: outcomeBindings:null. Discover missing contracts or stop. Bindings prove support, not success; repairs preserve them.";
+        if (state.OutcomeVersion == 2)
+            context["outcomeContract"] = "Keep effects. taskIds: connected operations/helpers/containers; outputs report. once: witness on every required path; each_item: forEachTaskId body coverage (empty valid). Keep always/conditional. Inspect index-only contracts before selection. Insufficient runner capabilities/evidence: discover compatible alternatives and clarify (recommendation/custom); otherwise report limitation. Never replace command work with file work or invent evidence. Reuse fixed creation location for workspace/cleanup. Support is not success.";
+        if (state.OutcomeVersion == 2)
+            foreach (var key in new[] { "revisionContext", "userAnswers", "instructions", "revisionScope" })
+                if (context[key] is null || context[key] is JsonArray { Count: 0 } || context[key]?.ToString() == "") context.Remove(key);
         if (state.OutcomeBindings is not null) context["outcomeBindings"] = JsonSerializer.SerializeToNode(state.OutcomeBindings, PlanningJsonContext.Default.ListPlanningOutcomeBinding);
         string Render() => (repair ? RepairInstructions : Instructions) + "\n" + ClarificationInstructions + "\n" + PlanningJsonTransport.Prompt(context);
         // Bound the retained directory against mandatory context before optional
@@ -130,7 +137,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
         foreach (var source in coverage)
             if (source!["index"] is JsonArray index)
                 foreach (var item in index.Where(c => detailed.Contains(c!["id"]!.ToString())).ToArray()) index.Remove(item);
-        if (state.OutcomeVersion == 1 && !PlanningDiscoveryContext.CanDiscover(state))
+        if (state.OutcomeVersion is 1 or 2 && !PlanningDiscoveryContext.CanDiscover(state))
         {
             // Closed navigation cannot be used. Keep selectable directory entries and
             // explicit uncertainty; detailed receipts remain in durable discovery state.

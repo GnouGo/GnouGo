@@ -69,7 +69,7 @@ public sealed class RecordedBudgetDiscoveryTests(ITestOutputHelper output)
                 : [new(catalog.Sources[0].Id, Query: "refinement " + runtime.Calls.Count)] : null,
             Plan = runtime.Calls.Count == 7 ? original.Plan : null
         });
-        var state = PlannerFixture.Session(); state.Request.Prompt = original.Request.Prompt;
+        var state = PlannerFixture.Session(); state.IntentVersion = 1; state.OutcomeVersion = 1; state.Request.Prompt = original.Request.Prompt;
         state.Request.Generation.MaxInputTokensPerRequest = 24000;
         state.Request.Generation.MaxOutputTokens = 32768;
         state = await PlannerFixture.RunAsync(runtime, state);

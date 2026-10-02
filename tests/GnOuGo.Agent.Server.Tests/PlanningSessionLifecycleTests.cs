@@ -114,12 +114,17 @@ public sealed class PlanningSessionLifecycleTests
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = new PlanningSession { Request = new() { TenantId = "one", SessionId = "same", Prompt = "PRIVATE_INTENT" }, Status = status, ModelCalls = 3, ReplanAttempts = 1, ActiveMilliseconds = 100,
             PendingCall = status == PlanningStatus.Generating ? new() { Id = "reserved", Purpose = "intent", Request = new() { Prompt = "PRIVATE_MODEL_REQUEST" } } : null };
+        state.OutcomeVersion = 2;
+        state.Requirements = new() { Outcomes = [new("read", "Read every item") { Execution = "read", Always = false, Conditional = false, Coverage = "each_item" }] };
+        state.OutcomeBindings = [new("read", ["collect"], []) { ForEachTaskId = "collect" }];
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var other = new PlanningSession { Request = new() { TenantId = "two", SessionId = "same", Prompt = "OTHER" } };
         Assert.True(await fixture.Store.TrySaveAsync(other, null, Ct));
         var restored = (await fixture.Store.LoadAsync("one", "same", Ct))!;
         Assert.Equal(status, restored.Status); Assert.Equal(3, restored.ModelCalls); Assert.Equal(1, restored.ReplanAttempts); Assert.Equal(100, restored.ActiveMilliseconds);
         Assert.Equal(state.PendingCall?.Id, restored.PendingCall?.Id);
+        Assert.Equal(2, restored.OutcomeVersion); Assert.Equal("each_item", restored.Requirements!.Outcomes.Single().Coverage);
+        Assert.Equal("collect", restored.OutcomeBindings!.Single().ForEachTaskId);
         restored.Revision++; Assert.True(await fixture.Store.TrySaveAsync(restored, 0, Ct));
         restored.Revision++; Assert.False(await fixture.Store.TrySaveAsync(restored, 0, Ct));
         Assert.Equal("OTHER", (await fixture.Store.LoadAsync("two", "same", Ct))!.Request.Prompt);

@@ -1,3 +1,4 @@
+using GnOuGo.Mcp.Core;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Headers;
@@ -1095,7 +1096,7 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
             var mapped = new McpToolInfo
             {
                 Name = t.Name,
-                EffectKind = t.ProtocolTool.Annotations?.ReadOnlyHint == true ? "read" : "unknown",
+                EffectKind = McpEffectMetadata.Resolve(t.ProtocolTool.Meta, t.ProtocolTool.Annotations?.ReadOnlyHint),
                 Description = t.Description,
                 Meta = t.ProtocolTool.Meta?.DeepClone(),
                 InputSchema = t.JsonSchema.ValueKind != JsonValueKind.Undefined

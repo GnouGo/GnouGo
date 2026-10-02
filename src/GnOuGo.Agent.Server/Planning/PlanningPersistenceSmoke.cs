@@ -47,6 +47,13 @@ internal static class PlanningPersistenceSmoke
             throw new InvalidOperationException("Published persistence or tenant isolation failed.");
         state.Revision = 2;
         if (await reopened.TrySaveAsync(state, 0, CancellationToken.None)) throw new InvalidOperationException("A stale update was accepted.");
+        state.OutcomeVersion = 2;
+        state.Requirements.Outcomes[0] = state.Requirements.Outcomes[0] with { Execution = "read", Coverage = "each_item" };
+        state.OutcomeBindings = [new("result", ["collection"], []) { ForEachTaskId = "collection" }];
+        if (!await reopened.TrySaveAsync(state, 1, CancellationToken.None)) throw new InvalidOperationException("Outcome-v2 update failed.");
+        var perItem = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
+        if (perItem?.OutcomeVersion != 2 || perItem.Requirements?.Outcomes.Single().Coverage != "each_item" || perItem.OutcomeBindings?.Single().ForEachTaskId != "collection")
+            throw new InvalidOperationException("Optional outcome-v2 metadata did not survive published encrypted recovery.");
         var legacy = new PlanningSession { Request = new() { TenantId = "smoke", SessionId = Guid.NewGuid().ToString("N"), Name = "Legacy smoke session" },
             ModelCalls = 1, PendingCall = new() { Id = "uncertain" } };
         if (!await store.TrySaveAsync(legacy, null, CancellationToken.None)) throw new InvalidOperationException("Legacy fixture insert failed.");
