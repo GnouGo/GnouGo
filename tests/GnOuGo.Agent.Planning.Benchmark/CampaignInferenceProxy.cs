@@ -33,7 +33,12 @@ internal sealed class CampaignInferenceProxy(WebApplication app) : IAsyncDisposa
                 context.Response.ContentType = result.ContentType;
                 await context.Response.WriteAsync(result.Body, context.RequestAborted);
             }
-            catch (Exception) { context.Response.StatusCode = 502; await context.Response.WriteAsync("Campaign inference admission or transport failed.", CancellationToken.None); }
+            catch (Exception ex)
+            {
+                await model.RetainProxyFailureAsync(run, body, ex);
+                context.Response.StatusCode = ex is InvalidOperationException ? 400 : 502;
+                await context.Response.WriteAsync("Campaign inference admission or transport failed; encrypted evidence retained.", CancellationToken.None);
+            }
         });
         await app.StartAsync(); return proxy;
     }

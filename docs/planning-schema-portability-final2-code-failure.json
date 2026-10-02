@@ -1,0 +1,87 @@
+{
+  "description": "Frozen cohort final2 code run: real pinned clone, interactive command attempts, explicit MCP failure and successful cleanup. Command receipts absent on failed Copilot operation; not a successful execution.",
+  "run": "final2-code-1",
+  "source": "95e5c079",
+  "result": {
+    "status": "final_review",
+    "planning_ms": 107776,
+    "calls": 3,
+    "repairs": 0,
+    "discovery_reads": 4,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 3,
+        "physical_attempts": 3,
+        "known_input_tokens": 40075,
+        "known_output_tokens": 9664,
+        "known_cost_eur": 0.43396618870596565,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 8,
+        "physical_attempts": 8,
+        "known_input_tokens": 98586,
+        "known_output_tokens": 3890,
+        "known_cost_eur": 0.5395910780669145,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 39,
+        "session_calls": 0,
+        "known_input_tokens": 456374,
+        "known_output_tokens": 75848,
+        "known_cost_eur": 4.033731633917507,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "cost_upper_bound_eur": 4.033731633917507,
+        "unknown_attempts": 0
+      }
+    },
+    "execution_ms": 469859,
+    "total_ms": 577635
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "local_review_missing",
+      "no_independent_command_completion_evidence",
+      "repository_required_checks_not_independently_verified"
+    ]
+  },
+  "execution_error_code": "MCP_CALL_ERROR",
+  "execution_error_message": "Session error: Failed to get response from the AI model; retried 5 times (total retry wait time: 15.62 seconds) Last error: 502 Bad Gateway",
+  "operations": [
+    {
+      "tool": "copilot_task_contract",
+      "error": false,
+      "latency_ms": 300
+    },
+    {
+      "tool": "git_clone",
+      "error": false,
+      "latency_ms": 28151
+    },
+    {
+      "tool": "code_agent_edit",
+      "error": true,
+      "latency_ms": 371888
+    },
+    {
+      "tool": "cmd_run",
+      "error": false,
+      "latency_ms": 16903
+    }
+  ]
+}

@@ -11,6 +11,30 @@ public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     [Fact]
+    public void ExecutionInputLimitCountsTokensInsteadOfJsonBytes()
+    {
+        var body = new JsonObject { ["messages"] = new JsonArray(new JsonObject { ["role"] = "user", ["content"] = string.Concat(Enumerable.Repeat("A local repository file.\n", 6000)) }) }.ToJsonString();
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(body) > 96000);
+        Assert.InRange(KeyVaultBenchmarkModel.ExecutionInputEstimate(body), 4097, 96000);
+        Assert.True(KeyVaultBenchmarkModel.ExecutionInputEstimate(string.Concat(Enumerable.Repeat(body, 10))) > 96000);
+    }
+    [Fact]
+    public async Task ExecutionHasItsOwnAttemptPolicyAndStillSharesTheSpendingCeiling()
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "execution-limit");
+        var journal = new BenchmarkHttpJournal(campaign, "execution:1:hash", 100, 20, 5m, sessionAttemptLimit: null);
+        var state = new LLMHttpRetryState();
+        for (var i = 0; i < 10; i++) { state.Attempts.Add(new() { Id = i.ToString() }); await journal.SaveAsync(state, Ct); }
+        Assert.Equal(10, (await journal.LoadAsync(Ct))!.Attempts.Count);
+        Assert.Equal(50m, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["cost_upper_bound_eur"]!.GetValue<decimal>());
+        state.Attempts.Add(new() { Id = "over-budget" });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => journal.SaveAsync(state, Ct));
+        Assert.Equal(10, (await journal.LoadAsync(Ct))!.Attempts.Count);
+        var old = new BenchmarkHttpJournal(campaign, "planning:1:hash", 100, 20, .01m);
+        await old.PrepareAsync(Ct);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new BenchmarkHttpJournal(campaign, "planning:1:hash", 100, 20, .01m, sessionAttemptLimit: null).SaveAsync(new(), Ct));
+    }
+    [Fact]
     public async Task FailedPreflightRetainsEvidenceWithoutInventingDispatch()
     {
         var records = new Records(); var campaign = new BenchmarkCampaign(records, "preflight");

@@ -51,7 +51,7 @@ internal static class SchemaPortabilityCampaign
             var responses = new JsonArray();
             var failures = new JsonArray();
             foreach (var failure in (await records.ListAsync("planning-evaluation-failures", "benchmark", BenchmarkCampaign.Author))
-                .Where(r => r.Key.StartsWith(campaignId + ":" + label + ":", StringComparison.Ordinal)))
+                .Where(r => new[] { label + ":", label + "-execution:", label + "-copilot:" }.Any(prefix => r.Key.StartsWith(campaignId + ":" + prefix, StringComparison.Ordinal))))
                 failures.Add(JsonNode.Parse(failure.Value));
             foreach (var receipt in (await records.ListAsync("planning-evaluation-receipts", "benchmark", BenchmarkCampaign.Author))
                 .Where(r => r.Key.StartsWith(campaignId + ":" + label + ":", StringComparison.Ordinal)).OrderBy(r => r.UpdatedAt))
@@ -66,7 +66,9 @@ internal static class SchemaPortabilityCampaign
                 ["result"] = saved["result"]?.DeepClone(), ["status"] = saved["session"]?["status"]?.DeepClone(),
                 ["diagnostics"] = saved["session"]?["diagnostics"]?.DeepClone(), ["questions"] = saved["session"]?["pendingQuestions"]?.DeepClone(),
                 ["plan"] = saved["session"]?["plan"]?.DeepClone(), ["yaml"] = saved["session"]?["yaml"]?.DeepClone(),
-                ["failure"] = saved["failure"]?.DeepClone()
+                ["failure"] = saved["failure"]?.DeepClone(),
+                ["execution"] = saved["execution"]?.DeepClone(), ["oracle"] = saved["oracle"]?.DeepClone(),
+                ["events"] = saved["events"]?.DeepClone(), ["observed_commands"] = saved["observed_commands"]?.DeepClone(), ["verified_checks"] = saved["verified_checks"]?.DeepClone()
             }.ToJsonString()); return;
         }
         if (phase == "inspect")

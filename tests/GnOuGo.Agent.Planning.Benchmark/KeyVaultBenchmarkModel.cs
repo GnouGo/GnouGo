@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.ML.Tokenizers;
 
 /// <summary>One configured live model and one EUR 50 ledger shared by planning and explicit live execution hosts.</summary>
 internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
@@ -26,6 +27,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
     private readonly EcbExchangeRateProvider _rates;
     private readonly ModelMetadataUsageCostEstimator _estimator;
     private readonly SemaphoreSlim _dispatchGate = new(1, 1);
+    private static readonly Lazy<TiktokenTokenizer> ExecutionTokenizer = new(() => TiktokenTokenizer.CreateForEncoding("o200k_base"));
     private KeyVaultBenchmarkModel(BenchmarkCampaign campaign, LLMOptions options)
     {
         _campaign = campaign; _options = options;
@@ -79,17 +81,19 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
         dispatched.UseBackgroundMode = false;
         return dispatched;
     }
-    public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+    public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct) => CallBoundedAsync(request, false, ct);
+    internal Task<LLMResponse> CallExecutionAsync(LLMRequest request, CancellationToken ct) => CallBoundedAsync(request, true, ct);
+    private async Task<LLMResponse> CallBoundedAsync(LLMRequest request, bool execution, CancellationToken ct)
     {
         await _dispatchGate.WaitAsync(ct);
-        try { return await DispatchAsync(request, singleAttempt: false, ct); }
+        try { return await DispatchAsync(request, singleAttempt: false, ct, execution); }
         finally { _dispatchGate.Release(); }
     }
 
     internal Task<LLMResponse> DiagnosticAsync(LLMRequest request, CancellationToken ct)
         => DispatchAsync(request, singleAttempt: true, ct);
 
-    private async Task<LLMResponse> DispatchAsync(LLMRequest request, bool singleAttempt, CancellationToken ct)
+    private async Task<LLMResponse> DispatchAsync(LLMRequest request, bool singleAttempt, CancellationToken ct, bool execution = false)
     {
         var dispatched = CreateDispatchRequest(request, Provider, Model);
         if (singleAttempt) dispatched.DisableTransportRetries = true;
@@ -102,7 +106,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
             var ceiling = _estimator.EstimateCostWithCurrency(Model, input, output, Provider)
                 ?? throw new InvalidOperationException("No model price metadata.");
             var quote = await _rates.GetQuoteAsync(ceiling.Currency, "EUR", token) ?? throw new InvalidOperationException("No currency quote.");
-            journal = new(_campaign, request.ClientRequestId!, input, output, ceiling.Amount * quote.Rate);
+            journal = new(_campaign, request.ClientRequestId!, input, output, ceiling.Amount * quote.Rate, sessionAttemptLimit: execution ? null : 8);
             await journal.PrepareAsync(token);
         }, async token =>
         {
@@ -147,16 +151,16 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
                 throw new InvalidOperationException("Inference upstream is outside the pinned provider.");
             if (!headers.TryGetValue("X-GnOuGo-Inference-Request", out var sdkId) || string.IsNullOrWhiteSpace(sdkId)) throw new InvalidOperationException("Missing SDK request identity.");
             var payload = PrepareProxyPayload(JsonNode.Parse(body)!.AsObject(), Model, upstream.AbsolutePath);
-            body = payload.ToJsonString();
+            body = payload.ToJsonString(new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
             var output = (payload["max_completion_tokens"] ?? payload["max_tokens"] ?? payload["max_output_tokens"])?.GetValue<int>();
             if (output is null || output <= 0 || output > 32768) throw new InvalidOperationException("Execution inference lacks a bounded output allowance.");
             var input = Math.Max(96000, checked(Encoding.UTF8.GetByteCount(body) + 4096));
-            if (input > 96000) throw new InvalidOperationException("Execution request exceeds the campaign input allowance.");
+            if (ExecutionInputEstimate(body) > 96000) throw new InvalidOperationException("Execution request exceeds the campaign input allowance.");
             var id = run + "-copilot:" + PlanningGraphCompiler.Fingerprint(sdkId);
             var request = new LLMRequest { ClientRequestId = id, Provider = Provider, Model = Model, Prompt = body, MaxTokens = output };
             var price = _estimator.EstimateCostWithCurrency(Model, input, output.Value, Provider) ?? throw new InvalidOperationException("No model price metadata.");
             var quote = await _rates.GetQuoteAsync(price.Currency, "EUR", ct) ?? throw new InvalidOperationException("No currency quote.");
-            var journal = new BenchmarkHttpJournal(_campaign, id, input, output.Value, price.Amount * quote.Rate);
+            var journal = new BenchmarkHttpJournal(_campaign, id, input, output.Value, price.Amount * quote.Rate, sessionAttemptLimit: null);
             var response = await _campaign.CallAsync(request, token => journal.PrepareAsync(token), async token =>
             {
                 var state = await journal.LoadAsync(token) ?? new();
@@ -218,6 +222,24 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
                 p.Key == "type" && p.Value?.ToString() is "input_image" or "input_audio" or "input_file" or "image" or "audio") && obj.All(p => TextOnly(p.Value)),
             JsonArray items => items.All(TextOnly), _ => true
         };
+    }
+    // GPT-5 uses o200k_base. Count the full visible JSON envelope with headroom
+    // for chat framing; retain the larger byte-based reservation for EUR safety.
+    internal static int ExecutionInputEstimate(string body) => checked((int)Math.Ceiling(ExecutionTokenizer.Value.CountTokens(body) * 1.25) + 4096);
+    internal Task RetainProxyFailureAsync(string run, string body, Exception failure)
+    {
+        // This record is encrypted like the campaign journal. Public reports use
+        // only its type, reason and counts, never the retained request contents.
+        var reason = failure.Message switch
+        {
+            "Execution request exceeds the campaign input allowance." => "input_allowance",
+            "The campaign or session cannot cover another HTTP attempt." => "spending_or_attempt_allowance",
+            "No currency quote." => "currency_quote_unavailable",
+            _ => "admission_or_transport_failure"
+        };
+        return _campaign.SaveAsync("planning-evaluation-execution-admissions", run + ":" + PlanningGraphCompiler.Fingerprint(body + reason),
+            new() { ["reason"] = reason, ["exception_type"] = failure.GetType().Name,
+                ["json_bytes"] = Encoding.UTF8.GetByteCount(body), ["body"] = body }, CancellationToken.None);
     }
     public void Dispose() { _http.Dispose(); _dispatchGate.Dispose(); }
 }

@@ -186,7 +186,9 @@ internal static class LiveWorkflowEvaluation
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             request.ClientRequestId ??= run + "-execution:" + (++_calls) + ":" + PlanningGraphCompiler.Fingerprint(request.Prompt);
-            return model.CallAsync(request, ct);
+            request = JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.Deserialize(PlanningJsonContext.Default.LLMRequest)!;
+            request.Reasoning = "medium"; request.MaxTokens = Math.Min(request.MaxTokens ?? 32768, 32768);
+            return model.CallExecutionAsync(request, ct);
         }
     }
 
