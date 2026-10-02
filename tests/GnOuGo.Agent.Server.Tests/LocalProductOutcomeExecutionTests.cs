@@ -31,6 +31,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
     {
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("gnougo-local-products-").FullName;
+        var workspace = Path.Combine(root, "workspace"); Directory.CreateDirectory(workspace);
         var builder = WebApplication.CreateBuilder(); builder.Logging.ClearProviders();
         await using var site = builder.Build(); site.Urls.Add("http://127.0.0.1:0");
         var visits = new List<string>();
@@ -58,7 +59,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             {
                 ["browser"] = Server("Browser", new() { ["Browser__AllowedHosts__0"] = "127.0.0.1", ["Browser__Headless"] = "true", ["Browser__KeepBrowserOpen"] = "false",
                     ["Browser__SlowMoMs"] = "0", ["Browser__HoldOpenMs"] = "0", ["Browser__NavigationTimeoutMs"] = "3000", ["OpenTelemetry__Enabled"] = "false" }),
-                ["document"] = Server("Document", new() { ["Document__DefaultWorkingDirectory"] = root, ["OpenTelemetry__Enabled"] = "false" })
+                ["document"] = Server("Document", new() { ["Document__DefaultWorkingDirectory"] = workspace, ["OpenTelemetry__Enabled"] = "false" })
             });
             var model = new ProductTransformationFixture(variant) { ReadMethod = "browser_get_content", WriteMethod = "document_write", CloseMethod = "browser_close" };
             var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
@@ -104,8 +105,20 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             Assert.True(afterCleanup.IsError);
             Assert.Contains("No active page", afterCleanup.Content!["error_message"]!.ToString(), StringComparison.OrdinalIgnoreCase);
             await browser.CallToolAsync("browser_close", new JsonObject(), ct);
-            var file = Path.Combine(root, ProductTransformationFixture.OutputPath);
-            if (!result.Success) { Assert.False(File.Exists(file)); Assert.False(File.Exists(Path.Combine(root, "..", "outside.xlsx"))); return; }
+            var file = Path.Combine(workspace, ProductTransformationFixture.OutputPath);
+            if (!result.Success)
+            {
+                Assert.False(File.Exists(file)); Assert.False(File.Exists(Path.Combine(root, "outside.xlsx")));
+                Assert.Equal(variant == "limit" ? "INPUT_VALIDATION" : "MCP_CALL_ERROR", result.Error!.Code);
+                if (variant == "limit") { Assert.Single(model.Calls); Assert.Equal(new[] { "/search" }, visits.Where(v => v != "/favicon.ico")); }
+                else
+                {
+                    Assert.Equal(variant == "denied" ? "document_write" : "browser_get_content", result.Error.Details!["method"]!.ToString());
+                    if (variant == "denied") Assert.Contains("POLICY_VIOLATION", result.Error.Details.ToJsonString(), StringComparison.Ordinal);
+                    else Assert.Contains("/broken", visits);
+                }
+                return;
+            }
             Assert.Equal(file, result.Outputs!["file"]!.ToString());
             using var workbook = SpreadsheetDocument.Open(file, false);
             var rows = Assert.Single(workbook.WorkbookPart!.WorksheetParts).Worksheet!.Descendants<Row>().Select(r => r.Elements<Cell>().Select(c => c.InnerText).ToArray()).ToArray();
