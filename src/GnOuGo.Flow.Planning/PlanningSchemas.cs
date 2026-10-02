@@ -122,6 +122,7 @@ internal static class PlanningSchemas
             root["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("outcomeBindings"));
             if (state.OutcomeVersion == 2)
             {
+                root["properties"]!["outcomeBindings"]!["description"] = "Required non-null with a plan: bind every accepted outcomeId exactly once. Null only for discovery or clarification.";
                 outcome["properties"]!["coverage"] = Enum("once", "each_item");
                 outcome["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("coverage"));
                 // Data describes values, not execution placement. These existing

@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json;
 using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Planning.Tests;
@@ -32,6 +33,18 @@ public sealed class OutcomePlacementSchemaTests
         var state = PlannerFixture.Session(); state.IntentVersion = 1; state.OutcomeVersion = 2;
         state.Catalog = await new TestRuntime().DiscoverAsync(state.Request, PlannerFixture.Ct);
         Assert.Contains("cleanup/finally after failure", new PlanningPrompt(state).Request().Prompt);
+        Assert.Contains("Every plan MUST include outcomeBindings", new PlanningPrompt(state).Request().Prompt);
+    }
+
+    [Fact]
+    public async Task MissingBindingsFromLiveProposalStillCannotApproveExternalWork()
+    {
+        var state = await ComposedOutcomeTests.State(); state.OutcomeBindings = null;
+        var fixture = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "SchemaPortability", "live-missing-bindings.json")))!;
+        state.Plan = fixture["response"]!["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan);
+        Assert.Equal("OUTCOME_BINDINGS_INVALID", Assert.Single(PlanningOutcomeValidation.Findings(state)).Code);
+        var schema = PlanningSchemas.FullProposal(state, compact: false);
+        Assert.Contains("non-null with a plan", schema["properties"]!["outcomeBindings"]!["description"]!.ToString());
     }
 
     private static JsonObject RequirementsSchema()

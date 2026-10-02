@@ -21,4 +21,6 @@ The bounded diagnostic confirmed the provider message: “Invalid JSON schema: r
 
 The first fresh Amazon diagnosis passed provider validation but stopped after four calls and two repairs: the model treated `always` as mandatory normal work rather than cleanup placement, and repeatedly assigned execution placement to data-only outcomes. The three responses are retained in `live-outcome-placement.json`. Version-2 prompting now defines the existing placement semantics explicitly, and new schemas constrain data outcomes to `always=false`, `conditional=false`, `coverage=once`. No accepted outcome or saved request is rewritten.
 
+A second diagnosis passed three provider requests, then correctly rejected a proposal with `outcomeBindings: null`. The version-2 prompt had lost the version-1 requirement to bind every outcome when supplying a plan. That instruction and a wire-property description are restored; the unchanged semantic validator still rejects unsupported plans. The original response is retained in `live-missing-bindings.json`.
+
 Live execution results are pending. The historical 33/33 benchmark is unchanged and is not evidence for this correction. Deployment requires rebuilding/restarting the updated host and new planning sessions; the rejected session is not replayed automatically.
