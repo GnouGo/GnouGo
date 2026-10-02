@@ -209,11 +209,12 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         foreach (var pending in (await records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct)).Where(r => r.Key.StartsWith(Id + ":", StringComparison.Ordinal)))
             if (await records.GetAsync("planning-evaluation-receipts", "benchmark", pending.Key, Author, ct) is null && await records.GetAsync("planning-evaluation-closures", "benchmark", pending.Key, Author, ct) is null && !(pending.Key == Id + ":" + key && resumable))
             { StopReason = "uncertain_dispatch"; throw new InvalidOperationException("The campaign has an uncertain dispatch without recoverable HTTP evidence."); }
-        await preflight(ct);
-        if (reserved is null) await SaveAsync("planning-evaluation-requests", key, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), ct);
-        var stage = "dispatch";
+        var stage = "preflight";
         try
         {
+            await preflight(ct);
+            if (reserved is null) await SaveAsync("planning-evaluation-requests", key, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), ct);
+            stage = "dispatch";
             var response = await dispatch(ct);
             stage = "receipt_write";
             // Preserve evidence even when cancellation arrives after completion.
@@ -223,11 +224,13 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         }
         catch (Exception ex)
         {
-            StopReason ??= "uncertain_dispatch";
+            StopReason ??= stage == "preflight" ? "preflight_failed" : "uncertain_dispatch";
             var failure = ex as LLMClientException;
             var details = new JsonObject { ["stage"] = stage, ["exception_type"] = ex.GetType().Name, ["kind"] = failure?.Kind.ToString(),
                 ["status_code"] = failure?.StatusCode, ["safe_provider_code"] = failure?.SafeProviderCode, ["retryable"] = failure?.Retryable,
                 ["attempt_count"] = failure?.AttemptCount, ["retry_exhausted"] = failure?.RetryExhausted, ["retry_after_ms"] = failure?.RetryAfterMilliseconds };
+            if (stage == "preflight") details["reason"] = ex.Message switch
+            { "No currency quote." => "currency_quote_unavailable", "No model price metadata." => "model_price_unavailable", _ => "preflight_failed" };
             // A durable reservation already prevents redispatch. Failure evidence must not
             // replace the original exception if storage is itself unavailable.
             try

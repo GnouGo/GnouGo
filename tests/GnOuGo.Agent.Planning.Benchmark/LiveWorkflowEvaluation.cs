@@ -23,6 +23,8 @@ internal static class LiveWorkflowEvaluation
         var scenario = SchemaPortabilityCampaign.Option(args, "--case") ?? "amazon";
         if (scenario is not ("amazon" or "code")) throw new ArgumentException("Choose amazon or code.");
         var label = SchemaPortabilityCampaign.Option(args, "--run") ?? (phase == "readiness" ? "readiness-" : "diagnostic-") + scenario + "-1";
+        var cohort = SchemaPortabilityCampaign.Option(args, "--cohort") ?? "final";
+        if (cohort.Length > 30 || !cohort.All(char.IsAsciiLetterOrDigit)) throw new ArgumentException("Invalid cohort.");
         if (label.Length > 80 || !label.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) throw new ArgumentException("Invalid run identity.");
         var key = "run:" + label;
         var retained = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, key);
@@ -30,14 +32,14 @@ internal static class LiveWorkflowEvaluation
         var sourceRevision = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
         if (phase == "execute" && retained?["source"]?.ToString() != sourceRevision)
             throw new InvalidOperationException("Execution must use the retained planning build.");
-        var manifest = label.StartsWith("final-", StringComparison.Ordinal)
-            ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model, model.ConfigurationFingerprint) : null;
+        var manifest = label.StartsWith(cohort + "-", StringComparison.Ordinal)
+            ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model, model.ConfigurationFingerprint, cohort) : null;
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, label);
         var configurations = Configuration(model.McpServers, scenario, proxy.Endpoint);
         var human = new ConsoleHuman(campaign, label);
         await using var transport = new ConfiguredMcpClientFactory(configurations, human, model.Provider, model.Model);
         var run = phase == "execute" ? retained ?? throw new InvalidOperationException("No retained plan.") : new JsonObject { ["scenario"] = scenario, ["label"] = label, ["source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"),
-            ["phase"] = label.StartsWith("final-", StringComparison.Ordinal) ? "final" : "diagnostic", ["events"] = new JsonArray(), ["manifest"] = manifest };
+            ["phase"] = manifest is not null ? "final" : "diagnostic", ["events"] = new JsonArray(), ["manifest"] = manifest };
         var observed = new ObservedMcp(transport, async e =>
         {
             run["events"]!.AsArray().Add(e);

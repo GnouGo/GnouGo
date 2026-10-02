@@ -43,12 +43,16 @@ internal static class SchemaPortabilityCampaign
         }
         var campaignId = Option(args, "--campaign") ?? throw new ArgumentException("Supply a new --campaign.");
         var campaign = new BenchmarkCampaign(records, campaignId);
-        if (phase == "report") { Console.WriteLine((await LiveCampaignEvidence.ReportAsync(campaign)).ToJsonString()); return; }
+        if (phase == "report") { Console.WriteLine((await LiveCampaignEvidence.ReportAsync(campaign, Option(args, "--cohort") ?? "final")).ToJsonString()); return; }
         if (phase == "inspect-run")
         {
             var label = Option(args, "--run") ?? throw new ArgumentException("Supply --run.");
             var saved = await campaign.LoadAsync(Collection, "run:" + label) ?? throw new ArgumentException("No run.");
             var responses = new JsonArray();
+            var failures = new JsonArray();
+            foreach (var failure in (await records.ListAsync("planning-evaluation-failures", "benchmark", BenchmarkCampaign.Author))
+                .Where(r => r.Key.StartsWith(campaignId + ":" + label + ":", StringComparison.Ordinal)))
+                failures.Add(JsonNode.Parse(failure.Value));
             foreach (var receipt in (await records.ListAsync("planning-evaluation-receipts", "benchmark", BenchmarkCampaign.Author))
                 .Where(r => r.Key.StartsWith(campaignId + ":" + label + ":", StringComparison.Ordinal)).OrderBy(r => r.UpdatedAt))
             {
@@ -58,6 +62,7 @@ internal static class SchemaPortabilityCampaign
             Console.WriteLine(new JsonObject
             {
                 ["responses"] = responses,
+                ["failures"] = failures,
                 ["result"] = saved["result"]?.DeepClone(), ["status"] = saved["session"]?["status"]?.DeepClone(),
                 ["diagnostics"] = saved["session"]?["diagnostics"]?.DeepClone(), ["questions"] = saved["session"]?["pendingQuestions"]?.DeepClone(),
                 ["plan"] = saved["session"]?["plan"]?.DeepClone(), ["yaml"] = saved["session"]?["yaml"]?.DeepClone(),

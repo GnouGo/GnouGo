@@ -11,6 +11,20 @@ public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     [Fact]
+    public async Task FailedPreflightRetainsEvidenceWithoutInventingDispatch()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "preflight");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(new() { ClientRequestId = "one:1:hash" },
+            _ => throw new InvalidOperationException("No currency quote."), _ => throw new Exception("Must not dispatch"), Ct));
+        Assert.Null(await campaign.LoadAsync("planning-evaluation-requests", "one:1:hash", Ct));
+        var failure = (await campaign.LoadAsync("planning-evaluation-failures", "one:1:hash", Ct))!;
+        Assert.Equal("preflight", failure["stage"]!.ToString()); Assert.Equal("currency_quote_unavailable", failure["reason"]!.ToString());
+        Assert.False(await campaign.HasUncertainRequestAsync(Ct));
+        await new BenchmarkCampaign(records, "preflight").CallAsync(new() { ClientRequestId = "two:1:hash" }, _ => Task.CompletedTask,
+            _ => Task.FromResult(new LLMResponse()), Ct);
+        Assert.NotNull(await campaign.LoadAsync("planning-evaluation-failures", "one:1:hash", Ct));
+    }
+    [Fact]
     public async Task LiveCohortKeepsExecutionAccountingSeparateAndCountsMissingRuns()
     {
         var campaign = new BenchmarkCampaign(new Records(), "live-accounting");

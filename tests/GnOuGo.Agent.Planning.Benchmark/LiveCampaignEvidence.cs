@@ -5,11 +5,11 @@ using GnOuGo.Flow.Planning;
 
 internal static class LiveCampaignEvidence
 {
-    internal static async Task<JsonObject> PinAsync(BenchmarkCampaign campaign, string source, string provider, string model, string configurationFingerprint)
+    internal static async Task<JsonObject> PinAsync(BenchmarkCampaign campaign, string source, string provider, string model, string configurationFingerprint, string cohort)
     {
         var manifest = new JsonObject
         {
-            ["production_sha"] = source, ["harness_sha"] = source,
+            ["production_sha"] = source, ["harness_sha"] = source, ["cohort"] = cohort,
             ["provider"] = provider, ["model"] = model, ["reasoning"] = "medium",
             ["host_configuration_hash"] = configurationFingerprint,
             ["max_input_tokens"] = 96000, ["max_output_tokens"] = 32768,
@@ -21,9 +21,9 @@ internal static class LiveCampaignEvidence
             ["harness_tree"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD:tests/GnOuGo.Agent.Planning.Benchmark"),
             ["scenario_count"] = 2, ["repetitions"] = 3, ["oracle_version"] = "real-workflows-v1"
         };
-        var saved = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "final-manifest");
+        var saved = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, cohort + "-manifest");
         if (saved is not null) RequireMatch(saved, manifest);
-        else await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "final-manifest", manifest);
+        else await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, cohort + "-manifest", manifest);
         return manifest;
     }
 
@@ -62,22 +62,22 @@ internal static class LiveCampaignEvidence
             ["reserved_output_tokens"] = reservedOutput, ["reserved_cost_eur"] = reservedCost };
     }
 
-    internal static async Task<JsonObject> ReportAsync(BenchmarkCampaign campaign)
+    internal static async Task<JsonObject> ReportAsync(BenchmarkCampaign campaign, string cohort = "final")
     {
         var rows = new JsonArray(); var passed = 0;
         foreach (var scenario in new[] { "amazon", "code" })
             for (var repetition = 1; repetition <= 3; repetition++)
             {
-                var label = $"final-{scenario}-{repetition}";
+                var label = $"{cohort}-{scenario}-{repetition}";
                 var run = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:" + label);
                 if (run is not null && run["manifest"] is JsonObject manifest)
-                    RequireMatch((await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "final-manifest"))!, manifest);
+                    RequireMatch((await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, cohort + "-manifest"))!, manifest);
                 var result = run?["result"]?.DeepClone().AsObject() ?? new JsonObject { ["status"] = "not_started", ["execution_oracle"] = false };
                 if (result["execution_oracle"]?.GetValue<bool>() == true) passed++;
                 result["run"] = label; result["accounting"] = await AccountingAsync(campaign, label); rows.Add(result);
             }
         return new() { ["campaign"] = campaign.Id, ["passed"] = passed, ["required"] = 6, ["complete"] = passed == 6,
-            ["manifest"] = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "final-manifest"))?.DeepClone(), ["runs"] = rows,
+            ["manifest"] = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, cohort + "-manifest"))?.DeepClone(), ["runs"] = rows,
             ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign) };
     }
 }
