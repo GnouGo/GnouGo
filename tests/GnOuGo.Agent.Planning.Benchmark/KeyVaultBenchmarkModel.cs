@@ -6,6 +6,7 @@ using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Integrations;
+using GnOuGo.Flow.Planning;
 using GnOuGo.KeyVault.Core;
 using GnOuGo.KeyVault.Core.Data;
 using GnOuGo.KeyVault.Core.Services;
