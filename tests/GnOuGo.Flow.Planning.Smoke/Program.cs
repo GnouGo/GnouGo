@@ -7,6 +7,14 @@ using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 using GnOuGo.Planning.Examples;
 
+var authoritativePattern = JsonNode.Parse("""{"type":"object","properties":{"path":{"type":"string","pattern":"^(?!blocked)[a-z]+$"}},"required":["path"],"additionalProperties":false}""")!.AsObject();
+var projectedPattern = PlanningContractValidation.ProjectStructuredOutputSchema(authoritativePattern);
+if (projectedPattern["properties"]!["path"]!["pattern"] is not null || authoritativePattern["properties"]!["path"]!["pattern"] is null ||
+    PlanningContractValidation.ValidateSchema(projectedPattern, true).Count != 0 ||
+    PlanningContractValidation.ValidateInstance(new JsonObject { ["path"] = "blocked" }, authoritativePattern).Count == 0)
+    throw new InvalidOperationException("Structured-output projection weakened authoritative pattern validation.");
+Console.WriteLine("schema projection: portable wire, unchanged authoritative restrictions");
+
 // Additive host failure contracts must survive source-generated Native AOT serialization.
 var taskFailure = new AgentTaskResult("failed", null, [], [], new(0, 0, 0))
 { Failure = new() { Code = "AGENT_ISOLATION_REQUIRED", Message = "Mandatory host isolation is not configured." } };

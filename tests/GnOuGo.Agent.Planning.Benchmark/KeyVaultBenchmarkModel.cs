@@ -65,8 +65,15 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
         return dispatched;
     }
     public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        => await DispatchAsync(request, singleAttempt: false, ct);
+
+    internal Task<LLMResponse> DiagnosticAsync(LLMRequest request, CancellationToken ct)
+        => DispatchAsync(request, singleAttempt: true, ct);
+
+    private async Task<LLMResponse> DispatchAsync(LLMRequest request, bool singleAttempt, CancellationToken ct)
     {
         var dispatched = CreateDispatchRequest(request, Provider, Model);
+        if (singleAttempt) dispatched.DisableTransportRetries = true;
         BenchmarkHttpJournal? journal = null;
         return await _campaign.CallAsync(request, async token =>
         {

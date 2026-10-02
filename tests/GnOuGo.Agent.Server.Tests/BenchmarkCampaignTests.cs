@@ -10,6 +10,26 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    [Theory]
+    [InlineData(400, true)]
+    [InlineData(200, false)]
+    [InlineData(null, false)]
+    public async Task OnlyVerifiedSchemaRejectionsCanCloseWithoutInventingCompletion(int? status, bool canClose)
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "schema-rejection"); const string id = "session:1:hash";
+        await campaign.SaveAsync("planning-evaluation-requests", id, new() { ["clientRequestId"] = id }, Ct);
+        await campaign.SaveAsync("planning-evaluation-failures", id, new() { ["status_code"] = 400, ["safe_provider_code"] = "invalid_json_schema" }, Ct);
+        var journal = new BenchmarkHttpJournal(campaign, id, 96000, 32768, 1m);
+        var transport = new LLMHttpRetryState { Attempts = [new() { Id = "one" }] };
+        await journal.SaveAsync(transport, Ct); transport.Attempts[0].Status = status; await journal.SaveAsync(transport, Ct);
+        if (!canClose)
+        { await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainSchemaRejectionAsync(id, Ct)); return; }
+        await campaign.RetainSchemaRejectionAsync(id, Ct);
+        Assert.Null(await campaign.LoadAsync("planning-evaluation-receipts", id, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(new() { ClientRequestId = id }, _ => Task.CompletedTask, _ => Task.FromResult(new LLMResponse()), Ct));
+        await campaign.CallAsync(new() { ClientRequestId = "next:1:hash" }, _ => Task.CompletedTask, _ => Task.FromResult(new LLMResponse()), Ct);
+        Assert.Equal(1, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["calls"]!.GetValue<long>());
+    }
     [Fact]
     public void LiveAdapterUsesSynchronousRecoveryWithoutChangingReservedRequest()
     {

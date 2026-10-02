@@ -10,7 +10,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
 {
     private readonly List<CapabilitySummary> _candidates = PlanningDiscoveryContext.Candidates(state);
     private readonly List<PlanningOperation> _required = PlanningDiscoveryContext.Required(state);
-    internal JsonObject Schema { get; private set; } = PlanningSchemas.Proposal(state);
+    internal JsonObject Schema { get; private set; } = PlanningContractValidation.ProjectStructuredOutputSchema(PlanningSchemas.Proposal(state));
     internal IEnumerable<CapabilitySummary> OptionalCandidates => _candidates.Where(c => !_required.Any(o => o.Id == c.Operation!.Id));
     internal LLMRequest Request()
     {
@@ -56,7 +56,8 @@ internal sealed class PlanningPrompt(PlanningSession state)
     {
         var repair = PlanningRepairPatch.Active(state);
         if (state.OutcomeVersion == 2 && !repair)
-            Schema = PlanningSchemas.Proposal(state, _required.Select(o => o.Id).Concat(optional.Select(c => c.Operation!.Id)).ToHashSet(StringComparer.Ordinal));
+            Schema = PlanningContractValidation.ProjectStructuredOutputSchema(PlanningSchemas.Proposal(state,
+                _required.Select(o => o.Id).Concat(optional.Select(c => c.Operation!.Id)).ToHashSet(StringComparer.Ordinal)));
         var repairSelection = repair ? PlanningRepairContext.Select(state) : null;
         var relevant = repairSelection?.Tasks.Select(id => repairSelection.Symbols.Tasks[id].Task.Operation).OfType<string>().ToHashSet(StringComparer.Ordinal);
         var editableOperations = repairSelection?.EditableTasks.Select(id => repairSelection.Symbols.Tasks[id].Task.Operation).OfType<string>().ToHashSet(StringComparer.Ordinal);

@@ -31,6 +31,27 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
             if (await records.GetAsync("planning-evaluation-receipts", "benchmark", request.Key, Author, ct) is null) return true;
         return false;
     }
+    // A terminal schema rejection proves no generation started. Retain the failure
+    // and HTTP receipt; this closes redispatch, never invents a model response.
+    internal async Task RetainSchemaRejectionAsync(string requestId, CancellationToken ct)
+    {
+        if (await LoadAsync("planning-evaluation-closures", requestId, ct) is not null) return;
+        var failure = await LoadAsync("planning-evaluation-failures", requestId, ct);
+        var journal = await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
+        var request = await LoadAsync("planning-evaluation-requests", requestId, ct);
+        if (failure?["status_code"]?.GetValue<int>() != 400 || failure["safe_provider_code"]?.ToString() != "invalid_json_schema" ||
+            request is null || journal?["transport"]?["Attempts"] is not JsonArray { Count: > 0 } attempts ||
+            attempts.Any(a => a?["Status"]?.GetValue<int>() != 400) ||
+            await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null)
+            throw new InvalidOperationException("Only a verified terminal schema rejection can be closed here.");
+        await SaveAsync("planning-evaluation-closures", requestId, new()
+        {
+            ["reason"] = "provider_schema_rejected", ["outcome"] = "failed", ["retained_at"] = DateTimeOffset.UtcNow.ToString("O"),
+            ["request_hash"] = PlanningGraphCompiler.Fingerprint(request.ToJsonString()),
+            ["http_journal_hash"] = PlanningGraphCompiler.Fingerprint(journal.ToJsonString())
+        }, ct);
+        StopReason = null;
+    }
     // Closing an exhausted evaluation is not a receipt: unknown usage stays fully reserved forever.
     // The caller holds the campaign's process lease. Original runs, requests and failures stay untouched.
     internal async Task<JsonObject> RetainInconclusiveAsync(string runKey, CancellationToken ct)

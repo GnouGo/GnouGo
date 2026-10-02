@@ -1,0 +1,5518 @@
+{
+  "session": "a425b85bb133470cbab4e5f201b9d729",
+  "origin": "Designer",
+  "modelCalls": 2,
+  "repairs": 0,
+  "status": "stopped",
+  "diagnostics": [
+    {
+      "code": "MODEL_REQUEST_REJECTED",
+      "location": "/",
+      "message": "The model provider rejected the request (InvalidRequest; retryable: false; HTTP 400; provider code: invalid_json_schema). Correct the request or provider configuration, then start a new planning session.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "schemas": [
+    {
+      "type": "object",
+      "properties": {
+        "discoveryRequests": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "enum": [
+                          "runner_9623c1ece5cf9eac8c087030"
+                        ]
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d21"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "enum": [
+                          "source_0002e1b8daaf46eef1b331cc"
+                        ]
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d21"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "enum": [
+                          "source_1720d8eaff790da6af440690"
+                        ]
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d21"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "enum": [
+                          "source_258c29d9064381a5dd37bf0c"
+                        ]
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d21"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "enum": [
+                          "source_694108d6539e9f2f1953f6ac"
+                        ]
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d21"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "enum": [
+                          "source_78e7629fa45e2b4e8029bd87"
+                        ]
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d21"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "enum": [
+                          "source_95c684aa9477ce16baae0b4e"
+                        ]
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d21"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "enum": [
+                          "source_d15a1ef6ddddd137066d25b7"
+                        ]
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d21"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "enum": [
+                          "source_d3b3c4f5a92aefa3c249f95e"
+                        ]
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d21"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "enum": [
+                          "source_e840be38d64cec80d0eb189f"
+                        ]
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d21"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 4
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/da"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clarifications": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/d26"
+                  },
+                  "question": {
+                    "$ref": "#/$defs/d26"
+                  },
+                  "alternatives": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "$ref": "#/$defs/d26"
+                        },
+                        "description": {
+                          "$ref": "#/$defs/d26"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "description"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 0,
+                    "maxItems": 3
+                  },
+                  "recommended": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/d26"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "question",
+                  "alternatives",
+                  "recommended"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 3
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requirements": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/d9"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outcomeBindings": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "outcomeId": {
+                    "$ref": "#/$defs/d26"
+                  },
+                  "taskIds": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/d18"
+                    }
+                  },
+                  "outputs": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/d26"
+                    }
+                  },
+                  "forEachTaskId": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/d18"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "outcomeId",
+                  "taskIds",
+                  "outputs",
+                  "forEachTaskId"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "discoveryRequests",
+        "plan",
+        "clarifications",
+        "requirements",
+        "outcomeBindings"
+      ],
+      "additionalProperties": false,
+      "$defs": {
+        "d0": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/d18"
+          }
+        },
+        "d1": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/d17"
+            },
+            {
+              "$ref": "#/$defs/d15"
+            },
+            {
+              "$ref": "#/$defs/d1e"
+            },
+            {
+              "$ref": "#/$defs/d14"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "object"
+                  ]
+                },
+                "members": {
+                  "$ref": "#/$defs/d24"
+                }
+              },
+              "required": [
+                "kind",
+                "members"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "array"
+                  ]
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/d1"
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "items"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "json"
+                  ]
+                },
+                "items": {
+                  "$ref": "#/$defs/d28"
+                }
+              },
+              "required": [
+                "kind",
+                "items"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "$ref": "#/$defs/d1b"
+            },
+            {
+              "$ref": "#/$defs/d1f"
+            },
+            {
+              "$ref": "#/$defs/d1d"
+            },
+            {
+              "$ref": "#/$defs/d1c"
+            },
+            {
+              "$ref": "#/$defs/d20"
+            },
+            {
+              "$ref": "#/$defs/d1a"
+            },
+            {
+              "$ref": "#/$defs/d19"
+            }
+          ]
+        },
+        "d2": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/d17"
+            },
+            {
+              "$ref": "#/$defs/d15"
+            },
+            {
+              "$ref": "#/$defs/d1e"
+            },
+            {
+              "$ref": "#/$defs/d14"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "object"
+                  ]
+                },
+                "members": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "value": {
+                        "$ref": "#/$defs/d2"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "members"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "array"
+                  ]
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/d2"
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "items"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "d3": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "array"
+                  ]
+                },
+                "items": {
+                  "$ref": "#/$defs/d3"
+                }
+              },
+              "required": [
+                "kind",
+                "items"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "object"
+                  ]
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/d4"
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "fields"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "$ref": "#/$defs/d12"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "string",
+                    "number",
+                    "integer",
+                    "boolean",
+                    "any"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "array"
+                  ]
+                },
+                "items": {
+                  "$ref": "#/$defs/d3"
+                },
+                "nullable": {
+                  "$ref": "#/$defs/d27"
+                }
+              },
+              "required": [
+                "kind",
+                "items",
+                "nullable"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "object"
+                  ]
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/d4"
+                  }
+                },
+                "nullable": {
+                  "$ref": "#/$defs/d27"
+                }
+              },
+              "required": [
+                "kind",
+                "fields",
+                "nullable"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "$ref": "#/$defs/d10"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "string",
+                    "number",
+                    "integer",
+                    "boolean",
+                    "any"
+                  ]
+                },
+                "nullable": {
+                  "$ref": "#/$defs/d27"
+                }
+              },
+              "required": [
+                "kind",
+                "nullable"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "d4": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/d16"
+            },
+            {
+              "$ref": "#/$defs/d13"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "$ref": "#/$defs/d3"
+                },
+                "required": {
+                  "type": "boolean",
+                  "enum": [
+                    false
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "type",
+                "required"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "$ref": "#/$defs/d11"
+            }
+          ]
+        },
+        "d5": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "array"
+                  ]
+                },
+                "items": {
+                  "$ref": "#/$defs/d5"
+                }
+              },
+              "required": [
+                "kind",
+                "items"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "object"
+                  ]
+                },
+                "fields": {
+                  "$ref": "#/$defs/d23"
+                }
+              },
+              "required": [
+                "kind",
+                "fields"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "$ref": "#/$defs/d12"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "string",
+                    "number",
+                    "integer",
+                    "boolean"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "array"
+                  ]
+                },
+                "items": {
+                  "$ref": "#/$defs/d5"
+                },
+                "nullable": {
+                  "$ref": "#/$defs/d27"
+                }
+              },
+              "required": [
+                "kind",
+                "items",
+                "nullable"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "object"
+                  ]
+                },
+                "fields": {
+                  "$ref": "#/$defs/d23"
+                },
+                "nullable": {
+                  "$ref": "#/$defs/d27"
+                }
+              },
+              "required": [
+                "kind",
+                "fields",
+                "nullable"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "$ref": "#/$defs/d10"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "string",
+                    "number",
+                    "integer",
+                    "boolean"
+                  ]
+                },
+                "nullable": {
+                  "$ref": "#/$defs/d27"
+                }
+              },
+              "required": [
+                "kind",
+                "nullable"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "d6": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "$ref": "#/$defs/d26"
+            },
+            "type": {
+              "$ref": "#/$defs/d5"
+            }
+          },
+          "required": [
+            "name",
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        "d7": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/d16"
+            },
+            {
+              "$ref": "#/$defs/d13"
+            },
+            {
+              "$ref": "#/$defs/d11"
+            }
+          ]
+        },
+        "d8": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/$defs/d1"
+            }
+          },
+          "required": [
+            "name",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        "d9": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string"
+            },
+            "outcomes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "execution": {
+                    "type": "string",
+                    "enum": [
+                      "data",
+                      "read",
+                      "write",
+                      "execute",
+                      "lifecycle"
+                    ]
+                  },
+                  "always": {
+                    "type": "boolean"
+                  },
+                  "conditional": {
+                    "type": "boolean"
+                  },
+                  "coverage": {
+                    "type": "string",
+                    "enum": [
+                      "once",
+                      "each_item"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "description",
+                  "execution",
+                  "always",
+                  "conditional",
+                  "coverage"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            },
+            "inputs": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/d25"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "summary",
+            "outcomes",
+            "inputs"
+          ],
+          "additionalProperties": false
+        },
+        "da": {
+          "type": "object",
+          "properties": {
+            "inputs": {
+              "$ref": "#/$defs/d25"
+            },
+            "root": {
+              "$ref": "#/$defs/db"
+            },
+            "groups": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/dc"
+              }
+            },
+            "choices": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/dd"
+              }
+            }
+          },
+          "required": [
+            "inputs",
+            "root",
+            "groups",
+            "choices"
+          ],
+          "additionalProperties": false
+        },
+        "db": {
+          "type": "object",
+          "properties": {
+            "tasks": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/de"
+              }
+            },
+            "outputs": {
+              "$ref": "#/$defs/d24"
+            },
+            "always": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/de"
+              }
+            }
+          },
+          "required": [
+            "tasks",
+            "outputs",
+            "always"
+          ],
+          "additionalProperties": false
+        },
+        "dc": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/d18"
+            },
+            "inputs": {
+              "$ref": "#/$defs/d25"
+            },
+            "body": {
+              "$ref": "#/$defs/db"
+            }
+          },
+          "required": [
+            "id",
+            "inputs",
+            "body"
+          ],
+          "additionalProperties": false
+        },
+        "dd": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/d18"
+            },
+            "question": {
+              "$ref": "#/$defs/d26"
+            },
+            "type": {
+              "$ref": "#/$defs/d3"
+            },
+            "alternatives": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/d26"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "$ref": "#/$defs/d2"
+                  }
+                },
+                "required": [
+                  "id",
+                  "description",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 2
+            },
+            "recommended": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "question",
+            "type",
+            "alternatives",
+            "recommended"
+          ],
+          "additionalProperties": false
+        },
+        "de": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d18"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "operation"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d26"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "cap_1c45b2a625ce9f76d20e94e5"
+                  ]
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "left"
+                            ]
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "$ref": "#/$defs/d1e"
+                              },
+                              {
+                                "$ref": "#/$defs/d17"
+                              },
+                              {
+                                "$ref": "#/$defs/d1b"
+                              },
+                              {
+                                "$ref": "#/$defs/d1f"
+                              },
+                              {
+                                "$ref": "#/$defs/d1d"
+                              },
+                              {
+                                "$ref": "#/$defs/d1c"
+                              },
+                              {
+                                "$ref": "#/$defs/d20"
+                              },
+                              {
+                                "$ref": "#/$defs/d1a"
+                              },
+                              {
+                                "$ref": "#/$defs/d19"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "right"
+                            ]
+                          },
+                          "value": {
+                            "$ref": "#/$defs/df"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "operation",
+                "inputs"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d18"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "operation"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d26"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "cap_3e596d2bff4c04e3e686bd98",
+                    "cap_4b4d7e81ee61a3bf3ab65a8f"
+                  ]
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "enum": [
+                          "left",
+                          "right"
+                        ]
+                      },
+                      "value": {
+                        "$ref": "#/$defs/df"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "operation",
+                "inputs"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d18"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "value"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d26"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "outputs": {
+                  "$ref": "#/$defs/d24"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "outputs"
+              ],
+              "additionalProperties": false,
+              "description": "Copies/assembles values; objectives do not compute."
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d18"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "transform"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d26"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/d8"
+                  },
+                  "minItems": 1
+                },
+                "resultType": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "object"
+                      ]
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/d6"
+                      },
+                      "minItems": 1
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "fields"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "inputs",
+                "resultType"
+              ],
+              "additionalProperties": false,
+              "description": "LLM interpretation only, never copying/extraction/validation. Preserve domains; typed fields, no defaults/opacity."
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d18"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "sequence"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d26"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "body": {
+                  "$ref": "#/$defs/db"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "body"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d18"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "conditional"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d26"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "condition": {
+                  "$ref": "#/$defs/d1"
+                },
+                "body": {
+                  "$ref": "#/$defs/db"
+                },
+                "otherwise": {
+                  "$ref": "#/$defs/db"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "condition",
+                "body",
+                "otherwise"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d18"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "parallel"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d26"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "branches": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/db"
+                  },
+                  "minItems": 2
+                },
+                "maxConcurrency": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "branches",
+                "maxConcurrency"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d18"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "foreach"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d26"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "items": {
+                  "$ref": "#/$defs/d1"
+                },
+                "body": {
+                  "$ref": "#/$defs/db"
+                },
+                "parallel": {
+                  "type": "boolean"
+                },
+                "maxItems": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "description": "TOTAL items limit: requested bound, else 100. Excess fails. 1 accepts only a singleton, regardless of workers."
+                },
+                "maxConcurrency": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "items",
+                "body",
+                "parallel",
+                "maxItems",
+                "maxConcurrency"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d18"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "call"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d26"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "group": {
+                  "$ref": "#/$defs/d18"
+                },
+                "inputs": {
+                  "$ref": "#/$defs/d24"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "group",
+                "inputs"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "df": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/d1e"
+            },
+            {
+              "$ref": "#/$defs/d1b"
+            },
+            {
+              "$ref": "#/$defs/d1f"
+            },
+            {
+              "$ref": "#/$defs/d1d"
+            },
+            {
+              "$ref": "#/$defs/d1c"
+            },
+            {
+              "$ref": "#/$defs/d20"
+            },
+            {
+              "$ref": "#/$defs/d1a"
+            },
+            {
+              "$ref": "#/$defs/d19"
+            }
+          ]
+        },
+        "d10": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "string"
+              ]
+            },
+            "enum": {
+              "$ref": "#/$defs/d22"
+            },
+            "nullable": {
+              "$ref": "#/$defs/d27"
+            }
+          },
+          "required": [
+            "kind",
+            "enum",
+            "nullable"
+          ],
+          "additionalProperties": false
+        },
+        "d11": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "$ref": "#/$defs/d3"
+            },
+            "required": {
+              "type": "boolean",
+              "enum": [
+                false
+              ]
+            },
+            "default": {
+              "$ref": "#/$defs/d2"
+            }
+          },
+          "required": [
+            "name",
+            "type",
+            "required",
+            "default"
+          ],
+          "additionalProperties": false
+        },
+        "d12": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "string"
+              ]
+            },
+            "enum": {
+              "$ref": "#/$defs/d22"
+            }
+          },
+          "required": [
+            "kind",
+            "enum"
+          ],
+          "additionalProperties": false
+        },
+        "d13": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "$ref": "#/$defs/d3"
+            },
+            "default": {
+              "$ref": "#/$defs/d2"
+            }
+          },
+          "required": [
+            "name",
+            "type",
+            "default"
+          ],
+          "additionalProperties": false
+        },
+        "d14": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "boolean"
+              ]
+            },
+            "boolean": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "boolean"
+          ],
+          "additionalProperties": false
+        },
+        "d15": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "string"
+              ]
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        "d16": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "$ref": "#/$defs/d3"
+            }
+          },
+          "required": [
+            "name",
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        "d17": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        "d18": {
+          "type": "string",
+          "pattern": "^([A-Za-z0-9-][A-Za-z0-9_-]*|_[A-Za-z0-9-][A-Za-z0-9_-]*|_)$"
+        },
+        "d19": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "predicate"
+              ]
+            },
+            "predicate": {
+              "type": "string",
+              "enum": [
+                "and",
+                "or",
+                "equal",
+                "not_equal",
+                "less",
+                "less_equal",
+                "greater",
+                "greater_equal"
+              ]
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/d1"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "kind",
+            "predicate",
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "d1a": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "predicate"
+              ]
+            },
+            "predicate": {
+              "type": "string",
+              "enum": [
+                "not"
+              ]
+            },
+            "items": {
+              "$ref": "#/$defs/d28"
+            }
+          },
+          "required": [
+            "kind",
+            "predicate",
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "d1b": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "field"
+              ]
+            },
+            "items": {
+              "$ref": "#/$defs/d28"
+            },
+            "port": {
+              "$ref": "#/$defs/d26"
+            }
+          },
+          "required": [
+            "kind",
+            "items",
+            "port"
+          ],
+          "additionalProperties": false
+        },
+        "d1c": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "output"
+              ]
+            },
+            "source": {
+              "$ref": "#/$defs/d18"
+            },
+            "port": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "source",
+            "port"
+          ],
+          "additionalProperties": false
+        },
+        "d1d": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "choice",
+                "present"
+              ]
+            },
+            "source": {
+              "$ref": "#/$defs/d18"
+            }
+          },
+          "required": [
+            "kind",
+            "source"
+          ],
+          "additionalProperties": false
+        },
+        "d1e": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "number"
+              ]
+            },
+            "number": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "kind",
+            "number"
+          ],
+          "additionalProperties": false
+        },
+        "d1f": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "input"
+              ]
+            },
+            "source": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "source"
+          ],
+          "additionalProperties": false
+        },
+        "d20": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "item",
+                "index"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        "d21": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "\\S",
+              "maxLength": 512
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "d22": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "maxItems": 256
+        },
+        "d23": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/d6"
+          }
+        },
+        "d24": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/d8"
+          }
+        },
+        "d25": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/d7"
+          }
+        },
+        "d26": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "d27": {
+          "type": "boolean",
+          "enum": [
+            true
+          ]
+        },
+        "d28": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/d1"
+          },
+          "minItems": 1,
+          "maxItems": 1
+        }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "discoveryRequests": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "$ref": "#/$defs/d22"
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d1f"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "$ref": "#/$defs/d22"
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "type": "null"
+                      },
+                      "operationIds": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/d29"
+                        },
+                        "minItems": 0,
+                        "maxItems": 1
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Replace this source\u0027s inspection selection with already-discovered operation IDs; empty clears it. Selected exact contracts remain visible across pages. This grants no permission."
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "enum": [
+                          "source_0002e1b8daaf46eef1b331cc"
+                        ]
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d1f"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "$ref": "#/$defs/d23"
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d1f"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "$ref": "#/$defs/d23"
+                      },
+                      "cursor": {
+                        "type": "string",
+                        "enum": [
+                          "rank:22a7c4a2b31032cc9d3a4b35fb83b107e8bada11bc8950c171e43a814ccc5955:8"
+                        ]
+                      },
+                      "query": {
+                        "type": "null"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "$ref": "#/$defs/d23"
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "type": "null"
+                      },
+                      "operationIds": {
+                        "$ref": "#/$defs/d20"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Replace this source\u0027s inspection selection with already-discovered operation IDs; empty clears it. Selected exact contracts remain visible across pages. This grants no permission."
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "enum": [
+                          "source_258c29d9064381a5dd37bf0c"
+                        ]
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d1f"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "enum": [
+                          "source_694108d6539e9f2f1953f6ac"
+                        ]
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d1f"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "enum": [
+                          "source_78e7629fa45e2b4e8029bd87"
+                        ]
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d1f"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "enum": [
+                          "source_95c684aa9477ce16baae0b4e"
+                        ]
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d1f"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "$ref": "#/$defs/d24"
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d1f"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "$ref": "#/$defs/d24"
+                      },
+                      "cursor": {
+                        "type": "string",
+                        "enum": [
+                          "rank:8be8674bd241e94150572fa7256dc4a8bb0cbd20e3df4d77433a72c5ce3cedb9:8"
+                        ]
+                      },
+                      "query": {
+                        "type": "null"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "$ref": "#/$defs/d24"
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "type": "null"
+                      },
+                      "operationIds": {
+                        "$ref": "#/$defs/d20"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Replace this source\u0027s inspection selection with already-discovered operation IDs; empty clears it. Selected exact contracts remain visible across pages. This grants no permission."
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "$ref": "#/$defs/d25"
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d1f"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "$ref": "#/$defs/d25"
+                      },
+                      "cursor": {
+                        "type": "string",
+                        "enum": [
+                          "rank:b3cdf89b37e1e82c0ab3b7fdbb3a3f00eb57ed46c1fccbd6f4b1e8bc7d07c469:8"
+                        ]
+                      },
+                      "query": {
+                        "type": "null"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "$ref": "#/$defs/d25"
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "type": "null"
+                      },
+                      "operationIds": {
+                        "$ref": "#/$defs/d20"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Replace this source\u0027s inspection selection with already-discovered operation IDs; empty clears it. Selected exact contracts remain visible across pages. This grants no permission."
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "sourceId": {
+                        "type": "string",
+                        "enum": [
+                          "source_e840be38d64cec80d0eb189f"
+                        ]
+                      },
+                      "cursor": {
+                        "type": "null"
+                      },
+                      "query": {
+                        "$ref": "#/$defs/d1f"
+                      },
+                      "operationIds": {
+                        "type": "null"
+                      }
+                    },
+                    "required": [
+                      "sourceId",
+                      "cursor",
+                      "query",
+                      "operationIds"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 4
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/da"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clarifications": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/d29"
+                  },
+                  "question": {
+                    "$ref": "#/$defs/d29"
+                  },
+                  "alternatives": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "$ref": "#/$defs/d29"
+                        },
+                        "description": {
+                          "$ref": "#/$defs/d29"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "description"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 0,
+                    "maxItems": 3
+                  },
+                  "recommended": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/d29"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "question",
+                  "alternatives",
+                  "recommended"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 3
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requirements": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/d9"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outcomeBindings": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "outcomeId": {
+                    "$ref": "#/$defs/d29"
+                  },
+                  "taskIds": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/d1a"
+                    }
+                  },
+                  "outputs": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/d29"
+                    }
+                  },
+                  "forEachTaskId": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/d1a"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "outcomeId",
+                  "taskIds",
+                  "outputs",
+                  "forEachTaskId"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "discoveryRequests",
+        "plan",
+        "clarifications",
+        "requirements",
+        "outcomeBindings"
+      ],
+      "additionalProperties": false,
+      "$defs": {
+        "d0": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/d1a"
+          }
+        },
+        "d1": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/d1e"
+            },
+            {
+              "$ref": "#/$defs/d1d"
+            },
+            {
+              "$ref": "#/$defs/d30"
+            },
+            {
+              "$ref": "#/$defs/d18"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "object"
+                  ]
+                },
+                "members": {
+                  "$ref": "#/$defs/d27"
+                }
+              },
+              "required": [
+                "kind",
+                "members"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "array"
+                  ]
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/d1"
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "items"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "$ref": "#/$defs/d1c"
+            },
+            {
+              "$ref": "#/$defs/d2d"
+            },
+            {
+              "$ref": "#/$defs/d31"
+            },
+            {
+              "$ref": "#/$defs/d2f"
+            },
+            {
+              "$ref": "#/$defs/d2e"
+            },
+            {
+              "$ref": "#/$defs/d32"
+            },
+            {
+              "$ref": "#/$defs/d2c"
+            },
+            {
+              "$ref": "#/$defs/d2b"
+            }
+          ]
+        },
+        "d2": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/d1e"
+            },
+            {
+              "$ref": "#/$defs/d1d"
+            },
+            {
+              "$ref": "#/$defs/d30"
+            },
+            {
+              "$ref": "#/$defs/d18"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "object"
+                  ]
+                },
+                "members": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "value": {
+                        "$ref": "#/$defs/d2"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "members"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "array"
+                  ]
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/d2"
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "items"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "d3": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "array"
+                  ]
+                },
+                "items": {
+                  "$ref": "#/$defs/d3"
+                }
+              },
+              "required": [
+                "kind",
+                "items"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "object"
+                  ]
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/d4"
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "fields"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "$ref": "#/$defs/d16"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "string",
+                    "number",
+                    "integer",
+                    "boolean",
+                    "any"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "array"
+                  ]
+                },
+                "items": {
+                  "$ref": "#/$defs/d3"
+                },
+                "nullable": {
+                  "$ref": "#/$defs/d2a"
+                }
+              },
+              "required": [
+                "kind",
+                "items",
+                "nullable"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "object"
+                  ]
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/d4"
+                  }
+                },
+                "nullable": {
+                  "$ref": "#/$defs/d2a"
+                }
+              },
+              "required": [
+                "kind",
+                "fields",
+                "nullable"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "$ref": "#/$defs/d14"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "string",
+                    "number",
+                    "integer",
+                    "boolean",
+                    "any"
+                  ]
+                },
+                "nullable": {
+                  "$ref": "#/$defs/d2a"
+                }
+              },
+              "required": [
+                "kind",
+                "nullable"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "d4": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/d19"
+            },
+            {
+              "$ref": "#/$defs/d17"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "$ref": "#/$defs/d3"
+                },
+                "required": {
+                  "type": "boolean",
+                  "enum": [
+                    false
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "type",
+                "required"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "$ref": "#/$defs/d15"
+            }
+          ]
+        },
+        "d5": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "array"
+                  ]
+                },
+                "items": {
+                  "$ref": "#/$defs/d5"
+                }
+              },
+              "required": [
+                "kind",
+                "items"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "object"
+                  ]
+                },
+                "fields": {
+                  "$ref": "#/$defs/d26"
+                }
+              },
+              "required": [
+                "kind",
+                "fields"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "$ref": "#/$defs/d16"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "string",
+                    "number",
+                    "integer",
+                    "boolean"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "array"
+                  ]
+                },
+                "items": {
+                  "$ref": "#/$defs/d5"
+                },
+                "nullable": {
+                  "$ref": "#/$defs/d2a"
+                }
+              },
+              "required": [
+                "kind",
+                "items",
+                "nullable"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "object"
+                  ]
+                },
+                "fields": {
+                  "$ref": "#/$defs/d26"
+                },
+                "nullable": {
+                  "$ref": "#/$defs/d2a"
+                }
+              },
+              "required": [
+                "kind",
+                "fields",
+                "nullable"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "$ref": "#/$defs/d14"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "string",
+                    "number",
+                    "integer",
+                    "boolean"
+                  ]
+                },
+                "nullable": {
+                  "$ref": "#/$defs/d2a"
+                }
+              },
+              "required": [
+                "kind",
+                "nullable"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "d6": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "$ref": "#/$defs/d29"
+            },
+            "type": {
+              "$ref": "#/$defs/d5"
+            }
+          },
+          "required": [
+            "name",
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        "d7": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/d19"
+            },
+            {
+              "$ref": "#/$defs/d17"
+            },
+            {
+              "$ref": "#/$defs/d15"
+            }
+          ]
+        },
+        "d8": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/$defs/d1"
+            }
+          },
+          "required": [
+            "name",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        "d9": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string"
+            },
+            "outcomes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "execution": {
+                    "type": "string",
+                    "enum": [
+                      "data",
+                      "read",
+                      "write",
+                      "execute",
+                      "lifecycle"
+                    ]
+                  },
+                  "always": {
+                    "type": "boolean"
+                  },
+                  "conditional": {
+                    "type": "boolean"
+                  },
+                  "coverage": {
+                    "type": "string",
+                    "enum": [
+                      "once",
+                      "each_item"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "description",
+                  "execution",
+                  "always",
+                  "conditional",
+                  "coverage"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            },
+            "inputs": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/d28"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "summary",
+            "outcomes",
+            "inputs"
+          ],
+          "additionalProperties": false
+        },
+        "da": {
+          "type": "object",
+          "properties": {
+            "inputs": {
+              "$ref": "#/$defs/d28"
+            },
+            "root": {
+              "$ref": "#/$defs/db"
+            },
+            "groups": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/dc"
+              }
+            },
+            "choices": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/dd"
+              }
+            }
+          },
+          "required": [
+            "inputs",
+            "root",
+            "groups",
+            "choices"
+          ],
+          "additionalProperties": false
+        },
+        "db": {
+          "type": "object",
+          "properties": {
+            "tasks": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/d10"
+              }
+            },
+            "outputs": {
+              "$ref": "#/$defs/d27"
+            },
+            "always": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/d10"
+              }
+            }
+          },
+          "required": [
+            "tasks",
+            "outputs",
+            "always"
+          ],
+          "additionalProperties": false
+        },
+        "dc": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/d1a"
+            },
+            "inputs": {
+              "$ref": "#/$defs/d28"
+            },
+            "body": {
+              "$ref": "#/$defs/db"
+            }
+          },
+          "required": [
+            "id",
+            "inputs",
+            "body"
+          ],
+          "additionalProperties": false
+        },
+        "dd": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/d1a"
+            },
+            "question": {
+              "$ref": "#/$defs/d29"
+            },
+            "type": {
+              "$ref": "#/$defs/d3"
+            },
+            "alternatives": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/d29"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "$ref": "#/$defs/d2"
+                  }
+                },
+                "required": [
+                  "id",
+                  "description",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 2
+            },
+            "recommended": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "question",
+            "type",
+            "alternatives",
+            "recommended"
+          ],
+          "additionalProperties": false
+        },
+        "de": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "array"
+                  ]
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/d1"
+                      },
+                      {
+                        "$ref": "#/$defs/d1"
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "items"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "$ref": "#/$defs/d1e"
+            },
+            {
+              "$ref": "#/$defs/d2d"
+            },
+            {
+              "$ref": "#/$defs/d31"
+            },
+            {
+              "$ref": "#/$defs/d2f"
+            },
+            {
+              "$ref": "#/$defs/d2e"
+            },
+            {
+              "$ref": "#/$defs/d32"
+            },
+            {
+              "$ref": "#/$defs/d2c"
+            },
+            {
+              "$ref": "#/$defs/d2b"
+            }
+          ]
+        },
+        "df": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "array"
+                  ]
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "string"
+                            ]
+                          },
+                          "text": {
+                            "$ref": "#/$defs/d29"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "$ref": "#/$defs/d1c"
+                      },
+                      {
+                        "$ref": "#/$defs/d2d"
+                      },
+                      {
+                        "$ref": "#/$defs/d31"
+                      },
+                      {
+                        "$ref": "#/$defs/d2f"
+                      },
+                      {
+                        "$ref": "#/$defs/d2e"
+                      },
+                      {
+                        "$ref": "#/$defs/d32"
+                      },
+                      {
+                        "$ref": "#/$defs/d2c"
+                      },
+                      {
+                        "$ref": "#/$defs/d2b"
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "items"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "$ref": "#/$defs/d1e"
+            },
+            {
+              "$ref": "#/$defs/d2d"
+            },
+            {
+              "$ref": "#/$defs/d31"
+            },
+            {
+              "$ref": "#/$defs/d2f"
+            },
+            {
+              "$ref": "#/$defs/d2e"
+            },
+            {
+              "$ref": "#/$defs/d32"
+            },
+            {
+              "$ref": "#/$defs/d2c"
+            },
+            {
+              "$ref": "#/$defs/d2b"
+            }
+          ]
+        },
+        "d10": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d1a"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "operation"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d29"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "cap_12c417fa0e6759da6af4630a"
+                  ]
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "owner",
+                              "repo"
+                            ]
+                          },
+                          "value": {
+                            "$ref": "#/$defs/d12"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "$ref": "#/$defs/d13"
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "operation",
+                "inputs"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d1a"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "operation"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d29"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "cap_1c45b2a625ce9f76d20e94e5"
+                  ]
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "left"
+                            ]
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "$ref": "#/$defs/d30"
+                              },
+                              {
+                                "$ref": "#/$defs/d1e"
+                              },
+                              {
+                                "$ref": "#/$defs/d2d"
+                              },
+                              {
+                                "$ref": "#/$defs/d31"
+                              },
+                              {
+                                "$ref": "#/$defs/d2f"
+                              },
+                              {
+                                "$ref": "#/$defs/d2e"
+                              },
+                              {
+                                "$ref": "#/$defs/d32"
+                              },
+                              {
+                                "$ref": "#/$defs/d2c"
+                              },
+                              {
+                                "$ref": "#/$defs/d2b"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "right"
+                            ]
+                          },
+                          "value": {
+                            "$ref": "#/$defs/d1b"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "operation",
+                "inputs"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d1a"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "operation"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d29"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "cap_3e596d2bff4c04e3e686bd98",
+                    "cap_4b4d7e81ee61a3bf3ab65a8f"
+                  ]
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "enum": [
+                          "left",
+                          "right"
+                        ]
+                      },
+                      "value": {
+                        "$ref": "#/$defs/d1b"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "operation",
+                "inputs"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d1a"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "operation"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d29"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "cap_85d8b8b050162024993780f1"
+                  ]
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "attachments"
+                            ]
+                          },
+                          "value": {
+                            "$ref": "#/$defs/de"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "model",
+                              "provider"
+                            ]
+                          },
+                          "value": {
+                            "$ref": "#/$defs/d11"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "permissionAllowlist"
+                            ]
+                          },
+                          "value": {
+                            "$ref": "#/$defs/df"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "permissionMode"
+                            ]
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "string"
+                                    ]
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "enum": [
+                                      "auto_approve_allowlist",
+                                      "deny",
+                                      "approve_all"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "text"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "$ref": "#/$defs/d1c"
+                              },
+                              {
+                                "$ref": "#/$defs/d2d"
+                              },
+                              {
+                                "$ref": "#/$defs/d31"
+                              },
+                              {
+                                "$ref": "#/$defs/d2f"
+                              },
+                              {
+                                "$ref": "#/$defs/d2e"
+                              },
+                              {
+                                "$ref": "#/$defs/d32"
+                              },
+                              {
+                                "$ref": "#/$defs/d2c"
+                              },
+                              {
+                                "$ref": "#/$defs/d2b"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "projectRoot",
+                              "prompt"
+                            ]
+                          },
+                          "value": {
+                            "$ref": "#/$defs/d12"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "operation",
+                "inputs"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d1a"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "operation"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d29"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "cap_9b6a3f4c1fab83fa518d4b62"
+                  ]
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "body",
+                              "commitID",
+                              "owner",
+                              "repo",
+                              "threadId"
+                            ]
+                          },
+                          "value": {
+                            "$ref": "#/$defs/d12"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "event"
+                            ]
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "string"
+                                    ]
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "enum": [
+                                      "APPROVE",
+                                      "REQUEST_CHANGES",
+                                      "COMMENT"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "text"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "$ref": "#/$defs/d1c"
+                              },
+                              {
+                                "$ref": "#/$defs/d2d"
+                              },
+                              {
+                                "$ref": "#/$defs/d31"
+                              },
+                              {
+                                "$ref": "#/$defs/d2f"
+                              },
+                              {
+                                "$ref": "#/$defs/d2e"
+                              },
+                              {
+                                "$ref": "#/$defs/d32"
+                              },
+                              {
+                                "$ref": "#/$defs/d2c"
+                              },
+                              {
+                                "$ref": "#/$defs/d2b"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "method"
+                            ]
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "string"
+                                    ]
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "enum": [
+                                      "create",
+                                      "submit_pending",
+                                      "delete_pending",
+                                      "resolve_thread",
+                                      "unresolve_thread"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "text"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "$ref": "#/$defs/d1c"
+                              },
+                              {
+                                "$ref": "#/$defs/d2d"
+                              },
+                              {
+                                "$ref": "#/$defs/d31"
+                              },
+                              {
+                                "$ref": "#/$defs/d2f"
+                              },
+                              {
+                                "$ref": "#/$defs/d2e"
+                              },
+                              {
+                                "$ref": "#/$defs/d32"
+                              },
+                              {
+                                "$ref": "#/$defs/d2c"
+                              },
+                              {
+                                "$ref": "#/$defs/d2b"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "$ref": "#/$defs/d13"
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "operation",
+                "inputs"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d1a"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "operation"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d29"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "cap_e45700e336e554dd337ddaeb"
+                  ]
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "body",
+                              "owner",
+                              "repo"
+                            ]
+                          },
+                          "value": {
+                            "$ref": "#/$defs/d12"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "commentId"
+                            ]
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "number"
+                                    ]
+                                  },
+                                  "number": {
+                                    "type": "number",
+                                    "minimum": 1
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "number"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "$ref": "#/$defs/d2d"
+                              },
+                              {
+                                "$ref": "#/$defs/d31"
+                              },
+                              {
+                                "$ref": "#/$defs/d2f"
+                              },
+                              {
+                                "$ref": "#/$defs/d2e"
+                              },
+                              {
+                                "$ref": "#/$defs/d32"
+                              },
+                              {
+                                "$ref": "#/$defs/d2c"
+                              },
+                              {
+                                "$ref": "#/$defs/d2b"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "$ref": "#/$defs/d13"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "reaction"
+                            ]
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "string"
+                                    ]
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "enum": [
+                                      "\u002B1",
+                                      "-1",
+                                      "laugh",
+                                      "confused",
+                                      "heart",
+                                      "hooray",
+                                      "rocket",
+                                      "eyes"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "text"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "$ref": "#/$defs/d1c"
+                              },
+                              {
+                                "$ref": "#/$defs/d2d"
+                              },
+                              {
+                                "$ref": "#/$defs/d31"
+                              },
+                              {
+                                "$ref": "#/$defs/d2f"
+                              },
+                              {
+                                "$ref": "#/$defs/d2e"
+                              },
+                              {
+                                "$ref": "#/$defs/d32"
+                              },
+                              {
+                                "$ref": "#/$defs/d2c"
+                              },
+                              {
+                                "$ref": "#/$defs/d2b"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "operation",
+                "inputs"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d1a"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "operation"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d29"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "cap_fa8aa0024ff2ec0a4f9e61ad"
+                  ]
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "branch"
+                            ]
+                          },
+                          "value": {
+                            "$ref": "#/$defs/d11"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "fetchAllBranches"
+                            ]
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "$ref": "#/$defs/d18"
+                              },
+                              {
+                                "$ref": "#/$defs/d2d"
+                              },
+                              {
+                                "$ref": "#/$defs/d31"
+                              },
+                              {
+                                "$ref": "#/$defs/d2f"
+                              },
+                              {
+                                "$ref": "#/$defs/d2e"
+                              },
+                              {
+                                "$ref": "#/$defs/d32"
+                              },
+                              {
+                                "$ref": "#/$defs/d2c"
+                              },
+                              {
+                                "$ref": "#/$defs/d2b"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "historyDepth"
+                            ]
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "number"
+                                    ]
+                                  },
+                                  "number": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "number"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "$ref": "#/$defs/d2d"
+                              },
+                              {
+                                "$ref": "#/$defs/d31"
+                              },
+                              {
+                                "$ref": "#/$defs/d2f"
+                              },
+                              {
+                                "$ref": "#/$defs/d2e"
+                              },
+                              {
+                                "$ref": "#/$defs/d32"
+                              },
+                              {
+                                "$ref": "#/$defs/d2c"
+                              },
+                              {
+                                "$ref": "#/$defs/d2b"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "remoteUrl",
+                              "tagFetchMode"
+                            ]
+                          },
+                          "value": {
+                            "$ref": "#/$defs/d12"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "enum": [
+                              "targetDirectory"
+                            ]
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "string"
+                                    ]
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "minLength": 11,
+                                    "pattern": "^workflows/(?!\\.{1,2}(?:/|$))[^/\\\\*?\\x00-\\x1F\\x7F-\\x9F]\u002B(?:/(?!\\.{1,2}(?:/|$))[^/\\\\*?\\x00-\\x1F\\x7F-\\x9F]\u002B)*(?![\\s\\S])"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "text"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "$ref": "#/$defs/d1c"
+                              },
+                              {
+                                "$ref": "#/$defs/d2d"
+                              },
+                              {
+                                "$ref": "#/$defs/d31"
+                              },
+                              {
+                                "$ref": "#/$defs/d2f"
+                              },
+                              {
+                                "$ref": "#/$defs/d2e"
+                              },
+                              {
+                                "$ref": "#/$defs/d32"
+                              },
+                              {
+                                "$ref": "#/$defs/d2c"
+                              },
+                              {
+                                "$ref": "#/$defs/d2b"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "operation",
+                "inputs"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d1a"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "value"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d29"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "outputs": {
+                  "$ref": "#/$defs/d27"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "outputs"
+              ],
+              "additionalProperties": false,
+              "description": "Copies/assembles values; objectives do not compute."
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d1a"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "transform"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d29"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/d8"
+                  },
+                  "minItems": 1
+                },
+                "resultType": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "object"
+                      ]
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/d6"
+                      },
+                      "minItems": 1
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "fields"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "inputs",
+                "resultType"
+              ],
+              "additionalProperties": false,
+              "description": "LLM interpretation only, never copying/extraction/validation. Preserve domains; typed fields, no defaults/opacity."
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d1a"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "sequence"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d29"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "body": {
+                  "$ref": "#/$defs/db"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "body"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d1a"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "conditional"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d29"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "condition": {
+                  "$ref": "#/$defs/d1"
+                },
+                "body": {
+                  "$ref": "#/$defs/db"
+                },
+                "otherwise": {
+                  "$ref": "#/$defs/db"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "condition",
+                "body",
+                "otherwise"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d1a"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "parallel"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d29"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "branches": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/db"
+                  },
+                  "minItems": 2
+                },
+                "maxConcurrency": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "branches",
+                "maxConcurrency"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d1a"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "foreach"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d29"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "items": {
+                  "$ref": "#/$defs/d1"
+                },
+                "body": {
+                  "$ref": "#/$defs/db"
+                },
+                "parallel": {
+                  "type": "boolean"
+                },
+                "maxItems": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10000,
+                  "description": "TOTAL items limit: requested bound, else 100. Excess fails. 1 accepts only a singleton, regardless of workers."
+                },
+                "maxConcurrency": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "items",
+                "body",
+                "parallel",
+                "maxItems",
+                "maxConcurrency"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/d1a"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "call"
+                  ]
+                },
+                "objective": {
+                  "$ref": "#/$defs/d29"
+                },
+                "dependsOn": {
+                  "$ref": "#/$defs/d0"
+                },
+                "group": {
+                  "$ref": "#/$defs/d1a"
+                },
+                "inputs": {
+                  "$ref": "#/$defs/d27"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "objective",
+                "dependsOn",
+                "group",
+                "inputs"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "d11": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/d1d"
+            },
+            {
+              "$ref": "#/$defs/d1e"
+            },
+            {
+              "$ref": "#/$defs/d1c"
+            },
+            {
+              "$ref": "#/$defs/d2d"
+            },
+            {
+              "$ref": "#/$defs/d31"
+            },
+            {
+              "$ref": "#/$defs/d2f"
+            },
+            {
+              "$ref": "#/$defs/d2e"
+            },
+            {
+              "$ref": "#/$defs/d32"
+            },
+            {
+              "$ref": "#/$defs/d2c"
+            },
+            {
+              "$ref": "#/$defs/d2b"
+            }
+          ]
+        },
+        "d12": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/d1d"
+            },
+            {
+              "$ref": "#/$defs/d1c"
+            },
+            {
+              "$ref": "#/$defs/d2d"
+            },
+            {
+              "$ref": "#/$defs/d31"
+            },
+            {
+              "$ref": "#/$defs/d2f"
+            },
+            {
+              "$ref": "#/$defs/d2e"
+            },
+            {
+              "$ref": "#/$defs/d32"
+            },
+            {
+              "$ref": "#/$defs/d2c"
+            },
+            {
+              "$ref": "#/$defs/d2b"
+            }
+          ]
+        },
+        "d13": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "enum": [
+                "pullNumber"
+              ]
+            },
+            "value": {
+              "$ref": "#/$defs/d1b"
+            }
+          },
+          "required": [
+            "name",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        "d14": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "string"
+              ]
+            },
+            "enum": {
+              "$ref": "#/$defs/d21"
+            },
+            "nullable": {
+              "$ref": "#/$defs/d2a"
+            }
+          },
+          "required": [
+            "kind",
+            "enum",
+            "nullable"
+          ],
+          "additionalProperties": false
+        },
+        "d15": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "$ref": "#/$defs/d3"
+            },
+            "required": {
+              "type": "boolean",
+              "enum": [
+                false
+              ]
+            },
+            "default": {
+              "$ref": "#/$defs/d2"
+            }
+          },
+          "required": [
+            "name",
+            "type",
+            "required",
+            "default"
+          ],
+          "additionalProperties": false
+        },
+        "d16": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "string"
+              ]
+            },
+            "enum": {
+              "$ref": "#/$defs/d21"
+            }
+          },
+          "required": [
+            "kind",
+            "enum"
+          ],
+          "additionalProperties": false
+        },
+        "d17": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "$ref": "#/$defs/d3"
+            },
+            "default": {
+              "$ref": "#/$defs/d2"
+            }
+          },
+          "required": [
+            "name",
+            "type",
+            "default"
+          ],
+          "additionalProperties": false
+        },
+        "d18": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "boolean"
+              ]
+            },
+            "boolean": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "boolean"
+          ],
+          "additionalProperties": false
+        },
+        "d19": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "$ref": "#/$defs/d3"
+            }
+          },
+          "required": [
+            "name",
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        "d1a": {
+          "type": "string",
+          "pattern": "^([A-Za-z0-9-][A-Za-z0-9_-]*|_[A-Za-z0-9-][A-Za-z0-9_-]*|_)$"
+        },
+        "d1b": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/d30"
+            },
+            {
+              "$ref": "#/$defs/d2d"
+            },
+            {
+              "$ref": "#/$defs/d31"
+            },
+            {
+              "$ref": "#/$defs/d2f"
+            },
+            {
+              "$ref": "#/$defs/d2e"
+            },
+            {
+              "$ref": "#/$defs/d32"
+            },
+            {
+              "$ref": "#/$defs/d2c"
+            },
+            {
+              "$ref": "#/$defs/d2b"
+            }
+          ]
+        },
+        "d1c": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "json"
+              ]
+            },
+            "items": {
+              "$ref": "#/$defs/d33"
+            }
+          },
+          "required": [
+            "kind",
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "d1d": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "string"
+              ]
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        "d1e": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        "d1f": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "\\S",
+              "maxLength": 512
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "d20": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/d29"
+          },
+          "minItems": 0,
+          "maxItems": 8
+        },
+        "d21": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "maxItems": 256
+        },
+        "d22": {
+          "type": "string",
+          "enum": [
+            "runner_9623c1ece5cf9eac8c087030"
+          ]
+        },
+        "d23": {
+          "type": "string",
+          "enum": [
+            "source_1720d8eaff790da6af440690"
+          ]
+        },
+        "d24": {
+          "type": "string",
+          "enum": [
+            "source_d15a1ef6ddddd137066d25b7"
+          ]
+        },
+        "d25": {
+          "type": "string",
+          "enum": [
+            "source_d3b3c4f5a92aefa3c249f95e"
+          ]
+        },
+        "d26": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/d6"
+          }
+        },
+        "d27": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/d8"
+          }
+        },
+        "d28": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/d7"
+          }
+        },
+        "d29": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "d2a": {
+          "type": "boolean",
+          "enum": [
+            true
+          ]
+        },
+        "d2b": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "predicate"
+              ]
+            },
+            "predicate": {
+              "type": "string",
+              "enum": [
+                "and",
+                "or",
+                "equal",
+                "not_equal",
+                "less",
+                "less_equal",
+                "greater",
+                "greater_equal"
+              ]
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/d1"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "kind",
+            "predicate",
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "d2c": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "predicate"
+              ]
+            },
+            "predicate": {
+              "type": "string",
+              "enum": [
+                "not"
+              ]
+            },
+            "items": {
+              "$ref": "#/$defs/d33"
+            }
+          },
+          "required": [
+            "kind",
+            "predicate",
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        "d2d": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "field"
+              ]
+            },
+            "items": {
+              "$ref": "#/$defs/d33"
+            },
+            "port": {
+              "$ref": "#/$defs/d29"
+            }
+          },
+          "required": [
+            "kind",
+            "items",
+            "port"
+          ],
+          "additionalProperties": false
+        },
+        "d2e": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "output"
+              ]
+            },
+            "source": {
+              "$ref": "#/$defs/d1a"
+            },
+            "port": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "source",
+            "port"
+          ],
+          "additionalProperties": false
+        },
+        "d2f": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "choice",
+                "present"
+              ]
+            },
+            "source": {
+              "$ref": "#/$defs/d1a"
+            }
+          },
+          "required": [
+            "kind",
+            "source"
+          ],
+          "additionalProperties": false
+        },
+        "d30": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "number"
+              ]
+            },
+            "number": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "kind",
+            "number"
+          ],
+          "additionalProperties": false
+        },
+        "d31": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "input"
+              ]
+            },
+            "source": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "source"
+          ],
+          "additionalProperties": false
+        },
+        "d32": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "item",
+                "index"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        "d33": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/d1"
+          },
+          "minItems": 1,
+          "maxItems": 1
+        }
+      }
+    }
+  ],
+  "discoveryResponse": {
+    "discoveryRequests": [
+      {
+        "sourceId": "runner_9623c1ece5cf9eac8c087030",
+        "cursor": null,
+        "query": "Capabilities and contracts for creating a self-contained chat-agent workflow that can clone a GitHub PR once into a fixed workspace directory, run dependency install/lint/unit/integration tests, use GitHub Copilot for code review, post diff comments and an approve/request-changes/reject review on GitHub, and always delete the cloned repository directory at the end.",
+        "operationIds": null
+      },
+      {
+        "sourceId": "source_1720d8eaff790da6af440690",
+        "cursor": null,
+        "query": "GitHub API operations/contracts for reading pull request metadata and changed files/diffs, creating pull request review comments on diff lines, and submitting an approve/request-changes/comment review decision.",
+        "operationIds": null
+      },
+      {
+        "sourceId": "source_d3b3c4f5a92aefa3c249f95e",
+        "cursor": null,
+        "query": "Git repository workflow operations/contracts for cloning a GitHub repository/pull request into a single fixed local directory and checking out the PR head for analysis.",
+        "operationIds": null
+      },
+      {
+        "sourceId": "source_d15a1ef6ddddd137066d25b7",
+        "cursor": null,
+        "query": "Code project operations/contracts using GitHub Copilot suggestions for dependency installation, lint/test discovery and execution, integration tests when present, and adaptive code review within a fixed workspace directory.",
+        "operationIds": null
+      }
+    ],
+    "plan": null,
+    "clarifications": null,
+    "requirements": null,
+    "outcomeBindings": null
+  }
+}

@@ -39,7 +39,9 @@ internal static class PlanningModelCalls
                 Prompt = prompt, StructuredOutputSchema = schema, StructuredOutputStrict = true, UseBackgroundMode = true
             }, state.Request.Generation);
             var violations = PlanningContractValidation.ValidateSchema(schema, strict: true);
-            if (violations.Count != 0) throw new InvalidOperationException("Invalid planner response schema: " + string.Join("; ", violations));
+            if (violations.Count != 0) throw new WorkflowRuntimeException("MODEL_SCHEMA_INVALID",
+                "The response schema is outside the supported structured-output profile. Planning stopped before dispatch without consuming a model call or repair. " + string.Join("; ", violations),
+                details: new JsonObject { ["location"] = "/phases/" + purpose });
             var inputTokens = PlanningJsonTransport.EstimateInputTokens(prompt, schema);
             var inputLimit = state.Request.Generation.MaxInputTokensPerRequest;
             if (inputTokens > inputLimit)

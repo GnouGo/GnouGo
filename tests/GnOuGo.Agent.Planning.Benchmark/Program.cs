@@ -14,6 +14,7 @@ using GnOuGo.Workspace;
 
 if (args.FirstOrDefault() == "--stabilization") { await StabilizationBenchmark.RunAsync(args); return; }
 if (args.FirstOrDefault() == "--real-contract-planning") { await RealContractPlanningProbe.RunAsync(args); return; }
+if (args.FirstOrDefault() == "--schema-portability") { await SchemaPortabilityCampaign.RunAsync(args); return; }
 
 string? Option(string name) { var index = Array.IndexOf(args, name); return index < 0 ? null : args.ElementAtOrDefault(index + 1) ?? throw new ArgumentException("Missing " + name); }
 var replayKey = Option("--replay-run"); var inspectKey = Option("--inspect-run");
