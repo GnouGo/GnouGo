@@ -41,6 +41,14 @@
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs" Link="BenchmarkHttpJournal.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs" Link="KeyVaultBenchmarkModel.cs" /></ItemGroup>
   <ItemGroup>
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveCampaignEvidence.cs" Link="LiveCampaignEvidence.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs" Link="LiveWorkflowEvaluation.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs" Link="LiveWorkflowOracles.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveCodeEvidence.cs" Link="LiveCodeEvidence.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/SchemaPortabilityCampaign.cs" Link="SchemaPortabilityCampaign.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/CampaignInferenceProxy.cs" Link="CampaignInferenceProxy.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/StabilizationBenchmark.cs" Link="StabilizationBenchmark.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LocalExecutionCases.cs" Link="LocalExecutionCases.cs" />
   </ItemGroup>

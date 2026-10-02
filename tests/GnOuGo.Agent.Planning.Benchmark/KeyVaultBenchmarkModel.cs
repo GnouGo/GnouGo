@@ -16,7 +16,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
-/// <summary>One configured live model and one EUR 50 ledger; workflow effects never leave the fake integrations.</summary>
+/// <summary>One configured live model and one EUR 50 ledger shared by planning and explicit live execution hosts.</summary>
 internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
 {
     private readonly BenchmarkCampaign _campaign;

@@ -27,12 +27,17 @@ internal static class LiveWorkflowEvaluation
         var key = "run:" + label;
         var retained = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, key);
         if (phase == "inspect-run") { Console.WriteLine(retained?.ToJsonString() ?? "No run."); return; }
+        var sourceRevision = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
+        if (phase == "execute" && retained?["source"]?.ToString() != sourceRevision)
+            throw new InvalidOperationException("Execution must use the retained planning build.");
+        var manifest = label.StartsWith("final-", StringComparison.Ordinal)
+            ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model) : null;
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, label);
         var configurations = Configuration(model.McpServers, scenario, proxy.Endpoint);
         var human = new ConsoleHuman(campaign, label);
         await using var transport = new ConfiguredMcpClientFactory(configurations, human, model.Provider, model.Model);
         var run = phase == "execute" ? retained ?? throw new InvalidOperationException("No retained plan.") : new JsonObject { ["scenario"] = scenario, ["label"] = label, ["source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"),
-            ["phase"] = label.StartsWith("final-", StringComparison.Ordinal) ? "final" : "diagnostic", ["events"] = new JsonArray() };
+            ["phase"] = label.StartsWith("final-", StringComparison.Ordinal) ? "final" : "diagnostic", ["events"] = new JsonArray(), ["manifest"] = manifest };
         var observed = new ObservedMcp(transport, async e =>
         {
             run["events"]!.AsArray().Add(e);
@@ -78,7 +83,7 @@ internal static class LiveWorkflowEvaluation
             run["result"]!["execution_status"] = "completed";
             run["result"]!["execution_ms"] = timer.ElapsedMilliseconds;
             run["result"]!["total_ms"] = run["result"]!["planning_ms"]!.GetValue<long>() + timer.ElapsedMilliseconds;
-            run["result"]!["accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign, label + ":");
+            run["result"]!["accounting"] = await LiveCampaignEvidence.AccountingAsync(campaign, label);
             await Save(); Console.WriteLine(run["result"]!.ToJsonString()); Console.WriteLine(oracle.ToJsonString()); return;
         }
         if (phase == "readiness")
@@ -101,7 +106,7 @@ internal static class LiveWorkflowEvaluation
         var relative = "workflows/" + campaign.Id + "/" + label;
         var prompt = scenario == "amazon"
             ? AmazonPrompt + "\nContraintes de cette évaluation autorisée: utilise Amazon.fr, au maximum les trois premiers produits; une seule entrée publique nommée query. Sauvegarde le classeur à " + relative + "/products.xlsx. Ferme le navigateur même en cas d’échec. CAPTCHA, prix ou données absents restent explicites, jamais inventés."
-            : CodePrompt + "\nÉvaluation autorisée: deux entrées publiques nommées pullRequestUrl et reviewText. Cible SmartGuide PR #610, https://github.com/AxaFrance/SmartGuide/pull/610 ; head " + Head + " et base " + Base + ". Destination fixe du clone: " + relative + "/repository. Utilise les toolchains et checks déclarés par ce dépôt. Tous les feedbacks, décisions et commentaires de diff restent LOCAUX: aucune publication GitHub. Sauvegarde les preuves exactes de commandes et leurs codes de sortie dans " + relative + "/review.json, puis nettoie le clone même en cas d’échec. Une capacité absente ou un test échoué reste explicite. Aucune extension de permission/sandbox.";
+            : CodePrompt + "\nÉvaluation autorisée: deux entrées publiques nommées pullRequestUrl et reviewText. Cible SmartGuide PR #610, https://github.com/AxaFrance/SmartGuide/pull/610 ; head " + Head + " et base " + Base + ". Destination fixe du clone: " + relative + "/repository. Utilise les toolchains et checks déclarés par ce dépôt. Tous les feedbacks, décisions et commentaires de diff restent LOCAUX: aucune publication GitHub. Sauvegarde les preuves exactes de commandes et leurs codes de sortie dans " + relative + "/review.json, puis nettoie le clone même en cas d’échec. Une capacité absente ou un test échoué reste explicite. Aucune extension de permission/sandbox. Le rapport review.json contient decision (approve ou request_changes), findings (liste), et les commandes/codes de sortie observés. Vérifie explicitement node --version, pnpm --version et python --version avant les checks. Ne présente pas une capacité manquante ou un prérequis indisponible comme un test réussi.";
         run["prompt"] = prompt; run["prompt_hash"] = PlanningGraphCompiler.Fingerprint(prompt);
         run["oracle_version"] = "real-workflows-v1"; run["workspace_relative"] = relative;
         run["inputs"] = scenario == "amazon" ? new JsonObject { ["query"] = "chaussure geox homme 45" }
@@ -127,7 +132,7 @@ internal static class LiveWorkflowEvaluation
             ["calls"] = state.ModelCalls, ["repairs"] = state.ReplanAttempts, ["discovery_reads"] = observed.DiscoveryReads,
             ["diagnostics"] = JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic),
             ["execution_success"] = false, ["execution_oracle"] = false, ["execution_status"] = "not_started",
-            ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign, label + ":") };
+            ["accounting"] = await LiveCampaignEvidence.AccountingAsync(campaign, label) };
         run["artifact_hash"] = state.Yaml is null ? null : state.ComputeArtifactHash();
         await Save(); Console.WriteLine(run["result"]!.ToJsonString());
         if (run["artifact_hash"] is not null) Console.WriteLine("artifact_hash=" + run["artifact_hash"]);
@@ -200,6 +205,8 @@ internal static class LiveWorkflowEvaluation
             public Task<McpGetPromptResult> GetPromptAsync(string name, JsonNode? arguments, CancellationToken ct) => inner.GetPromptAsync(name, arguments, ct);
             public async Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct)
             {
+                if (toolName is "git_push" or "git_delete_remote_branch")
+                    throw new InvalidOperationException("Remote publication is outside this live campaign.");
                 var evt = new JsonObject { ["server"] = ServerName, ["tool"] = toolName, ["arguments"] = arguments?.DeepClone(), ["started"] = DateTimeOffset.UtcNow.ToString("O") };
                 var clock = Stopwatch.StartNew();
                 try { var result = await inner.CallToolAsync(toolName, arguments, ct); evt["error"] = result.IsError; evt["result"] = result.Content?.DeepClone(); return result; }

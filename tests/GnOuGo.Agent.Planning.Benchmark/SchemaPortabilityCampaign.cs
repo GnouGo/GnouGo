@@ -43,6 +43,7 @@ internal static class SchemaPortabilityCampaign
         }
         var campaignId = Option(args, "--campaign") ?? throw new ArgumentException("Supply a new --campaign.");
         var campaign = new BenchmarkCampaign(records, campaignId);
+        if (phase == "report") { Console.WriteLine((await LiveCampaignEvidence.ReportAsync(campaign)).ToJsonString()); return; }
         if (phase == "inspect-run")
         {
             var label = Option(args, "--run") ?? throw new ArgumentException("Supply --run.");

@@ -25,6 +25,20 @@ public sealed class OutcomePlacementSchemaTests
     }
 
     [Fact]
+    public async Task RetainedMappingCannotTreatNestedPortsAsRootOutputsOrSkipAcceptedWork()
+    {
+        var fixture = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "SchemaPortability", "live-outcome-mapping.json")))!;
+        var proposal = fixture["responses"]![1]!;
+        var state = await ComposedOutcomeTests.State();
+        state.Plan = proposal["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        state.Requirements = proposal["requirements"]!.Deserialize(PlanningJsonContext.Default.PlanningRequirements)!;
+        state.OutcomeBindings = proposal["outcomeBindings"]!.Deserialize(PlanningJsonContext.Default.ListPlanningOutcomeBinding)!;
+        Assert.Contains(PlanningOutcomeValidation.Findings(state), d => d.Code == "OUTCOME_OUTPUT_INVALID");
+        Assert.Contains("plan.root.outputs", new PlanningPrompt(state).Request().Prompt);
+        Assert.Contains("cannot weaken an accepted unconditional outcome", new PlanningPrompt(state).Request().Prompt);
+    }
+
+    [Fact]
     public async Task RetainedLiveResponsesFailAtWireValidationWithoutConsumingSemanticRepairs()
     {
         var fixture = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "SchemaPortability", "live-outcome-placement.json")))!;

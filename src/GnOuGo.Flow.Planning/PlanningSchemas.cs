@@ -135,6 +135,7 @@ internal static class PlanningSchemas
                 var effect = outcome.DeepClone(); effect["properties"]!["execution"] = Enum("read", "write", "execute", "lifecycle");
                 definitions["requirements"]!["properties"]!["outcomes"]!["items"] = new JsonObject { ["anyOf"] = new JsonArray(data, effect) };
                 var binding = root["properties"]!["outcomeBindings"]!["anyOf"]![0]!["items"]!;
+                binding["properties"]!["outputs"]!["description"] = "Names declared in plan.root.outputs only, never task ports or nested scope exports. Use [] if no root output is reported.";
                 binding["properties"]!["forEachTaskId"] = Nullable(Ref("id"));
                 binding["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("forEachTaskId"));
             }

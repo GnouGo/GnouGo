@@ -10,6 +10,32 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    [Fact]
+    public async Task LiveCohortKeepsExecutionAccountingSeparateAndCountsMissingRuns()
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "live-accounting");
+        async Task Record(string id, int? status, bool usage)
+        {
+            var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 1m);
+            var state = new LLMHttpRetryState { Attempts = [new() { Id = id }] };
+            await journal.SaveAsync(state, Ct); state.Attempts[0].Status = status; await journal.SaveAsync(state, Ct);
+            if (usage) await journal.CompleteAsync(new() { ["input_tokens"] = 10L, ["output_tokens"] = 2L, ["benchmark_cost_eur"] = .1m }, Ct);
+        }
+        await Record("final-amazon-1:1:hash", 200, true);
+        await Record("final-amazon-1-execution:1:hash", null, false);
+        await Record("diagnostic-other:1:hash", 200, true);
+        var accounting = await LiveCampaignEvidence.AccountingAsync(campaign, "final-amazon-1");
+        Assert.Equal(1L, accounting["planning"]!["physical_attempts"]!.GetValue<long>());
+        Assert.Equal(10L, accounting["planning"]!["known_input_tokens"]!.GetValue<long>());
+        Assert.Equal(1L, accounting["execution"]!["unknown_attempts"]!.GetValue<long>());
+        Assert.Equal(1m, accounting["execution"]!["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(3L, accounting["campaign"]!["calls"]!.GetValue<long>());
+        var report = await LiveCampaignEvidence.ReportAsync(campaign);
+        Assert.Equal(6, report["runs"]!.AsArray().Count); Assert.False(report["complete"]!.GetValue<bool>());
+        var manifest = new JsonObject { ["production_sha"] = "one" };
+        LiveCampaignEvidence.RequireMatch(manifest, manifest.DeepClone().AsObject());
+        Assert.Throws<InvalidOperationException>(() => LiveCampaignEvidence.RequireMatch(manifest, new() { ["production_sha"] = "two" }));
+    }
     [Theory]
     [InlineData("/v1/responses", "max_output_tokens")]
     [InlineData("/v1/chat/completions", "max_completion_tokens")]
