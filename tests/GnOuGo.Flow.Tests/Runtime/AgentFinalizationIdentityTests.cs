@@ -86,7 +86,7 @@ public sealed class AgentFinalizationIdentityTests
                         subject: released
                         facts_schema: {type: object, required: [done], properties: {done: {const: true}}}
         """;
-        var step = fail ? "{id: primary, type: value.project, input: {value: null, paths: [[]]}, output_schema: {type: object, properties: {value: {type: string}}, required: [value]}}" : "{id: primary, type: set, input: {done: true}}";
+        var step = fail ? "{id: primary, type: set, input: {value: null}, output_schema: {type: object, properties: {value: {type: string}}, required: [value]}}" : "{id: primary, type: set, input: {done: true}}";
         var main = nested ? "{id: child, type: workflow.call, input: {ref: {kind: local, name: child}}}" : step;
         return "version: 1\nworkflows:\n  main:\n    steps:\n      - " + main + "\n    finally:\n" + cleanup + "\n" +
             (nested ? "  child:\n    steps:\n      - " + step + "\n    finally:\n" + cleanup + "\n" : "");

@@ -244,10 +244,10 @@ public sealed partial class TaskPlanCompiler
                     var alternate = PlanningGraphCompiler.ToJsonSchema(no.Workflow.Outputs.Single(o => o.Name == output.Name).Schema, _catalog);
                     if (!JsonNode.DeepEquals(schema, alternate)) schema = new() { ["anyOf"] = new JsonArray(schema, alternate) };
                     var projection = Key(key, "merge:" + output.Name); _sources[projection] = _location;
-                    target.Add(new() { Key = projection, Type = "value.project", Input = Object([
+                    target.Add(new() { Key = projection, Type = "set", Input = Projection([
                         new("value", Reference(key)), new("paths", Array([Strings([yes.Call.Key, "outputs", output.Name]), Strings([no.Call.Key, "outputs", output.Name])]))]),
                         OutputSchema = Contract(ObjectSchema([("value", schema)])) });
-                    outputs.Add(output.Name, Output(projection, "value.project", ["value"], schema));
+                    outputs.Add(output.Name, Output(projection, "set", ["value"], schema));
                 }
                 outputs = Aggregate(outputs, key, target); break;
             case "parallel":
@@ -271,7 +271,7 @@ public sealed partial class TaskPlanCompiler
                 var bounded = items.Schema.DeepClone().AsObject();
                 bounded["type"] = "array"; bounded["items"] = itemSchema!.DeepClone(); bounded["maxItems"] = task.MaxItems;
                 var checkedKey = Key(key, "bound"); _sources[checkedKey] = _location;
-                target.Add(new() { Key = checkedKey, Type = "value.project", Input = Object([new("value", items.Value), new("paths", Array([Strings([])]))]), OutputSchema = Contract(ObjectSchema([("value", bounded)])) });
+                target.Add(new() { Key = checkedKey, Type = "set", Input = Projection([new("value", items.Value), new("paths", Array([Strings([])]))]), OutputSchema = Contract(ObjectSchema([("value", bounded)])) });
                 var iteration = new Scope(scope.Workflow, scope) { Item = new(new() { Kind = "loop_item", Source = key }, itemSchema, TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null), Index = new(new() { Kind = "loop_index", Source = key }, new() { ["type"] = "integer" }) };
                 var body = Child(task.Body ?? MissingScope(), iteration, key, "iteration");
                 target.Add(new() { Key = key, Purpose = task.Objective, Type = task.Parallel ? "loop.parallel" : "loop.sequential", ItemVar = "item", IndexVar = "index",
@@ -281,8 +281,8 @@ public sealed partial class TaskPlanCompiler
                 {
                     var schema = new JsonObject { ["type"] = "array", ["items"] = PlanningGraphCompiler.ToJsonSchema(output.Schema, _catalog) };
                     var projection = Key(key, "collect:" + output.Name); _sources[projection] = _location;
-                    target.Add(new() { Key = projection, Type = "value.project", Input = Object([new("value", Reference(key, "results")), new("paths", Array([Strings([body.Call.Key, "outputs", output.Name])])), new("each", new() { Kind = "boolean", Boolean = true })]), OutputSchema = Contract(ObjectSchema([("value", schema)])) });
-                    outputs.Add(output.Name, Output(projection, "value.project", ["value"], schema));
+                    target.Add(new() { Key = projection, Type = "set", Input = Projection([new("value", Reference(key, "results")), new("paths", Array([Strings([body.Call.Key, "outputs", output.Name])])), new("each", new() { Kind = "boolean", Boolean = true })]), OutputSchema = Contract(ObjectSchema([("value", schema)])) });
+                    outputs.Add(output.Name, Output(projection, "set", ["value"], schema));
                 }
                 outputs = Aggregate(outputs, key, target); break;
             default: Fail("TASK_KIND_INVALID", "Unknown semantic task kind."); return;
@@ -302,6 +302,8 @@ public sealed partial class TaskPlanCompiler
             node.Dependencies = task.DependsOn.SelectMany(id => scope.Tasks[id].Values.Select(b => b.Value.Source)).OfType<string>().Concat(node.Dependencies).Distinct().ToList();
         }
     }
+
+    private static PlanningValue Projection(IEnumerable<PlanningMember> fields) => new() { Kind = "projection", Members = fields.ToList() };
 
     private Bound? ContractDefault(JsonObject schema)
     {
@@ -331,19 +333,32 @@ public sealed partial class TaskPlanCompiler
                 ["items"] = new JsonObject { ["anyOf"] = new JsonArray(items.Select(v => (JsonNode)v.Schema.DeepClone()).ToArray()) } });
         }
         var bound = Value(value, scope);
-        if (!PlanningContractShapes.IsOpaque(bound.Schema)) return bound;
-        if (!_catalog.AllowedStepTypes.Contains("value.project")) Fail("TASK_OUTPUT_POLICY", "Opaque inputs require permitted whole-value contract validation.");
+        if (!PlanningContractShapes.IsOpaque(bound.Schema) && !PlanningContractShapes.CanDefer(bound.Schema, expected)) return bound;
         var schema = expected.Count == 0 ? PlanningContractShapes.Opaque() : expected;
-        if (scope.Target is null) return bound with { Schema = schema }; // The same check is emitted after preflight.
+        var dynamic = !PlanningContractShapes.IsOpaque(schema);
+        if (!_catalog.AllowedStepTypes.Contains(dynamic ? "mapping.dynamic" : "set"))
+            Fail("TASK_OUTPUT_POLICY", "The host does not permit this required binding adaptation.");
+        if (scope.Target is null) return bound with { Schema = schema };
         var key = Key(scope.Workflow.Key, "normalize:" + _location + ":" + ValueIdentity(bound.Value) + ":" + schema.ToJsonString());
         if (!scope.Target.Any(n => n.Key == key))
         {
-            var check = new PlanningNode { Key = key, Type = "value.project", Input = Object([
-                new("value", bound.Value), new("paths", Array([Strings([])]))]), OutputSchema = Contract(ObjectSchema([("value", schema)])) };
+            var check = dynamic ? Mapping(key, Object([new("value", bound.Value)]), schema, "Adapt the observed value to the required consumer contract without inventing data.")
+                : new PlanningNode { Key = key, Type = "set", Input = Projection([new("value", bound.Value), new("paths", Array([Strings([])]))]),
+                    OutputSchema = Contract(ObjectSchema([("value", schema)])) };
             if (scope.Cleanup) GuardCleanup(check);
             scope.Target.Add(check); _sources[key] = _location;
         }
-        return Output(key, "value.project", ["value"], schema);
+        return Output(key, "set", ["value"], schema);
+    }
+
+    private PlanningNode Mapping(string key, PlanningValue sources, JsonObject schema, string objective)
+    {
+        var contracts = new JsonArray(_catalog.Capabilities.OrderBy(c => c.Id, StringComparer.Ordinal).Select(c => (JsonNode)new JsonObject
+            { ["id"] = c.Id, ["version"] = c.Version, ["input"] = c.InputSchema.DeepClone(), ["output"] = c.OutputSchema.DeepClone() }).ToArray());
+        return new() { Key = key, Type = "set", Purpose = objective,
+            Input = new() { Kind = "dynamic_mapping", Members = [new("sources", sources), new("objective", Text(objective)),
+                new("binding", Text(key)), new("producer_contract", Text(PlanningGraphCompiler.Fingerprint(contracts.ToJsonString())))] },
+            OutputSchema = Contract(ObjectSchema([("value", schema)])) };
     }
 
     private Dictionary<string, Bound> Operation(PlanTask task, Scope scope, List<PlanningNode> target, string key)
@@ -526,20 +541,20 @@ public sealed partial class TaskPlanCompiler
     private Bound Consume(Bound value, Scope scope)
     {
         if (value.SelectionSource is not { } source) return value;
-        if (!_catalog.AllowedStepTypes.Contains("value.project")) Fail("TASK_OUTPUT_POLICY", "Consuming this business field requires an allowed deterministic presence check.");
+        if (!_catalog.AllowedStepTypes.Contains("set")) Fail("TASK_OUTPUT_POLICY", "Consuming this business field requires an allowed deterministic presence check.");
         if (value.Schema.Count == 0 || value.Schema["x-gnougo-opaque"]?.ToString() == "true")
             Fail("TASK_OUTPUT_CONTRACT", "An opaque optional result cannot establish a typed business field.");
         if (scope.Target is null) return value; // Semantic preflight: no graph emission.
         var key = Key(scope.Workflow.Key, "select:" + _location + ":" + ValueIdentity(source.Value) + ":" + new JsonArray(value.SelectionPath!.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()).ToJsonString());
         if (!scope.Target.Any(n => n.Key == key))
         {
-            var node = new PlanningNode { Key = key, Type = "value.project",
-                Input = Object([new("value", source.Value), new("paths", Array([Strings(value.SelectionPath!)]))]),
+            var node = new PlanningNode { Key = key, Type = "set",
+                Input = Projection([new("value", source.Value), new("paths", Array([Strings(value.SelectionPath!)]))]),
                 OutputSchema = Contract(ObjectSchema([("value", value.Schema)])) };
             if (scope.Cleanup) GuardCleanup(node);
             scope.Target.Add(node); _sources[key] = _location;
         }
-        return Output(key, "value.project", ["value"], value.Schema) with { TypeLocation = value.TypeLocation };
+        return Output(key, "set", ["value"], value.Schema) with { TypeLocation = value.TypeLocation };
     }
 
     private Bound Predicate(TaskValue value, Scope scope)

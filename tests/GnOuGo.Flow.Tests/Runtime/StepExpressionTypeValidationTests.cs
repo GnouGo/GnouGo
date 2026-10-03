@@ -1113,11 +1113,9 @@ steps:
     input:
       owner: "${data.inputs.owner}"
   - id: require_identity
-    type: value.project
+    type: set
     output_schema: {type: object, properties: {value: {type: string}}, required: [value]}
-    input:
-      paths: [[]]
-      value: "${data.steps.derive.owner}"
+    input: '${checkedMapping("({value:source})",data.steps.derive.owner)}'
   - id: consume
     type: llm.call
     input:
@@ -1732,11 +1730,9 @@ workflows:
         input:
           owner: "${data.inputs.owner}"
       - id: require_identity
-        type: value.project
+        type: set
         output_schema: {type: object, properties: {value: {type: string}}, required: [value]}
-        input:
-          paths: [[]]
-          value: "${data.steps.derive.owner}"
+        input: '${checkedMapping("({value:source})",data.steps.derive.owner)}'
       - id: call_helper
         type: workflow.call
         input:

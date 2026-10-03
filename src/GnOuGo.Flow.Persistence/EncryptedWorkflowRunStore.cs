@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace GnOuGo.Flow.Persistence;
 
 /// <summary>KeyVault is authoritative. SQLite stores no execution content and can be rebuilt at any time.</summary>
-public sealed class EncryptedWorkflowRunStore : IWorkflowRunStore
+public sealed class EncryptedWorkflowRunStore : IWorkflowRunStore, IMappingArtifactStore
 {
     public const string Collection = "flow-execution-journal-v9";
     private const string Author = "GnOuGo.Flow.Persistence";
@@ -38,6 +38,28 @@ public sealed class EncryptedWorkflowRunStore : IWorkflowRunStore
         var path = GnOuGoWorkspace.ResolveDatabasePath(indexPath, root, ".GnOuGo/data/flow-execution-v9.db");
         return new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultPath, root), path,
             GnOuGoWorkspace.ResolveDatabasePath(ownerPath, root, ".GnOuGo/data/flow-execution-v9/owners"), logger);
+    }
+
+    private const string MappingCollection = "flow-validated-mappings-v1";
+    async Task<MappingArtifact?> IMappingArtifactStore.ReadAsync(string tenant, string key, CancellationToken ct)
+    {
+        ValidateKey(tenant, key);
+        var record = await _records.GetAsync(MappingCollection, tenant, key, Author, ct);
+        if (record is null) return null;
+        var artifact = JsonSerializer.Deserialize(record.Value, MappingArtifactJsonContext.Default.MappingArtifact);
+        return artifact?.Key == key ? artifact : null;
+    }
+    async Task IMappingArtifactStore.WriteAsync(string tenant, MappingArtifact artifact, CancellationToken ct)
+    {
+        ValidateKey(tenant, artifact.Key);
+        GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(artifact.Script);
+        await _records.UpsertAsync(MappingCollection, tenant, artifact.Key,
+            JsonSerializer.Serialize(artifact, MappingArtifactJsonContext.Default.MappingArtifact), Author, ct);
+    }
+    async Task IMappingArtifactStore.RemoveAsync(string tenant, string key, CancellationToken ct)
+    {
+        ValidateKey(tenant, key);
+        await _records.DeleteAsync(MappingCollection, tenant, key, Author, ct);
     }
 
     public async Task<WorkflowRun?> ReadAsync(string tenantId, string runId, CancellationToken ct = default)

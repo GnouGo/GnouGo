@@ -48,11 +48,9 @@ public sealed class WorkflowFinalizationTests
               main:
                 steps:
                   - id: fail
-                    type: value.project
+                    type: set
                     output_schema: {type: object, required: [value], properties: {value: {type: string}}}
-                    input:
-                      paths: [[]]
-                      value: null
+                    input: '${checkedMapping("({value:source})",null)}'
                 finally:
                   - id: cleanup
                     type: set
@@ -168,18 +166,14 @@ public sealed class WorkflowFinalizationTests
               main:
                 steps:
                   - id: primary_failure
-                    type: value.project
+                    type: set
                     output_schema: {type: object, required: [value], properties: {value: {type: string}}}
-                    input:
-                      paths: [[]]
-                      value: null
+                    input: '${checkedMapping("({value:source})",null)}'
                 finally:
                   - id: cleanup_failure
-                    type: value.project
+                    type: set
                     output_schema: {type: object, required: [value], properties: {value: {type: string}}}
-                    input:
-                      paths: [[]]
-                      value: null
+                    input: '${checkedMapping("({value:source})",null)}'
             """, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.False(result.Success);

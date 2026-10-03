@@ -5,6 +5,7 @@ using Jint.Native;
 using Jint.Runtime;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Scripting;
+using Acornima.Ast;
 
 namespace GnOuGo.Flow.Core.Expressions;
 
@@ -39,7 +40,7 @@ public sealed class ExpressionEvaluator
         {
             foreach (var kv in extraFunctions)
             {
-                if (kv.Key == ArtifactCollectionExpression.FunctionName) throw new ArgumentException("The artifact collection primitive cannot be overridden.");
+                if (kv.Key is ArtifactCollectionExpression.FunctionName or JintSandbox.MappingFunction) throw new ArgumentException("Reserved expression helpers cannot be overridden.");
                 _functions[kv.Key] = kv.Value;
             }
         }
@@ -56,6 +57,65 @@ public sealed class ExpressionEvaluator
     /// </summary>
     public JsonNode? Evaluate(string expression, JsonNode? context)
     {
+        // Preserve exact JSON scalar values when wiring data; do not round decimals through JS doubles.
+        var syntax = new Acornima.Parser().ParseExpression(expression);
+        if (syntax is CallExpression { Callee: Identifier { Name: JintSandbox.MappingFunction }, Arguments.Count: 2 } mapping &&
+            mapping.Arguments[0] is Literal { Value: string script })
+        {
+            if (!Structural(mapping.Arguments[1], out var source))
+                throw new WorkflowRuntimeException(ErrorCodes.EvalError, "checkedMapping requires a direct structured source binding.");
+            return new JintSandbox(Math.Min(_maxStatements, 10000), (int)Math.Min(_timeout.TotalMilliseconds, 5000), Math.Min(_memoryLimitBytes, 50000000))
+                .ExecuteMapping(script, source);
+        }
+        if (Structural(syntax, out var direct)) return direct is null ? null : JsonNode.Parse(direct.ToJsonString());
+
+        bool Structural(Node node, out JsonNode? value)
+        {
+            value = null;
+            if (node is CallExpression { Callee: Identifier { Name: JintSandbox.MappingFunction }, Arguments.Count: 2 } nested &&
+                nested.Arguments[0] is Literal { Value: string nestedScript } && Structural(nested.Arguments[1], out var nestedSource))
+            {
+                value = new JintSandbox(Math.Min(_maxStatements, 10000), (int)Math.Min(_timeout.TotalMilliseconds, 5000), Math.Min(_memoryLimitBytes, 50000000))
+                    .ExecuteMapping(nestedScript, nestedSource); return true;
+            }
+            if (node is Identifier { Name: "data" }) { value = context; return true; }
+            if (node is Literal literal)
+            {
+                if (literal.Value is string text) { value = JsonValue.Create(text); return true; }
+                if (literal.Value is bool boolean) { value = JsonValue.Create(boolean); return true; }
+                if (literal.Value is null) return true;
+                if (literal.Value is double) { value = JsonNode.Parse(expression[node.Start..node.End]); return true; }
+            }
+            if (node is MemberExpression member && Structural(member.Object, out var container))
+            {
+                var key = member.Property is Identifier id && !member.Computed ? id.Name : (member.Property as Literal)?.Value?.ToString();
+                if (key is null) return false;
+                if (container is JsonObject obj) { obj.TryGetPropertyValue(key, out value); return true; }
+                if (container is JsonArray array && int.TryParse(key, out var index) && index >= 0 && index < array.Count) { value = array[index]; return true; }
+                return false;
+            }
+            if (node is ObjectExpression objectExpression)
+            {
+                var result = new JsonObject();
+                foreach (var item in objectExpression.Properties)
+                {
+                    if (item is not Property { Computed: false, Method: false } property || property.Kind != PropertyKind.Init ||
+                        !Structural(property.Value, out var field)) return false;
+                    var name = property.Key is Identifier id ? id.Name : (property.Key as Literal)?.Value?.ToString();
+                    if (name is null || result.ContainsKey(name)) return false;
+                    result.Add(name, field?.DeepClone());
+                }
+                value = result; return true;
+            }
+            if (node is ArrayExpression arrayExpression)
+            {
+                var result = new JsonArray();
+                foreach (var item in arrayExpression.Elements)
+                    if (item is not null && Structural(item, out var element)) result.Add(element?.DeepClone()); else return false;
+                value = result; return true;
+            }
+            return false;
+        }
         var engine = new Engine(options =>
         {
             options.MaxStatements(_maxStatements);

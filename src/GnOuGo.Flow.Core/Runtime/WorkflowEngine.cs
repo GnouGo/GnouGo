@@ -30,7 +30,16 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
     public IHumanInputProvider? HumanInputProvider { get; set; }
     public IDictionary<string, IAgentTaskRunner> AgentTaskRunners { get; } = new Dictionary<string, IAgentTaskRunner>(StringComparer.Ordinal);
     public IAgentTaskVerifier AgentTaskVerifier { get; set; } = new EvidenceAgentTaskVerifier();
-    public IWorkflowRunStore? RunStore { get; set; }
+    private IWorkflowRunStore? _runStore;
+    public IWorkflowRunStore? RunStore
+    {
+        get => _runStore;
+        set { _runStore = value; MappingArtifacts ??= value as IMappingArtifactStore; }
+    }
+    public IMappingArtifactStore? MappingArtifacts { get; set; }
+    internal string MappingExecutionId { get; private set; } = "";
+    internal System.Collections.Concurrent.ConcurrentDictionary<string, MappingArtifact> MappingMemory { get; } = new(StringComparer.Ordinal);
+    internal System.Collections.Concurrent.ConcurrentDictionary<string, JsonObject> MappingAttempts { get; } = new(StringComparer.Ordinal);
     internal WorkflowRunJournal? Journal { get; set; }
     /// <summary>Optional separately injected TaskPlan planner; Flow.Core does not reference its implementation.</summary>
     public Planning.IPlanningInteraction? PlanningInteraction { get; set; }
@@ -90,6 +99,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
 
     private async Task<RunResult> ExecuteCoreAsync(CompiledWorkflow workflow, JsonNode? inputs, CancellationToken ct)
     {
+        MappingMemory.Clear(); MappingAttempts.Clear(); MappingExecutionId = Limits.RunId ?? Guid.NewGuid().ToString("N");
         _totalStepsExecuted = Journal?.Run.StepsStarted ?? 0;
         CompiledDocument = workflow.Document;
 
@@ -1110,7 +1120,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         registry.Register(new Executors.LoopParallelExecutor());
         registry.Register(new Executors.SwitchExecutor());
         registry.Register(new Executors.SetExecutor());
-        registry.Register(new Executors.ValueProjectExecutor());
+        registry.Register(new Executors.DynamicMappingExecutor());
         foreach (var type in new[] { "number.add", "number.multiply", "number.default" })
             registry.Register(new Executors.NumericTransformExecutor(type));
         registry.Register(new Executors.TemplateRenderExecutor());

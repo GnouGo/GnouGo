@@ -41,6 +41,21 @@ public sealed partial class TaskPlanCompiler
     private Dictionary<string, Bound> Transform(PlanTask task, Scope scope, List<PlanningNode> target, string key)
     {
         var schema = Schema(task.ResultType!);
+        if (task.Mode == "extract")
+        {
+            var bindings = task.Inputs.Select(i => (i.Name, Bound: Value(i.Value, scope))).ToArray();
+            var observed = Object(bindings.Select(i => new PlanningMember(i.Name, i.Bound.Value)));
+            var inputShape = ObjectSchema(bindings.Select(i => (i.Name, i.Bound.Schema)));
+            var node = PlanningGraphValidation.TypesFit(inputShape, schema)
+                ? new PlanningNode { Key = key, Type = "set", Purpose = task.Objective,
+                    Input = Projection([new("value", observed), new("paths", Array([Strings([])]))]),
+                    OutputSchema = Contract(ObjectSchema([("value", schema)])) }
+                : Mapping(key, observed, schema, task.Objective);
+            target.Add(node);
+            var results = Result(key, "set", schema);
+            foreach (var result in results.Values) result.Value.Path.Insert(0, "value");
+            return results;
+        }
         var prompt = Key(key, "prompt");
         var inputs = task.Inputs.Select(i => new PlanningMember(i.Name, BindInput(i.Value, PlanningContractShapes.Opaque(), scope).Value)).ToList();
         for (var i = 0; i < task.Inputs.Count; i++)

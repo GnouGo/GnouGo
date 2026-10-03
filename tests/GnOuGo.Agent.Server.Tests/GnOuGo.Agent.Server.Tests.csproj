@@ -51,6 +51,7 @@
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs" Link="LiveWorkflowOracles.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveCodeEvidence.cs" Link="LiveCodeEvidence.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/SchemaPortabilityCampaign.cs" Link="SchemaPortabilityCampaign.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/MappingLiveEvaluation.cs" Link="MappingLiveEvaluation.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/CampaignInferenceProxy.cs" Link="CampaignInferenceProxy.cs" />
   </ItemGroup>
   <ItemGroup>

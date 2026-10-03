@@ -12,6 +12,7 @@ using GnOuGo.KeyVault.Core.Services;
 using GnOuGo.Planning.Examples;
 using GnOuGo.Workspace;
 
+if (args.FirstOrDefault() == "--mapping-fixture") { await MappingLiveEvaluation.ServeAsync(args[1]); return; }
 if (args.FirstOrDefault() == "--stabilization") { await StabilizationBenchmark.RunAsync(args); return; }
 if (args.FirstOrDefault() == "--real-contract-planning") { await RealContractPlanningProbe.RunAsync(args); return; }
 if (args.FirstOrDefault() == "--schema-portability") { await SchemaPortabilityCampaign.RunAsync(args); return; }

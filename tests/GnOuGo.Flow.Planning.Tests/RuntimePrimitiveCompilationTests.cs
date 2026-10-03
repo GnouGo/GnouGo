@@ -58,7 +58,7 @@ public sealed class RuntimePrimitiveCompilationTests
         var compiled = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(compiled.Diagnostics);
         var nodes = compiled.Graph!.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps)).ToArray();
         Assert.DoesNotContain(nodes, n => n.Type is "array.project" or "value.validate" or "decision.evaluate" or "assert.non_null");
-        Assert.Contains(nodes, n => n.Type == "value.project" && PlanningGraphValidation.Member(n.Input, "each")?.Boolean == true);
+        Assert.Contains(nodes, n => n.Type == "set" && n.Input.Kind == "projection" && PlanningGraphValidation.Member(n.Input, "each")?.Boolean == true);
         var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         foreach (var values in new[] { new JsonArray(), new JsonArray("a", "a"), new JsonArray("a", "b", "c") })
@@ -75,7 +75,7 @@ public sealed class RuntimePrimitiveCompilationTests
     {
         var runtime = new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask);
         var catalog = await runtime.DiscoverAsync(new(), PlannerFixture.Ct);
-        var project = new PlanningNode { Key = "check", Type = "value.project", Input = PlanningCorpus.Obj(
+        var project = new PlanningNode { Key = "check", Type = "set", Input = PlanningCorpus.Projection(
             ("value", new() { Kind = "array", Items = [PlanningCorpus.Obj(("declared", PlanningCorpus.Text("x")))] }),
             ("each", new() { Kind = "boolean", Boolean = true }),
             ("paths", new() { Kind = "array", Items = [new() { Kind = "array", Items = [PlanningCorpus.Text("invented")] }] })),

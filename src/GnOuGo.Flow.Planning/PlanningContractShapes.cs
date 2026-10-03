@@ -5,6 +5,25 @@ internal static class PlanningContractShapes
     internal static JsonObject Opaque() => new() { ["x-gnougo-opaque"] = true };
     internal static bool IsOpaque(JsonObject schema) => schema["x-gnougo-opaque"]?.ToString() == "true";
 
+    // Only unknown schema leaves may be deferred. All known surrounding contracts
+    // must still fit; this cannot turn a known incompatible type into extraction.
+    internal static bool CanDefer(JsonObject actual, JsonObject expected)
+    {
+        if (PlanningContractCompatibility.Fits(actual, expected)) return false;
+        var candidate = actual.DeepClone().AsObject(); var unknown = false;
+        Visit(candidate);
+        return unknown && PlanningContractCompatibility.Fits(candidate, expected, allowUnresolved: true);
+        void Visit(JsonObject schema)
+        {
+            if (IsOpaque(schema)) { schema.Clear(); unknown = true; return; }
+            foreach (var name in new[] { "properties", "patternProperties", "$defs", "definitions" })
+                if (schema[name] is JsonObject fields) foreach (var field in fields.Select(p => p.Value).OfType<JsonObject>()) Visit(field);
+            foreach (var name in new[] { "items", "additionalProperties", "contains" }) if (schema[name] is JsonObject child) Visit(child);
+            foreach (var name in new[] { "anyOf", "oneOf", "allOf", "prefixItems" })
+                if (schema[name] is JsonArray children) foreach (var child in children.OfType<JsonObject>()) Visit(child);
+        }
+    }
+
     // An empty alternative contributes no possible element. Keep the complete
     // collection contract at the runtime guard; derive only the iteration's item type.
     internal static JsonObject? IterationItems(JsonObject schema)

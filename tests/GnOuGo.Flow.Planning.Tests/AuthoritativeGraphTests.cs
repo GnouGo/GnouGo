@@ -15,7 +15,7 @@ public sealed class AuthoritativeGraphTests
         var graph = new PlanningGraph { Workflows = [new() { Steps = [new() { Key = "source", Type = "mcp.call", CapabilityId = "opaque", Input = PlanningCorpus.Obj(("request", PlanningCorpus.Obj())) }],
             Outputs = [new() { Name = "result", Schema = new() { Type = "number" }, Value = PlanningCorpus.Ref("output", "source", "value") }] }] };
         Assert.NotEmpty(PlanningExecutableValidation.Validate(graph, catalog));
-        graph.Workflows[0].Steps.Add(new() { Key = "validate", Type = "value.project", Input = PlanningCorpus.Obj(("value", PlanningCorpus.Ref("output", "source")), ("paths", new() { Kind = "array", Items = [new() { Kind = "array" }] })),
+        graph.Workflows[0].Steps.Add(new() { Key = "validate", Type = "set", Input = PlanningCorpus.Projection(("value", PlanningCorpus.Ref("output", "source")), ("paths", new() { Kind = "array", Items = [new() { Kind = "array" }] })),
             OutputSchema = new() { Type = "object", Properties = [new() { Name = "value", Schema = new() { Type = "object", Properties = [new() { Name = "value", Schema = new() { Type = "number" } }] } }] } });
         graph.Workflows[0].Outputs[0].Value = PlanningCorpus.Ref("output", "validate", "value", "value");
         Assert.Empty(PlanningExecutableValidation.Validate(graph, catalog));

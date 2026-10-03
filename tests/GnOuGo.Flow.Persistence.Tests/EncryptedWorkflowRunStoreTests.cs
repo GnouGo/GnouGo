@@ -16,6 +16,21 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
         Path.Combine(_root, "index.db"), Path.Combine(_root, "owners"));
 
     [Fact]
+    public async Task MappingArtifactsAreEncryptedTenantScopedAndSurviveRestart()
+    {
+        IMappingArtifactStore first = Store();
+        const string script = "({private_mapping_field:source.observed})";
+        await first.WriteAsync("tenant", new("mapping-key", script, null, 1), Ct);
+        IMappingArtifactStore restarted = Store();
+        Assert.Equal(script, (await restarted.ReadAsync("tenant", "mapping-key", Ct))!.Script);
+        Assert.Null(await restarted.ReadAsync("other", "mapping-key", Ct));
+        foreach (var file in Directory.GetFiles(_root, "*.db*"))
+            Assert.DoesNotContain(script, Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
+        await restarted.RemoveAsync("tenant", "mapping-key", Ct);
+        Assert.Null(await first.ReadAsync("tenant", "mapping-key", Ct));
+    }
+
+    [Fact]
     public async Task EncryptedJournalSurvivesNewStore_AndIndexLoss()
     {
         var store = Store();

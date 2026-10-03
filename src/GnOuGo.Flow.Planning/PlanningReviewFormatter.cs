@@ -11,7 +11,9 @@ public static class PlanningReviewFormatter
                 var contract = state.Catalog!.Capabilities.Single(c => c.Id == n.CapabilityId);
                 return new PlanningValidationResult("operation:" + n.Key, "declared", (n.Purpose ?? n.Key) +
                     " — contract effect: " + contract.EffectKind + ". Execution has not been observed; review the business requirements separately.", []);
-            });
+            }).Concat(PlanningGraphCompiler.Enumerate(state.Graph!.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)))
+                .Where(n => n.Input.Kind == "dynamic_mapping").Select(n => new PlanningValidationResult("mapping:" + n.Key, "declared",
+                    n.Purpose + " — runtime extraction, at most two model attempts per invocation; cache hits still validate the complete result. No execution evidence yet.", [])));
 
     public static string TaskDiagram(TaskPlan? plan)
     {
@@ -60,7 +62,7 @@ public static class PlanningReviewFormatter
                 foreach (var node in nodes)
                 {
                     var id = prefix + "n" + PlanningGraphCompiler.Fingerprint(node.Key)[..12];
-                    var label = node.Key + ": " + node.Type + (node.If is null ? "" : " (conditional)");
+                    var label = node.Key + ": " + (node.Input.Kind == "dynamic_mapping" ? "runtime extraction · max 2 model attempts" : node.Type) + (node.If is null ? "" : " (conditional)");
                     if (node.Type == "agent.run")
                     {
                         var calls = PlanningGraphValidation.Member(PlanningGraphValidation.Member(node.Input, "budget") ?? new(), "max_model_calls")?.Number;

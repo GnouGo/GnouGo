@@ -190,6 +190,7 @@ public sealed partial class TaskPlanCompiler
         void InspectTask(PlanTask task, Scope scope)
         {
             var path = "/tasks/" + task.Id;
+            if (task.Mode is not null && task.Kind != "transform") findings.Add(new("TASK_TRANSFORM_MODE", path + "/mode", "Only business transforms declare an extraction or interpretation mode."));
             if (symbols.InvalidIds.Contains(task.Id)) { scope.Blocked.Add(("output", task.Id, "*")); return; }
             Check(path + "/objective", () => { if (string.IsNullOrWhiteSpace(task.Objective)) Fail("TASK_OBJECTIVE_REQUIRED", "Each task requires an objective."); });
             Check(path + "/dependsOn", () =>
@@ -226,7 +227,9 @@ public sealed partial class TaskPlanCompiler
                 case "transform":
                     Check(path + "/kind", () =>
                     {
-                        if (!_catalog.AllowedStepTypes.Contains("llm.call") || !_catalog.AllowedStepTypes.Contains("template.render"))
+                        if (task.Mode is not (null or "extract" or "interpret")) Fail("TASK_TRANSFORM_MODE", "Transform mode must be extract or interpret.");
+                        if (task.Mode == "extract" ? !_catalog.AllowedStepTypes.Contains("mapping.dynamic") :
+                            !_catalog.AllowedStepTypes.Contains("llm.call") || !_catalog.AllowedStepTypes.Contains("template.render"))
                             Fail("TASK_TRANSFORM_DENIED", "Transform tasks require inference and prompt assembly permitted by host policy.");
                     });
                     Check(path + "/inputs", () =>
@@ -237,7 +240,11 @@ public sealed partial class TaskPlanCompiler
                     foreach (var input in task.Inputs) Read(input.Value, scope, path + "/inputs/" + input.Name);
                     var typeFindings = TransformTypeFindings(task.ResultType, path + "/resultType").ToArray();
                     findings.AddRange(typeFindings);
-                    if (typeFindings.Length == 0) ports = StructuredResult(task.Id, TypeSchema(task.ResultType!), path + "/resultType");
+                    if (typeFindings.Length == 0)
+                    {
+                        ports = task.Mode == "extract" ? Result(task.Id, "set", TypeSchema(task.ResultType!)) : StructuredResult(task.Id, TypeSchema(task.ResultType!), path + "/resultType");
+                        if (task.Mode == "extract") foreach (var port in ports.Values) port.Value.Path.Insert(0, "value");
+                    }
                     else scope.Blocked.Add(("output", task.Id, "*"));
                     break;
                 case "operation":

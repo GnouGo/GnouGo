@@ -15,7 +15,7 @@ internal static class StepOutputTypeResolver
         return step.Type switch
         {
             "set" => ResolveSet(step, symbols),
-            "value.project" => step.OutputSchema is null ? FlowTypeDescriptor.Any : FlowTypeDescriptorConverter.FromJsonSchema(step.OutputSchema),
+            "mapping.dynamic" => step.OutputSchema is null ? FlowTypeDescriptor.Any : FlowTypeDescriptorConverter.FromJsonSchema(step.OutputSchema),
             "template.render" => ResolveTemplateRender(step),
             "llm.call" => ResolveLlmCall(step),
             "mcp.call" => ResolveMcpCall(step, mcpContracts, stepContracts[step.Type].OutputType.ResolvePath(["status"]) ?? FlowTypeDescriptor.Any),

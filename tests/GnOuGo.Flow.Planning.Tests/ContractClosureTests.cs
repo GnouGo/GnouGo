@@ -40,7 +40,7 @@ public sealed class ContractClosureTests
     [InlineData("omega", "{\"label\":null}", false)]
     [InlineData("alpha", "\"not structured\"", false)]
     [InlineData("omega", "[{\"type\":\"text\",\"text\":\"exact\"}]", false)]
-    public async Task OpaqueResultsAreCheckedBeforeConsumersWithoutInference(string operation, string payload, bool succeeds)
+    public async Task OpaqueResultsUseDeferredChecksAndCannotInventMissingData(string operation, string payload, bool succeeds)
     {
         var calls = new List<string>(); var factory = new InMemoryMcpClientFactory();
         var expected = Shape();
@@ -54,19 +54,19 @@ public sealed class ContractClosureTests
                 [operation + "_consume"] = input => { Assert.Equal("exact", input!["payload"]!["label"]!.ToString()); calls.Add("consume"); return new() { Content = new JsonObject() }; }
             }
         });
-        var engine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human() };
+        var engine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human(), LLMClient = new IdentityModel(), LlmDefaults = new() { Model = "test" } };
         var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
         var catalog = await TaskPlanCompilerTests.Catalog(runtime);
         var plan = Pipeline(catalog.Capabilities.Single(c => c.Method == operation).Id, catalog.Capabilities.Single(c => c.Method == operation + "_consume").Id);
         var compilation = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(compilation.Diagnostics);
         var graph = compilation.Graph!;
-        Assert.Single(graph.Workflows[0].Steps, n => n.Type == "value.project");
+        Assert.Single(graph.Workflows[0].Steps, n => n.Type == "set" && n.Input.Kind == "dynamic_mapping");
         Assert.DoesNotContain(graph.Workflows.SelectMany(w => w.Steps), n => n.Type == "llm.call");
         PlanningConfirmationGuards.Apply(graph, catalog);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, catalog)));
         var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), PlannerFixture.Ct);
         Assert.Equal(succeeds, result.Success); Assert.Equal(succeeds ? new[] { "produce", "consume" } : ["produce"], calls);
-        if (!succeeds) Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+        if (!succeeds) Assert.Equal("CONTRACT_UNSATISFIED", result.Error!.Code);
         Assert.Empty(catalog.Capabilities.Single(c => c.Method == operation).OutputSchema);
     }
 
@@ -153,7 +153,7 @@ public sealed class ContractClosureTests
             Tools = [new() { Name = "write", InputSchema = contract, OutputSchema = ObjectSchema() }],
             ToolHandlers = new() { ["write"] = input => { calls++; Assert.True(JsonNode.DeepEquals(JsonNode.Parse(supplied), input)); return new() { Content = new JsonObject() }; } }
         });
-        var engine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human() };
+        var engine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human(), LLMClient = new IdentityModel(), LlmDefaults = new() { Model = "test" } };
         var catalog = await TaskPlanCompilerTests.Catalog(new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask));
         var graph = new PlanningGraph { Workflows = [new() { Inputs = [new() { Name = "optional", Required = false, Schema = new() { Type = "string" } }], Steps = [new()
         { Key = "write", Type = "mcp.call", CapabilityId = catalog.Capabilities.Single(c => c.Method == "write").Id,
@@ -180,4 +180,9 @@ public sealed class ContractClosureTests
         ["required"] = new JsonArray(fields.Select(f => (JsonNode?)JsonValue.Create(f.Name)).ToArray()), ["additionalProperties"] = false
     };
     private static IEnumerable<PlanningValue> Descendants(PlanningValue value) => new[] { value }.Concat(value.Members.SelectMany(m => Descendants(m.Value))).Concat(value.Items.SelectMany(Descendants));
+    private sealed class IdentityModel : ILLMClient
+    {
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct) => Task.FromResult(new LLMResponse
+            { Json = new JsonObject { ["script"] = "source.value" } });
+    }
 }

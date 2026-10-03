@@ -22,10 +22,10 @@ internal static class PlanningGeneratedGraph
                     yield return new("RESERVED_IDENTITY", location, "Stage identities and roles cannot impersonate host controls.");
                 if (node.Type is "mcp.call" or "agent.run" && !catalog.Capabilities.Any(c => c.Id == node.CapabilityId && c.StepType == node.Type))
                     yield return new("CAPABILITY_UNKNOWN", location, "Resolve an authorized contract before using this stage.");
-                if (node.OutputSchema is not null && node.Type is not ("set" or "value.project"))
+                if (node.OutputSchema is not null && node.Type != "set")
                     yield return new("GENERATED_SCHEMA_OVERRIDE_DENIED", location + "/outputSchema", "Set outputSchema to null. This stage derives its output contract from its operation or child stages; a model declaration cannot override it.");
                 if (node.Type == "mcp.call" && (node.StructuredOutput is not null || PlanningGraphValidation.Member(node.Input, "structured_output") is not null))
-                    yield return new("GENERATED_INFERENCE_DENIED", location, "Use the exact selected MCP output contract. If it is opaque, validate the complete value explicitly with value.project; do not add implicit model interpretation to a deterministic stage.");
+                    yield return new("GENERATED_INFERENCE_DENIED", location, "Use the exact selected MCP output contract. If it is opaque, bind its whole result to an authoritative consumer or explicit extraction result; runtime mapping remains compiler-owned.");
                 if (node.Type == "mcp.call" && (node.Input.Kind != "object" ||
                     node.Input.Members.Any(m => !IsDirectMcpInput(m.Name))))
                     yield return new("GENERATED_MCP_MODE_DENIED", location + "/input", "A generated MCP stage invokes its exact selected contract. Supply request and optional deterministic timeout/error/null-handling flags; target selection, templates and model-assisted modes belong outside this stage.");

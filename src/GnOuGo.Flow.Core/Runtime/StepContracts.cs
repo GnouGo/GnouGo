@@ -27,7 +27,7 @@ public static class BuiltInStepContracts
         new Dictionary<string, StepContract>(StringComparer.Ordinal)
         {
             ["agent.run"] = new Executors.AgentRunExecutor().Contract,
-            ["value.project"] = new Executors.ValueProjectExecutor().Contract,
+            ["mapping.dynamic"] = new Executors.DynamicMappingExecutor().Contract,
             ["number.add"] = new Executors.NumericTransformExecutor("number.add").Contract,
             ["number.multiply"] = new Executors.NumericTransformExecutor("number.multiply").Contract,
             ["number.default"] = new Executors.NumericTransformExecutor("number.default").Contract,

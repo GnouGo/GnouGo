@@ -104,7 +104,7 @@ public static class PlanningGraphValidation
                     if (node.OutputSchema is not null)
                     {
                         var declared = PlanningGraphCompiler.ToJsonSchema(node.OutputSchema, catalog);
-                        var actual = node.Type == "set" ? ValueSchema(node.Input, new(StringComparer.Ordinal)) : ValueSchema(new() { Kind = "output", Source = node.Key }, new(StringComparer.Ordinal));
+                        var actual = node.Type == "set" && node.Input.Kind is not ("projection" or "dynamic_mapping") ? ValueSchema(node.Input, new(StringComparer.Ordinal)) : ValueSchema(new() { Kind = "output", Source = node.Key }, new(StringComparer.Ordinal));
                         if (actual is not null && !(verifiedGate && node.Key == PlanningConfirmationGuards.Assert && workflow.Key == graph.Entrypoint) && !TypesFit(actual, declared, allowUnresolved: node.Type == "set")) errors.Add(node.Type == "set"
                             ? new("SET_OUTPUT_INVALID", location + "/input", "The set input is its result and does not satisfy the declared output contract. Compute the declared fields inside input; a context object cannot stand in for the calculation.")
                             : new("OUTPUT_TYPE_MISMATCH", location + "/outputSchema", "The declared output is not established by the actual computation or producer contract."));
@@ -135,10 +135,12 @@ public static class PlanningGraphValidation
                             }
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Dedicated reference diagnostics follow. */ }
-                if (node.Type == "value.project")
+                if (node.Type == "set" && node.Input.Kind == "projection")
                 {
                     try
                     {
+                        if (node.Input.Members.Any(m => m.Name is not ("value" or "paths" or "each")))
+                            throw new InvalidOperationException("Projection contains undeclared settings.");
                         var each = Member(node.Input, "each");
                         if (each is not null && each is not { Kind: "boolean", Boolean: not null })
                             throw new InvalidOperationException("Projection mode must be a literal boolean.");
@@ -153,7 +155,7 @@ public static class PlanningGraphValidation
                             // Identity projection validates the whole value before establishing its type.
                             // It never grants field access on an unchecked opaque producer.
                             if (projection.Items.Count == 0) continue;
-                            var contract = ValueSchema(source, new(StringComparer.Ordinal)) ?? throw new InvalidOperationException("Check the whole source with value.project and an empty path before projecting fields.");
+                            var contract = ValueSchema(source, new(StringComparer.Ordinal)) ?? throw new InvalidOperationException("Check the whole source against its authoritative target before projecting fields.");
                             if (each?.Boolean == true) contract = contract["items"] as JsonObject ?? throw new InvalidOperationException("Per-item projection needs an established item contract.");
                             var selected = AtPath(contract, projection.Items.Select(p => p.Text!).ToList(), projection: true, partial: true);
                             var output = node.OutputSchema is null ? null : PlanningGraphCompiler.ToJsonSchema(node.OutputSchema, catalog);
@@ -166,6 +168,14 @@ public static class PlanningGraphValidation
                     {
                         errors.Add(new("PROJECTION_CONTRACT_INVALID", location + "/input", ex.Message + " Control results retain child executor envelopes; MCP business fields are under response and called workflow outputs are under outputs."));
                     }
+                }
+                if (node.Input.Kind == "dynamic_mapping")
+                {
+                    if (node.Type != "set" || !catalog.AllowedStepTypes.Contains("mapping.dynamic") ||
+                        node.OutputSchema is null || Member(node.Input, "sources") is not { Kind: "object", Members.Count: > 0 } ||
+                        node.Input.Members.Count != 4 || new[] { "objective", "binding", "producer_contract" }.Any(name =>
+                            Member(node.Input, name) is not { Kind: "string", Text: { Length: > 0 } }))
+                        errors.Add(new("CONTRACT_UNSATISFIED", location + "/input", "Deferred extraction requires approved sources, a literal objective, binding/contract identities, a target contract and permitted bounded runtime inference."));
                 }
                 CheckValue(node.Input, location + "/input");
                 if (catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId) is { } selectedCapability)
@@ -317,6 +327,7 @@ public static class PlanningGraphValidation
 
             JsonObject? ValueSchema(PlanningValue value, HashSet<string> visiting)
             {
+                if (value.Kind is "projection" or "dynamic_mapping") return null; // Checked only as a complete set input, below.
                 if (value.Kind is "predicate" or "json") return PlanningValues.ComputationContract(value, operand => ValueSchema(operand, visiting));
                 if (value.Kind == "present")
                 {
@@ -421,7 +432,7 @@ public static class PlanningGraphValidation
                             var target = graph.Workflows.FirstOrDefault(w => w.Key == Member(producer.Input, "ref")?.Source);
                             schema = target is null ? null : ObjectSchema(target.Outputs.Select(o => (o.Name, PlanningGraphCompiler.ToJsonSchema(o.Schema, catalog))));
                         }
-                        else if (producer.Type is "set" or "value.project") schema = producer.OutputSchema is not null ? PlanningGraphCompiler.ToJsonSchema(producer.OutputSchema, catalog) : ValueSchema(producer.Input, visiting);
+                        else if (producer.Type is "set" or "mapping.dynamic") schema = producer.OutputSchema is not null ? PlanningGraphCompiler.ToJsonSchema(producer.OutputSchema, catalog) : ValueSchema(producer.Input, visiting);
                         else if (producer.Type == "template.render")
                         {
                             var mode = Member(producer.Input, "mode");

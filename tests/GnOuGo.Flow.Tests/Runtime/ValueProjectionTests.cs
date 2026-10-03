@@ -29,7 +29,7 @@ public sealed class ValueProjectionTests
         var result = await Run(document);
         Assert.Equal(valid, result.Success);
         if (valid) Assert.True(JsonNode.DeepEquals(JsonNode.Parse(expected!), result.StepResults[0].Output!["value"]));
-        else { Assert.Null(result.StepResults[0].Output); Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code); }
+        else { Assert.Null(result.StepResults[0].Output); Assert.Contains(result.Error!.Code, new[] { ErrorCodes.InputValidation, "CONTRACT_UNSATISFIED" }); }
         Assert.Equal(valid ? 2 : 1, result.StepResults.Count);
         Assert.Equal(original, document.Workflows["main"].Steps[0].Input!.ToJsonString());
     }
@@ -106,10 +106,14 @@ public sealed class ValueProjectionTests
             workflows:
               main:
                 steps:
-                  - {id: project, type: value.project, input: {}}
+                  - {id: project, type: set, input: {}}
                   - {id: consume, type: set, input: {done: true}}
             """);
-        var project = document.Workflows["main"].Steps[0]; project.Input = input;
+        var project = document.Workflows["main"].Steps[0];
+        var source = input["value"] is JsonValue text && text.TryGetValue<string>(out var binding) && binding.StartsWith("${", StringComparison.Ordinal)
+            ? binding[2..^1] : input["value"]?.ToJsonString() ?? "null";
+        var script = "({value:m.select(source," + input["paths"]!.ToJsonString() + "," + (input.ContainsKey("each") ? input["each"]?.ToJsonString() ?? "null" : "false") + ")})";
+        project.Input = JsonValue.Create("${checkedMapping(" + JsonValue.Create(script)!.ToJsonString() + "," + source + ")}");
         project.OutputSchema = new JsonObject { ["type"] = "object", ["required"] = new JsonArray("value"), ["additionalProperties"] = false,
             ["properties"] = new JsonObject { ["value"] = valueSchema } };
         return document;

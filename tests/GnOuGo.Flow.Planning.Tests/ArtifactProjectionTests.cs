@@ -15,11 +15,11 @@ public sealed class ArtifactProjectionTests
         var (_, catalog) = await TaskArtifactBindingTests.Fixture();
         var original = PlanningCorpus.Ref("output", "origin", "handle");
         var array = type == "each";
-        var projection = new PlanningNode { Key = "select", Type = "value.project", Input = type switch
+        var projection = new PlanningNode { Key = "select", Type = "set", Input = type switch
         {
-            "whole" => PlanningCorpus.Obj(("value", original), ("paths", new() { Kind = "array", Items = [Path()] })),
-            "each" => PlanningCorpus.Obj(("value", new() { Kind = "array", Items = [PlanningCorpus.Obj(("kept", original))] }), ("paths", new() { Kind = "array", Items = [Path("kept")] }), ("each", new() { Kind = "boolean", Boolean = true })),
-            _ => PlanningCorpus.Obj(("value", PlanningCorpus.Obj(("kept", original))), ("paths", new() { Kind = "array", Items = [Path("kept")] }))
+            "whole" => PlanningCorpus.Projection(("value", original), ("paths", new() { Kind = "array", Items = [Path()] })),
+            "each" => PlanningCorpus.Projection(("value", new() { Kind = "array", Items = [PlanningCorpus.Obj(("kept", original))] }), ("paths", new() { Kind = "array", Items = [Path("kept")] }), ("each", new() { Kind = "boolean", Boolean = true })),
+            _ => PlanningCorpus.Projection(("value", PlanningCorpus.Obj(("kept", original))), ("paths", new() { Kind = "array", Items = [Path("kept")] }))
         }, OutputSchema = new() { Contract = JsonNode.Parse(array
             ? """{"type":"object","required":["value"],"properties":{"value":{"type":"array","items":{"type":"string"}}}}"""
             : """{"type":"object","required":["value"],"properties":{"value":{"type":"string"}}}""")!.AsObject() } };
@@ -43,7 +43,7 @@ public sealed class ArtifactProjectionTests
     public async Task EveryProjectionAlternativeMustProveItsOriginAndCyclesFailClosed()
     {
         var (_, catalog) = await TaskArtifactBindingTests.Fixture();
-        var projection = new PlanningNode { Key = "select", Type = "value.project", Input = PlanningCorpus.Obj(
+        var projection = new PlanningNode { Key = "select", Type = "set", Input = PlanningCorpus.Projection(
             ("value", PlanningCorpus.Obj(("first", PlanningCorpus.Ref("output", "origin", "handle")), ("second", PlanningCorpus.Text("invented")))),
             ("paths", new() { Kind = "array", Items = [Path("first"), Path("second")] })),
             OutputSchema = new() { Contract = JsonNode.Parse("""{"type":"object","required":["value"],"properties":{"value":{"type":"string"}}}""")!.AsObject() } };

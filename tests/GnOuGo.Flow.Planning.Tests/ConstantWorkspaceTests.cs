@@ -140,7 +140,7 @@ public sealed class ConstantWorkspaceTests
         var task = new PlanTask { Id = "work", Kind = "operation", Operation = "runner", Objective = "Inspect project", Inputs = definition.Select(kv => new TaskOutput(kv.Key, Literal(kv.Value))).ToList() };
         task.Inputs[task.Inputs.FindIndex(i => i.Name == "workspace")] = new("workspace", new() { Kind = "field", Port = "path", Items = [new() { Kind = "output", Source = "paths", Port = "location" }] });
         return (new() { Root = new() { Tasks = [new() { Id = "paths", Kind = "value", Objective = "Declare location", Outputs = [new("location", new() { Kind = "object", Members = [new("path", Text("workflows/example/project"))] })] }, task] } },
-            new() { AllowedStepTypes = ["agent.run", "set", "value.project", "workflow.call"], Capabilities = [new() { Id = "runner", Kind = "agent", StepType = "agent.run", FixedInput = new() { ["runner"] = "test" }, InputSchema = AgentTaskContracts.InputSchema, OutputSchema = new() { ["type"] = "object" } }] });
+            new() { AllowedStepTypes = ["agent.run", "set", "workflow.call"], Capabilities = [new() { Id = "runner", Kind = "agent", StepType = "agent.run", FixedInput = new() { ["runner"] = "test" }, InputSchema = AgentTaskContracts.InputSchema, OutputSchema = new() { ["type"] = "object" } }] });
     }
     private static TaskValue Text(string text) => new() { Kind = "string", Text = text };
     private static TaskValue Literal(JsonNode? node) => node switch

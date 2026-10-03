@@ -44,7 +44,7 @@ internal static class PlanningValueProvenance
                 return Proves(workflow, new() { Kind = "output", Source = value.Source, Path = value.Path.Skip(1).ToList() }, graph, source, visited);
             }
             if (source(producer, value)) return true;
-            if (producer.Type == "value.project")
+            if (producer.Type == "set" && producer.Input.Kind == "projection")
             {
                 if (producer.OutputSchema is null || value.Path.FirstOrDefault() != "value" || producer.OnError.Any(h => h.Action == "continue")) return false;
                 var input = PlanningGraphValidation.Member(producer.Input, "value");

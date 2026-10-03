@@ -1071,7 +1071,7 @@ public static class WorkflowPlanSemanticValidator
             // llm.call validates its structured json before returning the envelope.
             // A continuation must itself satisfy that contract; assistant claims,
             // dynamic schemas and unvalidated output declarations are insufficient.
-            JsonNode? checkedSchema = step.Type is "set" or "value.project"
+            JsonNode? checkedSchema = step.Type is "set" or "mapping.dynamic"
                 ? step.OutputSchema : null;
             if (step.Type == "llm.call" && step.Input?["structured_output"] is JsonObject structured)
             {
@@ -1101,11 +1101,11 @@ public static class WorkflowPlanSemanticValidator
     {
         if (step.OutputSchema == null)
         {
-            if (step.Type is "value.project") errors.Add(new WorkflowSemanticValidationError { Code = "VALIDATION_SCHEMA_REQUIRED", WorkflowName = workflowName, StepId = step.Id, Field = "output_schema", Message = "value.project requires a literal output schema." });
+            if (step.Type is "mapping.dynamic") errors.Add(new WorkflowSemanticValidationError { Code = "VALIDATION_SCHEMA_REQUIRED", WorkflowName = workflowName, StepId = step.Id, Field = "output_schema", Message = "mapping.dynamic requires a literal output schema." });
             return;
         }
 
-        if (step.Type is not ("set" or "value.project"))
+        if (step.Type is not ("set" or "mapping.dynamic"))
         {
             errors.Add(new WorkflowSemanticValidationError
             {
@@ -1116,7 +1116,7 @@ public static class WorkflowPlanSemanticValidator
                 InvalidPath = "output_schema",
                 AllowedPaths = Array.Empty<string>(),
                 Suggestion = "Remove output_schema or move the reshaping into a set step.",
-                Message = "output_schema is supported on set and value.project steps."
+                Message = "output_schema is supported on set and mapping.dynamic steps."
             });
             return;
         }
@@ -1169,7 +1169,7 @@ public static class WorkflowPlanSemanticValidator
 
         // This executor validates the whole value at runtime before publishing output.
         // Its source may be opaque; the ordinary set assertion rules remain unchanged.
-        if (step.Type is "value.project") return;
+        if (step.Type is "mapping.dynamic") return;
 
         if (step.Input == null)
             return;
@@ -2034,7 +2034,7 @@ public static class WorkflowPlanSemanticValidator
         if (mismatch.ActualType.Split(" or ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Any(static type => string.Equals(type, "null", StringComparison.Ordinal)))
         {
-            return $"Do not pass a nullable expression into required MCP field '{field}' for '{serverName}/{methodName}'. Make the upstream structured_output non-null, check it with whole-value value.project and a nonnullable output_schema, add a step guard that proves the exact expression is non-null, or normalize to a guaranteed {mismatch.ExpectedType} before the mcp.call.";
+            return $"Do not pass a nullable expression into required MCP field '{field}' for '{serverName}/{methodName}'. Make the upstream structured_output non-null, check it with a whole-value set expression and a nonnullable output_schema, add a step guard that proves the exact expression is non-null, or normalize to a guaranteed {mismatch.ExpectedType} before the mcp.call.";
         }
 
         return $"Align MCP field '{field}' for '{serverName}/{methodName}' with the discovered input_schema, or add a normalization step that produces a {mismatch.ExpectedType} value.";

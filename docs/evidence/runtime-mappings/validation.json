@@ -1,0 +1,45 @@
+{
+  "baseline": "97d484afafe11d588c9222587eabe1536968be66",
+  "full_solution": {
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+    "passed": 4152,
+    "failed": 0,
+    "skipped": 12,
+    "suites": 33
+  },
+  "affected_suites": {
+    "runtime": 1015,
+    "planning": 817,
+    "server": 594,
+    "persistence": 4,
+    "integrations": 87,
+    "mermaid": 12
+  },
+  "release_packages": [
+    "Core",
+    "Planning",
+    "Persistence",
+    "Integrations",
+    "Mermaid",
+    "Copilot"
+  ],
+  "native_aot": "passed osx-arm64",
+  "published_encrypted_recovery": "passed trimmed osx-arm64 Agent.Server; optional bundled tools excluded",
+  "frontend_production_build": "passed",
+  "planning_skill": "valid",
+  "retained_first_failure": "Existing Copilot cancellation fixture disposal raced with lease-directory deletion; focused rerun and complete solution rerun passed. No Copilot production change.",
+  "executor_classes": {
+    "before": 19,
+    "after": 19,
+    "removed": "ValueProjectExecutor",
+    "added": "DynamicMappingExecutor"
+  },
+  "log_sha256": {
+    "solution": "c2204896a2984b407fc0a789761b7160191d83b3f350a35dc09bb47eecd16f6b",
+    "first_solution": "d8c6462f7586fbced371f75ca604838c46ba5f5f0279d291b70bf5f4fa4a0c39",
+    "native_aot": "ccb834dd8f850b4e1994cc2bb88eee5248c88642cbed4b723da93cdea3ea5b59",
+    "published_recovery": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88",
+    "frontend": "dc96dd7191a9a7c5c09d4160d83e3b6e7746556d556b700748ab03254c72c410"
+  },
+  "paid_calls_for_this_change": 0
+}

@@ -12,7 +12,7 @@ namespace GnOuGo.Flow.Core.Scripting;
 /// Sandboxed Jint JavaScript execution engine.
 /// Restricted: memory/time limits.
 /// </summary>
-public sealed class JintSandbox
+public sealed partial class JintSandbox
 {
     private readonly int _maxStatements;
     private readonly TimeSpan _timeout;
@@ -280,4 +280,3 @@ public sealed class JintSandbox
         return null;
     }
 }
-

@@ -377,3 +377,17 @@ a writable disposable workbook destination, exact SmartGuide head/base availabil
 dependency installation and command permissions. Record missing services/toolchains
 as explicit blockers. The [recovery report](../../docs/planning-recovery-and-live-blockers.md)
 separates deterministic adapter execution from live-provider results.
+
+### Bounded mapping cohort
+
+After deterministic tests and a clean frozen commit, run the real-provider/stdio matrix within the existing campaign:
+
+```bash
+dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror -p:SkipClientBuild=true
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability mapping --campaign schema-portability-20261002 --workspace /path/to/GnOuGo --run mapping-cohort-1
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability mapping-report --campaign schema-portability-20261002 --workspace /path/to/GnOuGo --run mapping-cohort-1
+```
+
+The harness starts a disposable MCP process with no structured output metadata, generates and approves a business extraction plan using the pinned provider, then executes cold/warm JSON, changed data/shape, text, HTML, changed target and missing-data cases. A separately labelled fault-injection case substitutes one invalid script before real-provider repair. Source observations and exact output expectations are frozen before dispatch. Revisions for the target-schema fixture are explicit and independently compiled; they are not runtime plan edits. A failed case stops the matrix and remains in the denominator. Use a new identity after fixing a regression.
+
+Mapping scripts/attempt receipts persist through the existing encrypted run store under a cohort-specific tenant; measurements and manifests use `planning-mapping-evaluation`. All paid calls use the existing campaign gate. Printed rows contain only public fixture observations. The existing Amazon/code commands and their independent execution oracles are unchanged. Do not pool this matrix with historical 33/33 or prior live cohorts.

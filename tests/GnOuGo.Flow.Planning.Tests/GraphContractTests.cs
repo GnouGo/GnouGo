@@ -103,7 +103,7 @@ public sealed class GraphContractTests
         foreach (var summary in page.Capabilities) catalog.Capabilities.Add(await runtime.Capabilities.ResolveAsync(summary, PlannerFixture.Ct));
         var graph = PlanningCorpus.Graph("conditional", catalog);
         Assert.Empty(PlanningExecutableValidation.Validate(graph, catalog));
-        var projection = graph.Workflows[0].Steps.Single(n => n.Type == "value.project");
+        var projection = graph.Workflows[0].Steps.Single(n => n.Type == "set" && n.Input.Kind == "projection");
         var paths = projection.Input.Members.Single(m => m.Name == "paths").Value;
         if (opaque) catalog.Capabilities.Single(c => c.Method == "read").OutputSchema.Clear();
         else paths.Items[0].Items.RemoveAt(1); // read.value is absent; read.response.value is declared.

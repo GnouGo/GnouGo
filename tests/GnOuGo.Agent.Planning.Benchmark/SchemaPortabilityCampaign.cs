@@ -43,6 +43,13 @@ internal static class SchemaPortabilityCampaign
         }
         var campaignId = Option(args, "--campaign") ?? throw new ArgumentException("Supply a new --campaign.");
         var campaign = new BenchmarkCampaign(records, campaignId);
+        if (phase == "mapping-report")
+        {
+            var saved = await campaign.LoadAsync(MappingLiveEvaluation.Collection, Option(args, "--run") ?? throw new ArgumentException("Supply --run."))
+                ?? throw new ArgumentException("No retained mapping matrix.");
+            saved.Remove("planning_session");
+            Console.WriteLine(saved.ToJsonString()); return;
+        }
         if (phase == "report") { Console.WriteLine((await LiveCampaignEvidence.ReportAsync(campaign, Option(args, "--cohort") ?? "final")).ToJsonString()); return; }
         if (phase == "replay-compile")
         {
@@ -104,6 +111,7 @@ internal static class SchemaPortabilityCampaign
         await using var lease = new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         if (Git("status", "--porcelain").Length != 0) throw new InvalidOperationException("Commit the tested source and harness before paid dispatch.");
         using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Model, campaign, root, CancellationToken.None);
+        if (phase == "mapping") { await MappingLiveEvaluation.RunAsync(args, campaign, model, root); return; }
         if (phase is "readiness" or "plan" or "execute")
         { await LiveWorkflowEvaluation.RunAsync(args, phase, campaign, model, root); return; }
         if (phase == "diagnose")

@@ -115,7 +115,7 @@ public sealed partial class PlanningGraphCompiler
             throw new InvalidOperationException("An empty grouping requires the native set step in the locked policy.");
         var result = new JsonObject { ["id"] = scope.NodeIds[node.Key], ["type"] = emptySequence ? "set" : node.Type };
         var loweredInput = LowerValue(node.Input, scope);
-        var computedSetInput = node.Type == "set" && node.Input.Kind is "expression" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection";
+        var computedSetInput = node.Type == "set" && node.Input.Kind is "expression" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "projection";
         var input = loweredInput as JsonObject ?? (computedSetInput ? new JsonObject() : throw new InvalidOperationException("A step input must be a typed object."));
         if (node.CapabilityId is { Length: > 0 })
         {
@@ -149,7 +149,14 @@ public sealed partial class PlanningGraphCompiler
         else if (input.Count > 0 || node.Type == "set") result["input"] = input;
         if (node.If is not null) result["if"] = ToExpression(node.If, scope);
         if (node.Expr is not null) result["expr"] = ToExpression(node.Expr, scope);
-        if (node.OutputSchema is not null && node.Type is "set" or "value.project") result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Catalog);
+        if (node.Input.Kind == "dynamic_mapping")
+        {
+            if (node.Type != "set" || !scope.Catalog.AllowedStepTypes.Contains("mapping.dynamic"))
+                throw new InvalidOperationException("The host does not permit bounded runtime extraction for this binding.");
+            result["type"] = "mapping.dynamic";
+            result["input"] = LowerValue(new() { Kind = "object", Members = node.Input.Members }, scope);
+        }
+        if (node.OutputSchema is not null && node.Type is "set" or "mapping.dynamic") result["output_schema"] = ToJsonSchema(node.OutputSchema, scope.Catalog);
         if (node.StructuredOutput is { } structured)
         {
             if (input.ContainsKey("structured_output")) throw new InvalidOperationException("Use one typed structured-output declaration, not a second input schema.");
@@ -239,6 +246,7 @@ public sealed partial class PlanningGraphCompiler
                     throw new InvalidOperationException("A numeric literal exceeds Flow's exact numeric range. Represent identifiers requiring larger exact integers as strings.");
                 return JsonValue.Create(number);
             case "boolean": return JsonValue.Create(value.Boolean ?? throw new InvalidOperationException("Missing boolean."));
+            case "dynamic_mapping":
             case "object":
                 EnsureUnique(value.Members.Select(m => m.Name), "member");
                 var obj = new JsonObject();
@@ -253,7 +261,7 @@ public sealed partial class PlanningGraphCompiler
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
-            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "json" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
+            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "json" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
@@ -274,7 +282,16 @@ public sealed partial class PlanningGraphCompiler
     {
         string expression;
         if (value.ResultChannel is not null && value.Kind != "output") throw new InvalidOperationException("Only output references can select a result channel.");
-        if (value.Kind == "predicate")
+        if (value.Kind == "projection")
+        {
+            var source = PlanningGraphValidation.Member(value, "value") ?? throw new InvalidOperationException("Projection needs a value.");
+            var paths = PlanningGraphValidation.Member(value, "paths") ?? throw new InvalidOperationException("Projection needs paths.");
+            var each = PlanningGraphValidation.Member(value, "each")?.Boolean == true;
+            var script = "({value:m.select(source," + PlanningGraphValidation.Literal(paths)!.ToJsonString() + "," + (each ? "true" : "false") + ")})";
+            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script);
+            expression = "checkedMapping(" + JsonValue.Create(script)!.ToJsonString() + "," + ExpressionBody(source) + ")";
+        }
+        else if (value.Kind == "predicate")
         {
             var op = PlanningValues.PredicateOperator(value.Text);
             expression = value.Text == "not" ? "!(" + ExpressionBody(value.Items[0]) + ")" :
@@ -297,8 +314,10 @@ public sealed partial class PlanningGraphCompiler
             if (value.Source is null || !scope.NodeIds.TryGetValue(value.Source, out var loopId) || scope.NodeTypes[value.Source] != "loop.sequential")
                 throw new InvalidOperationException("Previous iteration results require a sequential loop.");
             var variable = GnOuGo.Flow.Core.Runtime.LoopIterationContract.PreviousResultVariable(loopId);
-            expression = "((previous) => previous == null ? null : previous" + ResultPath("sequence", value.Path, scope) + ")(data" + Segment(variable) + ")";
-            expression = ProjectChildren(scope.Nodes[value.Source].Steps, value.Path, expression, scope);
+            var previous = "m.scalar(source) ? source : " + ProjectChildren(scope.Nodes[value.Source].Steps, value.Path,
+                "source" + ResultPath("sequence", value.Path, scope), scope);
+            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(previous);
+            expression = "checkedMapping(" + JsonValue.Create(previous)!.ToJsonString() + ",data" + Segment(variable) + ")";
         }
         else if (value.Kind == "artifact_collection")
         {
@@ -323,7 +342,9 @@ public sealed partial class PlanningGraphCompiler
             if (value.ResultChannel == "envelope" && type != "mcp.call") throw new InvalidOperationException("This producer does not expose an MCP result envelope.");
             var envelope = value.ResultChannel == "envelope" ? "" : value.ResultChannel == "structured" ? ".json" : type switch { "workflow.call" => ".outputs", "mcp.call" => ".response", _ => "" };
             expression = "data.steps." + node + envelope + ResultPath(type, value.Path, scope);
-            expression = ProjectResult(scope.Nodes[value.Source], value.Path, expression, scope);
+            var projection = ProjectResult(scope.Nodes[value.Source], value.Path, "source", scope);
+            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(projection);
+            if (projection != "source") expression = "checkedMapping(" + JsonValue.Create(projection)!.ToJsonString() + "," + expression + ")";
         }
         else if (value.Kind == "template")
         {
@@ -439,11 +460,11 @@ public sealed partial class PlanningGraphCompiler
         foreach (var child in children.Reverse())
             body = "entry[0] === " + JsonValue.Create(scope.NodeIds[child.Key])!.ToJsonString() + " ? [" + JsonValue.Create(child.Key)!.ToJsonString() + "," +
                 ProjectResult(child, [], "entry[1]", scope) + "] : " + body;
-        return "((result) => result == null || typeof result !== 'object' || Array.isArray(result) ? result : Object.fromEntries(Object.entries(result).map(entry => " + body + ")))(" + expression + ")";
+        return "((result) => m.scalar(result) || typeof result !== 'object' || Array.isArray(result) ? result : Object.fromEntries(Object.entries(result).map(entry => " + body + ")))(" + expression + ")";
     }
 
     private static string ProjectMember(string expression, string name, Func<string, string> project)
-        => "((result) => result == null || typeof result !== 'object' || Array.isArray(result) ? result : Object.fromEntries(Object.entries(result).map(entry => entry[0] === " +
+        => "((result) => m.scalar(result) || typeof result !== 'object' || Array.isArray(result) ? result : Object.fromEntries(Object.entries(result).map(entry => entry[0] === " +
            JsonValue.Create(name)!.ToJsonString() + " ? [entry[0]," + project("entry[1]") + "] : entry)))(" + expression + ")";
 
     private static string ProjectArray(string expression, Func<string, string> project)

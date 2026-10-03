@@ -10,7 +10,7 @@ internal static class PlanningConfirmationGuards
     internal const string Body = "__planning_body", Confirm = "__planning_confirm", Assert = "__planning_permission", Call = "__planning_run";
     internal static bool Required(PlanningGraph graph, PlanningCatalog catalog) => catalog.Policy.RequireExternalConfirmation &&
         graph.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally)))
-            .Any(n => n.Type is "mcp.call" or "agent.run" && catalog.Capabilities.FirstOrDefault(c => c.Id == n.CapabilityId)?.EffectKind is not ("read" or "none"));
+            .Any(n => n.Input.Kind == "dynamic_mapping" || n.Type is "mcp.call" or "agent.run" && catalog.Capabilities.FirstOrDefault(c => c.Id == n.CapabilityId)?.EffectKind is not ("read" or "none"));
     internal static void Apply(PlanningGraph graph, PlanningCatalog catalog)
     {
         if (!Required(graph, catalog)) return;

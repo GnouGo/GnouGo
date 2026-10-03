@@ -100,9 +100,9 @@ public class StepExecutorIntegrationTests
                       CONDITION
                     steps:
                       - id: require_index
-                        type: value.project
+                        type: set
                         output_schema: {type: object, required: [value], properties: {value: {type: integer}}}
-                        input: {paths: [[]], value: '${data.position}'}
+                        input: '${checkedMapping("({value:source})",data.position)}'
             """.Replace("CONDITION", condition, StringComparison.Ordinal));
         Assert.True(result.Success, result.Error?.Message);
     }

@@ -19,7 +19,7 @@ public sealed class TaskOptionalOutputTests
     {
         var (plan, catalog, engine) = await Setup(response);
         var graph = Compile(plan, catalog);
-        Assert.Single(graph.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)), n => n.Type == "value.project");
+        Assert.Single(graph.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)), n => n.Type == "set" && n.Input.Kind == "projection");
         var first = JsonSerializer.Serialize(graph, PlanningJsonContext.Default.PlanningGraph);
         Assert.Equal(first, JsonSerializer.Serialize(Compile(plan, catalog), PlanningJsonContext.Default.PlanningGraph));
         var result = await Run(graph, catalog, engine, new());
@@ -53,7 +53,7 @@ public sealed class TaskOptionalOutputTests
         var (plan, catalog, engine) = await Setup("missing");
         plan.Root.Outputs = [new("result", new() { Kind = "output", Source = "read" })];
         var graph = Compile(plan, catalog);
-        Assert.DoesNotContain(graph.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)), n => n.Type == "value.project");
+        Assert.DoesNotContain(graph.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)), n => n.Type == "set" && n.Input.Kind == "projection");
         Assert.True((await Run(graph, catalog, engine, new())).Success);
     }
 
@@ -63,18 +63,18 @@ public sealed class TaskOptionalOutputTests
         var (plan, catalog, _) = await Setup("null");
         catalog.Capabilities.Single(c => c.Kind == "tool").OutputSchema["required"] = new JsonArray("selected");
         var graph = Compile(plan, catalog);
-        Assert.DoesNotContain(graph.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)), n => n.Type == "value.project");
+        Assert.DoesNotContain(graph.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)), n => n.Type == "set" && n.Input.Kind == "projection");
     }
 
     [Fact]
     public async Task ProjectionPolicyDenialAndOpaqueFieldsAreSemanticConsumerErrors()
     {
         var (plan, catalog, _) = await Setup("value");
-        catalog.AllowedStepTypes.Remove("value.project");
+        catalog.AllowedStepTypes.Remove("set");
         var result = new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Null(result.Graph);
         Assert.Contains(result.Diagnostics, d => d.Code == "TASK_OUTPUT_POLICY" && d.Location == "/root/outputs/result");
-        catalog.AllowedStepTypes.Add("value.project");
+        catalog.AllowedStepTypes.Add("set");
         catalog.Capabilities.Single(c => c.Kind == "tool").OutputSchema["properties"]!["selected"] = new JsonObject();
         result = new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Null(result.Graph);
@@ -93,7 +93,7 @@ public sealed class TaskOptionalOutputTests
             { Name = "selected", Path = ["container", "leaf"], Schema = field.DeepClone().AsObject(), Required = false }] };
         Assert.Empty(TaskOperations.Validate(capability));
         var graph = Compile(plan, catalog);
-        var projection = Assert.Single(graph.Workflows.SelectMany(w => w.Finally), n => n.Type == "value.project");
+        var projection = Assert.Single(graph.Workflows.SelectMany(w => w.Finally), n => n.Type == "set" && n.Input.Kind == "projection");
         Assert.Equal(new[] { "container", "leaf" }, projection.Input.Members.Single(m => m.Name == "paths").Value.Items[0].Items.Select(p => p.Text));
     }
 

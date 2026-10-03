@@ -11,7 +11,7 @@ result. Invalid fallbacks stop downstream execution with
 `STRUCTURED_FALLBACK_INVALID`; workflow finalization still runs.
 
 The semantic validator recognizes finite selector domains from direct references
-to validated structured `llm.call` results and checked `set` and `value.project` outputs. A consumed selector must be a required,
+to validated structured `llm.call` results and checked `set` and `mapping.dynamic` outputs. A consumed selector must be a required,
 non-null string enum whose values are a subset of the consumer contract.
 Dynamic schemas, optional/nullable selectors and incompatible continuation outputs
 cannot establish that proof. TaskPlan string enums and deterministic JSON encoding
@@ -655,13 +655,13 @@ Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best to
 | Batch/auto | `data.steps.<id>.results` (array) |
 | LLM-assisted | `data.steps.<id>.text`, `data.steps.<id>.json` |
 
-> **Important:** The `response` object is tool-specific. `workflow.plan` treats single-tool MCP responses as opaque unless the tool advertises a valid protocol `ReturnJsonSchema`, exposed through the compatibility `OutputSchema` property. Access `data.steps.<id>.response.<field>` only when that authoritative schema declares the field. Otherwise pass the whole response intact, or use whole-value `value.project` (`paths: [[]]`) with a literal `output_schema` before accessing fields; parse JSON text explicitly as shown in the migration guide. Samples never establish output contracts.
+> **Important:** The `response` object is tool-specific. `workflow.plan` treats single-tool MCP responses as opaque unless the tool advertises a valid protocol `ReturnJsonSchema`, exposed through the compatibility `OutputSchema` property. Access `data.steps.<id>.response.<field>` only when that authoritative schema declares the field. Otherwise pass the whole response intact, or bind the observed whole result to an approved target through bounded runtime extraction before accessing fields; see the mapping migration guide. Samples never establish output contracts.
 >
 > When an MCP server returns protocol `structuredContent`, `mcp.call` uses that value as `response`. `McpOutputContractResolution` records the discovered schema provenance as `protocol_schema`, `example`, or `description`. Only an error-free `protocol_schema` resolution is authoritative. Example- and description-derived shapes remain prompt hints and never prove nested response fields or capability data flow.
 
 Resolved request properties whose discovered input schema marks them optional are omitted when their value is JSON `null`. This lets one typed request represent optional scalar fields without sending schema-invalid nulls. A null value for a required property is never omitted and still fails before transport.
 
-Documented action selectors (`method`, `action`, `operation`, `command`, `mode`, `event`, `kind`, JSON Schema `const`, and explicit discriminators) must resolve to documented scalars. Validation accepts literals, proven finite expressions, and direct required enum references from runtime-checked `set`, `llm.call` and `value.project` outputs. Array indexing itself does not prove item presence; select and check the scalar before consuming it. Optional, nullable, opaque, conditional, or unchecked fallback values cannot prove a selector. Generated expressions cannot hide or replace the logical MCP operation selected during planning.
+Documented action selectors (`method`, `action`, `operation`, `command`, `mode`, `event`, `kind`, JSON Schema `const`, and explicit discriminators) must resolve to documented scalars. Validation accepts literals, proven finite expressions, and direct required enum references from runtime-checked `set`, `llm.call` and `mapping.dynamic` outputs. Array indexing itself does not prove item presence; select and check the scalar before consuming it. Optional, nullable, opaque, conditional, or unchecked fallback values cannot prove a selector. Generated expressions cannot hide or replace the logical MCP operation selected during planning.
 
 #### MCP progress events → thinking telemetry
 
@@ -1297,27 +1297,11 @@ Before each selected workflow runs, `workflow.route` emits a `gnougo-flow.step.t
 
 ---
 
-### `value.project` — Checked value selection
+### Checked mapping and runtime extraction
 
-Select the first present path from `input.value`, then validate the complete `{value: ...}` result against a literal `output_schema`. Explicit null counts as present: a present but invalid value fails without trying another path. `paths: [[]]` validates the whole value, including opaque results, before subsequent typed access.
+Typed bindings compile to checked `set` expressions at final lowering. Insufficiently typed observations use the compiler-owned `mapping.dynamic` step with a restricted source-grounded Jint expression, immutable target schema, at most two model attempts and validated tenant cache. Business plans contain neither scripts nor mapping executors.
 
-Optional `each: true` applies the same path selection to every array item and returns `{value: [...]}`. It preserves order, duplicates, explicit nulls and nested arrays; it never flattens. Missing paths, non-array input in per-item mode or invalid results fail before publishing output.
-
-```yaml
-- id: rows
-  type: value.project
-  input:
-    value: '${data.inputs.records}'
-    paths: [[row]]
-    each: true
-  output_schema:
-    type: object
-    required: [value]
-    properties:
-      value: {type: array, items: {type: string}}
-```
-
-`value.validate`, `array.project`, `assert.non_null` and `decision.evaluate` are retired in .NET. They fail with `STEP_TYPE_RETIRED` before execution or cleanup. Revise and approve a new artifact; existing runs and stored workflows are not rewritten. [Migration and JSON-text parsing](../../docs/flow-runtime-primitives.md).
+`value.project` and its public C# executor are retired. See [runtime mappings and migration](../../docs/runtime-mappings.md) for checked `set` examples, approval, default ownership, sandbox restrictions and encrypted recovery. Saved artifacts are never rewritten automatically.
 
 ### `workflow.plan` — Typed workflow planning
 

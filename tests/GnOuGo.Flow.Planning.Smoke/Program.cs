@@ -15,6 +15,16 @@ if (projectedPattern["properties"]!["path"]!["pattern"] is not null || authorita
     throw new InvalidOperationException("Structured-output projection weakened authoritative pattern validation.");
 Console.WriteLine("schema projection: portable wire, unchanged authoritative restrictions");
 
+var mapped = new GnOuGo.Flow.Core.Scripting.JintSandbox().ExecuteMapping(
+    "({name:m.decode(m.text(source.html,'<h1>([^<]+)</h1>')),amount:source.amount})",
+    JsonNode.Parse("{\"html\":\"<h1>A &amp; B</h1>\",\"amount\":7922816251426433759354395033.5}"), CancellationToken.None);
+if (mapped?["name"]?.ToString() != "A & B" || mapped["amount"]!.ToJsonString() != "7922816251426433759354395033.5")
+    throw new InvalidOperationException("Restricted mapping extraction/decimal preservation failed in Native AOT.");
+var mappingArtifact = new MappingArtifact("smoke", "source", null, GnOuGo.Flow.Core.Scripting.JintSandbox.MappingProfileVersion);
+if (JsonSerializer.Deserialize(JsonSerializer.Serialize(mappingArtifact, MappingArtifactJsonContext.Default.MappingArtifact), MappingArtifactJsonContext.Default.MappingArtifact) != mappingArtifact)
+    throw new InvalidOperationException("Mapping artifact serialization failed.");
+Console.WriteLine("restricted mappings: observed HTML extraction, exact decimals, source-generated artifact serialization");
+
 // Additive host failure contracts must survive source-generated Native AOT serialization.
 var taskFailure = new AgentTaskResult("failed", null, [], [], new(0, 0, 0))
 { Failure = new() { Code = "AGENT_ISOLATION_REQUIRED", Message = "Mandatory host isolation is not configured." } };

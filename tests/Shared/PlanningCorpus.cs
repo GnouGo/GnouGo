@@ -13,6 +13,8 @@ public static class PlanningCorpus
     public static PlanningValue Ref(string kind, string source, params string[] path) => new() { Kind = kind, Source = source, Path = path.ToList() };
     public static PlanningValue Num(decimal n) => new() { Kind = "number", Number = n };
     public static PlanningValue Text(string text) => new() { Kind = "string", Text = text };
+    public static PlanningValue Projection(params (string Name, PlanningValue Value)[] members)
+        => new() { Kind = "projection", Members = members.Select(m => new PlanningMember(m.Name, m.Value)).ToList() };
     public static PlanningValue Obj(params (string Name, PlanningValue Value)[] fields) => new() { Kind = "object", Members = fields.Select(f => new PlanningMember(f.Name, f.Value)).ToList() };
     public static PlanningGraph Graph(string name, PlanningCatalog catalog)
     {

@@ -12,7 +12,7 @@ namespace GnOuGo.Flow.Tests.Runtime;
 public sealed class RetiredPrimitiveTests
 {
     public static TheoryData<string, string> Cases => new(
-        from type in new[] { "decision.evaluate", "assert.non_null", "array.project", "value.validate" }
+        from type in new[] { "decision.evaluate", "assert.non_null", "array.project", "value.validate", "value.project" }
         from placement in new[] { "steps", "finally", "nested", "branch", "default", "child" }
         select (type, placement));
 
@@ -72,7 +72,7 @@ public sealed class RetiredPrimitiveTests
         var probe = new Probe(); var engine = new WorkflowEngine(); engine.Registry.Register(probe);
         var result = await engine.ExecuteAsync(new WorkflowCompiler().Compile(document).Workflows["main"], new JsonObject(), TestContext.Current.CancellationToken);
         Assert.True(result.Success, result.Error?.Message); Assert.Equal(1, probe.Calls);
-        foreach (var type in new[] { "decision.evaluate", "assert.non_null", "array.project", "value.validate" })
+        foreach (var type in new[] { "decision.evaluate", "assert.non_null", "array.project", "value.validate", "value.project" })
         { Assert.False(engine.Registry.Has(type)); Assert.Null(BuiltInStepContracts.Get(type)); }
     }
 

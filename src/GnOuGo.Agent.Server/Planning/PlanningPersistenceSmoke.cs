@@ -74,6 +74,17 @@ internal static class PlanningPersistenceSmoke
                 (bytes.Contains("Private published smoke content", StringComparison.Ordinal) || bytes.Contains("Private requirements", StringComparison.Ordinal) ||
                  bytes.Contains("Private custom answer", StringComparison.Ordinal) || bytes.Contains("Private caller interface question", StringComparison.Ordinal)))
                 throw new InvalidOperationException("Sensitive session content was persisted unencrypted.");
+        GnOuGo.Flow.Core.Runtime.IMappingArtifactStore mappingStore = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(records,
+            Path.Combine(directory, "mapping-index.db"), Path.Combine(directory, "mapping-owners"));
+        const string mappingScript = "({private_mapping:source.observed})";
+        await mappingStore.WriteAsync("smoke", new("mapping-smoke", mappingScript, null, 1), CancellationToken.None);
+        GnOuGo.Flow.Core.Runtime.IMappingArtifactStore reopenedMappings = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(
+            KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory), Path.Combine(directory, "mapping-index.db"), Path.Combine(directory, "mapping-owners"));
+        if ((await reopenedMappings.ReadAsync("smoke", "mapping-smoke", CancellationToken.None))?.Script != mappingScript ||
+            await reopenedMappings.ReadAsync("other", "mapping-smoke", CancellationToken.None) is not null ||
+            System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(mappingScript, StringComparison.Ordinal))
+            throw new InvalidOperationException("Published mapping encryption/recovery/tenant isolation failed.");
+        await reopenedMappings.RemoveAsync("smoke", "mapping-smoke", CancellationToken.None);
         Console.WriteLine("Format-10 planning persistence smoke passed; execution journal schema 9 is unchanged.");
     }
 }

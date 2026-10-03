@@ -4,6 +4,8 @@ Exercises typed HTML → product records → tabular text transformations with m
 
 Also checks early clarification in automatic mode, a custom answer checkpoint, restart with cumulative budgets and separate artifact approval; caller input contracts and version-three repair authority use the same source-generated serializers. All model responses are deterministic adapters, not live provider evaluation.
 
+Mapping checks execute the restricted HTML extraction profile, preserve exact decimal observations and round-trip mapping artifacts through source-generated serialization. Encrypted mapping persistence is covered separately by the published Agent.Server persistence smoke.
+
 ```bash
 dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 -m:1 -warnaserror
 tests/GnOuGo.Flow.Planning.Smoke/bin/Release/net10.0/osx-arm64/publish/GnOuGo.Flow.Planning.Smoke

@@ -44,7 +44,7 @@ public static class SimulatedWorkflowValidator
                     definitions.Add(new($"guard:true:{workflowName}:{step.Id}", workflowName, step.Id, "guard_true"));
                     var required = WorkflowResultAvailability.RequiredResults(step.If);
                     static bool NonNullResult(StepDef s) => !(s.OnError?.Cases.Any(c => c.Action == "continue") ?? false) &&
-                        (s.Type is "mcp.call" or "llm.call" or "workflow.call" or "value.project" || s.Type == "set" && s.Input is JsonObject);
+                        (s.Type is "mcp.call" or "llm.call" or "workflow.call" or "mapping.dynamic" || s.Type == "set");
                     var guaranteed = workflow.Steps.Where(s => s.If is null && NonNullResult(s)).Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
                     foreach (var previous in workflow.Finally.TakeWhile(s => s != step))
                         if (NonNullResult(previous) && (previous.If is null || WorkflowResultAvailability.GuardHolds(previous.If, guaranteed))) guaranteed.Add(previous.Id);
@@ -105,7 +105,7 @@ public static class SimulatedWorkflowValidator
             {
                 engine.Registry.Register(new FailureExecutor(new SetExecutor(), scenario, cancellation, fault, observations, observed, telemetry));
                 engine.Registry.Register(new FailureExecutor(new WorkflowCallExecutor(), scenario, cancellation, fault, observations, observed, telemetry));
-                engine.Registry.Register(new FailureExecutor(new ValueProjectExecutor(), scenario, cancellation, fault, observations, observed, telemetry));
+                engine.Registry.Register(new FailureExecutor(new DynamicMappingExecutor(), scenario, cancellation, fault, observations, observed, telemetry));
             }
             var diagnostics = new List<PlanningDiagnostic>();
             string outcome;
