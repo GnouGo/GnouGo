@@ -179,6 +179,8 @@ public sealed partial class JintSandbox
             switch (node)
             {
                 case Identifier id when bound.Contains(id.Name): return;
+                case RegExpLiteral:
+                    throw Unsatisfied("Extraction patterns must be quoted JavaScript strings, not /regex/ literals. Pass a pattern string to m.text, m.texts or m.test.");
                 case Literal literal when literal.Value is null or string or bool or double: return;
                 case ObjectExpression obj:
                     foreach (var property in obj.Properties)

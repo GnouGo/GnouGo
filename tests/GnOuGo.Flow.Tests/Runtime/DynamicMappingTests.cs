@@ -47,6 +47,18 @@ public sealed class DynamicMappingTests
     }
 
     [Fact]
+    public async Task RegexLiteralFailureExplainsTheHelperContractAndCanRepair()
+    {
+        const string invalid = "({name:m.trim(m.text(source.observed.title,/(.+)/,1))})";
+        var finding = Assert.Throws<WorkflowRuntimeException>(() => JintSandbox.ValidateMapping(invalid));
+        Assert.Equal("CONTRACT_UNSATISFIED", finding.Code);
+        Assert.Contains("quoted JavaScript strings", finding.Message);
+        var model = new Model(invalid, "({name:m.trim(m.text(source.observed.title,'(.+)',1))})");
+        Assert.True((await Run(model, new Store())).Success);
+        Assert.Equal(2, model.Calls);
+    }
+
+    [Fact]
     public async Task InvalidMappingRepairsOnceAndPublishesOnlyValidatedData()
     {
         var model = new Model("({name:'fabricated'})", "({name:source.observed.title})");

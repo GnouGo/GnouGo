@@ -45,10 +45,15 @@ internal static class SchemaPortabilityCampaign
         var campaign = new BenchmarkCampaign(records, campaignId);
         if (phase == "mapping-report")
         {
-            var saved = await campaign.LoadAsync(MappingLiveEvaluation.Collection, Option(args, "--run") ?? throw new ArgumentException("Supply --run."))
+            var label = Option(args, "--run") ?? throw new ArgumentException("Supply --run.");
+            var saved = await campaign.LoadAsync(MappingLiveEvaluation.Collection, label)
                 ?? throw new ArgumentException("No retained mapping matrix.");
             saved["generated_plan"] = saved["planning_session"]?["plan"]?.DeepClone();
             saved.Remove("planning_session");
+            foreach (var row in saved["runs"]!.AsArray().OfType<JsonObject>())
+                foreach (var usage in row["usage_receipts"]!.AsArray().OfType<JsonObject>())
+                    if (await campaign.LoadAsync("planning-evaluation-receipts", usage["request_id"]!.ToString()) is { } receipt)
+                        usage["mapping_response"] = receipt["json"]?.DeepClone() ?? receipt["text"]?.DeepClone();
             Console.WriteLine(saved.ToJsonString()); return;
         }
         if (phase == "report") { Console.WriteLine((await LiveCampaignEvidence.ReportAsync(campaign, Option(args, "--cohort") ?? "final")).ToJsonString()); return; }
