@@ -259,6 +259,14 @@ public sealed partial class TaskPlanCompiler
                     var inputFindings = findings.Count;
                     var mapped = new List<(OperationPort Port, JsonObject Schema)>();
                     var mappedValues = Object([]);
+                    void Constraints(TaskValue value, JsonObject expected, string location)
+                    {
+                        if (Read(value, scope, location) is not null)
+                            findings.AddRange(ConstraintFindings(BindInput(value, expected, scope), expected, location));
+                        if (value.Kind == "object")
+                            foreach (var member in value.Members)
+                                if (expected["properties"]?[member.Name] is JsonObject field) Constraints(member.Value, field, location);
+                    }
                     foreach (var input in task.Inputs)
                     {
                         var location = path + "/inputs/" + input.Name;
@@ -273,7 +281,7 @@ public sealed partial class TaskPlanCompiler
                             if (value is not null)
                             {
                                 value = BindInput(input.Value, port.Schema, scope);
-                                findings.AddRange(ConstraintFindings(value, port.Schema, location));
+                                Constraints(input.Value, port.Schema, location);
                                 foreach (var artifact in capability.ArtifactContract?.Consumes ?? [])
                                 {
                                     var consumedPath = TaskArtifactBindings.Decode(artifact.Pointer);
@@ -326,13 +334,6 @@ public sealed partial class TaskPlanCompiler
                                     }
                                 if (findings.Count == before)
                                     Fail("TASK_INPUT_TYPE", "The complete effective request does not satisfy its authoritative contract, including conditional parameter requirements. Omission and null are distinct.");
-                            }
-                            void Constraints(TaskValue value, JsonObject expected, string location)
-                            {
-                                if (Read(value, scope, location) is { } produced) findings.AddRange(ConstraintFindings(produced, expected, location));
-                                if (value.Kind == "object")
-                                    foreach (var member in value.Members)
-                                        if (expected["properties"]?[member.Name] is JsonObject field) Constraints(member.Value, field, location);
                             }
                         });
                     var declarationPort = operation.Inputs.SingleOrDefault(p => p.Path.SequenceEqual(["output_schema"]));

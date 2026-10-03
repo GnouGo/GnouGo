@@ -33,9 +33,13 @@ public sealed class ConditionalRepairDiagnosticsTests
         state.RevisionScope = TaskPlanRevisions.Scope(state.Plan!, state.Diagnostics).ToList();
     }
     [Fact]
-    public async Task ProvenConditionalBranchDiagnosesOnlyBindingAndNestedProducerDomain()
+    public async Task ProvenConditionalBranchDiagnosesKnownIncompatibleProducerDomain()
     {
-        var state = await Fixture(); Diagnose(state);
+        var state = await Fixture();
+        // Unrestricted runtime strings now receive deterministic constraint guards.
+        // A declared incompatible finite domain must still require a narrow repair.
+        state.Plan!.Root.Tasks[0].ResultType!.Fields[0].Type.Items!.Enum = ["outside"];
+        Diagnose(state);
         const string domain = "/tasks/check/resultType/fields/values/type/items/enum";
         Assert.Contains(state.Diagnostics, d => d.Code == "TASK_INPUT_TYPE" && d.Location == "/tasks/use/inputs/parameters");
         Assert.Contains(state.Diagnostics, d => d.Code == "TASK_TRANSFORM_CONSTRAINT" && d.Location == domain);
@@ -44,7 +48,7 @@ public sealed class ConditionalRepairDiagnosticsTests
         var slot = Assert.Single(RepairPatchTests.Slots(state), s => s.Location == domain);
         var repaired = PlanningRepairPatch.Apply(state, new() { Edits = [new() { Slot = slot.Id, Action = "replace", Value = new JsonArray("item/a", "item/b") }] }, request);
         Assert.Empty(new TaskPlanCompiler().Compile(repaired, state.Catalog!).Diagnostics);
-        Assert.Null(state.Plan!.Root.Tasks[0].ResultType!.Fields[0].Type.Items!.Enum);
+        Assert.Equal(new[] { "outside" }, state.Plan!.Root.Tasks[0].ResultType!.Fields[0].Type.Items!.Enum);
     }
     [Theory]
     [InlineData(false)][InlineData(true)]
