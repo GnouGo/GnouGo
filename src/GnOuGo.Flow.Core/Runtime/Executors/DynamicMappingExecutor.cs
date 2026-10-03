@@ -25,6 +25,7 @@ public sealed class DynamicMappingExecutor : IStepExecutor
             JsonSchemaContractValidator.ValidateSchema(envelope, strictProfile: false).Count != 0)
             throw JintSandbox.Unsatisfied("Dynamic mapping requires approved sources, binding identity and a literal target schema.");
         var sources = input!["sources"]!.AsObject();
+        var invocationId = ctx.StageInvocationId ?? ctx.InvocationId;
         // A whole observed value already satisfying the consumer needs no learned adaptation.
         if (sources.Count == 1 && sources.TryGetPropertyValue("value", out var identity) &&
             JsonSchemaContractValidator.ValidateInstance(identity, target).Count == 0)
@@ -105,7 +106,7 @@ public sealed class DynamicMappingExecutor : IStepExecutor
             var request = new LLMRequest
             {
                 Provider = provider, Model = model ?? throw new WorkflowRuntimeException(ErrorCodes.LlmNetwork, "No runtime model configured."), MaxTokens = 8192,
-                ClientRequestId = Hash(JsonValue.Create(ctx.Limits.TenantId + ":" + ctx.Engine.MappingExecutionId + ":" + ctx.InvocationId + ":mapping:" + attempt + ":" + key)),
+                ClientRequestId = Hash(JsonValue.Create(ctx.Limits.TenantId + ":" + ctx.Engine.MappingExecutionId + ":" + invocationId + ":mapping:" + attempt + ":" + key)),
                 Prompt = Instructions + "\n" + new JsonObject { ["objective"] = input["objective"]!.DeepClone(), ["source"] = sources.DeepClone(),
                     ["target"] = target.DeepClone(), ["previous_script"] = previous, ["failure"] = failure }.ToJsonString(),
                 StructuredOutputSchema = JsonNode.Parse("""{"type":"object","properties":{"script":{"type":"string"}},"required":["script"],"additionalProperties":false}"""),
@@ -129,7 +130,7 @@ public sealed class DynamicMappingExecutor : IStepExecutor
             }
             if (ctx.Engine.Journal is not { } journal)
             {
-                var identity = ctx.InvocationId + ":mapping:" + attempt;
+                var identity = invocationId + ":mapping:" + attempt;
                 if (ctx.Engine.MappingAttempts.TryGetValue(identity, out var saved))
                 {
                     if (saved["response"] is JsonObject completed) return CheckReceipt(completed.DeepClone().AsObject());
@@ -140,7 +141,7 @@ public sealed class DynamicMappingExecutor : IStepExecutor
                 ctx.Engine.MappingAttempts[identity] = new() { ["response"] = completedResponse.DeepClone() };
                 return CheckReceipt(completedResponse);
             }
-            var id = ctx.InvocationId + "/mapping/" + attempt;
+            var id = invocationId + "/mapping/" + attempt;
             var data = new JsonObject();
             var invocation = await journal.PrepareAsync(id, new() { Source = new() { Id = "mapping_" + attempt, Type = "llm.call" } },
                 StepRecovery.External, false, data, () => (true, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)), ct);

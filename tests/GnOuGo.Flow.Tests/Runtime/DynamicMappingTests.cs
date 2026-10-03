@@ -49,6 +49,16 @@ public sealed class DynamicMappingTests
     }
 
     [Fact]
+    public void TextSelectionStopsAtItsBoundBeforeMaterializingAllMatches()
+    {
+        var source = new JsonObject { ["text"] = new string('x', 20000) };
+        var sandbox = new JintSandbox();
+        Assert.Equal("x", sandbox.ExecuteMapping("m.text(source.text,'(.)')", source, TestContext.Current.CancellationToken)!.GetValue<string>());
+        Assert.Contains("collection limit", Assert.Throws<WorkflowRuntimeException>(() =>
+            sandbox.ExecuteMapping("m.texts(source.text,'(.)')", source, TestContext.Current.CancellationToken)).Message);
+    }
+
+    [Fact]
     public void UnsupportedExtractionIdentifiesTheResultRequirement()
     {
         var error = Assert.Throws<WorkflowRuntimeException>(() => new JintSandbox().ExecuteMapping(
@@ -98,6 +108,22 @@ public sealed class DynamicMappingTests
         Assert.True((await Run(model, store, maxLength: 20)).Success); Assert.Equal(4, model.Calls);
         foreach (var key in store.Values.Keys.ToArray()) store.Values[key] = store.Values[key] with { Script = "({name:'invalid'})" };
         Assert.True((await Run(model, store)).Success); Assert.Equal(5, model.Calls);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OuterRetriesReuseTheSameMappingCompletion(bool durable)
+    {
+        var document = Document(); document.Workflows["main"].Steps[0].Retry = new() { Max = 2, BackoffMs = 0 };
+        var model = new Model("({name:source.observed.title})");
+        var cache = new Store { FailFirstWrite = true };
+        var engine = new WorkflowEngine { RunStore = durable ? new InMemoryWorkflowRunStore() : null,
+            MappingArtifacts = cache, LLMClient = model, LlmDefaults = new() { Model = "test" },
+            Limits = new() { TenantId = "tenant", RunId = "retry-mapping" } };
+        var result = await engine.ExecuteAsync(new WorkflowCompiler().Compile(document).Workflows["main"],
+            new JsonObject { ["observed"] = new JsonObject { ["title"] = "observed" } }, TestContext.Current.CancellationToken);
+        Assert.True(result.Success, result.Error?.Message); Assert.Equal(1, model.Calls); Assert.Single(cache.Values);
     }
 
     [Theory]
@@ -201,9 +227,14 @@ public sealed class DynamicMappingTests
     }
     private sealed class Store : IMappingArtifactStore
     {
+        internal bool FailFirstWrite;
         public Dictionary<(string Tenant, string Key), MappingArtifact> Values { get; } = [];
         public Task<MappingArtifact?> ReadAsync(string tenant, string key, CancellationToken ct) => Task.FromResult(Values.GetValueOrDefault((tenant, key)));
-        public Task WriteAsync(string tenant, MappingArtifact artifact, CancellationToken ct) { Values[(tenant, artifact.Key)] = artifact; return Task.CompletedTask; }
+        public Task WriteAsync(string tenant, MappingArtifact artifact, CancellationToken ct)
+        {
+            if (FailFirstWrite) { FailFirstWrite = false; throw new WorkflowRuntimeException("TRANSIENT_STORE", "Retry cache persistence", retryable: true); }
+            Values[(tenant, artifact.Key)] = artifact; return Task.CompletedTask;
+        }
         public Task RemoveAsync(string tenant, string key, CancellationToken ct) { Values.Remove((tenant, key)); return Task.CompletedTask; }
     }
 }

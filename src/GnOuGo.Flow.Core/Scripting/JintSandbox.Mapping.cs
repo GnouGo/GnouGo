@@ -158,12 +158,18 @@ public sealed partial class JintSandbox
                     if (args.Length is < 2 or > 3) throw Unsatisfied("Text extraction requires observed text, pattern and optional group index.");
                     var group = args.Length == 3 && args[2].IsNumber() ? args[2].AsNumber() : 1;
                     if (group < 0 || group > 100 || group != Math.Truncate(group)) throw Unsatisfied("Capture group must be a bounded integer.");
-                    var matches = Pattern(args[1]).Matches(Text(args[0]));
+                    var pattern = Pattern(args[1]); var observed = Text(args[0]);
                     JsValue Capture(Match match) => group < match.Groups.Count && match.Groups[(int)group].Success
                         ? Import(JsonValue.Create(match.Groups[(int)group].Value)) : throw Unsatisfied("The required capture group was absent.");
-                    if (name == "text") return matches.Count == 0 ? JsValue.Undefined : Capture(matches[0]);
-                    if (matches.Count > 10000) throw Unsatisfied("Extraction exceeded the collection limit.");
-                    return Array(matches.Select(Capture));
+                    if (name == "text") { var match = pattern.Match(observed); return match.Success ? Capture(match) : JsValue.Undefined; }
+                    var captures = new List<JsValue>();
+                    foreach (Match match in pattern.Matches(observed))
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        if (captures.Count >= 10000) throw Unsatisfied("Extraction exceeded the collection limit.");
+                        captures.Add(Capture(match));
+                    }
+                    return Array(captures);
                 default: throw Unsatisfied("Unsupported extraction helper.");
             }
         }
