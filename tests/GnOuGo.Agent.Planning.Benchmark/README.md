@@ -190,6 +190,8 @@ uncertain transport attempt retains its conservative allowance; restart added no
 
 `--retain-inconclusive-run <commit:phase:case:repetition> --campaign <id>` closes an already failed evaluation only after its eight HTTP attempts are exhausted. It writes a separate encrypted audit record under the campaign lock. The original run, failure, request and HTTP evidence remain unchanged; no completion receipt is invented. Unknown attempts retain their full cost reservation in the same EUR 50 campaign ceiling. That request identity can never dispatch again, while different evaluation identities may use the remaining campaign allowance. `--inspect-campaign` reports both uncertainty and closures. This does not turn an inconclusive run into a successful measurement.
 
+An individual request can exhaust its pinned HTTP retry policy before the session exhausts eight attempts. To retain that request permanently without replay or reconciliation, use `--schema-portability retain-exhausted-request --request-id <exact-id> --campaign <id> --workspace <path>`. This explicit action requires a clean checkout and the campaign lease, a saved dispatch failure, exhausted transport attempts ending with unknown completion, and no completion receipt or verified usage. It appends a closure with evidence hashes; original records and full unknown-usage reservations remain unchanged. New request identities may then use the remaining budget. Never use this to claim successful completion or free reserved cost. Campaign regressions cover rejection, restart, no redispatch, unchanged accounting and the shared spending ceiling.
+
 ## Parent comparison
 
 The read-only comparison loads all three repetitions for both revisions from the

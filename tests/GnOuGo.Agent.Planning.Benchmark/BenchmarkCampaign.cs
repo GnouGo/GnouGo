@@ -74,6 +74,34 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         await SaveAsync("planning-evaluation-closures", requestId, closure, ct);
         return closure;
     }
+    // Explicit operator action under the campaign lease. Exhausting one HTTP
+    // request need not exhaust the session's eight-attempt planning allowance.
+    // This is not reconciliation: no receipt or usage is manufactured/released.
+    internal async Task<JsonObject> RetainExhaustedRequestAsync(string requestId, CancellationToken ct)
+    {
+        if (await LoadAsync("planning-evaluation-closures", requestId, ct) is { } saved) return saved;
+        var request = await LoadAsync("planning-evaluation-requests", requestId, ct);
+        var journal = await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
+        var failure = await LoadAsync("planning-evaluation-failures", requestId, ct);
+        var policy = await LoadAsync("planning-evaluation-configuration", "http-retry-policy", ct);
+        if (request?["clientRequestId"]?.ToString() != requestId || failure?["stage"]?.ToString() != "dispatch" ||
+            policy?["MaxAttempts"] is not JsonValue maximum || !maximum.TryGetValue<int>(out var limit) || limit is < 1 or > 20 ||
+            journal?["transport"]?["Attempts"] is not JsonArray attempts || attempts.Count < limit ||
+            attempts[^1]?["Status"] is not null || journal["usage"] is not null ||
+            await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null)
+            throw new InvalidOperationException("Only an uncertain request that exhausted its pinned HTTP attempt policy can be retained here.");
+        var closure = new JsonObject
+        {
+            ["request_id"] = requestId, ["reason"] = "http_attempts_exhausted", ["outcome"] = "inconclusive",
+            ["retained_at"] = DateTimeOffset.UtcNow.ToString("O"),
+            ["request_hash"] = PlanningGraphCompiler.Fingerprint(request.ToJsonString()),
+            ["http_journal_hash"] = PlanningGraphCompiler.Fingerprint(journal.ToJsonString()),
+            ["retry_policy_hash"] = PlanningGraphCompiler.Fingerprint(policy.ToJsonString()),
+            ["accounting_at_closure"] = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct)
+        };
+        await SaveAsync("planning-evaluation-closures", requestId, closure, ct);
+        return closure;
+    }
     // Read-only audit of a permanently closed admission denial. Zero attempts is
     // proof of no dispatch because the HTTP layer persists intent before sending.
     // A timeout, missing journal, changed record or any admitted attempt is ineligible.

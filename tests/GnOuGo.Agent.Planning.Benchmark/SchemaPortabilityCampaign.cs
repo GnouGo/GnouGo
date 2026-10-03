@@ -129,6 +129,12 @@ internal static class SchemaPortabilityCampaign
         Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
         await using var lease = new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         if (Git("status", "--porcelain").Length != 0) throw new InvalidOperationException("Commit the tested source and harness before paid dispatch.");
+        if (phase == "retain-exhausted-request")
+        {
+            Console.WriteLine((await campaign.RetainExhaustedRequestAsync(
+                Option(args, "--request-id") ?? throw new ArgumentException("Supply the exact --request-id."), CancellationToken.None)).ToJsonString());
+            return;
+        }
         using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Model, campaign, root, CancellationToken.None);
         if (phase == "mapping") { await MappingLiveEvaluation.RunAsync(args, campaign, model, root); return; }
         if (phase is "readiness" or "plan" or "execute")
