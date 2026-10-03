@@ -362,11 +362,29 @@ public sealed partial class TaskPlanCompiler
             OutputSchema = Contract(ObjectSchema([("value", schema)])) };
     }
 
+    private PlanningOperation OperationInputs(PlanTask task, PlanningCapability capability, Scope scope)
+    {
+        var operation = PlanningCapabilityArguments.Editable(capability);
+        if (capability.InputSchema["oneOf"] is not JsonArray) return operation;
+        // Only literal selectors establish a branch. Other bindings retain their
+        // ordinary checks; unknown or ambiguous selectors grant no refinement.
+        var literals = task.Inputs.Where(i => Literal(i.Value) && !PlanningCapabilityArguments.Assignment(capability, i.Name, i.Value))
+            .Select(i => (Port: operation.Inputs.SingleOrDefault(p => p.Name == i.Name), Value: i.Value)).Where(i => i.Port is not null)
+            .Select(i => (i.Port!, Schema: new JsonObject { ["const"] = PlanningGraphValidation.Literal(Value(i.Value, scope).Value) }));
+        try
+        {
+            var request = PlanningCapabilityArguments.EffectiveSchema(capability, literals);
+            return PlanningCapabilityArguments.Editable(capability, SelectedInputBranch(request, capability.InputSchema));
+        }
+        catch (InvalidOperationException)
+        { Fail("TASK_INPUT_BINDING", "Input mappings must assemble disjoint declared fields."); return operation; }
+    }
+
     private Dictionary<string, Bound> Operation(PlanTask task, Scope scope, List<PlanningNode> target, string key)
     {
         var matches = _catalog.Capabilities.Where(c => TaskOperations.Describe(c).Id == task.Operation).ToArray();
         if (matches.Length != 1) Fail("TASK_OPERATION_UNKNOWN", "Select one issued, unambiguous operation.");
-        var capability = matches[0]; var operation = PlanningCapabilityArguments.Editable(capability);
+        var capability = matches[0]; var operation = OperationInputs(task, capability, scope);
         if (_catalog.Policy.DeniedCapabilityIds.Contains(capability.Id) || !_catalog.AllowedStepTypes.Contains(capability.StepType)) Fail("TASK_OPERATION_DENIED", "The operation is outside the approved host policy.");
         Unique(task.Inputs.Select(i => i.Name));
         var input = Object([]);

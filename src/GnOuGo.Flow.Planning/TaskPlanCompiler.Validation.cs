@@ -254,7 +254,8 @@ public sealed partial class TaskPlanCompiler
                     if (TaskOperations.Validate(capability).Count > 0) { scope.Blocked.Add(("output", task.Id, "*")); break; }
                     var operation = PlanningCapabilityArguments.Editable(capability);
                     Check(path + "/operation", () => { if (_catalog.Policy.DeniedCapabilityIds.Contains(capability.Id) || !_catalog.AllowedStepTypes.Contains(capability.StepType)) Fail("TASK_OPERATION_DENIED", "The operation is outside the approved host policy."); });
-                    Check(path + "/inputs", () => Unique(task.Inputs.Select(i => i.Name)));
+                    Check(path + "/inputs", () =>
+                    { Unique(task.Inputs.Select(i => i.Name)); operation = OperationInputs(task, capability, scope); });
                     var inputFindings = findings.Count;
                     var mapped = new List<(OperationPort Port, JsonObject Schema)>();
                     var mappedValues = Object([]);

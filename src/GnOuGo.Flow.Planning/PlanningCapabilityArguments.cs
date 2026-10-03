@@ -64,14 +64,18 @@ internal static class PlanningCapabilityArguments
 
     internal static bool Owns(PlanningCapability capability, IReadOnlyList<string> path) => Bindings(capability).Any(b => Prefix(b.Path, path));
 
-    internal static PlanningOperation Editable(PlanningCapability capability)
+    internal static PlanningOperation Editable(PlanningCapability capability) => Editable(capability, null);
+
+    internal static PlanningOperation Editable(PlanningCapability capability, JsonObject? selectedInput)
     {
         var operation = TaskOperations.Describe(capability);
         var bindings = Bindings(capability);
         return new() { Id = operation.Id, Version = operation.Version, Description = operation.Description, Outputs = operation.Outputs,
             Inputs = operation.Inputs.Where(p => !bindings.Any(b => Prefix(b.Path, p.Path))).Select(port =>
             {
-                var schema = port.Schema.DeepClone().AsObject();
+                JsonObject? selected = selectedInput;
+                foreach (var part in port.Path) selected = selected?["properties"]?[part] as JsonObject;
+                var schema = (selected ?? port.Schema).DeepClone().AsObject();
                 foreach (var binding in bindings.Where(b => Prefix(port.Path, b.Path))) Remove(schema, binding.Path[port.Path.Count..]);
                 return new OperationPort { Name = port.Name, Path = port.Path.ToList(), Schema = schema,
                     Required = port.Required && !Supplies(capability, port, bindings) };

@@ -59,6 +59,40 @@ public sealed class ResourceConstraintTests
         Assert.Null(new TaskPlanCompiler().Compile(plan, catalog).Graph);
     }
     [Theory]
+    [InlineData("action", "payload", "code", "^area/")]
+    [InlineData("variant", "arguments", "reference", "^zone-")]
+    public async Task LiteralDiscriminatorsSelectNestedChecksBeforeBinding(string selector, string container, string field, string pattern)
+    {
+        var catalog = await new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask).DiscoverAsync(new(), PlannerFixture.Ct);
+        JsonObject Branch(string choice, JsonObject value) => new() { ["type"] = "object", ["properties"] = new JsonObject
+            { [selector] = new JsonObject { ["const"] = choice }, [container] = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject
+                { [field] = value, ["untouched"] = new JsonObject { ["type"] = "boolean" } }, ["required"] = new JsonArray(field, "untouched"), ["additionalProperties"] = false } },
+            ["required"] = new JsonArray(selector, container), ["additionalProperties"] = false };
+        var schema = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject
+            { [selector] = new JsonObject { ["type"] = "string" }, [container] = new JsonObject { ["type"] = "object" } },
+            ["required"] = new JsonArray(selector, container), ["oneOf"] = new JsonArray(
+                Branch("selected", new() { ["type"] = "string", ["pattern"] = pattern, ["minLength"] = 6, ["maxLength"] = 20 }),
+                Branch("other", new() { ["type"] = "integer" })) };
+        catalog.Capabilities.Add(new() { Id = "branch-operation", Version = "v1", Kind = "tool", StepType = "mcp.call", Server = "unrelated", Method = "dispatch",
+            InputSchema = schema, OutputSchema = new() });
+        var plan = new TaskPlan { Inputs = [new() { Name = "location", Type = new() { Kind = "string" } }], Root = new() { Tasks =
+            [new() { Id = "consumer", Objective = "Use the selected operation", Operation = "branch-operation", Inputs =
+                [new(selector, new() { Kind = "string", Text = "selected" }), new(container, new() { Kind = "object", Members =
+                    [new(field, new() { Kind = "input", Source = "location" }), new("untouched", new() { Kind = "boolean", Boolean = true })] })] }] } };
+        var original = schema.ToJsonString();
+        await Execute(plan, catalog, pattern[1..] + "valid", true);
+        await Execute(plan, catalog, "invalid", false);
+        Assert.Equal(original, schema.ToJsonString());
+        plan.Root.Tasks[0].Inputs[0].Value.Text = "other";
+        Assert.Null(new TaskPlanCompiler().Compile(plan, catalog).Graph); // Known incompatible type.
+        plan.Root.Tasks[0].Inputs[0] = new(selector, new() { Kind = "input", Source = "location" });
+        Assert.Null(new TaskPlanCompiler().Compile(plan, catalog).Graph); // Runtime selector cannot establish a branch.
+        plan.Root.Tasks[0].Inputs[0] = new(selector, new() { Kind = "string", Text = "selected" });
+        schema["oneOf"]!.AsArray().Add(Branch("selected", new() { ["type"] = "string" }));
+        Assert.Null(new TaskPlanCompiler().Compile(plan, catalog).Graph); // Ambiguous selector.
+    }
+
+    [Theory]
     [InlineData("{\"type\":\"string\"}", "{\"type\":\"string\",\"pattern\":\"^zone-\"}", true)]
     [InlineData("{\"type\":\"number\"}", "{\"type\":\"number\",\"minimum\":1}", true)]
     [InlineData("{\"type\":\"string\",\"enum\":[\"outside\"]}", "{\"type\":\"string\",\"pattern\":\"^zone-\"}", false)]
