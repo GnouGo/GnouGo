@@ -48,7 +48,7 @@ internal static class LiveWorkflowEvaluation
             await Save();
         });
         var measured = new ExecutionModel(model, label);
-        var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = measured,
+        var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = phase == "execute" ? measured : model,
             RunStore = EncryptedWorkflowRunStore.CreateWorkspace(baseDirectory: root),
             Limits = new() { TenantId = "benchmark", RunId = label, AgentId = campaign.Id + "-" + scenario, AgentName = "Live evaluation " + scenario },
             HumanInputProvider = human, LlmDefaults = new() { Model = model.Model, Provider = model.Provider } };
