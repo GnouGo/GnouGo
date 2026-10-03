@@ -49,10 +49,11 @@ public sealed class PlannerChoiceUiTests : BunitContext
     [Fact]
     public void BusinessRequirementsAreReviewedWithoutTechnicalProofAnnotations()
     {
-        var state = new PlanningSession { IntentVersion = 2, Requirements = new() { Summary = "Make a report", Inputs = [],
+        var state = new PlanningSession { IntentVersion = 2, Requirements = new() { Summary = "Make a report", Inputs = [], Outputs = [new() { Name = "report", Type = new() { Kind = "string" } }],
             Outcomes = [new("report", "Write <script>unsafe()</script> rows")] } };
         var cut = Render<PlannerStageDetails>(p => p.Add(c => c.Session, PlanningEndpoints.ToDto(state)));
         Assert.Contains("Business requirements", cut.Markup); Assert.Contains("Caller inputs: none", cut.Markup);
+        Assert.Contains("Business outputs: report: string", cut.Markup);
         Assert.Contains("does not prove business completeness", cut.Markup); Assert.Empty(cut.FindAll("script"));
         Assert.DoesNotContain("Historical outcome checks", cut.Markup); Assert.Empty(cut.FindAll("button"));
     }

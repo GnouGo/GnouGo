@@ -16,6 +16,7 @@ internal static class BrowserMcpJson
 }
 
 [JsonSerializable(typeof(BrowserContentResult))]
+[JsonSerializable(typeof(BrowserObservationCapture))]
 [JsonSerializable(typeof(BrowserActionResult))]
 [JsonSerializable(typeof(BrowserKeyActionResult))]
 [JsonSerializable(typeof(BrowserSelectResult))]

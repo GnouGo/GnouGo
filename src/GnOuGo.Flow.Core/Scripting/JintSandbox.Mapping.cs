@@ -13,14 +13,14 @@ namespace GnOuGo.Flow.Core.Scripting;
 
 public sealed partial class JintSandbox
 {
-    public const int MappingProfileVersion = 3;
+    public const int MappingProfileVersion = 4;
     public const string MappingFunction = "checkedMapping";
     private static readonly HashSet<string> MappingHelpers = ["select", "optional", "parse", "text", "texts", "trim", "decode", "percentDecode", "resolveUri", "number", "has", "test", "scalar"];
 
     /// <summary>Only source-backed scalar identities may leave this sandbox. JS never holds their numeric approximations.</summary>
     public JsonNode? ExecuteMapping(string expression, JsonNode? source, CancellationToken ct = default, JsonObject? target = null)
     {
-        ValidateMapping(expression);
+        ValidateMapping(expression, learned: false);
         ct.ThrowIfCancellationRequested();
         var engine = new Engine(options => options.MaxStatements(_maxStatements).TimeoutInterval(_timeout)
             .LimitMemory(_memoryLimit).CancellationToken(ct).Strict());
@@ -192,12 +192,19 @@ public sealed partial class JintSandbox
         }
     }
 
-    public static void ValidateMapping(string expression)
+    public static void ValidateMapping(string expression) => ValidateMapping(expression, learned: true);
+
+    public static void ValidateMapping(string expression, bool learned)
     {
         if (expression.Length > 65536) throw Unsatisfied("Mapping script exceeds its size limit.");
         try { Check(new Acornima.Parser().ParseExpression(expression), new(StringComparer.Ordinal) { "source", "m", "Object", "Array" }, 0); }
         catch (Acornima.ParseErrorException ex) { throw Unsatisfied("Mapping JavaScript is invalid.", ex); }
-        static void Check(Node node, HashSet<string> bound, int depth)
+        static bool Control(Node node, int depth = 0) => depth < 64 && (node is UnaryExpression { Operator: Acornima.Operator.LogicalNot } negate && Control(negate.Argument, depth + 1) ||
+            node is Literal or UnaryExpression { Operator: Acornima.Operator.TypeOf } or BinaryExpression ||
+            node is CallExpression { Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier { Name: "has" or "test" or "scalar" } } } ||
+            node is CallExpression { Callee: MemberExpression { Object: Identifier { Name: "Array" }, Property: Identifier { Name: "isArray" } } });
+
+        void Check(Node node, HashSet<string> bound, int depth)
         {
             if (depth > 64) throw Unsatisfied("Mapping script nesting exceeded its limit.");
             switch (node)
@@ -236,6 +243,8 @@ public sealed partial class JintSandbox
                         call.Object is Identifier { Name: "Array" } ? method.Name == "isArray" : method.Name is "map" or "filter" or "slice" or "flatMap";
                     if (!permitted)
                         throw Unsatisfied("Mapping calls are limited to data extraction helpers and bounded array operations.");
+                    if (learned && method.Name == "filter" && invocation.Arguments.FirstOrDefault() is ArrowFunctionExpression filter && !Control(filter.Body))
+                        throw Unsatisfied("Array filters require explicit observation predicates, such as m.test(value, patternString).");
                     Check(call, bound, depth + 1);
                     foreach (var argument in invocation.Arguments) Check(argument, bound, depth + 1);
                     return;
@@ -244,9 +253,12 @@ public sealed partial class JintSandbox
                     foreach (var argument in callLambda.Arguments) Check(argument, bound, depth + 1);
                     return;
                 case BinaryExpression binary when binary.Operator is Acornima.Operator.StrictEquality or Acornima.Operator.StrictInequality or Acornima.Operator.LogicalOr or Acornima.Operator.LogicalAnd:
+                    if (learned && (!Control(binary.Left) || !Control(binary.Right)))
+                        throw Unsatisfied("Observed scalar tokens cannot be compared or used as booleans. Use m.test for observed text, m.has for presence, or Array.isArray for containers.");
                     Check(binary.Left, bound, depth + 1); Check(binary.Right, bound, depth + 1); return;
                 case UnaryExpression { Operator: Acornima.Operator.TypeOf } type: Check(type.Argument, bound, depth + 1); return;
                 case ConditionalExpression conditional:
+                    if (learned && !Control(conditional.Test)) throw Unsatisfied("Use an explicit observation predicate for a conditional mapping.");
                     Check(conditional.Test, bound, depth + 1); Check(conditional.Consequent, bound, depth + 1); Check(conditional.Alternate, bound, depth + 1); return;
                 case UnaryExpression { Operator: Acornima.Operator.LogicalNot } unary: Check(unary.Argument, bound, depth + 1); return;
                 default: throw Unsatisfied("Mapping JavaScript contains an unsupported operation.");

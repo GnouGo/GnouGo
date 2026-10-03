@@ -12,6 +12,21 @@ namespace GnOuGo.Flow.Tests.Runtime;
 public sealed class DynamicMappingTests
 {
     [Theory]
+    [InlineData("source.rows.filter(r=>r.kind==='row')")]
+    [InlineData("source.rows.filter(r=>r.kind)")]
+    [InlineData("source.kind ? source.rows : []")]
+    public void OpaqueTokensCannotSilentlyProduceEmptySelections(string script)
+        => Assert.Throws<WorkflowRuntimeException>(() => JintSandbox.ValidateMapping(script));
+
+    [Fact]
+    public void ExplicitTextPredicateSelectsObservedRowsWithoutFabrication()
+    {
+        var result = new JintSandbox().ExecuteMapping("source.rows.filter(r=>m.test(r.kind,'^row$')).map(r=>r.title)",
+            JsonNode.Parse("""{"rows":[{"kind":"other","title":"skip"},{"kind":"row","title":"keep"}]}"""), TestContext.Current.CancellationToken);
+        Assert.Equal("keep", Assert.Single(result!.AsArray())!.GetValue<string>());
+    }
+
+    [Theory]
     [InlineData("({amount:source.price})", "{\"price\":7922816251426433759354395033.5}", "{\"amount\":7922816251426433759354395033.5}")]
     [InlineData("source.rows.map(r=>({name:r.title}))", "{\"rows\":[{\"title\":\"a\"},{\"title\":\"a\"}]}", "[{\"name\":\"a\"},{\"name\":\"a\"}]")]
     [InlineData("m.parse(source.text)", "{\"text\":\"{\\\"x\\\":7}\"}", "{\"x\":7}")]

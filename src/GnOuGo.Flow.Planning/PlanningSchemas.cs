@@ -5,6 +5,19 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>The model sees business tasks and ports, never executor graph plumbing.</summary>
 internal static class PlanningSchemas
 {
+    internal static bool DeclaresOutputs(JsonNode? schema)
+    {
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        return Visit(schema?["properties"]?["requirements"]);
+        bool Visit(JsonNode? node)
+        {
+            if (node is not JsonObject obj) return false;
+            if (obj["properties"] is JsonObject properties && properties.ContainsKey("outputs")) return true;
+            if (obj["$ref"]?.ToString() is { } reference && reference.StartsWith("#/$defs/", StringComparison.Ordinal) && visited.Add(reference))
+                return Visit(schema?["$defs"]?[reference[8..]]);
+            return obj["anyOf"] is JsonArray alternatives && alternatives.Any(Visit);
+        }
+    }
     internal static bool HasQueryProperty(JsonNode? node) => node switch
     {
         JsonObject obj => obj["properties"] is JsonObject properties && properties.ContainsKey("query") || obj.Any(p => HasQueryProperty(p.Value)),
@@ -102,6 +115,8 @@ internal static class PlanningSchemas
         {
             definitions["requirements"]!["properties"]!["inputs"] = Nullable(Array(Ref("input")));
             definitions["requirements"]!["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("inputs"));
+            definitions["requirements"]!["properties"]!["outputs"] = Array(Object(("name", Ref("goal")), ("type", Ref("businessType")), ("required", Type("boolean"))));
+            definitions["requirements"]!["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("outputs"));
             if (compact)
             {
                 // Already explained in the prompt; omit duplicate annotations only.

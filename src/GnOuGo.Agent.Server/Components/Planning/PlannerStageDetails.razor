@@ -7,6 +7,8 @@
         <ul>@foreach (var outcome in accepted.Outcomes) { <li>@outcome.Description</li> }</ul>
         @if (accepted.Inputs is { } inputs)
         { <p>Caller inputs: @(inputs.Count == 0 ? "none" : string.Join(", ", inputs.Select(i => i.Name)))</p> }
+        @if (accepted.Outputs is { } outputs)
+        { <p>Business outputs: @(outputs.Count == 0 ? "none" : string.Join(", ", outputs.Select(o => o.Name + ": " + o.Type.Kind + (o.Type.Nullable ? " (nullable)" : ""))))</p> }
     </details>
 }
 @if (Session.Graph is { } graph)

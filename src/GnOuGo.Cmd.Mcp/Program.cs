@@ -58,7 +58,14 @@ try
                         _ => tool.Description
                     };
                     if (string.Equals(tool.Name, "cmd_run", StringComparison.Ordinal))
+                    {
                         tool.InputSchema = policy.BuildCmdRunInputSchema(tool.InputSchema);
+                        if (policy.BuildArtifactMetadata() is { } artifacts)
+                        {
+                            tool.Meta ??= new();
+                            ((System.Text.Json.Nodes.JsonObject)tool.Meta["gnougo"]!)["artifacts"] = artifacts;
+                        }
+                    }
                 }
 
                 return result;

@@ -140,3 +140,5 @@ complete input/output contracts pass validation. Executable mappings are emitted
 during final lowering. Opaque bindings use approved bounded runtime extraction against declared targets; explicit interpretation remains a business transform. See [contract closure and validation](../../docs/planning-contract-closure.md).
 
 See [compiled and bounded runtime mappings](../../docs/runtime-mappings.md) for optional extraction mode, runtime inference review, encrypted cache, recovery and the breaking projection migration.
+
+See [compact observations, accepted outputs and resource lifecycle](../../docs/compact-observations-and-execution.md) for the current producer/compiler boundaries and executor simplification.

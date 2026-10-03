@@ -60,6 +60,7 @@ public sealed class RecordedBudgetDiscoveryTests(ITestOutputHelper output)
         var recording = Read("retained-review.json");
         var original = recording["finalSession"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
         original.Requirements!.Inputs = original.Plan!.Inputs;
+        original.Requirements.Outputs = original.Plan.Root.Outputs.Select(o => new TaskInput { Name = o.Name, Type = new() { Kind = "any" } }).ToList();
         var catalog = new RecordedContracts(original.Discovery);
         var runtime = new TestRuntime { Capabilities = catalog };
         runtime.Respond = (request, _) => TestRuntime.Response(request, new()

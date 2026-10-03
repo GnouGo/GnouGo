@@ -86,6 +86,22 @@ public static class PlanningCorpus
     /// <summary>Projects fixture DTOs to the exact strict transport schema. Never used in production.</summary>
     public static JsonNode? Transport(JsonNode? value, JsonObject schema, JsonObject root)
     {
+        // Old discovery scripts do not yet specify a complete result interface.
+        // Defer accepting intent until their plan response, as the current protocol allows.
+        if (ReferenceEquals(schema, root) && value?["requirements"] is JsonObject pendingRequirements &&
+            !pendingRequirements.ContainsKey("outputs") && value["plan"] is null &&
+            root["$defs"]!.AsObject().Any(d => d.Value?["properties"] is JsonObject p && p.ContainsKey("summary") && p.ContainsKey("outputs")))
+        { value = value.DeepClone(); value["requirements"] = null; }
+        // Historical fixtures predate accepted output interfaces. Preserve their exact
+        // output names with opaque types; independent type-interface tests declare their own.
+        if (ReferenceEquals(schema, root) && value?["requirements"] is JsonObject resultRequirements &&
+            !resultRequirements.ContainsKey("outputs") && value["plan"]?["root"]?["outputs"] is JsonArray results &&
+            root["$defs"]!.AsObject().Any(d => d.Value?["properties"] is JsonObject p && p.ContainsKey("summary") && p.ContainsKey("outputs")))
+        {
+            value = value.DeepClone();
+            value["requirements"]!["outputs"] = new JsonArray(results.Select(o => (JsonNode)new JsonObject
+            { ["name"] = o!["name"]!.DeepClone(), ["type"] = new JsonObject { ["kind"] = "any" }, ["required"] = true }).ToArray());
+        }
         // Older scripted proposals specify their caller interface on the plan only.
         // Advertise that same interface explicitly in NEW request schemas; never alter
         // a fixture that supplies an independent requirements interface for comparison.

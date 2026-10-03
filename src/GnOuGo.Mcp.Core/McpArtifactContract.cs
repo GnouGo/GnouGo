@@ -37,7 +37,16 @@ public sealed record McpConsumedArtifact(string Kind, string Pointer, bool Requi
 public sealed record McpArtifactContract(
     int Version,
     IReadOnlyList<McpProducedArtifact> Produces,
-    IReadOnlyList<McpConsumedArtifact> Consumes);
+    IReadOnlyList<McpConsumedArtifact> Consumes)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<McpArtifactLocation>? Locations { get; init; }
+}
+
+/// <summary>Producer-declared resource address. File/directory spaces are absolute base URIs;
+/// handle spaces are opaque namespaces. Selectors match one existing literal schema discriminator.</summary>
+public sealed record McpArtifactLocation(string Pointer, string Kind, string Action, string Space,
+    string? OutputPointer = null, string? SelectorPointer = null, string? SelectorValue = null);
 
 public sealed record McpArtifactContractValidationResult(
     McpArtifactContract? Contract,
@@ -75,13 +84,68 @@ public static class McpArtifactContractParser
 
         var produces = ParseProduces(artifacts["produces"], outputSchema, errors);
         var consumes = ParseConsumes(artifacts["consumes"], inputSchema, errors);
-        if (produces.Count == 0 && consumes.Count == 0)
+        var locations = ParseLocations(artifacts["locations"], inputSchema, outputSchema, errors);
+        if (produces.Count == 0 && consumes.Count == 0 && locations is not { Count: > 0 })
             errors.Add("Artifact contract must declare at least one produced or consumed artifact.");
 
         var contract = version.HasValue
-            ? new McpArtifactContract(version.Value, produces, consumes)
+            ? new McpArtifactContract(version.Value, produces, consumes) { Locations = locations }
             : null;
         return new McpArtifactContractValidationResult(contract, errors);
+    }
+
+    private static IReadOnlyList<McpArtifactLocation>? ParseLocations(JsonNode? node, JsonNode? inputSchema, JsonNode? outputSchema, List<string> errors)
+    {
+        if (node is null) return null;
+        if (node is not JsonArray array) { errors.Add("artifacts.locations must be an array."); return []; }
+        var result = new List<McpArtifactLocation>();
+        foreach (var entry in array)
+        {
+            var prefix = "artifacts.locations[" + result.Count + "]";
+            if (entry is not JsonObject item) { errors.Add(prefix + " must be an object."); continue; }
+            var pointer = ReadRequiredPointer(item, prefix, errors);
+            var kind = ReadRequiredString(item, "kind", prefix, errors);
+            var action = ReadRequiredString(item, "action", prefix, errors);
+            var space = ReadRequiredString(item, "space", prefix, errors);
+            string? Optional(string name) => item[name] is null ? null : ReadRequiredString(item, name, prefix, errors);
+            var output = Optional("outputPointer"); var selector = Optional("selectorPointer"); var selected = Optional("selectorValue");
+            if (kind is not ("file" or "directory" or "handle")) errors.Add(prefix + ".kind must be file, directory or handle.");
+            if (action is not ("use" or "materialize" or "release")) errors.Add(prefix + ".action must be use, materialize or release.");
+            if (kind is "file" or "directory" && (!Uri.TryCreate(space, UriKind.Absolute, out var uri) || !uri.AbsoluteUri.EndsWith('/')))
+                errors.Add(prefix + ".space must be an absolute base URI ending with '/'.");
+            if (output is not null && action != "materialize") errors.Add(prefix + ".outputPointer is only valid for materialization.");
+            var schema = inputSchema;
+            if ((selector is null) != (selected is null)) errors.Add(prefix + " requires both selectorPointer and selectorValue.");
+            if (selector is not null && selected is not null)
+            {
+                try
+                {
+                    var parts = DecodePointer(selector);
+                    var branches = (inputSchema?["oneOf"] as JsonArray ?? []).OfType<JsonObject>().Where(branch =>
+                    {
+                        JsonNode? field = branch;
+                        foreach (var part in parts) field = field?["properties"]?[part];
+                        return field?["const"] is JsonValue v && v.TryGetValue<string>(out var value) && value == selected;
+                    }).ToArray();
+                    if (parts.Count == 0 || branches.Length != 1) errors.Add(prefix + " selector must resolve one existing literal discriminator branch.");
+                    else schema = branches[0];
+                }
+                catch (FormatException) { errors.Add(prefix + ".selectorPointer is invalid."); }
+            }
+            if (pointer is not null) ValidateSchemaPointer(schema, pointer, true, prefix, errors);
+            if (output is not null)
+            {
+                try { ValidateSchemaPointer(outputSchema, output, true, prefix + ".outputPointer", errors); }
+                catch (FormatException) { errors.Add(prefix + ".outputPointer is invalid."); }
+            }
+            if (pointer is not null && kind is not null && action is not null && space is not null)
+            {
+                var location = new McpArtifactLocation(pointer, kind, action, space, output, selector, selected);
+                if (result.Contains(location)) errors.Add(prefix + " duplicates a location declaration.");
+                result.Add(location);
+            }
+        }
+        return result;
     }
 
     private static McpArtifactContractValidationResult Invalid(string error)

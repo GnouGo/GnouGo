@@ -215,7 +215,11 @@ public sealed class RecordedProductPlanningTests(ITestOutputHelper output)
                 // historical recordings below still use their original request schemas.
                 var proposal = responses[Calls++]!.Deserialize(PlanningJsonContext.Default.PlanningProposal)!;
                 if (proposal.Requirements is not null)
-                    proposal.Requirements.Inputs = responses[1]!["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!.Inputs;
+                {
+                    var plan = responses[1]!["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+                    proposal.Requirements.Inputs = plan.Inputs;
+                    proposal.Requirements.Outputs = plan.Root.Outputs.Select(o => new TaskInput { Name = o.Name, Type = new() { Kind = "any" } }).ToList();
+                }
                 var json = JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal);
                 return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(json,
                     request.StructuredOutputSchema.AsObject(), request.StructuredOutputSchema.AsObject()) });

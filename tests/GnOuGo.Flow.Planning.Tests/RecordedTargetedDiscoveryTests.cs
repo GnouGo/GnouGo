@@ -31,7 +31,8 @@ public sealed class RecordedTargetedDiscoveryTests(ITestOutputHelper output)
                 : new PlanningProposal { DiscoveryRequests = call == 6 ? inspections : null, Plan = call == 7 ? successful.Plan : null };
             // This scripted continuation already knows the retained plan's caller interface.
             // Declare it in the new requirements contract; historical recording stays untouched.
-            if (proposal.Requirements is { } requirements) requirements.Inputs = successful.Plan!.Inputs;
+            if (proposal.Requirements is { } requirements)
+            { requirements.Inputs = successful.Plan!.Inputs; requirements.Outputs = successful.Plan.Root.Outputs.Select(o => new TaskInput { Name = o.Name, Type = new() { Kind = "any" } }).ToList(); }
             try { return TestRuntime.Response(request, proposal); }
             catch (Exception ex) { output.WriteLine($"Scripted response {call}: {ex}"); throw; }
         };

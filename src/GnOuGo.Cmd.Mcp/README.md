@@ -307,3 +307,7 @@ GNOU_GO_CMD_MCP_TEST_EXECUTABLE="$PWD/artifacts/cmd-aot/GnOuGo.Cmd.Mcp" dotnet t
 ```
 
 Use the corresponding RID and executable suffix on other platforms. The executable override is test-only. Tests execute packaged commands in isolated temporary workspaces and verify real filesystem results. Representative Linux, Windows and macOS desktop CI targets run the complete Cmd suite and protocol checks against their published Native AOT executable. No model call or external repository operation is required.
+
+### Optional resource lifecycle declarations
+
+A required workspace file/directory parameter can declare `ArtifactAction: use | materialize | release`. Cmd publishes that assertion in `gnougo.artifacts.locations`, bound to the exact existing `commandName` discriminator branch. The address space is the producer's host and resolved working directory. The shipped write/copy/move/delete configuration declares its known relationships; renaming a command preserves them. Unannotated commands remain usable. Scripts and names never imply metadata, and declarations do not grant permissions or bypass path preconditions. Custom producers must publish truthful relationships; altered scripts require matching declarations.

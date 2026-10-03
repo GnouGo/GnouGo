@@ -17,6 +17,7 @@ public static class PlanningExecutableValidation
         // contract errors together so one scope error does not consume an entire replan.
         if (errors.Any(d => d.Code is "WORKFLOW_IDENTITIES_INVALID" or "NODE_IDENTITIES_INVALID" or "PORT_IDENTITIES_INVALID" or "ENTRYPOINT_INVALID" or "DEPENDENCY_CYCLE")) return errors;
         errors.AddRange(PlanningArtifactBindings.PrerequisiteFindings(graph, catalog));
+        errors.AddRange(PlanningArtifactBindings.LifecycleFindings(graph, catalog));
         errors.AddRange(PlanningDataflow.Validate(graph, catalog));
         errors.AddRange(PlanningConfirmationGuards.Validate(graph, catalog));
         Script(graph.Functions, "/functions");

@@ -51,9 +51,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         while (!PlanningStatus.IsTerminal(state.Status))
         {
             var command = new PlanningCommand { ExpectedRevision = state.Revision };
-            if (state.Status == PlanningStatus.Clarification && ctx.Engine.PlanningInteraction is not null)
+            if (state.Status == PlanningStatus.Clarification && ctx.Engine.PlanningInteraction is { } decisions)
             {
-                if (ctx.Engine.PlanningInteraction is not { } decisions) break;
                 command = await decisions.RequestAsync(state, ct);
             }
             else if (PlanningStatus.IsWaiting(state.Status))

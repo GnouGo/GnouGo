@@ -288,7 +288,7 @@ public sealed partial class PlanningGraphCompiler
             var paths = PlanningGraphValidation.Member(value, "paths") ?? throw new InvalidOperationException("Projection needs paths.");
             var each = PlanningGraphValidation.Member(value, "each")?.Boolean == true;
             var script = "({value:m.select(source," + PlanningGraphValidation.Literal(paths)!.ToJsonString() + "," + (each ? "true" : "false") + ")})";
-            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script);
+            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
             expression = "checkedMapping(" + JsonValue.Create(script)!.ToJsonString() + "," + ExpressionBody(source) + ")";
         }
         else if (value.Kind == "predicate")
@@ -316,7 +316,7 @@ public sealed partial class PlanningGraphCompiler
             var variable = GnOuGo.Flow.Core.Runtime.LoopIterationContract.PreviousResultVariable(loopId);
             var previous = "m.scalar(source) ? source : " + ProjectChildren(scope.Nodes[value.Source].Steps, value.Path,
                 "source" + ResultPath("sequence", value.Path, scope), scope);
-            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(previous);
+            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(previous, learned: false);
             expression = "checkedMapping(" + JsonValue.Create(previous)!.ToJsonString() + ",data" + Segment(variable) + ")";
         }
         else if (value.Kind == "artifact_collection")
@@ -343,7 +343,7 @@ public sealed partial class PlanningGraphCompiler
             var envelope = value.ResultChannel == "envelope" ? "" : value.ResultChannel == "structured" ? ".json" : type switch { "workflow.call" => ".outputs", "mcp.call" => ".response", _ => "" };
             expression = "data.steps." + node + envelope + ResultPath(type, value.Path, scope);
             var projection = ProjectResult(scope.Nodes[value.Source], value.Path, "source", scope);
-            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(projection);
+            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(projection, learned: false);
             if (projection != "source") expression = "checkedMapping(" + JsonValue.Create(projection)!.ToJsonString() + "," + expression + ")";
         }
         else if (value.Kind == "template")

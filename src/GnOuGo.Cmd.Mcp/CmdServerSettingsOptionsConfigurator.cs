@@ -118,6 +118,7 @@ internal sealed class CmdServerSettingsOptionsConfigurator(IConfiguration config
             parameterSettings.IsWorkspacePath = ReadBoolean(parameterNode, nameof(CommandParameterSettings.IsWorkspacePath), parameterSettings.IsWorkspacePath);
             parameterSettings.AllowAbsolutePath = ReadBoolean(parameterNode, nameof(CommandParameterSettings.AllowAbsolutePath), parameterSettings.AllowAbsolutePath);
             parameterSettings.MustExist = ReadBoolean(parameterNode, nameof(CommandParameterSettings.MustExist), parameterSettings.MustExist);
+            parameterSettings.ArtifactAction = ReadNullableString(parameterNode, nameof(CommandParameterSettings.ArtifactAction), null);
             parameterSettings.PathKind = ReadEnum(parameterNode, nameof(CommandParameterSettings.PathKind), parameterSettings.PathKind);
 
             parameters[parameterNode.Key] = parameterSettings;

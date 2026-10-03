@@ -1137,7 +1137,11 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
                         artifact.Kind,
                         artifact.Pointer,
                         artifact.Required))
-                    .ToArray());
+                    .ToArray())
+            {
+                Locations = validation.Contract.Locations?.Select(l => new GnOuGo.Flow.Core.Runtime.McpArtifactLocation(
+                    l.Pointer, l.Kind, l.Action, l.Space, l.OutputPointer, l.SelectorPointer, l.SelectorValue)).ToArray()
+            };
         return new McpArtifactContractResolution(contract, validation.Errors);
     }
 

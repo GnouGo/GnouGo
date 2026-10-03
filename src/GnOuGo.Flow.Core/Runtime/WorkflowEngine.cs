@@ -205,7 +205,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
 
     /// <summary>
     /// Executes a sub-workflow under an existing telemetry span without creating a detached trace.
-    /// Intended for executors that need isolated engine state, such as parallel workflow routing.
+    /// Keeps document/evaluator state in the child scope and shares cumulative budgets and the run journal.
     /// </summary>
     public async Task<RunResult> ExecuteChildWorkflowAsync(
         CompiledWorkflow workflow,
@@ -218,10 +218,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         string? invocationPath = null)
     {
         RejectRetiredSteps(workflow);
-        _totalStepsExecuted = 0;
-        CompiledDocument = workflow.Document;
-        var executionScope = PrepareEvaluator(workflow);
-        if (invocationPath is not null) executionScope = CreateExecutionScopeForWorkflow(workflow, path: invocationPath);
+        var executionScope = CreateExecutionScopeForWorkflow(workflow, path: invocationPath ?? "/workflow/" + workflow.Name);
 
         var data = new JsonObject
         {
@@ -261,7 +258,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
             await ExecuteStepsAsync(workflow.Steps, data, result, limits, callDepth, callStack, executionScope, ct, workflowSpan);
 
             Logger.LogInformation("Child workflow '{WorkflowName}' completed successfully in {DurationMs:F1}ms ({StepsExecuted} steps)",
-                workflow.Name, workflowSw.Elapsed.TotalMilliseconds, _totalStepsExecuted);
+                workflow.Name, workflowSw.Elapsed.TotalMilliseconds, result.StepResults.Count);
         }
         catch (WorkflowRuntimeException ex)
         {
@@ -310,7 +307,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
             Telemetry.WorkflowEnd(workflowSpan, new WorkflowResultInfo
             {
                 Success = result.Success,
-                StepsExecuted = _totalStepsExecuted,
+                StepsExecuted = result.StepResults.Count,
                 Duration = workflowSw.Elapsed,
                 ErrorCode = result.Error?.Code,
                 ErrorMessage = result.Error?.Message

@@ -159,7 +159,7 @@ Console.WriteLine("typed transforms: passed; mocked inference; ordered products 
 var bounded = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = "Return declared data" }, ModelCalls = 6 };
 bounded.Discovery.Sources.Add(new("declared", "Declared source"));
 var boundedSchema = PlanningSchemas.Proposal(bounded);
-var noPlan = new JsonObject { ["requirements"] = new JsonObject { ["summary"] = "Return data", ["outcomes"] =
+var noPlan = new JsonObject { ["requirements"] = new JsonObject { ["summary"] = "Return data", ["outputs"] = new JsonArray(), ["outcomes"] =
     new JsonArray(new JsonObject { ["id"] = "data", ["description"] = "Return declared data" }), ["inputs"] = null }, ["discoveryRequests"] = null, ["plan"] = null, ["clarifications"] = null };
 if (!PlanningSchemas.AllowsNoPlan(boundedSchema) || PlanningContractValidation.ValidateInstance(noPlan, boundedSchema).Count != 0)
     throw new InvalidOperationException("Closed discovery must permit a safe no-plan response");

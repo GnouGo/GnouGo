@@ -309,3 +309,5 @@ the removed argument; business context belongs in the prompt. See
 ## Business requirements and review
 
 Accepted requirements and public inputs remain host-owned until explicit revision. Fresh requests no longer ask the model for outcome proofs or mappings. Technical review derives from compiled operations and authoritative contracts; it does not prove business completeness or execution success. See [simplification and compatibility](planner-simplification.md). Historical outcome reports remain evidence of earlier implementations, not current planning rules.
+
+See [compact observations, accepted outputs and resource lifecycle](compact-observations-and-execution.md) for the current producer/compiler boundaries and executor simplification.

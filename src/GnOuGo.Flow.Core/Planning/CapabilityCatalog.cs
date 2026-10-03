@@ -41,6 +41,9 @@ public sealed class PlanningRequirements
     /// <summary>Accepted caller interface. Null is unresolved or a historical declaration; empty means no caller inputs.</summary>
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public List<TaskInput>? Inputs { get; set; }
+    /// <summary>Accepted business result interface. Null preserves historical declarations; defaults are not output evidence.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<TaskInput>? Outputs { get; set; }
 }
 
 public sealed record PlanningRequirement(string Id, string Description)

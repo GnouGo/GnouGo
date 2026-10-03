@@ -222,6 +222,8 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         if (proposal.Plan is not null && state.IntentVersion == 2 &&
             (state.Requirements?.Inputs ?? proposal.Requirements?.Inputs) is null)
             Reject("REQUIREMENTS_INPUTS_REQUIRED", "/requirements/inputs", "Declare the intended caller input interface before proposing a plan, or clarify it with the user.");
+        if (state.Requirements is null && proposal.Requirements is { Outputs: null } && PlanningSchemas.DeclaresOutputs(issuedRequest.StructuredOutputSchema))
+            Reject("REQUIREMENTS_OUTPUTS_REQUIRED", "/requirements/outputs", "Declare the intended business output names and types, or clarify them before accepting requirements. Empty means no public outputs.");
         state.Requirements ??= proposal.Requirements;
         if (state.IntentVersion == 2 && state.Requirements is { Inputs: null } && proposal.Requirements?.Inputs is { } acceptedInputs) state.Requirements.Inputs = acceptedInputs;
         if (proposal.DiscoveryRequests is { } requests)
@@ -353,6 +355,8 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             foreach (var choice in plan.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
         }
         var graph = compilation.Graph!;
+        if (PlanningClarifications.OutputFindings(state, graph) is { Count: > 0 } outputFindings)
+        { state.Diagnostics = outputFindings; state.Graph = null; Stop(state); return; }
         var findings = PlanningGeneratedGraph.Validate(graph, state.Catalog!).Select(compilation.Locate).ToList();
         if (findings.Count > 0)
         {
@@ -409,8 +413,16 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             Reject("REQUIREMENTS_INVALID", "/requirements", "Declare distinct concrete business outcomes.");
         if (state.Requirements is { } accepted && (accepted.Summary != requirements!.Summary || !accepted.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal)
                 .SequenceEqual(requirements.Outcomes.OrderBy(o => o.Id, StringComparer.Ordinal)) ||
-                accepted.Inputs is not null && !PlanningClarifications.SameInputs(accepted.Inputs, requirements.Inputs)))
+                accepted.Inputs is not null && !PlanningClarifications.SameInputs(accepted.Inputs, requirements.Inputs) ||
+                accepted.Outputs is not null && !PlanningClarifications.SameInputs(accepted.Outputs, requirements.Outputs)))
             Reject("REQUIREMENTS_CHANGED", "/requirements", "Preserve accepted requirements. Only an explicit user revision may change their scope.");
+        if (requirements?.Outputs is { } outputs)
+        {
+            if (outputs.Any(o => string.IsNullOrWhiteSpace(o.Name) || o.Default is not null) || outputs.Select(o => o.Name).Distinct(StringComparer.Ordinal).Count() != outputs.Count)
+                Reject("REQUIREMENTS_INVALID", "/requirements/outputs", "Declare distinct business outputs without defaults; a default is not evidence of a produced result.");
+            try { foreach (var output in outputs) _ = TaskPlanCompiler.TypeSchema(output.Type); }
+            catch (ArgumentException) { Reject("REQUIREMENTS_INVALID", "/requirements/outputs", "Declare valid business output types."); }
+        }
     }
 
     internal static string Prompt(PlanningSession state) => state.PendingCall?.Request.Prompt ?? new PlanningPrompt(state).Request().Prompt;

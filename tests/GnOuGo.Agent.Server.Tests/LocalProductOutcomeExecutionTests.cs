@@ -23,6 +23,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
     [Theory]
     [InlineData("nominal")]
     [InlineData("extract")]
+    [InlineData("observation")]
     [InlineData("changed")]
     [InlineData("empty")]
     [InlineData("missing")]
@@ -65,7 +66,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 ["document"] = Server("Document", new() { ["Document__DefaultWorkingDirectory"] = workspace, ["OpenTelemetry__Enabled"] = "false" })
             });
             var model = new ProductTransformationFixture(variant) { ReadMethod = "browser_get_content", WriteMethod = "document_write", CloseMethod = "browser_close" };
-            var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = variant == "extract" ? new ExtractModel(model) : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
+            var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = variant is "extract" or "observation" ? new ExtractModel(model) : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await runtime.DiscoverAsync(new(), ct); var reads = 0;
             foreach (var source in await runtime.Capabilities.ListSourcesAsync(ct))
@@ -83,7 +84,15 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             Assert.Equal("execute", catalog.Capabilities.Single(c => c.Method == "browser_fill").EffectKind);
             Assert.Equal("lifecycle", catalog.Capabilities.Single(c => c.Method == "browser_close").EffectKind);
             var plan = ProductTransformationPlan.Create(catalog, model);
-            if (variant == "extract")
+            if (variant == "observation")
+            {
+                foreach (var task in new[] { plan.Root.Tasks.Single(t => t.Id == "search"), plan.Root.Tasks.Single(t => t.Id == "products").Body!.Tasks.Single(t => t.Id == "page") })
+                    task.Inputs.Add(new("format", ProductTransformationPlan.Text("observation")));
+                plan.Root.Tasks.Single(t => t.Id == "urls").Inputs = [new("page", ProductTransformationPlan.Ref("search", "observation"))];
+                plan.Root.Tasks.Single(t => t.Id == "products").Body!.Tasks.Single(t => t.Id == "extract").Inputs = [new("page", ProductTransformationPlan.Ref("page", "observation"))];
+                Assert.NotEmpty(catalog.Capabilities.Single(c => c.Method == "document_write").ArtifactContract!.Locations!);
+            }
+            if (variant is "extract" or "observation")
             {
                 plan.Root.Tasks.Single(t => t.Id == "urls").Mode = "extract";
                 plan.Root.Tasks.Single(t => t.Id == "products").Body!.Tasks.Single(t => t.Id == "extract").Mode = "extract";
@@ -106,7 +115,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var result = await engine.ExecuteAsync(doc.Workflows[doc.Entrypoint!], new JsonObject { ["search"] = site.Urls.Single() + "/search" }, ct);
             var executionMs = timer.Elapsed.TotalMilliseconds;
             output.WriteLine($"LOCAL {variant}: success={result.Success}, calls={session.ModelCalls}, discovery={reads}, repairs={session.ReplanAttempts}, inputEstimate={planning.InputEstimate}, executionAdapterCalls={model.Calls.Count}, planningMs={planningMs:F1}, executionMs={executionMs:F1}; error={result.Error?.Code} {result.Error?.Message}");
-            Assert.Equal(variant is "nominal" or "changed" or "empty" or "missing" or "extract", result.Success);
+            Assert.Equal(variant is "nominal" or "changed" or "empty" or "missing" or "extract" or "observation", result.Success);
             var browser = await transport.GetClientAsync("browser", ct);
             var afterCleanup = await browser.CallToolAsync("browser_get_content", new JsonObject(), ct);
             Assert.True(afterCleanup.IsError);
@@ -156,7 +165,12 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         {
             if (request.StructuredOutputSchema?["properties"]?["script"] is null) return interpretation.CallAsync(request, ct);
             var data = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
-            var script = data["target"]?["properties"]?["urls"] is not null
+            var observation = data["source"]?["page"] is not null;
+            if (observation) Assert.NotEmpty(data["source"]!["page"]!["records"]!.AsArray());
+            var script = observation ? data["target"]?["properties"]?["urls"] is not null
+                ? "({urls:source.page.records.filter(r=>m.test(r.kind,'^link$')).map(r=>r.href)})"
+                : "({name:source.page.records.filter(r=>m.test(r.tag,'^h1$'))[0].text,description:source.page.records.filter(r=>m.test(r.tag,'^p$'))[0].text,price:source.page.records.filter(r=>m.test(r.tag,'^price$'))[0].text})"
+                : data["target"]?["properties"]?["urls"] is not null
                 ? "({urls:m.texts(source.html," + JsonValue.Create("href=[\"']([^\"']+)")!.ToJsonString() + ")})"
                 : "({name:m.decode(m.text(source.html,'<h1>([^<]+)</h1>')),description:m.decode(m.text(source.html,'<p>(.*?)</p>')),price:m.text(source.html,'<price>(.*?)</price>')})";
             return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = script } });

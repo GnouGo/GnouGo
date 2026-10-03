@@ -63,4 +63,21 @@ internal static class PlanningClarifications
         state.Plan is { } plan && !SameInputs(inputs, plan.Inputs)
         ? [new("REQUIREMENTS_INPUTS_CHANGED", "/inputs", "Preserve the accepted caller inputs, types, requiredness and defaults. Additional or changed inputs require an explicit user revision.")]
         : [];
+
+    internal static List<PlanningDiagnostic> OutputFindings(PlanningSession state, PlanningGraph graph)
+    {
+        if (state.Requirements?.Outputs is not { } accepted) return [];
+        var actual = graph.Workflows.Single(w => w.Key == graph.Entrypoint).Outputs;
+        var findings = new List<PlanningDiagnostic>();
+        foreach (var output in actual.Where(o => accepted.All(a => a.Name != o.Name)))
+            findings.Add(new("REQUIREMENTS_OUTPUTS_CHANGED", "/outputs/" + output.Name, "Additional public outputs require an explicit revision of the accepted business interface."));
+        foreach (var output in accepted)
+        {
+            var produced = actual.SingleOrDefault(o => o.Name == output.Name);
+            if (produced is null && !output.Required) continue;
+            if (produced is null || !PlanningContractCompatibility.Fits(PlanningGraphCompiler.ToJsonSchema(produced.Schema, state.Catalog!), TaskPlanCompiler.TypeSchema(output.Type)))
+                findings.Add(new("REQUIREMENTS_OUTPUTS_CHANGED", "/outputs/" + output.Name, "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision."));
+        }
+        return findings;
+    }
 }

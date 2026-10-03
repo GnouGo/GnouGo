@@ -304,7 +304,7 @@ workflows:
 
         var mcpListSnippet = engine.Registry.Get("mcp.list")?.DslSnippet;
         Assert.NotNull(mcpListSnippet);
-        Assert.Contains("select the exact tool/prompt -> build the request arguments -> use `mcp.call`", mcpListSnippet);
+        Assert.Contains("injected capability catalog and cached discovery receipts", mcpListSnippet);
         Assert.Contains("can be passed directly into `mcp.call.input.tools` and/or `mcp.call.input.prompts`", mcpListSnippet);
         Assert.Contains("Do not go directly from `mcp.list` to `mcp.call` with only `server`", mcpListSnippet);
 

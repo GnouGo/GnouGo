@@ -6,7 +6,7 @@ using Microsoft.Playwright;
 
 namespace GnOuGo.Browser.Mcp;
 
-public sealed class PlaywrightBrowserHost : IAsyncDisposable
+public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
 {
     private readonly BrowserServerSettings _settings;
     private readonly ILogger<PlaywrightBrowserHost> _logger;
@@ -49,12 +49,18 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         string format,
         int? maxCharacters,
         bool includeScriptContent,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, string? cursor = null, int? maxRecords = null)
     {
         await _gate.WaitAsync(cancellationToken);
         try
         {
             var contentFormat = NormalizeFormat(format);
+            if (cursor is not null)
+            {
+                if (contentFormat != "observation" || url is not null || selector is not null)
+                    throw new InvalidOperationException("A continuation requires format=observation and no new URL or selector.");
+                return ContinueObservation(cursor, maxCharacters, maxRecords, cancellationToken);
+            }
             var limit = maxCharacters.GetValueOrDefault(_settings.MaxContentCharacters);
             var selectorTimeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
             if (limit <= 0)
@@ -68,6 +74,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
             }
             else
             {
+                _observation = null;
                 var targetUri = BrowserNavigationPolicy.ValidateNavigationTarget(url, _settings);
                 page = await EnsurePageAsync();
                 IResponse? response = null;
@@ -102,6 +109,8 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
 
             var locatorResolution = await ResolveContentLocatorAsync(page, selector, selectorTimeout);
             var locator = locatorResolution.Locator;
+            if (contentFormat == "observation")
+                return await CaptureObservationAsync(page, locator, locatorResolution, selector, statusCode, maxCharacters, maxRecords, cancellationToken);
             var rawContent = contentFormat switch
             {
                 "html" => await locator.EvaluateAsync<string>("element => element.outerHTML"),
@@ -143,6 +152,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            _observation = null;
             var page = GetRequiredPage();
             var timeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
             var locator = await ResolveLocatorAsync(page, selector, timeout);
@@ -194,6 +204,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            _observation = null;
             var page = GetRequiredPage();
             var timeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
             var locator = await ResolveLocatorAsync(page, selector, timeout);
@@ -250,6 +261,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            _observation = null;
             var page = GetRequiredPage();
             var timeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
             var locator = await ResolveTextLocatorAsync(page, text, exact);
@@ -301,6 +313,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            _observation = null;
             var page = GetRequiredPage();
             var timeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
             var normalizedKey = NormalizeRequiredValue(key, nameof(key));
@@ -351,6 +364,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            _observation = null;
             var page = GetRequiredPage();
             var timeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
             var normalizedValue = NormalizeRequiredValue(value, nameof(value));
@@ -456,6 +470,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            _observation = null;
             await HoldOpenIfConfiguredAsync(cancellationToken);
 
             if (_settings.KeepBrowserOpen)
@@ -588,6 +603,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         page.SetDefaultTimeout(_settings.DefaultTimeoutMs);
         page.SetDefaultNavigationTimeout(_settings.NavigationTimeoutMs);
         page.Dialog += async (_, dialog) => await dialog.DismissAsync();
+        page.FrameNavigated += (_, frame) => { if (frame == page.MainFrame) _observation = null; };
     }
 
     private IPage GetRequiredPage()
@@ -810,8 +826,8 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
         var normalized = string.IsNullOrWhiteSpace(format) ? "text" : format.Trim().ToLowerInvariant();
         return normalized switch
         {
-            "text" or "html" => normalized,
-            _ => throw new InvalidOperationException("format must be either 'text' or 'html'.")
+            "text" or "html" or "observation" => normalized,
+            _ => throw new InvalidOperationException("format must be 'text', 'html' or 'observation'.")
         };
     }
 
@@ -884,6 +900,8 @@ public sealed record BrowserContentResult(
     [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
 {
     public bool Ok => Success;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BrowserObservation? Observation { get; init; }
 }
 
 internal sealed record LocatorResolution(ILocator? Locator, string? FailureReason);

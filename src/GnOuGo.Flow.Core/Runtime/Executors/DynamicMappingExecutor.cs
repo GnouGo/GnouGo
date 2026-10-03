@@ -96,6 +96,7 @@ public sealed class DynamicMappingExecutor : IStepExecutor
         }
         JsonObject Evaluate(string script)
         {
+            JintSandbox.ValidateMapping(script);
             var value = sandbox.ExecuteMapping(script, sources, ct, target);
             var findings = JsonSchemaContractValidator.ValidateInstance(value, target);
             if (findings.Count > 0) throw JintSandbox.Unsatisfied("The mapped result does not satisfy its target: " + string.Join("; ", findings));
@@ -163,6 +164,8 @@ public sealed class DynamicMappingExecutor : IStepExecutor
         m.texts(observedString, patternString, captureIndex=1) returns ordered captures; m.trim(token), m.decode(token) (HTML entities),
         m.percentDecode(token) decodes URI percent escapes (not HTML entities or plus signs); m.resolveUri(observedReference, observedAbsoluteBase) resolves a URI.
         m.number(token) (invariant decimal), m.has(object, property), m.test(observedString, patternString).
+        Tokens are not JS scalars: never compare them with literals or use their truthiness. Filter text with m.test(token, '^literal$'),
+        test presence with m.has, and return the original observed token. Empty collections are valid only when the observation supports them.
         Patterns must be quoted JavaScript strings, never /regex/ literals. They use the .NET nonbacktracking subset.
         Example: m.text(source.note, 'Label: (.*)', 1). Escape regex backslashes inside the JavaScript string and JSON response.
         Array map/filter/slice/flatMap and expression-only arrow callbacks are allowed.
