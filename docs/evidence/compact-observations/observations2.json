@@ -1,0 +1,329 @@
+{
+  "campaign": "schema-portability-20261002",
+  "passed": 0,
+  "required": 6,
+  "complete": false,
+  "manifest": {
+    "production_sha": "4ae6b4d573625f0d6c6f0a75e04d9a29034ef78b",
+    "harness_sha": "4ae6b4d573625f0d6c6f0a75e04d9a29034ef78b",
+    "cohort": "observations2",
+    "provider": "OpenAi",
+    "model": "gpt-5.5-2026-04-24",
+    "reasoning": "medium",
+    "host_configuration_hash": "7a7fec4a3c4569be8862a2a27f071dcc6a4d080f76f86d11d40a47e9cdf85486",
+    "max_input_tokens": 96000,
+    "max_output_tokens": 32768,
+    "planning_attempts": 8,
+    "repairs": 2,
+    "cost_ceiling_eur": 50,
+    "browser_keep_open": false,
+    "os": "macOS 26.5.2",
+    "architecture": "Arm64",
+    "framework": ".NET 10.0.8",
+    "execution_path_hash": "1f61ad53f2ab163ad39817539aa0798aa0b6d72fdab95d49a5e22554ab5ddb16",
+    "amazon_prompt": "417bb3fcd521d097b40775505acc75ede0896e8d83e06da2f5d04077c7812a50",
+    "code_prompt": "bdb354f8cd88a2a6cf06d0bce25d077a0c1eefc195a57d3c0ff60fcf46d5286c",
+    "harness_tree": "f648ad5b02fa8d3f51289741c3a35602d7e0e630",
+    "scenario_count": 2,
+    "repetitions": 3,
+    "oracle_version": "real-workflows-v1"
+  },
+  "runs": [
+    {
+      "status": "stopped",
+      "planning_ms": 87162,
+      "calls": 2,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "diagnostics": [
+        {
+          "code": "REQUIREMENTS_OUTPUTS_CHANGED",
+          "location": "/outputs/workbookPath",
+          "message": "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 2,
+          "physical_attempts": 2,
+          "known_input_tokens": 18174,
+          "known_output_tokens": 6324,
+          "known_cost_eur": 0.24996881959910913,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 374,
+          "session_calls": 0,
+          "known_input_tokens": 5161274,
+          "known_output_tokens": 502095,
+          "known_cost_eur": 36.34714895909598,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 37.65052535107816,
+          "unknown_attempts": 1
+        }
+      },
+      "run": "observations2-amazon-1"
+    },
+    {
+      "status": "final_review",
+      "planning_ms": 73806,
+      "calls": 2,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 2,
+          "physical_attempts": 2,
+          "known_input_tokens": 18401,
+          "known_output_tokens": 4913,
+          "known_cost_eur": 0.2132694877505568,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 374,
+          "session_calls": 0,
+          "known_input_tokens": 5161274,
+          "known_output_tokens": 502095,
+          "known_cost_eur": 36.34714895909598,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 37.65052535107816,
+          "unknown_attempts": 1
+        }
+      },
+      "run": "observations2-amazon-2"
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "observations2-amazon-3",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 374,
+          "session_calls": 0,
+          "known_input_tokens": 5161274,
+          "known_output_tokens": 502095,
+          "known_cost_eur": 36.34714895909598,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 37.65052535107816,
+          "unknown_attempts": 1
+        }
+      }
+    },
+    {
+      "status": "final_review",
+      "planning_ms": 75574,
+      "calls": 4,
+      "repairs": 1,
+      "discovery_reads": 3,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "completed",
+      "accounting": {
+        "planning": {
+          "logical_calls": 4,
+          "physical_attempts": 4,
+          "known_input_tokens": 58769,
+          "known_output_tokens": 4448,
+          "known_cost_eur": 0.38065478841870826,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 1,
+          "physical_attempts": 1,
+          "known_input_tokens": 8158,
+          "known_output_tokens": 468,
+          "known_cost_eur": 0.04884632516703786,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 374,
+          "session_calls": 0,
+          "known_input_tokens": 5161274,
+          "known_output_tokens": 502095,
+          "known_cost_eur": 36.34714895909598,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 37.65052535107816,
+          "unknown_attempts": 1
+        }
+      },
+      "execution_ms": 93826,
+      "total_ms": 169400,
+      "run": "observations2-code-1"
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "observations2-code-2",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 374,
+          "session_calls": 0,
+          "known_input_tokens": 5161274,
+          "known_output_tokens": 502095,
+          "known_cost_eur": 36.34714895909598,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 37.65052535107816,
+          "unknown_attempts": 1
+        }
+      }
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "observations2-code-3",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 374,
+          "session_calls": 0,
+          "known_input_tokens": 5161274,
+          "known_output_tokens": 502095,
+          "known_cost_eur": 36.34714895909598,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 37.65052535107816,
+          "unknown_attempts": 1
+        }
+      }
+    }
+  ],
+  "accounting": {
+    "calls": 374,
+    "session_calls": 0,
+    "known_input_tokens": 5161274,
+    "known_output_tokens": 502095,
+    "known_cost_eur": 36.34714895909598,
+    "reserved_input_tokens": 96000,
+    "reserved_output_tokens": 32768,
+    "reserved_cost_eur": 1.3033763919821826,
+    "cost_upper_bound_eur": 37.65052535107816,
+    "unknown_attempts": 1
+  },
+  "collection_note": "Incomplete cohort retained before the generic empty-scope export correction. No runs or uncertain invocations were resumed; remaining slots stay in the denominator.",
+  "review_findings": {
+    "observations2-amazon-1": "Required string output bound to nullable producer; correctly rejected before execution.",
+    "observations2-amazon-2": "No execution: live artifact review found consumed foreach results with no declared exports. Reproduced generically before correction.",
+    "observations2-code-1": "Operator supplied answer instead of response to a choice interaction. Schema validation rejected the answer; external invocation remains uncertain and cleanup was blocked. Also retained: reviewText named in literal prompt but not bound, and requested report outside agent project root."
+  }
+}

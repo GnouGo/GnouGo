@@ -504,6 +504,10 @@ public sealed partial class TaskPlanCompiler
             case "output":
                 if (value.Source is not null && scope.Tasks.TryGetValue(value.Source, out var ports))
                 {
+                    if (string.IsNullOrEmpty(value.Port) && ports.Keys.All(string.IsNullOrEmpty) &&
+                        _symbols.Tasks.TryGetValue(value.Source, out var producerTask) &&
+                        producerTask.Task.Kind is "sequence" or "foreach" or "conditional" or "parallel" or "call")
+                        Fail("TASK_EXPORT_REQUIRED", "This scope declares no business outputs. Select explicit scope exports for data; use dependsOn or present for ordering or presence.");
                     if (ports.TryGetValue(value.Port ?? "", out var output)) return consume ? Consume(output, scope) : output;
                     Fail("TASK_OUTPUT_UNKNOWN", "This task has no declared business output '" + value.Port + "'. Opaque results cannot supply typed fields.");
                 }
