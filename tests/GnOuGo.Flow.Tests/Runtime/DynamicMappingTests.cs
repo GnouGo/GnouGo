@@ -108,6 +108,20 @@ public sealed class DynamicMappingTests
         Assert.True((await Run(model, store, maxLength: 20)).Success); Assert.Equal(4, model.Calls);
         foreach (var key in store.Values.Keys.ToArray()) store.Values[key] = store.Values[key] with { Script = "({name:'invalid'})" };
         Assert.True((await Run(model, store)).Success); Assert.Equal(5, model.Calls);
+        foreach (var key in store.Values.Keys.ToArray()) store.Values[key] = store.Values[key] with { ProfileVersion = JintSandbox.MappingProfileVersion - 1 };
+        Assert.True((await Run(model, store)).Success); Assert.Equal(6, model.Calls);
+    }
+
+    [Theory]
+    [InlineData("({name:m.trim(source.observed.title)})")]
+    [InlineData("({name:m /* extraction */ . trim(source.observed.title)})")]
+    [InlineData("({name:m.\\u0074rim(source.observed.title)})")]
+    public async Task InterpretedTextCacheRequiresTheSameContentRegardlessOfScriptSpelling(string script)
+    {
+        var model = new Model(script); var store = new Store();
+        Assert.True((await Run(model, store, title: " first ")).Success); Assert.Equal(1, model.Calls);
+        Assert.True((await Run(model, store, title: " first ")).Success); Assert.Equal(1, model.Calls);
+        Assert.True((await Run(model, store, title: " second ")).Success); Assert.Equal(2, model.Calls);
     }
 
     [Theory]

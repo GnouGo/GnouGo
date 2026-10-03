@@ -13,7 +13,7 @@ namespace GnOuGo.Flow.Core.Scripting;
 
 public sealed partial class JintSandbox
 {
-    public const int MappingProfileVersion = 1;
+    public const int MappingProfileVersion = 2;
     public const string MappingFunction = "checkedMapping";
     private static readonly HashSet<string> MappingHelpers = ["select", "optional", "parse", "text", "texts", "trim", "decode", "number", "has", "test", "scalar"];
 
