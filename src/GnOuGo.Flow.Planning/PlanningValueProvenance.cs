@@ -28,6 +28,7 @@ internal static class PlanningValueProvenance
             }
             if (value.Kind == "input")
             {
+                if (value.Source is null) return false;
                 var callers = graph.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally))
                     .Where(n => n.Type == "workflow.call" && PlanningGraphValidation.Member(n.Input, "ref")?.Source == workflow.Key)
                     .Select(n => (Workflow: w, Node: n))).ToArray();

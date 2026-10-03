@@ -208,7 +208,7 @@ public sealed partial class TaskPlanCompiler
                 {
                     var items = task.Items is null ? null : Read(task.Items, scope, path + "/items");
                     if (items is not null && PlanningContractShapes.IterationItems(items.Schema) is { } itemSchema)
-                    { child.Item = new(new() { Kind = "loop_item" }, itemSchema, "data.item", TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null); child.Index = new(Number(0), new() { ["type"] = "integer" }, "data.index"); }
+                    { child.Item = new(new() { Kind = "loop_item" }, itemSchema, TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null); child.Index = new(Number(0), new() { ["type"] = "integer" }); }
                     else
                     {
                         if (items is not null)
@@ -264,6 +264,7 @@ public sealed partial class TaskPlanCompiler
                             if (capability.StepType == "agent.run") ScopeValue(task, port.Path[0], input.Value);
                             if (value is not null)
                             {
+                                value = BindInput(input.Value, port.Schema, scope);
                                 findings.AddRange(ConstraintFindings(value, port.Schema, location));
                                 foreach (var artifact in capability.ArtifactContract?.Consumes ?? [])
                                 {
@@ -284,8 +285,13 @@ public sealed partial class TaskPlanCompiler
                         });
                     }
                     foreach (var port in operation.Inputs.Where(p => p.Required && task.Inputs.All(i => i.Name != p.Name)))
-                        findings.Add(new("TASK_INPUT_REQUIRED", path + "/inputs/" + port.Name, "Required business input: " + port.Name));
-                    if (findings.Count == inputFindings && mapped.Count == task.Inputs.Count)
+                        Check(path + "/inputs/" + port.Name, () =>
+                        {
+                            if (ContractDefault(port.Schema) is { } fallback)
+                            { mapped.Add((port, fallback.Schema)); Bind(mappedValues, port.Path, fallback.Value); }
+                            else Fail("TASK_INPUT_REQUIRED", "Required business input: " + port.Name);
+                        });
+                    if (findings.Count == inputFindings && mapped.Count >= task.Inputs.Count)
                         Check(path + "/inputs", () =>
                         {
                             JsonObject request;
@@ -340,9 +346,9 @@ public sealed partial class TaskPlanCompiler
                     {
                         var location = path + "/inputs/" + input.Name; var value = Read(input.Value, scope, location);
                         if (definition.Inputs.All(i => i.Name != input.Name)) findings.Add(new("TASK_GROUP_INPUTS", location, "Choose a declared group input."));
-                        else if (value is not null && group.Inputs.TryGetValue(input.Name, out var expected)) Check(location, () => Fits(value, expected.Schema, "TASK_GROUP_INPUT_TYPE"));
+                        else if (value is not null && group.Inputs.TryGetValue(input.Name, out var expected)) Check(location, () => Fits(BindInput(input.Value, expected.Schema, scope), expected.Schema, "TASK_GROUP_INPUT_TYPE"));
                     }
-                    foreach (var input in definition.Inputs.Where(i => i.Required && task.Inputs.All(a => a.Name != i.Name))) findings.Add(new("TASK_GROUP_INPUTS", path + "/inputs/" + input.Name, "Supply the required group input."));
+                    foreach (var input in definition.Inputs.Where(i => i.Required && i.Default is null && task.Inputs.All(a => a.Name != i.Name))) findings.Add(new("TASK_GROUP_INPUTS", path + "/inputs/" + input.Name, "Supply the required group input."));
                     ports = Exports(group); declared.AddRange(definition.Body.Outputs.Select(o => o.Name)); break;
                 case "sequence": case "foreach":
                     if (task.Kind == "foreach")

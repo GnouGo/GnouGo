@@ -419,5 +419,14 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
 
     private static void Reject(string code, string location, string message) => throw new PlanningResponseException([new(code, location, message)]);
     private static void Invalidate(PlanningSession state) { state.Yaml = null; state.ApprovedHash = null; state.ValidationResults.Clear(); }
-    private static void Stop(PlanningSession state) { state.Status = PlanningStatus.Stopped; Invalidate(state); }
+    private static void Stop(PlanningSession state)
+    {
+        state.Status = PlanningStatus.Stopped;
+        // Repair still consumes the original typed diagnostics. A terminal unsatisfied
+        // business dependency has one public code, retaining its precise reason/location.
+        state.Diagnostics = state.Diagnostics.Select(d => d.Code is "TASK_INPUT_REQUIRED" or "TASK_INPUT_TYPE" or
+            "TASK_GROUP_INPUTS" or "TASK_GROUP_INPUT_TYPE" or "TASK_REFERENCE_UNKNOWN" or "TASK_FIELD_UNKNOWN" or "TASK_FIELD_TYPE" or "TASK_OUTPUT_CONTRACT"
+            ? d with { Code = "CONTRACT_UNSATISFIED", ValidationStage = "contract:" + d.Code, Message = d.Code + ": " + d.Message } : d).ToList();
+        Invalidate(state);
+    }
 }

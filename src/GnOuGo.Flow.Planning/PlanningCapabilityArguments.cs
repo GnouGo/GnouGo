@@ -144,12 +144,13 @@ internal static class PlanningCapabilityArguments
         return copy;
     }
 
-    internal static PlanningValue Apply(PlanningValue input, PlanningCapability capability)
+    internal static PlanningValue Apply(PlanningValue input, PlanningCapability capability, bool acceptExisting = false)
     {
         foreach (var binding in Bindings(capability))
         {
             if (binding.Path.Length == 0)
             {
+                if (acceptExisting && Matches(input, binding.Value)) continue;
                 if (input.Kind != "object" || input.Members.Count != 0) throw new InvalidOperationException("A generated input overlaps a catalog-owned binding.");
                 input = PlanningJsonTransport.Literal(binding.Value); continue;
             }
@@ -161,11 +162,14 @@ internal static class PlanningCapabilityArguments
                 if (member is null) { member = new(part, new() { Kind = "object" }); current.Members.Add(member); }
                 current = member.Value;
             }
+            if (acceptExisting && current.Members.SingleOrDefault(m => m.Name == binding.Path[^1]) is { } existing && Matches(existing.Value, binding.Value)) continue;
             if (current.Kind != "object" || current.Members.Any(m => m.Name == binding.Path[^1]))
                 throw new InvalidOperationException("A generated input overlaps a catalog-owned binding.");
             current.Members.Add(new(binding.Path[^1], PlanningJsonTransport.Literal(binding.Value)));
         }
         return input;
+        static bool Matches(PlanningValue value, JsonNode? expected) => PlanningGraphValidation.IsLiteral(value) &&
+            JsonNode.DeepEquals(PlanningGraphValidation.Literal(value), expected);
     }
 
     // The same owned values participate in complete-request type checking, without

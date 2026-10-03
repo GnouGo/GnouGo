@@ -26,7 +26,7 @@ public sealed partial class TaskPlanCompiler
             ? declared + "/fields/" + value.Port + "/type" : null;
         // Compose explicit nested selections against the authoritative container.
         // Emit one check at consumption, including inside branches and finalizers.
-        var selected = new Bound(new() { Kind = "output" }, schema, source.Expression + "[" + Quote(value.Port!) + "]",
+        var selected = new Bound(new() { Kind = "output" }, schema,
             SelectionSource: source.SelectionSource ?? source, SelectionPath: [.. source.SelectionPath ?? [], value.Port!], TypeLocation: location);
         return consume ? Consume(selected, scope) : selected;
     }

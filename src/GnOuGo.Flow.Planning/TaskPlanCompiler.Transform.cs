@@ -42,7 +42,7 @@ public sealed partial class TaskPlanCompiler
     {
         var schema = Schema(task.ResultType!);
         var prompt = Key(key, "prompt");
-        var inputs = task.Inputs.Select(i => new PlanningMember(i.Name, Value(i.Value, scope).Value)).ToList();
+        var inputs = task.Inputs.Select(i => new PlanningMember(i.Name, BindInput(i.Value, PlanningContractShapes.Opaque(), scope).Value)).ToList();
         for (var i = 0; i < task.Inputs.Count; i++)
             _sources[prompt + "/input/members/3/value/members/1/value/members/" + i + "/value"] = "/tasks/" + task.Id + "/inputs/" + task.Inputs[i].Name;
         _sources[prompt] = "/tasks/" + task.Id;
@@ -70,8 +70,7 @@ public sealed partial class TaskPlanCompiler
         foreach (var name in results.Keys.ToArray())
         {
             var bound = results[name]; bound.Value.ResultChannel = "structured";
-            results[name] = bound with { Expression = "data.steps[" + Quote(key) + "].json" + string.Concat(bound.Value.Path.Select(p => "[" + Quote(p) + "]")),
-                TypeLocation = typeLocation is null || name.Contains('/') ? null : name == "" ? typeLocation : typeLocation + "/fields/" + name + "/type" };
+            results[name] = bound with { TypeLocation = typeLocation is null || name.Contains('/') ? null : name == "" ? typeLocation : typeLocation + "/fields/" + name + "/type" };
         }
         return results;
     }
@@ -81,23 +80,6 @@ public sealed partial class TaskPlanCompiler
         if (value.Items.Count != 1) Fail("TASK_JSON_ARITY", "JSON encoding requires exactly one business value.");
         if (!_catalog.AllowedStepTypes.Contains("set")) Fail("TASK_JSON_POLICY", "JSON encoding requires permitted deterministic value assembly.");
         var source = Value(value.Items[0], scope);
-        var schema = new JsonObject { ["type"] = "string" };
-        if (scope.Target is null) return new(new() { Kind = "expression" }, schema, ""); // Preflight never emits executor nodes.
-        var key = Key(scope.Workflow.Key, "json:" + _location + ":" + source.Expression);
-        var assembled = Key(key, "source");
-        if (!scope.Target.Any(n => n.Key == key))
-        {
-            // Materialize once so the only generated call is json(<declared value
-            // reference>), never model-supplied code or runtime template evaluation.
-            var input = new PlanningNode { Key = assembled, Type = "set", Input = Object([new("value", source.Value)]),
-                OutputSchema = Contract(ObjectSchema([("value", source.Schema)])) };
-            var encoded = new PlanningNode { Key = key, Type = "set", Input = Object([new("value", new()
-                { Kind = "expression", Text = "json(data.steps[" + Quote(assembled) + "].value)" })]),
-                OutputSchema = Contract(ObjectSchema([("value", schema)])) };
-            if (scope.Cleanup) { GuardCleanup(input); GuardCleanup(encoded); }
-            scope.Target.Add(input); scope.Target.Add(encoded);
-            _sources[assembled] = _location; _sources[key] = _location;
-        }
-        return Output(key, "set", ["value"], schema);
+        return new(new() { Kind = "json", Items = [source.Value] }, new() { ["type"] = "string" });
     }
 }

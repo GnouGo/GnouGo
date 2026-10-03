@@ -133,3 +133,9 @@ See [simplification, measurements and local execution](../../docs/planner-simpli
 ## Runtime primitive consolidation
 
 Foreach bounds and output collection use whole-value and per-item `value.project`; confirmation uses checked `set`. Four redundant .NET executor types are retired without changing TaskPlan or adding a planning phase. See [migration and validation](../../docs/flow-runtime-primitives.md).
+# Contract closure
+
+Business graphs retain typed predicates, JSON encoding and logical bindings until
+complete input/output contracts pass validation. Executable mappings are emitted only
+during final lowering. Opaque results require whole-value checks; text interpretation
+uses an explicit runtime transform. See [contract closure and validation](../../docs/planning-contract-closure.md).

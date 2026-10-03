@@ -33,6 +33,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
 
     private const string Instructions = """
         Describe the accepted business work in a minimal TaskPlan. Contracts and the compiler own execution wiring; do not supply outcome proofs. Return plan, discoveryRequests(1-4), or clarifications. Unsearched != absent. Reserve plan/repair budget; closed discovery permits plan:null.
+        Required data needs a compatible source. Defaults only from contracts/accepted inputs; never invent missing values. Opaque whole results are checked by the compiler; fields require a declared contract. Free-text extraction uses an explicit transform.
         port:null=whole result; value wires, field selects, json encodes, transform interprets. Keep enums. Operations=fixed work; agents=adaptive.
         Delegated instructions retain all requested actions/checks/constraints; each check needs observable completion. Reuse results directly, without duplicate transcripts or inputs beyond approved budgets.
         requirements.inputs defines caller interface ([] none, null unresolved); derive tool arguments, invent no inputs/contracts. Defaults: required=true, nullable=false, no default; optional inputs need literal defaults.

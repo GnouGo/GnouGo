@@ -1,0 +1,468 @@
+{
+  "kind": "deterministic execution; scripted model, not live provider",
+  "baselineCommit": "51ef2eb6605c65129144cbdb75a0a293a413d8f3",
+  "candidateSource": "see the commit introducing this evidence",
+  "harness": "docs/evidence/planner-simplification/harness/Program.cs",
+  "harnessSha256": "8d88f4f7febaded6e9aa740f324ccc016d706e9a80daf05871647808d9b06bcf",
+  "command": "dotnet run --project docs/evidence/planner-simplification/harness -c Release -warnaserror",
+  "warmupPerCase": 1,
+  "repetitionsPerCase": 3,
+  "before": [
+    {
+      "name": "local",
+      "repetition": 0,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7245,
+      "planningMs": 29.2233,
+      "executionMs": 1.2746,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "local",
+      "repetition": 1,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7245,
+      "planningMs": 28.8544,
+      "executionMs": 1.0337,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "local",
+      "repetition": 2,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7245,
+      "planningMs": 27.3602,
+      "executionMs": 1.0712,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "read_transform",
+      "repetition": 0,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7262,
+      "planningMs": 28.8782,
+      "executionMs": 1.6987,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "read_transform",
+      "repetition": 1,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7262,
+      "planningMs": 29.0584,
+      "executionMs": 1.6692,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "read_transform",
+      "repetition": 2,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7262,
+      "planningMs": 28.9765,
+      "executionMs": 1.4928,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "conditional",
+      "repetition": 0,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7295,
+      "planningMs": 32.0052,
+      "executionMs": 3.6267,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "conditional",
+      "repetition": 1,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7295,
+      "planningMs": 31.8411,
+      "executionMs": 3.7878,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "conditional",
+      "repetition": 2,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7295,
+      "planningMs": 33.4633,
+      "executionMs": 3.9757,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "collections",
+      "repetition": 0,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7334,
+      "planningMs": 34.0994,
+      "executionMs": 8.9388,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "collections",
+      "repetition": 1,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7334,
+      "planningMs": 32.778,
+      "executionMs": 7.6929,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "collections",
+      "repetition": 2,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7334,
+      "planningMs": 32.7046,
+      "executionMs": 6.8603,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "protected_cleanup",
+      "repetition": 0,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7281,
+      "planningMs": 27.4976,
+      "executionMs": 2.8244,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "protected_cleanup",
+      "repetition": 1,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7281,
+      "planningMs": 26.4694,
+      "executionMs": 3.3994,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "protected_cleanup",
+      "repetition": 2,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7281,
+      "planningMs": 28.3856,
+      "executionMs": 2.817,
+      "success": true,
+      "oracleCorrect": true
+    }
+  ],
+  "beforeSummary": {
+    "passed": 15,
+    "runs": 15,
+    "calls": {
+      "median": 1,
+      "p95": 1
+    },
+    "repairs": {
+      "median": 0,
+      "p95": 0
+    },
+    "discoveryReads": {
+      "median": 1,
+      "p95": 1
+    },
+    "schemaBytes": {
+      "median": 16863,
+      "p95": 16863
+    },
+    "inputTokenEstimate": {
+      "median": 7281,
+      "p95": 7334
+    },
+    "planningMs": {
+      "median": 29.0584,
+      "p95": 34.0994
+    },
+    "executionMs": {
+      "median": 2.8244,
+      "p95": 8.9388
+    }
+  },
+  "after": [
+    {
+      "name": "local",
+      "repetition": 0,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7329,
+      "planningMs": 29.5069,
+      "executionMs": 1.649,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "local",
+      "repetition": 1,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7329,
+      "planningMs": 29.9835,
+      "executionMs": 0.9824,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "local",
+      "repetition": 2,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7329,
+      "planningMs": 26.8746,
+      "executionMs": 1.0058,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "read_transform",
+      "repetition": 0,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7346,
+      "planningMs": 26.9027,
+      "executionMs": 1.731,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "read_transform",
+      "repetition": 1,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7346,
+      "planningMs": 28.2955,
+      "executionMs": 1.617,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "read_transform",
+      "repetition": 2,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7346,
+      "planningMs": 27.9873,
+      "executionMs": 1.6109,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "conditional",
+      "repetition": 0,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7379,
+      "planningMs": 35.2648,
+      "executionMs": 4.2372,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "conditional",
+      "repetition": 1,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7379,
+      "planningMs": 34.0456,
+      "executionMs": 3.6913,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "conditional",
+      "repetition": 2,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7379,
+      "planningMs": 32.9237,
+      "executionMs": 3.9869,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "collections",
+      "repetition": 0,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7417,
+      "planningMs": 33.3771,
+      "executionMs": 9.0591,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "collections",
+      "repetition": 1,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7417,
+      "planningMs": 34.0119,
+      "executionMs": 9.3429,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "collections",
+      "repetition": 2,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7417,
+      "planningMs": 36.3094,
+      "executionMs": 11.1797,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "protected_cleanup",
+      "repetition": 0,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7364,
+      "planningMs": 39.1343,
+      "executionMs": 2.8912,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "protected_cleanup",
+      "repetition": 1,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7364,
+      "planningMs": 32.6505,
+      "executionMs": 4.0582,
+      "success": true,
+      "oracleCorrect": true
+    },
+    {
+      "name": "protected_cleanup",
+      "repetition": 2,
+      "calls": 1,
+      "repairs": 0,
+      "discoveryReads": 1,
+      "schemaBytes": 16863,
+      "inputTokenEstimate": 7364,
+      "planningMs": 31.6502,
+      "executionMs": 3.2621,
+      "success": true,
+      "oracleCorrect": true
+    }
+  ],
+  "afterSummary": {
+    "passed": 15,
+    "runs": 15,
+    "calls": {
+      "median": 1,
+      "p95": 1
+    },
+    "repairs": {
+      "median": 0,
+      "p95": 0
+    },
+    "discoveryReads": {
+      "median": 1,
+      "p95": 1
+    },
+    "schemaBytes": {
+      "median": 16863,
+      "p95": 16863
+    },
+    "inputTokenEstimate": {
+      "median": 7364,
+      "p95": 7417
+    },
+    "planningMs": {
+      "median": 32.6505,
+      "p95": 39.1343
+    },
+    "executionMs": {
+      "median": 3.2621,
+      "p95": 11.1797
+    }
+  }
+}

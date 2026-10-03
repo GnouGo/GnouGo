@@ -49,7 +49,7 @@ public sealed record TaskCompilation(PlanningGraph? Graph, IReadOnlyList<Plannin
 /// <summary>One deterministic lowering pass. Symbols and source locations are transient compiler bookkeeping.</summary>
 public sealed partial class TaskPlanCompiler
 {
-    private sealed record Bound(PlanningValue Value, JsonObject Schema, string Expression,
+    private sealed record Bound(PlanningValue Value, JsonObject Schema,
         Bound? SelectionSource = null, List<string>? SelectionPath = null, string? TypeLocation = null);
     private sealed class Scope(PlanningWorkflow workflow, Scope? parent)
     {
@@ -272,7 +272,7 @@ public sealed partial class TaskPlanCompiler
                 bounded["type"] = "array"; bounded["items"] = itemSchema!.DeepClone(); bounded["maxItems"] = task.MaxItems;
                 var checkedKey = Key(key, "bound"); _sources[checkedKey] = _location;
                 target.Add(new() { Key = checkedKey, Type = "value.project", Input = Object([new("value", items.Value), new("paths", Array([Strings([])]))]), OutputSchema = Contract(ObjectSchema([("value", bounded)])) });
-                var iteration = new Scope(scope.Workflow, scope) { Item = new(new() { Kind = "loop_item", Source = key }, itemSchema, "data.item", TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null), Index = new(new() { Kind = "loop_index", Source = key }, new() { ["type"] = "integer" }, "data.index") };
+                var iteration = new Scope(scope.Workflow, scope) { Item = new(new() { Kind = "loop_item", Source = key }, itemSchema, TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null), Index = new(new() { Kind = "loop_index", Source = key }, new() { ["type"] = "integer" }) };
                 var body = Child(task.Body ?? MissingScope(), iteration, key, "iteration");
                 target.Add(new() { Key = key, Purpose = task.Objective, Type = task.Parallel ? "loop.parallel" : "loop.sequential", ItemVar = "item", IndexVar = "index",
                     Input = Object(task.Parallel ? [new("items", Reference(checkedKey, "value")), new("max_concurrency", Number(task.MaxConcurrency))] : [new("items", Reference(checkedKey, "value"))]), Steps = [body.Call] });
@@ -303,6 +303,49 @@ public sealed partial class TaskPlanCompiler
         }
     }
 
+    private Bound? ContractDefault(JsonObject schema)
+    {
+        if (!schema.TryGetPropertyValue("default", out var supplied)) return null;
+        if (PlanningContractValidation.ValidateInstance(supplied, schema).Count > 0)
+            Fail("CATALOG_DEFAULT_INVALID", "The declared default does not satisfy its authoritative contract.");
+        var value = PlanningJsonTransport.Literal(supplied?.DeepClone());
+        return new(value, new() { ["const"] = supplied?.DeepClone() });
+    }
+
+    private Bound BindInput(TaskValue value, JsonObject expected, Scope scope)
+    {
+        if (value.Kind == "object" && expected["properties"] is JsonObject properties)
+        {
+            Unique(value.Members.Select(m => m.Name));
+            var fields = value.Members.Select(m => (m.Name, Bound: properties[m.Name] is JsonObject field
+                ? BindInput(m.Value, field, scope) : Value(m.Value, scope))).ToList();
+            foreach (var name in (expected["required"] as JsonArray ?? []).Select(n => n!.GetValue<string>()))
+                if (fields.All(f => f.Name != name) && properties[name] is JsonObject field && ContractDefault(field) is { } fallback)
+                    fields.Add((name, fallback));
+            return new(Object(fields.Select(f => new PlanningMember(f.Name, f.Bound.Value))), ObjectSchema(fields.Select(f => (f.Name, f.Bound.Schema))));
+        }
+        if (value.Kind == "array" && expected["items"] is JsonObject itemSchema && value.Items.Count > 0)
+        {
+            var items = value.Items.Select(v => BindInput(v, itemSchema, scope)).ToArray();
+            return new(Array(items.Select(v => v.Value)), new() { ["type"] = "array", ["minItems"] = items.Length, ["maxItems"] = items.Length,
+                ["items"] = new JsonObject { ["anyOf"] = new JsonArray(items.Select(v => (JsonNode)v.Schema.DeepClone()).ToArray()) } });
+        }
+        var bound = Value(value, scope);
+        if (!PlanningContractShapes.IsOpaque(bound.Schema)) return bound;
+        if (!_catalog.AllowedStepTypes.Contains("value.project")) Fail("TASK_OUTPUT_POLICY", "Opaque inputs require permitted whole-value contract validation.");
+        var schema = expected.Count == 0 ? PlanningContractShapes.Opaque() : expected;
+        if (scope.Target is null) return bound with { Schema = schema }; // The same check is emitted after preflight.
+        var key = Key(scope.Workflow.Key, "normalize:" + _location + ":" + ValueIdentity(bound.Value) + ":" + schema.ToJsonString());
+        if (!scope.Target.Any(n => n.Key == key))
+        {
+            var check = new PlanningNode { Key = key, Type = "value.project", Input = Object([
+                new("value", bound.Value), new("paths", Array([Strings([])]))]), OutputSchema = Contract(ObjectSchema([("value", schema)])) };
+            if (scope.Cleanup) GuardCleanup(check);
+            scope.Target.Add(check); _sources[key] = _location;
+        }
+        return Output(key, "value.project", ["value"], schema);
+    }
+
     private Dictionary<string, Bound> Operation(PlanTask task, Scope scope, List<PlanningNode> target, string key)
     {
         var matches = _catalog.Capabilities.Where(c => TaskOperations.Describe(c).Id == task.Operation).ToArray();
@@ -317,7 +360,7 @@ public sealed partial class TaskPlanCompiler
             _location = "/tasks/" + task.Id + "/inputs/" + argument.Name;
             var port = operation.Inputs.SingleOrDefault(p => p.Name == argument.Name);
             if (port is null) Fail("TASK_INPUT_UNKNOWN", "Choose a declared business input port: " + argument.Name);
-            var bound = Value(argument.Value, scope);
+            var bound = BindInput(argument.Value, port!.Schema, scope);
             if (capability.StepType == "agent.run")
             {
                 var approved = ScopeValue(task, port!.Path[0], argument.Value);
@@ -332,7 +375,11 @@ public sealed partial class TaskPlanCompiler
         }
         foreach (var port in operation.Inputs.Where(p => p.Required))
             if (!task.Inputs.Any(i => i.Name == port.Name))
-            { _location = "/tasks/" + task.Id + "/inputs/" + port.Name; Fail("TASK_INPUT_REQUIRED", "Required business input: " + port.Name); }
+            {
+                _location = "/tasks/" + task.Id + "/inputs/" + port.Name;
+                if (ContractDefault(port.Schema) is { } fallback) Bind(input, port.Path, fallback.Value);
+                else Fail("TASK_INPUT_REQUIRED", "Required business input: " + port.Name);
+            }
         foreach (var argument in task.Inputs)
         {
             var value = input; var path = key + "/input" + (capability.StepType == "mcp.call" ? "/members/0/value" : "");
@@ -372,11 +419,11 @@ public sealed partial class TaskPlanCompiler
     private PlanningValue BindArguments(List<TaskOutput> arguments, Scope scope, List<PlanningPort> ports)
     {
         Unique(arguments.Select(a => a.Name));
-        if (arguments.Any(a => ports.All(p => p.Name != a.Name)) || ports.Any(p => p.Required && arguments.All(a => a.Name != p.Name)))
+        if (arguments.Any(a => ports.All(p => p.Name != a.Name)) || ports.Any(p => p.Required && p.Default is null && arguments.All(a => a.Name != p.Name)))
             Fail("TASK_GROUP_INPUTS", "Supply the declared reusable group's inputs.");
         return Object(arguments.Select(a =>
         {
-            var bound = Value(a.Value, scope); var expected = PlanningGraphCompiler.ToJsonSchema(ports.Single(p => p.Name == a.Name).Schema, _catalog);
+            var expected = PlanningGraphCompiler.ToJsonSchema(ports.Single(p => p.Name == a.Name).Schema, _catalog); var bound = BindInput(a.Value, expected, scope);
             Fits(bound, expected, "TASK_GROUP_INPUT_TYPE");
             return new PlanningMember(a.Name, bound.Value);
         }));
@@ -391,27 +438,27 @@ public sealed partial class TaskPlanCompiler
             scope.Blocked.Contains((value.Kind, value.Source ?? "", "*"))) throw new UnavailableValue();
         switch (value.Kind)
         {
-            case "null": return new(new(), new() { ["type"] = "null" }, "null");
+            case "null": return new(new(), new() { ["type"] = "null" });
             case "string":
                 if (value.Text is null || value.Text.Contains("${", StringComparison.Ordinal)) Fail("TASK_LITERAL_INVALID", "Literal text cannot contain runtime interpolation.");
                 // Preserve an explicitly declared literal through named values and captures.
                 // Workflow defaults and transform results keep their declared (possibly broader) types.
-                return new(new() { Kind = "string", Text = value.Text }, new() { ["type"] = "string", ["const"] = value.Text }, Quote(value.Text!));
+                return new(new() { Kind = "string", Text = value.Text }, new() { ["type"] = "string", ["const"] = value.Text });
             case "number":
                 if (value.Number is null) Fail("TASK_LITERAL_INVALID", "Number is required.");
-                return new(Number(value.Number!.Value), new() { ["type"] = "number" }, value.Number.Value.ToString(CultureInfo.InvariantCulture));
+                return new(Number(value.Number!.Value), new() { ["type"] = "number" });
             case "boolean":
                 if (value.Boolean is null) Fail("TASK_LITERAL_INVALID", "Boolean is required.");
-                return new(new() { Kind = "boolean", Boolean = value.Boolean }, new() { ["type"] = "boolean" }, value.Boolean!.Value ? "true" : "false");
+                return new(new() { Kind = "boolean", Boolean = value.Boolean }, new() { ["type"] = "boolean" });
             case "object":
                 Unique(value.Members.Select(m => m.Name));
                 var fields = value.Members.Select(m => (m.Name, Bound: Value(m.Value, scope))).ToArray();
-                return new(Object(fields.Select(f => new PlanningMember(f.Name, f.Bound.Value))), ObjectSchema(fields.Select(f => (f.Name, f.Bound.Schema))), "({" + string.Join(",", fields.Select(f => Quote(f.Name) + ":" + f.Bound.Expression)) + "})");
+                return new(Object(fields.Select(f => new PlanningMember(f.Name, f.Bound.Value))), ObjectSchema(fields.Select(f => (f.Name, f.Bound.Schema))));
             case "array":
                 var items = value.Items.Select(i => Value(i, scope)).ToArray();
                 var schemas = items.Select(i => i.Schema).DistinctBy(s => s.ToJsonString()).ToArray();
-                if (items.Length == 0) return new(Array([]), new() { ["type"] = "array", ["const"] = new JsonArray() }, "[]");
-                return new(Array(items.Select(i => i.Value)), new() { ["type"] = "array", ["items"] = schemas.Length == 1 ? schemas[0].DeepClone() : schemas.Length == 0 ? new JsonObject() : new JsonObject { ["anyOf"] = new JsonArray(schemas.Select(s => s.DeepClone()).ToArray()) } }, "[" + string.Join(",", items.Select(i => i.Expression)) + "]");
+                if (items.Length == 0) return new(Array([]), new() { ["type"] = "array", ["const"] = new JsonArray() });
+                return new(Array(items.Select(i => i.Value)), new() { ["type"] = "array", ["items"] = schemas.Length == 1 ? schemas[0].DeepClone() : schemas.Length == 0 ? new JsonObject() : new JsonObject { ["anyOf"] = new JsonArray(schemas.Select(s => s.DeepClone()).ToArray()) } });
             case "choice":
                 var choice = _plan.Choices.SingleOrDefault(c => c.Id == value.Source);
                 if (choice is null) Fail("CHOICE_UNKNOWN", "Choose a declared business decision.");
@@ -432,7 +479,7 @@ public sealed partial class TaskPlanCompiler
             case "present":
                 if (value.Source is null || !scope.Tasks.TryGetValue(value.Source, out var producer)) Fail("TASK_PRESENCE_SCOPE", "Presence requires a preceding task in the same scope.");
                 var result = scope.Tasks[value.Source!][""];
-                return new(new() { Kind = "present", Source = result.Value.Source }, new() { ["type"] = "boolean" }, "data.steps[" + Quote(result.Value.Source!) + "] != null");
+                return new(new() { Kind = "present", Source = result.Value.Source }, new() { ["type"] = "boolean" });
             case "predicate": return Predicate(value, scope);
             case "json": return EncodeJson(value, scope);
             case "field": return SelectField(value, scope, consume);
@@ -483,7 +530,7 @@ public sealed partial class TaskPlanCompiler
         if (value.Schema.Count == 0 || value.Schema["x-gnougo-opaque"]?.ToString() == "true")
             Fail("TASK_OUTPUT_CONTRACT", "An opaque optional result cannot establish a typed business field.");
         if (scope.Target is null) return value; // Semantic preflight: no graph emission.
-        var key = Key(scope.Workflow.Key, "select:" + _location + ":" + source.Expression + ":" + new JsonArray(value.SelectionPath!.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()).ToJsonString());
+        var key = Key(scope.Workflow.Key, "select:" + _location + ":" + ValueIdentity(source.Value) + ":" + new JsonArray(value.SelectionPath!.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()).ToJsonString());
         if (!scope.Target.Any(n => n.Key == key))
         {
             var node = new PlanningNode { Key = key, Type = "value.project",
@@ -505,8 +552,7 @@ public sealed partial class TaskPlanCompiler
         if (value.Predicate is "and" or "or" or "not") foreach (var operand in operands) RequireBoolean(operand);
         else if (value.Predicate is not ("equal" or "not_equal") && operands.Any(b => b.Schema["type"]?.ToString() is not ("number" or "integer")))
             Fail("TASK_PREDICATE_TYPE", "Ordering predicates require numeric operands.");
-        var expression = unary ? "!(" + operands[0].Expression + ")" : "(" + operands[0].Expression + " " + op + " " + operands[1].Expression + ")";
-        return new(new() { Kind = "expression", Text = expression }, new() { ["type"] = "boolean" }, expression);
+        return new(PlanningValues.Predicate(value.Predicate!, operands.Select(o => o.Value).ToArray()), new() { ["type"] = "boolean" });
     }
 
     private Dictionary<string, Bound> Aggregate(Dictionary<string, Bound> outputs, string key, List<PlanningNode> target)
@@ -524,9 +570,8 @@ public sealed partial class TaskPlanCompiler
         return outputs;
     }
     private static Bound Output(string key, string type, List<string> path, JsonObject schema) => new(Reference(key, path.ToArray()),
-        type == "mcp.call" && schema.Count == 0 ? PlanningContractShapes.Opaque() : schema,
-        "data.steps[" + Quote(key) + "]" + (type == "mcp.call" ? ".response" : type == "workflow.call" ? ".outputs" : "") + string.Concat(path.Select(p => "[" + Quote(p) + "]")));
-    private static Bound Input(string name, JsonObject schema) => new(new() { Kind = "input", Source = name }, schema, "data.inputs[" + Quote(name) + "]");
+        type == "mcp.call" && schema.Count == 0 ? PlanningContractShapes.Opaque() : schema);
+    private static Bound Input(string name, JsonObject schema) => new(new() { Kind = "input", Source = name }, schema);
     private static PlanningNode Call(string key, string workflow, PlanningValue args) => new() { Key = key, Type = "workflow.call", Input = Object([new("ref", new() { Kind = "workflow", Source = workflow }), new("args", args)]) };
     private static PlanningValue Reference(string key, params string[] path) => new() { Kind = "output", Source = key, Path = path.ToList() };
     private static PlanningValue Object(IEnumerable<PlanningMember> members) => new() { Kind = "object", Members = members.ToList() };
@@ -539,7 +584,7 @@ public sealed partial class TaskPlanCompiler
     }
     private static PlanningSchema Contract(JsonObject schema) => new() { Contract = schema.Count == 0 ? PlanningContractShapes.Opaque() : schema.DeepClone().AsObject() };
     private static string Key(string parent, string role) => "task_" + PlanningGraphCompiler.Fingerprint(parent + "/" + role)[..24];
-    private static string Quote(string value) => JsonSerializer.Serialize(value, PlanningJsonContext.Default.String);
+    private static string ValueIdentity(PlanningValue value) => JsonSerializer.Serialize(value, PlanningJsonContext.Default.PlanningValue);
     private static bool Literal(TaskValue value) => value.Kind is "null" or "string" or "number" or "boolean" || value.Kind == "object" && value.Members.All(m => Literal(m.Value)) || value.Kind == "array" && value.Items.All(Literal);
     private void RequireBoolean(Bound value) { if (value.Schema["type"]?.ToString() != "boolean") Fail("TASK_CONDITION_TYPE", "Conditions require a boolean business value."); }
     private JsonObject Schema(TaskType type) { try { return TypeSchema(type); } catch (ArgumentException ex) { Fail("TASK_TYPE_INVALID", ex.Message); return null!; } }

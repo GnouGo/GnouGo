@@ -40,7 +40,7 @@ internal static class PlanningConfirmationGuards
         var original = proposed.Workflows.FindIndex(w => w.Key == (key == Body ? proposed.Entrypoint : key));
         return original < 0 ? diagnostic : diagnostic with { Location = prefix + original + (suffix < 0 ? "" : diagnostic.Location[suffix..]) };
     }
-    private static PlanningWorkflow Wrapper(PlanningWorkflow body, string entrypoint, string summary) => new()
+    private static PlanningWorkflow Wrapper(PlanningWorkflow body, string entrypoint, string summary, bool legacy = false) => new()
     {
         Key = entrypoint, Purpose = "Confirm external effects before executing the workflow.", Inputs = body.Inputs,
         Outputs = body.Outputs.Select(o => new PlanningOutput { Name = o.Name, Schema = o.Schema,
@@ -49,10 +49,10 @@ internal static class PlanningConfirmationGuards
         [
             new() { Key = Confirm, Type = "human.input", InternalRole = "confirmation", Input = PlanningJsonTransport.Literal(HumanInputContract.ConfirmationInput(summary)) },
             new() { Key = Assert, Type = "set", InternalRole = "permission", Input = new() { Kind = "object", Members =
-                [new("value", new() { Kind = "expression", Text = "data.steps." + Confirm + ".response === true" })] },
+                [new("value", legacy ? new() { Kind = "expression", Text = "data.steps." + Confirm + ".response === true" } : PlanningValues.Predicate("equal", new() { Kind = "output", Source = Confirm, Path = ["response"] }, new() { Kind = "boolean", Boolean = true }))] },
                 OutputSchema = new() { Contract = JsonNode.Parse("""{"type":"object","required":["value"],"additionalProperties":false,"properties":{"value":{"type":"boolean","enum":[true]}}}""")!.AsObject() } },
             new() { Key = Call, Type = "workflow.call", InternalRole = "approved_body", Input = new() { Kind = "object", Members =
-                [new("ref", new() { Kind = "workflow", Source = Body }), new("args", new() { Kind = "expression", Text = "data.inputs" })] } }
+                [new("ref", new() { Kind = "workflow", Source = Body }), new("args", legacy ? new() { Kind = "expression", Text = "data.inputs" } : new() { Kind = "input" })] } }
         ]
     };
     internal static IEnumerable<PlanningDiagnostic> Validate(PlanningGraph graph, PlanningCatalog catalog)
@@ -62,7 +62,9 @@ internal static class PlanningConfirmationGuards
         var main = graph.Workflows.SingleOrDefault(w => w.Key == graph.Entrypoint);
         if (body is null || main is null ||
             !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(main, PlanningJsonContext.Default.PlanningWorkflow),
-                JsonSerializer.SerializeToNode(Wrapper(body, graph.Entrypoint, graph.Summary), PlanningJsonContext.Default.PlanningWorkflow)))
+                JsonSerializer.SerializeToNode(Wrapper(body, graph.Entrypoint, graph.Summary), PlanningJsonContext.Default.PlanningWorkflow)) &&
+            !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(main, PlanningJsonContext.Default.PlanningWorkflow),
+                JsonSerializer.SerializeToNode(Wrapper(body, graph.Entrypoint, graph.Summary, legacy: true), PlanningJsonContext.Default.PlanningWorkflow)))
             yield return new("CONFIRMATION_REQUIRED", "/entrypoint", "The workflow must enter through its unmodified host-owned confirmation gate.");
     }
 }

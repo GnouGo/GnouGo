@@ -619,6 +619,8 @@ public class ConfiguredMcpClientFactoryTests
     [Theory]
     [InlineData("{\"count\":2}", "{\"count\":2}")]
     [InlineData("plain text", "\"plain text\"")]
+    [InlineData("{broken", "\"{broken\"")]
+    [InlineData("[1,null,1]", "[1,null,1]")]
     public void BuildContent_RetainsSingleTextNormalization(string text, string expected)
     {
         var content = InvokeBuildContent(new CallToolResult { Content = [new TextContentBlock { Text = text }] });

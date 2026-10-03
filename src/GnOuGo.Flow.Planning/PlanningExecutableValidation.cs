@@ -102,7 +102,7 @@ public static class PlanningExecutableValidation
             for (var i = 0; i < workflow.Outputs.Count; i++) Values(workflow.Outputs[i].Value, path + "/outputs/" + i + "/value");
         }
         errors.AddRange(PlanningGraphValidation.Validate(graph, catalog));
-        errors.AddRange(PlanningGraphCompiler.ValidateValues(graph, catalog));
+
         return errors.DistinctBy(d => (d.Code, d.Location, d.Message)).ToArray();
 
         void Script(string? script, string location)
@@ -113,6 +113,17 @@ public static class PlanningExecutableValidation
         }
         void Values(PlanningValue value, string location)
         {
+            var malformed = value.Kind switch
+            {
+                "string" => value.Text is null || value.Text.Contains("${", StringComparison.Ordinal),
+                "number" => value.Number is null or > 9007199254740991m or < -9007199254740991m,
+                "boolean" => value.Boolean is null,
+                "object" => value.Members.Select(m => m.Name).Distinct(StringComparer.Ordinal).Count() != value.Members.Count,
+                "null" or "array" or "input" or "output" or "workflow" or "present" or "expression" or "template" or
+                    "predicate" or "json" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or PlanningValues.Omitted => false,
+                _ => true
+            };
+            if (malformed) errors.Add(new("VALUE_LOWERING_INVALID", location, "The value has an invalid kind, literal, numeric range or duplicate member.", ValidationStage: "conversion"));
             if (value.Kind == "expression")
             {
                 try
@@ -221,7 +232,7 @@ public static class PlanningExecutableValidation
         "object" => new JsonObject(value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted).Select(m => new KeyValuePair<string, JsonNode?>(m.Name, Preview(m.Value)))),
         "array" => new JsonArray(value.Items.Select(Preview).ToArray()),
         "workflow" => new JsonObject { ["kind"] = "local", ["name"] = value.Source },
-        "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "template" => JsonValue.Create("${data.value}"),
+        "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "template" or "predicate" or "json" => JsonValue.Create("${data.value}"),
         _ => PlanningGraphValidation.Literal(value)
     };
 }

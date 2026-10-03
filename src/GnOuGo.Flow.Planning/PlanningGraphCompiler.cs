@@ -101,37 +101,6 @@ public sealed partial class PlanningGraphCompiler
         }
     }
 
-    internal static IReadOnlyList<PlanningDiagnostic> ValidateValues(PlanningGraph graph, PlanningCatalog catalog)
-    {
-        var errors = new List<PlanningDiagnostic>();
-        if (graph.Workflows.Select(w => w.Key).Distinct(StringComparer.Ordinal).Count() != graph.Workflows.Count) return errors;
-        var workflowIds = graph.Workflows.ToDictionary(w => w.Key, w => w.Key == graph.Entrypoint ? "main" : "w_" + Fingerprint(w.Key)[..16], StringComparer.Ordinal);
-        for (var wi = 0; wi < graph.Workflows.Count; wi++)
-        {
-            var workflow = graph.Workflows[wi]; var path = "/workflows/" + wi;
-            var nodes = Enumerate(workflow.Steps.Concat(workflow.Finally)).ToArray();
-            if (nodes.Select(n => n.Key).Distinct(StringComparer.Ordinal).Count() != nodes.Length) continue;
-            var scope = new LoweringScope(catalog, nodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal), workflowIds,
-                workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), nodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(nodes), nodes.ToDictionary(n => n.Key, StringComparer.Ordinal));
-            void Check(PlanningValue? value, string location, bool expression = false, bool literal = false)
-            {
-                if (value is null) return;
-                try { if (expression) ToExpression(value, scope); else LowerValue(value, scope, !literal); }
-                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException or GnOuGo.Flow.Core.Expressions.ExpressionParseException or Acornima.ParseErrorException)
-                { errors.Add(new("VALUE_LOWERING_INVALID", location + (ex.Data[ValueLocationKey] as string ?? ""), ex.Message, ValidationStage: "conversion")); }
-            }
-            foreach (var (node, location) in PlanningGraphValidation.Located(workflow.Steps, path + "/steps").Concat(PlanningGraphValidation.Located(workflow.Finally, path + "/finally")))
-            {
-                Check(node.Input, location + "/input"); Check(node.Expr, location + "/expr", true); Check(node.If, location + "/if", true);
-                for (var i = 0; i < node.Cases.Count; i++) Check(node.Cases[i].When, location + "/cases/" + i + "/when", true);
-                for (var i = 0; i < node.OnError.Count; i++) { Check(node.OnError[i].If, location + "/onError/" + i + "/if", true); Check(node.OnError[i].SetOutput, location + "/onError/" + i + "/setOutput"); }
-            }
-            for (var i = 0; i < workflow.Inputs.Count; i++) Check(workflow.Inputs[i].Default, path + "/inputs/" + i + "/default", literal: true);
-            for (var i = 0; i < workflow.Outputs.Count; i++) Check(workflow.Outputs[i].Value, path + "/outputs/" + i + "/value", true);
-        }
-        return errors;
-    }
-
     private static JsonArray LowerSteps(List<PlanningNode> nodes, LoweringScope scope)
         => new(nodes.Select(n => (JsonNode)LowerNode(n, scope)).ToArray());
 
@@ -284,7 +253,7 @@ public sealed partial class PlanningGraphCompiler
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
-            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
+            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "json" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
@@ -305,8 +274,16 @@ public sealed partial class PlanningGraphCompiler
     {
         string expression;
         if (value.ResultChannel is not null && value.Kind != "output") throw new InvalidOperationException("Only output references can select a result channel.");
-        if (value.Kind == "input")
+        if (value.Kind == "predicate")
         {
+            var op = PlanningValues.PredicateOperator(value.Text);
+            expression = value.Text == "not" ? "!(" + ExpressionBody(value.Items[0]) + ")" :
+                "(" + ExpressionBody(value.Items[0]) + " " + op + " " + ExpressionBody(value.Items[1]) + ")";
+        }
+        else if (value.Kind == "json") expression = "json(" + ExpressionBody(value.Items.Single()) + ")";
+        else if (value.Kind == "input")
+        {
+            if (value.Source is null && value.Path.Count == 0) return "${data.inputs}";
             if (value.Source is null || !scope.Inputs.Contains(value.Source)) throw new InvalidOperationException("Unknown input reference.");
             expression = "data.inputs" + Segment(value.Source) + string.Concat(value.Path.Select(Segment));
         }

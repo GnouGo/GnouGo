@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
@@ -37,6 +38,10 @@ public static class PlanningGraphValidation
         string? targetWorkflow = null, Action<Func<PlanningValue, JsonObject?>>? resolved = null)
     {
         var errors = new List<PlanningDiagnostic>();
+        // This exact host-owned checked set intentionally rejects false at runtime.
+        // Other set declarations retain their ordinary compatibility checks.
+        var verifiedGate = PlanningConfirmationGuards.Required(graph, catalog) &&
+            !PlanningConfirmationGuards.Validate(graph, catalog).Any();
         for (var wi = 0; wi < graph.Workflows.Count; wi++)
         {
             var workflow = graph.Workflows[wi];
@@ -100,7 +105,7 @@ public static class PlanningGraphValidation
                     {
                         var declared = PlanningGraphCompiler.ToJsonSchema(node.OutputSchema, catalog);
                         var actual = node.Type == "set" ? ValueSchema(node.Input, new(StringComparer.Ordinal)) : ValueSchema(new() { Kind = "output", Source = node.Key }, new(StringComparer.Ordinal));
-                        if (actual is not null && !TypesFit(actual, declared, allowUnresolved: node.Type == "set")) errors.Add(node.Type == "set"
+                        if (actual is not null && !(verifiedGate && node.Key == PlanningConfirmationGuards.Assert && workflow.Key == graph.Entrypoint) && !TypesFit(actual, declared, allowUnresolved: node.Type == "set")) errors.Add(node.Type == "set"
                             ? new("SET_OUTPUT_INVALID", location + "/input", "The set input is its result and does not satisfy the declared output contract. Compute the declared fields inside input; a context object cannot stand in for the calculation.")
                             : new("OUTPUT_TYPE_MISMATCH", location + "/outputSchema", "The declared output is not established by the actual computation or producer contract."));
                         if (node.Type == "set" && IsLiteral(node.Input))
@@ -163,6 +168,20 @@ public static class PlanningGraphValidation
                     }
                 }
                 CheckValue(node.Input, location + "/input");
+                if (catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId) is { } selectedCapability)
+                    CheckContract(node.Type == "mcp.call" ? Member(node.Input, "request") : node.Input,
+                        selectedCapability.InputSchema, location + "/input", "operation " + selectedCapability.Id, selectedCapability);
+                if (node.Type == "workflow.call" && Member(node.Input, "ref")?.Source is { } called &&
+                    graph.Workflows.SingleOrDefault(w => w.Key == called) is { } target)
+                {
+                    var contract = ObjectSchema(target.Inputs.Select(p => (p.Name, PlanningGraphCompiler.ToJsonSchema(p.Schema, catalog))), closed: true);
+                    contract["required"] = new JsonArray(target.Inputs.Where(p => p.Required && p.Default is null).Select(p => (JsonNode?)JsonValue.Create(p.Name)).ToArray());
+                    var args = Member(node.Input, "args") ?? new() { Kind = "object" };
+                    // Historical host wrappers forwarded the complete declared input object.
+                    if (args is { Kind: "expression", Text: "data.inputs" })
+                        args = new() { Kind = "object", Members = workflow.Inputs.Select(p => new PlanningMember(p.Name, new() { Kind = "input", Source = p.Name })).ToList() };
+                    CheckContract(args, contract, location + "/input/args", "workflow " + called);
+                }
                 if (node.Type == "mcp.call" && catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId) is { } capability &&
                     capability.InputSchema["properties"] is JsonObject argumentSchemas && Member(node.Input, "request") is { Kind: "object" } arguments)
                 {
@@ -234,7 +253,6 @@ public static class PlanningGraphValidation
                 var output = workflow.Outputs[i];
                 var location = path + "/outputs/" + i;
                 CheckValue(output.Value, location + "/value");
-                if (output.Value.Kind is not ("input" or "output")) continue;
                 try
                 {
                     var actual = ValueSchema(output.Value, new(StringComparer.Ordinal));
@@ -247,8 +265,33 @@ public static class PlanningGraphValidation
 
             if (workflow.Key == targetWorkflow) resolved?.Invoke(value => ValueSchema(value, new(StringComparer.Ordinal)));
 
+            void CheckContract(PlanningValue? value, JsonObject expected, string location, string consumer, PlanningCapability? capability = null)
+            {
+                try
+                {
+                    if (capability is not null)
+                    {
+                        var clone = JsonSerializer.SerializeToNode(value ?? new() { Kind = "object" }, PlanningJsonContext.Default.PlanningValue)!
+                            .Deserialize(PlanningJsonContext.Default.PlanningValue)!;
+                        value = PlanningCapabilityArguments.Apply(clone, capability, acceptExisting: true);
+                    }
+                    var compatible = value is not null && (IsLiteral(value)
+                        ? PlanningContractValidation.ValidateInstance(Literal(value), expected).Count == 0
+                        : ValueSchema(value, new(StringComparer.Ordinal)) is { } actual && TypesFit(actual, expected));
+                    if (compatible) return;
+                    var sources = value is null ? "no binding" : string.Join(", ", PlanningDataflow.References(value).Select(v => v.Kind + ":" + v.Source + "/" + string.Join('/', v.Path)).Distinct());
+                    errors.Add(new("CONTRACT_UNSATISFIED", location, "The complete input contract for " + consumer +
+                        " is not satisfied by " + (sources.Length == 0 ? "the supplied literal values" : sources) + ". Required fields, types and constraints must be established before mapping.", ValidationStage: "contract"));
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException)
+                { errors.Add(new("CONTRACT_UNSATISFIED", location, "Cannot establish the input contract for " + consumer + ": " + ex.Message, ValidationStage: "contract")); }
+            }
+
             void CheckValue(PlanningValue value, string location)
             {
+                if (value.Kind is "predicate" or "json")
+                    try { _ = ValueSchema(value, new(StringComparer.Ordinal)); }
+                    catch (InvalidOperationException ex) { errors.Add(new("COMPUTATION_CONTRACT_INVALID", location, ex.Message)); }
                 if (value.Kind == "workflow" && !graph.Workflows.Any(w => w.Key == value.Source))
                     errors.Add(new("WORKFLOW_REFERENCE_INVALID", location + "/source", "The workflow reference has no declared workflow. Input ports require input references; step results require output references."));
                 if (value.ResultChannel is not (null or "default" or "structured" or "envelope") || (value.ResultChannel is not null && value.Kind != "output"))
@@ -274,6 +317,7 @@ public static class PlanningGraphValidation
 
             JsonObject? ValueSchema(PlanningValue value, HashSet<string> visiting)
             {
+                if (value.Kind is "predicate" or "json") return PlanningValues.ComputationContract(value, operand => ValueSchema(operand, visiting));
                 if (value.Kind == "present")
                 {
                     if (value.Source is null || !byKey.ContainsKey(value.Source) || value.Path.Count != 0 || value.ResultChannel is not null ||
@@ -327,6 +371,12 @@ public static class PlanningGraphValidation
                 }
                 if (value.Kind == "input")
                 {
+                    if (value.Source is null && value.Path.Count == 0)
+                    {
+                        var all = ObjectSchema(workflow.Inputs.Select(p => (p.Name, PlanningGraphCompiler.ToJsonSchema(p.Schema, catalog))), closed: true);
+                        all["required"] = new JsonArray(workflow.Inputs.Where(p => p.Required || p.Default is not null).Select(p => (JsonNode?)JsonValue.Create(p.Name)).ToArray());
+                        return all;
+                    }
                     var input = workflow.Inputs.FirstOrDefault(p => p.Name == value.Source)
                         ?? throw new InvalidOperationException("The input reference has no declared input producer.");
                     return AtPath(PlanningGraphCompiler.ToJsonSchema(input.Schema, catalog), value.Path);
@@ -422,7 +472,7 @@ public static class PlanningGraphValidation
                     }
                     finally { visiting.Remove(producer.Key); }
                 }
-                return value.Kind switch
+                var inferred = value.Kind switch
                 {
                     "string" => new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(value.Text ?? "") },
                     "number" => new JsonObject { ["type"] = value.Number is { } n && n == decimal.Truncate(n) ? "integer" : "number", ["enum"] = new JsonArray(JsonValue.Create(value.Number)) },
@@ -434,6 +484,8 @@ public static class PlanningGraphValidation
                     "array" => new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["anyOf"] = new JsonArray(value.Items.Select(v => (JsonNode?)(ValueSchema(v, visiting) ?? new JsonObject())).ToArray()) } },
                     _ => null
                 };
+                if (inferred is not null && IsLiteral(value)) inferred["const"] = Literal(value);
+                return inferred;
             }
 
             JsonObject ChildSchema(IEnumerable<PlanningNode> children, HashSet<string> visiting)

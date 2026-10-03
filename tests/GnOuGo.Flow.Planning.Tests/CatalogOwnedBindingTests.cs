@@ -241,10 +241,8 @@ public sealed class CatalogOwnedBindingTests
         cap.InputSchema["then"] = JsonNode.Parse("""{"required":["extra"]}""");
         var preflight = new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Null(preflight.Graph); Assert.Contains(preflight.Diagnostics, d => d.Code == "TASK_INPUT_TYPE");
-        var yaml = new PlanningGraphCompiler().Compile(result.Graph!, catalog);
-        var findings = await new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask).ValidateAsync(
-            new(yaml, new(), catalog, PlanningGraphCompiler.CapabilityBindings(result.Graph!)), PlannerFixture.Ct);
-        Assert.Contains(findings, d => d.Code == "MCP_REQUEST_SCHEMA_INVALID" && d.Message.Contains("missing required property", StringComparison.Ordinal));
+        Assert.Contains(PlanningExecutableValidation.Validate(result.Graph!, catalog), d => d.Code == "CONTRACT_UNSATISFIED");
+        Assert.Throws<InvalidOperationException>(() => new PlanningGraphCompiler().Compile(result.Graph!, catalog));
     }
 
     [Fact]
