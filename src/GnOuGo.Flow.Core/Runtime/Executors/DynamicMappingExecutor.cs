@@ -153,6 +153,8 @@ public sealed class DynamicMappingExecutor : IStepExecutor
 
     private const string Instructions = """
         Produce one JavaScript expression that extracts observed data into the target shape. Return {script: expression}.
+        Map only the current observed source format. Do not build parsers for hypothetical formats;
+        cache invalidation handles source-format changes. Prefer the smallest expression for this observation, including during repair.
         The variable source has the supplied object/array structure; scalar leaves are opaque observed-value tokens.
         Return those tokens, object/array constructions, or supported extraction results. Returning a literal scalar is rejected.
         Available helpers: m.select(value, [[property,...],...], eachBoolean) selects the first PRESENT path (null stays null);

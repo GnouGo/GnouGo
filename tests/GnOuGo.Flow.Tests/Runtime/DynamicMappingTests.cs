@@ -80,6 +80,22 @@ public sealed class DynamicMappingTests
     }
 
     [Fact]
+    public async Task OverescapedPatternsAreRejectedRatherThanRewrittenAndOnlyValidatedRepairIsCached()
+    {
+        const string invalid = """({name:m.text(source.observed.title,'Label:\\\\s*(.*)',1)})""";
+        const string valid = "({name:m.text(source.observed.title,'Label: (.*)',1)})";
+        var store = new Store();
+        var rejected = await Run(new Model(invalid), store, title: "Label: actual");
+        Assert.False(rejected.Success); Assert.Equal("CONTRACT_UNSATISFIED", rejected.Error!.Code);
+        Assert.Empty(store.Values);
+        var model = new Model(invalid, valid);
+        var result = await Run(model, store, title: "Label: actual");
+        Assert.True(result.Success, result.Error?.Message); Assert.Equal(2, model.Calls);
+        Assert.Equal("actual", result.StepResults[0].Output!["value"]!["name"]!.GetValue<string>());
+        Assert.Equal(valid, Assert.Single(store.Values).Value.Script);
+    }
+
+    [Fact]
     public async Task InvalidMappingRepairsOnceAndPublishesOnlyValidatedData()
     {
         var model = new Model("({name:'fabricated'})", "({name:source.observed.title})");
