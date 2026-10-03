@@ -60,6 +60,14 @@ Baseline: 108 focused planner tests and 13 local execution cases passed before c
 The updated planner suite contains 813 tests, run with warnings treated as errors. Coverage
 includes script-free business graphs, immutable lowering, defaults, opaque normalization,
 short-circuit cleanup, refusal, artifact provenance and early complete-request rejection.
+Final source `ae3eab1ce0787f2df1d5b9e53c7a18ba6996d13d` passed **4,114 solution
+tests**, with zero failures and 12 platform/opt-in skips. The 13 local execution cases
+passed, including actual Browser/Document operations and independent XLSX inspection.
+Core, Planning and Integrations Release packages, the frontend production build/browser
+smoke, published `osx-arm64` planning Native AOT smoke and skill validation passed.
+CI for that frozen source completed with 22 successful checks and four skipped release/optional
+jobs; [validation evidence](evidence/planning-contract-closure/validation.json) records
+the check links and local commands.
 
 ```sh
 dotnet test tests/GnOuGo.Flow.Planning.Tests -m:1 -warnaserror
@@ -116,3 +124,73 @@ and independent execution oracles remain required.
 
 [Retained failure and accounting](evidence/planning-contract-closure/retained-union-failure.json).
 The incomplete `closure1` cohort is preserved separately from subsequent candidates.
+
+## Final frozen candidate: live gate not met
+
+The `closure2` manifest pins source/harness `ae3eab1c`, the existing prompt/oracle hashes,
+`gpt-5.5-2026-04-24`, medium reasoning, 96,000 input tokens, 32,768 output tokens,
+eight physical planning attempts and two repairs. Disposable Browser/XLSX readiness
+and the pinned repository/toolchain checks passed before dispatch. All paid inference
+used the existing campaign gate; no oracle or permission boundary was weakened.
+
+**0/6 execution oracles passed; coverage is incomplete.** Three proposals were collected,
+two were approved and executed, and one was rejected during review. The remaining
+three repetitions were not started after the execution blockers below. This is not
+a successful live evaluation, despite successful static compilation and local tests.
+
+| Run / phase | Logical calls / physical attempts | Discovery / repairs | Verified input / output tokens | Cost EUR | Latency ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Amazon 1 planning | 2 / 2 | 2 / 0 | 17,141 / 5,421 | 0.22123 | 68,031 |
+| Amazon 1 execution | 3 / 3 | — | 28,421 / 844 | 0.14915 | 58,077 |
+| Code 1 planning | 2 / 2 | 3 / 0 | 31,779 / 3,965 | 0.24752 | 51,154 |
+| Code 1 execution | 12 / 12 | — | 398,705 / 5,501 | 1.92299 | 1,070,315 |
+| Amazon 2 planning | 3 / 3 | 2 / 0 | 30,498 / 3,421 | 0.22728 | 56,190 |
+
+No unknown model-usage attempts were recorded for these runs. Amazon 1 total latency
+was 126,108 ms; Code 1 was 1,121,469 ms. There are too few completed executions for a
+meaningful efficiency comparison; failures and unstarted repetitions remain visible
+in the [six-run report](evidence/planning-contract-closure/closure2.json).
+
+- **Amazon 1:** Flow completed and closed the browser, but the independent oracle
+  rejected the workbook. The captured search response had HTTP status 202 and no
+  product-entry marker; no explicit CAPTCHA marker was observed. The workbook's
+  absence notes were not independently supported product rows. Site/render readiness
+  remains unresolved; successful Flow completion did not count as success.
+  [Captured observation summary](evidence/planning-contract-closure/closure2-amazon-observations.json).
+- **Code 1:** the revised prompt used deterministic object/JSON assembly and retained
+  fixed instructions. Actual repository work began, but `copilot_interactive_one_shot`
+  ended with an MCP exception without a verified external completion receipt. Flow
+  returned `RUN_NEEDS_RECONCILIATION` and correctly blocked cleanup. The checkout is
+  retained; no automatic reconciliation, repeat execution or GitHub publication occurred.
+  The harness retained the exception type, not its underlying message, so a specific
+  timeout cause is not established. Command activity and paid usage do not substitute
+  for verified command completion or a local review artifact.
+  [Failure and missing evidence](evidence/planning-contract-closure/closure2-code-observations.json).
+- **Amazon 2:** review rejected the proposal before execution: it searched and extracted
+  links but omitted product visits, Excel writing and cleanup. The original request and
+  accepted requirements remain mandatory prompt context. This is an incomplete model
+  proposal, not a missing-field compiler defect. Contract closure cannot establish
+  completeness of arbitrary prose; requirements-versus-plan review remains necessary.
+  [Retained review rejection](evidence/planning-contract-closure/closure2-review-rejection.json).
+
+The ledger rose from **EUR 17.73469 to EUR 21.70851**, an increment of **EUR 3.97383**
+including `closure1` diagnostics and `closure2`. EUR 28.29149 remains under the EUR 50
+ceiling. Paid dispatch stopped at the blockers, not the spending limit. The historical
+schema-diagnostic identity remains explicitly inconclusive and was not retried.
+Its model accounting is separate from the new unresolved external Copilot completion.
+[Campaign snapshots](evidence/planning-contract-closure/campaign-accounting.json).
+
+The existing harness can inspect this evidence without dispatching inference:
+
+```sh
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll \
+  --campaign schema-portability-20261002 --inspect-campaign
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll \
+  --schema-portability report --campaign schema-portability-20261002 --cohort closure2
+```
+
+PR #117 remains draft. Before another live cohort, investigate the retained MCP
+completion failure in the owning integration, establish usable product-page observations,
+and explicitly revise incomplete proposals. No planner-specific workaround or new proof
+framework was added for these remaining issues. Original responses and execution records
+stay in the encrypted journal; published evidence contains sanitized observations only.

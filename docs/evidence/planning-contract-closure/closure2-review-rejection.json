@@ -1,0 +1,53 @@
+{
+  "run": "closure2-amazon-2",
+  "production_sha": "ae3eab1ce0787f2df1d5b9e53c7a18ba6996d13d",
+  "artifact_hash": "f590c4ed92979240fb096752ce09ecf6eedcb5848d32f296ab286cc6b5dd595d",
+  "approved": false,
+  "executed": false,
+  "reason": "Incomplete implementation of accepted business requirements",
+  "accepted_requirements": [
+    "Search Amazon.fr using the single public query input; select at most three products.",
+    "Visit each selected product page and extract observed name, description and price; report missing data or CAPTCHA explicitly.",
+    "Write the workbook to the fixed campaign run destination.",
+    "Close the browser even after failure."
+  ],
+  "proposal_tasks": [
+    {
+      "id": "open_amazon_fr",
+      "kind": "operation"
+    },
+    {
+      "id": "submit_search",
+      "kind": "operation"
+    },
+    {
+      "id": "read_search_results",
+      "kind": "operation"
+    },
+    {
+      "id": "extract_first_three_products",
+      "kind": "transform"
+    }
+  ],
+  "groups": 0,
+  "cleanup_tasks": 0,
+  "missing_work": [
+    "Product-page visits and per-product extraction",
+    "Excel writing",
+    "Browser cleanup"
+  ],
+  "context_check": "PlanningPrompt.Build retains both the original request and accepted requirements in mandatory context; packing removes optional discovery index entries, not those requirements.",
+  "accounting": {
+    "logical_calls": 3,
+    "physical_attempts": 3,
+    "known_input_tokens": 30498,
+    "known_output_tokens": 3421,
+    "known_cost_eur": 0.22727839643652561,
+    "unknown_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0
+  },
+  "limitation": "Contract closure validates the supplied computation. It does not prove that arbitrary business requirements were fully implemented. Review blocked execution; no additional proof layer or planning phase was added.",
+  "private_evidence": "Original responses, requests and artifacts remain in the existing encrypted campaign journal."
+}
