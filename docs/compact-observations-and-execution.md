@@ -54,3 +54,13 @@ dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Plan
 ```
 
 Neither compilation nor deterministic local execution establishes success on Amazon.fr or the pinned external repository. Live results will be retained separately; the PR remains draft until its execution gates pass.
+
+## Live result: incomplete
+
+[Retained live evidence](evidence/compact-observations/live.json), candidate `a16f12a3f8e838c72c9d235fd98f33e2b886caa0`: the first untyped-MCP planning request stopped after 1,215,369 ms, one logical planning call, four physical transport attempts, one discovery read and zero repairs. Three attempts returned HTTP 500 with gateway code `ESG120` and message `Routing failed`; the fourth has no verified completion. The session correctly stopped with `MODEL_DISPATCH_UNVERIFIABLE`. No request was replayed or reconciled.
+
+There are no verified usage receipts for this request. The ledger retains €35.45388838 of verified historical cost plus €1.30337639 reserved for unknown completion, for a €36.75726477 upper bound under the €50 ceiling (about €13.24 remaining). Unknown tokens/cost are not reported as zero. Paid dispatch stopped after the repeated external gateway failure.
+
+**Acceptance remains unmet:** 0/9 untyped execution cases completed; the three Amazon and three code evaluations were not started. No execution success is claimed. Local readiness passed Browser cleanup, independent XLSX reading, code MCP discovery and toolchain availability, but does not establish external execution. Restore the configured provider gateway route before collecting a fresh cohort, preserving the unresolved request and its reservation. Keep PR #117 draft. Historical 33/33, mapping and failed live cohorts remain unchanged.
+
+[CI status snapshot](evidence/compact-observations/ci.json) distinguishes completed checks from still-running jobs.
