@@ -244,9 +244,9 @@
       "repairs": 0,
       "discoveryReads": 1,
       "schemaBytes": 16863,
-      "inputTokenEstimate": 7329,
-      "planningMs": 29.5069,
-      "executionMs": 1.649,
+      "inputTokenEstimate": 7414,
+      "planningMs": 27.6059,
+      "executionMs": 1.5306,
       "success": true,
       "oracleCorrect": true
     },
@@ -257,9 +257,9 @@
       "repairs": 0,
       "discoveryReads": 1,
       "schemaBytes": 16863,
-      "inputTokenEstimate": 7329,
-      "planningMs": 29.9835,
-      "executionMs": 0.9824,
+      "inputTokenEstimate": 7414,
+      "planningMs": 28.403,
+      "executionMs": 0.9863,
       "success": true,
       "oracleCorrect": true
     },
@@ -270,9 +270,9 @@
       "repairs": 0,
       "discoveryReads": 1,
       "schemaBytes": 16863,
-      "inputTokenEstimate": 7329,
-      "planningMs": 26.8746,
-      "executionMs": 1.0058,
+      "inputTokenEstimate": 7414,
+      "planningMs": 25.742,
+      "executionMs": 0.9339,
       "success": true,
       "oracleCorrect": true
     },
@@ -283,9 +283,9 @@
       "repairs": 0,
       "discoveryReads": 1,
       "schemaBytes": 16863,
-      "inputTokenEstimate": 7346,
-      "planningMs": 26.9027,
-      "executionMs": 1.731,
+      "inputTokenEstimate": 7431,
+      "planningMs": 26.1675,
+      "executionMs": 1.9887,
       "success": true,
       "oracleCorrect": true
     },
@@ -296,9 +296,9 @@
       "repairs": 0,
       "discoveryReads": 1,
       "schemaBytes": 16863,
-      "inputTokenEstimate": 7346,
-      "planningMs": 28.2955,
-      "executionMs": 1.617,
+      "inputTokenEstimate": 7431,
+      "planningMs": 26.0794,
+      "executionMs": 1.5397,
       "success": true,
       "oracleCorrect": true
     },
@@ -309,9 +309,9 @@
       "repairs": 0,
       "discoveryReads": 1,
       "schemaBytes": 16863,
-      "inputTokenEstimate": 7346,
-      "planningMs": 27.9873,
-      "executionMs": 1.6109,
+      "inputTokenEstimate": 7431,
+      "planningMs": 26.9794,
+      "executionMs": 1.5976,
       "success": true,
       "oracleCorrect": true
     },
@@ -322,9 +322,9 @@
       "repairs": 0,
       "discoveryReads": 1,
       "schemaBytes": 16863,
-      "inputTokenEstimate": 7379,
-      "planningMs": 35.2648,
-      "executionMs": 4.2372,
+      "inputTokenEstimate": 7464,
+      "planningMs": 34.3857,
+      "executionMs": 4.212,
       "success": true,
       "oracleCorrect": true
     },
@@ -335,9 +335,9 @@
       "repairs": 0,
       "discoveryReads": 1,
       "schemaBytes": 16863,
-      "inputTokenEstimate": 7379,
-      "planningMs": 34.0456,
-      "executionMs": 3.6913,
+      "inputTokenEstimate": 7464,
+      "planningMs": 33.2434,
+      "executionMs": 3.5795,
       "success": true,
       "oracleCorrect": true
     },
@@ -348,9 +348,9 @@
       "repairs": 0,
       "discoveryReads": 1,
       "schemaBytes": 16863,
-      "inputTokenEstimate": 7379,
-      "planningMs": 32.9237,
-      "executionMs": 3.9869,
+      "inputTokenEstimate": 7464,
+      "planningMs": 32.4934,
+      "executionMs": 3.7495,
       "success": true,
       "oracleCorrect": true
     },
@@ -361,9 +361,9 @@
       "repairs": 0,
       "discoveryReads": 1,
       "schemaBytes": 16863,
-      "inputTokenEstimate": 7417,
-      "planningMs": 33.3771,
-      "executionMs": 9.0591,
+      "inputTokenEstimate": 7503,
+      "planningMs": 35.4918,
+      "executionMs": 9.5601,
       "success": true,
       "oracleCorrect": true
     },
@@ -374,9 +374,9 @@
       "repairs": 0,
       "discoveryReads": 1,
       "schemaBytes": 16863,
-      "inputTokenEstimate": 7417,
-      "planningMs": 34.0119,
-      "executionMs": 9.3429,
+      "inputTokenEstimate": 7503,
+      "planningMs": 37.986,
+      "executionMs": 9.1197,
       "success": true,
       "oracleCorrect": true
     },
@@ -387,9 +387,9 @@
       "repairs": 0,
       "discoveryReads": 1,
       "schemaBytes": 16863,
-      "inputTokenEstimate": 7417,
-      "planningMs": 36.3094,
-      "executionMs": 11.1797,
+      "inputTokenEstimate": 7503,
+      "planningMs": 37.4694,
+      "executionMs": 10.427,
       "success": true,
       "oracleCorrect": true
     },
@@ -400,9 +400,9 @@
       "repairs": 0,
       "discoveryReads": 1,
       "schemaBytes": 16863,
-      "inputTokenEstimate": 7364,
-      "planningMs": 39.1343,
-      "executionMs": 2.8912,
+      "inputTokenEstimate": 7450,
+      "planningMs": 32.5246,
+      "executionMs": 2.9585,
       "success": true,
       "oracleCorrect": true
     },
@@ -413,9 +413,9 @@
       "repairs": 0,
       "discoveryReads": 1,
       "schemaBytes": 16863,
-      "inputTokenEstimate": 7364,
-      "planningMs": 32.6505,
-      "executionMs": 4.0582,
+      "inputTokenEstimate": 7450,
+      "planningMs": 30.1817,
+      "executionMs": 3.5312,
       "success": true,
       "oracleCorrect": true
     },
@@ -426,9 +426,9 @@
       "repairs": 0,
       "discoveryReads": 1,
       "schemaBytes": 16863,
-      "inputTokenEstimate": 7364,
-      "planningMs": 31.6502,
-      "executionMs": 3.2621,
+      "inputTokenEstimate": 7450,
+      "planningMs": 30.6385,
+      "executionMs": 2.9963,
       "success": true,
       "oracleCorrect": true
     }
@@ -453,16 +453,16 @@
       "p95": 16863
     },
     "inputTokenEstimate": {
-      "median": 7364,
-      "p95": 7417
+      "median": 7450,
+      "p95": 7503
     },
     "planningMs": {
-      "median": 32.6505,
-      "p95": 39.1343
+      "median": 30.6385,
+      "p95": 37.986
     },
     "executionMs": {
-      "median": 3.2621,
-      "p95": 11.1797
+      "median": 2.9963,
+      "p95": 10.427
     }
   }
 }

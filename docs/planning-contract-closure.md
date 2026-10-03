@@ -57,7 +57,7 @@ Rebuild the planning package and host together; regenerate changed workflows and
 fresh approval through existing contract/artifact fingerprints.
 
 Baseline: 108 focused planner tests and 13 local execution cases passed before changes.
-The updated planner suite contains 806 tests, run with warnings treated as errors. Coverage
+The updated planner suite contains 813 tests, run with warnings treated as errors. Coverage
 includes script-free business graphs, immutable lowering, defaults, opaque normalization,
 short-circuit cleanup, refusal, artifact provenance and early complete-request rejection.
 
@@ -74,10 +74,10 @@ The unchanged existing harness ran five cases with three measured repetitions af
 one warm-up per case in isolated baseline and candidate builds. Both passed **15/15**
 execution oracles; each run used **one planning call, zero repairs and one discovery
 read**. The response schema stayed at **16,863 bytes**. Median estimated input tokens
-changed from **7,281 to 7,364** because the prompt now states closure/default ownership.
-Planning median/p95 changed from **29.06/34.10 ms to 32.65/39.13 ms**; execution
-median/p95 changed from **2.82/8.94 ms to 3.26/11.18 ms**. These short local timings are
-observations under concurrent solution-test load, not a provider latency claim. Usage is estimated, not billed usage.
+changed from **7,281 to 7,450** because the prompt now states closure/default ownership.
+Planning median/p95 changed from **29.06/34.10 ms to 30.64/37.99 ms**; execution
+median/p95 changed from **2.82/8.94 ms to 3.00/10.43 ms**. These short local timings are
+observations on a shared local host, not a provider latency claim. Usage is estimated, not billed usage.
 
 [Measurements and unchanged harness command](evidence/planning-contract-closure/deterministic-comparison.json)
 are separate from all historical benchmarks and live results.
@@ -95,3 +95,24 @@ toolchain PATH for readiness, planning and execution. Require all three Amazon a
 three code execution oracles; retained failures and external blocks remain failures
 or incomplete coverage. Review output stays local. Historical 33/33 results and
 earlier failed live cohorts remain unchanged and do not validate this correction.
+
+## Retained live iteration
+
+Candidate `f58f16259532bd0d3be4a59734a5c8612d92349b` passed 4,107 solution tests
+with zero failures and 12 platform/opt-in skips. Its first Amazon run stopped after
+four calls and two repairs. The saved proposal combined an invalid nullable selector
+with a generic compiler defect: field selection rejected object unions even when
+every conditional branch declared the field. A model-free reproduction confirmed
+the defect. Field selection now preserves the union of the declared field contracts;
+missing, opaque and scalar alternatives remain rejected. The original nullable
+selector still fails. Saved proposals are not rewritten.
+
+The first code proposal reached review in four calls and zero repairs. Execution was
+withheld: a runtime prompt-building transform referred to earlier planning constraints
+without receiving them. Its bindings omitted fixed report/evaluation instructions.
+Prompt guidance now makes this data boundary explicit and requests deterministic
+value/object/JSON wiring; there is no new semantic-proof mechanism. Artifact review
+and independent execution oracles remain required.
+
+[Retained failure and accounting](evidence/planning-contract-closure/retained-union-failure.json).
+The incomplete `closure1` cohort is preserved separately from subsequent candidates.

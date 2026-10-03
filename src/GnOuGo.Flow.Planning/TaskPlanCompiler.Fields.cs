@@ -11,16 +11,7 @@ public sealed partial class TaskPlanCompiler
             value.Text is not null || value.Number is not null || value.Boolean is not null || value.Predicate is not null || value.Members.Count != 0)
             Fail("TASK_FIELD_INVALID", "Field selection requires one business object and a nonblank literal field name.");
         var source = Value(value.Items[0], scope, consume: false);
-        // A nullable object still declares its fields. The checked projection fails
-        // on a null container; it never supplies a default or establishes success.
-        var type = source.Schema["type"];
-        var isObject = type?.ToString() == "object" || type is JsonArray types &&
-            types.Any(t => t?.ToString() == "object") && types.All(t => t?.ToString() is "object" or "null");
-        if (!isObject || source.Schema["x-gnougo-opaque"]?.ToString() == "true")
-            Fail("TASK_FIELD_TYPE", "Field selection requires an authoritative object contract; opaque values cannot supply fields.");
-        if (source.Schema["properties"] is not JsonObject fields || fields[value.Port!] is not JsonObject)
-            Fail("TASK_FIELD_UNKNOWN", "The source contract does not declare field '" + value.Port + "'. Field names are literal, not paths.");
-        var schema = source.Schema["properties"]![value.Port!]!.AsObject();
+        var schema = FieldContract(source.Schema, 0);
         // Only an unambiguous semantic location can grant producer-type repairs.
         var location = source.TypeLocation is { } declared && !value.Port!.Contains('/')
             ? declared + "/fields/" + value.Port + "/type" : null;
@@ -29,5 +20,25 @@ public sealed partial class TaskPlanCompiler
         var selected = new Bound(new() { Kind = "output" }, schema,
             SelectionSource: source.SelectionSource ?? source, SelectionPath: [.. source.SelectionPath ?? [], value.Port!], TypeLocation: location);
         return consume ? Consume(selected, scope) : selected;
+
+        JsonObject FieldContract(JsonObject contract, int depth)
+        {
+            if (depth > 32) Fail("TASK_FIELD_TYPE", "Field selection exceeds supported contract nesting.");
+            if ((contract["anyOf"] ?? contract["oneOf"]) is JsonArray alternatives)
+            {
+                if (alternatives.Count == 0 || alternatives.Any(a => a is not JsonObject)) Fail("TASK_FIELD_TYPE", "Field selection requires declared object alternatives.");
+                return new() { ["anyOf"] = new JsonArray(alternatives.Select(a => (JsonNode)FieldContract(a!.AsObject(), depth + 1).DeepClone()).ToArray()) };
+            }
+            // A nullable object still declares its fields. The checked projection fails
+            // on a null container; it never supplies a default or establishes success.
+            var type = contract["type"];
+            var isObject = type?.ToString() == "object" || type is JsonArray types &&
+                types.Any(t => t?.ToString() == "object") && types.All(t => t?.ToString() is "object" or "null");
+            if (!isObject || PlanningContractShapes.IsOpaque(contract))
+                Fail("TASK_FIELD_TYPE", "Field selection requires an authoritative object contract; opaque values cannot supply fields.");
+            if (contract["properties"] is not JsonObject fields || fields[value.Port!] is not JsonObject)
+                Fail("TASK_FIELD_UNKNOWN", "The source contract does not declare field '" + value.Port + "'. Field names are literal, not paths.");
+            return contract["properties"]![value.Port!]!.AsObject();
+        }
     }
 }

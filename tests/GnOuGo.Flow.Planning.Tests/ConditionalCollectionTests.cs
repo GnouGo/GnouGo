@@ -11,6 +11,30 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ConditionalCollectionTests
 {
     [Theory]
+    [InlineData("missing", "TASK_FIELD_UNKNOWN")]
+    [InlineData("opaque", "TASK_FIELD_TYPE")]
+    [InlineData("scalar", "TASK_FIELD_TYPE")]
+    public async Task FieldSelectionCannotInventContractsInAnAlternative(string variant, string code)
+    {
+        var catalog = await new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask).DiscoverAsync(new(), PlannerFixture.Ct);
+        var other = variant switch
+        {
+            "opaque" => new TaskValue { Kind = "input", Source = "unknown" },
+            "scalar" => new TaskValue { Kind = "number", Number = 1 },
+            _ => new TaskValue { Kind = "object", Members = [new("different", new() { Kind = "array" })] }
+        };
+        var plan = new TaskPlan { Inputs = [new() { Name = "unknown", Type = new() { Kind = "any" } }], Root = new()
+        {
+            Tasks = [new() { Id = "choose", Kind = "conditional", Objective = "Select the supplied record", Condition = new() { Kind = "boolean", Boolean = true },
+                Body = new() { Outputs = [new("record", new() { Kind = "object", Members = [new("entries", new() { Kind = "array" })] })] },
+                Otherwise = new() { Outputs = [new("record", other)] } }],
+            Outputs = [new("rows", TaskFieldBindingTests.Field(new() { Kind = "output", Source = "choose", Port = "record" }, "entries"))]
+        } };
+        var result = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Null(result.Graph); Assert.Contains(result.Diagnostics, d => d.Code == code);
+    }
+
+    [Theory]
     [InlineData("null")]
     [InlineData("string")]
     [InlineData("array")]
@@ -43,11 +67,15 @@ public sealed class ConditionalCollectionTests
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public async Task TypedAndEmptyBranchesPreserveNestedExportsAndLoopExecution(bool enabled, bool parallel)
+    [InlineData(false, false, null)]
+    [InlineData(false, true, null)]
+    [InlineData(true, false, null)]
+    [InlineData(true, true, null)]
+    [InlineData(false, false, "entries")]
+    [InlineData(false, true, "values")]
+    [InlineData(true, false, "values")]
+    [InlineData(true, true, "entries")]
+    public async Task TypedAndEmptyBranchesPreserveNestedExportsAndLoopExecution(bool enabled, bool parallel, string? field)
     {
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask);
         var catalog = await runtime.DiscoverAsync(new(), PlannerFixture.Ct);
@@ -61,6 +89,12 @@ public sealed class ConditionalCollectionTests
         plan.Root.Tasks.Insert(0, new() { Id = "container", Kind = "sequence", Objective = "Export selected rows",
             Body = new() { Tasks = [choose], Outputs = [new("exported", new() { Kind = "output", Source = choose.Id, Port = "rows" })] } });
         loop.Items = new() { Kind = "output", Source = "container", Port = "exported" };
+        if (field is not null)
+        {
+            foreach (var branch in new[] { choose.Body!, choose.Otherwise! })
+                branch.Outputs[0] = new("rows", new() { Kind = "object", Members = [new(field, branch.Outputs[0].Value)] });
+            loop.Items = TaskFieldBindingTests.Field(loop.Items, field);
+        }
         var before = JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan);
         var compiled = new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Empty(compiled.Diagnostics); Assert.NotNull(compiled.Graph);
