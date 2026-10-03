@@ -1,19 +1,22 @@
 {
   "baseline": "97d484afafe11d588c9222587eabe1536968be66",
+  "production_sha": "90cca01df2c8282d1984a2e46162b203393b822a",
+  "harness_sha": "90cca01df2c8282d1984a2e46162b203393b822a",
   "full_solution": {
-    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
-    "passed": 4152,
+    "command": "PLAYWRIGHT_MODULE_PATH=/path/to/playwright/index.mjs dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+    "passed": 4194,
     "failed": 0,
     "skipped": 12,
     "suites": 33
   },
   "affected_suites": {
-    "runtime": 1015,
-    "planning": 817,
-    "server": 594,
+    "runtime": 1038,
+    "planning": 829,
+    "server": 597,
     "persistence": 4,
     "integrations": 87,
-    "mermaid": 12
+    "mermaid": 12,
+    "browser": 47
   },
   "release_packages": [
     "Core",
@@ -23,11 +26,13 @@
     "Mermaid",
     "Copilot"
   ],
-  "native_aot": "passed osx-arm64",
-  "published_encrypted_recovery": "passed trimmed osx-arm64 Agent.Server; optional bundled tools excluded",
-  "frontend_production_build": "passed",
+  "native_aot": {
+    "planning": "passed osx-arm64",
+    "copilot": "passed osx-arm64 publish and encrypted task recovery"
+  },
+  "published_encrypted_recovery": "passed trimmed self-contained osx-arm64 Agent.Server; optional bundled tools excluded; encrypted mapping persistence, restart and tenant isolation included",
+  "frontend_production_build": "passed; frontend sources unchanged during subsequent backend/live iterations",
   "planning_skill": "valid",
-  "retained_first_failure": "Existing Copilot cancellation fixture disposal raced with lease-directory deletion; focused rerun and complete solution rerun passed. No Copilot production change.",
   "executor_classes": {
     "before": 19,
     "after": 19,
@@ -35,11 +40,132 @@
     "added": "DynamicMappingExecutor"
   },
   "log_sha256": {
-    "solution": "c2204896a2984b407fc0a789761b7160191d83b3f350a35dc09bb47eecd16f6b",
-    "first_solution": "d8c6462f7586fbced371f75ca604838c46ba5f5f0279d291b70bf5f4fa4a0c39",
-    "native_aot": "ccb834dd8f850b4e1994cc2bb88eee5248c88642cbed4b723da93cdea3ea5b59",
-    "published_recovery": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88",
-    "frontend": "dc96dd7191a9a7c5c09d4160d83e3b6e7746556d556b700748ab03254c72c410"
+    "solution-final15": "054463ded3c488652e8fbe018a76c5261705e0a245119cfeb5267ad018605981",
+    "pack-final15-Core": "32a8efd6d6864b183fd45918f8b8a5e19ea1a427ce48f84f53c480ba4db158e5",
+    "pack-final15-Planning": "51d92f588002f45336ee914a5b76ad42a308d193ba5617499453f28b67c14813",
+    "pack-final15-Persistence": "faa931a20793710afe353d9a1ef767365f044eca29a1e68ab18adab006109a1b",
+    "pack-final15-Integrations": "f5d91bfdb3a5be820cfceb2dc9c17808188f62a3edbb00036d2ba5b81f9bcca3",
+    "pack-final15-Mermaid": "ea1951a8f086c9cc46a11869cbee47f072b60bf34c04a9a7a2c0b4861a21b0d8",
+    "pack-final15-Copilot": "1c49470996320c52b9dcf049a6776f8672a921851814709adb7028c052cd318e",
+    "aot-final15-publish": "3b106aa5e5b6753422497cba37cee30895242739319c7037bcaecb387237df80",
+    "aot-final15": "ccb834dd8f850b4e1994cc2bb88eee5248c88642cbed4b723da93cdea3ea5b59",
+    "server-final15-publish": "0d36ce44ce8b5be7e48132619ea4932fb14fdbd7b0ce07756eff4264029fe730",
+    "published-final15-recovery": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88",
+    "copilot-aot-final15-publish": "2efcfc4f56fe0acc2bf57af24be68c198811bdcf89a71b3e4bc0db499b548867",
+    "copilot-aot-final15-recovery": "8106da92aaf89232b85ae84be49c4760a0b88b9c0fd41639e448dcaa2cb6a44f",
+    "browser-publish-final3": "623b1f217c24653cfb3883cdaaa9d71748aee3966d2319a6da98996be99fd3d7",
+    "frontend": "dc96dd7191a9a7c5c09d4160d83e3b6e7746556d556b700748ab03254c72c410",
+    "skill-final15": "db349825903d66adffea3ecf1bd8e1803043e8a71cf1a051235dabc5371f5bb0",
+    "rejection-regression-before": "4c17dd0f24eeacf264b402f28e1ac4345aab6bd7922e23a8d04ca374021bc718",
+    "rejection-regression-after": "65e7c485730a716b3828d59d6b87b2c88b875a6b09463d9bbf819cf590d07d05",
+    "solution-final8": "f1bec14fb56a242ead02db09e3298d2dc3aa3ed65f250642d78d90136e9e30c0",
+    "campaign-final12": "e226b8d7f3df831d3f845eb95e379753bc0895a4361126725406589ad437b576",
+    "campaign-final13": "4e5e9ba08be12003badfe4f704f027881f9d35169544b1ba81b662da855f53fa",
+    "selected-contract-regression4": "29c5abaeda6cc0b4238c16462c4bd04c2110e8195a423715b86d9c137a2b4b70"
   },
-  "paid_calls_for_this_change": 0
+  "retained_test_iterations": [
+    "Existing Copilot cancellation fixture disposal raced with lease-directory deletion; focused rerun and complete solution rerun passed. No Copilot production change.",
+    "The first selected-contract regression exposed missing recursive constraint diagnostics after branch selection; corrected before the final solution run.",
+    "A deterministic llm.call regression reproduced a known provider rejection being treated as unknown completion. Completed responses and explicitly known pre-dispatch failures now retain receipts; unknown failures remain stopped.",
+    "The new benchmark integration test initially queried the wrong finalizer invocation path; corrected the assertion and reran the affected and full suites."
+  ],
+  "live": {
+    "untyped_mapping": {
+      "cohort": "mapping10",
+      "passed_oracles": 9,
+      "total_oracles": 9,
+      "production_sha": "90cca01df2c8282d1984a2e46162b203393b822a",
+      "report": "mapping10.json",
+      "planning_calls": 1,
+      "planning_repairs": 0,
+      "discovery_reads": 1,
+      "planning_ms": 14391,
+      "runtime_paid_calls": 8,
+      "injected_non_provider_attempts": 1,
+      "cold_execution_ms": 7262,
+      "warm_execution_ms": 57,
+      "warm_model_calls": 0,
+      "note": "Includes correct expected missing-data failure and separately labelled injected repair; exact synthetic observations over real MCP transport and real provider."
+    },
+    "amazon_code": {
+      "last_cohort": "mappinglive6",
+      "production_sha": "e7229199d192a9004dccd276033cfa87b5dd373f",
+      "passed_oracles": 0,
+      "total_required": 6,
+      "status": "incomplete",
+      "report": "mappinglive6.json",
+      "final_production_cohort_collected": false,
+      "limitations": [
+        "Two proposals failed independent approval review (unsupported extraction synthesis and missing surviving confined report export).",
+        "One Amazon execution encountered 144444 estimated prompt tokens against the fixed 96000 input limit. The known-rejection receipt defect was then fixed and verified deterministically.",
+        "Three remaining repetitions were not started after that defect; no historical uncertain invocation was reconciled or replayed."
+      ]
+    },
+    "campaign": {
+      "id": "schema-portability-20261002",
+      "ceiling_eur": 50,
+      "initial_cost_eur": 21.708511988049207,
+      "final_cost_eur": 35.453888380031394,
+      "remaining_eur": 14.546111619968606,
+      "initial_physical_calls": 206,
+      "final_physical_calls": 360,
+      "task_physical_calls": 154,
+      "task_cost_eur": 13.745376391982187,
+      "known_input_tokens": 5057721,
+      "known_output_tokens": 485931,
+      "unknown_transport_attempts": 0,
+      "reserved_cost_eur": 0,
+      "historical_receipts_complete": false,
+      "historical_inconclusive_requests": [
+        "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+      ],
+      "status": "paid dispatch stopped; euro ceiling not exhausted; broader live acceptance incomplete"
+    },
+    "historical_33_of_33": "unchanged, not acceptance evidence for runtime mappings"
+  },
+  "initial_validation_before_live": {
+    "baseline": "97d484afafe11d588c9222587eabe1536968be66",
+    "full_solution": {
+      "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+      "passed": 4152,
+      "failed": 0,
+      "skipped": 12,
+      "suites": 33
+    },
+    "affected_suites": {
+      "runtime": 1015,
+      "planning": 817,
+      "server": 594,
+      "persistence": 4,
+      "integrations": 87,
+      "mermaid": 12
+    },
+    "release_packages": [
+      "Core",
+      "Planning",
+      "Persistence",
+      "Integrations",
+      "Mermaid",
+      "Copilot"
+    ],
+    "native_aot": "passed osx-arm64",
+    "published_encrypted_recovery": "passed trimmed osx-arm64 Agent.Server; optional bundled tools excluded",
+    "frontend_production_build": "passed",
+    "planning_skill": "valid",
+    "retained_first_failure": "Existing Copilot cancellation fixture disposal raced with lease-directory deletion; focused rerun and complete solution rerun passed. No Copilot production change.",
+    "executor_classes": {
+      "before": 19,
+      "after": 19,
+      "removed": "ValueProjectExecutor",
+      "added": "DynamicMappingExecutor"
+    },
+    "log_sha256": {
+      "solution": "c2204896a2984b407fc0a789761b7160191d83b3f350a35dc09bb47eecd16f6b",
+      "first_solution": "d8c6462f7586fbced371f75ca604838c46ba5f5f0279d291b70bf5f4fa4a0c39",
+      "native_aot": "ccb834dd8f850b4e1994cc2bb88eee5248c88642cbed4b723da93cdea3ea5b59",
+      "published_recovery": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88",
+      "frontend": "dc96dd7191a9a7c5c09d4160d83e3b6e7746556d556b700748ab03254c72c410"
+    },
+    "paid_calls_for_this_change": 0
+  }
 }

@@ -354,6 +354,9 @@ Code feedback remains local; GitHub publication is excluded and untested.
 
 `inspect-run --run <identity>` returns private retained requests, responses,
 execution events and oracles; redirect only to an access-restricted local file.
+Its `runtime_llm_inputs` entries report estimated prompt tokens and durable completion
+status for ordinary `llm.call` invocations. Inspection performs no dispatch or mutation;
+estimated input size is not billed usage.
 `report` returns sanitized counters and rejects mismatched or missing manifests.
 `discovery_reads` counts actual MCP `tools/list` calls. Planning/execution latency
 includes human waiting; provider attempts, verified tokens, unknown reservations
