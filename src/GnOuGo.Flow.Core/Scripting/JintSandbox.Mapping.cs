@@ -58,7 +58,7 @@ public sealed partial class JintSandbox
             foreach (var value in values) { ct.ThrowIfCancellationRequested(); array.Push(value); }
             return array;
         }
-        JsonNode? Export(JsValue value, int depth, JsonObject? contract)
+        JsonNode? Export(JsValue value, int depth, JsonObject? contract, string path = "$")
         {
             ct.ThrowIfCancellationRequested();
             if (depth > 64) throw Unsatisfied("Mapping result nesting exceeded its limit.");
@@ -66,24 +66,25 @@ public sealed partial class JintSandbox
             {
                 if (contract is null || !contract.TryGetPropertyValue("default", out var fallback) ||
                     JsonSchemaContractValidator.ValidateInstance(fallback, contract).Count != 0)
-                    throw Unsatisfied("An absent observation has no valid authoritative default.");
+                    throw Unsatisfied("Mapping result " + path + " has no observation or valid authoritative default.");
                 return fallback?.DeepClone();
             }
             if (value.IsObject() && origins.TryGetValue(value.AsObject(), out var original)) return original?.DeepClone();
             if (value.IsArray())
             {
                 var array = new JsonArray();
-                foreach (var item in value.AsArray()) array.Add(Export(item, depth + 1, contract?["items"] as JsonObject));
+                foreach (var item in value.AsArray()) array.Add(Export(item, depth + 1, contract?["items"] as JsonObject, path + "/" + array.Count));
                 return array;
             }
             if (value.IsObject())
             {
                 var obj = new JsonObject();
                 foreach (var field in value.AsObject().GetOwnProperties())
-                    if (!field.Value.Value.IsUndefined()) obj.Add(field.Key.ToString(), Export(field.Value.Value, depth + 1, contract?["properties"]?[field.Key.ToString()] as JsonObject));
+                    if (!field.Value.Value.IsUndefined()) obj.Add(field.Key.ToString(), Export(field.Value.Value, depth + 1, contract?["properties"]?[field.Key.ToString()] as JsonObject,
+                        path + "/" + field.Key.ToString().Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal)));
                 return obj;
             }
-            throw Unsatisfied("A mapping result contains a missing or invented scalar. Return observed data; defaults belong to the target contract.");
+            throw Unsatisfied("Mapping result " + path + " contains a missing or invented scalar. Return observed data; defaults belong to the target contract.");
         }
         JsonNode? Observed(JsValue value) => value.IsObject() && origins.TryGetValue(value.AsObject(), out var data)
             ? data : throw Unsatisfied("Extraction helpers require an observed scalar, not a literal or computed replacement.");

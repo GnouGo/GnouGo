@@ -23,6 +23,8 @@ public sealed class DynamicMappingTests
 
     [Theory]
     [InlineData("({price:99})")]
+    [InlineData("({price:null})")]
+    [InlineData("({price:m.test(source.text,'not-json')})")]
     [InlineData("({price:m.number('99')})")]
     [InlineData("({price:m.text('price: 99','([0-9]+)')})")]
     [InlineData("({price:source.x || 99})")]
@@ -44,6 +46,15 @@ public sealed class DynamicMappingTests
         var target = JsonNode.Parse("""{"type":"object","properties":{"name":{"type":["string","null"],"default":"declared"}},"required":["name"]}""")!.AsObject();
         if (success) Assert.True(JsonNode.DeepEquals(JsonNode.Parse(expected!), new JintSandbox().ExecuteMapping(script, JsonNode.Parse(source), TestContext.Current.CancellationToken, target: target)!["name"]));
         else Assert.Throws<WorkflowRuntimeException>(() => new JintSandbox().ExecuteMapping(script, JsonNode.Parse(source), TestContext.Current.CancellationToken, target: target));
+    }
+
+    [Fact]
+    public void UnsupportedExtractionIdentifiesTheResultRequirement()
+    {
+        var error = Assert.Throws<WorkflowRuntimeException>(() => new JintSandbox().ExecuteMapping(
+            "({records:[{flag:m.test(source.text,'observed')}]})", new JsonObject { ["text"] = "observed" }, TestContext.Current.CancellationToken));
+        Assert.Contains("$/records/0/flag", error.Message);
+        Assert.Equal("CONTRACT_UNSATISFIED", error.Code);
     }
 
     [Fact]

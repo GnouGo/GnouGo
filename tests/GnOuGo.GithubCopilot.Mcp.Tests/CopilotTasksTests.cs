@@ -159,6 +159,15 @@ public sealed class CopilotTasksTests
         await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct);
         using var scope = fixture.Host.Trace.Push(Context("fixture-tenant"));
         Assert.Equal(McpTaskStatus.Cancelled, (await fixture.tasks.GetTaskAsync(id, Ct))!.Status);
+        // Cancellation acknowledgement precedes the owner's durable partial-result
+        // flush. Keep the fixture alive until that work has actually completed.
+        using var flush = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        flush.CancelAfter(TimeSpan.FromSeconds(5));
+        JsonObject? checkpoint;
+        while ((checkpoint = await fixture.tasks.ReadOperationAsync(id, flush.Token))?["result"] is null)
+            await Task.Delay(10, flush.Token);
+        Assert.Equal("reconciliation_required", checkpoint["phase"]!.ToString());
+        Assert.False(checkpoint["result"]!["completed"]!.GetValue<bool>());
         Assert.Equal(1, fixture.Host.SessionsCreated); Assert.Equal(0, fixture.Host.DisposedSessions);
     }
 

@@ -186,15 +186,20 @@ internal static class LiveWorkflowEvaluation
         }
     }
 
+    internal static LLMRequest ExecutionRequest(LLMRequest request, string run, int call)
+    {
+        var copy = JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.Deserialize(PlanningJsonContext.Default.LLMRequest)!;
+        copy.ClientRequestId = run + "-execution:" + (request.ClientRequestId ?? call + ":" + PlanningGraphCompiler.Fingerprint(request.Prompt));
+        copy.Reasoning = "medium"; copy.MaxTokens = Math.Min(copy.MaxTokens ?? 32768, 32768);
+        return copy;
+    }
+
     private sealed class ExecutionModel(KeyVaultBenchmarkModel model, string run) : ILLMClient
     {
         private int _calls;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
-            request.ClientRequestId ??= run + "-execution:" + (++_calls) + ":" + PlanningGraphCompiler.Fingerprint(request.Prompt);
-            request = JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.Deserialize(PlanningJsonContext.Default.LLMRequest)!;
-            request.Reasoning = "medium"; request.MaxTokens = Math.Min(request.MaxTokens ?? 32768, 32768);
-            return model.CallExecutionAsync(request, ct);
+            return model.CallExecutionAsync(ExecutionRequest(request, run, Interlocked.Increment(ref _calls)), ct);
         }
     }
 

@@ -16,6 +16,8 @@ Learned JavaScript is one restricted expression. Source scalar leaves are opaque
 
 Defaults remain host-owned. `m.optional(observedContainer, [path])` can request a declared target default only after verifying absence. A literal or synthetic container cannot establish absence; nulls and invalid intermediate observations fail. Missing values do not become defaults merely because a script omitted them. No target default means failure. This is deliberately conservative for ambiguous text.
 
+Extraction does not synthesize classifications, status labels, counters or null placeholders. Use explicit interpretation or declared deterministic business operations for those results. A nullable field permits an observed null; it does not supply a missing observation. Pattern helpers take quoted JavaScript strings, not regex literals. Rejected output scalars identify their result path so a bounded repair can address the actual requirement.
+
 Jint observes cancellation and bounded time, statements and memory. Shape and origin checks do not prove that a selected title or price means what the user intended. Independent execution oracles remain necessary, especially for text/HTML.
 
 ## Persistence and recovery

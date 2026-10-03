@@ -11,6 +11,18 @@ public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     [Fact]
+    public void DurableMappingIdentitiesRemainStableAndBelongToExecutionAccounting()
+    {
+        var original = new LLMRequest { ClientRequestId = "durable-mapping-receipt", Prompt = "Observed data", MaxTokens = 8192 };
+        var dispatched = LiveWorkflowEvaluation.ExecutionRequest(original, "cohort-case-1", 1);
+        Assert.StartsWith("cohort-case-1-execution:", dispatched.ClientRequestId);
+        Assert.Equal(dispatched.ClientRequestId, LiveWorkflowEvaluation.ExecutionRequest(original, "cohort-case-1", 99).ClientRequestId);
+        Assert.NotEqual(dispatched.ClientRequestId, LiveWorkflowEvaluation.ExecutionRequest(original, "cohort-case-2", 1).ClientRequestId);
+        Assert.Equal("durable-mapping-receipt", original.ClientRequestId);
+        Assert.Equal(8192, dispatched.MaxTokens);
+    }
+
+    [Fact]
     public async Task LiveReportsRejectMissingManifestsAndRetainInterruptedRuns()
     {
         var campaign = new BenchmarkCampaign(new Records(), "interrupted-live");

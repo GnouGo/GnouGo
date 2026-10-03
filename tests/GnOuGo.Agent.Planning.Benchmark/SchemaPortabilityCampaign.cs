@@ -78,6 +78,13 @@ internal static class SchemaPortabilityCampaign
         {
             var label = Option(args, "--run") ?? throw new ArgumentException("Supply --run.");
             var saved = await campaign.LoadAsync(Collection, "run:" + label) ?? throw new ArgumentException("No run.");
+            var executionRun = await GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore.CreateWorkspace(baseDirectory: root).ReadAsync("benchmark", label);
+            var mappings = new JsonArray((executionRun?.Invocations.Values.Where(i => i.Id.Contains("/mapping/", StringComparison.Ordinal)) ?? [])
+                .OrderBy(i => i.Id, StringComparer.Ordinal).Select(i => (JsonNode)new JsonObject
+                {
+                    ["invocation"] = i.Id, ["request_id"] = i.ResolvedInput?["clientRequestId"]?.DeepClone(),
+                    ["status"] = i.Status, ["usage"] = i.Output?["usage"]?.DeepClone(), ["response"] = i.Output?["json"]?.DeepClone()
+                }).ToArray());
             var responses = new JsonArray();
             var failures = new JsonArray();
             foreach (var failure in (await records.ListAsync("planning-evaluation-failures", "benchmark", BenchmarkCampaign.Author))
@@ -92,6 +99,7 @@ internal static class SchemaPortabilityCampaign
             Console.WriteLine(new JsonObject
             {
                 ["responses"] = responses,
+                ["runtime_mapping_receipts"] = mappings,
                 ["failures"] = failures,
                 ["result"] = saved["result"]?.DeepClone(), ["status"] = saved["session"]?["status"]?.DeepClone(),
                 ["diagnostics"] = saved["session"]?["diagnostics"]?.DeepClone(), ["questions"] = saved["session"]?["pendingQuestions"]?.DeepClone(),
