@@ -287,7 +287,12 @@ public sealed partial class PlanningGraphCompiler
             var source = PlanningGraphValidation.Member(value, "value") ?? throw new InvalidOperationException("Projection needs a value.");
             var paths = PlanningGraphValidation.Member(value, "paths") ?? throw new InvalidOperationException("Projection needs paths.");
             var each = PlanningGraphValidation.Member(value, "each")?.Boolean == true;
-            var script = "({value:m.select(source," + PlanningGraphValidation.Literal(paths)!.ToJsonString() + "," + (each ? "true" : "false") + ")})";
+            var selections = PlanningGraphValidation.Literal(paths)!;
+            // Whole-value guards only assemble an envelope; set validates the result.
+            // Do not route computed bindings through the structural-selection sandbox.
+            if (source.Kind is "json" or "predicate" && !each && selections is JsonArray { Count: 1 } whole && whole[0] is JsonArray { Count: 0 })
+                return "${({value:" + ExpressionBody(source) + "})}";
+            var script = "({value:m.select(source," + selections.ToJsonString() + "," + (each ? "true" : "false") + ")})";
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
             expression = "checkedMapping(" + JsonValue.Create(script)!.ToJsonString() + "," + ExpressionBody(source) + ")";
         }

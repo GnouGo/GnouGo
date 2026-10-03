@@ -1,0 +1,371 @@
+{
+  "campaign": "schema-portability-20261002",
+  "passed": 0,
+  "required": 6,
+  "complete": false,
+  "manifest": {
+    "production_sha": "7d4e0df2186bd0ae337dca354250954b92348ebc",
+    "harness_sha": "7d4e0df2186bd0ae337dca354250954b92348ebc",
+    "cohort": "observations3",
+    "provider": "OpenAi",
+    "model": "gpt-5.5-2026-04-24",
+    "reasoning": "medium",
+    "host_configuration_hash": "7a7fec4a3c4569be8862a2a27f071dcc6a4d080f76f86d11d40a47e9cdf85486",
+    "max_input_tokens": 96000,
+    "max_output_tokens": 32768,
+    "planning_attempts": 8,
+    "repairs": 2,
+    "cost_ceiling_eur": 50,
+    "browser_keep_open": false,
+    "os": "macOS 26.5.2",
+    "architecture": "Arm64",
+    "framework": ".NET 10.0.8",
+    "execution_path_hash": "1f61ad53f2ab163ad39817539aa0798aa0b6d72fdab95d49a5e22554ab5ddb16",
+    "amazon_prompt": "417bb3fcd521d097b40775505acc75ede0896e8d83e06da2f5d04077c7812a50",
+    "code_prompt": "bdb354f8cd88a2a6cf06d0bce25d077a0c1eefc195a57d3c0ff60fcf46d5286c",
+    "harness_tree": "f648ad5b02fa8d3f51289741c3a35602d7e0e630",
+    "scenario_count": 2,
+    "repetitions": 3,
+    "oracle_version": "real-workflows-v1"
+  },
+  "runs": [
+    {
+      "status": "final_review",
+      "planning_ms": 81196,
+      "calls": 3,
+      "repairs": 1,
+      "discovery_reads": 2,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "completed",
+      "accounting": {
+        "planning": {
+          "logical_calls": 3,
+          "physical_attempts": 3,
+          "known_input_tokens": 22382,
+          "known_output_tokens": 5345,
+          "known_cost_eur": 0.2425478841870824,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 2,
+          "physical_attempts": 2,
+          "known_input_tokens": 16519,
+          "known_output_tokens": 1203,
+          "known_cost_eur": 0.10573273942093542,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 401,
+          "session_calls": 0,
+          "known_input_tokens": 5617408,
+          "known_output_tokens": 532733,
+          "known_cost_eur": 39.197759204084846,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 40.50113559606702,
+          "unknown_attempts": 1
+        }
+      },
+      "execution_ms": 43907,
+      "total_ms": 125103,
+      "run": "observations3-amazon-1",
+      "oracle_findings": {
+        "passed": false,
+        "findings": [
+          "workflow_execution_failed",
+          "workbook_missing"
+        ]
+      },
+      "execution_error_code": "CONTRACT_UNSATISFIED"
+    },
+    {
+      "status": "final_review",
+      "planning_ms": 54024,
+      "calls": 2,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "completed",
+      "accounting": {
+        "planning": {
+          "logical_calls": 2,
+          "physical_attempts": 2,
+          "known_input_tokens": 18396,
+          "known_output_tokens": 3656,
+          "known_cost_eur": 0.17965256124721604,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 1,
+          "physical_attempts": 1,
+          "known_input_tokens": 8379,
+          "known_output_tokens": 55,
+          "known_cost_eur": 0.038792873051224946,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 401,
+          "session_calls": 0,
+          "known_input_tokens": 5617408,
+          "known_output_tokens": 532733,
+          "known_cost_eur": 39.197759204084846,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 40.50113559606702,
+          "unknown_attempts": 1
+        }
+      },
+      "execution_ms": 29820,
+      "total_ms": 83844,
+      "run": "observations3-amazon-2",
+      "oracle_findings": {
+        "passed": false,
+        "findings": [
+          "workflow_execution_failed",
+          "workbook_missing"
+        ]
+      },
+      "execution_error_code": "EVAL_ERROR"
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "observations3-amazon-3",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 401,
+          "session_calls": 0,
+          "known_input_tokens": 5617408,
+          "known_output_tokens": 532733,
+          "known_cost_eur": 39.197759204084846,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 40.50113559606702,
+          "unknown_attempts": 1
+        }
+      }
+    },
+    {
+      "status": "final_review",
+      "planning_ms": 100286,
+      "calls": 2,
+      "repairs": 0,
+      "discovery_reads": 3,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "completed",
+      "accounting": {
+        "planning": {
+          "logical_calls": 2,
+          "physical_attempts": 2,
+          "known_input_tokens": 35957,
+          "known_output_tokens": 7130,
+          "known_cost_eur": 0.35072160356347437,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 17,
+          "physical_attempts": 17,
+          "known_input_tokens": 354501,
+          "known_output_tokens": 13249,
+          "known_cost_eur": 1.933162583518931,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 401,
+          "session_calls": 0,
+          "known_input_tokens": 5617408,
+          "known_output_tokens": 532733,
+          "known_cost_eur": 39.197759204084846,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 40.50113559606702,
+          "unknown_attempts": 1
+        }
+      },
+      "execution_ms": 864877,
+      "total_ms": 965163,
+      "run": "observations3-code-1",
+      "oracle_findings": {
+        "passed": false,
+        "findings": [
+          "workflow_execution_failed",
+          "repository_not_cleaned_by_workflow",
+          "local_review_missing",
+          "no_independent_command_completion_evidence",
+          "repository_required_checks_not_independently_verified"
+        ]
+      },
+      "execution_error_code": "RUN_NEEDS_RECONCILIATION",
+      "verified_checks": {
+        "pinned_head": true,
+        "pinned_base": true,
+        "manifest_observed": true,
+        "node_toolchain": false,
+        "pnpm_toolchain": false,
+        "python_toolchain": false,
+        "node_dependencies": false,
+        "python_dependencies": false,
+        "python_lint": false,
+        "python_tests": false,
+        "node_tests": false
+      }
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "observations3-code-2",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 401,
+          "session_calls": 0,
+          "known_input_tokens": 5617408,
+          "known_output_tokens": 532733,
+          "known_cost_eur": 39.197759204084846,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 40.50113559606702,
+          "unknown_attempts": 1
+        }
+      }
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "observations3-code-3",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 401,
+          "session_calls": 0,
+          "known_input_tokens": 5617408,
+          "known_output_tokens": 532733,
+          "known_cost_eur": 39.197759204084846,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 40.50113559606702,
+          "unknown_attempts": 1
+        }
+      }
+    }
+  ],
+  "accounting": {
+    "calls": 401,
+    "session_calls": 0,
+    "known_input_tokens": 5617408,
+    "known_output_tokens": 532733,
+    "known_cost_eur": 39.197759204084846,
+    "reserved_input_tokens": 96000,
+    "reserved_output_tokens": 32768,
+    "reserved_cost_eur": 1.3033763919821826,
+    "cost_upper_bound_eur": 40.50113559606702,
+    "unknown_attempts": 1
+  },
+  "retention_note": "Stopped collection after the second Amazon execution exposed a reproducible compiler defect. Missing repetitions remain in the six-run denominator. Do not pool with a replacement candidate.",
+  "code_task_checkpoint": {
+    "status": "failed",
+    "completion_verified": false,
+    "phase": "reconciliation_required",
+    "sessions": 1,
+    "interactions": 27,
+    "inference_attempts": 16,
+    "conservatively_reserved_tokens": 1893385,
+    "cleanup_blocked": true,
+    "resumed": false,
+    "remaining_cause": "No verified SDK completion; the checkpoint does not prove whether the next admission exceeded the host ceiling. Partial evidence is retained encrypted."
+  }
+}

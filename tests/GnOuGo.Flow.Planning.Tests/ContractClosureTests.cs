@@ -11,6 +11,37 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class ContractClosureTests
 {
+    [Theory]
+    [InlineData("alpha", "exact", true)]
+    [InlineData("omega", "exact", true)]
+    [InlineData("alpha", "different", false)]
+    public async Task WholeValueChecksAcceptComputedBindingsAndValidateBeforeConsumption(string name, string observed, bool succeeds)
+    {
+        var calls = 0; var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("arbitrary", new()
+        {
+            Tools = [new() { Name = name, InputSchema = ObjectSchema(("payload", new() { ["type"] = "string", ["pattern"] = "^\"exact\"$" })), OutputSchema = ObjectSchema() }],
+            ToolHandlers = new() { [name] = input => { calls++; Assert.Equal("\"exact\"", input!["payload"]!.GetValue<string>()); return new() { Content = new JsonObject() }; } }
+        });
+        var engine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human() };
+        var catalog = await TaskPlanCompilerTests.Catalog(new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask));
+        var plan = new TaskPlan { Inputs = [new() { Name = "observed", Type = new() }], Root = new() { Tasks = [new()
+        {
+            Id = "consume", Operation = catalog.Capabilities.Single(c => c.Method == name).Id, Objective = "Consume the encoded observation",
+            Inputs = [new("payload", new() { Kind = "json", Items = [new() { Kind = "input", Source = "observed" }] })]
+        }] } };
+        var compilation = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(compilation.Diagnostics);
+        var graph = compilation.Graph!; PlanningConfirmationGuards.Apply(graph, catalog);
+        Assert.Empty(PlanningExecutableValidation.Validate(graph, catalog));
+        var fingerprint = PlanningGraphCompiler.Fingerprint(graph);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, catalog)));
+        Assert.Equal(fingerprint, PlanningGraphCompiler.Fingerprint(graph));
+        var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["observed"] = observed }, PlannerFixture.Ct);
+        Assert.Equal(succeeds, result.Success);
+        Assert.Equal(succeeds ? 1 : 0, calls);
+        if (!succeeds) Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+    }
+
     [Theory, MemberData(nameof(TaskPlanCompilerTests.Scenarios), MemberType = typeof(TaskPlanCompilerTests))]
     public async Task BusinessGraphsContainNoMappingScriptsAndLowerWithoutMutation(string name)
     {
