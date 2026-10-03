@@ -100,6 +100,11 @@ internal static class SchemaPortabilityCampaign
             {
                 ["responses"] = responses,
                 ["runtime_mapping_receipts"] = mappings,
+                ["runtime_llm_inputs"] = new JsonArray((executionRun?.Invocations.Values.Where(i => i.StepType == "llm.call" && i.ResolvedInput is JsonObject input && input["prompt"] is JsonValue) ?? [])
+                    .Select(i => (JsonNode)new JsonObject { ["invocation"] = i.Id, ["status"] = i.Status,
+                        ["observed_completion"] = i.ExternalCompletionObserved,
+                        ["estimated_prompt_tokens"] = KeyVaultBenchmarkModel.ExecutionInputEstimate(i.ResolvedInput!["prompt"]!.GetValue<string>()),
+                        ["model_calls"] = 0, ["inspection_only"] = true }).ToArray()),
                 ["failures"] = failures,
                 ["result"] = saved["result"]?.DeepClone(), ["status"] = saved["session"]?["status"]?.DeepClone(),
                 ["diagnostics"] = saved["session"]?["diagnostics"]?.DeepClone(), ["questions"] = saved["session"]?["pendingQuestions"]?.DeepClone(),

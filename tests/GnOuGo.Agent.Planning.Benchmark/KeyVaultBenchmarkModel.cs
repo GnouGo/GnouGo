@@ -82,7 +82,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
         if (execution && (dispatched.MaxTokens is <= 0 or > 32768 ||
             ExecutionInputEstimate(JsonSerializer.Serialize(dispatched, PlanningJsonContext.Default.LLMRequest)) > 96000))
             throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException(GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetExceeded,
-                "Execution request exceeds the campaign input or output allowance.");
+                "Execution request exceeds the campaign input or output allowance.",
+                details: new JsonObject { ["dispatch_status"] = "not_started" });
         return dispatched;
     }
     public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct) => CallBoundedAsync(request, false, ct);

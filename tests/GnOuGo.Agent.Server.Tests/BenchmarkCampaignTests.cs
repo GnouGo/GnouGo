@@ -62,12 +62,48 @@ public sealed class BenchmarkCampaignTests
         var error = Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() =>
             KeyVaultBenchmarkModel.CreateDispatchRequest(request, "pinned", "pinned", execution: true));
         Assert.Equal(GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetExceeded, error.Code);
+        Assert.Equal("not_started", error.Details!["dispatch_status"]!.ToString());
         Assert.Equal(snapshot, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
         request.Prompt = "Observed input";
         Assert.Equal(8192, KeyVaultBenchmarkModel.CreateDispatchRequest(request, "pinned", "pinned", execution: true).MaxTokens);
         request.MaxTokens = 32769;
         Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() =>
             KeyVaultBenchmarkModel.CreateDispatchRequest(request, "pinned", "pinned", execution: true));
+    }
+
+    [Fact]
+    public async Task CampaignAdmissionFailureAllowsDurableCleanupWithoutInference()
+    {
+        var document = new GnOuGo.Flow.Core.Compilation.WorkflowCompiler().Compile(GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: model
+                    type: llm.call
+                    input: {model: pinned, prompt: "${data.inputs.observation}", max_tokens: 8192}
+                finally:
+                  - {id: cleanup, type: set, input: {value: cleaned}}
+            """));
+        var store = new InMemoryWorkflowRunStore(); var client = new AdmissionClient();
+        var engine = new WorkflowEngine { LLMClient = client, RunStore = store, Limits = new() { TenantId = "tenant", RunId = "run" } };
+        var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!],
+            new JsonObject { ["observation"] = string.Concat(Enumerable.Repeat("<span>A</span>", 60000)) }, Ct);
+        Assert.Equal("LLM_BUDGET_EXCEEDED", result.Error!.Code);
+        Assert.Equal(0, client.Dispatches);
+        var run = (await store.ReadAsync("tenant", "run", Ct))!;
+        Assert.Equal("failed", run.Invocations["/workflow/main/step/model"].Status);
+        Assert.True(run.Invocations["/workflow/main/step/model"].ExternalCompletionObserved);
+        Assert.Equal("completed", Assert.Single(run.Invocations.Values, i => i.IsFinalization && i.StepType == "set").Status);
+    }
+    private sealed class AdmissionClient : ILLMClient
+    {
+        public int Dispatches;
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            _ = KeyVaultBenchmarkModel.CreateDispatchRequest(request, "pinned", "pinned", execution: true);
+            Dispatches++; return Task.FromResult(new LLMResponse());
+        }
     }
 
     [Fact]

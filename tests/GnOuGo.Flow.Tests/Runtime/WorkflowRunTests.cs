@@ -324,6 +324,59 @@ public sealed class WorkflowRunTests
         }
     }
 
+    [Theory]
+    [InlineData("rejected", true, "LLM_PROVIDER")]
+    [InlineData("budget", true, "LLM_BUDGET_EXCEEDED")]
+    [InlineData("unverified_budget", false, "RUN_NEEDS_RECONCILIATION")]
+    [InlineData("transport", false, "RUN_NEEDS_RECONCILIATION")]
+    [InlineData("invalid_result", true, "LLM_SCHEMA")]
+    public async Task KnownModelRejectionHasAFailureReceiptWhileUnknownCompletionStillBlocksCleanup(string failure, bool known, string code)
+    {
+        const string yaml = """
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: model
+                    type: llm.call
+                    input:
+                      model: test
+                      prompt: observed
+                      structured_output:
+                        strict: true
+                        schema_inline: {type: object, properties: {name: {type: string}}, required: [name], additionalProperties: false}
+                  - { id: downstream, type: test.effect, input: { value: downstream } }
+                finally:
+                  - { id: cleanup, type: test.effect, input: { value: cleanup } }
+            """;
+        var store = new InMemoryWorkflowRunStore(); var effects = new Effect(); var client = new RejectedModel(failure);
+        var engine = Engine(store, effects); engine.LLMClient = client;
+        var result = await engine.ExecuteAsync(Compile(yaml), null, TestContext.Current.CancellationToken);
+        Assert.Equal(code, result.Error?.Code);
+        Assert.Equal(known ? ["cleanup"] : Array.Empty<string>(), effects.Values);
+        var saved = (await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken))!;
+        var invocation = saved.Invocations["/workflow/main/step/model"];
+        Assert.Equal(known ? "failed" : "needs_reconciliation", invocation.Status);
+        Assert.Equal(known, invocation.ExternalCompletionObserved);
+        var recovered = Engine(store, effects); recovered.LLMClient = client;
+        await recovered.ResumeAsync("tenant", "run", saved.Revision, Compile(yaml), TestContext.Current.CancellationToken);
+        Assert.Equal(1, client.Calls);
+        Assert.Equal(known ? ["cleanup"] : Array.Empty<string>(), effects.Values);
+    }
+    private sealed class RejectedModel(string failure) : ILLMClient
+    {
+        public int Calls;
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            Calls++;
+            if (failure == "invalid_result") return Task.FromResult(new LLMResponse { Json = new JsonObject { ["name"] = 42 } });
+            if (failure is "budget" or "unverified_budget") throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException(
+                "LLM_BUDGET_EXCEEDED", "Budget stopped the request.", details: failure == "budget" ? new JsonObject { ["dispatch_status"] = "not_started" } : null);
+            throw new LLMClientException(failure == "rejected" ? LLMClientFailureKind.InvalidRequest : LLMClientFailureKind.Transport,
+                "Redacted known rejection or uncertain transport failure.", retryable: false);
+        }
+    }
+
     private static CompiledWorkflow Compile(string yaml)
     {
         var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));

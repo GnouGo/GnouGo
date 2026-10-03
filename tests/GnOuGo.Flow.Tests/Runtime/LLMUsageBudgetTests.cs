@@ -52,6 +52,7 @@ public sealed class LLMUsageBudgetTests
         Assert.Equal(ErrorCodes.LlmBudgetExceeded, failure.Code);
         Assert.False(failure.Retryable);
         Assert.Equal("calls", failure.Details!["limit_kind"]!.GetValue<string>());
+        Assert.Equal("not_started", failure.Details["dispatch_status"]!.ToString());
         Assert.Equal(1, client.CallCount);
         Assert.Equal(1, scope.Snapshot.Calls);
     }
@@ -66,6 +67,7 @@ public sealed class LLMUsageBudgetTests
             scope.CallAsync(client, null, Request(), "neutral.stage", TestContext.Current.CancellationToken));
 
         Assert.Equal(ErrorCodes.LlmBudgetExceeded, failure.Code);
+        Assert.Null(failure.Details!["dispatch_status"]);
         Assert.Equal("total_tokens", failure.Details!["limit_kind"]!.GetValue<string>());
         Assert.Equal(11, scope.Snapshot.TotalTokens);
         Assert.Equal(1, client.CallCount);

@@ -213,10 +213,12 @@ public sealed class LLMUsageBudgetScope
         {
             await ReserveChainAsync(request, costEstimator, safeStage, reservations, ct).ConfigureAwait(false);
         }
-        catch
+        catch (Exception ex)
         {
             await RollbackReservationsAsync(reservations, safeStage, CancellationToken.None).ConfigureAwait(false);
             ReleaseReservations(reservations);
+            if (ex is WorkflowRuntimeException { Code: ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable, Details: JsonObject details })
+                details["dispatch_status"] = "not_started";
             throw;
         }
 
