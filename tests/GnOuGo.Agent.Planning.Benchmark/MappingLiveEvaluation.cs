@@ -53,7 +53,7 @@ internal static class MappingLiveEvaluation
         };
         var evidence = new JsonObject { ["source_sha"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"),
             ["harness_sha"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"), ["prompt"] = Prompt, ["model"] = provider.Model,
-            ["provider_policy_hash"] = provider.ConfigurationFingerprint, ["profile"] = 1, ["model_attempts_per_mapping"] = 2,
+            ["provider_policy_hash"] = provider.ConfigurationFingerprint, ["profile"] = GnOuGo.Flow.Core.Scripting.JintSandbox.MappingProfileVersion, ["model_attempts_per_mapping"] = 2,
             ["reasoning"] = "medium", ["planning_input_limit"] = 96000, ["planning_output_limit"] = 32768,
             ["planning_attempt_limit"] = 8, ["planning_repair_limit"] = 2, ["mapping_output_limit"] = 8192,
             ["environment"] = System.Runtime.InteropServices.RuntimeInformation.OSDescription + "; " + System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,

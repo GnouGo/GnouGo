@@ -333,9 +333,10 @@ public sealed partial class TaskPlanCompiler
                 ["items"] = new JsonObject { ["anyOf"] = new JsonArray(items.Select(v => (JsonNode)v.Schema.DeepClone()).ToArray()) } });
         }
         var bound = Value(value, scope);
-        if (!PlanningContractShapes.IsOpaque(bound.Schema) && !PlanningContractShapes.CanDefer(bound.Schema, expected)) return bound;
+        var checkedConstraints = !PlanningGraphValidation.IsLiteral(bound.Value) && PlanningContractShapes.CanCheckConstraints(bound.Schema, expected);
+        if (!checkedConstraints && !PlanningContractShapes.IsOpaque(bound.Schema) && !PlanningContractShapes.CanDefer(bound.Schema, expected)) return bound;
         var schema = expected.Count == 0 ? PlanningContractShapes.Opaque() : expected;
-        var dynamic = !PlanningContractShapes.IsOpaque(schema);
+        var dynamic = !checkedConstraints && !PlanningContractShapes.IsOpaque(schema);
         if (!_catalog.AllowedStepTypes.Contains(dynamic ? "mapping.dynamic" : "set"))
             Fail("TASK_OUTPUT_POLICY", "The host does not permit this required binding adaptation.");
         if (scope.Target is null) return bound with { Schema = schema };

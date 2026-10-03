@@ -5,6 +5,14 @@ namespace GnOuGo.Browser.Mcp.Tests;
 
 public class BrowserNavigationPolicyTests
 {
+    [Theory]
+    [InlineData("https%3A%2F%2Fexample.invalid%2Fitems%2F7")]
+    [InlineData("/items/7")]
+    [InlineData("https://example.invalid/item 7")]
+    [InlineData("https://example.invalid/items/7\n")]
+    public void InvalidReferencesFailBeforeNavigation(string reference)
+        => Assert.True(Record.Exception(() => BrowserNavigationPolicy.ValidateNavigationTarget(reference, new())) is ArgumentException or InvalidOperationException);
+
     [Fact]
     public void ValidateNavigationTarget_AllowsHttps_WhenNoHostRestrictions()
     {
@@ -48,4 +56,3 @@ public class BrowserNavigationPolicyTests
         Assert.False(BrowserNavigationPolicy.IsHostAllowed("example.com", ["*.example.com"]));
     }
 }
-

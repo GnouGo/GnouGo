@@ -32,19 +32,22 @@ public sealed class RecordedClonePlanningTests
     }
 
     [Fact]
-    public async Task ActualProducerContractRejectsTheSamePlanBeforeApprovalAndBoundsRecoveredRepair()
+    public async Task ActualProducerContractAddsAConstraintGuardWithoutInventingFiniteDomains()
     {
         var current = await CurrentClone();
         var replay = new Replay(current); var state = await replay.Run();
-        var finding = Assert.Single(state.Diagnostics, d => d.Code == "TASK_INPUT_TYPE");
-        var constraint = Assert.Single(state.Diagnostics, d => d.Code == "TASK_TRANSFORM_CONSTRAINT");
-        Assert.Equal(2, state.Diagnostics.Count);
-        Assert.Equal("/tasks/parse_pr/resultType/fields/targetDirectory/type/enum", constraint.Location);
-        Assert.Equal("TASK_INPUT_TYPE", finding.Code); Assert.Equal("/tasks/clone_repository/inputs/targetDirectory", finding.Location);
-        Assert.Contains("pattern", finding.Message); Assert.Contains("minLength", finding.Message);
-        Assert.Contains("/tasks/parse_pr/resultType/fields/targetDirectory/type", finding.Message);
-        Assert.Null(state.Graph); Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
-        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
+        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Empty(state.Diagnostics);
+        Assert.Equal(0, replay.Calls); Assert.Equal(0, state.ReplanAttempts);
+        var declared = state.Plan!.Root.Tasks.Single(t => t.Id == "parse_pr").ResultType!.Fields.Single(f => f.Name == "targetDirectory");
+        Assert.Null(declared.Type.Enum);
+        var expected = current.InputSchema["properties"]!["targetDirectory"]!;
+        var guard = Assert.Single(state.Graph!.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps)),
+            n => n.Type == "set" && n.Input.Kind == "projection" &&
+                n.OutputSchema?.Contract?["properties"]?["value"]?["pattern"]?.ToString() == expected["pattern"]!.ToString());
+        Assert.True(JsonNode.DeepEquals(expected, guard.OutputSchema!.Contract!["properties"]!["value"]));
+        Assert.Null(state.ApprovedHash);
+        // This offline replay establishes a runtime guard, not successful cloning.
+        // Generic execution regressions verify invalid observations stop before the consumer.
     }
 
     [Fact]

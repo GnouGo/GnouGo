@@ -159,6 +159,7 @@ public sealed class DynamicMappingExecutor : IStepExecutor
         m.optional(observedContainer, [property,...]) permits a host-owned target default ONLY when that path is absent; explicit null remains null.
         m.parse(observedString) strictly decodes JSON; m.text(observedString, patternString, captureIndex=1) extracts a capture (undefined when absent);
         m.texts(observedString, patternString, captureIndex=1) returns ordered captures; m.trim(token), m.decode(token) (HTML entities),
+        m.percentDecode(token) decodes URI percent escapes (not HTML entities or plus signs); m.resolveUri(observedReference, observedAbsoluteBase) resolves a URI.
         m.number(token) (invariant decimal), m.has(object, property), m.test(observedString, patternString).
         Patterns must be quoted JavaScript strings, never /regex/ literals. They use the .NET nonbacktracking subset.
         Example: m.text(source.note, 'Label: (.*)', 1). Escape regex backslashes inside the JavaScript string and JSON response.
@@ -169,7 +170,7 @@ public sealed class DynamicMappingExecutor : IStepExecutor
         """;
 
     private static bool InterpretsText(Node node) =>
-        node is CallExpression { Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier { Name: "parse" or "text" or "texts" or "trim" or "decode" or "number" } } } ||
+        node is CallExpression { Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier { Name: "parse" or "text" or "texts" or "trim" or "decode" or "percentDecode" or "resolveUri" or "number" } } } ||
         node.ChildNodes.Any(InterpretsText);
 
     internal static string Hash(JsonNode? value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(Canonical(value))));

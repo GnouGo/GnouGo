@@ -13,9 +13,9 @@ namespace GnOuGo.Flow.Core.Scripting;
 
 public sealed partial class JintSandbox
 {
-    public const int MappingProfileVersion = 2;
+    public const int MappingProfileVersion = 3;
     public const string MappingFunction = "checkedMapping";
-    private static readonly HashSet<string> MappingHelpers = ["select", "optional", "parse", "text", "texts", "trim", "decode", "number", "has", "test", "scalar"];
+    private static readonly HashSet<string> MappingHelpers = ["select", "optional", "parse", "text", "texts", "trim", "decode", "percentDecode", "resolveUri", "number", "has", "test", "scalar"];
 
     /// <summary>Only source-backed scalar identities may leave this sandbox. JS never holds their numeric approximations.</summary>
     public JsonNode? ExecuteMapping(string expression, JsonNode? source, CancellationToken ct = default, JsonObject? target = null)
@@ -142,6 +142,23 @@ public sealed partial class JintSandbox
                     return Import(JsonNode.Parse(Text(args[0])));
                 case "trim": return Import(JsonValue.Create(Text(args[0]).Trim()));
                 case "decode": return Import(JsonValue.Create(WebUtility.HtmlDecode(Text(args[0]))));
+                case "percentDecode":
+                    if (args.Length != 1) throw Unsatisfied("percentDecode requires one observed string.");
+                    var encoded = Text(args[0]);
+                    for (var i = 0; i < encoded.Length; i++)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        if (encoded[i] != '%') continue;
+                        if (i + 2 >= encoded.Length || !char.IsAsciiHexDigit(encoded[i + 1]) || !char.IsAsciiHexDigit(encoded[i + 2]))
+                            throw Unsatisfied("The observed string contains an invalid percent escape.");
+                        i += 2;
+                    }
+                    return Import(JsonValue.Create(Uri.UnescapeDataString(encoded)));
+                case "resolveUri":
+                    if (args.Length != 2 || !Uri.TryCreate(Text(args[1]), UriKind.Absolute, out var baseUri) ||
+                        !Uri.TryCreate(baseUri, Text(args[0]), out var resolved))
+                        throw Unsatisfied("resolveUri requires an observed reference and an observed absolute base URI.");
+                    return Import(JsonValue.Create(resolved.AbsoluteUri));
                 case "number":
                     var number = JsonNode.Parse(Text(args[0]).Trim());
                     if (number?.GetValueKind() != System.Text.Json.JsonValueKind.Number)

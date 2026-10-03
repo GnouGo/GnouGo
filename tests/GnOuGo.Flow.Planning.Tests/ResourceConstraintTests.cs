@@ -1,5 +1,9 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
@@ -28,13 +32,14 @@ public sealed class ResourceConstraintTests
         // A workflow default can be overridden and must never be promoted to a constant.
         plan.Inputs.Add(new() { Name = "location", Type = new() { Kind = "string" }, Default = new() { Kind = "string", Text = "area/default" } });
         plan.Root.Tasks[0].Outputs[0] = new("location", new() { Kind = "input", Source = "location" });
-        Assert.Null(new TaskPlanCompiler().Compile(plan, catalog).Graph);
+        await Execute(plan, catalog, "area/overridden", true);
+        await Execute(plan, catalog, "outside", false);
     }
 
     [Theory]
     [InlineData("^area/", 6, 30)]
     [InlineData("^zone-", 7, 25)]
-    public async Task ArbitraryProducerConstraintsDiagnoseConsumerWithoutWideningRepair(string pattern, int minimum, int maximum)
+    public async Task ArbitraryProducerConstraintsCheckObservedValuesWithoutInventingFiniteDomains(string pattern, int minimum, int maximum)
     {
         var catalog = await new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask).DiscoverAsync(new(), PlannerFixture.Ct);
         catalog.Capabilities.Add(new() { Id = "renamed-operation", Version = "v1", Kind = "tool", StepType = "mcp.call", Server = "unrelated", Method = "prepare",
@@ -44,15 +49,44 @@ public sealed class ResourceConstraintTests
         var plan = new TaskPlan { Inputs = [new() { Name = "location", Type = new() { Kind = "string" } }], Root = new() { Tasks =
             [new() { Id = "consumer", Objective = "Use the declared input", Operation = "renamed-operation", Inputs = [new("destination", new() { Kind = "input", Source = "location" })] }] } };
         var result = new TaskPlanCompiler().Compile(plan, catalog);
-        Assert.Null(result.Graph);
-        var error = Assert.Single(result.Diagnostics);
-        Assert.Contains("pattern " + JsonValue.Create(pattern)!.ToJsonString(), error.Message);
-        Assert.Contains("minLength " + minimum, error.Message); Assert.Contains("maxLength " + maximum, error.Message);
-        Assert.Equal("/tasks/consumer/inputs/destination", error.Location);
-        Assert.Equal(new[] { error.Location }, TaskPlanRevisions.Scope(plan, result.Diagnostics));
+        Assert.Empty(result.Diagnostics); Assert.NotNull(result.Graph);
+        await Execute(plan, catalog, pattern[1..] + "valid", true);
+        await Execute(plan, catalog, "invalid", false);
+        await Execute(plan, catalog, pattern[1..] + new string('x', maximum), false);
         plan.Root.Tasks[0].Inputs[0] = new("destination", new() { Kind = "string", Text = pattern[1..] + "valid" });
         Assert.Empty(new TaskPlanCompiler().Compile(plan, catalog).Diagnostics);
         plan.Root.Tasks[0].Inputs[0].Value.Text = "invalid";
         Assert.Null(new TaskPlanCompiler().Compile(plan, catalog).Graph);
     }
+    [Theory]
+    [InlineData("{\"type\":\"string\"}", "{\"type\":\"string\",\"pattern\":\"^zone-\"}", true)]
+    [InlineData("{\"type\":\"number\"}", "{\"type\":\"number\",\"minimum\":1}", true)]
+    [InlineData("{\"type\":\"string\",\"enum\":[\"outside\"]}", "{\"type\":\"string\",\"pattern\":\"^zone-\"}", false)]
+    [InlineData("{\"type\":\"number\",\"minimum\":0}", "{\"type\":\"number\",\"minimum\":1}", false)]
+    [InlineData("{\"type\":[\"string\",\"null\"]}", "{\"type\":\"string\",\"pattern\":\"^zone-\"}", false)]
+    [InlineData("{\"type\":\"number\"}", "{\"type\":\"string\",\"pattern\":\"^zone-\"}", false)]
+    [InlineData("{\"type\":\"array\",\"items\":{\"type\":\"string\"}}", "{\"type\":\"array\",\"maxItems\":3,\"items\":{\"type\":\"string\",\"minLength\":1}}", true)]
+    [InlineData("{\"type\":\"object\",\"properties\":{}}", "{\"type\":\"object\",\"properties\":{\"key\":{\"type\":\"string\",\"minLength\":1}},\"required\":[\"key\"]}", false)]
+    public void RuntimeChecksCannotOverrideKnownIncompatibilities(string actual, string expected, bool allowed)
+        => Assert.Equal(allowed, PlanningContractShapes.CanCheckConstraints(JsonNode.Parse(actual)!.AsObject(), JsonNode.Parse(expected)!.AsObject()));
+
+    private static async Task Execute(TaskPlan plan, PlanningCatalog catalog, string location, bool succeeds)
+    {
+        var called = false; var capability = catalog.Capabilities.Single(c => c.Server is "renamed" or "unrelated");
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer(capability.Server!, new()
+        {
+            Tools = [new() { Name = capability.Method!, InputSchema = capability.InputSchema, OutputSchema = capability.OutputSchema }],
+            ToolHandlers = new() { [capability.Method!] = _ => { called = true; return new() { Content = new JsonObject() }; } }
+        });
+        // No model is installed: typed constraint checks must be deterministic.
+        var engine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human() };
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(compiled.Diagnostics);
+        PlanningConfirmationGuards.Apply(compiled.Graph!, catalog);
+        Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(compiled.Graph!, catalog)));
+        var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["location"] = location }, PlannerFixture.Ct);
+        Assert.True(succeeds == result.Success, result.Error?.Code + ": " + result.Error?.Message); Assert.Equal(succeeds, called);
+    }
+
 }

@@ -1,6 +1,7 @@
 using GnOuGo.Mcp.Core;
 using ModelContextProtocol;
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
 using ModelContextProtocol.Server;
@@ -23,7 +24,7 @@ public sealed class BrowserTools
     [McpMeta("gnougo", JsonValue = McpEffectMetadata.Read)]
     [McpServerTool(Name = "browser_get_content", UseStructuredContent = true, OutputSchemaType = typeof(BrowserContentResult)), Description("Reads rendered content from the current page or from a CSS selector. If url is provided, this tool first navigates to that absolute http/https URL, waits for the requested load state, then returns the content in the same call. Prefer this one-shot tool when the goal is simply to open a page and inspect or extract its content. Prefer waitUntil='domcontentloaded' or 'load' for search/e-commerce pages such as Amazon; avoid 'networkidle' unless the page is known to become idle. Use format='text' for readable visible text, summaries, and plain content extraction (example: summarize an article or read a confirmation message). Use format='html' when you need DOM structure, links, href/src attributes, button labels, form fields, menu/navigation markup, or when the client must decide what element to click based on the rendered HTML (example: extract menu links from nav/header, inspect a consent banner, or build a reliable CSS selector). Script elements are stripped from returned HTML by default to keep responses compact and useful for MCP clients.")]
     public async Task<BrowserContentResult> GetContentAsync(
-        [Description("Optional absolute URL to open before reading content. Prefer setting this for one-shot page reads so the tool both navigates and returns content in a single call. When omitted, the tool reads from the current page.")] string? url = null,
+        [RegularExpression(BrowserNavigationPolicy.HttpUrlPattern), Description("Optional absolute HTTP/HTTPS URL to open before reading content. Decode percent-encoded whole URLs and resolve relative references against their observed page URL before calling. Escape whitespace. When omitted, reads the current page.")] string? url = null,
         [Description("Navigation wait mode used when url is provided: load, domcontentloaded, or networkidle. Prefer domcontentloaded/load for dynamic shopping/search pages; networkidle can time out on Amazon-like pages.")] string waitUntil = "load",
         [Description("Optional navigation timeout in milliseconds used when url is provided.")] int? timeoutMs = null,
         [Description("Optional CSS selector. Defaults to the body element. Prefer scoping to nav/header/menu/form containers when inspecting links or interactive elements. Example: selector='nav' with format='html' for menu links.")] string? selector = null,

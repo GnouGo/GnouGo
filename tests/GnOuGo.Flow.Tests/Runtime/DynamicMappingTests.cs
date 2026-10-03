@@ -196,10 +196,34 @@ public sealed class DynamicMappingTests
         Assert.Contains("Retained source failure", result.Error.Message);
     }
 
-    private static Task<RunResult> Run(Model model, Store store, string tenant = "tenant", string title = "observed", bool extraSource = false, int? maxLength = null)
+    [Fact]
+    public async Task EncodedReferencesRepairAgainstAnAuthoritativeConsumerContract()
+    {
+        var model = new Model("({name:m.decode(source.observed.title)})", "({name:m.percentDecode(source.observed.title)})");
+        var result = await Run(model, new Store(), title: "https%3A%2F%2Fexample.invalid%2Fitems%2Fitem-7", pattern: "^https://[^/]+/");
+        Assert.True(result.Success, result.Error?.Message); Assert.Equal(2, model.Calls);
+    }
+
+    [Theory]
+    [InlineData("m.percentDecode(source)", "\"caf%C3%A9%2Bitem\"", "\"café+item\"")]
+    [InlineData("m.resolveUri(source.reference,source.base)", "{\"reference\":\"../items/item-7\",\"base\":\"https://example.invalid/search/list\"}", "\"https://example.invalid/items/item-7\"")]
+    public void ReferenceNormalizationUsesOnlyObservedValues(string script, string source, string expected)
+        => Assert.True(JsonNode.DeepEquals(JsonNode.Parse(expected), new JintSandbox().ExecuteMapping(script, JsonNode.Parse(source), TestContext.Current.CancellationToken)));
+
+    [Theory]
+    [InlineData("m.percentDecode(source)", "\"bad%2\"")]
+    [InlineData("m.percentDecode('invented%20value')", "\"observed\"")]
+    [InlineData("m.resolveUri(source.reference,'https://invented.invalid')", "{\"reference\":\"/items/7\"}")]
+    [InlineData("m.resolveUri(source.reference,source.base)", "{\"reference\":\"/items/7\",\"base\":\"not-an-absolute-uri\"}")]
+    public void ReferenceNormalizationRejectsInvalidOrInventedSources(string script, string source)
+        => Assert.Equal("CONTRACT_UNSATISFIED", Assert.Throws<WorkflowRuntimeException>(() =>
+            new JintSandbox().ExecuteMapping(script, JsonNode.Parse(source), TestContext.Current.CancellationToken)).Code);
+
+    private static Task<RunResult> Run(Model model, Store store, string tenant = "tenant", string title = "observed", bool extraSource = false, int? maxLength = null, string? pattern = null)
     {
         var document = Document();
         if (maxLength is not null) document.Workflows["main"].Steps[0].OutputSchema!["properties"]!["value"]!["properties"]!["name"]!["maxLength"] = maxLength;
+        if (pattern is not null) document.Workflows["main"].Steps[0].OutputSchema!["properties"]!["value"]!["properties"]!["name"]!["pattern"] = pattern;
         var source = new JsonObject { ["title"] = title }; if (extraSource) source["added"] = true;
         var engine = new WorkflowEngine { Limits = new() { TenantId = tenant }, LLMClient = model, MappingArtifacts = store, LlmDefaults = new() { Model = "test" } };
         return engine.ExecuteAsync(new WorkflowCompiler().Compile(document).Workflows["main"], new JsonObject { ["observed"] = source },

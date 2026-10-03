@@ -62,7 +62,7 @@ public sealed class PlaywrightBrowserHost : IAsyncDisposable
 
             int? statusCode = null;
             IPage page;
-            if (string.IsNullOrWhiteSpace(url))
+            if (url is null)
             {
                 page = GetRequiredPage();
             }

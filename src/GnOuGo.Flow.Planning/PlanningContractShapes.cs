@@ -5,6 +5,29 @@ internal static class PlanningContractShapes
     internal static JsonObject Opaque() => new() { ["x-gnougo-opaque"] = true };
     internal static bool IsOpaque(JsonObject schema) => schema["x-gnougo-opaque"]?.ToString() == "true";
 
+    // Business types need not encode technical value restrictions. A checked
+    // identity mapping can validate those without changing data or invoking inference.
+    // Never override a finite domain, known constraint, shape or nullability.
+    internal static bool CanCheckConstraints(JsonObject actual, JsonObject expected)
+    {
+        if (PlanningContractCompatibility.Fits(actual, expected)) return false;
+        var relaxed = expected.DeepClone().AsObject(); var changed = false;
+        Visit(actual, relaxed);
+        return changed && PlanningContractCompatibility.Fits(actual, relaxed);
+        void Visit(JsonObject source, JsonObject target)
+        {
+            if (IsOpaque(source) || source.ContainsKey("enum") || source.ContainsKey("const")) return;
+            foreach (var family in new[] { new[] { "pattern", "minLength", "maxLength" },
+                ["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf"],
+                ["minItems", "maxItems", "uniqueItems"], ["minProperties", "maxProperties"] })
+                if (!family.Any(source.ContainsKey)) foreach (var key in family) changed |= target.Remove(key);
+            if (source["properties"] is JsonObject fields && target["properties"] is JsonObject wanted)
+                foreach (var (name, child) in fields)
+                    if (child is JsonObject produced && wanted[name] is JsonObject required) Visit(produced, required);
+            if (source["items"] is JsonObject item && target["items"] is JsonObject expectedItem) Visit(item, expectedItem);
+        }
+    }
+
     // Only unknown schema leaves may be deferred. All known surrounding contracts
     // must still fit; this cannot turn a known incompatible type into extraction.
     internal static bool CanDefer(JsonObject actual, JsonObject expected)
