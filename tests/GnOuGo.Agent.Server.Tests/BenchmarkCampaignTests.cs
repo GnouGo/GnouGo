@@ -54,6 +54,23 @@ public sealed class BenchmarkCampaignTests
         Assert.True(KeyVaultBenchmarkModel.ExecutionInputEstimate(string.Concat(Enumerable.Repeat(body, 10))) > 96000);
     }
     [Fact]
+    public void OrdinaryRuntimeInferenceUsesTheSameCampaignInputAllowanceAsTheProxy()
+    {
+        var request = new LLMRequest { Prompt = string.Concat(Enumerable.Repeat("<span data-item=\"observed\">An observed product</span>", 30000)), MaxTokens = 8192 };
+        var snapshot = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        Assert.True(KeyVaultBenchmarkModel.ExecutionInputEstimate(snapshot) > 96000);
+        var error = Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() =>
+            KeyVaultBenchmarkModel.CreateDispatchRequest(request, "pinned", "pinned", execution: true));
+        Assert.Equal(GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetExceeded, error.Code);
+        Assert.Equal(snapshot, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        request.Prompt = "Observed input";
+        Assert.Equal(8192, KeyVaultBenchmarkModel.CreateDispatchRequest(request, "pinned", "pinned", execution: true).MaxTokens);
+        request.MaxTokens = 32769;
+        Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() =>
+            KeyVaultBenchmarkModel.CreateDispatchRequest(request, "pinned", "pinned", execution: true));
+    }
+
+    [Fact]
     public async Task ExecutionHasItsOwnAttemptPolicyAndStillSharesTheSpendingCeiling()
     {
         var campaign = new BenchmarkCampaign(new Records(), "execution-limit");

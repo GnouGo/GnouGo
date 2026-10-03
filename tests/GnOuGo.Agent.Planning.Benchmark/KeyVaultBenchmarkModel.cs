@@ -69,7 +69,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
         if (pinnedRetry is null) await campaign.SaveAsync("planning-evaluation-configuration", "http-retry-policy", retryConfiguration, ct);
         return new(campaign, options);
     }
-    internal static LLMRequest CreateDispatchRequest(LLMRequest request, string provider, string model)
+    internal static LLMRequest CreateDispatchRequest(LLMRequest request, string provider, string model, bool execution = false)
     {
         if (request.Tools is { Count: > 0 })
             throw new InvalidOperationException("Benchmark recovery permits only side-effect-free generation without tools.");
@@ -79,6 +79,10 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
         // The planner may prefer background generation. This adapter owns synchronous HTTP
         // recovery; change only its dispatch copy, never the durable planner reservation.
         dispatched.UseBackgroundMode = false;
+        if (execution && (dispatched.MaxTokens is <= 0 or > 32768 ||
+            ExecutionInputEstimate(JsonSerializer.Serialize(dispatched, PlanningJsonContext.Default.LLMRequest)) > 96000))
+            throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException(GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetExceeded,
+                "Execution request exceeds the campaign input or output allowance.");
         return dispatched;
     }
     public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct) => CallBoundedAsync(request, false, ct);
@@ -95,7 +99,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
 
     private async Task<LLMResponse> DispatchAsync(LLMRequest request, bool singleAttempt, CancellationToken ct, bool execution = false)
     {
-        var dispatched = CreateDispatchRequest(request, Provider, Model);
+        var dispatched = CreateDispatchRequest(request, Provider, Model, execution);
         if (singleAttempt) dispatched.DisableTransportRetries = true;
         BenchmarkHttpJournal? journal = null;
         return await _campaign.CallAsync(request, async token =>

@@ -1,0 +1,39 @@
+{
+  "cohort": "mappinglive4",
+  "source": "1685f125be8dead1c31e3b52d541081192e225e1",
+  "classification": "failed-diagnostic-cohort",
+  "passed": 0,
+  "required": 6,
+  "input_allowance_defect": "Ordinary runtime inference did not apply the existing 96000-token input admission check used by the Copilot proxy. Long HTML requests exceeded this allowance. All usage was recorded and the shared EUR 50 spending gate held. This cohort cannot establish compliance with the input limit.",
+  "runs": [
+    {
+      "run": "mappinglive4-amazon-1",
+      "execution_success": true,
+      "oracle": false,
+      "cause": "Two truncated product observations lacked descriptions. Names and prices were supported; description cells reported missing data. Workbook written and browser closed."
+    },
+    {
+      "run": "mappinglive4-amazon-2",
+      "execution_success": false,
+      "oracle": false,
+      "cause": "The deterministic URI constraint guard rejected an interpretation result before product navigation. Browser cleanup succeeded."
+    },
+    {
+      "run": "mappinglive4-amazon-3",
+      "execution_success": true,
+      "oracle": false,
+      "cause": "Dynamic link extraction succeeded with one provider call; three mobile product pages were visited. Product descriptions were absent from the truncated observations. Workbook written and browser closed.",
+      "oracle_limitation": "The frozen oracle does not recognize /gp/aw/d/ product URLs, causing an additional visit-count finding. Missing descriptions independently fail the unchanged content oracle. No success is inferred."
+    },
+    {
+      "run": "mappinglive4-code-1",
+      "execution_started": false,
+      "cause": "Planning completed, but execution collection stopped for the harness admission correction."
+    }
+  ],
+  "not_started": [
+    "mappinglive4-code-2",
+    "mappinglive4-code-3"
+  ],
+  "next_change": "Apply the existing runtime input estimator and output limit before ordinary execution dispatch; retain immutable requests and the existing spending gate."
+}
