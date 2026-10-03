@@ -16,7 +16,8 @@ internal static class PlanningContractShapes
         return changed && PlanningContractCompatibility.Fits(actual, relaxed);
         void Visit(JsonObject source, JsonObject target)
         {
-            if (IsOpaque(source) || source.ContainsKey("enum") || source.ContainsKey("const")) return;
+            if (IsOpaque(source) || source.ContainsKey("enum") || source.ContainsKey("const") ||
+                source.ContainsKey("allOf") || source.ContainsKey("anyOf") || source.ContainsKey("oneOf")) return;
             foreach (var family in new[] { new[] { "pattern", "minLength", "maxLength" },
                 ["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf"],
                 ["minItems", "maxItems", "uniqueItems"], ["minProperties", "maxProperties"] })
@@ -25,6 +26,8 @@ internal static class PlanningContractShapes
                 foreach (var (name, child) in fields)
                     if (child is JsonObject produced && wanted[name] is JsonObject required) Visit(produced, required);
             if (source["items"] is JsonObject item && target["items"] is JsonObject expectedItem) Visit(item, expectedItem);
+            if (target["allOf"] is JsonArray requirements)
+                foreach (var requirement in requirements.OfType<JsonObject>()) Visit(source, requirement);
         }
     }
 

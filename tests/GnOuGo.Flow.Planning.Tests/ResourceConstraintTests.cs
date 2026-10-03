@@ -71,7 +71,7 @@ public sealed class ResourceConstraintTests
         var schema = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject
             { [selector] = new JsonObject { ["type"] = "string" }, [container] = new JsonObject { ["type"] = "object" } },
             ["required"] = new JsonArray(selector, container), ["oneOf"] = new JsonArray(
-                Branch("selected", new() { ["type"] = "string", ["pattern"] = pattern, ["minLength"] = 6, ["maxLength"] = 20 }),
+                Branch("selected", new() { ["type"] = "string", ["pattern"] = pattern, ["minLength"] = 6, ["maxLength"] = 20, ["allOf"] = new JsonArray(new JsonObject { ["pattern"] = "[A-Za-z]" }) }),
                 Branch("other", new() { ["type"] = "integer" })) };
         catalog.Capabilities.Add(new() { Id = "branch-operation", Version = "v1", Kind = "tool", StepType = "mcp.call", Server = "unrelated", Method = "dispatch",
             InputSchema = schema, OutputSchema = new() });
@@ -94,6 +94,8 @@ public sealed class ResourceConstraintTests
 
     [Theory]
     [InlineData("{\"type\":\"string\"}", "{\"type\":\"string\",\"pattern\":\"^zone-\"}", true)]
+    [InlineData("{\"type\":\"string\"}", "{\"type\":\"string\",\"allOf\":[{\"pattern\":\"^zone-\"}]}", true)]
+    [InlineData("{\"type\":\"string\",\"allOf\":[{\"pattern\":\"^outside\"}]}", "{\"type\":\"string\",\"pattern\":\"^zone-\"}", false)]
     [InlineData("{\"type\":\"number\"}", "{\"type\":\"number\",\"minimum\":1}", true)]
     [InlineData("{\"type\":\"string\",\"enum\":[\"outside\"]}", "{\"type\":\"string\",\"pattern\":\"^zone-\"}", false)]
     [InlineData("{\"type\":\"number\",\"minimum\":0}", "{\"type\":\"number\",\"minimum\":1}", false)]
