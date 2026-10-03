@@ -47,6 +47,7 @@ internal static class SchemaPortabilityCampaign
         {
             var saved = await campaign.LoadAsync(MappingLiveEvaluation.Collection, Option(args, "--run") ?? throw new ArgumentException("Supply --run."))
                 ?? throw new ArgumentException("No retained mapping matrix.");
+            saved["generated_plan"] = saved["planning_session"]?["plan"]?.DeepClone();
             saved.Remove("planning_session");
             Console.WriteLine(saved.ToJsonString()); return;
         }

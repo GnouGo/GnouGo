@@ -19,7 +19,7 @@ using ModelContextProtocol.Server;
 internal static class MappingLiveEvaluation
 {
     internal const string Collection = "planning-mapping-evaluation";
-    private const string Prompt = "Read the observation from the available fixture MCP. Extract the observed displayName as a business field named name, using extract mode; it may be supplied as JSON, plain text or HTML. Return result with exactly name:string. Use no caller inputs, no synthetic values, no defaults, no other external operations. Keep the original observation available to extraction.";
+    private const string Prompt = "Read the observation from the available fixture MCP. Extract the observed displayName as a business field named name, using extract mode; it may be supplied as JSON, plain text or HTML. Declare exactly one public workflow output named result, whose value is an object with exactly one required string field named name. Export the whole extraction result as result; do not flatten name into a public output. Use no caller inputs, no synthetic values, no defaults, no other external operations. Keep the original observation available to extraction.";
     internal static async Task ServeAsync(string path)
     {
         FixtureTools.Path = path;
@@ -89,7 +89,8 @@ internal static class MappingLiveEvaluation
             if (session.Status != PlanningStatus.FinalReview) throw new InvalidOperationException("Planning did not reach final review: " + session.Status);
             var tasks = All(session.Plan!.Root).ToArray();
             if (tasks.Count(t => t.Kind == "operation") != 1 || tasks.Single(t => t.Kind == "operation").Operation != producer.Id ||
-                tasks.Count(t => t.Kind == "transform" && t.Mode == "extract") != 1 || session.Plan.Inputs.Count != 0)
+                tasks.Count(t => t.Kind == "transform" && t.Mode == "extract") != 1 || session.Plan.Inputs.Count != 0 ||
+                session.Plan.Root.Outputs.Count != 1 || session.Plan.Root.Outputs[0].Name != "result")
                 throw new InvalidOperationException("The generated workflow did not implement the frozen operation/extraction oracle.");
             session = await planner.AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision, ArtifactHash = PlanningArtifactApproval.Hash(session) }, runtime, CancellationToken.None);
             if (session.Status != PlanningStatus.Approved) throw new InvalidOperationException("Artifact approval failed.");
