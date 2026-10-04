@@ -73,3 +73,18 @@ including the unchanged €1.3033763919821826 unknown-completion reservation.
 All planning and execution inference continues through the existing spending gate.
 Deterministic tests do not count as live-provider acceptance. Historical cohorts and
 the 33/33 benchmark remain unchanged; PR #117 stays draft pending its live gates.
+
+### Retained preliminary candidate
+
+Candidate `0ae72e5933596dbd3ab3414b380319d54cc7b989` exposed a prompt-size
+regression in the full solution and CI: two recorded catalog tests exceeded their
+unchanged 24,000-token limit (24,017 and 24,148). Compacting generation guidance by
+468 characters fixes both; all 20 targeted discovery/review regressions pass with
+the original contracts, fixtures and limits. No schema or permission check was relaxed.
+
+The [preliminary cohort c report](evidence/contracts-review-2026-10-04/contractsreview20261004c.json)
+retains its fresh Amazon attempt: four calls/attempts, two repairs, two discovery reads,
+28,608 input and 12,132 output tokens, €0.451670, 171.843 seconds. The proposal
+stopped on a nullable consent selector and missing loop exports. No artifact was
+approved or executed. The other five slots are unattempted. This cohort stays separate
+from evaluation of the compacted candidate; it establishes no live execution success.
