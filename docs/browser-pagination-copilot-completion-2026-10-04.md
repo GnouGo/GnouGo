@@ -120,3 +120,96 @@ Campaign usage after this cohort is EUR 66.71637835775968 committed or reserved
 out of EUR 100, including the same two historical unknown reservations. Historical
 33/33 benchmark evidence and failed live cohorts are unchanged. PR #117 remains
 draft until six unchanged execution oracles pass on one frozen candidate.
+
+### Candidate B: verified receipts, incomplete execution acceptance
+
+Candidate `b93a5890fb0d15672de1aaaf24f1c2b9dcd675bc` fixes the reproduced
+double encoding: `project_read` returns a structured object and bounds its serialized
+UTF-8 representation as well as its character range. Continuation preserves exact
+text and Unicode boundaries. Native shell access to virtual output paths is rejected
+before permission approval, with guidance to the supported reader. Regression tests
+failed before these changes and pass afterward.
+
+The full solution passed **4,435 tests, zero failures, 13 existing skips** across
+33 projects with `-warnaserror`. Release Core packaging, published Copilot Native AOT
+discovery and planning Native AOT smoke passed. Published encrypted recovery had
+passed on candidate A; this follow-up changes no persistence implementation. All
+22 non-skipped CI checks passed on candidate B (four jobs skipped). See
+[validation](evidence/browser-pagination-copilot-completion-2026-10-04/validation-b.json).
+
+The frozen `pagination20261004b` cohort remains **0/6**, with two failed executions,
+two unexecuted planning sessions and two unused slots. The
+[report](evidence/browser-pagination-copilot-completion-2026-10-04/cohort-b.json)
+retains source/harness/configuration hashes and the original prompts/oracle version.
+Historical and candidate A failures are not pooled into these results.
+
+| Run suffix | Planning calls / repairs | Execution | Oracle |
+| --- | --- | --- | --- |
+| amazon-1 | 5 / 1 | 989,519 ms; all 49 search pages consumed | Failed: collection memory, cleanup step limit, missing workbook |
+| amazon-2 | 5 / 1 | Not approved/executed after review revisions | Unverified |
+| amazon-3 | Not started | Not started | Unverified |
+| code-1 | 8 / 2 | Clarification after discovery/planning allowance closed; no commands | Unverified |
+| code-2 | 4 / 0 | 698,491 ms; durable verified terminal failure | Failed: inference ceiling, missing report, cleanup timeout, required-check coverage |
+| code-3 | Not started | Not started | Unverified |
+
+Amazon read **1,474 records in 49 frozen pages**, with no lost or stale cursors.
+Retained result objects serialize to **1,146,115 UTF-8 bytes** in total, at most
+23,983 per page, excluding MCP envelopes. The individual page reads took 246 ms
+combined; overall execution took much longer. About 289,000 selector characters
+and 494,000 URL characters remained alongside 28,594 text characters. Final loop
+collection hit the existing checked-mapping memory allowance before the next
+inference request; cleanup then hit the persisted step ceiling. No product visit
+or workbook was fabricated. The final Browser close recorded by the independent
+oracle is not credited as workflow cleanup. See
+[Amazon evidence](evidence/browser-pagination-copilot-completion-2026-10-04/cohort-b-amazon-execution.json).
+
+The code run committed `completionVerified=true`, `termination=verified_failure`
+and an exact durable MCP error result. All **25 tool invocations** completed without
+conflicting evidence, including a pytest exit recovered from a later `read_bash`.
+A native shell read of a virtual log was refused before execution; the virtual-log
+`project_read` succeeded. Its 4,000-character range arrived as a **4,133-byte JSON
+object**, with `nextOffset=4000` and no secondary truncation artifact. There was no
+false `RUN_NEEDS_RECONCILIATION` and no repeated command to recover that log.
+
+Copilot nevertheless reached its unchanged reservation limit after **18 inference
+calls**, with 381,166 measured input and 4,426 output tokens. The retained conservative
+charge was 1,938,576 tokens; the next input reservation could not fit. It returned
+`COPILOT_LIMIT_REACHED`, not a successful review. Cleanup was attempted after verified
+completion but exceeded the existing 30-second finalization deadline. No final local
+review was written. Installation and Python checks did execute with truthful exits,
+but their command forms differed from the unchanged oracle's accepted forms; those
+coverage checks remain failed. See
+[Copilot evidence and serialized input measurements](evidence/browser-pagination-copilot-completion-2026-10-04/cohort-b-code-execution.json).
+
+Compared with candidate A's executed code run, measured input fell from 448,230 to
+381,166 tokens and runtime inference increased from 11 to 18 calls. These are
+different generated plans, so this is not a controlled causal efficiency comparison.
+The bounded structured-read regression and its live payload are direct evidence of
+the serialization correction.
+
+Review prevented an empty-array placeholder report, invalid encoding, ignored HTML
+truncation and model-authored completeness claims from being executed. Later revisions
+preserved the accepted requirements. Amazon repetition two gained authoritative
+manifest guards but still aggregates full snapshots; it remains unapproved given the
+collection/cleanup bounds demonstrated by repetition one. Code repetition one had
+not inspected the durable interactive operation before discovery closed. See
+[review evidence](evidence/browser-pagination-copilot-completion-2026-10-04/cohort-b-review.json).
+
+This cohort used **22 logical planning calls / 23 physical attempts**, four repairs,
+12 discovery reads and eight explicit review revisions. Planning measured 352,320
+input and 52,545 output tokens, costing EUR 2.973675. Execution used 21 calls,
+398,993 input and 4,794 output tokens, costing EUR 1.905376. One planning request
+used its existing bounded HTTP retry; it left no new unknown receipt.
+
+Final campaign accounting is **EUR 68.988677 verified + EUR 2.606753 reserved =
+EUR 71.595430 / EUR 100**. Both historical unknown reservations remain retained;
+approximately EUR 28.404570 remains. Budget is not exhausted. Collection stopped
+on the failed candidate with unresolved execution bounds, not because those bounds
+were raised or treated as success. No uncertain invocation or cleanup was replayed.
+
+Remaining acceptance work includes bounded observation aggregation, finishing checks
+and the report within existing inference allowances, and cleanup within its existing
+deadline. The live XLSX value oracle was never reached; its legacy flat-content
+reader also has not been adapted to the new structured page records. Its assertions
+and implementation are unchanged. PR #117 remains draft. No planner, compiler,
+mapping.dynamic, executor, permission or oracle change is included in this correction.

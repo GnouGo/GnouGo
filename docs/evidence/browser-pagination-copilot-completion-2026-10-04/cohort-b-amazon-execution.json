@@ -1,0 +1,141 @@
+{
+  "run": "pagination20261004b-amazon-1",
+  "source": "b93a5890fb0d15672de1aaaf24f1c2b9dcd675bc",
+  "planning": {
+    "status": "final_review",
+    "planning_ms": 211483,
+    "calls": 5,
+    "repairs": 1,
+    "discovery_reads": 2,
+    "review_revisions": 2,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 5,
+        "physical_attempts": 5,
+        "known_input_tokens": 59879,
+        "known_output_tokens": 18287,
+        "known_cost_eur": 0.7554610244988864,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 3,
+        "physical_attempts": 3,
+        "known_input_tokens": 17827,
+        "known_output_tokens": 368,
+        "known_cost_eur": 0.08924276169265033,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 592,
+        "session_calls": 0,
+        "known_input_tokens": 9218002,
+        "known_output_tokens": 896359,
+        "known_cost_eur": 64.95432935998684,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 67.56108214395121,
+        "unknown_attempts": 2
+      }
+    },
+    "execution_ms": 989519,
+    "total_ms": 1201002
+  },
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "CONTRACT_UNSATISFIED",
+      "Type": "CONTRACT_UNSATISFIED",
+      "Message": "Observed data exceeds the mapping sandbox's nesting or memory allowance. [workflow 'w_81be22d7f1c8baf9', step 'n_e5adc54c0aa1d29e']",
+      "Retryable": false,
+      "Details": {
+        "failed_workflow": "w_81be22d7f1c8baf9",
+        "failed_step_id": "n_e5adc54c0aa1d29e",
+        "failed_step_type": "set",
+        "execution_phase": "step",
+        "finalization_errors": [
+          {
+            "code": "LOOP_LIMIT",
+            "type": "LOOP_LIMIT",
+            "message": "The persisted execution step budget is exhausted. [workflow 'w_81be22d7f1c8baf9', step 'n_38125c2e8d49993f']",
+            "retryable": false,
+            "details": {
+              "failed_workflow": "w_81be22d7f1c8baf9",
+              "failed_step_id": "n_38125c2e8d49993f",
+              "failed_step_type": "mcp.call",
+              "execution_phase": "finalization"
+            }
+          }
+        ],
+        "workflow": "w_81be22d7f1c8baf9",
+        "step_id": "n_38125c2e8d49993f",
+        "step_type": "mcp.call",
+        "step_status": "Failed"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "browser_not_closed_by_workflow",
+      "workbook_missing"
+    ]
+  },
+  "search_observation": {
+    "pages": 49,
+    "records": 1474,
+    "sum_mcp_read_latency_ms": 246,
+    "field_characters": {
+      "selector": 288942,
+      "group": 59660,
+      "text": 28594,
+      "href": 494338
+    },
+    "one_snapshot": true,
+    "result_json_utf8_bytes": 1146115,
+    "max_result_json_utf8_bytes": 23983,
+    "serialization": "System.Text.Json JsonNode.ToJsonString of retained result objects; excludes MCP transport envelope.",
+    "exact_cursor_coverage": true,
+    "manifest_record_count": 1474,
+    "capture_truncated": false,
+    "manifest_truncated": false
+  },
+  "runtime_input_receipts": [
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_8d27a1407b10cb2c",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 11305,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_f303a63bd473d843/mapping/0",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 11810,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_7c7a76122de1ea81",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 11310,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ]
+}
