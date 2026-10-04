@@ -2,6 +2,8 @@
 
 The architecture remains LLM → business TaskPlan → deterministic compiler → PlanningGraph → YAML. No additional planning phase, executor or intermediate representation is introduced.
 
+Latest provider-backed evaluation: [cohort observations4](evidence/compact-observations/observations4.json), frozen on `869799e1`, attempted all six repetitions and passed **0/6 execution oracles**. The two compiler corrections below pass local validation; live acceptance remains unmet. PR #117 stays draft and the conditional dead-code pass is deferred.
+
 Fresh requirements declare the accepted public output names and types alongside inputs. The compiler checks that the final output interface implements them; changes require explicit revision and fresh approval. Optional absent declarations remain omitted in historical serialization. This is interface validation, not proof that arbitrary prose was implemented. Independent execution oracles remain authoritative.
 
 Browser `format: observation` returns bounded visible records with DOM grouping, selectors and observed URLs, preserving the existing content field. The response caps, explicit truncation and snapshot continuation are documented in [Browser MCP](../src/GnOuGo.Browser.Mcp/README.md). No model summarizes or interprets the page during capture. Planning prefers narrow observations and several independently verifiable agent tasks with cumulative budgets. Missing command capabilities require an existing compatible approved operation or an explicit limitation.
@@ -84,3 +86,43 @@ Final lowering now assembles the ordinary `{ value: computedValue }` envelope fo
 The code run returned no verified MCP completion receipt after 27 interactions and 16 SDK inference attempts. Its encrypted logical checkpoint retains partial evidence and 1,893,385 conservatively reserved tokens; this does not establish the exact interruption cause. Flow blocked cleanup, and the invocation and checkout remain untouched. The generated delegated prompt also omitted installation and the declared complete check suite. Partial command evidence and a local temporary report cannot pass the existing oracle. The project-selected pnpm version was independently checked as 10.34.5; this readiness observation is not workflow execution evidence.
 
 [Computed-binding validation](evidence/compact-observations/computed-guard-validation.json): all three new execution regressions failed before the correction and pass afterward. The full solution passed 4,240 tests, zero failures and 13 existing skips with `-warnaserror`, including 854 planner tests. Release packaging, planning Native AOT, the frontend production build and skill validation passed. The live gate remains unmet; no dead-code pass was performed.
+
+## Frozen cohort observations4
+
+The provider recovered. All six fresh repetitions used candidate `869799e186c6e9b1e9906e0231e32661b3c04e6e`, the same prompts, environment, limits and `real-workflows-v1` oracles. Five reached execution; one stopped during planning. No previous invocation was replayed or reconciled. One HTTP 500 during Amazon repetition 3 recovered within the existing retry policy; there were no provider-schema rejections.
+
+| Repetition | Planning calls / repairs | Execution result |
+| --- | --- | --- |
+| Amazon 1 | 3 / 0 | Workflow completed; independent workbook oracle failed. |
+| Amazon 2 | 2 / 0 | `REQUIREMENTS_OUTPUTS_CHANGED`; execution did not start. |
+| Amazon 3 | 2 / 0 | Workflow completed; independent workbook oracle failed. |
+| Code 1 | 4 / 1 | `RUN_NEEDS_RECONCILIATION`; report missing, cleanup blocked. |
+| Code 2 | 3 / 0 | `RUN_NEEDS_RECONCILIATION`; report missing, cleanup blocked. |
+| Code 3 | 2 / 0 | `RUN_NEEDS_RECONCILIATION`; report missing, cleanup blocked. |
+
+Both Amazon executions received compact observations with continuation cursors and explicit truncation. Neither generated plan followed the continuation or visited product pages. Each wrote a note row instead of product rows; independent XLSX inspection rejected both. Amazon 3 exercised one cold `mapping.dynamic` generation with zero repairs: its source-derived note and empty collection passed shape validation, but failed the business oracle. This establishes neither extraction completeness nor a cache/repair matrix pass. Browser cleanup succeeded.
+
+All code executions installed dependencies and ran actual checks in disposable pinned checkouts. Encrypted SDK checkpoints retain partial command results, including failed tests and unavailable prerequisites; sanitized command/exit-code evidence is included in the cohort record. None returned a verified final MCP completion receipt or reached the final report write. Flow correctly blocked cleanup. The checkpoints contain respectively 17, 12 and 12 inference attempts, with 1,947,718, 1,870,330 and 1,958,978 conservatively reserved tokens. These observations do not establish the precise interruption cause. The invocations and checkouts remain untouched. Requests to write outside the approved checkout or alter shared toolchains were refused; no persistent grant, sandbox expansion or GitHub publication was authorized.
+
+Generated delegated prompts also sometimes name `reviewText` without supplying its value. Code 1 and 2 bind it to a later dedicated review call, which execution never reached; Code 3 supplies it only to the later assembly transform. Static contract validation does not prove that requested prose has been implemented. These composition and external-completion limitations remain open; the oracles and permission checks were not weakened.
+
+| Measured work | Logical calls | Physical attempts | Verified input / output tokens | Cost |
+| --- | ---: | ---: | ---: | ---: |
+| Planning | 16 | 17 | 217,864 / 38,230 | €1.992178 |
+| Execution inference | 49 | 49 | 1,242,004 / 22,784 | €6.141238 |
+
+Planning used 15 discovery reads and one repair. Median/p95 planning latency was 82.0/355.5 seconds for Amazon and 127.3/149.7 seconds for code. Observed execution latency was 62.7/74.3 seconds for Amazon (two executions) and 1,096.8/1,154.7 seconds for code (three executions). The evidence includes token/cost medians, sample counts and nearest-rank p95; unstarted execution is not counted as zero latency. All six repetitions remain in the success denominator.
+
+Paid dispatch stopped after the cohort. The campaign records **€47.331176 verified cost plus €1.303376 reserved for historical unknown completion**, a **€48.634552 upper bound** under €50. The ceiling was not exhausted; no additional paid iteration is included. Current-cohort provider usage is verified even where external MCP completion is unknown. Historical 33/33 and all earlier failed cohorts remain unchanged and are not pooled into this result.
+
+The current candidate passed [22 CI checks, with four skipped and none failed](evidence/compact-observations/observations4-ci.json), in addition to the 4,240-test local solution run, Release planning package, Native AOT smoke and skill validation. The two live-derived compiler fixes add nine net production lines; no framework, representation, executor or scenario rule was added. No further production changes or dead-code cleanup were made after freezing this cohort.
+
+Reproduce the retained report without dispatching inference:
+
+```sh
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll \
+  --schema-portability report --cohort observations4 \
+  --campaign schema-portability-20261002 --workspace /path/to/workspace
+```
+
+The encrypted journal contains the original schemas, responses and execution evidence. A future authorized evaluation must use new identities and a matching frozen manifest; never reuse these execution IDs or resume an uncertain invocation automatically. See the [benchmark commands and accounting rules](../tests/GnOuGo.Agent.Planning.Benchmark/README.md).

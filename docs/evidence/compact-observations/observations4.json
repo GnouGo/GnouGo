@@ -1,0 +1,1013 @@
+{
+  "campaign": "schema-portability-20261002",
+  "passed": 0,
+  "required": 6,
+  "complete": false,
+  "manifest": {
+    "production_sha": "869799e186c6e9b1e9906e0231e32661b3c04e6e",
+    "harness_sha": "869799e186c6e9b1e9906e0231e32661b3c04e6e",
+    "cohort": "observations4",
+    "provider": "OpenAi",
+    "model": "gpt-5.5-2026-04-24",
+    "reasoning": "medium",
+    "host_configuration_hash": "7a7fec4a3c4569be8862a2a27f071dcc6a4d080f76f86d11d40a47e9cdf85486",
+    "max_input_tokens": 96000,
+    "max_output_tokens": 32768,
+    "planning_attempts": 8,
+    "repairs": 2,
+    "cost_ceiling_eur": 50,
+    "browser_keep_open": false,
+    "os": "macOS 26.5.2",
+    "architecture": "Arm64",
+    "framework": ".NET 10.0.8",
+    "execution_path_hash": "1f61ad53f2ab163ad39817539aa0798aa0b6d72fdab95d49a5e22554ab5ddb16",
+    "amazon_prompt": "417bb3fcd521d097b40775505acc75ede0896e8d83e06da2f5d04077c7812a50",
+    "code_prompt": "bdb354f8cd88a2a6cf06d0bce25d077a0c1eefc195a57d3c0ff60fcf46d5286c",
+    "harness_tree": "f648ad5b02fa8d3f51289741c3a35602d7e0e630",
+    "scenario_count": 2,
+    "repetitions": 3,
+    "oracle_version": "real-workflows-v1"
+  },
+  "runs": [
+    {
+      "status": "final_review",
+      "planning_ms": 82007,
+      "calls": 3,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "diagnostics": [],
+      "execution_success": true,
+      "execution_oracle": false,
+      "execution_status": "completed",
+      "accounting": {
+        "planning": {
+          "logical_calls": 3,
+          "physical_attempts": 3,
+          "known_input_tokens": 32909,
+          "known_output_tokens": 4763,
+          "known_cost_eur": 0.27388418708240536,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 3,
+          "physical_attempts": 3,
+          "known_input_tokens": 9467,
+          "known_output_tokens": 693,
+          "known_cost_eur": 0.060690423162583516,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        }
+      },
+      "execution_ms": 51066,
+      "total_ms": 133073,
+      "run": "observations4-amazon-1",
+      "oracle_findings": [
+        "product_visits_do_not_match_rows",
+        "workbook_value_not_supported_by_captured_product_page"
+      ],
+      "execution_error_code": null,
+      "artifact_hash": "9068bd7ad75f81eb70a4360f00e1e4d5a5a14a2d54f1a37b8fa130d41f8652b6",
+      "observations": [
+        {
+          "status_code": 202,
+          "records": 61,
+          "next_cursor_present": true,
+          "capture_truncated": false,
+          "truncated": true,
+          "content_characters": 1584
+        }
+      ],
+      "independent_execution": {
+        "product_pages_visited": 0,
+        "xlsx_data_rows": 1,
+        "xlsx_product_rows": 0,
+        "browser_cleanup_succeeded": true,
+        "limitation": "The proposal did not consume the observation continuation. It wrote a note row instead of observed product rows."
+      }
+    },
+    {
+      "status": "stopped",
+      "planning_ms": 72848,
+      "calls": 2,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "diagnostics": [
+        {
+          "code": "REQUIREMENTS_OUTPUTS_CHANGED",
+          "location": "/outputs/filePath",
+          "message": "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 2,
+          "physical_attempts": 2,
+          "known_input_tokens": 18468,
+          "known_output_tokens": 5285,
+          "known_cost_eur": 0.22351002227171493,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        }
+      },
+      "run": "observations4-amazon-2",
+      "oracle_findings": [],
+      "execution_error_code": null,
+      "artifact_hash": null,
+      "observations": []
+    },
+    {
+      "status": "final_review",
+      "planning_ms": 355455,
+      "calls": 2,
+      "repairs": 0,
+      "discovery_reads": 2,
+      "diagnostics": [],
+      "execution_success": true,
+      "execution_oracle": false,
+      "execution_status": "completed",
+      "accounting": {
+        "planning": {
+          "logical_calls": 2,
+          "physical_attempts": 3,
+          "known_input_tokens": 18337,
+          "known_output_tokens": 3979,
+          "known_cost_eur": 0.18802227171492206,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 5,
+          "physical_attempts": 5,
+          "known_input_tokens": 20592,
+          "known_output_tokens": 1931,
+          "known_cost_eur": 0.14333184855233852,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        }
+      },
+      "execution_ms": 74304,
+      "total_ms": 429759,
+      "run": "observations4-amazon-3",
+      "oracle_findings": [
+        "product_visits_do_not_match_rows",
+        "workbook_value_not_supported_by_captured_product_page"
+      ],
+      "execution_error_code": null,
+      "artifact_hash": "d2b95cc09085409216e49c7f131d6dcc6698ea2c5832825507db59c9a943ae96",
+      "observations": [
+        {
+          "status_code": 202,
+          "records": 59,
+          "next_cursor_present": true,
+          "capture_truncated": false,
+          "truncated": true,
+          "content_characters": 1573
+        }
+      ],
+      "independent_execution": {
+        "product_pages_visited": 0,
+        "xlsx_data_rows": 1,
+        "xlsx_product_rows": 0,
+        "browser_cleanup_succeeded": true,
+        "limitation": "The proposal did not consume the observation continuation. It wrote a note row instead of observed product rows."
+      },
+      "dynamic_mapping": {
+        "generations": 1,
+        "repairs": 0,
+        "cache_hits": 0,
+        "script": "({searchNote:source.finalSearchPage.content,products:[]})",
+        "schema_validation_passed": true,
+        "business_oracle_passed": false
+      }
+    },
+    {
+      "status": "final_review",
+      "planning_ms": 149728,
+      "calls": 4,
+      "repairs": 1,
+      "discovery_reads": 3,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "completed",
+      "accounting": {
+        "planning": {
+          "logical_calls": 4,
+          "physical_attempts": 4,
+          "known_input_tokens": 76969,
+          "known_output_tokens": 10916,
+          "known_cost_eur": 0.6345879732739421,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 17,
+          "physical_attempts": 17,
+          "known_input_tokens": 388541,
+          "known_output_tokens": 5890,
+          "known_cost_eur": 1.8881113585746103,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        }
+      },
+      "execution_ms": 982539,
+      "total_ms": 1132267,
+      "run": "observations4-code-1",
+      "oracle_findings": [
+        "workflow_execution_failed",
+        "repository_not_cleaned_by_workflow",
+        "local_review_missing",
+        "no_independent_command_completion_evidence",
+        "repository_required_checks_not_independently_verified"
+      ],
+      "execution_error_code": "RUN_NEEDS_RECONCILIATION",
+      "artifact_hash": "2b5359b6dfb68752f6b2041e3a56f4305edeee74c2e506e63b027ea327ddf540",
+      "partial_sdk_evidence": {
+        "phase": "reconciliation_required",
+        "sessions": 1,
+        "inference_attempts": 17,
+        "conservatively_reserved_tokens": 1947718,
+        "interactions": 23,
+        "completion_verified": false,
+        "resumed": false,
+        "cleanup_blocked": true,
+        "commands_with_observed_exits": [
+          {
+            "command": "printf 'cwd=%s\\n' \"$PWD\"; node --version; pnpm --version; python --version",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "printf 'cwd=%s\\n' \"$PWD\"; { printf '\\n## package scripts\\n'; find . -path './.git' -prune -o -name package.json -print0 | xargs -0 node -e 'const fs=require(\"fs\"); for (const f of process.argv.slice(1)) { const p=JSON.parse(fs.readFileSync(f,\"utf8\")); console.log(\"### \"+f); console.log(JSON.stringify(p.scripts||{}, null, 2)); }'; printf '\\n## pyproject relevant sections\\n'; find . -path './.git' -prune -o -name pyproject.toml -print | sort | xargs -I{} sh -c 'echo \"### {}\"; grep -E \"^\\[project\\.scripts\\]|^\\[dependency-groups\\]|^\\[tool\\.ruff\\]|^\\[tool\\.ruff\\.lint\\]|pytest|ruff|test|integration|pre-commit|uv\" \"{}\" | head -80'; printf '\\n## workflow check commands\\n'; grep -RInE \"(pnpm|pytest|ruff|uv sync|uv run|dotnet|npm|corepack)\" .github/workflows .pre-commit-config.yaml 2>/dev/null; }",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "printf 'cwd=%s\\n' \"$PWD\"; command -v uv; uv --version",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "printf 'cwd=%s\\n' \"$PWD\"; UV_HTTP_TIMEOUT=1000 uv sync --native-tls --group tests --group ci",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "printf 'cwd=%s\\n' \"$PWD\"; pnpm i",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "printf 'cwd=%s\\n' \"$PWD\"; uv tool run ruff==0.15.22 check production/api/src packages/axa-fr-smartguide-production/src",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "printf 'cwd=%s\\n' \"$PWD\"; pnpm --filter axa-fr-smartguide-smi run lint && pnpm --filter demo run lint",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "printf 'cwd=%s\\n' \"$PWD\"; pnpm --filter demo run lint",
+            "completion_observed": true,
+            "exit_codes": [
+              2
+            ]
+          },
+          {
+            "command": "printf 'cwd=%s\\n' \"$PWD\"; uv run coverage run --omit=*.venv*,config.py,config-3.py,_remote_module_non_scriptable.py -m pytest --junitxml=dist/test-results.xml -W ignore::DeprecationWarning && uv run coverage xml -o dist/coverage.xml",
+            "completion_observed": true,
+            "exit_codes": [
+              2
+            ]
+          },
+          {
+            "command": "printf 'cwd=%s\\n' \"$PWD\"; pnpm recursive run test",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "printf 'cwd=%s\\n' \"$PWD\"; uv tool run flake8 --exclude .venv .",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          }
+        ],
+        "note": "Partial evidence only. It does not replace a final MCP receipt or establish the precise interruption cause. Commands with no exit code are excluded from this list."
+      }
+    },
+    {
+      "status": "final_review",
+      "planning_ms": 52178,
+      "calls": 3,
+      "repairs": 0,
+      "discovery_reads": 3,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "completed",
+      "accounting": {
+        "planning": {
+          "logical_calls": 3,
+          "physical_attempts": 3,
+          "known_input_tokens": 40018,
+          "known_output_tokens": 3423,
+          "known_cost_eur": 0.2697371937639198,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 12,
+          "physical_attempts": 12,
+          "known_input_tokens": 404415,
+          "known_output_tokens": 7062,
+          "known_cost_eur": 1.9901425389755012,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        }
+      },
+      "execution_ms": 1154710,
+      "total_ms": 1206888,
+      "run": "observations4-code-2",
+      "oracle_findings": [
+        "workflow_execution_failed",
+        "repository_not_cleaned_by_workflow",
+        "local_review_missing",
+        "no_independent_command_completion_evidence",
+        "repository_required_checks_not_independently_verified"
+      ],
+      "execution_error_code": "RUN_NEEDS_RECONCILIATION",
+      "artifact_hash": "7b268e826ba9a3aaea29f14e783921abdf4f4ef17bfdda25805b5cabdd531bc8",
+      "partial_sdk_evidence": {
+        "phase": "reconciliation_required",
+        "sessions": 1,
+        "inference_attempts": 12,
+        "conservatively_reserved_tokens": 1870330,
+        "interactions": 48,
+        "completion_verified": false,
+        "resumed": false,
+        "cleanup_blocked": true,
+        "commands_with_observed_exits": [
+          {
+            "command": "node --version",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "pnpm --version",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "python --version",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "find . -maxdepth 3 \\( -name package.json -o -name pnpm-lock.yaml -o -name pnpm-workspace.yaml -o -name pyproject.toml -o -name uv.lock -o -name pytest.ini -o -name tox.ini -o -name .nvmrc -o -name .python-version \\) -print | sort",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "printf '.nvmrc=' && cat .nvmrc && printf '.python-version=' && cat .python-version && uv --version",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "grep -R \"integration\\|pytest.mark\\|markers\" -n --include='*.py' --include='*.toml' . | head -100",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "UV_HTTP_TIMEOUT=1000 uv sync --native-tls --group tests --group ci --group dev --group docs",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "pnpm install --frozen-lockfile",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "uv tool run ruff==0.15.22 check production/api/src packages/axa-fr-smartguide-production/src",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "pnpm --filter axa-fr-smartguide-smi run lint",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "pnpm --filter demo run lint",
+            "completion_observed": true,
+            "exit_codes": [
+              2
+            ]
+          },
+          {
+            "command": "cd packages/axa-fr-smartguide-dsl && uv tool run flake8 --exclude .venv .",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "cd packages/axa-fr-smartguide-production && uv tool run flake8 --exclude .venv .",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "cd production/api && uv tool run flake8 --exclude .venv .",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "cd production/api_data && uv tool run flake8 --exclude .venv .",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "cd production/api_prompt_compressor && uv tool run flake8 --exclude .venv .",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "cd production/job && uv tool run flake8 --exclude .venv .",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "cd production/api_dynamic_ingestion && uv tool run flake8 --exclude .venv .",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "cd production/api_mcp && uv tool run flake8 --exclude .venv .",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "cd production/api_a2a && uv tool run flake8 --exclude .venv .",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "pnpm recursive run test",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "pnpm run build",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "uv run mkdocs build -f ./docs/mkdocs.yml",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "cd packages/axa-fr-smartguide-dsl && uv run coverage run --omit=*.venv*,config.py,config-3.py,_remote_module_non_scriptable.py -m pytest --junitxml=dist/test-results.xml -W ignore::DeprecationWarning && uv run coverage xml -o dist/coverage.xml",
+            "completion_observed": true,
+            "exit_codes": [
+              2
+            ]
+          },
+          {
+            "command": "cd packages/axa-fr-smartguide-production && uv run coverage run --omit=*.venv*,config.py,config-3.py,_remote_module_non_scriptable.py -m pytest --junitxml=dist/test-results.xml -W ignore::DeprecationWarning && uv run coverage xml -o dist/coverage.xml",
+            "completion_observed": true,
+            "exit_codes": [
+              2
+            ]
+          },
+          {
+            "command": "cd production/api_data && uv run coverage run -m pytest --junitxml=dist/test-results.xml -W ignore::DeprecationWarning && uv run coverage xml -o dist/coverage.xml",
+            "completion_observed": true,
+            "exit_codes": [
+              2
+            ]
+          },
+          {
+            "command": "cd production/api_mcp && uv run coverage run -m pytest --junitxml=dist/test-results.xml -W ignore::DeprecationWarning && uv run coverage xml -o dist/coverage.xml",
+            "completion_observed": true,
+            "exit_codes": [
+              2
+            ]
+          },
+          {
+            "command": "cd production/api_a2a && uv run coverage run -m pytest --junitxml=dist/test-results.xml -W ignore::DeprecationWarning && uv run coverage xml -o dist/coverage.xml",
+            "completion_observed": true,
+            "exit_codes": [
+              2
+            ]
+          },
+          {
+            "command": "cd packages/axa-fr-smartguide-dsl && UV_HTTP_TIMEOUT=1000 uv sync --native-tls --python \"$(command -v python)\" --group tests --group ci",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "cd packages/axa-fr-smartguide-production && UV_HTTP_TIMEOUT=1000 uv sync --native-tls --python \"$(command -v python)\" --group tests --group ci --extra jobs",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          }
+        ],
+        "note": "Partial evidence only. It does not replace a final MCP receipt or establish the precise interruption cause. Commands with no exit code are excluded from this list."
+      }
+    },
+    {
+      "status": "final_review",
+      "planning_ms": 127292,
+      "calls": 2,
+      "repairs": 0,
+      "discovery_reads": 3,
+      "diagnostics": [],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "completed",
+      "accounting": {
+        "planning": {
+          "logical_calls": 2,
+          "physical_attempts": 2,
+          "known_input_tokens": 31163,
+          "known_output_tokens": 9864,
+          "known_cost_eur": 0.4024365256124722,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 12,
+          "physical_attempts": 12,
+          "known_input_tokens": 418989,
+          "known_output_tokens": 7208,
+          "known_cost_eur": 2.0589621380846324,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        }
+      },
+      "execution_ms": 1096786,
+      "total_ms": 1224078,
+      "run": "observations4-code-3",
+      "oracle_findings": [
+        "workflow_execution_failed",
+        "repository_not_cleaned_by_workflow",
+        "local_review_missing",
+        "no_independent_command_completion_evidence",
+        "repository_required_checks_not_independently_verified"
+      ],
+      "execution_error_code": "RUN_NEEDS_RECONCILIATION",
+      "artifact_hash": "0f8efebe76fe6467a177376a1b108fdc36b9f34704dc8f572d41bf7364e0f569",
+      "partial_sdk_evidence": {
+        "phase": "reconciliation_required",
+        "sessions": 1,
+        "inference_attempts": 12,
+        "conservatively_reserved_tokens": 1958978,
+        "interactions": 50,
+        "completion_verified": false,
+        "resumed": false,
+        "cleanup_blocked": true,
+        "commands_with_observed_exits": [
+          {
+            "command": "find . -maxdepth 3 \\( -name package.json -o -name pyproject.toml -o -name pnpm-lock.yaml -o -name uv.lock -o -name Makefile -o -name tox.ini -o -name pytest.ini -o -name .github \\) -print | sort",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "node --version && pnpm --version && python --version",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "uv --version || true; pyenv --version || true; nvm --version || true; corepack --version || true",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "uv sync --group tests --system-certs --python \"$(python -c 'import sys; print(sys.executable)')\"",
+            "completion_observed": true,
+            "exit_codes": [
+              2
+            ]
+          },
+          {
+            "command": "pnpm i --frozen-lockfile",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "uv sync --native-tls --group tests --group ci --group dev",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "grep -R \"pytest.mark.integration\\|@pytest.mark.integration\\|integration\" -n tests production packages --include='*.py' | head -100",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "uv tool run ruff==0.15.22 check production/api/src packages/axa-fr-smartguide-production/src",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "uv run pytest production/api/tests/test_api_dsl_fragment.py tests/ -W ignore::DeprecationWarning",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "pnpm run build && pnpm test",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "uv run pytest production/api/tests/test_api_dsl_fragment.py -q -W ignore::DeprecationWarning",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "pnpm run build --reporter=append-only 2>&1 | tail -200",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "pnpm run build",
+            "completion_observed": true,
+            "exit_codes": [
+              0
+            ]
+          },
+          {
+            "command": "pnpm test",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "uv tool run flake8 --exclude .venv .",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "uv run pytest -q -W ignore::DeprecationWarning",
+            "completion_observed": true,
+            "exit_codes": [
+              2
+            ]
+          },
+          {
+            "command": "cd production/api && uv tool run flake8 --exclude .venv . && uv run coverage run -m pytest --junitxml=dist/test-results.xml -W ignore::DeprecationWarning && uv run coverage xml -o dist/coverage.xml",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "uv run pytest tests -q -W ignore::DeprecationWarning",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "cd packages/axa-fr-smartguide-production && uv tool run flake8 --exclude .venv . && uv run pytest -q -W ignore::DeprecationWarning",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          },
+          {
+            "command": "cd production/api && uv run pytest -q -W ignore::DeprecationWarning",
+            "completion_observed": true,
+            "exit_codes": [
+              2
+            ]
+          },
+          {
+            "command": "cd packages/axa-fr-smartguide-production && uv run pytest -q -W ignore::DeprecationWarning",
+            "completion_observed": true,
+            "exit_codes": [
+              2
+            ]
+          },
+          {
+            "command": "cd packages/axa-fr-smartguide-dsl && uv tool run flake8 --exclude .venv .; code1=$?; uv run pytest -q -W ignore::DeprecationWarning; code2=$?; printf 'DSL flake8=%s pytest=%s\\n' \"$code1\" \"$code2\"; exit $((code1 || code2))",
+            "completion_observed": true,
+            "exit_codes": [
+              1
+            ]
+          }
+        ],
+        "note": "Partial evidence only. It does not replace a final MCP receipt or establish the precise interruption cause. Commands with no exit code are excluded from this list."
+      }
+    }
+  ],
+  "accounting": {
+    "calls": 467,
+    "session_calls": 0,
+    "known_input_tokens": 7077276,
+    "known_output_tokens": 593747,
+    "known_cost_eur": 47.33117568515389,
+    "reserved_input_tokens": 96000,
+    "reserved_output_tokens": 32768,
+    "reserved_cost_eur": 1.3033763919821826,
+    "cost_upper_bound_eur": 48.63455207713607,
+    "unknown_attempts": 1
+  },
+  "collection_completed": true,
+  "acceptance_passed": false,
+  "collected_at_utc": "2026-10-04T00:04:25.990197+00:00",
+  "report_sha256": "0774168b96355e81cbee6569e3f926544b5f6df089af857263aa55aa6d34319c",
+  "retention": "Original requests, responses, tool observations and journals remain encrypted in the existing campaign. No uncertain invocation was resumed or reconciled.",
+  "oracle_unchanged": true,
+  "production_unchanged_during_cohort": true,
+  "provider_schema_rejections": 0,
+  "transport_failures": [
+    {
+      "run": "observations4-amazon-3",
+      "status": 500,
+      "bounded_retry_completed": true
+    }
+  ],
+  "dead_code_pass": "deferred: execution gate failed",
+  "paid_dispatch": "stopped after the six planned repetitions; ceiling not exhausted",
+  "measurement_notes": [
+    "All six repetitions remain in the success denominator. Five reached execution; Amazon repetition 2 stopped during planning.",
+    "Known provider usage is distinct from verified external MCP completion. Code provider calls have usage receipts, but the logical Copilot operations lack final completion receipts.",
+    "Latency summaries use observed durations and report sample counts; unstarted execution latency stays absent. p95 uses nearest rank; three repetitions are not a precision estimate.",
+    "No current-cohort mapping cache hit or successful repair is claimed. Amazon repetition 3 used one successful cold mapping generation; the independent workbook oracle still failed.",
+    "Older failed cohorts and the historical 33/33 benchmark are unchanged and are not pooled into this cohort."
+  ],
+  "totals": {
+    "planning": {
+      "logical_calls": 16,
+      "physical_attempts": 17,
+      "known_input_tokens": 217864,
+      "known_output_tokens": 38230,
+      "known_cost_eur": 1.9921781737193764,
+      "unknown_attempts": 0
+    },
+    "execution": {
+      "logical_calls": 49,
+      "physical_attempts": 49,
+      "known_input_tokens": 1242004,
+      "known_output_tokens": 22784,
+      "known_cost_eur": 6.141238307349666,
+      "unknown_attempts": 0
+    }
+  },
+  "metrics": {
+    "amazon": {
+      "calls": {
+        "n": 3,
+        "median": 2,
+        "p95_nearest_rank": 3
+      },
+      "repairs": {
+        "n": 3,
+        "median": 0,
+        "p95_nearest_rank": 0
+      },
+      "discovery_reads": {
+        "n": 3,
+        "median": 2,
+        "p95_nearest_rank": 2
+      },
+      "planning_ms": {
+        "n": 3,
+        "median": 82007,
+        "p95_nearest_rank": 355455
+      },
+      "execution_ms": {
+        "n": 2,
+        "median": 62685.0,
+        "p95_nearest_rank": 74304
+      },
+      "total_ms": {
+        "n": 2,
+        "median": 281416.0,
+        "p95_nearest_rank": 429759
+      },
+      "planning_known_input_tokens": {
+        "n": 3,
+        "median": 18468,
+        "p95_nearest_rank": 32909
+      },
+      "planning_known_output_tokens": {
+        "n": 3,
+        "median": 4763,
+        "p95_nearest_rank": 5285
+      },
+      "planning_known_cost_eur": {
+        "n": 3,
+        "median": 0.22351002227171493,
+        "p95_nearest_rank": 0.27388418708240536
+      },
+      "execution_known_input_tokens": {
+        "n": 2,
+        "median": 15029.5,
+        "p95_nearest_rank": 20592
+      },
+      "execution_known_output_tokens": {
+        "n": 2,
+        "median": 1312.0,
+        "p95_nearest_rank": 1931
+      },
+      "execution_known_cost_eur": {
+        "n": 2,
+        "median": 0.10201113585746102,
+        "p95_nearest_rank": 0.14333184855233852
+      }
+    },
+    "code": {
+      "calls": {
+        "n": 3,
+        "median": 3,
+        "p95_nearest_rank": 4
+      },
+      "repairs": {
+        "n": 3,
+        "median": 0,
+        "p95_nearest_rank": 1
+      },
+      "discovery_reads": {
+        "n": 3,
+        "median": 3,
+        "p95_nearest_rank": 3
+      },
+      "planning_ms": {
+        "n": 3,
+        "median": 127292,
+        "p95_nearest_rank": 149728
+      },
+      "execution_ms": {
+        "n": 3,
+        "median": 1096786,
+        "p95_nearest_rank": 1154710
+      },
+      "total_ms": {
+        "n": 3,
+        "median": 1206888,
+        "p95_nearest_rank": 1224078
+      },
+      "planning_known_input_tokens": {
+        "n": 3,
+        "median": 40018,
+        "p95_nearest_rank": 76969
+      },
+      "planning_known_output_tokens": {
+        "n": 3,
+        "median": 9864,
+        "p95_nearest_rank": 10916
+      },
+      "planning_known_cost_eur": {
+        "n": 3,
+        "median": 0.4024365256124722,
+        "p95_nearest_rank": 0.6345879732739421
+      },
+      "execution_known_input_tokens": {
+        "n": 3,
+        "median": 404415,
+        "p95_nearest_rank": 418989
+      },
+      "execution_known_output_tokens": {
+        "n": 3,
+        "median": 7062,
+        "p95_nearest_rank": 7208
+      },
+      "execution_known_cost_eur": {
+        "n": 3,
+        "median": 1.9901425389755012,
+        "p95_nearest_rank": 2.0589621380846324
+      }
+    }
+  }
+}
