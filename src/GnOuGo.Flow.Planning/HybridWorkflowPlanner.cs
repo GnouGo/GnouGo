@@ -109,8 +109,11 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
                 case "revise":
                     if (state.PendingCall is not null) throw new PlanningConflictException("Reconcile the pending model request before revising.");
                     ArgumentException.ThrowIfNullOrWhiteSpace(command.Text);
+                    if (command.PreserveRequirements == true && (state.RequiresPlanningRevision || state.Requirements is null ||
+                        command.ArtifactHash != state.ComputeArtifactHash()))
+                        throw new PlanningConflictException("A correction must retain current accepted requirements and identify the exact artifact, when present.");
                     state.Request.Prompt += "\nRequested revision: " + command.Text;
-                    PlanningClarifications.Revise(state); break;
+                    PlanningClarifications.Revise(state, command.PreserveRequirements == true); break;
                 case "cancel": state.Status = PlanningStatus.Cancelled; state.ApprovedHash = null; break;
                 default: throw new ArgumentException("Unsupported planning command.");
             }

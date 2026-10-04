@@ -92,7 +92,11 @@ public sealed class DocumentTools
     {
         try
         {
-            return _host.Write(filePath, content, encoding, append);
+            var result = _host.Write(filePath, content, encoding, append);
+            if (result.Success && (string.IsNullOrWhiteSpace(result.FilePath) || string.IsNullOrWhiteSpace(result.FilePathAbsolute) ||
+                result.BytesWritten is null or < 0 || result.ErrorCode is not null || result.ErrorMessage is not null))
+                throw new InvalidOperationException("The completed write did not provide its required receipt.");
+            return result;
         }
         catch (InvalidOperationException ex)
         {

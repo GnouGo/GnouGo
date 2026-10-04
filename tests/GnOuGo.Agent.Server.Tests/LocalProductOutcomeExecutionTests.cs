@@ -118,6 +118,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             plan.Root.Outputs[0] = new("file", ProductTransformationPlan.Ref("write", "filePath"));
             plan.Root.Tasks.Single(t => t.Kind == "foreach").MaxItems = 3;
             var proposal = new PlanningProposal { Plan = plan, Requirements = new() { Summary = "Read products and save an XLSX document, always close the browser", Inputs = plan.Inputs,
+                Outputs = [new() { Name = "file", Type = new() { Kind = "string" } }],
                 Outcomes = [new("search", "Read search results"), new("products", "Read each product"),
                     new("save", "Save workbook"), new("close", "Close browser")] } };
             var planning = new ProposalRuntime(runtime, proposal);

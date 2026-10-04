@@ -109,6 +109,7 @@ internal static class SchemaPortabilityCampaign
                 ["result"] = saved["result"]?.DeepClone(), ["status"] = saved["session"]?["status"]?.DeepClone(),
                 ["revision"] = saved["session"]?["revision"]?.DeepClone(), ["artifact_hash"] = saved["artifact_hash"]?.DeepClone(),
                 ["requirements"] = saved["session"]?["requirements"]?.DeepClone(),
+                ["planning_revisions"] = saved["planning_revisions"]?.DeepClone(),
                 ["review"] = saved["session"]?["validationResults"]?.DeepClone(),
                 ["diagnostics"] = saved["session"]?["diagnostics"]?.DeepClone(), ["questions"] = saved["session"]?["pendingQuestions"]?.DeepClone(),
                 ["plan"] = saved["session"]?["plan"]?.DeepClone(), ["yaml"] = saved["session"]?["yaml"]?.DeepClone(),
@@ -147,7 +148,7 @@ internal static class SchemaPortabilityCampaign
         }
         using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Model, campaign, root, CancellationToken.None);
         if (phase == "mapping") { await MappingLiveEvaluation.RunAsync(args, campaign, model, root); return; }
-        if (phase is "readiness" or "plan" or "execute")
+        if (phase is "readiness" or "plan" or "revise" or "execute")
         { await LiveWorkflowEvaluation.RunAsync(args, phase, campaign, model, root); return; }
         if (phase == "diagnose")
         {

@@ -6,6 +6,20 @@ A separately publishable package depending only on Flow.Core.
 
 Requirements are host-owned until explicit user revision. New sessions declare the caller input interface in `requirements.inputs`; null is unresolved during discovery, and a plan requires an explicit array, including empty for no caller inputs. Once accepted, names, types, requiredness and defaults must match the plan. Subsequent responses omit accepted requirements. Historical responses remain unchanged in storage. Unfinished sessions with a retired intent profile require explicit revision before dispatch.
 
+Implementation-only review corrections use `revise` with optional `preserveRequirements: true`.
+Supply the expected revision and exact artifact hash, or null when no artifact exists.
+The accepted requirements remain immutable, discovery and cumulative accounting survive,
+and the previous TaskPlan becomes the revision baseline. Generated artifacts and approval
+are cleared. Omission retains ordinary intent-revision behavior and historical command
+serialization. Pending inference must be reconciled first; revision grants no extra budget.
+
+When evidence must survive failure, compose existing scopes: the outer `always` runs a
+`sequence` whose body preserves available evidence and whose own `always` releases temporary
+resources. This also attempts cleanup if preservation fails, while preserving the failure.
+Do not depend on a failed normal task or invent absent evidence. Genuinely unknown external
+completion blocks finalization. Bind caller input values explicitly; mentioning an input's
+name in a literal instruction does not pass its value to an operation.
+
 The existing loop also accepts an exclusive `clarifications` response before a plan or during repair. One to three material questions offer two or three alternatives with one recommendation, or text-only input for missing facts. Designer/chat share recommended selections and custom text; generic Flow hosts reuse human-input forms. Questions pause in auto mode too. `answer` saves an atomic revision-checked batch before continuation; custom literal-choice answers revise intent, while declared literal selections still compile locally. No answer approves execution, widens host policy or resets budgets. See [interaction contracts and validation](../../docs/planning-clarification.md).
 
 `TaskPlan` is editable business intent. `PlanningGraph` is the sole executable representation. `HybridWorkflowPlanner` uses one bounded discovery/planning/repair loop; resolving selected operations and compiling them do not call a model. Static validation and simulations do not establish external success.

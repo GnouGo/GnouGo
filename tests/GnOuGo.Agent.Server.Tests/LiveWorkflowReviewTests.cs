@@ -11,6 +11,50 @@ public sealed class LiveWorkflowReviewTests
 {
     [Theory]
     [InlineData("valid")]
+    [InlineData("stale_revision")]
+    [InlineData("stale_artifact")]
+    [InlineData("already_started")]
+    [InlineData("tenant")]
+    [InlineData("session")]
+    [InlineData("intent_change")]
+    public async Task LiveCorrectionRetainsRequirementsWithoutApprovingOrResettingBudgets(string variant)
+    {
+        var ct = TestContext.Current.CancellationToken; var checkpoints = new List<PlanningSession>();
+        var runtime = new WorkflowPlanningRuntime(new WorkflowEngine(), (s, _) => { checkpoints.Add(s); return Task.CompletedTask; });
+        var state = new PlanningSession { IntentVersion = 2, Revision = 3, ModelCalls = 2, ReplanAttempts = 1,
+            Request = new() { TenantId = "benchmark", SessionId = "fresh-correction", Name = "Correction fixture", Prompt = "Return a value" },
+            Status = PlanningStatus.FinalReview, Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult() };
+        state.Catalog = await runtime.DiscoverAsync(state.Request, ct);
+        state.Graph = new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Graph!;
+        state.Yaml = new PlanningGraphCompiler().Compile(state.Graph, state.Catalog, state.Request.Name);
+        var command = new PlanningCommand { Kind = "revise", PreserveRequirements = true, ExpectedRevision = state.Revision,
+            ArtifactHash = state.ComputeArtifactHash(), Text = "Bind the actual requested input; preserve the accepted intent." };
+        if (variant == "stale_revision") command.ExpectedRevision--;
+        if (variant == "stale_artifact") command.ArtifactHash = "old";
+        if (variant == "tenant") state.Request.TenantId = "someone-else";
+        if (variant == "session") state.Request.SessionId = "another-run";
+        if (variant == "intent_change") command.PreserveRequirements = false;
+        var run = new JsonObject { ["label"] = "fresh-correction", ["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession) };
+        if (variant == "already_started") run["execution_started"] = "2026-10-04T00:00:00Z";
+        var before = run.ToJsonString();
+        if (variant == "valid")
+        {
+            var revised = await LiveWorkflowEvaluation.ReviseAsync(run, command, runtime, ct);
+            Assert.Equal(PlanningStatus.Generating, revised.Status); Assert.Null(revised.ApprovedHash); Assert.Null(revised.Yaml);
+            Assert.Equal(2, revised.ModelCalls); Assert.Equal(1, revised.ReplanAttempts); Assert.NotNull(revised.Request.Baseline);
+            Assert.Equal(JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements), JsonSerializer.Serialize(revised.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+            Assert.Single(checkpoints);
+        }
+        else
+        {
+            await Assert.ThrowsAnyAsync<Exception>(() => LiveWorkflowEvaluation.ReviseAsync(run, command, runtime, ct));
+            Assert.Empty(checkpoints);
+        }
+        Assert.Equal(before, run.ToJsonString());
+    }
+
+    [Theory]
+    [InlineData("valid")]
     [InlineData("missing")]
     [InlineData("duplicate")]
     [InlineData("unknown")]

@@ -42,6 +42,7 @@ internal static class PlanningEndpoints
                     RequestId = request.RequestId,
                     ReviewedRequirementIds = request.ReviewedRequirementIds?.ToList(),
                     Text = request.Text,
+                    PreserveRequirements = request.PreserveRequirements,
                     Selections = request.Selections,
                     Answers = request.Answers?.Select(a => a is null ? throw new ArgumentException("Invalid planner answer.") : new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList(),
                     Generation = request.Generation is { } options ? new() { Reasoning = options.Reasoning, MaxInputTokensPerRequest = options.MaxInputTokensPerRequest, MaxOutputTokens = options.MaxOutputTokens } : null

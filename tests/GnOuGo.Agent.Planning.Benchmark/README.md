@@ -377,6 +377,26 @@ The review file uses the existing planning command contract:
 {"kind":"approve","expectedRevision":7,"artifactHash":"<exact reviewed hash>","reviewedRequirementIds":["<explicitly reviewed requirement ID>"]}
 ```
 
+Before execution, concrete review feedback can use the same planning loop without
+discarding accepted intent, discovery or cumulative allowances:
+
+```sh
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability revise --workspace "$GNOU_GO_WORKSPACE" \
+  --campaign schema-portability-20261002 --cohort <frozen-cohort> --case <case> --run <retained-unexecuted-run-id> \
+  --revision-command /private/path/revision.json
+```
+
+```json
+{"kind":"revise","preserveRequirements":true,"expectedRevision":7,"artifactHash":"<exact reviewed hash>","text":"Concrete missing binding or failure-path work; retain accepted intent."}
+```
+
+Use null for the hash of a stopped session with no artifact. This command requires the
+original frozen candidate, rejects started executions and archives the prior session,
+result and feedback before further dispatch. Revisions retain the original 30-minute
+planning allowance, model/repair budgets and aggregate calls, discovery reads and latency.
+They require fresh review and approval; the command never creates acknowledgments.
+
 Supply every accepted requirement ID exactly once only after comparing it with actual
 operations, loop bodies, conditions and data dependencies. Never generate this list
 automatically from the requirements. Missing visits, extraction or observation completeness

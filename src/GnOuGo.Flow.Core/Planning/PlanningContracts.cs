@@ -57,6 +57,8 @@ public sealed class PlanningCommand
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? RequestId { get; set; }
     public string? Text { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? PreserveRequirements { get; set; }
     public JsonObject? Selections { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<PlanningAnswer>? Answers { get; set; }

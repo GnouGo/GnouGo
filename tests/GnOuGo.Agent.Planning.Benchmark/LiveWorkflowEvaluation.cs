@@ -31,15 +31,16 @@ internal static class LiveWorkflowEvaluation
         var retained = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, key);
         if (phase == "inspect-run") { Console.WriteLine(retained?.ToJsonString() ?? "No run."); return; }
         var sourceRevision = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
-        if (phase == "execute" && retained?["source"]?.ToString() != sourceRevision)
-            throw new InvalidOperationException("Execution must use the retained planning build.");
+        var continuing = phase is "execute" or "revise";
+        if (continuing && retained?["source"]?.ToString() != sourceRevision)
+            throw new InvalidOperationException("Continuation must use the retained planning build.");
         var manifest = label.StartsWith(cohort + "-", StringComparison.Ordinal)
             ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model, model.ConfigurationFingerprint, cohort) : null;
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, label);
         var configurations = Configuration(model.McpServers, scenario, proxy.Endpoint);
         var human = new ConsoleHuman(campaign, label);
         await using var transport = new ConfiguredMcpClientFactory(configurations, human, model.Provider, model.Model);
-        var run = phase == "execute" ? retained ?? throw new InvalidOperationException("No retained plan.") : new JsonObject { ["scenario"] = scenario, ["label"] = label, ["source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"),
+        var run = continuing ? retained!.DeepClone().AsObject() : new JsonObject { ["scenario"] = scenario, ["label"] = label, ["source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"),
             ["phase"] = manifest is not null ? "final" : "diagnostic", ["events"] = new JsonArray(), ["manifest"] = manifest };
         var observed = new ObservedMcp(transport, async e =>
         {
@@ -53,8 +54,15 @@ internal static class LiveWorkflowEvaluation
             Limits = new() { TenantId = "benchmark", RunId = label, AgentId = campaign.Id + "-" + scenario, AgentName = "Live evaluation " + scenario },
             HumanInputProvider = human, LlmDefaults = new() { Model = model.Model, Provider = model.Provider } };
         if (scenario == "code") engine.WithCopilotRunners(configurations.Keys.Where(k => k.Contains("GithubCopilot", StringComparison.Ordinal)).Select(k => new KeyValuePair<string, string>("coding", k)));
+        JsonObject? revisionSnapshot = null;
         var runtime = new WorkflowPlanningRuntime(engine, async (s, _) =>
         {
+            if (revisionSnapshot is not null)
+            {
+                run["planning_revisions"] ??= new JsonArray();
+                run["planning_revisions"]!.AsArray().Add(revisionSnapshot); revisionSnapshot = null;
+                run["artifact_hash"] = null; run["failure"] = null;
+            }
             run["session"] = JsonSerializer.SerializeToNode(s, PlanningJsonContext.Default.PlanningSession);
             await Save(); Console.WriteLine($"{label}: revision={s.Revision}, status={s.Status}, calls={s.ModelCalls}, repairs={s.ReplanAttempts}");
         });
@@ -105,21 +113,37 @@ internal static class LiveWorkflowEvaluation
             if (scenario == "amazon") await LiveExecutionReadiness.VerifyAsync(observed, root);
             return;
         }
-        if (retained is not null) throw new InvalidOperationException("Run already retained; inspect it instead of overwriting.");
+        if (retained is not null && phase != "revise") throw new InvalidOperationException("Run already retained; inspect it instead of overwriting.");
         var relative = "workflows/" + campaign.Id + "/" + label;
         var prompt = scenario == "amazon"
             ? AmazonPrompt + "\nContraintes de cette évaluation autorisée: utilise Amazon.fr, au maximum les trois premiers produits; une seule entrée publique nommée query. Sauvegarde le classeur à " + relative + "/products.xlsx. Ferme le navigateur même en cas d’échec. CAPTCHA, prix ou données absents restent explicites, jamais inventés."
             : CodePrompt + "\nÉvaluation autorisée: deux entrées publiques nommées pullRequestUrl et reviewText. Cible SmartGuide PR #610, https://github.com/AxaFrance/SmartGuide/pull/610 ; head " + Head + " et base " + Base + ". Destination fixe du clone: " + relative + "/repository. Utilise les toolchains et checks déclarés par ce dépôt. Tous les feedbacks, décisions et commentaires de diff restent LOCAUX: aucune publication GitHub. Sauvegarde les preuves exactes de commandes et leurs codes de sortie dans " + relative + "/review.json, puis nettoie le clone même en cas d’échec. Une capacité absente ou un test échoué reste explicite. Aucune extension de permission/sandbox. Le rapport review.json contient decision (approve ou request_changes), findings (liste), et les commandes/codes de sortie observés. Vérifie explicitement node --version, pnpm --version et python --version avant les checks. Ne présente pas une capacité manquante ou un prérequis indisponible comme un test réussi.";
-        run["prompt"] = prompt; run["prompt_hash"] = PlanningGraphCompiler.Fingerprint(prompt);
-        run["oracle_version"] = "real-workflows-v1"; run["workspace_relative"] = relative;
-        run["inputs"] = scenario == "amazon" ? new JsonObject { ["query"] = "chaussure geox homme 45" }
-            : new JsonObject { ["pullRequestUrl"] = "https://github.com/AxaFrance/SmartGuide/pull/610", ["reviewText"] = "Review correctness, regressions, security and test coverage of the pinned pull-request diff. Report checks truthfully and keep proposed comments local." };
-        await Save();
-        var clock = Stopwatch.StartNew(); using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(30));
-        var state = new PlanningSession { Request = new() { SessionId = label, TenantId = "benchmark", Name = "Live " + scenario,
+        if (phase != "revise")
+        {
+            run["prompt"] = prompt; run["prompt_hash"] = PlanningGraphCompiler.Fingerprint(prompt);
+            run["oracle_version"] = "real-workflows-v1"; run["workspace_relative"] = relative;
+            run["inputs"] = scenario == "amazon" ? new JsonObject { ["query"] = "chaussure geox homme 45" }
+                : new JsonObject { ["pullRequestUrl"] = "https://github.com/AxaFrance/SmartGuide/pull/610", ["reviewText"] = "Review correctness, regressions, security and test coverage of the pinned pull-request diff. Report checks truthfully and keep proposed comments local." };
+            await Save();
+        }
+        var priorMilliseconds = phase == "revise" ? run["result"]!["planning_ms"]!.GetValue<long>() : 0;
+        var priorReads = phase == "revise" ? run["result"]!["discovery_reads"]!.GetValue<int>() : 0;
+        var remainingTime = TimeSpan.FromMinutes(30) - TimeSpan.FromMilliseconds(priorMilliseconds);
+        if (remainingTime <= TimeSpan.Zero) throw new InvalidOperationException("Planning time is exhausted; revision cannot reset it.");
+        var clock = Stopwatch.StartNew(); using var timeout = new CancellationTokenSource(remainingTime);
+        var state = phase == "revise" ? run["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)! : new PlanningSession { Request = new() { SessionId = label, TenantId = "benchmark", Name = "Live " + scenario,
             Prompt = prompt, Mode = PlanningMode.Auto, MaxModelCalls = 8, MaxReplanAttempts = 2,
             Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768, Reasoning = "medium" },
             Options = new() { ["generator"] = new JsonObject { ["provider"] = model.Provider, ["model"] = model.Model } } } };
+        if (phase == "revise")
+        {
+            var commandPath = SchemaPortabilityCampaign.Option(args, "--revision-command") ?? throw new ArgumentException("Supply --revision-command <file> with concrete review feedback.");
+            var command = JsonSerializer.Deserialize(await File.ReadAllTextAsync(commandPath), PlanningJsonContext.Default.PlanningCommand)
+                ?? throw new ArgumentException("Supply a revision command.");
+            revisionSnapshot = new() { ["session"] = run["session"]!.DeepClone(), ["result"] = run["result"]!.DeepClone(),
+                ["artifact_hash"] = run["artifact_hash"]?.DeepClone(), ["command"] = JsonSerializer.SerializeToNode(command, PlanningJsonContext.Default.PlanningCommand) };
+            state = await ReviseAsync(run, command, runtime, timeout.Token);
+        }
         try
         {
             for (var i = 0; i < 40 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); i++)
@@ -131,8 +155,9 @@ internal static class LiveWorkflowEvaluation
             if (state.Status == PlanningStatus.FinalReview) PlanningArtifactApproval.Verify(state);
         }
         catch (Exception ex) { run["failure"] = ex.ToString(); }
-        run["result"] = new JsonObject { ["status"] = state.Status, ["planning_ms"] = clock.ElapsedMilliseconds,
-            ["calls"] = state.ModelCalls, ["repairs"] = state.ReplanAttempts, ["discovery_reads"] = observed.DiscoveryReads,
+        run["result"] = new JsonObject { ["status"] = state.Status, ["planning_ms"] = priorMilliseconds + clock.ElapsedMilliseconds,
+            ["calls"] = state.ModelCalls, ["repairs"] = state.ReplanAttempts, ["discovery_reads"] = priorReads + observed.DiscoveryReads,
+            ["review_revisions"] = run["planning_revisions"]?.AsArray().Count ?? 0,
             ["diagnostics"] = JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic),
             ["execution_success"] = false, ["execution_oracle"] = false, ["execution_status"] = "not_started",
             ["accounting"] = await LiveCampaignEvidence.AccountingAsync(campaign, label) };
@@ -152,6 +177,17 @@ internal static class LiveWorkflowEvaluation
         session = await new HybridWorkflowPlanner().AdvanceAsync(session, command, runtime, ct);
         if (session.Status != PlanningStatus.Approved) throw new InvalidOperationException("Artifact approval failed.");
         return session;
+    }
+
+    internal static Task<PlanningSession> ReviseAsync(JsonObject run, PlanningCommand command, IPlanningRuntime runtime, CancellationToken ct)
+    {
+        if (run["execution_started"] is not null) throw new InvalidOperationException("Execution already started; never revise or replay it.");
+        if (command.Kind != "revise" || command.PreserveRequirements != true)
+            throw new ArgumentException("Review corrections must use revise with preserveRequirements=true.");
+        var session = run["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+        if (session.Request.TenantId != "benchmark" || session.Request.SessionId != run["label"]?.ToString())
+            throw new PlanningConflictException("The retained session does not belong to this evaluation run.");
+        return new HybridWorkflowPlanner().AdvanceAsync(session, command, runtime, ct);
     }
 
     internal static Dictionary<string, McpServerOptions> Configuration(IReadOnlyDictionary<string, McpServerOptions> configured, string scenario, string inferenceEndpoint)
