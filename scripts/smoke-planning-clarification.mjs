@@ -66,12 +66,23 @@ try {
       const support = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Business requirements' }) });
       await support.waitFor();
       assert.match(await support.innerText(), /does not prove business completeness or execution success/);
+      const approval = page.getByRole('button', { name: 'Approve this revision and save', exact: true });
+      assert.equal(await approval.isEnabled(), false, 'Requirements are never acknowledged automatically');
+      const checks = support.getByRole('checkbox');
+      assert.ok(await checks.count() > 0);
+      for (let i = 0; i < await checks.count(); i++) {
+        assert.equal(await checks.nth(i).isChecked(), false);
+        await checks.nth(i).focus(); await page.keyboard.press('Space');
+      }
+      await page.waitForFunction(() => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Approve this revision and save' && !b.disabled));
+      // Acknowledgments alone neither approve nor save. Reload requires explicit review again.
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Requirements review fits mobile');
       await support.locator('summary').focus(); await page.keyboard.press('Enter');
       assert.equal(await support.getAttribute('open'), null);
       await page.keyboard.press('Enter');
       await page.reload(); await support.waitFor();
       await page.getByText('Ready for your review', { exact: true }).waitFor();
+      assert.equal(await approval.isEnabled(), false);
       await page.screenshot({ path: `${output}/${name}-outcomes.png`, fullPage: true });
     }
   }

@@ -3,7 +3,11 @@ namespace GnOuGo.Agent.Shared;
 public sealed record PlanningStartDto(string Name, string Prompt, bool ReviseExisting = false, string Mode = "interactive");
 public sealed record PlanningGenerationDto(string Reasoning = "medium", int MaxInputTokensPerRequest = 12_000, int MaxOutputTokens = 8_192);
 public sealed record PlanningCommandDto(string Kind, long ExpectedRevision, string? ArtifactHash = null, string? Text = null, JsonObject? Selections = null, PlanningGenerationDto? Generation = null, string? Mode = null,
-    IReadOnlyList<PlanningAnswerDto>? Answers = null, string? RequestId = null);
+    IReadOnlyList<PlanningAnswerDto>? Answers = null, string? RequestId = null)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? ReviewedRequirementIds { get; init; }
+}
 public sealed record PlanningQuestionDto(string Id, string Question, IReadOnlyList<PlanningAlternativeDto> Alternatives, string? Recommended);
 public sealed record PlanningAnswerDto(string QuestionId, string? AlternativeId = null, string? Text = null);
 public sealed record PlanningValidationDto(string Code, string Location, string Message, bool Required)

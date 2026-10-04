@@ -95,7 +95,7 @@ public sealed class PlanningSessionLifecycleTests
             .OnTool("agent_add", (input, _) => { writes++; saved = input!["workflow"]!.GetValue<string>(); return Task.FromResult(new McpCallResult { Content = new JsonObject { ["success"] = true, ["agent"] = new JsonObject { ["id"] = "saved" } } }); });
         using var service = Create(fixture, new HybridWorkflowPlanner(), agents, settings: new() { BackgroundProcessingEnabled = false });
         await Assert.ThrowsAsync<PlanningConflictException>(() => service.SubmitAsync(state.Request.SessionId, new() { Kind = "save", ExpectedRevision = state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(state) }, Ct));
-        state = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(state) }, Ct);
+        state = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "approve", ReviewedRequirementIds = state.Requirements!.Outcomes.Select(r => r.Id).ToList(), ExpectedRevision = state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(state) }, Ct);
         Assert.True(state.Status == PlanningStatus.Approved, string.Join("; ", state.Diagnostics.Select(d => d.Code + ":" + d.Message)));
         state = await service.SubmitAsync(state.Request.SessionId, new() { Kind = "save", ExpectedRevision = state.Revision, ArtifactHash = state.ApprovedHash }, Ct);
         Assert.Equal(PlanningStatus.Saved, state.Status); Assert.Equal(1, writes);
@@ -104,6 +104,8 @@ public sealed class PlanningSessionLifecycleTests
         using var reopened = Create(fixture, new HybridWorkflowPlanner(), agents, settings: new() { BackgroundProcessingEnabled = false });
         state = await reopened.SubmitAsync(state.Request.SessionId, new() { Kind = "save", ExpectedRevision = state.Revision, ArtifactHash = state.ApprovedHash }, Ct);
         Assert.Equal(PlanningStatus.Saved, state.Status); Assert.Equal(1, writes);
+        Assert.Equal(state.Requirements!.Outcomes.Select(r => "requirement:" + r.Id),
+            state.ValidationResults.Where(r => r.Outcome == "human_reviewed").Select(r => r.Id));
     }
     [Theory]
     [InlineData(PlanningStatus.Generating)]

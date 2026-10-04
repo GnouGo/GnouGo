@@ -20,14 +20,16 @@ public sealed class BrowserObservationTests(ITestOutputHelper output)
         var origin = $"http://127.0.0.1:{port}";
         var html = "<html><head><title>Observed catalogue</title><style>p { color: black }</style></head><body><main>" +
             string.Concat(Enumerable.Range(0, 24).Select(i => $"<article id='entry-{i}' data-noise='{new string('x', 4000)}'><h2>Observed {i}</h2><a href='/item/{i}'>Visit {i}</a><p>Description {i}</p></article>")) +
-            "<p hidden>HIDDEN</p><script>const secret='SCRIPT';</script><input type='password' value='PASSWORD'><button id='change'>Continue</button></main></body></html>";
+            "<p hidden>HIDDEN</p><script>const secret='SCRIPT';</script><input type='password' value='PASSWORD'><button id='change'>Continue</button><dialog open id='dialog'><section><span role='button' id='allow'>Accept cookies</span></section></dialog></main></body></html>";
         var serve = Task.Run(async () =>
         {
             try
             {
                 while (site.IsListening)
                 {
-                    var context = await site.GetContextAsync(); var bytes = Encoding.UTF8.GetBytes(html);
+                    var context = await site.GetContextAsync();
+                    var served = context.Request.Url!.AbsolutePath == "/capture" ? "<html><body><p>" + new string('x', 2_000_100) + "</p><main id='complete'><a href='/item'>Observed item</a></main><section id='empty'></section></body></html>" : html;
+                    var bytes = Encoding.UTF8.GetBytes(served);
                     context.Response.ContentType = "text/html; charset=utf-8"; await context.Response.OutputStream.WriteAsync(bytes, ct); context.Response.Close();
                 }
             }
@@ -50,6 +52,7 @@ public sealed class BrowserObservationTests(ITestOutputHelper output)
             } while (cursor is not null);
             Assert.False(page.Truncated);
             Assert.Equal(24, all.Count(r => r.Kind == "link"));
+            Assert.Contains(all, r => r.Kind == "control" && r.Selector == "#allow" && r.Group == "#dialog" && r.Text == "Accept cookies" && r.Role == "button");
             for (var i = 0; i < 24; i++)
             {
                 Assert.Contains(all, r => r.Kind == "heading" && r.Text == "Observed " + i && r.Group == "#entry-" + i);
@@ -67,6 +70,15 @@ public sealed class BrowserObservationTests(ITestOutputHelper output)
             await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, "observation", null, false, ct, recaptured.Observation!.NextCursor));
             using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => host.GetContentAsync(null, "load", null, null, "observation", null, false, cancelled.Token));
+            var limited = await host.GetContentAsync(origin + "/capture", "domcontentloaded", null, null, "observation", null, false, ct);
+            Assert.True(limited.Truncated); Assert.True(limited.Observation!.CaptureTruncated);
+            Assert.Null(limited.Observation.NextCursor); Assert.Empty(limited.Observation.Records);
+            // No cursor is not completeness: a capture limit requires a fresh narrower read.
+            var narrowed = await host.GetContentAsync(null, "load", null, "#complete", "observation", null, false, ct);
+            Assert.False(narrowed.Truncated); Assert.False(narrowed.Observation!.CaptureTruncated);
+            Assert.Equal("Observed item", Assert.Single(narrowed.Observation.Records).Text);
+            var empty = await host.GetContentAsync(null, "load", null, "#empty", "observation", null, false, ct);
+            Assert.False(empty.Truncated); Assert.Null(empty.Observation!.NextCursor); Assert.Empty(empty.Observation.Records);
             await host.CloseAsync(ct);
         }
         finally { site.Stop(); await serve; }

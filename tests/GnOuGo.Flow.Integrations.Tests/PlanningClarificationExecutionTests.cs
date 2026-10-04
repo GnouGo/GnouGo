@@ -109,14 +109,17 @@ public sealed class PlanningClarificationExecutionTests
         internal int Questions, Reviews;
         public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
         {
-            if (request.Mode == HumanInputContract.ModeForm)
+            if (request.StepId.StartsWith("clarification-", StringComparison.Ordinal))
             {
                 Questions++; var field = Assert.Single(request.Fields!); Assert.True(field.AllowCustomAnswer);
                 Assert.Equal("compact", field.Default); Assert.Equal("compact", Assert.Single(field.OptionDefinitions!, o => o.Recommended).Value);
                 return Task.FromResult<JsonNode?>(new JsonObject { ["presentation"] = custom ? "CUSTOM_INTENT: a number" : "compact" });
             }
             Assert.StartsWith("review-", request.StepId); Reviews++;
-            return Task.FromResult<JsonNode?>(new JsonObject { ["response"] = "approve" });
+            var response = new JsonObject { ["response"] = "approve" };
+            foreach (var field in request.Fields!.Where(f => f.Name.StartsWith("requirement:", StringComparison.Ordinal)))
+            { Assert.Null(field.Default); response[field.Name] = "covered"; }
+            return Task.FromResult<JsonNode?>(response);
         }
     }
     private sealed class Decisions(bool custom) : IPlanningInteraction

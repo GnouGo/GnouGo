@@ -70,7 +70,7 @@ public sealed partial class PlaywrightBrowserHost
     // A capture has finite traversal/storage limits; incomplete captures remain explicitly incomplete.
     internal const string ObservationScript = """
         root => {
-          const records = [], owned = 'a[href],button,h1,h2,h3,h4,h5,h6,input,select,textarea';
+          const records = [], owned = 'a[href],button,[role="button"],h1,h2,h3,h4,h5,h6,input,select,textarea';
           let visited = 0, size = 0, truncated = false;
           const text = s => (s || '').replace(/\s+/g, ' ').trim();
           const selector = e => {
@@ -95,13 +95,13 @@ public sealed partial class PlaywrightBrowserHost
           while (element && !truncated) {
             const tag = element.tagName.toLowerCase(), owner = element.closest(owned);
             if (!owner || owner === element) {
-              const kind = element.matches('a[href]') ? 'link' : /^h[1-6]$/.test(tag) ? 'heading' : element.matches('button,input,select,textarea') ? 'control' : 'text';
+              const kind = element.matches('a[href]') ? 'link' : /^h[1-6]$/.test(tag) ? 'heading' : element.matches('button,[role="button"],input,select,textarea') ? 'control' : 'text';
               const label = element.getAttribute('aria-label');
-              const content = kind === 'control' ? text(label || (tag === 'button' ? element.innerText : element.getAttribute('placeholder'))) :
+              const content = kind === 'control' ? text(label || (element.matches('button,[role="button"]') ? element.innerText : element.getAttribute('placeholder'))) :
                 kind === 'text' ? text([...element.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ')) : text(element.innerText);
               const href = kind === 'link' ? element.href : null;
               if (content || href || kind === 'control') {
-                const group = element.closest('article,li,section,tr,nav,header,main,form') || root;
+                const group = element.closest('dialog,[role="dialog"],[role="alertdialog"],[aria-modal="true"]') || element.closest('article,li,section,tr,nav,header,main,form') || root;
                 const record = { kind, tag, selector: selector(element), group: selector(group), text: content, href, role: element.getAttribute('role') };
                 const length = JSON.stringify(record).length;
                 if (records.length >= 10000 || size + length > 2000000) { truncated = true; break; }

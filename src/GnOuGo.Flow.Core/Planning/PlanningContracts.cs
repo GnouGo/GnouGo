@@ -60,6 +60,8 @@ public sealed class PlanningCommand
     public JsonObject? Selections { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<PlanningAnswer>? Answers { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? ReviewedRequirementIds { get; set; }
     public PlanningGenerationOptions? Generation { get; set; }
 }
 

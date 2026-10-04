@@ -40,6 +40,7 @@ internal static class PlanningEndpoints
                     ExpectedRevision = request.ExpectedRevision,
                     ArtifactHash = request.ArtifactHash,
                     RequestId = request.RequestId,
+                    ReviewedRequirementIds = request.ReviewedRequirementIds?.ToList(),
                     Text = request.Text,
                     Selections = request.Selections,
                     Answers = request.Answers?.Select(a => a is null ? throw new ArgumentException("Invalid planner answer.") : new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList(),

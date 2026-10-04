@@ -92,15 +92,22 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 }
                 else
                 {
+                    var requirements = state.Requirements?.Outcomes ?? [];
                     var answer = await human.RequestInputAsync(new HumanInputRequest
                     {
                         RunId = state.Request.SessionId, StepId = "review-" + state.Revision,
-                        Prompt = "Review the validated workflow stages, execution scopes and required evidence. Runtime outcomes have not yet been observed.",
+                        Prompt = "Review each requirement against the actual tasks and data dependencies, including per-item actions and incomplete observations. Mark only covered requirements. Missing or uncertain coverage requires revision. Execution has not been observed.",
                         Context = JsonValue.Create(state.Requirements?.Summary + "\n\nBusiness tasks and selections:\n" + System.Text.Json.JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan) + "\n\n```yaml\n" + state.Yaml + "\n```"),
-                        Mode = "choice", Choices = ["approve", "revise", "cancel"], AllowAbandon = true
+                        Mode = HumanInputContract.ModeForm, AllowAbandon = true,
+                        Fields = requirements.Select(r => new HumanInputFieldDef
+                        {
+                            Name = "requirement:" + r.Id, Description = r.Description, Type = "radio", Required = false,
+                            Options = ["covered", "missing", "uncertain"]
+                        }).Append(new HumanInputFieldDef { Name = "response", Description = "Decision", Type = "radio", Options = ["approve", "revise", "cancel"] }).ToList()
                     }, ct);
                     command.Kind = HumanInputContract.IsAbandoned(answer) ? "cancel" : (answer is JsonObject obj ? obj["response"] : answer)?.GetValue<string>() ?? "cancel";
                     command.ArtifactHash = state.ComputeArtifactHash();
+                    command.ReviewedRequirementIds = requirements.Where(r => (answer as JsonObject)?["requirement:" + r.Id]?.GetValue<string>() == "covered").Select(r => r.Id).ToList();
                     if (command.Kind == "revise")
                     {
                         var edit = await human.RequestInputAsync(new HumanInputRequest

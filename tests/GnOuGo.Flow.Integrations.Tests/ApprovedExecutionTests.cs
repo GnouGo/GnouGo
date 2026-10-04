@@ -81,6 +81,12 @@ public sealed class ApprovedExecutionTests
     {
         internal int Reviews;
         public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
-        { Assert.StartsWith("review-", request.StepId); Reviews++; return Task.FromResult<JsonNode?>(new JsonObject { ["response"] = "approve" }); }
+        {
+            Assert.StartsWith("review-", request.StepId); Assert.Equal(HumanInputContract.ModeForm, request.Mode); Reviews++;
+            var response = new JsonObject { ["response"] = "approve" };
+            foreach (var field in request.Fields!.Where(f => f.Name.StartsWith("requirement:", StringComparison.Ordinal)))
+            { Assert.Null(field.Default); response[field.Name] = "covered"; }
+            return Task.FromResult<JsonNode?>(response);
+        }
     }
 }

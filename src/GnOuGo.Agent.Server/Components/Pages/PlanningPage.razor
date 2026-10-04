@@ -79,7 +79,8 @@
                 DecisionKey="@(_state.Request.SessionId + ":" + _state.Revision)" Busy="_busy" Select='selections => SubmitAsync("choose", selections: selections)'
                 Answer='answers => SubmitAsync("answer", answers: answers)' Cancel='() => SubmitAsync("cancel")' />
         }
-        <PlannerStageDetails Session="PlanningEndpoints.ToDto(_state)" ShowFindings="false" />
+        <PlannerStageDetails Session="PlanningEndpoints.ToDto(_state)" ShowFindings="false" Busy="_busy"
+            ReviewEnabled="@(!IsWorkflowSession && _state.Status == PlanningStatus.FinalReview)" Reviewed="ids => _reviewedRequirements = ids" />
         @if (_state.Diagnostics.Count > 0)
         {
             <h3>Findings</h3><ul>@foreach (var diagnostic in _state.Diagnostics.DistinctBy(d => (d.Code, d.Location, d.Message)))
@@ -106,7 +107,7 @@
             <p role="status">This session uses a retired planning contract. Enter an explicit revision to continue with business tasks. Its saved responses, artifacts and usage remain retained; a new artifact requires approval.</p>
         }
         @if (!IsWorkflowSession && !_state.RequiresPlanningRevision && _state.Status == PlanningStatus.FinalReview)
-        { <button class="btn btn-primary" disabled="@_busy" @onclick="ApproveAndSaveAsync">Approve this revision and save</button> }
+        { <button class="btn btn-primary" disabled="@(_busy || _reviewedRequirements.Count != (_state.Requirements?.Outcomes.Count ?? 0))" @onclick="ApproveAndSaveAsync">Approve this revision and save</button> }
         @if (!IsWorkflowSession && _state.Status == PlanningStatus.Approved)
         { <button class="btn btn-primary" disabled="@_busy" @onclick='() => SubmitAsync("save")'>Save approved workflow</button> }
         @if (!IsWorkflowSession && _state.Status == PlanningStatus.Stopped && _state.PendingCall is not null)
@@ -158,6 +159,7 @@
     private bool IsWorkflowSession => Source == "workflow";
     [SupplyParameterFromQuery(Name = "agent")] public string? AgentName { get; set; }
     private PlanningSession? _state;
+    private IReadOnlyList<string> _reviewedRequirements = [];
     private int CallCeiling => _state is null ? 0 : Math.Min(_state.Request.MaxModelCalls,
         PlanningBudgetOptions.Parse(_state.Request.Options)?.MaxCalls ?? _state.Request.MaxModelCalls);
     private long CallsUsed => _state is null ? 0 : Math.Max(_state.ModelCalls, _state.Usage?.Calls ?? 0);
@@ -182,7 +184,7 @@
     {
         _viewVersion++;
         CloseTraces(); _traceSessionId = null;
-        _state = null; _entry = null; _renderedRevision = -1; _error = null;
+        _state = null; _reviewedRequirements = []; _entry = null; _renderedRevision = -1; _error = null;
         if (Source is not (null or "workflow")) { _error = "Unknown planning session source."; return; }
         if (SessionId is null && !string.IsNullOrWhiteSpace(AgentName)) { _name = AgentName; _reviseExisting = true; }
         try { await RefreshAsync(); } catch (Exception ex) { _error = ex.Message; }
@@ -213,7 +215,11 @@
             {
                 var inspection = await Planning.InspectAsync(id, workflow, _lifetime.Token);
                 var dto = !workflow && inspection?.Session is { } inspected ? await Planning.ToDtoAsync(inspected, _lifetime.Token) : null;
-                if (version == _viewVersion) { _inspectionDto = dto; _requestInspection = dto?.RequestInspection; _state = inspection?.Session; _entry = inspection?.Entry; _error = null; }
+                if (version == _viewVersion)
+                {
+                    if (_state?.Revision != inspection?.Session?.Revision || _state?.ComputeArtifactHash() != inspection?.Session?.ComputeArtifactHash()) _reviewedRequirements = [];
+                    _inspectionDto = dto; _requestInspection = dto?.RequestInspection; _state = inspection?.Session; _entry = inspection?.Entry; _error = null;
+                }
             }
         }
         finally { if (version == _viewVersion) _loading = false; }
@@ -243,7 +249,8 @@
         if (_state is null || IsWorkflowSession) return;
         _busy = true; _error = null;
         try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, RequestId = _requestInspection?.RequestId, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Selections = selections, Generation = generation, Mode = mode,
-            Answers = answers?.Select(a => new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList() }, _lifetime.Token); }
+            ReviewedRequirementIds = kind == "approve" ? _reviewedRequirements.ToList() : null,
+            Answers = answers?.Select(a => new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList() }, _lifetime.Token); _reviewedRequirements = []; }
         catch (Exception ex) { _error = ex.Message; await RefreshAsync(); }
         finally { _busy = false; }
     }

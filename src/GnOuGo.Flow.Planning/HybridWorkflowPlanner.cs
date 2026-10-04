@@ -67,9 +67,19 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
                     if (state.Status != PlanningStatus.FinalReview || command.ArtifactHash is null || command.ArtifactHash != state.ComputeArtifactHash())
                         throw new PlanningConflictException("Approval must identify the exact current artifact.");
                     PlanningArtifactApproval.Verify(state);
+                    var requirements = state.Requirements?.Outcomes ?? [];
+                    var reviewed = command.ReviewedRequirementIds ?? [];
+                    if (reviewed.Count != requirements.Count || reviewed.Distinct(StringComparer.Ordinal).Count() != reviewed.Count ||
+                        !reviewed.ToHashSet(StringComparer.Ordinal).SetEquals(requirements.Select(r => r.Id)))
+                        throw new PlanningConflictException("REQUIREMENTS_REVIEW_REQUIRED: Review every accepted requirement against the actual tasks, iterations and data sources. Missing or uncertain coverage requires revision.");
                     state.Diagnostics = (await runtime.ValidateCatalogAsync(state.Catalog!, deadline.Token)).ToList();
                     if (state.Diagnostics.Any(d => d.Required)) Stop(state);
-                    else { state.ApprovedHash = command.ArtifactHash; state.Status = PlanningStatus.Approved; }
+                    else
+                    {
+                        state.ValidationResults.AddRange(requirements.Select(r => new PlanningValidationResult("requirement:" + r.Id,
+                            "human_reviewed", r.Description + " — explicitly reviewed against this artifact; execution has not been observed.", [])));
+                        state.ApprovedHash = command.ArtifactHash; state.Status = PlanningStatus.Approved;
+                    }
                     break;
                 case "choose":
                     if (state.Status != PlanningStatus.Clarification || command.Selections is null || state.Plan is null || state.PendingQuestions is not null)

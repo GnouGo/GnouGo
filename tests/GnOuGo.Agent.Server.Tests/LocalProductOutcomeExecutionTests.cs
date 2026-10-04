@@ -5,6 +5,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
@@ -30,6 +31,11 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
     [InlineData("navigation")]
     [InlineData("denied")]
     [InlineData("limit")]
+    [InlineData("consent")]
+    [InlineData("no-consent")]
+    [InlineData("delayed-consent")]
+    [InlineData("unrelated-modal")]
+    [InlineData("incomplete-observation")]
     public async Task RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(string variant)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -39,9 +45,12 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         builder.WebHost.ConfigureKestrel(o => o.Listen(System.Net.IPAddress.Loopback, 0)); builder.Logging.ClearProviders();
         await using var site = builder.Build();
         var visits = new List<string>();
+        var consentScenario = variant is "consent" or "no-consent" or "delayed-consent" or "unrelated-modal" or "incomplete-observation";
+        var consentReceipts = new List<bool>();
         site.MapGet("/{**path}", async (HttpContext context) =>
         {
             var path = context.Request.Path.Value!; visits.Add(path);
+            if (path is "/one" or "/two") consentReceipts.Add(context.Request.Cookies["fixtureConsent"] == "accepted");
             if (path == "/broken") { context.Abort(); return; }
             context.Response.ContentType = "text/html; charset=utf-8";
             var origin = "http://" + context.Request.Host;
@@ -49,7 +58,13 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var body = path == "/search" ? string.Join("", links.Select(p => "<a href='" + origin + "/" + p + "'>Product</a>")) : path == "/missing" ? "<h1>Only a name</h1>" :
                 path == "/one" ? variant == "changed" ? "<h1>Changed lamp</h1><p>New description</p><price>9,90 €</price>" : "<h1>Lampe été, &quot;A&quot;</h1><p>Bright and small {{values}}</p><price>19,99 €</price>" :
                 variant == "changed" ? "<h1>Second</h1><p>Updated</p><price>12.00</price>" : "<h1>東京 lamp</h1><p>Line one\nLine two</p><price>25.00</price>";
-            await context.Response.WriteAsync("<html><body><main>" + body + "</main></body></html>", ct);
+            var banner = path == "/search" && variant is "consent" or "delayed-consent" or "unrelated-modal";
+            var dialog = "<section role='dialog' aria-modal='true' id='notice'><p>" + (variant == "unrelated-modal" ? "Account verification" : "Cookie preferences") +
+                "</p><div><span role='button' tabindex='0' id='accept' onclick=\"document.cookie='fixtureConsent=accepted;path=/';document.querySelector('main').hidden=false;document.getElementById('notice').remove()\">" +
+                (variant == "unrelated-modal" ? "Continue" : "Accept cookies") + "</span></div></section>";
+            var html = "<html><body><main" + (banner ? " hidden" : "") + ">" + body + "</main>";
+            html += banner ? variant == "delayed-consent" ? "<script>setTimeout(()=>document.body.insertAdjacentHTML('beforeend'," + JsonValue.Create(dialog)!.ToJsonString() + "),100)</script>" : dialog : "";
+            await context.Response.WriteAsync(html + "</body></html>", ct);
         });
         await site.StartAsync(ct);
         try
@@ -62,11 +77,12 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             await using var transport = new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>
             {
                 ["browser"] = Server("Browser", new() { ["Browser__AllowedHosts__0"] = "127.0.0.1", ["Browser__Headless"] = "true", ["Browser__KeepBrowserOpen"] = "false",
+                    ["Browser__MaxObservationRecords"] = variant == "incomplete-observation" ? "1" : "80",
                     ["Browser__SlowMoMs"] = "0", ["Browser__HoldOpenMs"] = "0", ["Browser__NavigationTimeoutMs"] = "3000", ["OpenTelemetry__Enabled"] = "false" }),
                 ["document"] = Server("Document", new() { ["Document__DefaultWorkingDirectory"] = workspace, ["OpenTelemetry__Enabled"] = "false" })
             });
             var model = new ProductTransformationFixture(variant) { ReadMethod = "browser_get_content", WriteMethod = "document_write", CloseMethod = "browser_close" };
-            var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = variant is "extract" or "observation" ? new ExtractModel(model) : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
+            var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = consentScenario ? new ConsentModel(model) : variant is "extract" or "observation" ? new ExtractModel(model) : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await runtime.DiscoverAsync(new(), ct); var reads = 0;
             foreach (var source in await runtime.Capabilities.ListSourcesAsync(ct))
@@ -84,6 +100,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             Assert.Equal("execute", catalog.Capabilities.Single(c => c.Method == "browser_fill").EffectKind);
             Assert.Equal("lifecycle", catalog.Capabilities.Single(c => c.Method == "browser_close").EffectKind);
             var plan = ProductTransformationPlan.Create(catalog, model);
+            if (consentScenario) AddConsentSteps(plan, catalog);
             if (variant == "observation")
             {
                 foreach (var task in new[] { plan.Root.Tasks.Single(t => t.Id == "search"), plan.Root.Tasks.Single(t => t.Id == "products").Body!.Tasks.Single(t => t.Id == "page") })
@@ -111,11 +128,14 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var planningMs = timer.Elapsed.TotalMilliseconds;
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join("; ", session.Diagnostics.Select(d => d.Code + " " + d.Location + " " + d.Message)));
             PlanningArtifactApproval.Verify(session); Assert.Equal(1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
+            session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision,
+                ArtifactHash = session.ComputeArtifactHash(), ReviewedRequirementIds = proposal.Requirements.Outcomes.Select(r => r.Id).ToList() }, planning, ct);
+            Assert.Equal(PlanningStatus.Approved, session.Status);
             var doc = new WorkflowCompiler().Compile(WorkflowParser.Parse(session.Yaml!)); timer.Restart();
             var result = await engine.ExecuteAsync(doc.Workflows[doc.Entrypoint!], new JsonObject { ["search"] = site.Urls.Single() + "/search" }, ct);
             var executionMs = timer.Elapsed.TotalMilliseconds;
             output.WriteLine($"LOCAL {variant}: success={result.Success}, calls={session.ModelCalls}, discovery={reads}, repairs={session.ReplanAttempts}, inputEstimate={planning.InputEstimate}, executionAdapterCalls={model.Calls.Count}, planningMs={planningMs:F1}, executionMs={executionMs:F1}; error={result.Error?.Code} {result.Error?.Message}");
-            Assert.Equal(variant is "nominal" or "changed" or "empty" or "missing" or "extract" or "observation", result.Success);
+            Assert.Equal(variant is "nominal" or "changed" or "empty" or "missing" or "extract" or "observation" or "consent" or "no-consent" or "delayed-consent", result.Success);
             var browser = await transport.GetClientAsync("browser", ct);
             var afterCleanup = await browser.CallToolAsync("browser_get_content", new JsonObject(), ct);
             Assert.True(afterCleanup.IsError);
@@ -125,6 +145,11 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             if (!result.Success)
             {
                 Assert.False(File.Exists(file)); Assert.False(File.Exists(Path.Combine(root, "outside.xlsx")));
+                if (variant is "unrelated-modal" or "incomplete-observation")
+                {
+                    Assert.Contains("CONTRACT_UNSATISFIED", result.Error!.Code + result.Error.Message);
+                    Assert.Empty(consentReceipts); Assert.Equal(["/search"], visits.Where(v => v != "/favicon.ico")); return;
+                }
                 Assert.Equal(variant == "limit" ? "INPUT_VALIDATION" : "MCP_CALL_ERROR", result.Error!.Code);
                 if (variant == "limit") { Assert.Single(model.Calls); Assert.Equal(new[] { "/search" }, visits.Where(v => v != "/favicon.ico")); }
                 else
@@ -135,6 +160,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 }
                 return;
             }
+            if (consentScenario) Assert.All(consentReceipts, accepted => Assert.Equal(variant != "no-consent", accepted));
             Assert.Equal(file, result.Outputs!["file"]!.ToString());
             using var workbook = SpreadsheetDocument.Open(file, false);
             var rows = Assert.Single(workbook.WorkbookPart!.WorksheetParts).Worksheet!.Descendants<Row>().Select(r => r.Elements<Cell>().Select(c => c.InnerText).ToArray()).ToArray();
@@ -143,6 +169,43 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             Assert.Equal(variant == "empty" ? ["/search"] : variant == "missing" ? ["/search", "/missing"] : new[] { "/search", "/one", "/two" }, visits.Where(v => v != "/favicon.ico"));
         }
         finally { await site.StopAsync(ct); Directory.Delete(root, true); }
+    }
+
+    private static void AddConsentSteps(TaskPlan plan, PlanningCatalog catalog)
+    {
+        string Operation(string method) { var contract = catalog.Capabilities.Single(c => c.Method == method); return contract.Operation?.Id ?? contract.Id; }
+        var open = new PlanTask { Id = "open", Kind = "operation", Objective = "Open the requested page and observe visible blockers", Operation = Operation("browser_get_content"),
+            Inputs = [new("url", new() { Kind = "input", Source = "search" }), new("format", ProductTransformationPlan.Text("observation"))] };
+        var wait = new PlanTask { Id = "settle", Kind = "operation", Objective = "Allow a bounded interval for delayed visible controls", Operation = Operation("browser_wait"), DependsOn = ["open"],
+            Inputs = [new("delayMs", new() { Kind = "number", Number = 200 })] };
+        var observe = new PlanTask { Id = "inspect", Kind = "operation", Objective = "Inspect current controls after the bounded wait", Operation = Operation("browser_get_content"), DependsOn = ["settle"],
+            Inputs = [new("format", ProductTransformationPlan.Text("observation"))] };
+        var decision = new PlanTask { Id = "consent", Kind = "transform", Objective = "Inspect the complete observation. Identify only an unambiguous visible cookie-acceptance control. Return accept=false when absent. Reject unrelated or ambiguous blockers and incomplete observations; do not guess a selector.",
+            Inputs = [new("page", ProductTransformationPlan.Ref("inspect"))], ResultType = ProductTransformationPlan.Obj(("accept", new() { Kind = "boolean" }), ("selector", new())) };
+        var gate = new PlanTask { Id = "consent_gate", Kind = "conditional", Objective = "Accept cookies only when that observed control is present", Condition = ProductTransformationPlan.Ref("consent", "accept"),
+            Body = new() { Tasks = [new() { Id = "accept_observed", Kind = "operation", Objective = "Click the observed cookie control", Operation = Operation("browser_click"), Inputs = [new("selector", ProductTransformationPlan.Ref("consent", "selector"))] }] }, Otherwise = new() };
+        var search = plan.Root.Tasks.Single(t => t.Id == "search"); search.DependsOn = ["consent_gate"];
+        search.Inputs = [new("selector", ProductTransformationPlan.Text("main"))];
+        search.Objective = "Read a fresh targeted search observation after any consent action";
+        plan.Root.Tasks.InsertRange(0, [open, wait, observe, decision, gate]);
+    }
+
+    private sealed class ConsentModel(ILLMClient next) : ILLMClient
+    {
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            if (request.StructuredOutputSchema?["properties"]?["accept"] is null) return next.CallAsync(request, ct);
+            var start = request.Prompt.IndexOf('{', request.Prompt.LastIndexOf("Business data", StringComparison.Ordinal));
+            var page = JsonNode.Parse(request.Prompt[start..])!["page"]!;
+            if (page["truncated"]!.GetValue<bool>() || page["observation"]?["nextCursor"] is not null || page["observation"]!["captureTruncated"]!.GetValue<bool>())
+                throw new WorkflowRuntimeException("CONTRACT_UNSATISFIED", "The observation is incomplete; narrow or continue it before deciding.");
+            var controls = page["observation"]!["records"]!.AsArray().Where(r => r!["kind"]!.ToString() == "control").ToArray();
+            if (controls.Any(r => r!["text"]!.ToString() != "Accept cookies"))
+                throw new WorkflowRuntimeException("CONTRACT_UNSATISFIED", "The observed blocker is not authorized cookie consent.");
+            Assert.InRange(controls.Length, 0, 1);
+            if (controls.Length == 1) Assert.Equal("#notice", controls[0]!["group"]!.ToString());
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["accept"] = controls.Length == 1, ["selector"] = controls.SingleOrDefault()?["selector"]?.ToString() ?? "" } });
+        }
     }
 
     internal sealed class ProposalRuntime(WorkflowPlanningRuntime actual, PlanningProposal proposal) : IPlanningRuntime

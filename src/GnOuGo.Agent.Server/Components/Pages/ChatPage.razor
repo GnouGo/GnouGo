@@ -1253,7 +1253,7 @@
                 continue;
             }
 
-            if ((IsSelectField(field) || IsRadioField(field)) && field.Options is { Count: > 0 })
+            if (IsSelectField(field) && field.Options is { Count: > 0 })
                 _fieldValues[field.Name] = field.Options[0];
             else if (field.Type.Equals("boolean", StringComparison.OrdinalIgnoreCase))
                 _fieldValues[field.Name] = "false";

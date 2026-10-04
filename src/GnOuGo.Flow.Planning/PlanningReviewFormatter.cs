@@ -10,7 +10,8 @@ public static class PlanningReviewFormatter
             {
                 var contract = state.Catalog!.Capabilities.Single(c => c.Id == n.CapabilityId);
                 return new PlanningValidationResult("operation:" + n.Key, "declared", (n.Purpose ?? n.Key) +
-                    " — contract effect: " + contract.EffectKind + ". " + (contract.ArtifactContract?.Locations is { Count: > 0 } ? "Declared resource locations checked; dynamic relationships still require execution evidence. " : "Resource lifecycle is not established by this contract; review cleanup and retained artifacts. ") + "Execution has not been observed; review the business requirements separately.", []);
+                    " — operation: " + contract.Id + (contract.Server is null ? "" : " (" + contract.Server + "/" + contract.Method + ")") +
+                    "; contract effect: " + contract.EffectKind + ". " + (contract.ArtifactContract?.Locations is { Count: > 0 } ? "Declared resource locations checked; dynamic relationships still require execution evidence. " : "Resource lifecycle is not established by this contract; review cleanup and retained artifacts. ") + "Execution has not been observed; review the business requirements separately.", []);
             }).Concat(PlanningGraphCompiler.Enumerate(state.Graph!.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)))
                 .Where(n => n.Input.Kind == "dynamic_mapping").Select(n => new PlanningValidationResult("mapping:" + n.Key, "declared",
                     n.Purpose + " — runtime extraction, at most two model attempts per invocation; cache hits still validate the complete result. No execution evidence yet.", [])));

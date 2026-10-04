@@ -83,7 +83,7 @@ public sealed class CopilotListPlanningTests
             Catalog = catalog, Plan = plan, Graph = compilation.Graph, Yaml = yaml, Status = PlanningStatus.FinalReview };
         PlanningArtifactApproval.Verify(state);
         var hash = state.ComputeArtifactHash();
-        var approved = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = hash }, runtime, Ct);
+        var approved = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { Kind = "approve", ReviewedRequirementIds = state.Requirements!.Outcomes.Select(r => r.Id).ToList(), ExpectedRevision = state.Revision, ArtifactHash = hash }, runtime, Ct);
         Assert.Equal(PlanningStatus.Approved, approved.Status); Assert.Equal(0, approved.ModelCalls); Assert.Equal(0, approved.ReplanAttempts);
         var engine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human(true) };
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
