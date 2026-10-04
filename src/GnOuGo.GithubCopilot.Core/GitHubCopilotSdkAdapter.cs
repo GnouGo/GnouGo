@@ -977,14 +977,20 @@ internal sealed class GitHubCopilotSdkSession : ICopilotSdkSession
             var content = response?.Data?.Content;
             if (string.IsNullOrWhiteSpace(content))
                 throw new InvalidOperationException("GitHub Copilot returned an empty response.");
+            if (_configuration.LogicalInferenceBudget is not null && !observations.VerifiedTerminalCompletion)
+                throw new InvalidOperationException("GitHub Copilot did not establish completion of its external operations.");
             Report(new CopilotStreamEvent("completed", "info", "Copilot completed the message.", DateTimeOffset.UtcNow));
             return new CopilotSendResult(handle, SessionId, content, response?.Data?.Model, events.ToArray()) { ToolExecutions = observations.Snapshot(), Usage = new CopilotUsage(response?.Data?.OutputTokens, response?.Data?.RequestId, response?.Data?.InteractionId) };
         }
         catch (Exception ex) when (ex is not OutOfMemoryException && (_configuration.ExecutionBounds is not null || _configuration.LogicalInferenceBudget is not null))
         {
-            if (_configuration.ExecutionBounds is null && _configuration.LogicalInferenceBudget is not null)
-                await observations.WaitForIdleAfterContextLimitAsync(cancellationToken);
-            throw observations.Interrupted(handle, SessionId, ex, _configuration.ExecutionBounds, cancellationToken, _configuration.LogicalInferenceBudget);
+            if (_configuration.ExecutionBounds is null && _configuration.LogicalInferenceBudget is { } logical)
+            {
+                if (!observations.ContextLimit || logical.AdmissionStop is not null || cancellationToken.IsCancellationRequested) logical.CloseAdmissions();
+                await observations.WaitForIdleAsync(cancellationToken);
+            }
+            CopilotStreamEvent[] captured; lock (events) captured = events.ToArray();
+            throw observations.Interrupted(handle, SessionId, ex, _configuration.ExecutionBounds, cancellationToken, _configuration.LogicalInferenceBudget, captured);
         }
     }
 

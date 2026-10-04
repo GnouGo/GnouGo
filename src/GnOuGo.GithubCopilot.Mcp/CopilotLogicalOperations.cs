@@ -4,6 +4,7 @@ using GnOuGo.GithubCopilot.Core;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol;
 using ModelContextProtocol.Extensions.Tasks;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace GnOuGo.GithubCopilot.Mcp;
@@ -62,6 +63,7 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
             Configuration = original.Configuration with { LogicalInferenceBudget = budget, LogicalPermissions = permissions } };
         var monitor = MonitorCancellationAsync(id, lifetime, monitoring.Token);
         CopilotSendResult? final = null;
+        CopilotSessionDescriptor? finalSession = null;
         var completionUnknown = false;
         try
         {
@@ -71,6 +73,7 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
                 count++;
                 await store.UpdateOwnedOperationAsync(original.Context.TenantId, id, state => { state["sessions"] = count; state["phase"] = "creating"; }, lifetime.Token);
                 var descriptor = await sessions.CreateAsync(request, lifetime.Token);
+                finalSession = descriptor;
                 await store.UpdateOwnedOperationAsync(original.Context.TenantId, id, state =>
                 { state["handle"] = descriptor.Handle; state["sdkSession"] = descriptor.CopilotSessionId; state["phase"] = "dispatching"; }, lifetime.Token);
                 var verified = false; var continuation = false;
@@ -85,7 +88,12 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
                 catch (CopilotSendInterruptedException interrupted)
                 {
                     final = interrupted.Snapshot;
-                    verified = continuation = interrupted.VerifiedContinuation && !budget.TransportFailed && budget.AdmissionStop is null && !lifetime.IsCancellationRequested;
+                    verified = interrupted.VerifiedTerminalCompletion && !budget.TransportFailed && !lifetime.IsCancellationRequested;
+                    continuation = verified && interrupted.VerifiedContinuation && budget.AdmissionStop is null;
+                    if (verified && !continuation)
+                        final = final with { Content = budget.AdmissionStop is null
+                            ? "COPILOT_TURN_FAILED: external work stopped, but no valid final response is available. Inspect retained execution evidence."
+                            : "COPILOT_LIMIT_REACHED: external work stopped at the approved inference allowance. Inspect retained execution evidence." };
                 }
                 catch (Exception ex) when (ex is not OutOfMemoryException)
                 {
@@ -97,11 +105,15 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
                     await store.UpdateOwnedOperationAsync(original.Context.TenantId, id, state =>
                     {
                         state["phase"] = verified ? "quiescent" : "reconciliation_required";
+                        state["completionVerified"] = verified;
+                        state["admissionStop"] = budget.AdmissionStop is null ? null : JsonSerializer.SerializeToNode(budget.AdmissionStop, CopilotCoreJsonContext.Default.CopilotAdmissionStop);
+                        state["termination"] = continuation ? "continuation" : verified ? final.Completed ? "completed" : "verified_failure" :
+                            lifetime.IsCancellationRequested ? "cancelled_unverified" : budget.TransportFailed ? "transport_unverified" : "completion_unverified";
                         state["evidence"]!.AsArray().Add(JsonSerializer.SerializeToNode(final, CopilotCoreJsonContext.Default.CopilotSendResult));
                     }, flush.Token);
                 // Deletion is allowed only after a verified idle/completion boundary. Unknown
                 // external work retains its SDK identity for explicit reconciliation.
-                if (verified)
+                if (continuation && count < limits.Sessions)
                 {
                     using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                     await sessions.DeleteAsync(original.Context, descriptor.Handle, cleanup.Token, budget);
@@ -115,11 +127,12 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
                 if (!continuation || count >= limits.Sessions) break;
             }
             final = Consolidate(final!, snapshots, count);
+            await budget.StopAsync();
             using var receipt = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             await store.UpdateOwnedOperationAsync(original.Context.TenantId, id, state =>
             {
                 state["result"] = JsonSerializer.SerializeToNode(final, CopilotCoreJsonContext.Default.CopilotSendResult);
-                if (final.Completed) state["phase"] = "completed";
+                if (!completionUnknown) state["phase"] = final.Completed ? "completed" : "failed";
             }, receipt.Token);
             if (completionUnknown)
             {
@@ -127,8 +140,26 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
                 // transport task so the caller's journal cannot release cleanup.
                 // The SDK's later SetCompleted is idempotently ignored by the store.
                 using var error = JsonDocument.Parse("""{"code":-32603,"message":"COPILOT_NEEDS_RECONCILIATION: external completion is unknown; partial evidence is retained in the logical task."}""");
-                await budget.StopAsync();
                 await store.SetFailedAsync(id, error.RootElement, receipt.Token);
+            }
+            else
+            {
+                // Commit the exact MCP receipt before releasing ownership or disposing
+                // the final SDK session. The Tasks extension's subsequent completion is idempotent.
+                var payload = JsonSerializer.SerializeToElement(final, CopilotCoreJsonContext.Default.CopilotSendResult);
+                var result = new CallToolResult { IsError = !final.Completed, StructuredContent = payload,
+                    Content = [new TextContentBlock { Text = payload.GetRawText() }] };
+                await store.SetCompletedAsync(id, JsonSerializer.SerializeToElement(result,
+                    (System.Text.Json.Serialization.Metadata.JsonTypeInfo<CallToolResult>)McpJsonUtilities.DefaultOptions.GetTypeInfo(typeof(CallToolResult))), receipt.Token);
+                if (finalSession is not null)
+                {
+                    try { await sessions.DeleteAsync(original.Context, finalSession.Handle, receipt.Token, budget); }
+                    catch (Exception ex) when (ex is not OutOfMemoryException)
+                    {
+                        // The receipt remains authoritative even if session disposal fails.
+                        progress(new("session_cleanup", "warning", "Verified completion was saved; SDK session disposal requires inspection.", DateTimeOffset.UtcNow));
+                    }
+                }
             }
             lifetime.Token.ThrowIfCancellationRequested();
             return final;

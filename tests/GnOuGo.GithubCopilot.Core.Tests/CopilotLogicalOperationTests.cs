@@ -6,6 +6,54 @@ namespace GnOuGo.GithubCopilot.Core.Tests;
 public sealed class CopilotLogicalOperationTests
 {
     [Theory]
+    [InlineData("empty-final", true)]
+    [InlineData("budget", true)]
+    [InlineData("pending-tool", false)]
+    [InlineData("pending-shell", false)]
+    [InlineData("missing-exit", false)]
+    [InlineData("shell-exit", true)]
+    [InlineData("idle-before-complete", false)]
+    [InlineData("conflict", false)]
+    [InlineData("transport", false)]
+    [InlineData("cancelled", false)]
+    public async Task TerminalReceiptDoesNotRequireContinuationButRequiresEveryExternalCompletion(string scenario, bool verified)
+    {
+        var observations = new CopilotExecutionObservations();
+        var budget = new CopilotInferenceBudget(0, 100000, DateTimeOffset.UtcNow.AddMinutes(1), (_, _, _) => Task.CompletedTask);
+        observations.Observe(new ToolExecutionStartEvent { Data = new() { ToolCallId = "work", ToolName = "arbitrary",
+            ShellToolInfo = scenario is "pending-shell" or "shell-exit" ? new() { HasWriteFileRedirection = false, PossiblePaths = [], DisplayCommand = "local command" } : null } });
+        var idle = new SessionIdleEvent { Data = new() { Mode = SessionMode.Interactive } };
+        if (scenario == "idle-before-complete") observations.Observe(idle);
+        var complete = new ToolExecutionCompleteEvent { Data = new() { ToolCallId = "work", Success = true,
+            ShellExecution = scenario == "shell-exit" ? new() { ExitCode = 0 } : null,
+            Result = scenario == "missing-exit" ? new() { Content = "Fixture terminal", Contents = [new ToolExecutionCompleteContentTerminal { Text = "Still running" }] } : null } };
+        if (scenario != "pending-tool") { observations.Observe(complete); observations.Observe(complete); }
+        if (scenario == "conflict") observations.Observe(new ToolExecutionCompleteEvent { Data = new() { ToolCallId = "work", Success = false } });
+        if (scenario == "budget")
+        {
+            using var inference = new HttpRequestMessage(HttpMethod.Post, "https://example.test/responses");
+            await Assert.ThrowsAsync<InvalidOperationException>(() => budget.ReserveAsync(inference, TestContext.Current.CancellationToken));
+            observations.Observe(new SessionErrorEvent { Data = new() { ErrorType = "query", Message = "PRIVATE" } });
+        }
+        if (scenario != "idle-before-complete") observations.Observe(idle);
+        if (scenario == "transport") budget.RecordTransportFailure();
+        using var cancellation = new CancellationTokenSource(); if (scenario == "cancelled") cancellation.Cancel();
+        var result = observations.Interrupted("handle", "session", new InvalidOperationException("PRIVATE"), null, cancellation.Token, budget);
+        Assert.Equal(verified, result.VerifiedTerminalCompletion); Assert.False(result.VerifiedContinuation);
+        Assert.False(result.Snapshot.Completed); Assert.DoesNotContain("PRIVATE", result.Message);
+    }
+
+    [Fact]
+    public async Task LateIdleIsObservedWithinTheExistingBoundWithoutAnotherSend()
+    {
+        var observations = new CopilotExecutionObservations();
+        var waiting = observations.WaitForIdleAsync(TestContext.Current.CancellationToken);
+        Assert.False(waiting.IsCompleted);
+        observations.Observe(new SessionIdleEvent { Data = new() { Mode = SessionMode.Interactive } });
+        await waiting; Assert.True(observations.VerifiedTerminalCompletion);
+    }
+
+    [Theory]
     [InlineData("complete", true)]
     [InlineData("missing-completion", false)]
     [InlineData("idle-before-error", false)]

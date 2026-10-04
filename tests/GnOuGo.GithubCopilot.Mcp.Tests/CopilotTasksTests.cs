@@ -67,7 +67,7 @@ public sealed class CopilotTasksTests
         if (verified)
         {
             var response = await fixture.Call("copilot_interactive_one_shot", Args, "fixture-tenant");
-            Assert.False(response.IsError == true);
+            Assert.True(response.IsError);
             Assert.False(response.StructuredContent!.Value.GetProperty("completed").GetBoolean());
         }
         else await Assert.ThrowsAsync<McpException>(() => fixture.Call("copilot_interactive_one_shot", Args, "fixture-tenant"));

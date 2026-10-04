@@ -317,7 +317,8 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         Assert.Null(interactiveSchema["properties"]?["permissionMode"]);
         Assert.NotNull(interactiveSchema["properties"]?["permissionAllowlist"]);
         Assert.Contains("interactive", interactive.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("deletes", interactive.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("saved before", interactive.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("reconciliation", interactive.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
         var interactiveArtifacts = McpArtifactContractParser.ParseAndValidate(
             interactive.ProtocolTool.Meta,
             interactiveSchema,

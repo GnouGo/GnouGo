@@ -359,3 +359,20 @@ A final result consolidates tool observations; `completed` still describes turn
 completion, not independent verification of requested work.
 
 See [recovery and execution validation](../../docs/planning-recovery-and-live-blockers.md).
+
+## Logical task completion receipts
+
+Interactive tasks distinguish verified terminal completion from eligibility to continue
+in another SDK session. A verified stop without a valid final response, including an
+inference admission limit, returns a completed MCP transport task with `isError: true`
+and `completed: false` in its existing result. Tool/exit observations remain truthful
+partial evidence. This is not successful execution of the objective.
+
+The exact terminal result is committed through encrypted KeyVault storage before
+releasing ownership and disposing the final SDK session. Repeated polling and restart
+return that receipt without inference or command replay. A failed receipt write keeps
+ownership until commit or host exit. Missing tool completions, missing shell exits,
+conflicting events and unverified cancellation remain reconciliation cases; their
+SDK identities and evidence are retained. Host ceilings and permission rules are unchanged.
+
+See [deterministic browsing/review and receipt regressions](../../docs/browsing-review-and-copilot-receipts.md).

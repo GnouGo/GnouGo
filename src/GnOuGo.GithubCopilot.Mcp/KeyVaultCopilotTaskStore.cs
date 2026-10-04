@@ -89,16 +89,15 @@ internal sealed class KeyVaultCopilotTaskStore(IKeyVaultRecordStore records, Cod
         => FinishAsync(taskId, McpTaskStatus.Failed, error, cancellationToken);
     private async Task FinishAsync(string id, McpTaskStatus status, JsonElement payload, CancellationToken ct)
     {
-        try
+        await ChangeAsync(id, state =>
         {
-            await ChangeAsync(id, state =>
-            {
-                if (!Terminal(state.Task.Status)) state.Task = status == McpTaskStatus.Completed
-                    ? state.Task with { Status = status, Result = payload.Clone(), InputRequests = null }
-                    : state.Task with { Status = status, Error = payload.Clone(), InputRequests = null };
-            }, ct);
-        }
-        finally { if (_owners.TryRemove(id, out var owner)) await owner.DisposeAsync(); }
+            if (!Terminal(state.Task.Status)) state.Task = status == McpTaskStatus.Completed
+                ? state.Task with { Status = status, Result = payload.Clone(), InputRequests = null }
+                : state.Task with { Status = status, Error = payload.Clone(), InputRequests = null };
+        }, ct);
+        // A failed write leaves ownership intact. Other hosts must not mistake the
+        // still-running finalizer for abandoned work before a receipt is durable.
+        if (_owners.TryRemove(id, out var owner)) await owner.DisposeAsync();
     }
     public async Task<bool> SetCancelledAsync(string taskId, CancellationToken cancellationToken = default)
     {

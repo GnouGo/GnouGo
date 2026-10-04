@@ -216,7 +216,7 @@ internal sealed partial class CopilotTools
             CopilotAttachmentContract.ToCore(attachments),
             cancellationToken));
 
-    [McpServerTool(Name = "copilot_interactive_one_shot", UseStructuredContent = true, OutputSchemaType = typeof(CopilotSendResult)), Description("Runs one turn in an ephemeral managed Copilot session with interactive MCP permission and elicitation callbacks, then permanently deletes the session after success, failure, or cancellation. Use this capability for work that may install dependencies, run commands, edit files, or otherwise require user permission.")]
+    [McpServerTool(Name = "copilot_interactive_one_shot", UseStructuredContent = true, OutputSchemaType = typeof(CopilotSendResult)), Description("Runs one bounded logical MCP task with interactive permission and elicitation callbacks. A verified terminal result is saved before the final SDK session is deleted. Verified failure returns an MCP error with partial evidence; unknown external completion retains the session for reconciliation and prohibits automatic replay. Use this capability for work that may install dependencies, run commands, edit files, or otherwise require user permission.")]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = CompleteOneShotMetadataJson)]
     public Task<CopilotSendResult> InteractiveOneShotAsync(
         RequestContext<CallToolRequestParams> requestContext,
