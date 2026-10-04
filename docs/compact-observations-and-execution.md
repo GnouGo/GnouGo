@@ -126,3 +126,7 @@ dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Plan
 ```
 
 The encrypted journal contains the original schemas, responses and execution evidence. A future authorized evaluation must use new identities and a matching frozen manifest; never reuse these execution IDs or resume an uncertain invocation automatically. See the [benchmark commands and accounting rules](../tests/GnOuGo.Agent.Planning.Benchmark/README.md).
+
+## Separate deterministic corrections after observations4
+
+See [browsing review and Copilot receipts](browsing-review-and-copilot-receipts.md) for the subsequent local regressions and corrections. They do not modify this cohort, its oracles or its live success rate. No uncertain invocation was resumed.
