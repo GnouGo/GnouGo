@@ -7,6 +7,11 @@ internal sealed class CopilotExecutionObservations
 {
     private long _sequence;
     private bool _sessionError;
+    private bool _contextLimit;
+    private bool _quiescent;
+    private long _errorSequence;
+    private long _idleSequence;
+    private TaskCompletionSource _idle = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly object _gate = new();
     private readonly Dictionary<string, CopilotToolExecutionObservation> _calls = new(StringComparer.Ordinal);
 
@@ -15,7 +20,9 @@ internal sealed class CopilotExecutionObservations
         lock (_gate)
         {
             var sequence = ++_sequence;
-            if (evt is SessionErrorEvent) _sessionError = true;
+            if (evt is SessionErrorEvent error) { _sessionError = true; _contextLimit = error.Data.ErrorType == "context_limit"; _errorSequence = sequence; _idle = new(TaskCreationOptions.RunContinuationsAsynchronously); }
+            if (evt is SessionIdleEvent idle) { _quiescent = idle.Data.Aborted != true && idle.Data.Mode == SessionMode.Interactive; _idleSequence = sequence; _idle.TrySetResult(); }
+            if (evt is ToolExecutionStartEvent) _quiescent = false;
             if (evt is ToolExecutionStartEvent start)
             {
                 var data = start.Data;
@@ -47,18 +54,29 @@ internal sealed class CopilotExecutionObservations
         }
     }
 
+    internal async Task WaitForIdleAfterContextLimitAsync(CancellationToken ct)
+    {
+        Task idle;
+        lock (_gate) { if (!_contextLimit) return; idle = _idle.Task; }
+        try { await idle.WaitAsync(TimeSpan.FromSeconds(2), ct); }
+        catch (TimeoutException) { }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+    }
+
     internal IReadOnlyList<CopilotToolExecutionObservation> Snapshot()
     {
         lock (_gate) return _calls.Values.ToArray();
     }
 
     internal CopilotSendInterruptedException Interrupted(string handle, string sessionId, Exception error,
-        CopilotExecutionBounds? bounds, CancellationToken ct)
+        CopilotExecutionBounds? bounds, CancellationToken ct, CopilotInferenceBudget? logical = null)
     {
         lock (_gate)
             return new(new(handle, sessionId, "", null, [], Completed: false) { ToolExecutions = _calls.Values.ToArray() },
                 _sessionError && error is InvalidOperationException && bounds?.AdmissionStop is not null &&
-                !bounds.TransportFailed && !ct.IsCancellationRequested);
+                !bounds.TransportFailed && !ct.IsCancellationRequested,
+                bounds is null && logical is { TransportFailed: false, AdmissionStop: null } && _contextLimit && _quiescent && _idleSequence > _errorSequence &&
+                !ct.IsCancellationRequested && _calls.Values.All(c => c.StartedSequence is not null && c.CompletionObserved && !c.ConflictingCompletion));
     }
 
     private static CopilotToolExecutionObservation Empty(string id, string? parent) => new(id, parent, null, null, false, null, false, [], null);

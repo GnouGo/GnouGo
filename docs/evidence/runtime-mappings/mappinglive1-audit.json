@@ -1,0 +1,128 @@
+{
+  "run": "mappinglive1-amazon-1",
+  "result": {
+    "status": "final_review",
+    "planning_ms": 60010,
+    "calls": 2,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 2,
+        "physical_attempts": 2,
+        "known_input_tokens": 17533,
+        "known_output_tokens": 4859,
+        "known_cost_eur": 0.2079599109131403,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 1,
+        "physical_attempts": 1,
+        "known_input_tokens": 153,
+        "known_output_tokens": 110,
+        "known_cost_eur": 0.003621380846325167,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 227,
+        "session_calls": 0,
+        "known_input_tokens": 3126699,
+        "known_output_tokens": 326176,
+        "known_cost_eur": 22.582832700744085,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "cost_upper_bound_eur": 22.582832700744085,
+        "unknown_attempts": 0
+      }
+    },
+    "execution_ms": 110221,
+    "total_ms": 170231
+  },
+  "error": {
+    "Code": "CONTRACT_UNSATISFIED",
+    "Type": "CONTRACT_UNSATISFIED",
+    "Message": "The required mapping could not be established after two bounded attempts: A mapping result contains a missing or invented scalar. Return observed data; defaults belong to the target contract. [workflow 'w_81be22d7f1c8baf9', step 'n_b2de5e3e89d5e1ca']",
+    "Retryable": false,
+    "Details": {
+      "consumer_binding": "task_30cc4990837023d892cf975b",
+      "mapping_attempts": 2,
+      "failed_workflow": "w_81be22d7f1c8baf9",
+      "failed_step_id": "n_b2de5e3e89d5e1ca",
+      "failed_step_type": "mapping.dynamic",
+      "execution_phase": "step",
+      "workflow": "w_81be22d7f1c8baf9",
+      "step_id": "n_b2de5e3e89d5e1ca",
+      "step_type": "mapping.dynamic",
+      "step_status": "Failed"
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "mapping_receipts": [
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_b2de5e3e89d5e1ca/mapping/0",
+      "request_id": "6a3b1a698a726c266ff04d1d9dd77c7555dabba20ee1e5fa3761e5f41218cb6b",
+      "status": "completed",
+      "usage": {
+        "input_tokens": 28316,
+        "output_tokens": 4004,
+        "total_tokens": 32320,
+        "benchmark_cost_eur": 0.2331403118040089,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "response": {
+        "script": "({captchaDetected:m.test(source.html,'(captcha|Captcha|CAPTCHA|Robot Check|robot check|Saisissez les caract\u00e8res|Entrez les caract\u00e8res|automated access)'),status:m.test(source.html,'<form[^>]+action=\"/errors/validateCaptcha\"|captcha|Captcha|Robot Check|robot check')?m.text(source.html,'(captcha|Captcha|CAPTCHA|Robot Check|robot check|Saisissez les caract\u00e8res|Entrez les caract\u00e8res)',1):(m.test(source.html,'<span data-component-type=\"s-search-results\"[^>]*>[\\s\\S]*?<div class=\"s-main-slot s-result-list s-search-results sg-row\">\\s*</div>')?m.text(source.html,'(s-main-slot s-result-list s-search-results sg-row)',1):m.text(source.html,'<span>([^<]*r\u00e9sultats pour)</span>',1)),products:m.texts(source.html,'<a[^>]+class=\"[^\"]*a-link-normal[^\"]*s-line-clamp[^\"]*\"[^>]+href=\"([^\"]+)\"',1).slice(0,3).map((u,i)=>({position:i+1,url:m.test(u,'^https?://')?m.decode(u):m.text(source.pageUrl,'^(https://www\\.amazon\\.fr)',1)+m.decode(u),listingName:m.decode(m.texts(source.html,'<a[^>]+class=\"[^\"]*a-link-normal[^\"]*s-line-clamp[^\"]*\"[^>]*>[\\s\\S]*?<h2[^>]*>[\\s\\S]*?<span[^>]*>([^<]+)</span>',1).slice(0,3)[i])}))})"
+      }
+    },
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_b2de5e3e89d5e1ca/mapping/1",
+      "request_id": "76544162af5fa81f3803aa52a4cd4dc199398d5c983150b674edaa0ac85a4dcd",
+      "status": "completed",
+      "usage": {
+        "input_tokens": 28931,
+        "output_tokens": 1134,
+        "total_tokens": 30065,
+        "benchmark_cost_eur": 0.1591759465478842,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "response": {
+        "script": "({captchaDetected:m.test(source.html,'(/errors/validateCaptcha|Robot Check|robot check|captcha|Captcha|CAPTCHA|Saisissez les caract\u0000e8res|Entrez les caract\u0000e8res|automated access)'),status:m.text(source.html,'(<div class=\"s-main-slot s-result-list s-search-results sg-row\">\\s*</div>)',1),products:[]})"
+      }
+    }
+  ],
+  "observations": [
+    {
+      "statusCode": 202,
+      "length": 51955,
+      "empty_results_container": true,
+      "captcha_form": false
+    }
+  ],
+  "accounting_note": "Original execution subtotal omitted the two durable mapping identities; the campaign total charged both. Retained receipts below supply the additional usage; original records are unchanged."
+}

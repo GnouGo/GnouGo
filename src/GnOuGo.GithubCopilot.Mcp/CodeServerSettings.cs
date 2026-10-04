@@ -20,6 +20,7 @@ public sealed class CodeServerSettings
 
 public sealed class CodeCopilotSettings
 {
+    public CopilotLogicalLimits LogicalLimits { get; set; } = new();
     public string? InferenceProxyEndpoint { get; set; }
     public string Provider { get; set; } = "Copilot";
     public string Model { get; set; } = "gpt-5.4";

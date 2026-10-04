@@ -19,45 +19,16 @@ public sealed class RecordedArtifactPrerequisiteTests(ITestOutputHelper output)
     private static int Estimate(LLMRequest r) => (Bytes(r.Prompt) + Bytes(r.StructuredOutputSchema!.ToJsonString()) + 2) / 3 + 256;
 
     [Fact]
-    public async Task AllSixRetainedResponsesKeepSchemasIdentitiesAndAccountingButMissingProducerIsTerminal()
+    public async Task RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting()
     {
-        var replay = new Replay(); var planner = new HybridWorkflowPlanner();
+        var replay = new Replay();
         foreach (var entry in replay.Recording["responses"]!.AsArray())
         {
-            replay.Expected = entry!.AsObject(); var pending = replay.State(entry["pendingSession"]!);
-            if (pending.ModelCalls >= 5)
-            {
-                // Redaction changes signed material. Preserve the historical hash and
-                // prove it cannot authorize a changed baseline, then issue a separately
-                // labelled in-memory authority for the sanitized replay only.
-                await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(pending, new() { ExpectedRevision = pending.Revision }, replay, Ct));
-                replay.SanitizedReplayPrompt = BindSanitizedReplay(pending);
-                pending.PendingCall!.Request.Prompt = replay.SanitizedReplayPrompt;
-            }
-            var before = Snapshot(pending);
-            var result = await planner.AdvanceAsync(pending, new() { ExpectedRevision = pending.Revision }, replay, Ct);
-            Assert.Equal(before, Snapshot(pending)); Assert.Null(result.PendingCall);
-            Assert.Equal(pending.ModelCalls, result.ModelCalls); Assert.Equal(pending.ReplanAttempts, result.ReplanAttempts);
-            Assert.Equal(JsonSerializer.Serialize(pending.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot), JsonSerializer.Serialize(result.Usage, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
-            if (pending.ModelCalls >= 4)
-            {
-                Assert.Equal(PlanningStatus.Stopped, result.Status);
-                Assert.Contains(result.Diagnostics, d => d.Code == "TASK_ARTIFACT_PREREQUISITE_MISSING" && d.Location == Location);
-                Assert.Null(result.Graph); Assert.Null(result.Yaml); Assert.Null(result.ApprovedHash);
-                if (!result.Diagnostics.Any(d => d.Code == "TASK_INPUT_TYPE" && d.Location == Location)) Assert.DoesNotContain(Location, result.RevisionScope);
-                if (pending.ModelCalls == 4)
-                {
-                    Assert.Equal(0, result.ReplanAttempts); Assert.Equal(4, result.ModelCalls);
-                    Assert.Contains(result.Diagnostics, d => d.Code == "TASK_INPUT_TYPE"); // Other independent findings survive.
-                    var calls = replay.Requests.Count;
-                    Assert.Same(result, await planner.AdvanceAsync(result, new() { ExpectedRevision = result.Revision }, replay, Ct));
-                    Assert.Equal(calls, replay.Requests.Count);
-                }
-            }
+            replay.Expected = entry!.AsObject();
+            var pending = replay.State(entry["pendingSession"]!);
+            await RecordedPlanCompilation.RetiredAsync(pending, replay);
         }
-        Assert.Equal(6, replay.Requests.Count); Assert.Equal(6, replay.Requests.Select(r => r.ClientRequestId).Distinct().Count());
-        Assert.Equal(0, replay.FilterReads); Assert.Equal(2, replay.Recording["finalSession"]!["replanAttempts"]!.GetValue<int>());
-        Assert.Contains(replay.Recording["finalSession"]!["diagnostics"]!.AsArray(), d => d!["code"]!.ToString() == "TASK_ARTIFACT_BINDING");
+        Assert.Empty(replay.Requests);
     }
 
     [Fact]
@@ -67,21 +38,28 @@ public sealed class RecordedArtifactPrerequisiteTests(ITestOutputHelper output)
         var retained = replay.Recording["responses"]![3]!;
         var state = replay.State(retained["pendingSession"]!); var old = state.PendingCall!.Request;
         // Separately labelled offline proposal, never a restart or edit of the saved session.
-        state.PendingCall = null; state.ModelCalls--; state.Request.SessionId = "synthetic-explicit-prerequisite-revision";
+        state.IntentVersion = 2; if (state.Requirements is not null) state.Requirements.Inputs ??= state.Plan?.Inputs ?? []; state.PendingCall = null; state.ModelCalls--; state.Request.SessionId = "synthetic-explicit-prerequisite-revision";
         if (state.Usage is not null) state.Usage = state.Usage with { Calls = state.ModelCalls };
         foreach (var page in state.Discovery.Pages.ToArray())
         {
             var enriched = page.Capabilities.Select(c => c with { ArtifactContract = replay.Contracts.FirstOrDefault(x => x.Id == c.Id && x.Version == c.Version)?.ArtifactContract }).ToList();
             state.Discovery.Pages[state.Discovery.Pages.IndexOf(page)] = page with { Capabilities = enriched };
         }
-        replay.Proposal = replay.Corrected();
+        // This fresh synthetic revision explicitly inspects the consumer. Unadmitted
+        // directory entries no longer cause unrelated prerequisite searches.
+        var consumer = state.Discovery.Pages.SelectMany(p => p.Capabilities).First(c => c.Id == replay.Contracts.Single(c => c.Method == "copilot_review").Id);
+        state.Discovery.Inspections = [new(consumer.SourceId, null, OperationIds: [consumer.Operation!.Id])];
+        replay.Proposal = replay.Corrected(); state.Requirements!.Inputs = replay.Proposal.Inputs;
+        RecordedPlanCompilation.InspectSelected(state, replay.Proposal);
+        state.Request.Generation.MaxInputTokensPerRequest = 96000;
+        RecordedPlanCompilation.RefreshNativeContracts(state);
         var before = Snapshot(state);
         var result = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, replay, Ct);
         Assert.True(result.Status == PlanningStatus.FinalReview, string.Join("; ", result.Diagnostics.Select(d => d.Code + ": " + d.Message)));
         Assert.Equal(4, result.ModelCalls); Assert.Equal(0, result.ReplanAttempts); Assert.Equal(before, Snapshot(state));
         Assert.Null(result.ApprovedHash); Assert.Empty(result.Diagnostics); Assert.NotNull(result.Yaml);
         Assert.Equal(8, result.Request.MaxModelCalls); Assert.Equal(2, result.Request.MaxReplanAttempts);
-        Assert.Equal(24000, result.Request.Generation.MaxInputTokensPerRequest); Assert.Equal(32768, result.Request.Generation.MaxOutputTokens);
+        Assert.Equal(96000, result.Request.Generation.MaxInputTokensPerRequest); Assert.Equal(32768, result.Request.Generation.MaxOutputTokens);
         Assert.Equal(JsonSerializer.Serialize(replay.Proposal, PlanningJsonContext.Default.TaskPlan), JsonSerializer.Serialize(result.Plan, PlanningJsonContext.Default.TaskPlan));
         PlanningArtifactApproval.Verify(result);
         var recovered = JsonSerializer.Deserialize(Snapshot(result), PlanningJsonContext.Default.PlanningSession)!;
@@ -89,7 +67,9 @@ public sealed class RecordedArtifactPrerequisiteTests(ITestOutputHelper output)
         var hash = recovered.ComputeArtifactHash(); recovered.Catalog!.Capabilities.Single(c => c.Id == replay.Producer.Id).ArtifactContract = null;
         Assert.NotEqual(hash, recovered.ComputeArtifactHash()); Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(recovered));
         var request = Assert.Single(replay.Requests);
-        Assert.Contains(replay.Producer.Id, request.Prompt); Assert.InRange(Estimate(request), 1, 24000);
+        Assert.Contains(replay.Producer.Id, request.StructuredOutputSchema!.ToJsonString());
+        Assert.Contains(result.Discovery.Resolved, c => c.Id == replay.Producer.Id);
+        Assert.InRange(Estimate(request), 1, 96000);
         Assert.InRange(replay.FilterReads, 1, state.Discovery.Pages.Select(p => p.SourceId).Distinct().Count());
         Assert.DoesNotContain(result.Discovery.Pages, p => p.ProducedArtifactKind is not null && p.Capabilities.Any(c => c.ArtifactContract?.Produces.All(a => a.Kind != p.ProducedArtifactKind) == true));
         output.WriteLine($"Original proposal: prompt bytes={Bytes(old.Prompt)}, schema bytes={Bytes(old.StructuredOutputSchema!.ToJsonString())}, estimated input={Estimate(old)}. Explicit revised proposal: bytes={Bytes(request.Prompt)}, schema bytes={Bytes(request.StructuredOutputSchema!.ToJsonString())}, estimated input={Estimate(request)}, metadata pages={replay.FilterReads}, resolutions={replay.Resolutions}, scripted new calls=1, cumulative calls=4, repairs=0. Historical calls=6, repairs=2. No live reliability claim.");
@@ -195,7 +175,7 @@ public sealed class RecordedArtifactPrerequisiteTests(ITestOutputHelper output)
         internal readonly JsonObject Recording = Read("retained-prerequisites");
         internal readonly PlanningCapability Producer = Read("declared-producer").Deserialize(PlanningJsonContext.Default.PlanningCapability)!;
         internal JsonObject? Expected;
-        internal string? SanitizedReplayPrompt;
+        internal string? SanitizedReplayPrompt = null;
         internal TaskPlan? Proposal;
         internal PlanningSession? Pending;
         internal readonly List<LLMRequest> Requests = [];

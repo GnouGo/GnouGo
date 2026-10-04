@@ -60,4 +60,23 @@ internal sealed class TaskPlanSymbols
         }
         return [];
     }
+
+    // Reuse only declarations already present in the business plan. Missing branch
+    // values and group boundaries require explicit intent, never generated defaults.
+    internal TaskValue? ExportedReference(Scope consumer, TaskValue value)
+    {
+        if (value.Kind != "output" || value.Source is null) return null;
+        var route = ExportRoute(consumer, value.Source);
+        if (route.Count == 0) return null;
+        var current = value;
+        foreach (var boundary in route)
+        {
+            var export = boundary.Source.Outputs.Where(o => o.Value.Kind == "output" &&
+                o.Value.Source == current.Source && o.Value.Port == current.Port).OrderBy(o => o.Name, StringComparer.Ordinal).FirstOrDefault();
+            if (export is null || boundary.Owner?.Kind == "conditional" && Scopes.Any(s => s.Owner == boundary.Owner &&
+                s.Source.Outputs.Count(o => o.Name == export.Name) != 1)) return null;
+            current = new() { Kind = "output", Source = boundary.Owner!.Id, Port = export.Name };
+        }
+        return current;
+    }
 }

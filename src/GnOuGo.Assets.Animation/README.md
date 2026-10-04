@@ -199,6 +199,8 @@ Default safety limits are 200 simulated step occurrences, 32 workflow actors,
 16 clones per fork, and five loop iterations. Callers can lower these limits
 through `GnouGnouAnimationOptions`.
 
+Nested workflow calls are indexed by the source actor's workflow instance and the target child instance. Return handoffs carry caller context too, but do not create child relationships. This keeps three-level calls, repeated calls and calls from parallel clones from creating self-child edges. The independent package and telemetry event contracts are unchanged. [Regression and real-engine evidence](../../docs/agent-permissions-and-animation.md) includes the sanitized structure of a generated workflow that previously failed during scene preparation.
+
 ## Build and test
 
 ```bash

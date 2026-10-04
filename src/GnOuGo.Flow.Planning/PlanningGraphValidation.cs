@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
@@ -37,6 +38,10 @@ public static class PlanningGraphValidation
         string? targetWorkflow = null, Action<Func<PlanningValue, JsonObject?>>? resolved = null)
     {
         var errors = new List<PlanningDiagnostic>();
+        // This exact host-owned checked set intentionally rejects false at runtime.
+        // Other set declarations retain their ordinary compatibility checks.
+        var verifiedGate = PlanningConfirmationGuards.Required(graph, catalog) &&
+            !PlanningConfirmationGuards.Validate(graph, catalog).Any();
         for (var wi = 0; wi < graph.Workflows.Count; wi++)
         {
             var workflow = graph.Workflows[wi];
@@ -45,7 +50,8 @@ public static class PlanningGraphValidation
             var byKey = nodes.GroupBy(n => n.Node.Key, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First().Node, StringComparer.Ordinal);
             var structured = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
             for (var i = 0; i < workflow.Inputs.Count; i++) CheckSchema(workflow.Inputs[i].Schema, path + "/inputs/" + i + "/schema", true);
-            for (var i = 0; i < workflow.Outputs.Count; i++) CheckSchema(workflow.Outputs[i].Schema, path + "/outputs/" + i + "/schema", true);
+            for (var i = 0; i < workflow.Outputs.Count; i++) CheckSchema(workflow.Outputs[i].Schema, path + "/outputs/" + i + "/schema", true,
+                producer: workflow.Outputs[i].Value.Kind == "output" ? workflow.Outputs[i].Value.Source : null);
             foreach (var (node, location) in nodes)
             {
                 if (node.CapabilityId is { } capabilityId)
@@ -54,7 +60,7 @@ public static class PlanningGraphValidation
                     if (binding is null || !PlanningCapabilityBindings.Supports(binding, node.Type))
                         errors.Add(new("CAPABILITY_BINDING_INVALID", location + "/capabilityId", "The node must implement its exact selected executor, or a permitted local-processing control-flow construct."));
                 }
-                if (node.OutputSchema is not null) CheckSchema(node.OutputSchema, location + "/outputSchema", false);
+                if (node.OutputSchema is not null) CheckSchema(node.OutputSchema, location + "/outputSchema", false, producer: node.Key);
                 var config = Member(node.Input, "structured_output");
                 if (config is null && node.StructuredOutput is null) continue;
                 if (node.StructuredOutput is { } declaration)
@@ -98,8 +104,8 @@ public static class PlanningGraphValidation
                     if (node.OutputSchema is not null)
                     {
                         var declared = PlanningGraphCompiler.ToJsonSchema(node.OutputSchema, catalog);
-                        var actual = node.Type == "set" ? ValueSchema(node.Input, new(StringComparer.Ordinal)) : ValueSchema(new() { Kind = "output", Source = node.Key }, new(StringComparer.Ordinal));
-                        if (actual is not null && !TypesFit(actual, declared, allowUnresolved: node.Type == "set")) errors.Add(node.Type == "set"
+                        var actual = node.Type == "set" && node.Input.Kind is not ("projection" or "dynamic_mapping") ? ValueSchema(node.Input, new(StringComparer.Ordinal)) : ValueSchema(new() { Kind = "output", Source = node.Key }, new(StringComparer.Ordinal));
+                        if (actual is not null && !(verifiedGate && node.Key == PlanningConfirmationGuards.Assert && workflow.Key == graph.Entrypoint) && !TypesFit(actual, declared, allowUnresolved: node.Type == "set")) errors.Add(node.Type == "set"
                             ? new("SET_OUTPUT_INVALID", location + "/input", "The set input is its result and does not satisfy the declared output contract. Compute the declared fields inside input; a context object cannot stand in for the calculation.")
                             : new("OUTPUT_TYPE_MISMATCH", location + "/outputSchema", "The declared output is not established by the actual computation or producer contract."));
                         if (node.Type == "set" && IsLiteral(node.Input))
@@ -129,23 +135,31 @@ public static class PlanningGraphValidation
                             }
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException) { /* Dedicated reference diagnostics follow. */ }
-                if (node.Type is "value.project" or "array.project")
+                if (node.Type == "set" && node.Input.Kind == "projection")
                 {
                     try
                     {
-                        var array = node.Type == "array.project";
-                        var source = Member(node.Input, array ? "items" : "value") ?? throw new InvalidOperationException("Projection needs a source value.");
-                        var contract = ValueSchema(source, new(StringComparer.Ordinal)) ?? throw new InvalidOperationException("Establish the whole source contract with value.validate before projecting fields.");
-                        if (array) contract = contract["items"] as JsonObject ?? throw new InvalidOperationException("Array projection needs an established item contract.");
-                        var paths = array ? new[] { Member(node.Input, "path") } : Member(node.Input, "paths")?.Items.ToArray() ?? [];
-                        foreach (var projection in paths)
+                        if (node.Input.Members.Any(m => m.Name is not ("value" or "paths" or "each")))
+                            throw new InvalidOperationException("Projection contains undeclared settings.");
+                        var each = Member(node.Input, "each");
+                        if (each is not null && each is not { Kind: "boolean", Boolean: not null })
+                            throw new InvalidOperationException("Projection mode must be a literal boolean.");
+                        var source = Member(node.Input, "value") ?? throw new InvalidOperationException("Projection needs a source value.");
+                        var paths = Member(node.Input, "paths");
+                        if (paths is not { Kind: "array", Items.Count: > 0 })
+                            throw new InvalidOperationException("Projection needs declared property paths.");
+                        foreach (var projection in paths.Items)
                         {
-                            if (projection is not { Kind: "array" } || projection.Items.Any(p => p.Kind != "string"))
+                            if (projection is not { Kind: "array" } || projection.Items.Any(p => p.Kind != "string" || p.Text is null))
                                 throw new InvalidOperationException("Projection paths must be declared literal property names.");
-                            var parts = projection.Items.Select(p => p.Text ?? "").ToList();
-                            var selected = AtPath(contract, parts, projection: true, partial: !array);
+                            // Identity projection validates the whole value before establishing its type.
+                            // It never grants field access on an unchecked opaque producer.
+                            if (projection.Items.Count == 0) continue;
+                            var contract = ValueSchema(source, new(StringComparer.Ordinal)) ?? throw new InvalidOperationException("Check the whole source against its authoritative target before projecting fields.");
+                            if (each?.Boolean == true) contract = contract["items"] as JsonObject ?? throw new InvalidOperationException("Per-item projection needs an established item contract.");
+                            var selected = AtPath(contract, projection.Items.Select(p => p.Text!).ToList(), projection: true, partial: true);
                             var output = node.OutputSchema is null ? null : PlanningGraphCompiler.ToJsonSchema(node.OutputSchema, catalog);
-                            var expected = (array ? output?["properties"]?["values"]?["items"] : output?["properties"]?["value"]) as JsonObject;
+                            var expected = (each?.Boolean == true ? output?["properties"]?["value"]?["items"] : output?["properties"]?["value"]) as JsonObject;
                             if (expected is not null && !TypesFit(selected, expected))
                                 throw new InvalidOperationException("The projected field does not satisfy the declared output contract.");
                         }
@@ -155,7 +169,29 @@ public static class PlanningGraphValidation
                         errors.Add(new("PROJECTION_CONTRACT_INVALID", location + "/input", ex.Message + " Control results retain child executor envelopes; MCP business fields are under response and called workflow outputs are under outputs."));
                     }
                 }
+                if (node.Input.Kind == "dynamic_mapping")
+                {
+                    if (node.Type != "set" || !catalog.AllowedStepTypes.Contains("mapping.dynamic") ||
+                        node.OutputSchema is null || Member(node.Input, "sources") is not { Kind: "object", Members.Count: > 0 } ||
+                        node.Input.Members.Count != 4 || new[] { "objective", "binding", "producer_contract" }.Any(name =>
+                            Member(node.Input, name) is not { Kind: "string", Text: { Length: > 0 } }))
+                        errors.Add(new("CONTRACT_UNSATISFIED", location + "/input", "Deferred extraction requires approved sources, a literal objective, binding/contract identities, a target contract and permitted bounded runtime inference."));
+                }
                 CheckValue(node.Input, location + "/input");
+                if (catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId) is { } selectedCapability)
+                    CheckContract(node.Type == "mcp.call" ? Member(node.Input, "request") : node.Input,
+                        selectedCapability.InputSchema, location + "/input", "operation " + selectedCapability.Id, selectedCapability);
+                if (node.Type == "workflow.call" && Member(node.Input, "ref")?.Source is { } called &&
+                    graph.Workflows.SingleOrDefault(w => w.Key == called) is { } target)
+                {
+                    var contract = ObjectSchema(target.Inputs.Select(p => (p.Name, PlanningGraphCompiler.ToJsonSchema(p.Schema, catalog))), closed: true);
+                    contract["required"] = new JsonArray(target.Inputs.Where(p => p.Required && p.Default is null).Select(p => (JsonNode?)JsonValue.Create(p.Name)).ToArray());
+                    var args = Member(node.Input, "args") ?? new() { Kind = "object" };
+                    // Historical host wrappers forwarded the complete declared input object.
+                    if (args is { Kind: "expression", Text: "data.inputs" })
+                        args = new() { Kind = "object", Members = workflow.Inputs.Select(p => new PlanningMember(p.Name, new() { Kind = "input", Source = p.Name })).ToList() };
+                    CheckContract(args, contract, location + "/input/args", "workflow " + called);
+                }
                 if (node.Type == "mcp.call" && catalog.Capabilities.FirstOrDefault(c => c.Id == node.CapabilityId) is { } capability &&
                     capability.InputSchema["properties"] is JsonObject argumentSchemas && Member(node.Input, "request") is { Kind: "object" } arguments)
                 {
@@ -227,7 +263,6 @@ public static class PlanningGraphValidation
                 var output = workflow.Outputs[i];
                 var location = path + "/outputs/" + i;
                 CheckValue(output.Value, location + "/value");
-                if (output.Value.Kind is not ("input" or "output")) continue;
                 try
                 {
                     var actual = ValueSchema(output.Value, new(StringComparer.Ordinal));
@@ -240,8 +275,33 @@ public static class PlanningGraphValidation
 
             if (workflow.Key == targetWorkflow) resolved?.Invoke(value => ValueSchema(value, new(StringComparer.Ordinal)));
 
+            void CheckContract(PlanningValue? value, JsonObject expected, string location, string consumer, PlanningCapability? capability = null)
+            {
+                try
+                {
+                    if (capability is not null)
+                    {
+                        var clone = JsonSerializer.SerializeToNode(value ?? new() { Kind = "object" }, PlanningJsonContext.Default.PlanningValue)!
+                            .Deserialize(PlanningJsonContext.Default.PlanningValue)!;
+                        value = PlanningCapabilityArguments.Apply(clone, capability, acceptExisting: true);
+                    }
+                    var compatible = value is not null && (IsLiteral(value)
+                        ? PlanningContractValidation.ValidateInstance(Literal(value), expected).Count == 0
+                        : ValueSchema(value, new(StringComparer.Ordinal)) is { } actual && TypesFit(actual, expected));
+                    if (compatible) return;
+                    var sources = value is null ? "no binding" : string.Join(", ", PlanningDataflow.References(value).Select(v => v.Kind + ":" + v.Source + "/" + string.Join('/', v.Path)).Distinct());
+                    errors.Add(new("CONTRACT_UNSATISFIED", location, "The complete input contract for " + consumer +
+                        " is not satisfied by " + (sources.Length == 0 ? "the supplied literal values" : sources) + ". Required fields, types and constraints must be established before mapping.", ValidationStage: "contract"));
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException)
+                { errors.Add(new("CONTRACT_UNSATISFIED", location, "Cannot establish the input contract for " + consumer + ": " + ex.Message, ValidationStage: "contract")); }
+            }
+
             void CheckValue(PlanningValue value, string location)
             {
+                if (value.Kind is "predicate" or "json")
+                    try { _ = ValueSchema(value, new(StringComparer.Ordinal)); }
+                    catch (InvalidOperationException ex) { errors.Add(new("COMPUTATION_CONTRACT_INVALID", location, ex.Message)); }
                 if (value.Kind == "workflow" && !graph.Workflows.Any(w => w.Key == value.Source))
                     errors.Add(new("WORKFLOW_REFERENCE_INVALID", location + "/source", "The workflow reference has no declared workflow. Input ports require input references; step results require output references."));
                 if (value.ResultChannel is not (null or "default" or "structured" or "envelope") || (value.ResultChannel is not null && value.Kind != "output"))
@@ -267,6 +327,8 @@ public static class PlanningGraphValidation
 
             JsonObject? ValueSchema(PlanningValue value, HashSet<string> visiting)
             {
+                if (value.Kind is "projection" or "dynamic_mapping") return null; // Checked only as a complete set input, below.
+                if (value.Kind is "predicate" or "json") return PlanningValues.ComputationContract(value, operand => ValueSchema(operand, visiting));
                 if (value.Kind == "present")
                 {
                     if (value.Source is null || !byKey.ContainsKey(value.Source) || value.Path.Count != 0 || value.ResultChannel is not null ||
@@ -320,6 +382,12 @@ public static class PlanningGraphValidation
                 }
                 if (value.Kind == "input")
                 {
+                    if (value.Source is null && value.Path.Count == 0)
+                    {
+                        var all = ObjectSchema(workflow.Inputs.Select(p => (p.Name, PlanningGraphCompiler.ToJsonSchema(p.Schema, catalog))), closed: true);
+                        all["required"] = new JsonArray(workflow.Inputs.Where(p => p.Required || p.Default is not null).Select(p => (JsonNode?)JsonValue.Create(p.Name)).ToArray());
+                        return all;
+                    }
                     var input = workflow.Inputs.FirstOrDefault(p => p.Name == value.Source)
                         ?? throw new InvalidOperationException("The input reference has no declared input producer.");
                     return AtPath(PlanningGraphCompiler.ToJsonSchema(input.Schema, catalog), value.Path);
@@ -344,7 +412,8 @@ public static class PlanningGraphValidation
                         }
                         else if (producer.Type == "mcp.call")
                         {
-                            schema = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema;
+                            schema = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId) is { } operation
+                                ? PlanningOperationResults.Resolve(producer.Type, operation.OutputSchema, null) : null;
                             foreach (var handler in producer.OnError.Where(h => h.Action == "continue"))
                             {
                                 var response = handler.SetOutput is { } fallback ? Member(fallback, "response") : null;
@@ -354,17 +423,16 @@ public static class PlanningGraphValidation
                         }
                         else if (producer.Type == "agent.run")
                         {
-                            var declaration = Member(producer.Input, "output_schema");
-                            schema = catalog.StepContracts[producer.Type]?["output"]?.DeepClone().AsObject();
-                            if (schema is not null && declaration is not null && IsLiteral(declaration))
-                                schema["properties"]!["output"] = Literal(declaration);
+                            var contract = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema
+                                ?? catalog.StepContracts[producer.Type]?["output"] as JsonObject;
+                            schema = contract is null ? null : PlanningOperationResults.Resolve(producer.Type, contract, Member(producer.Input, "output_schema"));
                         }
                         else if (producer.Type == "workflow.call")
                         {
                             var target = graph.Workflows.FirstOrDefault(w => w.Key == Member(producer.Input, "ref")?.Source);
                             schema = target is null ? null : ObjectSchema(target.Outputs.Select(o => (o.Name, PlanningGraphCompiler.ToJsonSchema(o.Schema, catalog))));
                         }
-                        else if (producer.Type is "set" or "value.validate" or "array.project" or "value.project") schema = producer.OutputSchema is not null ? PlanningGraphCompiler.ToJsonSchema(producer.OutputSchema, catalog) : ValueSchema(producer.Input, visiting);
+                        else if (producer.Type is "set" or "mapping.dynamic") schema = producer.OutputSchema is not null ? PlanningGraphCompiler.ToJsonSchema(producer.OutputSchema, catalog) : ValueSchema(producer.Input, visiting);
                         else if (producer.Type == "template.render")
                         {
                             var mode = Member(producer.Input, "mode");
@@ -404,15 +472,18 @@ public static class PlanningGraphValidation
                         }
                         else if (producer.Type == "human.input")
                             schema = HumanSchema(producer.Input);
-                        else if (producer.Type == "decision.evaluate")
-                            schema = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema;
-                        else schema = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema ?? catalog.StepContracts[producer.Type]?["output"] as JsonObject ?? BuiltInStepContracts.Get(producer.Type)?.OutputSchema;
+                        else
+                        {
+                            var contract = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId)?.OutputSchema
+                                ?? catalog.StepContracts[producer.Type]?["output"] as JsonObject ?? BuiltInStepContracts.Get(producer.Type)?.OutputSchema;
+                            schema = contract is null ? null : PlanningOperationResults.Resolve(producer.Type, contract, null);
+                        }
                         if (schema is null) throw new InvalidOperationException("The producer needs an explicit typed output contract.");
                         return AtPath(schema.Count == 0 ? PlanningContractShapes.Opaque() : schema, value.Path);
                     }
                     finally { visiting.Remove(producer.Key); }
                 }
-                return value.Kind switch
+                var inferred = value.Kind switch
                 {
                     "string" => new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(value.Text ?? "") },
                     "number" => new JsonObject { ["type"] = value.Number is { } n && n == decimal.Truncate(n) ? "integer" : "number", ["enum"] = new JsonArray(JsonValue.Create(value.Number)) },
@@ -420,10 +491,12 @@ public static class PlanningGraphValidation
                     "template" => new JsonObject { ["type"] = "string" },
                     "null" => new JsonObject { ["type"] = "null" },
                     "object" => ObjectSchema(value.Members.Where(m => m.Value.Kind != PlanningValues.Omitted).Select(m => (m.Name, ValueSchema(m.Value, visiting) ?? new JsonObject())), closed: true),
-                    "array" when value.Items.Count == 0 => new JsonObject { ["type"] = "array", ["maxItems"] = 0 },
+                    "array" when value.Items.Count == 0 => new JsonObject { ["type"] = "array", ["maxItems"] = 0, ["const"] = new JsonArray() },
                     "array" => new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["anyOf"] = new JsonArray(value.Items.Select(v => (JsonNode?)(ValueSchema(v, visiting) ?? new JsonObject())).ToArray()) } },
                     _ => null
                 };
+                if (inferred is not null && IsLiteral(value)) inferred["const"] = Literal(value);
+                return inferred;
             }
 
             JsonObject ChildSchema(IEnumerable<PlanningNode> children, HashSet<string> visiting)
@@ -474,7 +547,7 @@ public static class PlanningGraphValidation
         }
         return errors.DistinctBy(d => (d.Code, d.Location, d.Message)).ToArray();
 
-        void CheckSchema(PlanningSchema schema, string location, bool boundary, string? code = null)
+        void CheckSchema(PlanningSchema schema, string location, bool boundary, string? code = null, string? producer = null)
         {
             // Report independent leaf failures at their actual planning coordinates.
             // Repeating the same conversion exception at every ancestor would turn
@@ -492,7 +565,8 @@ public static class PlanningGraphValidation
                 if (boundary) { RequireTyped(json, 0); _ = PlanningGraphCompiler.ToFlowSchema(json); }
             }
             catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException)
-            { errors.Add(new(code ?? (schema.CapabilityId is not null || schema.SchemaPointer is not null ? "SCHEMA_REFERENCE_INVALID" : "SCHEMA_INVALID"), location, ex.Message)); }
+            { errors.Add(new(code ?? (schema.CapabilityId is not null || schema.SchemaPointer is not null ? "SCHEMA_REFERENCE_INVALID" : "SCHEMA_INVALID"), location, ex.Message,
+                Rule: producer is null ? null : "producer:" + producer)); }
         }
     }
 
@@ -578,26 +652,28 @@ public static class PlanningGraphValidation
     private static bool HasType(JsonNode? type, string name) => type is JsonValue scalar && scalar.TryGetValue<string>(out var value) && value == name ||
         type is JsonArray union && union.Any(t => t is JsonValue item && item.TryGetValue<string>(out var candidate) && candidate == name);
 
-    internal static void RequireTyped(JsonObject schema, int depth)
+    internal static void RequireTyped(JsonObject schema, int depth, string pointer = "")
     {
         if (PlanningContractShapes.IsOpaque(schema)) return;
-        if (depth > 32) throw new InvalidOperationException("Schema nesting exceeds 32 levels.");
+        InvalidOperationException Invalid(string message) => new(message + " Schema path: '" + (pointer.Length == 0 ? "/" : pointer) + "'.");
+        if (depth > 32) throw Invalid("Schema nesting exceeds 32 levels.");
         if (schema.ContainsKey("const") || schema["enum"] is JsonArray { Count: > 0 }) return;
         if (schema["allOf"] is JsonArray && PlanningValues.Established(schema)) return;
         var type = schema["type"];
         if (type is null && schema["$ref"] is null && schema["anyOf"] is null && schema["oneOf"] is null)
-            throw new InvalidOperationException("An output schema requires a concrete type.");
+            throw Invalid("An output schema requires a concrete type.");
         if (HasType(type, "object"))
         {
             var properties = schema["properties"] as JsonObject;
             if ((properties is null || properties.Count == 0) && schema["additionalProperties"] is not JsonObject && schema["additionalProperties"]?.ToString() != "false")
-                throw new InvalidOperationException("An object output requires declared properties or typed additional properties; required names alone are insufficient.");
+                throw Invalid("An object output requires declared properties or typed additional properties; required names alone are insufficient.");
         }
         if (HasType(type, "array") && schema["items"] is not JsonObject && !PlanningValues.Established(schema))
-            throw new InvalidOperationException("An array output requires typed items.");
-        foreach (var child in (schema["properties"] as JsonObject ?? []).Select(p => p.Value).OfType<JsonObject>()) RequireTyped(child, depth + 1);
-        if (schema["items"] is JsonObject items) RequireTyped(items, depth + 1);
-        if (schema["additionalProperties"] is JsonObject additional) RequireTyped(additional, depth + 1);
+            throw Invalid("An array output requires typed items.");
+        foreach (var (name, child) in schema["properties"] as JsonObject ?? [])
+            if (child is JsonObject field) RequireTyped(field, depth + 1, pointer + "/properties/" + PlanningSchemaReferences.Escape(name));
+        if (schema["items"] is JsonObject items) RequireTyped(items, depth + 1, pointer + "/items");
+        if (schema["additionalProperties"] is JsonObject additional) RequireTyped(additional, depth + 1, pointer + "/additionalProperties");
     }
 
     internal static IEnumerable<(PlanningNode Node, string Path)> Located(List<PlanningNode> nodes, string path)

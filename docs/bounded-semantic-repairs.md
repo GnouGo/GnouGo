@@ -1,5 +1,10 @@
 # Bounded semantic repair patches
 
+Historical design and measurements from before planner stabilization are retained below.
+Current version-2 structural permissions and execution comparisons are documented in
+[planner stabilization](evidence/planner-stabilization/README.md); older pending
+requests continue to use their original narrower schemas.
+
 Initial generation still returns TaskPlan. A semantic repair returns only private,
 source-generated `RepairPatch` data. The host issues typed slots from the immutable
 baseline, existing `RevisionScope`, diagnostics and authoritative contracts. Slot IDs

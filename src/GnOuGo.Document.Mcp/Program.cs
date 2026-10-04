@@ -39,7 +39,20 @@ builder.Services
             foreach (var tool in result.Tools)
             {
                 if (string.Equals(tool.Name, "document_write", StringComparison.Ordinal))
+                {
                     tool.Description = policy.BuildDocumentWriteToolDescription();
+                    tool.Meta ??= new();
+                    ((System.Text.Json.Nodes.JsonObject)tool.Meta["gnougo"]!)["artifacts"] = new System.Text.Json.Nodes.JsonObject
+                    {
+                        ["version"] = 1,
+                        ["produces"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["kind"] = "document.file", ["pointer"] = "/filePath", ["mode"] = "materialize" }),
+                        ["locations"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject
+                        {
+                            ["pointer"] = "/filePath", ["outputPointer"] = "/filePath", ["kind"] = "file", ["action"] = "materialize",
+                            ["space"] = new UriBuilder(new Uri(policy.DefaultWorkingDirectory.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar)) { Host = Environment.MachineName }.Uri.AbsoluteUri
+                        })
+                    };
+                }
             }
 
             return result;

@@ -1,7 +1,9 @@
+using GnOuGo.Mcp.Core;
+using ModelContextProtocol;
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
-using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
 namespace GnOuGo.Browser.Mcp;
@@ -19,20 +21,23 @@ public sealed class BrowserTools
     }
 
 
-    [McpServerTool(Name = "browser_get_content", UseStructuredContent = true, OutputSchemaType = typeof(BrowserContentResult)), Description("Reads rendered content from the current page or from a CSS selector. If url is provided, this tool first navigates to that absolute http/https URL, waits for the requested load state, then returns the content in the same call. Prefer this one-shot tool when the goal is simply to open a page and inspect or extract its content. Prefer waitUntil='domcontentloaded' or 'load' for search/e-commerce pages such as Amazon; avoid 'networkidle' unless the page is known to become idle. Use format='text' for readable visible text, summaries, and plain content extraction (example: summarize an article or read a confirmation message). Use format='html' when you need DOM structure, links, href/src attributes, button labels, form fields, menu/navigation markup, or when the client must decide what element to click based on the rendered HTML (example: extract menu links from nav/header, inspect a consent banner, or build a reliable CSS selector). Script elements are stripped from returned HTML by default to keep responses compact and useful for MCP clients.")]
+    [McpMeta("gnougo", JsonValue = McpEffectMetadata.Read)]
+    [McpServerTool(Name = "browser_get_content", UseStructuredContent = true, OutputSchemaType = typeof(BrowserContentResult)), Description("Reads rendered content from the current page or from a CSS selector. Prefer format=observation for compact typed visible text, links, headings and controls; consume only the needed records. It preserves observed DOM grouping and resolved link URLs without interpreting business fields. Truncation is explicit: use the returned observation.nextCursor with format=observation and no URL/selector to continue the same snapshot, or narrow the selector. Navigation or interaction invalidates continuation. If url is provided, this tool first navigates to that absolute http/https URL, waits for the requested load state, then returns the content in the same call. Prefer this one-shot tool when the goal is simply to open a page and inspect or extract its content. Prefer waitUntil='domcontentloaded' or 'load' for search/e-commerce pages such as Amazon; avoid 'networkidle' unless the page is known to become idle. Use format='text' for readable visible text, summaries, and plain content extraction (example: summarize an article or read a confirmation message). Use format='html' when you need DOM structure, links, href/src attributes, button labels, form fields, menu/navigation markup, or when the client must decide what element to click based on the rendered HTML (example: extract menu links from nav/header, inspect a consent banner, or build a reliable CSS selector). Script elements are stripped from returned HTML by default to keep responses compact and useful for MCP clients.")]
     public async Task<BrowserContentResult> GetContentAsync(
-        [Description("Optional absolute URL to open before reading content. Prefer setting this for one-shot page reads so the tool both navigates and returns content in a single call. When omitted, the tool reads from the current page.")] string? url = null,
+        [RegularExpression(BrowserNavigationPolicy.HttpUrlPattern), Description("Optional absolute HTTP/HTTPS URL to open before reading content. Decode percent-encoded whole URLs and resolve relative references against their observed page URL before calling. Escape whitespace. When omitted, reads the current page.")] string? url = null,
         [Description("Navigation wait mode used when url is provided: load, domcontentloaded, or networkidle. Prefer domcontentloaded/load for dynamic shopping/search pages; networkidle can time out on Amazon-like pages.")] string waitUntil = "load",
         [Description("Optional navigation timeout in milliseconds used when url is provided.")] int? timeoutMs = null,
         [Description("Optional CSS selector. Defaults to the body element. Prefer scoping to nav/header/menu/form containers when inspecting links or interactive elements. Example: selector='nav' with format='html' for menu links.")] string? selector = null,
-        [Description("Return format: text or html. Example text => article summary, success message, visible page copy. Example html => nav/header links, href/src attributes, forms, buttons, tables, selectors, and any task where the client must inspect the rendered html markup before acting.")] string format = "html",
-        [Description("Maximum number of characters returned.")] int? maxCharacters = null,
+        [RegularExpression("^(text|html|observation)$"), Description("Return format: observation (compact typed DOM facts, preferred for extraction), text or html. Example text => article summary, success message, visible page copy. Example html => nav/header links, href/src attributes, forms, buttons, tables, selectors, and any task where the client must inspect the rendered html markup before acting.")] string format = "html",
+        [Description("Maximum characters returned. Observation mode limits the complete serialized result to at most the host allowance (default 24000). HTML/text retain existing behavior.")] int? maxCharacters = null,
         [Description("Include <script> elements and inline script content in HTML responses. Defaults to false because scripts are usually noisy and very large.")] bool includeScriptContent = false,
+        [Description("Opaque continuation from observation.nextCursor. Use format=observation and omit URL and selector; navigation or interaction invalidates it.")] string? cursor = null,
+        [Range(1, 200), Description("Maximum observation records per response, capped by host policy; default 200.")] int? maxRecords = null,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            return await _browserHost.GetContentAsync(url, waitUntil, timeoutMs, selector, format, maxCharacters, includeScriptContent, cancellationToken);
+            return await _browserHost.GetContentAsync(url, waitUntil, timeoutMs, selector, format, maxCharacters, includeScriptContent, cancellationToken, cursor, maxRecords);
         }
         catch (Exception ex)
         {
@@ -49,6 +54,7 @@ public sealed class BrowserTools
         }
     }
 
+    [McpMeta("gnougo", JsonValue = McpEffectMetadata.Execute)]
     [McpServerTool(Name = "browser_click", UseStructuredContent = true, OutputSchemaType = typeof(BrowserActionResult)), Description("Clicks the first element matching a CSS selector on the current page. Use this when the client already knows a reliable selector. If the goal is to inspect menus, links, buttons, forms, or consent banners first, call browser_get_content with format='html' before clicking so the client can inspect the rendered DOM and attributes.")]
     public async Task<BrowserActionResult> ClickAsync(
         [Description("CSS selector to click. Prefer selectors derived from rendered HTML inspection rather than visible text alone when links, hrefs, or nested markup matter.")] string selector,
@@ -67,6 +73,7 @@ public sealed class BrowserTools
         }
     }
 
+    [McpMeta("gnougo", JsonValue = McpEffectMetadata.Execute)]
     [McpServerTool(Name = "browser_fill", UseStructuredContent = true, OutputSchemaType = typeof(BrowserActionResult)), Description("Fills an input or textarea, with optional Enter submission. Use this when the client already knows a reliable selector for the target field. If the client must first identify which field corresponds to a label, placeholder, form section, or custom markup, inspect browser_get_content with format='html' first and derive a selector from the rendered DOM.")]
     public async Task<BrowserActionResult> FillAsync(
         [Description("CSS selector of the target input or textarea element. Example: input[name='email'], textarea[name='message'], #search-box. Prefer selectors derived from rendered HTML when forms contain multiple similar fields.")] string selector,
@@ -86,6 +93,7 @@ public sealed class BrowserTools
         }
     }
 
+    [McpMeta("gnougo", JsonValue = McpEffectMetadata.Execute)]
     [McpServerTool(Name = "browser_click_text", UseStructuredContent = true, OutputSchemaType = typeof(BrowserActionResult)), Description("Clicks the first visible element matching a text label. Use this when the client knows the visible label but not a stable selector. If multiple matching elements may exist, or if links/menu items must be distinguished by href or DOM position, inspect browser_get_content with format='html' first and prefer browser_click with a selector derived from the rendered HTML.")]
     public async Task<BrowserActionResult> ClickTextAsync(
         [Description("Visible text to match. Best for unique button labels like Submit, Next, Continue, OK, Accept, etc.")] string text,
@@ -105,6 +113,7 @@ public sealed class BrowserTools
         }
     }
 
+    [McpMeta("gnougo", JsonValue = McpEffectMetadata.Execute)]
     [McpServerTool(Name = "browser_press", UseStructuredContent = true, OutputSchemaType = typeof(BrowserKeyActionResult)), Description("Presses a keyboard key on the first element matching a CSS selector. Use this when keyboard interaction is intentional, for example Enter to submit a focused field, Tab to move focus, Escape to close a dialog, or ArrowDown to navigate a list. If the client does not yet know the right target element, inspect browser_get_content with format='html' first and derive a selector from the rendered DOM.")]
     public async Task<BrowserKeyActionResult> PressAsync(
         [Description("CSS selector of the target element. Prefer selectors derived from rendered HTML when focus order or element type matters.")] string selector,
@@ -124,6 +133,7 @@ public sealed class BrowserTools
         }
     }
 
+    [McpMeta("gnougo", JsonValue = McpEffectMetadata.Execute)]
     [McpServerTool(Name = "browser_select", UseStructuredContent = true, OutputSchemaType = typeof(BrowserSelectResult)), Description("Selects an option value in a <select> element. Use this only for real HTML <select> controls. If the client must first inspect available options, labels, or determine whether the control is a native <select> or a custom widget, inspect browser_get_content with format='html' first.")]
     public async Task<BrowserSelectResult> SelectAsync(
         [Description("CSS selector of the target select element. Example: select[name='country'] or #my-select.")] string selector,
@@ -142,6 +152,7 @@ public sealed class BrowserTools
         }
     }
 
+    [McpMeta("gnougo", JsonValue = McpEffectMetadata.Read)]
     [McpServerTool(Name = "browser_wait", UseStructuredContent = true, OutputSchemaType = typeof(BrowserWaitResult)), Description("Waits for a selector state and/or a fixed delay before continuing a scenario. Use selector waiting when the client already knows the element or container that should appear/disappear. If the client does not yet know what DOM element indicates readiness, inspect browser_get_content with format='html' first, choose a stable selector, then wait on that selector.")]
     public async Task<BrowserWaitResult> WaitAsync(
         [Description("Optional CSS selector to wait for. Example: form, nav a, .modal, [data-testid='results']. Prefer selectors chosen after HTML inspection when readiness is ambiguous.")] string? selector = null,
@@ -161,6 +172,7 @@ public sealed class BrowserTools
         }
     }
 
+    [McpMeta("gnougo", JsonValue = McpEffectMetadata.Read)]
     [McpServerTool(Name = "browser_screenshot", UseStructuredContent = true, OutputSchemaType = typeof(BrowserScreenshotResult)), Description("Captures the current page as base64-encoded PNG or JPEG.")]
     public async Task<BrowserScreenshotResult> ScreenshotAsync(
         [Description("Capture the full page instead of only the viewport.")] bool fullPage = true,
@@ -180,6 +192,7 @@ public sealed class BrowserTools
     }
 
 
+    [McpMeta("gnougo", JsonValue = McpEffectMetadata.Lifecycle)]
     [McpServerTool(Name = "browser_close", UseStructuredContent = true, OutputSchemaType = typeof(BrowserCloseResult)), Description("Closes the current browser page and context.")]
     public async Task<BrowserCloseResult> CloseAsync(CancellationToken cancellationToken = default)
     {

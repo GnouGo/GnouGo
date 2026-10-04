@@ -13,15 +13,16 @@ internal static class PlanningEndpoints
             Results.Json((await service.ListAsync(conversationId, ct)).ToList(), ChatJsonContext.Default.ListPlanningSessionDto));
         app.MapPost("/api/chat/conversations/{conversationId}/planning/{id}/commands", async (string conversationId, string id, PlanningCommandDto request, ChatPlanningService service, CancellationToken ct) =>
         {
-            try { return Results.Json(await service.SubmitAsync(conversationId, id, new() { Kind = request.Kind, ExpectedRevision = request.ExpectedRevision, Mode = request.Mode, Selections = request.Selections }, ct), ChatJsonContext.Default.PlanningSessionDto); }
+            try { return Results.Json(await service.SubmitAsync(conversationId, id, new() { Kind = request.Kind, ExpectedRevision = request.ExpectedRevision, Mode = request.Mode, Selections = request.Selections,
+                Answers = request.Answers?.Select(a => a is null ? throw new ArgumentException("Invalid planner answer.") : new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList() }, ct), ChatJsonContext.Default.PlanningSessionDto); }
             catch (PlanningConflictException ex) { return Results.Conflict(ex.Message); }
             catch (KeyNotFoundException) { return Results.NotFound(); }
             catch (ArgumentException) { return Results.BadRequest("Invalid planner decision command."); }
         });
         app.MapGet("/api/planning", async (PlanningSessionService service, CancellationToken ct) =>
-            Results.Json((await service.ListAsync(ct)).Select(ToDto).ToList(), ChatJsonContext.Default.ListPlanningSessionDto));
+            Results.Json((await Task.WhenAll((await service.ListAsync(ct)).Select(state => service.ToDtoAsync(state, ct)))).ToList(), ChatJsonContext.Default.ListPlanningSessionDto));
         app.MapGet("/api/planning/{id}", async (string id, PlanningSessionService service, CancellationToken ct) =>
-            await service.GetAsync(id, ct) is { } state ? Results.Json(ToDto(state), ChatJsonContext.Default.PlanningSessionDto) : Results.NotFound());
+            await service.GetAsync(id, ct) is { } state ? Results.Json(await service.ToDtoAsync(state, ct), ChatJsonContext.Default.PlanningSessionDto) : Results.NotFound());
         app.MapPost("/api/planning", async (PlanningStartDto request, PlanningSessionService service, CancellationToken ct) =>
         {
             try { return Results.Json(ToDto(await service.StartAsync(request.Name, request.Prompt, request.ReviseExisting, ct, mode: request.Mode)), ChatJsonContext.Default.PlanningSessionDto); }
@@ -38,11 +39,13 @@ internal static class PlanningEndpoints
                     Mode = request.Mode,
                     ExpectedRevision = request.ExpectedRevision,
                     ArtifactHash = request.ArtifactHash,
+                    RequestId = request.RequestId,
                     Text = request.Text,
                     Selections = request.Selections,
+                    Answers = request.Answers?.Select(a => a is null ? throw new ArgumentException("Invalid planner answer.") : new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList(),
                     Generation = request.Generation is { } options ? new() { Reasoning = options.Reasoning, MaxInputTokensPerRequest = options.MaxInputTokensPerRequest, MaxOutputTokens = options.MaxOutputTokens } : null
                 }, ct);
-                return Results.Json(ToDto(state), ChatJsonContext.Default.PlanningSessionDto);
+                return Results.Json(await service.ToDtoAsync(state, ct), ChatJsonContext.Default.PlanningSessionDto);
             }
             catch (PlanningConflictException ex) { return Results.Conflict(ex.Message); }
             catch (KeyNotFoundException) { return Results.NotFound(); }
@@ -68,6 +71,8 @@ internal static class PlanningEndpoints
         SchemaVersion = state.SchemaVersion,
         RevisionScope = state.RevisionScope.ToArray(),
         DiscoveryLimitations = state.Discovery.Limitations.ToArray(),
+        Questions = state.PendingQuestions?.Select(q => new PlanningQuestionDto(q.Id, q.Question,
+            q.Alternatives.Select(a => new PlanningAlternativeDto(a.Id, a.Description, null)).ToArray(), q.Recommended)).ToArray() ?? [],
         TaskPlan = state.Plan is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)!.AsObject()
     };
 

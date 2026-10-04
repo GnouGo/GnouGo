@@ -51,9 +51,8 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
         while (!PlanningStatus.IsTerminal(state.Status))
         {
             var command = new PlanningCommand { ExpectedRevision = state.Revision };
-            if (state.Status == PlanningStatus.Clarification && ctx.Engine.PlanningInteraction is not null)
+            if (state.Status == PlanningStatus.Clarification && ctx.Engine.PlanningInteraction is { } decisions)
             {
-                if (ctx.Engine.PlanningInteraction is not { } decisions) break;
                 command = await decisions.RequestAsync(state, ct);
             }
             else if (PlanningStatus.IsWaiting(state.Status))
@@ -61,19 +60,35 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                 if (ctx.Engine.HumanInputProvider is not { } human) break;
                 if (state.Status == PlanningStatus.Clarification)
                 {
-                    var selections = new JsonObject();
-                    foreach (var choice in state.GetChoices().Where(c => c.Selected is null))
+                    var questions = state.GetQuestions();
+                    var answer = await human.RequestInputAsync(new HumanInputRequest
                     {
-                        var answer = await human.RequestInputAsync(new HumanInputRequest
+                        RunId = state.Request.SessionId, StepId = "clarification-" + state.Revision,
+                        Prompt = "Clarify the intended workflow. Confirm a suggested answer or enter your own.",
+                        Mode = HumanInputContract.ModeForm, AllowAbandon = true,
+                        Fields = questions.Select(q => new HumanInputFieldDef
                         {
-                            RunId = state.Request.SessionId, StepId = choice.Id,
-                            Prompt = choice.Question + "\nRecommended: " + choice.Recommended + "\n" + string.Join("\n", choice.Alternatives.Select(a => a.Id + ": " + a.Description)),
-                            Mode = "choice", Choices = choice.Alternatives.Select(a => a.Id).ToList(), AllowAbandon = true
-                        }, ct);
-                        if (HumanInputContract.IsAbandoned(answer)) { command.Kind = "cancel"; break; }
-                        selections[choice.Id] = (answer is JsonObject obj ? obj["response"] : answer)?.GetValue<string>();
+                            Name = q.Id, Description = q.Question, Type = q.Alternatives.Count == 0 ? "textarea" : "radio",
+                            Options = q.Alternatives.Select(a => a.Id).ToList(),
+                            OptionDefinitions = q.Alternatives.Select(a => new HumanInputOptionDef { Value = a.Id, Description = a.Description, Recommended = a.Id == q.Recommended }).ToList(),
+                            AllowCustomAnswer = true, Default = q.Recommended, Required = true
+                        }).ToList()
+                    }, ct);
+                    if (HumanInputContract.IsAbandoned(answer)) command.Kind = "cancel";
+                    else
+                    {
+                        var answers = questions.Select(q =>
+                        {
+                            var value = (answer as JsonObject)?[q.Id]?.GetValue<string>();
+                            return q.Alternatives.Any(a => a.Id == value) ? new PlanningAnswer(q.Id, AlternativeId: value) : new PlanningAnswer(q.Id, Text: value);
+                        }).ToList();
+                        if (state.PendingQuestions is null && answers.All(a => a.AlternativeId is not null))
+                        {
+                            command.Kind = "choose";
+                            command.Selections = new JsonObject(answers.Select(a => new KeyValuePair<string, JsonNode?>(a.QuestionId, JsonValue.Create(a.AlternativeId))));
+                        }
+                        else { command.Kind = "answer"; command.Answers = answers; }
                     }
-                    if (command.Kind != "cancel") { command.Kind = "choose"; command.Selections = selections; }
                 }
                 else
                 {
@@ -99,6 +114,9 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
             if (ctx.Engine.PlanningInteraction is { } observer) await observer.CheckpointedAsync(state, ct);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.status", state.Status);
             ctx.SetTelemetryAttribute("gnougo-flow.plan.calls", state.ModelCalls);
+            ctx.SetTelemetryAttribute("gnougo-flow.plan.clarifications.answered", state.AnswerHistory?.Sum(b => b.Answers.Count) ?? 0);
+            ctx.SetTelemetryAttribute("gnougo-flow.plan.clarifications.pending", state.PendingQuestions?.Count ?? 0);
+            ctx.SetTelemetryAttribute("gnougo-flow.plan.human_wait_ms", state.HumanWaitMilliseconds);
         }
         var result = new JsonObject { ["status"] = state.Status, ["session_id"] = state.Request.SessionId, ["revision"] = state.Revision };
         if (PlanningStatus.IsWaiting(state.Status)) return result;

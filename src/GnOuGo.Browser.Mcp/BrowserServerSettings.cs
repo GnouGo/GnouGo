@@ -11,6 +11,8 @@ public sealed class BrowserServerSettings
     public int DefaultTimeoutMs { get; set; } = 30_000;
     public int NavigationTimeoutMs { get; set; } = 45_000;
     public int MaxContentCharacters { get; set; } = 12_000;
+    public int MaxObservationCharacters { get; set; } = 24_000;
+    public int MaxObservationRecords { get; set; } = 200;
     public int ScreenshotQuality { get; set; } = 90;
     public int SlowMoMs { get; set; }
     public int HoldOpenMs { get; set; }

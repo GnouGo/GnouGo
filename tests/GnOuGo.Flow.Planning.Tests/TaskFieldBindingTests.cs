@@ -42,7 +42,7 @@ public sealed class TaskFieldBindingTests
     {
         var catalog = await Catalog(); var plan = Plan();
         var graph = Compile(plan, catalog);
-        var projection = Assert.Single(graph.Workflows.SelectMany(w => w.Finally), n => n.Type == "value.project");
+        var projection = Assert.Single(graph.Workflows.SelectMany(w => w.Finally), n => n.Type == "set" && n.Input.Kind == "projection");
         Assert.Equal("message", Assert.Single(Assert.Single(projection.Input.Members.Single(m => m.Name == "paths").Value.Items).Items).Text);
         Assert.DoesNotContain(graph.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)), n => n.Type == "llm.call");
         Assert.Equal(JsonSerializer.Serialize(graph, PlanningJsonContext.Default.PlanningGraph), JsonSerializer.Serialize(Compile(plan, catalog), PlanningJsonContext.Default.PlanningGraph));

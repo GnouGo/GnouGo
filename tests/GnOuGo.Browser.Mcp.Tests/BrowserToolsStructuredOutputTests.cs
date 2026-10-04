@@ -59,6 +59,10 @@ public sealed class BrowserToolsStructuredOutputTests
 
         Assert.NotEmpty(tools);
         Assert.All(tools, tool => Assert.NotNull(tool.ProtocolTool.OutputSchema));
+        var url = tools.Single(t => t.ProtocolTool.Name == "browser_get_content").ProtocolTool.InputSchema.GetProperty("properties").GetProperty("url");
+        Assert.True(url.TryGetProperty("pattern", out var pattern), "The producer must publish its absolute HTTP URL requirement.");
+        Assert.Matches(pattern.GetString()!, "https://example.invalid/items/7");
+        Assert.DoesNotMatch(pattern.GetString()!, "https%3A%2F%2Fexample.invalid%2Fitems%2F7");
     }
 
     [Fact]

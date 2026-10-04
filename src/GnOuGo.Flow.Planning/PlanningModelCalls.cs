@@ -39,7 +39,9 @@ internal static class PlanningModelCalls
                 Prompt = prompt, StructuredOutputSchema = schema, StructuredOutputStrict = true, UseBackgroundMode = true
             }, state.Request.Generation);
             var violations = PlanningContractValidation.ValidateSchema(schema, strict: true);
-            if (violations.Count != 0) throw new InvalidOperationException("Invalid planner response schema: " + string.Join("; ", violations));
+            if (violations.Count != 0) throw new WorkflowRuntimeException("MODEL_SCHEMA_INVALID",
+                "The response schema is outside the supported structured-output profile. Planning stopped before dispatch without consuming a model call or repair. " + string.Join("; ", violations),
+                details: new JsonObject { ["location"] = "/phases/" + purpose });
             var inputTokens = PlanningJsonTransport.EstimateInputTokens(prompt, schema);
             var inputLimit = state.Request.Generation.MaxInputTokensPerRequest;
             if (inputTokens > inputLimit)
@@ -72,7 +74,7 @@ internal static class PlanningModelCalls
             throw new PlanningResponseException(findings.Select(f => new PlanningDiagnostic("PLANNING_RESPONSE_INVALID",
                 f.InstancePointer, f.Message, ValidationStage: purpose)).ToList());
         }
-        if (canDecline && json["plan"] is null)
+        if (canDecline && json["plan"] is null && json["clarifications"] is null)
             throw new WorkflowRuntimeException("DISCOVERY_INCOMPLETE",
                 "The model could not propose a TaskPlan from the inspected capabilities before discovery closed. No workflow was approved. Refine the requirements and start a new planning session; existing limits and accounting are unchanged.",
                 details: new JsonObject { ["location"] = "/discoveryRequests" });

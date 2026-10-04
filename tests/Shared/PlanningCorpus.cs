@@ -13,6 +13,8 @@ public static class PlanningCorpus
     public static PlanningValue Ref(string kind, string source, params string[] path) => new() { Kind = kind, Source = source, Path = path.ToList() };
     public static PlanningValue Num(decimal n) => new() { Kind = "number", Number = n };
     public static PlanningValue Text(string text) => new() { Kind = "string", Text = text };
+    public static PlanningValue Projection(params (string Name, PlanningValue Value)[] members)
+        => new() { Kind = "projection", Members = members.Select(m => new PlanningMember(m.Name, m.Value)).ToList() };
     public static PlanningValue Obj(params (string Name, PlanningValue Value)[] fields) => new() { Kind = "object", Members = fields.Select(f => new PlanningMember(f.Name, f.Value)).ToList() };
     public static PlanningGraph Graph(string name, PlanningCatalog catalog)
     {
@@ -84,6 +86,60 @@ public static class PlanningCorpus
     /// <summary>Projects fixture DTOs to the exact strict transport schema. Never used in production.</summary>
     public static JsonNode? Transport(JsonNode? value, JsonObject schema, JsonObject root)
     {
+        // Old discovery scripts do not yet specify a complete result interface.
+        // Defer accepting intent until their plan response, as the current protocol allows.
+        if (ReferenceEquals(schema, root) && value?["requirements"] is JsonObject pendingRequirements &&
+            !pendingRequirements.ContainsKey("outputs") && value["plan"] is null &&
+            root["$defs"]!.AsObject().Any(d => d.Value?["properties"] is JsonObject p && p.ContainsKey("summary") && p.ContainsKey("outputs")))
+        { value = value.DeepClone(); value["requirements"] = null; }
+        // Historical fixtures predate accepted output interfaces. Preserve their exact
+        // output names with opaque types; independent type-interface tests declare their own.
+        if (ReferenceEquals(schema, root) && value?["requirements"] is JsonObject resultRequirements &&
+            !resultRequirements.ContainsKey("outputs") && value["plan"]?["root"]?["outputs"] is JsonArray results &&
+            root["$defs"]!.AsObject().Any(d => d.Value?["properties"] is JsonObject p && p.ContainsKey("summary") && p.ContainsKey("outputs")))
+        {
+            value = value.DeepClone();
+            value["requirements"]!["outputs"] = new JsonArray(results.Select(o => (JsonNode)new JsonObject
+            { ["name"] = o!["name"]!.DeepClone(), ["type"] = new JsonObject { ["kind"] = "any" }, ["required"] = true }).ToArray());
+        }
+        // Older scripted proposals specify their caller interface on the plan only.
+        // Advertise that same interface explicitly in NEW request schemas; never alter
+        // a fixture that supplies an independent requirements interface for comparison.
+        if (ReferenceEquals(schema, root) && schema["properties"]?["clarifications"] is not null &&
+            value?["requirements"] is JsonObject requirements && requirements["inputs"] is null && value["plan"] is JsonObject plan)
+        {
+            value = value.DeepClone(); value["requirements"]!["inputs"] = plan["inputs"]?.DeepClone() ?? new JsonArray();
+        }
+        // Legacy scripted outcomes describe returned data. Supply explicit annotations
+        // only for new response schemas; focused external-outcome fixtures set their own.
+        if (ReferenceEquals(schema, root) && schema["properties"]?["outcomeBindings"] is not null && value is JsonObject)
+        {
+            value = value.DeepClone();
+            if (value["requirements"]?["outcomes"] is JsonArray outcomes)
+                foreach (var outcome in outcomes)
+                {
+                    if (outcome!["execution"] is null)
+                    { outcome["execution"] = "data"; outcome["always"] = false; outcome["conditional"] = false; }
+                    // Test-only legacy corpus uses once coverage; per-item fixtures declare it explicitly.
+                    outcome["coverage"] ??= "once";
+                    outcome["placement"] ??= outcome["always"]?.GetValue<bool>() == true ? "cleanup" : "normal";
+                }
+            if (value["plan"] is JsonObject annotatedPlan && value["outcomeBindings"] is null && value["clarifications"] is null)
+            {
+                JsonNode Resolve(JsonNode node) => node["$ref"] is { } link ? Resolve(root["$defs"]![link.ToString().Split('/')[^1]]!) : node;
+                var bindingSchema = Resolve(schema["properties"]!["outcomeBindings"]!);
+                var arraySchema = bindingSchema["anyOf"]!.AsArray().Select(n => Resolve(n!)).Single(n => n["type"]?.ToString() == "array");
+                var ids = value["requirements"]?["outcomes"]?.AsArray().Select(o => o!["id"]!.ToString()).ToArray()
+                    ?? Resolve(Resolve(arraySchema["items"]!)["properties"]!["outcomeId"]!)["enum"]?.AsArray().Select(n => n!.ToString()).ToArray() ?? [];
+                var outputs = annotatedPlan["root"]?["outputs"]?.AsArray().Select(o => o!["name"]!.ToString()).ToArray() ?? [];
+                var tasks = outputs.Length > 0 ? [] : annotatedPlan["root"]?["tasks"]?.AsArray().Select(t => t!["id"]!.ToString()).ToArray() ?? [];
+                value["outcomeBindings"] = new JsonArray(ids.Select(id => (JsonNode)new JsonObject { ["outcomeId"] = id,
+                    ["taskIds"] = new JsonArray(tasks.Select(t => (JsonNode?)JsonValue.Create(t)).ToArray()),
+                    ["outputs"] = new JsonArray(outputs.Select(o => (JsonNode?)JsonValue.Create(o)).ToArray()) }).ToArray());
+            }
+            if (value["outcomeBindings"] is JsonArray bindings)
+                foreach (var binding in bindings) binding!["inputs"] ??= new JsonArray();
+        }
         if (schema["$ref"] is { } reference) return Transport(value, root["$defs"]![reference.ToString().Split('/')[^1]]!.AsObject(), root);
         if (schema["anyOf"] is JsonArray alternatives)
         {
@@ -102,9 +158,10 @@ public static class PlanningCorpus
         if (schema["anyOf"] is JsonArray alternatives) return alternatives.OfType<JsonObject>().Any(s => Matches(value, s, root));
         if (schema["type"]?.ToString() == "null") return value is null;
         if (value is null) return false;
+        JsonNode? Resolve(JsonNode? node) => node?["$ref"] is { } link ? Resolve(root["$defs"]![link.ToString().Split('/')[^1]]) : node;
         var properties = schema["properties"] as JsonObject;
         if (properties?.ContainsKey("sourceId") == true &&
-            (properties["operationIds"]?["type"]?.ToString() == "array") != (value["operationIds"] is not null)) return false;
+            (Resolve(properties["operationIds"])?["type"]?.ToString() == "array") != (value["operationIds"] is not null)) return false;
         if (properties?.ContainsKey("sourceId") == true && properties.ContainsKey("producedArtifactKind") != (value["producedArtifactKind"] is not null)) return false;
         if (value is JsonObject obj && obj.ContainsKey("nullable") && properties?["kind"] is not null &&
             (properties.ContainsKey("nullable") ? !Matches(obj["nullable"], properties["nullable"]!.AsObject(), root) : obj["nullable"]?.ToString() == "true")) return false;

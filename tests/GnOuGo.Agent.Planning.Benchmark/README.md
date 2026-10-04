@@ -1,5 +1,81 @@
 # Planning evaluation corpus
 
+## Planner stabilization comparison
+
+The [completed campaign report](../../docs/evidence/planner-stabilization/results-7d5d42b2.md)
+records the frozen final production revision, passing comparison and retained failures.
+
+`--stabilization` is the execution-based eleven-case campaign. It uses the eight
+unchanged corpus requests and three real filesystem workflows through the shipped
+Cmd MCP stdio process. Real effects are confined to a disposable workspace per run;
+the oracle checks contents, unchanged inputs, permission denial, and creation/cleanup
+calls independently. No remote publication is part of this campaign.
+
+Build the benchmark and Cmd MCP in Release. Freeze the harness before collecting
+the baseline, and use that same harness against both production revisions:
+
+```sh
+# Baseline worktree: 22bba1a5 (production 7288b699).
+dotnet build tests/GnOuGo.Agent.Planning.Benchmark -c Release -m:1 -warnaserror -p:SkipClientBuild=true
+dotnet build src/GnOuGo.Cmd.Mcp -c Release -m:1 -warnaserror
+STABILIZATION_CMD_DIR="$(mktemp -d)"
+cp -R src/GnOuGo.Cmd.Mcp/bin/Release/net10.0/. "$STABILIZATION_CMD_DIR/"
+dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --stabilization --campaign planner-stabilization-20260930 --cohort baseline \
+  --source 7288b6997c704b8ca098761c030071d61da1ce1a \
+  --cmd-executable "$STABILIZATION_CMD_DIR/GnOuGo.Cmd.Mcp"
+# Switch to the frozen candidate worktree; keep STABILIZATION_CMD_DIR unchanged.
+dotnet build tests/GnOuGo.Agent.Planning.Benchmark -c Release -m:1 -warnaserror -p:SkipClientBuild=true
+dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --stabilization --campaign planner-stabilization-20260930 --cohort final --source <candidate-sha> \
+  --cmd-executable "$STABILIZATION_CMD_DIR/GnOuGo.Cmd.Mcp"
+dotnet run --no-build -c Release --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --stabilization --campaign planner-stabilization-20260930 \
+  --compare 7288b6997c704b8ca098761c030071d61da1ce1a --candidate <candidate-sha>
+```
+
+Run collection in clean isolated worktrees at the recorded harness/production
+revisions: baseline harness `22bba1a5` over production `7288b699`, and the candidate
+revision linked in the evidence report. Build each runner in its own worktree and
+share only the frozen Cmd directory and encrypted campaign. The recorded Cmd binary
+was built at `456b05c7` (Cmd source identical to the production baseline); its exact
+assembly hash is retained in every manifest. Reuse that frozen binary for historical
+collection/replay. A separately authorized fresh campaign must freeze its own binary
+once and use that identical directory for both revisions. The manifest hashes
+must match before candidate dispatch. Existing retained identities are read-only
+replays; a new measurement campaign needs its own explicitly authorized allowance.
+
+`--source` permits a harness-only commit over that production tree, never changed
+production. `--cmd-executable` supplies an absolute path to a separately built server.
+Copy the complete Cmd Release directory outside subsequent build outputs before
+starting collection, and pass that frozen apphost with `--cmd-executable` to both
+cohorts. A rebuild can change assembly hashes through source-version metadata even
+when Cmd source is unchanged.
+The campaign pins harness/oracle/accounting/configuration hashes, the Cmd assembly,
+OS/runtime and limits. Each row records production and harness commits separately.
+Both cohorts require three repetitions of all eleven cases. `--cohort diagnostic
+--cases <names>` records one separate diagnostic repetition per source revision.
+Reissuing a completed identity reads its result without another dispatch. Interrupted
+execution is failed evidence; it is never automatically repeated. Interrupted planning
+uses the existing encrypted request journal and original schemas.
+
+The fresh EUR 50 ceiling covers both revisions, diagnostics and execution inference.
+Logical planning calls, physical attempts, discovery reads, repairs, tokens and
+planning/execution/total latency are distinct. Unknown usage remains unknown. Final
+acceptance requires 33 correct executions, successful nominal variants, zero safety
+violations, and one planning call with zero repairs for each simple case. Incomplete
+or mismatched cohorts are inconclusive. Historical review-based gates do not apply.
+
+Read a sanitized result with `--stabilization --campaign <id> --inspect
+<source>:<cohort>:<case>:<repetition>`. `--private-evidence` additionally returns the
+encrypted session/diagnostic evidence for local inspection; never redirect that
+private output to plaintext files or commit it. All failure identities and budget
+reservations remain retained. Generic fixes and further diagnostic iterations are
+authorized for this campaign within its shared ceiling; failed final cohorts are
+not overwritten or pooled with a later revision.
+
+## Historical corpus campaigns
+
 Eight frozen requests cover arithmetic, read/transform, nullable values/defaults, routing, parallel collections/subflows, protected writes/cleanup, the original French PR review and an English review with 80 irrelevant tools. All external integrations are mocked. Expected results use independent alternate inputs and observations; review evaluation checks passing, failed and incomplete executions in one clone. All eight offline intent fixtures exercise construction and execution. They are not a live-model reliability score. Rejected confirmation and changed-head cases must prevent publication while preserving cleanup.
 
 ```bash
@@ -113,6 +189,8 @@ uncertain transport attempt retains its conservative allowance; restart added no
 ## Exhausted, inconclusive runs
 
 `--retain-inconclusive-run <commit:phase:case:repetition> --campaign <id>` closes an already failed evaluation only after its eight HTTP attempts are exhausted. It writes a separate encrypted audit record under the campaign lock. The original run, failure, request and HTTP evidence remain unchanged; no completion receipt is invented. Unknown attempts retain their full cost reservation in the same EUR 50 campaign ceiling. That request identity can never dispatch again, while different evaluation identities may use the remaining campaign allowance. `--inspect-campaign` reports both uncertainty and closures. This does not turn an inconclusive run into a successful measurement.
+
+An individual request can exhaust its pinned HTTP retry policy before the session exhausts eight attempts. To retain that request permanently without replay or reconciliation, use `--schema-portability retain-exhausted-request --request-id <exact-id> --campaign <id> --workspace <path>`. This explicit action requires a clean checkout and the campaign lease, a saved dispatch failure, exhausted transport attempts ending with unknown completion, and no completion receipt or verified usage. It appends a closure with evidence hashes; original records and full unknown-usage reservations remain unchanged. New request identities may then use the remaining budget. Never use this to claim successful completion or free reserved cost. Campaign regressions cover rejection, restart, no redispatch, unchanged accounting and the shared spending ceiling.
 
 ## Parent comparison
 
@@ -232,3 +310,89 @@ replenish an allowance or raise the campaign ceiling.
 
 Execution journals and the real Copilot edit/test limitation remain unchanged. Mocked
 workflow outcomes do not establish real sandboxed Copilot command execution.
+
+## Authorized schema-portability live campaign
+
+Replay a retained proposal against its original discovered contracts without inference,
+execution, approval or mutation of the saved session:
+
+```sh
+dotnet run --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability replay-compile --workspace "$GNOU_GO_WORKSPACE" \
+  --campaign schema-portability-20261002 --run recovery2-amazon-2
+```
+
+The [schema-portability report](../../docs/planning-schema-portability-2026-10-02.md)
+retains the original provider rejection, diagnostic iterations and separate frozen
+cohorts. This campaign performs paid inference and real external execution only
+under the explicit authorization recorded for `schema-portability-20261002`.
+It shares one encrypted EUR 50 ledger across planning, Flow inference and intercepted
+Copilot SDK inference. Missing receipts retain conservative reservations.
+
+Build a clean committed checkout before collection. Keep the same source and
+configuration for every run within a cohort; a changed candidate requires a new
+cohort identity under the same campaign. Do not repeat the original diagnostic.
+
+```sh
+dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror -p:SkipClientBuild=true
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability plan --workspace "$GNOU_GO_WORKSPACE" \
+  --campaign schema-portability-20261002 --cohort final4 --case amazon --run final4-amazon-1
+# Review the retained artifact first, then provide its exact printed hash:
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability execute --workspace "$GNOU_GO_WORKSPACE" \
+  --campaign schema-portability-20261002 --cohort final4 --case amazon --run final4-amazon-1 \
+  --artifact-hash <reviewed-artifact-hash>
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability report --workspace "$GNOU_GO_WORKSPACE" \
+  --campaign schema-portability-20261002 --cohort final4
+```
+
+Use repetitions 1–3 for `amazon` and `code`, preserving every failed slot. Execution
+requires a terminal with explicit human answers. Recommendations never approve a
+call, and a started execution cannot be replayed. Browser debug `KeepBrowserOpen`
+is disabled only in the spawned disposable process so cleanup can be checked.
+Code feedback remains local; GitHub publication is excluded and untested.
+
+`inspect-run --run <identity>` returns private retained requests, responses,
+execution events and oracles; redirect only to an access-restricted local file.
+Its `runtime_llm_inputs` entries report estimated prompt tokens and durable completion
+status for ordinary `llm.call` invocations. Inspection performs no dispatch or mutation;
+estimated input size is not billed usage.
+`report` returns sanitized counters and rejects mismatched or missing manifests.
+`discovery_reads` counts actual MCP `tools/list` calls. Planning/execution latency
+includes human waiting; provider attempts, verified tokens, unknown reservations
+and costs are separate. Costs are provider-usage/FX estimates, not invoices.
+Absent and interrupted runs stay in the six-run denominator. Compilation or
+FinalReview alone never passes the execution gate.
+
+### Recovery and MCP Tasks follow-up
+
+The recovery follow-up continues `schema-portability-20261002`; do not create a new
+budget or overwrite final4. Use a new cohort (for example `recovery1`) and its six
+`recovery1-{amazon,code}-{1,2,3}` identities after freezing the tested candidate.
+The manifest also pins the execution PATH hash. Keep the disposable toolchain PATH
+identical for planning and execution: Node 24.20.0, pnpm 10.34.5 and Python 3.11.13.
+The repository manifests and recorded command results must independently confirm
+those versions. Installing a toolchain does not grant a workflow new permissions.
+
+Run the existing `--schema-portability readiness --case amazon` and `--case code`
+commands first, using the same `--workspace` and campaign. Verify Browser closure,
+a writable disposable workbook destination, exact SmartGuide head/base availability,
+dependency installation and command permissions. Record missing services/toolchains
+as explicit blockers. The [recovery report](../../docs/planning-recovery-and-live-blockers.md)
+separates deterministic adapter execution from live-provider results.
+
+### Bounded mapping cohort
+
+After deterministic tests and a clean frozen commit, run the real-provider/stdio matrix within the existing campaign:
+
+```bash
+dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror -p:SkipClientBuild=true
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability mapping --campaign schema-portability-20261002 --workspace /path/to/GnOuGo --run mapping-cohort-1
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability mapping-report --campaign schema-portability-20261002 --workspace /path/to/GnOuGo --run mapping-cohort-1
+```
+
+The harness starts a disposable MCP process with no structured output metadata, generates and approves a business extraction plan using the pinned provider, then executes cold/warm JSON, changed data/shape, text, HTML, changed target and missing-data cases. A separately labelled fault-injection case substitutes one invalid script before real-provider repair. Source observations and exact output expectations are frozen before dispatch. Revisions for the target-schema fixture are explicit and independently compiled; they are not runtime plan edits. A failed case stops the matrix and remains in the denominator. Use a new identity after fixing a regression.
+
+Mapping scripts/attempt receipts persist through the existing encrypted run store under a cohort-specific tenant; measurements and manifests use `planning-mapping-evaluation`. All paid calls use the existing campaign gate. Printed rows contain only public fixture observations. The existing Amazon/code commands and their independent execution oracles are unchanged. Do not pool this matrix with historical 33/33 or prior live cohorts.

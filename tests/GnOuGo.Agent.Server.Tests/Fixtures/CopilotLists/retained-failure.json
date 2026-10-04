@@ -1,0 +1,16 @@
+{
+  "evidence": "Sanitized invocation from run c0bb002f493e751ad7ddc4e991bcf650. Permission fields and error retained; business prompt and paths replaced. No provider call was needed to reproduce parsing.",
+  "method": "copilot_one_shot",
+  "request": {
+    "projectRoot": "workflows/list-fixture",
+    "prompt": "Install the project dependencies and execute its tests, reporting the observed results.",
+    "permissionMode": "auto_approve_allowlist",
+    "permissionAllowlistJson": "{\"commands\":[\"npm\",\"npx\",\"yarn\",\"pnpm\",\"node\",\"dotnet\",\"mvn\",\"gradle\",\"go\",\"cargo\",\"python\",\"python3\",\"pip\",\"pip3\",\"pytest\",\"make\",\"bash\",\"sh\",\"ls\",\"cat\",\"find\",\"grep\"],\"scope\":\"projectRoot only\"}"
+  },
+  "oldAllowlistSchema": {
+    "description": "Optional JSON array of read-only tool/path allowlist entries used only with auto_approve_allowlist.",
+    "type": ["string", "null"],
+    "default": null
+  },
+  "error": "The JSON value could not be converted to System.Collections.Generic.List`1[System.String]. Path: $ | LineNumber: 0 | BytePositionInLine: 1."
+}

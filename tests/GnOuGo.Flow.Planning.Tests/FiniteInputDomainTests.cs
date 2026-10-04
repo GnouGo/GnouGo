@@ -20,7 +20,7 @@ public sealed class FiniteInputDomainTests
 
     private static JsonObject Proposal(JsonNode value, string operation = "op") => new JsonObject
     {
-        ["discoveryRequests"] = null,
+        ["discoveryRequests"] = null, ["clarifications"] = null,
         ["plan"] = JsonNode.Parse("""{"inputs":[],"root":{"tasks":[],"outputs":[],"always":[]},"groups":[],"choices":[]}""")
     }.WithTask(value, operation);
 
@@ -87,7 +87,7 @@ public sealed class FiniteInputDomainTests
     public void ExactResolutionConstrainsPreviouslyIndexOnlyOperationsWithoutMutatingReceipts()
     {
         var state = State(false); var invalid = Proposal(JsonNode.Parse("""{"kind":"string","text":"invented"}""")!);
-        Assert.Empty(PlanningContractValidation.ValidateInstance(invalid, PlanningSchemas.Proposal(state)));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(invalid, PlanningSchemas.Proposal(state)));
         state.Discovery.Resolved.Add(State(true).Discovery.Resolved[0]);
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(invalid, PlanningSchemas.Proposal(state)));
         state.Catalog!.Capabilities.Add(state.Discovery.Resolved[0]);

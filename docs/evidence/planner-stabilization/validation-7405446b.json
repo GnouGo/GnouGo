@@ -1,0 +1,20 @@
+{
+  "production": "7405446b40f80e872a549057d3d471ecd9e02d5c",
+  "test_revision": "8202a69af8048ca26cd18c070287718986494ad5",
+  "solution": {
+    "projects": 33,
+    "failed": 0,
+    "passed": 3757,
+    "skipped": 12
+  },
+  "logs": {
+    "final-solution-7405446b-replay.log": "5d0ab72d4d426a24986f71fe155ae7a058c032a10565edee1a9934260f86298a",
+    "conditional-new-regressions.log": "02c1c508d3564e77f0ea159f04d3bbb3a63f3e0557d2f01ef849da2cc8749d11",
+    "conditional-all-tests.log": "595b91aa45c4b755a8d47e516e6a45a8425a8d48a3fd6b5a35aea58114670036",
+    "pack-7405446b.log": "51d92f588002f45336ee914a5b76ad42a308d193ba5617499453f28b67c14813",
+    "aot-publish-7405446b.log": "8b216ddc343b24110d881f806d1ab134f3b7f0ebced0a013e5f75a53db897b74",
+    "aot-smoke-7405446b.log": "fa4d33e6be712395cad32abd9cb768fb3da858367cedbeab9e59eb5ddf776c7d",
+    "clone-constraint-replay.log": "debb182ca5ad683cb5c2a35b4002cb026488f721f384515705204baf7390d994"
+  },
+  "production_ci": "https://github.com/GnouGo/GnouGo/actions/runs/36694523368"
+}

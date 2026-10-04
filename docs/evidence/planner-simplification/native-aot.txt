@@ -1,0 +1,24 @@
+schema projection: portable wire, unchanged authoritative restrictions
+agent failure: structured host diagnostic survives source-generated serialization
+business intent: persisted requirements and approval identity survive Native AOT serialization
+clarification: auto pause, custom answer, restart, unchanged budget and separate approval passed with deterministic inference
+constant workspace: approved literal survives compilation and source-generated serialization; no agent execution
+operation outputs: approved payload and partial envelope survive source-generated serialization and YAML compilation
+local: passed, calls=1, replans=0, validations=2
+read_transform: passed, calls=1, replans=0, validations=3
+nullable_defaults: passed, calls=1, replans=0, validations=4
+conditional: passed, calls=1, replans=0, validations=2
+collections: passed, calls=1, replans=0, validations=2
+protected_cleanup: passed, calls=1, replans=0, validations=3
+review_french: passed, calls=1, replans=0, validations=10
+review_distractors: passed, calls=1, replans=0, validations=10
+typed transforms: passed; mocked inference; ordered products and cleanup verified
+bounded discovery: passed; issued no-plan schema and counters survive serialization
+enum contracts and JSON encoding: passed; no inference
+typed field bindings: passed; checked MCP selectors; ordered records and composed exports; no inference
+conditional arrays: passed; typed and empty branches execute with preserved contracts; no inference
+null-only contracts: passed; both conditional branches; no inference
+conditional cleanup: passed; guarded field selection and explicit branch exports; no inference
+catalog-owned bindings: passed; host injection and explicit override rejection verified
+typed repair patches: passed; source-generated recovery; owned removal; immutable baseline; no inference
+structural repair: passed; version-seven authority, preserved arguments and atomic AOT round trip; no inference

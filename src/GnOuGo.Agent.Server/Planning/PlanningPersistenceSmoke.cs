@@ -18,6 +18,12 @@ internal static class PlanningPersistenceSmoke
         var store = new EfPlanningSessionStore(factory, records);
         var state = new PlanningSession { Request = new() { TenantId = "smoke", SessionId = Guid.NewGuid().ToString("N"), Prompt = "Private published smoke content" } };
         state.Requirements = new() { Summary = "Private requirements", Outcomes = [new("result", "Private acceptance criterion")] };
+        state.IntentVersion = 1; state.OutcomeVersion = 1;
+        state.Requirements.Outcomes[0] = state.Requirements.Outcomes[0] with { Execution = "data", Always = false, Conditional = false };
+        state.OutcomeBindings = [new("result", [], ["private"])];
+        state.Requirements.Inputs = [new() { Name = "reference" }];
+        state.PendingQuestions = [new("interface", "Private caller interface question", [new("compact", "Private compact interface"), new("explicit", "Private explicit interface")], "compact")];
+        state.AnswerHistory = [new(0, [new("fact", "Private missing fact", [], null)], [new("fact", Text: "Private custom answer")])];
         state.Discovery.Limitations.Add("Private unavailable source detail");
         if (!await store.TrySaveAsync(state, null, CancellationToken.None)) throw new InvalidOperationException("Insert failed.");
         state.Revision = 1; state.Status = PlanningStatus.Stopped; state.ModelCalls = 2; state.ReplanAttempts = 1;
@@ -34,10 +40,20 @@ internal static class PlanningPersistenceSmoke
         var restored = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
         if (restored?.SchemaVersion != 10 || restored.Revision != 1 || restored.ModelCalls != 2 || restored.ReplanAttempts != 1 || restored.Requirements?.Summary != "Private requirements" || restored.Graph is null || restored.Plan?.Root.Outputs[0].Value.Text != "Private semantic value" || restored.Diagnostics.Count != 1 ||
             restored.Diagnostics[0].Prerequisite?.RootActionId != "producer" || !restored.RevisionScope.SequenceEqual(["main/consumer"]) ||
+            restored.OutcomeVersion != 1 || restored.OutcomeBindings?.Single().Outputs.Single() != "private" || restored.Requirements.Outcomes.Single().Execution != "data" ||
+            restored.IntentVersion != 1 || restored.Requirements.Inputs?.Single().Name != "reference" || restored.PendingQuestions?.Single().Recommended != "compact" ||
+            restored.AnswerHistory?.Single().Answers.Single().Text != "Private custom answer" ||
             await reopened.LoadAsync("another-tenant", state.Request.SessionId, CancellationToken.None) is not null || (await reopened.ListAsync("smoke", CancellationToken.None)).Count == 0)
             throw new InvalidOperationException("Published persistence or tenant isolation failed.");
         state.Revision = 2;
         if (await reopened.TrySaveAsync(state, 0, CancellationToken.None)) throw new InvalidOperationException("A stale update was accepted.");
+        state.OutcomeVersion = 2;
+        state.Requirements.Outcomes[0] = state.Requirements.Outcomes[0] with { Execution = "read", Coverage = "each_item" };
+        state.OutcomeBindings = [new("result", ["collection"], []) { ForEachTaskId = "collection" }];
+        if (!await reopened.TrySaveAsync(state, 1, CancellationToken.None)) throw new InvalidOperationException("Outcome-v2 update failed.");
+        var perItem = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
+        if (perItem?.OutcomeVersion != 2 || perItem.Requirements?.Outcomes.Single().Coverage != "each_item" || perItem.OutcomeBindings?.Single().ForEachTaskId != "collection")
+            throw new InvalidOperationException("Optional outcome-v2 metadata did not survive published encrypted recovery.");
         var legacy = new PlanningSession { Request = new() { TenantId = "smoke", SessionId = Guid.NewGuid().ToString("N"), Name = "Legacy smoke session" },
             ModelCalls = 1, PendingCall = new() { Id = "uncertain" } };
         if (!await store.TrySaveAsync(legacy, null, CancellationToken.None)) throw new InvalidOperationException("Legacy fixture insert failed.");
@@ -55,8 +71,20 @@ internal static class PlanningPersistenceSmoke
         catch (PlanningConflictException) { }
         foreach (var file in Directory.EnumerateFiles(directory, "*.db"))
             if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file)) is { } bytes &&
-                (bytes.Contains("Private published smoke content", StringComparison.Ordinal) || bytes.Contains("Private requirements", StringComparison.Ordinal)))
+                (bytes.Contains("Private published smoke content", StringComparison.Ordinal) || bytes.Contains("Private requirements", StringComparison.Ordinal) ||
+                 bytes.Contains("Private custom answer", StringComparison.Ordinal) || bytes.Contains("Private caller interface question", StringComparison.Ordinal)))
                 throw new InvalidOperationException("Sensitive session content was persisted unencrypted.");
+        GnOuGo.Flow.Core.Runtime.IMappingArtifactStore mappingStore = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(records,
+            Path.Combine(directory, "mapping-index.db"), Path.Combine(directory, "mapping-owners"));
+        const string mappingScript = "({private_mapping:source.observed})";
+        await mappingStore.WriteAsync("smoke", new("mapping-smoke", mappingScript, null, 1), CancellationToken.None);
+        GnOuGo.Flow.Core.Runtime.IMappingArtifactStore reopenedMappings = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(
+            KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory), Path.Combine(directory, "mapping-index.db"), Path.Combine(directory, "mapping-owners"));
+        if ((await reopenedMappings.ReadAsync("smoke", "mapping-smoke", CancellationToken.None))?.Script != mappingScript ||
+            await reopenedMappings.ReadAsync("other", "mapping-smoke", CancellationToken.None) is not null ||
+            System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(mappingScript, StringComparison.Ordinal))
+            throw new InvalidOperationException("Published mapping encryption/recovery/tenant isolation failed.");
+        await reopenedMappings.RemoveAsync("smoke", "mapping-smoke", CancellationToken.None);
         Console.WriteLine("Format-10 planning persistence smoke passed; execution journal schema 9 is unchanged.");
     }
 }

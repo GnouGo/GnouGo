@@ -9,7 +9,7 @@ public sealed class GaCapabilityCatalogTests
     {
         var catalog = GaCapabilityCatalog.Describe();
 
-        Assert.Equal("2.0.0", catalog.McpPackageVersion);
+        Assert.Equal("2.2.0", catalog.McpPackageVersion);
         Assert.Equal("2026-07-28", catalog.RequiredMcpRevision);
         Assert.Equal("2025-11-25", catalog.FallbackMcpRevision);
         Assert.All(catalog.Capabilities, capability => Assert.Equal("ga", capability.Stability));

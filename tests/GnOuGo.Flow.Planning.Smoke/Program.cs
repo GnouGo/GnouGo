@@ -7,12 +7,54 @@ using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 using GnOuGo.Planning.Examples;
 
+var authoritativePattern = JsonNode.Parse("""{"type":"object","properties":{"path":{"type":"string","pattern":"^(?!blocked)[a-z]+$"}},"required":["path"],"additionalProperties":false}""")!.AsObject();
+var projectedPattern = PlanningContractValidation.ProjectStructuredOutputSchema(authoritativePattern);
+if (projectedPattern["properties"]!["path"]!["pattern"] is not null || authoritativePattern["properties"]!["path"]!["pattern"] is null ||
+    PlanningContractValidation.ValidateSchema(projectedPattern, true).Count != 0 ||
+    PlanningContractValidation.ValidateInstance(new JsonObject { ["path"] = "blocked" }, authoritativePattern).Count == 0)
+    throw new InvalidOperationException("Structured-output projection weakened authoritative pattern validation.");
+Console.WriteLine("schema projection: portable wire, unchanged authoritative restrictions");
+
+var mapped = new GnOuGo.Flow.Core.Scripting.JintSandbox().ExecuteMapping(
+    "({name:m.decode(m.text(source.html,'<h1>([^<]+)</h1>')),amount:source.amount})",
+    JsonNode.Parse("{\"html\":\"<h1>A &amp; B</h1>\",\"amount\":7922816251426433759354395033.5}"), CancellationToken.None);
+if (mapped?["name"]?.ToString() != "A & B" || mapped["amount"]!.ToJsonString() != "7922816251426433759354395033.5")
+    throw new InvalidOperationException("Restricted mapping extraction/decimal preservation failed in Native AOT.");
+var mappingArtifact = new MappingArtifact("smoke", "source", null, GnOuGo.Flow.Core.Scripting.JintSandbox.MappingProfileVersion);
+if (JsonSerializer.Deserialize(JsonSerializer.Serialize(mappingArtifact, MappingArtifactJsonContext.Default.MappingArtifact), MappingArtifactJsonContext.Default.MappingArtifact) != mappingArtifact)
+    throw new InvalidOperationException("Mapping artifact serialization failed.");
+Console.WriteLine("restricted mappings: observed HTML extraction, exact decimals, source-generated artifact serialization");
+
 // Additive host failure contracts must survive source-generated Native AOT serialization.
 var taskFailure = new AgentTaskResult("failed", null, [], [], new(0, 0, 0))
 { Failure = new() { Code = "AGENT_ISOLATION_REQUIRED", Message = "Mandatory host isolation is not configured." } };
 var restoredFailure = JsonSerializer.Deserialize(JsonSerializer.Serialize(taskFailure, AgentTaskJsonContext.Default.AgentTaskResult), AgentTaskJsonContext.Default.AgentTaskResult)!;
 if (restoredFailure.Failure?.Code != taskFailure.Failure.Code) throw new InvalidOperationException("Agent failure serialization failed");
 Console.WriteLine("agent failure: structured host diagnostic survives source-generated serialization");
+
+// Clarification is a response in the existing planning loop, not a separate model phase.
+var clarificationRuntime = new ClarificationRuntime(); var clarificationPlanner = new HybridWorkflowPlanner();
+var clarificationState = new PlanningSession { Request = new() { TenantId = "smoke", Mode = "auto", Prompt = "Return a value with the intended interface" } };
+clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState, new(), clarificationRuntime, CancellationToken.None);
+clarificationState = JsonSerializer.Deserialize(JsonSerializer.Serialize(clarificationState, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+if (clarificationState.Status != PlanningStatus.Clarification || clarificationState.Plan is not null || clarificationState.PendingQuestions?.Count != 1)
+    throw new InvalidOperationException("Early clarification did not survive Native AOT recovery.");
+clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState, new() { Kind = "answer", ExpectedRevision = clarificationState.Revision,
+    Answers = [new("interface", Text: "Use no caller inputs")] }, clarificationRuntime, CancellationToken.None);
+if (clarificationRuntime.Calls != 1 || clarificationState.AnswerHistory?.Single().Answers.Single().Text != "Use no caller inputs")
+    throw new InvalidOperationException("Answer was not retained before dispatch.");
+clarificationState = JsonSerializer.Deserialize(JsonSerializer.Serialize(clarificationState, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState, new() { ExpectedRevision = clarificationState.Revision }, clarificationRuntime, CancellationToken.None);
+PlanningArtifactApproval.Verify(clarificationState);
+if (clarificationState.Status != PlanningStatus.FinalReview || clarificationState.ApprovedHash is not null || clarificationRuntime.Calls != 2)
+    throw new InvalidOperationException("Clarification bypassed review or lost accounting.");
+if (clarificationState.IntentVersion != 2 || clarificationState.OutcomeVersion is not null || clarificationState.OutcomeBindings is not null)
+    throw new InvalidOperationException("Business planning profile did not survive Native AOT recovery.");
+var intentHash = clarificationState.ComputeArtifactHash();
+clarificationState.Requirements!.Summary += " revised";
+if (intentHash == clarificationState.ComputeArtifactHash()) throw new InvalidOperationException("Requirements were not bound to approval.");
+Console.WriteLine("business intent: persisted requirements and approval identity survive Native AOT serialization");
+Console.WriteLine("clarification: auto pause, custom answer, restart, unchanged budget and separate approval passed with deterministic inference");
 
 // A shared location is lowered to an approved literal without an agent dispatch.
 var workspacePlan = JsonSerializer.Deserialize("""
@@ -34,6 +76,24 @@ var workspaceGraph = JsonSerializer.Deserialize(JsonSerializer.Serialize(workspa
 if (workspaceGraph.Workflows[0].Steps.Single(s => s.Type == "agent.run").Input.Members.Single(m => m.Name == "workspace").Value.Text != "workflows/smoke/project" ||
     PlanningGeneratedGraph.Validate(workspaceGraph, workspaceCatalog).Any()) throw new InvalidOperationException("Workspace scope was not preserved");
 Console.WriteLine("constant workspace: approved literal survives compilation and source-generated serialization; no agent execution");
+
+// Use the real executor contract: an agent payload can contain open objects while
+// evidence, usage and other envelope fields retain their authoritative shapes.
+workspaceCatalog.Capabilities[0].OutputSchema = new GnOuGo.Flow.Core.Runtime.Executors.AgentRunExecutor().Contract.OutputSchema;
+workspacePlan.Root.Outputs = [new("observed", new() { Kind = "output", Source = "work" })];
+var outputCompiled = new TaskPlanCompiler().Compile(workspacePlan, workspaceCatalog);
+var outputGraph = JsonSerializer.Deserialize(JsonSerializer.Serialize(outputCompiled.Graph, PlanningJsonContext.Default.PlanningGraph), PlanningJsonContext.Default.PlanningGraph)!;
+if (outputCompiled.Diagnostics.Count != 0 || PlanningGraphValidation.Validate(outputGraph, workspaceCatalog).Count != 0)
+    throw new InvalidOperationException("Partial operation output contract did not survive serialization");
+var outputSchema = outputGraph.Workflows[0].Outputs[0].Schema.Contract!;
+if (outputSchema["properties"]?["output"]?["type"]?.ToString() != "object" ||
+    outputSchema["properties"]?["output"]?["additionalProperties"]?["x-gnougo-opaque"]?.ToString() != "true")
+    throw new InvalidOperationException("Output schema specialization or nested opacity was lost");
+workspaceCatalog.AllowedStepTypes.AddRange(["human.input", "set", "workflow.call"]);
+PlanningConfirmationGuards.Apply(outputGraph, workspaceCatalog);
+_ = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(outputGraph, workspaceCatalog)));
+Console.WriteLine("operation outputs: approved payload and partial envelope survive source-generated serialization and YAML compilation");
+
 
 foreach (var name in PlanningCorpus.Names)
 {
@@ -99,8 +159,8 @@ Console.WriteLine("typed transforms: passed; mocked inference; ordered products 
 var bounded = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = "Return declared data" }, ModelCalls = 6 };
 bounded.Discovery.Sources.Add(new("declared", "Declared source"));
 var boundedSchema = PlanningSchemas.Proposal(bounded);
-var noPlan = new JsonObject { ["requirements"] = new JsonObject { ["summary"] = "Return data", ["outcomes"] =
-    new JsonArray(new JsonObject { ["id"] = "data", ["description"] = "Return declared data" }) }, ["discoveryRequests"] = null, ["plan"] = null };
+var noPlan = new JsonObject { ["requirements"] = new JsonObject { ["summary"] = "Return data", ["outputs"] = new JsonArray(), ["outcomes"] =
+    new JsonArray(new JsonObject { ["id"] = "data", ["description"] = "Return declared data" }), ["inputs"] = null }, ["discoveryRequests"] = null, ["plan"] = null, ["clarifications"] = null };
 if (!PlanningSchemas.AllowsNoPlan(boundedSchema) || PlanningContractValidation.ValidateInstance(noPlan, boundedSchema).Count != 0)
     throw new InvalidOperationException("Closed discovery must permit a safe no-plan response");
 bounded.PendingCall = new() { Id = "retained", Purpose = "tasks", Request = new() { StructuredOutputSchema = boundedSchema } };
@@ -166,6 +226,31 @@ if (!JsonNode.DeepEquals(JsonNode.Parse("""[{"state":"deny"},{"state":"allow"}]"
     throw new InvalidOperationException("Composite scope exports changed their values or order");
 Console.WriteLine("typed field bindings: passed; checked MCP selectors; ordered records and composed exports; no inference");
 
+// A typed collection and a literal empty branch retain their element contract.
+var conditionalRows = JsonSerializer.Deserialize(JsonSerializer.Serialize(fieldPlan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
+conditionalRows.Inputs.Add(new() { Name = "selected", Type = new() { Kind = "boolean" } });
+conditionalRows.Root.Tasks[0].Items = new() { Kind = "output", Source = "choose_rows", Port = "rows" };
+conditionalRows.Root.Tasks.Insert(0, new() { Id = "choose_rows", Kind = "conditional", Objective = "Select rows",
+    Condition = new() { Kind = "input", Source = "selected" },
+    Body = new() { Outputs = [new("rows", new() { Kind = "input", Source = "records" })] },
+    Otherwise = new() { Outputs = [new("rows", new() { Kind = "array" })] } });
+var conditionalRowsGraph = new TaskPlanCompiler().Compile(conditionalRows, encodingCatalog);
+if (conditionalRowsGraph.Graph is null || conditionalRowsGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Conditional array compilation failed");
+var conditionalRowsYaml = new PlanningGraphCompiler().Compile(conditionalRowsGraph.Graph, encodingCatalog);
+if ((await encodingRuntime.ValidateAsync(new(conditionalRowsYaml, new(), encodingCatalog, PlanningGraphCompiler.CapabilityBindings(conditionalRowsGraph.Graph)), CancellationToken.None)).Count != 0)
+    throw new InvalidOperationException("Conditional array validation failed");
+var conditionalRowsDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(conditionalRowsYaml));
+foreach (var selected in new[] { false, true })
+{
+    selectedStates.Clear();
+    var result = await encodingEngine.ExecuteAsync(conditionalRowsDocument.Workflows["main"], new JsonObject
+        { ["selected"] = selected, ["records"] = new JsonArray(new JsonObject { ["state"] = "deny" }, new JsonObject { ["state"] = "allow" }) }, CancellationToken.None);
+    var expected = selected ? new JsonArray("deny", "allow") : new JsonArray();
+    if (!result.Success || !JsonNode.DeepEquals(expected, result.Outputs!["states"]) || selectedStates.Count != expected.Count)
+        throw new InvalidOperationException("Conditional array execution changed values or ran an empty body");
+}
+Console.WriteLine("conditional arrays: passed; typed and empty branches execute with preserved contracts; no inference");
+
 // Literal null exports use authoritative schemas across conditional boundaries.
 var nullPlan = new TaskPlan { Inputs = [new() { Name = "selected", Type = new() { Kind = "boolean" } }],
     Root = new() { Tasks = [new() { Id = "choose", Kind = "conditional", Objective = "Choose a continuation", Condition = new() { Kind = "input", Source = "selected" },
@@ -230,11 +315,11 @@ Console.WriteLine("catalog-owned bindings: passed; host injection and explicit o
 
 // Patch-only repair is a private wire contract, round-tripped through source generation.
 var repairState = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = "Use the declared business text" },
-    Requirements = new() { Summary = "Use text", Outcomes = [new("text", "Use business text")] }, Plan = ownedPlan, Catalog = ownedCatalog,
+    IntentVersion = 2, Requirements = new() { Summary = "Use text", Inputs = [], Outcomes = [new("text", "Use business text")] }, Plan = ownedPlan, Catalog = ownedCatalog,
     Diagnostics = ownedRejection.Diagnostics.ToList(), RevisionScope = TaskPlanRevisions.Scope(ownedPlan, ownedRejection.Diagnostics).ToList() };
 var repairSchema = PlanningSchemas.Proposal(repairState);
 var repairRequest = new LLMRequest { Prompt = HybridWorkflowPlanner.Prompt(repairState), StructuredOutputSchema = repairSchema };
-var removeOwned = JsonNode.Parse("""{"discoveryRequests":null,"patch":{"edits":[{"slot":"s0","action":"remove"}]}}""")!;
+var removeOwned = JsonNode.Parse("""{"discoveryRequests":null,"clarifications":null,"patch":{"edits":[{"slot":"s0","action":"remove"}]}}""")!;
 if (PlanningContractValidation.ValidateSchema(repairSchema, strict: true).Count != 0 || PlanningContractValidation.ValidateInstance(removeOwned, repairSchema).Count != 0)
     throw new InvalidOperationException("Typed repair schema failed");
 var patchResponse = removeOwned.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!;
@@ -245,3 +330,37 @@ if (repairedPlan.Root.Tasks[0].Inputs.Any(i => i.Name == "selector") || repairSt
     new TaskPlanCompiler().Compile(repairedPlan, ownedCatalog).Diagnostics.Count != 0)
     throw new InvalidOperationException("Atomic source-generated repair failed");
 Console.WriteLine("typed repair patches: passed; source-generated recovery; owned removal; immutable baseline; no inference");
+
+// Structural replacement must preserve business arguments under Native AOT too.
+repairState.Plan = repairedPlan;
+repairState.Plan.Root.Tasks[0].Operation = "unresolved_operation";
+repairState.Diagnostics = new TaskPlanCompiler().Compile(repairState.Plan, ownedCatalog).Diagnostics.ToList();
+repairState.RevisionScope = TaskPlanRevisions.Scope(repairState.Plan, repairState.Diagnostics).ToList();
+var structuralRequest = new PlanningPrompt(repairState).Request();
+var structuralSlot = PlanningRepairPatch.Slots(repairState, PlanningSchemas.FullProposal(repairState, compact: false)["$defs"]!.AsObject()).Single(s => s.Kind == "task");
+var structuralPatch = new RepairPatch { Edits = [new() { Slot = structuralSlot.Id, Action = "replace_task", Value = JsonNode.Parse("""
+{"id":"work","kind":"operation","objective":"Use the business text","dependsOn":[],"operation":"owned_operation","inputs":[{"name":"text","value":{"kind":"string","text":"business"}}]}
+""") }] };
+structuralPatch = JsonSerializer.Deserialize(JsonSerializer.Serialize(structuralPatch, RepairJsonContext.Default.RepairPatch), RepairJsonContext.Default.RepairPatch)!;
+var structurallyRepaired = PlanningRepairPatch.Apply(repairState, structuralPatch, structuralRequest);
+if (structurallyRepaired.Root.Tasks[0].Operation != "owned_operation" || structurallyRepaired.Root.Tasks[0].Inputs.Single().Value.Text != "business" ||
+    repairState.Plan.Root.Tasks[0].Operation != "unresolved_operation") throw new InvalidOperationException("Structural repair lost authority or business intent");
+Console.WriteLine("structural repair: passed; version-seven authority, preserved arguments and atomic AOT round trip; no inference");
+
+sealed class ClarificationRuntime : IPlanningRuntime
+{
+    private readonly WorkflowPlanningRuntime _inner = new(new(), (_, _) => Task.CompletedTask);
+    internal int Calls;
+    public ICapabilityCatalog Capabilities => _inner.Capabilities;
+    public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => _inner.DiscoverAsync(request, ct);
+    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => _inner.ValidateAsync(request, ct);
+    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => _inner.ValidateCatalogAsync(catalog, ct);
+    public Task CheckpointAsync(PlanningSession state, CancellationToken ct) => Task.CompletedTask;
+    public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
+    {
+        var proposal = ++Calls == 1 ? new PlanningProposal { Clarifications = [new("interface", "Which caller interface?", [new("none", "No caller inputs"), new("value", "A caller-supplied value")], "none")] }
+            : new PlanningProposal { Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult() };
+        return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal),
+            request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) });
+    }
+}

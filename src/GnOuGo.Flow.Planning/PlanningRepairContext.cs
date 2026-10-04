@@ -100,7 +100,11 @@ internal static class PlanningRepairContext
             var task = symbols.Tasks[id].Task;
             var node = JsonSerializer.SerializeToNode(task, PlanningJsonContext.Default.PlanTask)!.AsObject();
             node.Remove("body"); node.Remove("otherwise"); node.Remove("branches");
-            if (!selection.EditableTasks.Contains(id) && task.Kind is "operation" or "transform") node.Remove("inputs");
+            if (!selection.EditableTasks.Contains(id) && task.Kind is "operation" or "transform")
+            {
+                node.Remove("inputs");
+                    node["fixedInputs"] = PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(task.Inputs.Where(i => IsLiteral(i.Value)).ToList(), PlanningJsonContext.Default.ListTaskOutput));
+            }
             // A context task is not a replacement payload; omitted bodies stay host-owned.
             taskNodes.Add(PlanningJsonTransport.TaskPlanPart(node));
             foreach (var value in task.Inputs.Concat(task.Outputs).Select(o => o.Value)) Referenced(value);
@@ -125,7 +129,7 @@ internal static class PlanningRepairContext
         }
         foreach (var path in state.RevisionScope)
         {
-            if (path.Split('/') is ["", "inputs", var name]) inputs.Add(name);
+            if (path.Split('/') is ["", "inputs", var name, ..]) inputs.Add(name);
             if (path.Split('/') is ["", "choices", var id]) choices.Add(id);
         }
         var groups = state.Plan!.Groups.Where(g => selection.Scopes.Any(p => p.StartsWith("/groups/" + g.Id + "/", StringComparison.Ordinal)) ||
@@ -133,7 +137,7 @@ internal static class PlanningRepairContext
             selection.Tasks.Any(id => symbols.Tasks[id].Task.Group == g.Id));
         return new JsonObject
         {
-            ["version"] = 1, ["authority"] = PlanningRepairPatch.Authority(state),
+            ["version"] = 7, ["authority"] = PlanningRepairPatch.Authority(state),
             ["slots"] = new JsonArray(slots.Select(s => (JsonNode)new JsonObject { ["id"] = s.Id, ["location"] = s.Location, ["kind"] = s.Kind,
                 ["actions"] = new JsonArray(s.Actions.Select(a => (JsonNode?)JsonValue.Create(a)).ToArray()) }).ToArray()),
             ["tasks"] = taskNodes, ["scopes"] = scopeNodes,
@@ -143,6 +147,9 @@ internal static class PlanningRepairContext
             ["choices"] = JsonSerializer.SerializeToNode(state.Plan.Choices.Where(c => choices.Contains(c.Id)).ToList(), PlanningJsonContext.Default.ListPlanningChoice)
         };
     }
+
+    private static bool IsLiteral(TaskValue value) => value.Kind is "null" or "string" or "number" or "boolean" ||
+        value.Kind == "object" && value.Members.All(m => IsLiteral(m.Value)) || value.Kind == "array" && value.Items.All(IsLiteral);
 
     private static IEnumerable<string> Ports(PlanTask task, PlanningSession state)
     {

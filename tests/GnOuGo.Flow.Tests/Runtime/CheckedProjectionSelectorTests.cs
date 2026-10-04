@@ -14,7 +14,7 @@ public sealed class CheckedProjectionSelectorTests
         get
         {
             var data = new TheoryData<string, string, bool>();
-            foreach (var executor in new[] { "value.project", "value.validate" })
+            foreach (var executor in new[] { "set" })
                 foreach (var variant in new[] { "valid", "subset", "checked_fallback", "optional", "nullable", "wider", "fallback", "conditional", "unchecked", "dynamic", "expression" })
                     data.Add(executor, variant, variant is "valid" or "subset" or "checked_fallback");
             return data;
@@ -31,9 +31,7 @@ public sealed class CheckedProjectionSelectorTests
             steps:
               - id: checked
                 type: {{executor}}
-                input:
-                  value: "${data.inputs.payload}"
-                  {{(executor == "value.project" ? "paths: [[]]" : "format: json_value")}}
+                input: '${checkedMapping("({value:source})",data.inputs.payload)}'
                 output_schema:
                   type: object
                   required: [value]
@@ -83,15 +81,15 @@ public sealed class CheckedProjectionSelectorTests
     [InlineData("outside", false)]
     public async Task ArrayProjectionChecksElementsBeforeScalarSelection(string selected, bool valid)
     {
-        var document = Document("value.project");
+        var document = Document("set");
         var steps = document.Workflows["main"].Steps;
         steps.Insert(0, new()
         {
-            Id = "array", Type = "array.project",
-            Input = new JsonObject { ["items"] = new JsonArray(new JsonObject { ["decision"] = selected }), ["path"] = new JsonArray("decision") },
-            OutputSchema = JsonNode.Parse("""{"type":"object","required":["values"],"properties":{"values":{"type":"array","items":{"type":"string","enum":["allow","deny"]}}}}""")
+            Id = "array", Type = "set",
+            Input = JsonValue.Create("${checkedMapping(\"({value:m.select(source,[[\\\"decision\\\"]],true)})\",[{decision:" + JsonValue.Create(selected)!.ToJsonString() + "}])}"),
+            OutputSchema = JsonNode.Parse("""{"type":"object","required":["value"],"properties":{"value":{"type":"array","items":{"type":"string","enum":["allow","deny"]}}}}""")
         });
-        steps[1].Input!["value"] = new JsonObject { ["choice"] = "${data.steps.array.values[0]}" };
+        steps[1].Input = JsonValue.Create("${checkedMapping(\"({value:source})\",{choice:data.steps.array.value[0]})}");
         WorkflowPlanSemanticValidator.Validate(document, [new("renamed", "consume", Contract, null, null)]);
         var calls = new List<string>(); var factory = new InMemoryMcpClientFactory();
         factory.RegisterServer("renamed", new() { Tools = [new() { Name = "consume", InputSchema = Contract }], ToolHandlers = new()
@@ -105,14 +103,13 @@ public sealed class CheckedProjectionSelectorTests
 
         // Checking an array does not prove that an indexed item exists: scalar use needs its own check.
         steps.RemoveAt(1);
-        steps[1].Input!["request"]!["renamed_selector"] = "${data.steps.array.values[0]}";
+        steps[1].Input!["request"]!["renamed_selector"] = "${data.steps.array.value[0]}";
         var error = Assert.Throws<WorkflowSemanticValidationException>(() => WorkflowPlanSemanticValidator.Validate(document, [new("renamed", "consume", Contract, null, null)]));
         Assert.Contains(error.Errors, e => e.Code == "MCP_REQUEST_SELECTOR_NOT_LITERAL");
     }
 
     [Theory]
-    [InlineData("value.project")]
-    [InlineData("value.validate")]
+    [InlineData("set")]
     public async Task RuntimeChecksRejectMissingNullAndInvalidDataBeforeDispatch(string executor)
     {
         var document = Document(executor);

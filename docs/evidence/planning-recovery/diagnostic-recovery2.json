@@ -1,0 +1,131 @@
+{
+  "source": "58453bf94541beb75d738d104239ab0786de834f",
+  "classification": "superseded_diagnostic_cohort_not_final",
+  "raw_evidence": "encrypted schema-portability-20261002 campaign",
+  "runs": [
+    {
+      "run": "recovery2-amazon-1",
+      "result": {
+        "status": "final_review",
+        "planning_ms": 109861,
+        "calls": 3,
+        "repairs": 1,
+        "discovery_reads": 2,
+        "diagnostics": [],
+        "execution_success": true,
+        "execution_oracle": false,
+        "execution_status": "completed",
+        "accounting": {
+          "planning": {
+            "logical_calls": 3,
+            "physical_attempts": 3,
+            "known_input_tokens": 22179,
+            "known_output_tokens": 7393,
+            "known_cost_eur": 0.29637861915367486,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "execution": {
+            "logical_calls": 3,
+            "physical_attempts": 3,
+            "known_input_tokens": 101907,
+            "known_output_tokens": 1454,
+            "known_cost_eur": 0.4927884187082405,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "campaign": {
+            "calls": 129,
+            "session_calls": 0,
+            "known_input_tokens": 1627082,
+            "known_output_tokens": 204758,
+            "known_cost_eur": 12.657999738606001,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "cost_upper_bound_eur": 12.657999738606001,
+            "unknown_attempts": 0
+          }
+        },
+        "execution_ms": 127199,
+        "total_ms": 237060
+      },
+      "oracle": {
+        "passed": false,
+        "findings": [
+          "workbook_columns_missing"
+        ]
+      },
+      "execution_error": null
+    },
+    {
+      "run": "recovery2-amazon-2",
+      "result": {
+        "status": "stopped",
+        "planning_ms": 108073,
+        "calls": 4,
+        "repairs": 2,
+        "discovery_reads": 2,
+        "diagnostics": [
+          {
+            "code": "TASK_ITEMS_INVALID",
+            "location": "/tasks/fetch_product_pages/items",
+            "message": "Iteration needs an authoritative array contract.",
+            "required": true,
+            "validationStage": null,
+            "rule": null
+          }
+        ],
+        "execution_success": false,
+        "execution_oracle": false,
+        "execution_status": "not_started",
+        "accounting": {
+          "planning": {
+            "logical_calls": 4,
+            "physical_attempts": 4,
+            "known_input_tokens": 24471,
+            "known_output_tokens": 8120,
+            "known_cost_eur": 0.32601781737193763,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "execution": {
+            "logical_calls": 0,
+            "physical_attempts": 0,
+            "known_input_tokens": 0,
+            "known_output_tokens": 0,
+            "known_cost_eur": 0,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "campaign": {
+            "calls": 133,
+            "session_calls": 0,
+            "known_input_tokens": 1651553,
+            "known_output_tokens": 212878,
+            "known_cost_eur": 12.984017555977939,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "cost_upper_bound_eur": 12.984017555977939,
+            "unknown_attempts": 0
+          }
+        }
+      },
+      "oracle": null,
+      "execution_error": null
+    },
+    {
+      "run": "recovery2-amazon-3",
+      "classification": "planning_finished_execution_not_started_before_candidate_fix"
+    }
+  ]
+}

@@ -178,8 +178,14 @@ Example MCP configuration in `LLMOptions`:
 
 ## Notes
 
-- Navigations are restricted to `http` and `https`.
+- Navigations are restricted to absolute `http` and `https` URLs with escaped whitespace. `browser_get_content` publishes this syntax in its input schema. Decode an encoded whole URL or resolve a relative reference against its observed page URL before calling; the host still enforces scheme and allowed-host policy. Null/omission reads the current page; an explicit empty URL is invalid. Refresh discovery after this contract change.
 - `file://`, `data:`, and other non-web schemes are rejected.
 - If `AllowedHosts` is empty, any HTTP/HTTPS destination is allowed.
 - The direct apphost command above assumes launch from the repository root. A portable alternative after building is `dotnet src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll`.
 - `KeepBrowserOpen=true` is a local debug mode; do not leave it enabled in normal automated runs.
+
+### Compact observations
+
+`browser_get_content(format: "observation")` returns visible DOM records (`kind`, `tag`, `selector`, `group`, `text`, `href`, `role`) in `observation.records`, plus the existing `content` text. Links retain observed resolved URLs; selectors and group locations retain context. Scripts, styles, hidden content, arbitrary attributes and input values are excluded. Existing HTML/text modes are unchanged.
+
+The complete serialized response is limited to 24,000 characters and 200 records, or stricter `Browser:MaxObservationCharacters` / `Browser:MaxObservationRecords` and request limits. Continue with `format: "observation", cursor: observation.nextCursor`, omitting URL and selector. Cursors refer to the original snapshot and expire on navigation, interaction or closure. `truncated` and `observation.captureTruncated` remain explicit: a capture limit requires a narrower selector; continuation cannot recover records beyond the capture limit. Oversized individual records fail rather than silently cutting values. Observations are data, never permission or factual verification.

@@ -9,6 +9,12 @@ public sealed record PlanningInstanceFinding(string InstancePointer, string Mess
 /// <summary>Public deterministic validation boundary shared by independent planning implementations.</summary>
 public static class PlanningContractValidation
 {
+    /// <summary>Clone a completed model response schema, omitting only valid runtime
+    /// patterns outside the conservative wire profile. Authoritative contracts must
+    /// still validate the returned values. Invalid schemas remain invalid.</summary>
+    public static JsonObject ProjectStructuredOutputSchema(JsonObject schema)
+        => new StructuredOutputPatterns().Project(schema);
+
     public static IReadOnlyList<string> ValidateSchema(JsonNode schema, bool strict = false)
         => JsonSchemaContractValidator.ValidateSchema(schema, strict);
 

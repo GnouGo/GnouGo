@@ -4,7 +4,7 @@ using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Planning;
 
 /// <summary>Admission and encrypted evidence only. All retry decisions belong to AI.Core.</summary>
-internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string requestId, long inputCeiling, long outputCeiling, decimal costCeiling) : ILLMHttpRetryJournal
+internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string requestId, long inputCeiling, long outputCeiling, decimal costCeiling, int? sessionAttemptLimit = 8) : ILLMHttpRetryJournal
 {
     internal const string Collection = "planning-evaluation-http-attempts";
     internal static JsonObject UndispatchedUsage() => new()
@@ -24,9 +24,12 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
     public async Task SaveAsync(LLMHttpRetryState state, CancellationToken ct)
     {
         var existing = await campaign.LoadAsync(Collection, requestId, ct);
+        if (sessionAttemptLimit is <= 0 || existing is not null &&
+            (existing.ContainsKey("session_attempt_limit") ? existing["session_attempt_limit"]?.GetValue<int>() : 8) != sessionAttemptLimit)
+            throw new InvalidOperationException("An issued HTTP attempt limit cannot change during recovery.");
         var record = existing?.DeepClone().AsObject() ?? new JsonObject
         {
-            ["input_ceiling"] = inputCeiling, ["output_ceiling"] = outputCeiling, ["cost_ceiling_eur"] = costCeiling
+            ["input_ceiling"] = inputCeiling, ["output_ceiling"] = outputCeiling, ["cost_ceiling_eur"] = costCeiling, ["session_attempt_limit"] = sessionAttemptLimit
         };
         if (inputCeiling <= 0 || outputCeiling <= 0 || costCeiling < 0) throw new InvalidOperationException("Conservative attempt limits are required.");
         record["transport"] = JsonSerializer.SerializeToNode(state, LLMHttpRetryJsonContext.Default.LLMHttpRetryState);
@@ -36,8 +39,9 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
             if (state.Attempts.Count != oldCount + 1 || state.Attempts[^1].Status is not null)
                 throw new InvalidOperationException("Each new dispatch must have one reserved identity.");
             var totals = await AccountingAsync(campaign, requestId, record, ct);
-            if (totals["cost_upper_bound_eur"]!.GetValue<decimal>() > 50m || totals["session_calls"]!.GetValue<long>() > 8)
-            { campaign.BudgetExceeded(totals["session_calls"]!.GetValue<long>() > 8); throw new InvalidOperationException("The campaign or session cannot cover another HTTP attempt."); }
+            var sessionExhausted = sessionAttemptLimit is { } limit && totals["session_calls"]!.GetValue<long>() > limit;
+            if (totals["cost_upper_bound_eur"]!.GetValue<decimal>() > 50m || sessionExhausted)
+            { campaign.BudgetExceeded(sessionExhausted); throw new InvalidOperationException("The campaign or session cannot cover another HTTP attempt."); }
         }
         await campaign.SaveAsync(Collection, requestId, record, ct);
     }

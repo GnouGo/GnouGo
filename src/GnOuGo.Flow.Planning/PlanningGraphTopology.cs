@@ -33,7 +33,18 @@ internal static class PlanningGraphTopology
         .Concat(node.Cases.Select(c => c.When)).Concat(node.OnError.SelectMany(e => new[] { e.If, e.SetOutput }))
         .OfType<PlanningValue>();
     internal static bool GuardsFinalizerSource(PlanningValue guard, string source)
-        => guard.Kind == "present" && guard.Source == source || guard.Kind == "expression" && WorkflowResultAvailability.ProvesPresence(guard.Text, source);
+        => guard.Kind == "predicate" && guard.Text == "and" && guard.Items.Any(v => GuardsFinalizerSource(v, source)) || guard.Kind == "present" && guard.Source == source || guard.Kind == "expression" && WorkflowResultAvailability.ProvesPresence(guard.Text, source);
+    private static HashSet<string> RequiredPresence(PlanningValue value)
+    {
+        if (value.Kind == "expression") return WorkflowResultAvailability.RequiredResults(value.Text).ToHashSet(StringComparer.Ordinal);
+        if (value.Kind == "present" && value.Source is { } source) return new([source], StringComparer.Ordinal);
+        if (value.Kind == "predicate" && value.Text == "and")
+        {
+            var operands = value.Items.Select(RequiredPresence).ToArray();
+            if (operands.All(s => s.Count > 0)) return operands.SelectMany(s => s).ToHashSet(StringComparer.Ordinal);
+        }
+        return new(StringComparer.Ordinal);
+    }
     internal static bool FinalizerAvailableOnSuccess(PlanningNode node, PlanningWorkflow workflow)
     {
         return Available(node, new(StringComparer.Ordinal));
@@ -43,9 +54,7 @@ internal static class PlanningGraphTopology
             try
             {
                 if (current.If is null) return true;
-                if (current.If.Kind is not ("expression" or "present")) return false;
-                var required = current.If.Kind == "present" && current.If.Source is { } source
-                    ? new HashSet<string>([source], StringComparer.Ordinal) : WorkflowResultAvailability.RequiredResults(current.If.Text);
+                var required = RequiredPresence(current.If);
                 if (required.Count == 0) return false;
                 foreach (var id in required)
                 {
@@ -53,7 +62,7 @@ internal static class PlanningGraphTopology
                     // Successful projections return an object envelope even when its selected payload is null.
                     // Keep the guard proof: failed, skipped or continued producers do not establish availability.
                     if (producer is null || producer.OnError.Any(h => h.Action == "continue") ||
-                        !(producer.Type is "mcp.call" or "llm.call" or "workflow.call" or "value.validate" or "value.project" or "array.project" || producer.Type == "set" && producer.Input.Kind == "object" ||
+                        !(producer.Type is "mcp.call" or "llm.call" or "agent.run" or "workflow.call" or "mapping.dynamic" || producer.Type == "set" && producer.Input.Kind is "object" or "projection" or "dynamic_mapping" ||
                             producer.Type == "switch" && producer.Cases.Count > 0 && producer.Cases.All(c => c.Steps.Count > 0) && producer.Default.Count > 0) ||
                         (workflow.Finally.Contains(producer) ? !Available(producer, visiting) : producer.If is not null)) return false;
                 }

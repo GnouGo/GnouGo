@@ -1,4 +1,5 @@
 using System.Text.Json;
+using GnOuGo.Flow.Core.Expressions;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Planning.Capabilities;
@@ -57,9 +58,10 @@ internal static class PlanningDiscoveryContext
         var plan = state.Plan ?? state.Request.Baseline;
         var used = plan is null ? [] : TaskPlanRevisions.Tasks(plan).Select(t => t.Operation).ToHashSet(StringComparer.Ordinal);
         var operations = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).DistinctBy(c => (c.Id, c.Version))
-            .Where(c => c.Kind == "registered" || used.Contains(TaskOperations.Describe(c).Id))
+            .Where(c => plan is not null || state.Catalog.AllowedStepTypes.Contains(c.StepType) && !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id))
+            .Where(c => c.Kind == "registered" || used.Contains(TaskOperations.Describe(c).Id) || plan is null && state.Catalog.Capabilities.Contains(c))
             .Select(PlanningCapabilityArguments.Editable);
-        return operations.Concat(Inspected(state).Select(c => c.Operation!)).DistinctBy(o => o.Id)
+        return operations.Concat(Inspected(state).Select(c => c.Operation!)).Concat(PlanningStructuralRepair.Operations(state)).DistinctBy(o => o.Id)
             .OrderBy(o => o.Id, StringComparer.Ordinal).ToList();
     }
 
@@ -163,4 +165,70 @@ internal static class PlanningDiscoveryContext
             throw new PlanningConflictException("The operation contract changed after discovery.");
         if (cached is null) state.Discovery.Resolved.Add(resolved);
     }
+    internal static async Task DiscoverPrerequisitesAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
+    {
+        if (TaskPlanRevisions.FixedOperations(state)) return;
+        // Snapshot the frontier: no recursive expansion in one advance. Read at most
+        // one page per inspected source; receipts cache empty/unavailable source/kind pairs.
+        var visible = PlanningDiscoveryContext.Candidates(state);
+        var relevant = new PlanningPrompt(state).Shortlist().Concat(Inspected(state)).Select(c => c.Operation!.Id)
+            .Concat(Required(state).Select(o => o.Id))
+            .Concat(state.Plan is null ? [] : TaskPlanRevisions.Tasks(state.Plan).Select(t => t.Operation).OfType<string>()).ToHashSet(StringComparer.Ordinal);
+        var kinds = state.Discovery.Pages.SelectMany(p => p.Capabilities).Where(c => c.Operation is not null && relevant.Contains(c.Operation.Id))
+            .SelectMany(c => Artifacts(state, c)?.Consumes ?? []).Where(a => a.Required).Select(a => a.Kind).Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal).Where(kind => !visible.Any(c =>
+            PlanningDiscoveryContext.Artifacts(state, c)?.Produces.Any(a => a.Kind == kind) == true)).ToArray();
+        var sources = state.Discovery.Pages.Select(p => p.SourceId).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        foreach (var source in sources)
+            if (kinds.FirstOrDefault(kind => !state.Discovery.Pages.Any(p => p.SourceId == source && p.ProducedArtifactKind == kind)) is { } kind)
+                await DiscoverPageAsync(state, runtime, source, null, ct, PlanningDiscoveryContext.Query(state), kind);
+    }
+
+    internal static async Task ResolveShortlistAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
+    {
+        foreach (var summary in PlanningDiscoveryContext.Inspected(state))
+        {
+            try { await PlanningDiscoveryContext.ResolveAsync(state, runtime, summary, ct); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch
+            {
+                var limitation = summary.Id + ": the requested inspection contract could not be resolved.";
+                if (!state.Discovery.Limitations.Contains(limitation, StringComparer.Ordinal)) state.Discovery.Limitations.Add(limitation);
+                throw new WorkflowRuntimeException("DISCOVERY_CONTRACT_UNAVAILABLE", limitation);
+            }
+        }
+        var admitted = new List<CapabilitySummary>();
+        var presentation = new PlanningPrompt(state);
+        foreach (var summary in presentation.OptionalCandidates)
+        {
+            if (!presentation.TryAdmit(admitted, summary)) continue;
+            try { await PlanningDiscoveryContext.ResolveAsync(state, runtime, summary, ct); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch
+            {
+                admitted.Remove(summary);
+                var limitation = summary.Id + ": the candidate contract could not be resolved.";
+                if (!state.Discovery.Limitations.Contains(limitation, StringComparer.Ordinal)) state.Discovery.Limitations.Add(limitation);
+            }
+        }
+    }
+
+    internal static async Task DiscoverPageAsync(PlanningSession state, IPlanningRuntime runtime, string source, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null)
+    {
+        CapabilityPage page;
+        try
+        {
+            page = await runtime.Capabilities.ListAsync(source, cursor, ct, query, producedArtifactKind);
+            if (page.SourceId != source || page.Cursor != cursor || page.ProducedArtifactKind != producedArtifactKind ||
+                producedArtifactKind is not null && page.Capabilities.Any(c => c.ArtifactContract?.Produces.Any(a => a.Kind == producedArtifactKind) != true) || page.Query is not null && page.Query != query || page.Capabilities.Any(c => c.SourceId != source) ||
+                page.Capabilities.Select(c => c.Id).Distinct(StringComparer.Ordinal).Count() != page.Capabilities.Count)
+                page = new(source, cursor, [], null, "The source returned an ambiguous discovery contract.");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch { page = new(source, cursor, [], null, "This source is unavailable; its capabilities have not been inspected."); }
+        page = page with { Query = query, ProducedArtifactKind = producedArtifactKind };
+        state.Discovery.Pages.Add(page);
+        if (page.UnavailableReason is { } reason) state.Discovery.Limitations.Add(source + ": " + reason);
+    }
+
 }

@@ -52,7 +52,7 @@ public sealed class RepairPatchRuntimeTests
         state.RevisionScope = TaskPlanRevisions.Scope(state.Plan, state.Diagnostics).ToList();
         var request = new LLMRequest { Prompt = HybridWorkflowPlanner.Prompt(state), StructuredOutputSchema = PlanningSchemas.Proposal(state), ClientRequestId = "retained-patch" };
         state.PendingCall = new() { Id = request.ClientRequestId, Purpose = "replan", Request = request }; state.ModelCalls = 7; state.ReplanAttempts = 1;
-        var payload = new JsonObject { ["discoveryRequests"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray((JsonNode)RepairPatchTests.Edit(state, "/root/outputs/broken", "replace", JsonNode.Parse("""{"kind":"string","text":"explicit"}"""))) } };
+        var payload = new JsonObject { ["clarifications"] = null, ["discoveryRequests"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray((JsonNode)RepairPatchTests.Edit(state, "/root/outputs/broken", "replace", JsonNode.Parse("""{"kind":"string","text":"explicit"}"""))) } };
         runtime.Respond = (issued, _) => { Assert.Equal(request.Prompt, issued.Prompt); Assert.True(JsonNode.DeepEquals(request.StructuredOutputSchema, issued.StructuredOutputSchema)); return new() { Json = payload }; };
         var restored = PlannerFixture.Clone(state);
         var result = await new HybridWorkflowPlanner().AdvanceAsync(restored, new() { ExpectedRevision = restored.Revision }, runtime, PlannerFixture.Ct);

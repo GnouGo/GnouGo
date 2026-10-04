@@ -60,7 +60,7 @@ public sealed class FrozenReviewDiscoveryTests(ITestOutputHelper output)
         int Bytes(JsonNode value) => Encoding.UTF8.GetByteCount(PlanningJsonTransport.Prompt(value));
         Assert.Equal(16784, Bytes(original["plan"]!)); Assert.Equal(16818, Bytes(original));
         Assert.Equal(16344, Bytes(compact["plan"]!)); Assert.Equal(16378, Bytes(compact));
-        Assert.Empty(PlanningContractValidation.ValidateInstance(compact, PlanningSchemas.Proposal(state)));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(compact, PlanningSchemas.FullProposal(state, clarifications: false)));
         var restored = compact["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
         Assert.Equal(JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan), JsonSerializer.Serialize(restored, PlanningJsonContext.Default.TaskPlan));
         var compiler = new TaskPlanCompiler(); var a = compiler.Compile(state.Plan!, state.Catalog!); var b = compiler.Compile(restored, state.Catalog!);

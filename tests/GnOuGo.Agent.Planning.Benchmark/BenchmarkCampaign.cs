@@ -31,6 +31,27 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
             if (await records.GetAsync("planning-evaluation-receipts", "benchmark", request.Key, Author, ct) is null) return true;
         return false;
     }
+    // A terminal schema rejection proves no generation started. Retain the failure
+    // and HTTP receipt; this closes redispatch, never invents a model response.
+    internal async Task RetainSchemaRejectionAsync(string requestId, CancellationToken ct)
+    {
+        if (await LoadAsync("planning-evaluation-closures", requestId, ct) is not null) return;
+        var failure = await LoadAsync("planning-evaluation-failures", requestId, ct);
+        var journal = await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
+        var request = await LoadAsync("planning-evaluation-requests", requestId, ct);
+        if (failure?["status_code"]?.GetValue<int>() != 400 || failure["safe_provider_code"]?.ToString() != "invalid_json_schema" ||
+            request is null || journal?["transport"]?["Attempts"] is not JsonArray { Count: > 0 } attempts ||
+            attempts.Any(a => a?["Status"]?.GetValue<int>() != 400) ||
+            await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null)
+            throw new InvalidOperationException("Only a verified terminal schema rejection can be closed here.");
+        await SaveAsync("planning-evaluation-closures", requestId, new()
+        {
+            ["reason"] = "provider_schema_rejected", ["outcome"] = "failed", ["retained_at"] = DateTimeOffset.UtcNow.ToString("O"),
+            ["request_hash"] = PlanningGraphCompiler.Fingerprint(request.ToJsonString()),
+            ["http_journal_hash"] = PlanningGraphCompiler.Fingerprint(journal.ToJsonString())
+        }, ct);
+        StopReason = null;
+    }
     // Closing an exhausted evaluation is not a receipt: unknown usage stays fully reserved forever.
     // The caller holds the campaign's process lease. Original runs, requests and failures stay untouched.
     internal async Task<JsonObject> RetainInconclusiveAsync(string runKey, CancellationToken ct)
@@ -50,6 +71,34 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
             ["outcome"] = "inconclusive", ["retained_at"] = DateTimeOffset.UtcNow.ToString("O"),
             ["request_hash"] = PlanningGraphCompiler.Fingerprint(request.ToJsonString()), ["run_hash"] = PlanningGraphCompiler.Fingerprint(run.ToJsonString()),
             ["accounting_at_closure"] = accounting };
+        await SaveAsync("planning-evaluation-closures", requestId, closure, ct);
+        return closure;
+    }
+    // Explicit operator action under the campaign lease. Exhausting one HTTP
+    // request need not exhaust the session's eight-attempt planning allowance.
+    // This is not reconciliation: no receipt or usage is manufactured/released.
+    internal async Task<JsonObject> RetainExhaustedRequestAsync(string requestId, CancellationToken ct)
+    {
+        if (await LoadAsync("planning-evaluation-closures", requestId, ct) is { } saved) return saved;
+        var request = await LoadAsync("planning-evaluation-requests", requestId, ct);
+        var journal = await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
+        var failure = await LoadAsync("planning-evaluation-failures", requestId, ct);
+        var policy = await LoadAsync("planning-evaluation-configuration", "http-retry-policy", ct);
+        if (request?["clientRequestId"]?.ToString() != requestId || failure?["stage"]?.ToString() != "dispatch" ||
+            policy?["MaxAttempts"] is not JsonValue maximum || !maximum.TryGetValue<int>(out var limit) || limit is < 1 or > 20 ||
+            journal?["transport"]?["Attempts"] is not JsonArray attempts || attempts.Count < limit ||
+            attempts[^1]?["Status"] is not null || journal["usage"] is not null ||
+            await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null)
+            throw new InvalidOperationException("Only an uncertain request that exhausted its pinned HTTP attempt policy can be retained here.");
+        var closure = new JsonObject
+        {
+            ["request_id"] = requestId, ["reason"] = "http_attempts_exhausted", ["outcome"] = "inconclusive",
+            ["retained_at"] = DateTimeOffset.UtcNow.ToString("O"),
+            ["request_hash"] = PlanningGraphCompiler.Fingerprint(request.ToJsonString()),
+            ["http_journal_hash"] = PlanningGraphCompiler.Fingerprint(journal.ToJsonString()),
+            ["retry_policy_hash"] = PlanningGraphCompiler.Fingerprint(policy.ToJsonString()),
+            ["accounting_at_closure"] = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct)
+        };
         await SaveAsync("planning-evaluation-closures", requestId, closure, ct);
         return closure;
     }
@@ -188,11 +237,12 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         foreach (var pending in (await records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct)).Where(r => r.Key.StartsWith(Id + ":", StringComparison.Ordinal)))
             if (await records.GetAsync("planning-evaluation-receipts", "benchmark", pending.Key, Author, ct) is null && await records.GetAsync("planning-evaluation-closures", "benchmark", pending.Key, Author, ct) is null && !(pending.Key == Id + ":" + key && resumable))
             { StopReason = "uncertain_dispatch"; throw new InvalidOperationException("The campaign has an uncertain dispatch without recoverable HTTP evidence."); }
-        await preflight(ct);
-        if (reserved is null) await SaveAsync("planning-evaluation-requests", key, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), ct);
-        var stage = "dispatch";
+        var stage = "preflight";
         try
         {
+            await preflight(ct);
+            if (reserved is null) await SaveAsync("planning-evaluation-requests", key, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject(), ct);
+            stage = "dispatch";
             var response = await dispatch(ct);
             stage = "receipt_write";
             // Preserve evidence even when cancellation arrives after completion.
@@ -202,11 +252,13 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         }
         catch (Exception ex)
         {
-            StopReason ??= "uncertain_dispatch";
+            StopReason ??= stage == "preflight" ? "preflight_failed" : "uncertain_dispatch";
             var failure = ex as LLMClientException;
             var details = new JsonObject { ["stage"] = stage, ["exception_type"] = ex.GetType().Name, ["kind"] = failure?.Kind.ToString(),
                 ["status_code"] = failure?.StatusCode, ["safe_provider_code"] = failure?.SafeProviderCode, ["retryable"] = failure?.Retryable,
                 ["attempt_count"] = failure?.AttemptCount, ["retry_exhausted"] = failure?.RetryExhausted, ["retry_after_ms"] = failure?.RetryAfterMilliseconds };
+            if (stage == "preflight") details["reason"] = ex.Message switch
+            { "No currency quote." => "currency_quote_unavailable", "No model price metadata." => "model_price_unavailable", _ => "preflight_failed" };
             // A durable reservation already prevents redispatch. Failure evidence must not
             // replace the original exception if storage is itself unavailable.
             try

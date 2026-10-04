@@ -1,0 +1,147 @@
+{
+  "description": "Historical provider failures retained separately; no new provider dispatch, saved-workflow mutation or rerun.",
+  "sessions": [
+    {
+      "case": "copilot",
+      "fixture": "tests/GnOuGo.Flow.Planning.Tests/Fixtures/ContractAwarePlanning/retained-copilot.json",
+      "sha256": "93c4cb71ecfd6e0a6fc8e5852fcb7effa14b3c665299317891656a2d98c15f3e",
+      "historicalPlanningCalls": 6,
+      "historicalRepairs": 2,
+      "retainedDiscoveryPages": 10,
+      "actualHistoricalDiscoveryReads": null,
+      "inputTokens": 63646,
+      "outputTokens": 14909,
+      "activePlanningMilliseconds": 252816.72369999997,
+      "executionAttempted": false,
+      "diagnostics": [
+        {
+          "code": "TASK_INPUT_TYPE",
+          "location": "/tasks/run_copilot_review_agent/inputs/verification",
+          "message": "Produced \"string\"; expected \"array\". The business value does not satisfy its authoritative contract.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "AGENT_SCOPE_DYNAMIC",
+          "location": "/tasks/run_copilot_review_agent/inputs/workspace",
+          "message": "Agent scope must be literal before approval. Workspace may reference an available, fixed value; runtime inputs, choices and computed paths cannot change it.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ]
+    },
+    {
+      "case": "products",
+      "fixture": "tests/GnOuGo.Flow.Planning.Tests/Fixtures/ContractAwarePlanning/retained-products.json",
+      "sha256": "78090b88f8c7ea992e37c01ce602d936488b2241a148b5587b4625f5a4c5456c",
+      "historicalPlanningCalls": 2,
+      "historicalRepairs": 0,
+      "retainedDiscoveryPages": 3,
+      "actualHistoricalDiscoveryReads": null,
+      "inputTokens": 19058,
+      "outputTokens": 5676,
+      "activePlanningMilliseconds": 90953.9912,
+      "executionAttempted": false,
+      "diagnostics": [
+        {
+          "code": "OUTCOME_OPERATION_REQUIRED",
+          "location": "/outcomeBindings/o_search_list/taskIds",
+          "message": "Outcome 'o_search_list' requires a resolved, policy-allowed read operation; task 'open_amazon' cannot establish it. Discover the required contract or explicitly revise the implementation; values and transforms cannot perform external work.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_OPERATION_REQUIRED",
+          "location": "/outcomeBindings/o_search_list/taskIds",
+          "message": "Outcome 'o_search_list' requires a resolved, policy-allowed read operation; task 'submit_search' cannot establish it. Discover the required contract or explicitly revise the implementation; values and transforms cannot perform external work.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_OPERATION_REQUIRED",
+          "location": "/outcomeBindings/o_search_list/taskIds",
+          "message": "Outcome 'o_search_list' requires a resolved, policy-allowed read operation; task 'wait_results' cannot establish it. Discover the required contract or explicitly revise the implementation; values and transforms cannot perform external work.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_OPERATION_REQUIRED",
+          "location": "/outcomeBindings/o_search_list/taskIds",
+          "message": "Outcome 'o_search_list' requires a resolved, policy-allowed read operation; task 'read_results' cannot establish it. Discover the required contract or explicitly revise the implementation; values and transforms cannot perform external work.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_OPERATION_REQUIRED",
+          "location": "/outcomeBindings/o_search_list/taskIds",
+          "message": "Outcome 'o_search_list' requires a resolved, policy-allowed read operation; task 'parse_results' cannot establish it. Discover the required contract or explicitly revise the implementation; values and transforms cannot perform external work.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_OPERATION_REQUIRED",
+          "location": "/outcomeBindings/o_search_list",
+          "message": "An external outcome requires operation tasks. Output values are not execution evidence.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_OPERATION_REQUIRED",
+          "location": "/outcomeBindings/o_visit_extract/taskIds",
+          "message": "Outcome 'o_visit_extract' requires a resolved, policy-allowed read operation; task 'scrape_products' cannot establish it. Discover the required contract or explicitly revise the implementation; values and transforms cannot perform external work.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_OPERATION_REQUIRED",
+          "location": "/outcomeBindings/o_visit_extract",
+          "message": "An external outcome requires operation tasks. Output values are not execution evidence.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_OPERATION_REQUIRED",
+          "location": "/outcomeBindings/o_save_excel/taskIds",
+          "message": "Outcome 'o_save_excel' requires a resolved, policy-allowed write operation; task 'get_document_policy' cannot establish it. Discover the required contract or explicitly revise the implementation; values and transforms cannot perform external work.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_OPERATION_REQUIRED",
+          "location": "/outcomeBindings/o_save_excel/taskIds",
+          "message": "Outcome 'o_save_excel' requires a resolved, policy-allowed write operation; task 'build_excel_content' cannot establish it. Discover the required contract or explicitly revise the implementation; values and transforms cannot perform external work.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_OPERATION_REQUIRED",
+          "location": "/outcomeBindings/o_save_excel/taskIds",
+          "message": "Outcome 'o_save_excel' requires a resolved, policy-allowed write operation; task 'write_excel' cannot establish it. Discover the required contract or explicitly revise the implementation; values and transforms cannot perform external work.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "OUTCOME_OPERATION_REQUIRED",
+          "location": "/outcomeBindings/o_save_excel",
+          "message": "An external outcome requires operation tasks. Output values are not execution evidence.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ]
+    }
+  ]
+}

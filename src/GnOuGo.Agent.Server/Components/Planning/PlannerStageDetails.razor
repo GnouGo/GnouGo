@@ -1,7 +1,27 @@
 @using GnOuGo.Flow.Core.Planning
+@if (Session.Requirements is { } requirements)
+{
+    var accepted = System.Text.Json.JsonSerializer.Deserialize(requirements, PlanningJsonContext.Default.PlanningRequirements)!;
+    <details open><summary>Business requirements</summary>
+        <p>Review these requirements against the business tasks. Compilation does not prove business completeness or execution success.</p>
+        <ul>@foreach (var outcome in accepted.Outcomes) { <li>@outcome.Description</li> }</ul>
+        @if (accepted.Inputs is { } inputs)
+        { <p>Caller inputs: @(inputs.Count == 0 ? "none" : string.Join(", ", inputs.Select(i => i.Name)))</p> }
+        @if (accepted.Outputs is { } outputs)
+        { <p>Business outputs: @(outputs.Count == 0 ? "none" : string.Join(", ", outputs.Select(o => o.Name + ": " + o.Type.Kind + (o.Type.Nullable ? " (nullable)" : ""))))</p> }
+    </details>
+}
 @if (Session.Graph is { } graph)
 {
     <PlannerAgentStages Graph="@(System.Text.Json.JsonSerializer.Deserialize(graph, PlanningJsonContext.Default.PlanningGraph)!)" />
+}
+@if (Session.ValidationResults.Any(r => r.Id.StartsWith("outcome:", StringComparison.Ordinal)))
+{
+    <details open><summary>Historical outcome checks</summary>
+        <p>These retained checks used the previous planning contract. They do not establish execution success.</p>
+        <ul>@foreach (var outcome in Session.ValidationResults.Where(r => r.Id.StartsWith("outcome:", StringComparison.Ordinal)))
+        { <li>@outcome.Description</li> }</ul>
+    </details>
 }
 @if (Session.RevisionScope.Count > 0)
 {

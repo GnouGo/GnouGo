@@ -28,6 +28,7 @@ internal static class PlanningValueProvenance
             }
             if (value.Kind == "input")
             {
+                if (value.Source is null) return false;
                 var callers = graph.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally))
                     .Where(n => n.Type == "workflow.call" && PlanningGraphValidation.Member(n.Input, "ref")?.Source == workflow.Key)
                     .Select(n => (Workflow: w, Node: n))).ToArray();
@@ -43,31 +44,27 @@ internal static class PlanningValueProvenance
                 return Proves(workflow, new() { Kind = "output", Source = value.Source, Path = value.Path.Skip(1).ToList() }, graph, source, visited);
             }
             if (source(producer, value)) return true;
-            if (producer.Type is "value.project" or "value.validate")
+            if (producer.Type == "set" && producer.Input.Kind == "projection")
             {
                 if (producer.OutputSchema is null || value.Path.FirstOrDefault() != "value" || producer.OnError.Any(h => h.Action == "continue")) return false;
                 var input = PlanningGraphValidation.Member(producer.Input, "value");
-                if (producer.Type == "value.validate")
-                    return Select(input, value.Path.Skip(1)) is { } selected && Proves(workflow, selected, graph, source, visited);
+                var each = PlanningGraphValidation.Member(producer.Input, "each");
+                if (each is not null && each is not { Kind: "boolean", Boolean: not null }) return false;
+                var remaining = value.Path.Skip(1);
+                if (each?.Boolean == true)
+                {
+                    if (value.Path.Count < 2 || !int.TryParse(value.Path[1], out var index) || index < 0) return false;
+                    input = Select(input, [value.Path[1]]); remaining = value.Path.Skip(2);
+                }
                 var paths = PlanningGraphValidation.Member(producer.Input, "paths");
-                // The executor chooses the first present path. Every reachable alternative
-                // must retain the declared origin; its checked type alone proves nothing.
+                // Every reachable alternative must preserve origin. Checked types alone prove nothing.
                 return paths is { Kind: "array", Items.Count: > 0 } && paths.Items.All(path =>
                     path.Kind == "array" && path.Items.All(p => p.Kind == "string" && p.Text is not null) &&
-                    Select(input, path.Items.Select(p => p.Text!).Concat(value.Path.Skip(1))) is { } projected && Proves(workflow, projected, graph, source, visited));
+                    Select(input, path.Items.Select(p => p.Text!).Concat(remaining)) is { } projected && Proves(workflow, projected, graph, source, visited));
             }
-            if (producer.Type == "array.project")
+            if (producer.Type == "set")
             {
-                var path = PlanningGraphValidation.Member(producer.Input, "path");
-                return producer.OutputSchema is not null && !producer.OnError.Any(h => h.Action == "continue") &&
-                    value.Path.Count >= 2 && value.Path[0] == "values" && int.TryParse(value.Path[1], out var index) && index >= 0 &&
-                    path is { Kind: "array" } && path.Items.All(p => p.Kind == "string" && p.Text is not null) &&
-                    Select(PlanningGraphValidation.Member(producer.Input, "items"), new[] { value.Path[1] }.Concat(path.Items.Select(p => p.Text!)).Concat(value.Path.Skip(2))) is { } item &&
-                    Proves(workflow, item, graph, source, visited);
-            }
-            if (producer.Type is "set" or "assert.non_null")
-            {
-                var selected = Select(producer.Type == "set" ? producer.Input : PlanningGraphValidation.Member(producer.Input, "value"), value.Path);
+                var selected = Select(producer.Input, value.Path);
                 return selected is not null && Proves(workflow, selected, graph, source, visited);
             }
             if (producer.Type is "sequence" or "switch" or "parallel" && value.Path.Count > 0)

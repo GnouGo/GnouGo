@@ -1,0 +1,165 @@
+{
+  "kind": "Deterministic contract-version comparison on candidate code, not a baseline/candidate provider campaign",
+  "baseCommit": "ae22fd9ea3436fb431d157437869cdd8de89a4e4",
+  "scenario": "Return a greeting",
+  "repetitionsPerContract": 3,
+  "warmupPairs": 1,
+  "providerInputTokens": null,
+  "providerOutputTokens": null,
+  "providerLatency": null,
+  "providerDispatches": 0,
+  "method": "PlanningOutcomeTests.ComparableContractOverheadKeepsTheOneCallExecutionPath",
+  "summaries": {
+    "compatibility": {
+      "runs": 3,
+      "executionSuccesses": 3,
+      "oracleCorrect": 3,
+      "planningCalls": {
+        "median": 1,
+        "p95": 1
+      },
+      "repairs": {
+        "median": 0,
+        "p95": 0
+      },
+      "discoveryReads": {
+        "median": 0,
+        "p95": 0
+      },
+      "inputTokenEstimate": {
+        "median": 5927,
+        "p95": 5927
+      },
+      "planningMs": {
+        "median": 8.8411,
+        "p95": 10.3342
+      },
+      "executionMs": {
+        "median": 0.7656,
+        "p95": 0.7946
+      },
+      "totalMs": {
+        "median": 9.6357,
+        "p95": 11.0998
+      }
+    },
+    "outcome-v1": {
+      "runs": 3,
+      "executionSuccesses": 3,
+      "oracleCorrect": 3,
+      "planningCalls": {
+        "median": 1,
+        "p95": 1
+      },
+      "repairs": {
+        "median": 0,
+        "p95": 0
+      },
+      "discoveryReads": {
+        "median": 0,
+        "p95": 0
+      },
+      "inputTokenEstimate": {
+        "median": 6270,
+        "p95": 6270
+      },
+      "planningMs": {
+        "median": 7.6724,
+        "p95": 7.6871
+      },
+      "executionMs": {
+        "median": 0.7832,
+        "p95": 0.974
+      },
+      "totalMs": {
+        "median": 8.4631,
+        "p95": 8.6464
+      }
+    }
+  },
+  "samples": [
+    {
+      "contract": "compatibility",
+      "repetition": 0,
+      "planningCalls": 1,
+      "repairs": 0,
+      "discoveryReads": 0,
+      "inputTokenEstimate": 5927,
+      "planningMs": 10.3342,
+      "executionMs": 0.7656,
+      "totalMs": 11.099799999999998,
+      "executionSuccess": true,
+      "oracleCorrect": true
+    },
+    {
+      "contract": "outcome-v1",
+      "repetition": 0,
+      "planningCalls": 1,
+      "repairs": 0,
+      "discoveryReads": 0,
+      "inputTokenEstimate": 6270,
+      "planningMs": 7.6724,
+      "executionMs": 0.974,
+      "totalMs": 8.6464,
+      "executionSuccess": true,
+      "oracleCorrect": true
+    },
+    {
+      "contract": "compatibility",
+      "repetition": 1,
+      "planningCalls": 1,
+      "repairs": 0,
+      "discoveryReads": 0,
+      "inputTokenEstimate": 5927,
+      "planningMs": 8.8411,
+      "executionMs": 0.7946,
+      "totalMs": 9.6357,
+      "executionSuccess": true,
+      "oracleCorrect": true
+    },
+    {
+      "contract": "outcome-v1",
+      "repetition": 1,
+      "planningCalls": 1,
+      "repairs": 0,
+      "discoveryReads": 0,
+      "inputTokenEstimate": 6270,
+      "planningMs": 7.6871,
+      "executionMs": 0.776,
+      "totalMs": 8.4631,
+      "executionSuccess": true,
+      "oracleCorrect": true
+    },
+    {
+      "contract": "compatibility",
+      "repetition": 2,
+      "planningCalls": 1,
+      "repairs": 0,
+      "discoveryReads": 0,
+      "inputTokenEstimate": 5927,
+      "planningMs": 8.6332,
+      "executionMs": 0.7535,
+      "totalMs": 9.386700000000001,
+      "executionSuccess": true,
+      "oracleCorrect": true
+    },
+    {
+      "contract": "outcome-v1",
+      "repetition": 2,
+      "planningCalls": 1,
+      "repairs": 0,
+      "discoveryReads": 0,
+      "inputTokenEstimate": 6270,
+      "planningMs": 7.5665,
+      "executionMs": 0.7832,
+      "totalMs": 8.3497,
+      "executionSuccess": true,
+      "oracleCorrect": true
+    }
+  ],
+  "limitations": [
+    "Input tokens are conservative estimates",
+    "Host timings exclude model inference and do not establish a provider speedup",
+    "Historical 33/33 campaign is unchanged and excluded"
+  ]
+}

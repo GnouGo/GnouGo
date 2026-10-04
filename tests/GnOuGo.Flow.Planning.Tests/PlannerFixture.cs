@@ -7,7 +7,7 @@ namespace GnOuGo.Flow.Planning.Tests;
 internal static class PlannerFixture
 {
     internal static CancellationToken Ct => TestContext.Current.CancellationToken;
-    internal static PlanningSession Session() => new() { Request = new() { TenantId = "test", Prompt = "Return a greeting" } };
+    internal static PlanningSession Session() => new() { IntentVersion = 2, Request = new() { TenantId = "test", Prompt = "Return a greeting" } };
     internal static PlanningGraph Greeting(string message = "Hello") => new()
     {
         Summary = "Return a greeting", Workflows = [new()
@@ -16,7 +16,7 @@ internal static class PlannerFixture
             Outputs = [new() { Name = "message", Value = PlanningCorpus.Ref("output", "greet", "message") }]
         }]
     };
-    internal static PlanningRequirements Requirements() => new() { Summary = "Return a greeting", Outcomes = [new("message", "Return a greeting")] };
+    internal static PlanningRequirements Requirements() => new() { Summary = "Return a greeting", Inputs = [], Outcomes = [new("message", "Return a greeting")] };
     internal static PlanningSession Clone(PlanningSession state) => JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
     internal static async Task<PlanningSession> RunAsync(TestRuntime runtime, PlanningSession? state = null)
     {
@@ -52,7 +52,7 @@ internal sealed class TestRuntime : IPlanningRuntime
     { Json = PlanningRepairPatch.Issued(request.StructuredOutputSchema?.AsObject())
         ? proposal.Plan is not null
             ? new JsonObject { ["discoveryRequests"] = null, ["plan"] = JsonSerializer.SerializeToNode(proposal.Plan, PlanningJsonContext.Default.TaskPlan) }
-            : PlanningCorpus.Transport(new JsonObject { ["discoveryRequests"] = JsonSerializer.SerializeToNode(proposal.DiscoveryRequests, PlanningJsonContext.Default.ListPlanningDiscoveryRequest), ["patch"] = null }, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())
+            : PlanningCorpus.Transport(new JsonObject { ["discoveryRequests"] = JsonSerializer.SerializeToNode(proposal.DiscoveryRequests, PlanningJsonContext.Default.ListPlanningDiscoveryRequest), ["clarifications"] = JsonSerializer.SerializeToNode(proposal.Clarifications, PlanningJsonContext.Default.ListPlanningQuestion), ["patch"] = null }, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject())
         : PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal), request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
 
     // Existing scripted tests state the intended candidate. Convert only authorized

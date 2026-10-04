@@ -52,13 +52,14 @@ public sealed class PlanningSchema
     public string? SchemaPointer { get; set; }
 }
 
-/// <summary>Literal, input/output reference, stage-presence condition, expression, object, array, or workflow reference.</summary>
+/// <summary>Literal, reference, object, array, workflow, or compiler-owned predicate/JSON encoding. Historical expressions remain readable.</summary>
 public sealed class PlanningValue
 {
     public string Kind { get; set; } = "null";
     public string? Text { get; set; }
     public decimal? Number { get; set; }
     public bool? Boolean { get; set; }
+    /// <summary>Binding identity; input with no source/path forwards the complete accepted input object, preserving omission.</summary>
     public string? Source { get; set; }
     /// <summary>The default channel is the declared raw result; structured selects validated post-processing JSON.</summary>
     public string? ResultChannel { get; set; }

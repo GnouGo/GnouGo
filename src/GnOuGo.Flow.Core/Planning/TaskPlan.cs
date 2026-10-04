@@ -24,6 +24,9 @@ public sealed class PlanTask
     public string Id { get; set; } = "";
     public string Objective { get; set; } = "";
     public string Kind { get; set; } = "operation";
+    /// <summary>Extract observed data or interpret it. Omission preserves historical interpretation.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Mode { get; set; }
     public List<string> DependsOn { get; set; } = [];
     public string? Operation { get; set; }
     public List<TaskOutput> Inputs { get; set; } = [];

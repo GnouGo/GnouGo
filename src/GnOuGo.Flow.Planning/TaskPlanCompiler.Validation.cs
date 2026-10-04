@@ -75,7 +75,7 @@ public sealed partial class TaskPlanCompiler
 
     // Validate business symbols and contracts before emitting any graph node. Bound
     // values reuse the compiler's existing type rules; no executable plan is built here.
-    private IReadOnlyList<PlanningDiagnostic> Preflight()
+    private IReadOnlyList<PlanningDiagnostic> Preflight(Action<string, Scope>? inspect = null)
     {
         var findings = IdentityDiagnostics(_plan).ToList();
         var symbols = _symbols;
@@ -111,6 +111,7 @@ public sealed partial class TaskPlanCompiler
         }
         Bound? Read(TaskValue value, Scope scope, string location)
         {
+            inspect?.Invoke(location, scope);
             if (value.Kind is "output" or "present" or "choice" && symbols.InvalidIds.Contains(value.Source!)) return null;
             Bound? result = null;
             var children = value.Members.Select(m => m.Value).Concat(value.Items).ToArray();
@@ -134,7 +135,7 @@ public sealed partial class TaskPlanCompiler
                 Check(path + "/" + input.Name, () =>
                 {
                     var port = InputPort(input);
-                    scope.Inputs.TryAdd(input.Name, Input(input.Name, port.Schema.Contract!));
+                    scope.Inputs.TryAdd(input.Name, Input(input.Name, port.Schema.Contract!) with { TypeLocation = path + "/" + input.Name + "/type" });
                     scope.Blocked.Remove(("input", input.Name, ""));
                 });
             }
@@ -163,6 +164,7 @@ public sealed partial class TaskPlanCompiler
                 if (value is not null && scope.Workflow.Outputs.All(o => o.Name != output.Name))
                     scope.Workflow.Outputs.Add(new() { Name = output.Name, Value = value.Value, Schema = Contract(value.Schema) });
             }
+            inspect?.Invoke(path + "/outputs", scope);
         }
         void InspectTasks(List<PlanTask> tasks, Scope scope)
         {
@@ -188,6 +190,7 @@ public sealed partial class TaskPlanCompiler
         void InspectTask(PlanTask task, Scope scope)
         {
             var path = "/tasks/" + task.Id;
+            if (task.Mode is not null && task.Kind != "transform") findings.Add(new("TASK_TRANSFORM_MODE", path + "/mode", "Only business transforms declare an extraction or interpretation mode."));
             if (symbols.InvalidIds.Contains(task.Id)) { scope.Blocked.Add(("output", task.Id, "*")); return; }
             Check(path + "/objective", () => { if (string.IsNullOrWhiteSpace(task.Objective)) Fail("TASK_OBJECTIVE_REQUIRED", "Each task requires an objective."); });
             Check(path + "/dependsOn", () =>
@@ -205,9 +208,17 @@ public sealed partial class TaskPlanCompiler
                 if (task.Kind == "foreach")
                 {
                     var items = task.Items is null ? null : Read(task.Items, scope, path + "/items");
-                    if (items?.Schema["type"]?.ToString() == "array" && items.Schema["items"] is JsonObject itemSchema)
-                    { child.Item = new(new() { Kind = "loop_item" }, itemSchema, "data.item", TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null); child.Index = new(Number(0), new() { ["type"] = "integer" }, "data.index"); }
-                    else { if (items is not null) findings.Add(new("TASK_ITEMS_INVALID", path + "/items", "Iteration needs an authoritative array contract.")); child.Blocked.Add(("item", "", "")); child.Blocked.Add(("index", "", "")); }
+                    if (items is not null && PlanningContractShapes.IterationItems(items.Schema) is { } itemSchema)
+                    { child.Item = new(new() { Kind = "loop_item" }, itemSchema, TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null); child.Index = new(Number(0), new() { ["type"] = "integer" }); }
+                    else
+                    {
+                        if (items is not null)
+                        {
+                            findings.Add(new("TASK_ITEMS_INVALID", path + "/items", "Iteration needs an authoritative array contract."));
+                            findings.AddRange(ConstraintFindings(items, new() { ["type"] = "array" }, path + "/items"));
+                        }
+                        child.Blocked.Add(("item", "", "")); child.Blocked.Add(("index", "", ""));
+                    }
                 }
                 InspectScope(body, child, path + "/" + role); return child;
             }
@@ -216,7 +227,9 @@ public sealed partial class TaskPlanCompiler
                 case "transform":
                     Check(path + "/kind", () =>
                     {
-                        if (!_catalog.AllowedStepTypes.Contains("llm.call") || !_catalog.AllowedStepTypes.Contains("template.render"))
+                        if (task.Mode is not (null or "extract" or "interpret")) Fail("TASK_TRANSFORM_MODE", "Transform mode must be extract or interpret.");
+                        if (task.Mode == "extract" ? !_catalog.AllowedStepTypes.Contains("mapping.dynamic") :
+                            !_catalog.AllowedStepTypes.Contains("llm.call") || !_catalog.AllowedStepTypes.Contains("template.render"))
                             Fail("TASK_TRANSFORM_DENIED", "Transform tasks require inference and prompt assembly permitted by host policy.");
                     });
                     Check(path + "/inputs", () =>
@@ -227,7 +240,11 @@ public sealed partial class TaskPlanCompiler
                     foreach (var input in task.Inputs) Read(input.Value, scope, path + "/inputs/" + input.Name);
                     var typeFindings = TransformTypeFindings(task.ResultType, path + "/resultType").ToArray();
                     findings.AddRange(typeFindings);
-                    if (typeFindings.Length == 0) ports = StructuredResult(task.Id, TypeSchema(task.ResultType!), path + "/resultType");
+                    if (typeFindings.Length == 0)
+                    {
+                        ports = task.Mode == "extract" ? Result(task.Id, "set", TypeSchema(task.ResultType!)) : StructuredResult(task.Id, TypeSchema(task.ResultType!), path + "/resultType");
+                        if (task.Mode == "extract") foreach (var port in ports.Values) port.Value.Path.Insert(0, "value");
+                    }
                     else scope.Blocked.Add(("output", task.Id, "*"));
                     break;
                 case "operation":
@@ -237,9 +254,19 @@ public sealed partial class TaskPlanCompiler
                     if (TaskOperations.Validate(capability).Count > 0) { scope.Blocked.Add(("output", task.Id, "*")); break; }
                     var operation = PlanningCapabilityArguments.Editable(capability);
                     Check(path + "/operation", () => { if (_catalog.Policy.DeniedCapabilityIds.Contains(capability.Id) || !_catalog.AllowedStepTypes.Contains(capability.StepType)) Fail("TASK_OPERATION_DENIED", "The operation is outside the approved host policy."); });
-                    Check(path + "/inputs", () => Unique(task.Inputs.Select(i => i.Name)));
+                    Check(path + "/inputs", () =>
+                    { Unique(task.Inputs.Select(i => i.Name)); operation = OperationInputs(task, capability, scope); });
                     var inputFindings = findings.Count;
                     var mapped = new List<(OperationPort Port, JsonObject Schema)>();
+                    var mappedValues = Object([]);
+                    void Constraints(TaskValue value, JsonObject expected, string location)
+                    {
+                        if (Read(value, scope, location) is not null)
+                            findings.AddRange(ConstraintFindings(BindInput(value, expected, scope), expected, location));
+                        if (value.Kind == "object")
+                            foreach (var member in value.Members)
+                                if (expected["properties"]?[member.Name] is JsonObject field) Constraints(member.Value, field, location);
+                    }
                     foreach (var input in task.Inputs)
                     {
                         var location = path + "/inputs/" + input.Name;
@@ -253,7 +280,8 @@ public sealed partial class TaskPlanCompiler
                             if (capability.StepType == "agent.run") ScopeValue(task, port.Path[0], input.Value);
                             if (value is not null)
                             {
-                                findings.AddRange(ConstraintFindings(value, port.Schema, location));
+                                value = BindInput(input.Value, port.Schema, scope);
+                                Constraints(input.Value, port.Schema, location);
                                 foreach (var artifact in capability.ArtifactContract?.Consumes ?? [])
                                 {
                                     var consumedPath = TaskArtifactBindings.Decode(artifact.Pointer);
@@ -262,28 +290,56 @@ public sealed partial class TaskPlanCompiler
                                     if (consumedPath.Take(port.Path.Count).SequenceEqual(port.Path, StringComparer.Ordinal) &&
                                         !artifacts.Proves(input.Value, symbols.Tasks[task.Id].Scope, relativePath, artifact.Kind))
                                         findings.Add(artifact.Required && artifacts.MissingProducer(artifact.Kind)
-                                            ? new("TASK_ARTIFACT_PREREQUISITE_MISSING", location, "This plan contains no declared producer of artifact kind '" + artifact.Kind + "'. An explicit semantic revision is required; binding repairs cannot insert tasks. This does not establish capability unavailability. Types, literals and transforms cannot manufacture provenance.")
+                                            ? new("TASK_ARTIFACT_PREREQUISITE_MISSING", location, "This plan contains no declared producer of artifact kind '" + artifact.Kind + "'. A structural repair requires an exact policy-allowed producer contract and a complete dependency proof; otherwise an explicit semantic revision is required. Types, literals and transforms cannot manufacture provenance.")
                                             : new("TASK_ARTIFACT_BINDING", location, "Bind a declared producer business port of artifact kind '" + artifact.Kind + "'. A matching type or literal does not establish provenance."));
                                 }
                                 Fits(value, port.Schema, "TASK_INPUT_TYPE", optional: !port.Required);
                                 mapped.Add((port, PlanningGraphValidation.IsLiteral(value.Value)
                                     ? new() { ["const"] = PlanningGraphValidation.Literal(value.Value) } : value.Schema));
+                                Bind(mappedValues, port.Path, value.Value);
                             }
                         });
                     }
                     foreach (var port in operation.Inputs.Where(p => p.Required && task.Inputs.All(i => i.Name != p.Name)))
-                        findings.Add(new("TASK_INPUT_REQUIRED", path + "/inputs/" + port.Name, "Required business input: " + port.Name));
-                    if (findings.Count == inputFindings && mapped.Count == task.Inputs.Count)
+                        Check(path + "/inputs/" + port.Name, () =>
+                        {
+                            if (ContractDefault(port.Schema) is { } fallback)
+                            { mapped.Add((port, fallback.Schema)); Bind(mappedValues, port.Path, fallback.Value); }
+                            else Fail("TASK_INPUT_REQUIRED", "Required business input: " + port.Name);
+                        });
+                    if (findings.Count == inputFindings && mapped.Count >= task.Inputs.Count)
                         Check(path + "/inputs", () =>
                         {
                             JsonObject request;
                             try { request = PlanningCapabilityArguments.EffectiveSchema(capability, mapped); }
                             catch (InvalidOperationException) { Fail("TASK_INPUT_BINDING", "Input mappings must assemble disjoint declared fields."); return; }
                             if (!PlanningContractCompatibility.Fits(request, capability.InputSchema))
-                                Fail("TASK_INPUT_TYPE", "The complete effective request does not satisfy its authoritative contract, including conditional parameter requirements. Omission and null are distinct.");
+                            {
+                                // A literal discriminator can prove the applicable branch without
+                                // granting edits to that selector or unrelated business bindings.
+                                var before = findings.Count;
+                                if (SelectedInputBranch(request, capability.InputSchema) is { } selected)
+                                    foreach (var input in task.Inputs)
+                                    {
+                                        var port = operation.Inputs.Single(p => p.Name == input.Name);
+                                        JsonObject? expected = selected;
+                                        foreach (var part in port.Path) expected = expected?["properties"]?[part] as JsonObject;
+                                        if (expected is null) continue;
+                                        var location = path + "/inputs/" + input.Name;
+                                        if (Read(input.Value, scope, location) is { } produced)
+                                        {
+                                            Check(location, () => Fits(produced, expected, "TASK_INPUT_TYPE"));
+                                            Constraints(input.Value, expected, location);
+                                        }
+                                    }
+                                if (findings.Count == before)
+                                    Fail("TASK_INPUT_TYPE", "The complete effective request does not satisfy its authoritative contract, including conditional parameter requirements. Omission and null are distinct.");
+                            }
                         });
-                    ports[""] = Output(task.Id, capability.StepType, [], capability.OutputSchema);
-                        foreach (var port in operation.Outputs) ports[port.Name] = OperationOutput(task.Id, capability, port);
+                    var declarationPort = operation.Inputs.SingleOrDefault(p => p.Path.SequenceEqual(["output_schema"]));
+                    Check(path + (capability.StepType == "agent.run" && declarationPort is not null ? "/inputs/" + declarationPort.Name : "/operation"), () =>
+                        ports = OperationResults(task.Id, capability, PlanningCapabilityArguments.Apply(mappedValues, capability)));
+                    if (ports.Count == 0) scope.Blocked.Add(("output", task.Id, "*"));
                     break;
                 case "value":
                     Check(path + "/outputs", () => Unique(task.Outputs.Select(o => o.Name)));
@@ -299,9 +355,9 @@ public sealed partial class TaskPlanCompiler
                     {
                         var location = path + "/inputs/" + input.Name; var value = Read(input.Value, scope, location);
                         if (definition.Inputs.All(i => i.Name != input.Name)) findings.Add(new("TASK_GROUP_INPUTS", location, "Choose a declared group input."));
-                        else if (value is not null && group.Inputs.TryGetValue(input.Name, out var expected)) Check(location, () => Fits(value, expected.Schema, "TASK_GROUP_INPUT_TYPE"));
+                        else if (value is not null && group.Inputs.TryGetValue(input.Name, out var expected)) Check(location, () => Fits(BindInput(input.Value, expected.Schema, scope), expected.Schema, "TASK_GROUP_INPUT_TYPE"));
                     }
-                    foreach (var input in definition.Inputs.Where(i => i.Required && task.Inputs.All(a => a.Name != i.Name))) findings.Add(new("TASK_GROUP_INPUTS", path + "/inputs/" + input.Name, "Supply the required group input."));
+                    foreach (var input in definition.Inputs.Where(i => i.Required && i.Default is null && task.Inputs.All(a => a.Name != i.Name))) findings.Add(new("TASK_GROUP_INPUTS", path + "/inputs/" + input.Name, "Supply the required group input."));
                     ports = Exports(group); declared.AddRange(definition.Body.Outputs.Select(o => o.Name)); break;
                 case "sequence": case "foreach":
                     if (task.Kind == "foreach")
@@ -354,6 +410,21 @@ public sealed partial class TaskPlanCompiler
         }
     }
 
+    private static JsonObject? SelectedInputBranch(JsonObject request, JsonObject contract)
+    {
+        if (contract["oneOf"] is not JsonArray alternatives || request["properties"] is not JsonObject supplied) return null;
+        var possible = new List<(JsonObject Schema, bool Proven)>();
+        foreach (var branch in alternatives)
+        {
+            if (branch is not JsonObject schema || schema["properties"] is not JsonObject properties) return null;
+            var selectors = properties.Where(p => p.Value is JsonObject expected && (expected.ContainsKey("const") || expected["enum"] is JsonArray) &&
+                supplied[p.Key] is JsonObject actual && actual.ContainsKey("const")).ToArray();
+            if (selectors.Any(p => !PlanningContractCompatibility.Fits(supplied[p.Key]!.AsObject(), p.Value!.AsObject()))) continue;
+            possible.Add((schema, selectors.Length > 0));
+        }
+        return possible.Count == 1 && possible[0].Proven ? possible[0].Schema : null;
+    }
+
     private void Fits(Bound value, JsonObject schema, string code, bool optional = false)
     {
         if (PlanningGraphValidation.IsLiteral(value.Value)
@@ -375,13 +446,14 @@ public sealed partial class TaskPlanCompiler
         IEnumerable<PlanningDiagnostic> Inspect(JsonObject actual, JsonObject target, string path)
         {
             var types = PlanningContractCompatibility.Types(actual);
+            var input = !value.TypeLocation.StartsWith("/tasks/", StringComparison.Ordinal);
             if (types.Contains("null", StringComparer.Ordinal) && PlanningContractValidation.ValidateInstance(null, actual).Count == 0 &&
                 PlanningContractValidation.ValidateInstance(null, target).Count > 0)
-                yield return new("TASK_TRANSFORM_CONSTRAINT", path + "/nullable", "The consumer " + consumer + " rejects null; declare a non-null result only if the transformation can guarantee it, or change the diagnosed consumer binding. Expected " + Describe(target) + ".");
+                yield return new(input ? "TASK_INPUT_CONSTRAINT" : "TASK_TRANSFORM_CONSTRAINT", path + "/nullable", "The consumer " + consumer + " rejects null; declare non-null only when consistent with accepted requirements and producer guarantees, or change the diagnosed consumer binding. Expected " + Describe(target) + ".");
             // Nullability and the non-null string domain are independent constraints.
             // A nullable A|B producer flowing to A|B needs only its nullable slot repaired.
-            if (types.Where(t => t != "null").SequenceEqual(["string"]) && target["enum"] is JsonArray { Count: > 0 } domain &&
-                domain.All(v => v is null || v is JsonValue j && j.TryGetValue<string>(out _)))
+            if (!input && types.Where(t => t != "null").SequenceEqual(["string"]) && (target["enum"] is JsonArray { Count: > 0 } domain && domain.All(v => v is null || v is JsonValue j && j.TryGetValue<string>(out _)) ||
+                    target["pattern"] is not null || target["minLength"] is not null || target["maxLength"] is not null))
             {
                 var nonNull = actual.DeepClone().AsObject(); nonNull["type"] = "string";
                 if (nonNull["enum"] is JsonArray values)

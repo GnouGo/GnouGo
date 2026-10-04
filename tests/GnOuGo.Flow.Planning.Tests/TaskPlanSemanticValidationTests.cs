@@ -5,6 +5,45 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class TaskPlanSemanticValidationTests
 {
+    [Theory]
+    [InlineData("sequence", false)]
+    [InlineData("foreach", false)]
+    [InlineData("foreach", true)]
+    [InlineData("conditional", false)]
+    [InlineData("conditional", true)]
+    [InlineData("parallel", false)]
+    [InlineData("call", false)]
+    public void ConsumingAScopeWithoutExportsDoesNotManufactureAnEmptyResult(string kind, bool alternate)
+    {
+        TaskScope Body(string id) => new() { Tasks = [new() { Id = id, Kind = "value", Objective = "Produce a business value",
+            Outputs = [new("payload", PlanningCorpus.Number(42))] }] };
+        var body = Body("source_alpha");
+        var task = new PlanTask { Id = "bounded_work", Kind = kind, Objective = "Perform scoped work" };
+        var plan = new TaskPlan { Root = new() { Tasks = [task] } };
+        if (kind == "call") { task.Group = "group_alpha"; plan.Groups.Add(new() { Id = task.Group, Body = body }); }
+        else if (kind == "parallel") task.Branches = [body, Body("source_beta")];
+        else task.Body = body;
+        if (kind == "conditional") { task.Condition = new() { Kind = "boolean", Boolean = alternate }; task.Otherwise = Body("source_gamma"); }
+        if (kind == "foreach") { task.Items = new() { Kind = "array", Items = [PlanningCorpus.Number(1)] }; task.Parallel = alternate; }
+        var consumer = new PlanTask { Id = "consumer_delta", Kind = "value", Objective = "Consume scoped data",
+            Outputs = [new("result", PlanningCorpus.Business("output", task.Id))] };
+        plan.Root.Tasks.Add(consumer);
+        var result = new TaskPlanCompiler().Compile(plan, new());
+        Assert.Null(result.Graph); Assert.Empty(result.Sources);
+        Assert.Contains(result.Diagnostics, d => d.Code == "TASK_EXPORT_REQUIRED" && d.Location == "/tasks/consumer_delta/outputs/result");
+
+        // A scope used only for ordering/effects remains valid, including presence checks.
+        consumer.Outputs = [new("result", new() { Kind = "present", Source = task.Id })]; consumer.DependsOn = [task.Id];
+        Assert.Empty(new TaskPlanCompiler().Compile(plan, new()).Diagnostics);
+
+        // Selecting exports is explicit business intent, never inferred from the last task.
+        body.Outputs = [new("alpha", PlanningCorpus.Business("output", "source_alpha", "payload"))];
+        if (task.Otherwise is { } other) other.Outputs = [new("alpha", PlanningCorpus.Business("output", "source_gamma", "payload"))];
+        if (kind == "parallel") task.Branches[1].Outputs = [new("beta", PlanningCorpus.Business("output", "source_beta", "payload"))];
+        consumer.Outputs = [new("result", PlanningCorpus.Business("output", task.Id))];
+        Assert.Empty(new TaskPlanCompiler().Compile(plan, new()).Diagnostics);
+    }
+
     [Fact]
     public void DuplicateChoiceIdentitiesFailClosedWithoutThrowing()
     {

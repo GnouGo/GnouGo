@@ -1,0 +1,849 @@
+{
+  "origin": "diagnostic-amazon-2",
+  "diagnostics": [
+    {
+      "code": "OUTCOME_BINDINGS_INVALID",
+      "location": "/outcomeBindings",
+      "message": "Bind every accepted outcome exactly once.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "response": {
+    "discoveryRequests": null,
+    "plan": {
+      "inputs": [
+        {
+          "name": "query",
+          "type": {
+            "kind": "string"
+          }
+        }
+      ],
+      "root": {
+        "tasks": [
+          {
+            "id": "open_amazon_fr",
+            "kind": "operation",
+            "objective": "Ouvrir Amazon.fr et lire le HTML initial afin de détecter la zone de recherche, une bannière de cookies éventuelle ou un CAPTCHA sans inventer d’état.",
+            "dependsOn": [],
+            "operation": "cap_490d9e16075cbdca5954ec27",
+            "inputs": [
+              {
+                "name": "url",
+                "value": {
+                  "kind": "string",
+                  "text": "https://www.amazon.fr/"
+                }
+              },
+              {
+                "name": "format",
+                "value": {
+                  "kind": "string",
+                  "text": "html"
+                }
+              },
+              {
+                "name": "waitUntil",
+                "value": {
+                  "kind": "string",
+                  "text": "domcontentloaded"
+                }
+              },
+              {
+                "name": "maxCharacters",
+                "value": {
+                  "kind": "number",
+                  "number": 150000
+                }
+              }
+            ]
+          },
+          {
+            "id": "inspect_home",
+            "kind": "transform",
+            "objective": "Interpréter le HTML de la page Amazon.fr initiale pour indiquer explicitement si un CAPTCHA est visible, si une bannière de cookies est présente, et confirmer le sélecteur de recherche utilisable. Ne pas inventer de fait absent du contenu lu.",
+            "dependsOn": [
+              "open_amazon_fr"
+            ],
+            "inputs": [
+              {
+                "name": "homeHtml",
+                "value": {
+                  "kind": "output",
+                  "source": "open_amazon_fr",
+                  "port": "content"
+                }
+              },
+              {
+                "name": "url",
+                "value": {
+                  "kind": "output",
+                  "source": "open_amazon_fr",
+                  "port": "url"
+                }
+              }
+            ],
+            "resultType": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "captchaDetected",
+                  "type": {
+                    "kind": "boolean"
+                  }
+                },
+                {
+                  "name": "cookieBannerPresent",
+                  "type": {
+                    "kind": "boolean"
+                  }
+                },
+                {
+                  "name": "searchSelector",
+                  "type": {
+                    "kind": "string"
+                  }
+                },
+                {
+                  "name": "status",
+                  "type": {
+                    "kind": "string"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "accept_cookies_if_present",
+            "kind": "conditional",
+            "objective": "Accepter la bannière de cookies uniquement si elle a été détectée, afin de ne pas bloquer la recherche.",
+            "dependsOn": [
+              "inspect_home"
+            ],
+            "condition": {
+              "kind": "field",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "inspect_home",
+                  "port": null
+                }
+              ],
+              "port": "cookieBannerPresent"
+            },
+            "body": {
+              "tasks": [
+                {
+                  "id": "click_accept_cookies",
+                  "kind": "operation",
+                  "objective": "Cliquer sur le bouton visible d’acceptation des cookies lorsqu’il est présent.",
+                  "dependsOn": [],
+                  "operation": "cap_2109990d4c7ec4318544a637",
+                  "inputs": [
+                    {
+                      "name": "text",
+                      "value": {
+                        "kind": "string",
+                        "text": "Accepter"
+                      }
+                    },
+                    {
+                      "name": "exact",
+                      "value": {
+                        "kind": "boolean",
+                        "boolean": false
+                      }
+                    },
+                    {
+                      "name": "waitUntil",
+                      "value": {
+                        "kind": "string",
+                        "text": "domcontentloaded"
+                      }
+                    },
+                    {
+                      "name": "timeoutMs",
+                      "value": {
+                        "kind": "number",
+                        "number": 10000
+                      }
+                    }
+                  ]
+                }
+              ],
+              "outputs": [],
+              "always": []
+            },
+            "otherwise": {
+              "tasks": [],
+              "outputs": [],
+              "always": []
+            }
+          },
+          {
+            "id": "search_and_extract",
+            "kind": "conditional",
+            "objective": "Si Amazon.fr affiche déjà un CAPTCHA, produire un résultat explicite; sinon rechercher query sur Amazon.fr, retenir au maximum les trois premiers produits et extraire leurs pages.",
+            "dependsOn": [
+              "accept_cookies_if_present"
+            ],
+            "condition": {
+              "kind": "field",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "inspect_home",
+                  "port": null
+                }
+              ],
+              "port": "captchaDetected"
+            },
+            "body": {
+              "tasks": [
+                {
+                  "id": "home_captcha_record",
+                  "kind": "value",
+                  "objective": "Assembler un enregistrement explicite indiquant que le CAPTCHA empêche la recherche initiale.",
+                  "dependsOn": [],
+                  "outputs": [
+                    {
+                      "name": "records",
+                      "value": {
+                        "kind": "array",
+                        "items": [
+                          {
+                            "kind": "object",
+                            "members": [
+                              {
+                                "name": "position",
+                                "value": {
+                                  "kind": "number",
+                                  "number": 0
+                                }
+                              },
+                              {
+                                "name": "url",
+                                "value": {
+                                  "kind": "string",
+                                  "text": "https://www.amazon.fr/"
+                                }
+                              },
+                              {
+                                "name": "name",
+                                "value": {
+                                  "kind": "string",
+                                  "text": "CAPTCHA détecté avant la recherche"
+                                }
+                              },
+                              {
+                                "name": "description",
+                                "value": {
+                                  "kind": "string",
+                                  "text": "CAPTCHA détecté sur Amazon.fr avant de pouvoir rechercher l’article; aucune donnée produit inventée."
+                                }
+                              },
+                              {
+                                "name": "price",
+                                "value": {
+                                  "kind": "string",
+                                  "text": "ABSENT - CAPTCHA"
+                                }
+                              },
+                              {
+                                "name": "status",
+                                "value": {
+                                  "kind": "string",
+                                  "text": "CAPTCHA"
+                                }
+                              },
+                              {
+                                "name": "missingFields",
+                                "value": {
+                                  "kind": "array",
+                                  "items": [
+                                    {
+                                      "kind": "string",
+                                      "text": "name"
+                                    },
+                                    {
+                                      "kind": "string",
+                                      "text": "description"
+                                    },
+                                    {
+                                      "kind": "string",
+                                      "text": "price"
+                                    }
+                                  ]
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "status",
+                      "value": {
+                        "kind": "string",
+                        "text": "CAPTCHA détecté avant la recherche; aucun produit extrait."
+                      }
+                    }
+                  ]
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "records",
+                  "value": {
+                    "kind": "output",
+                    "source": "home_captcha_record",
+                    "port": "records"
+                  }
+                },
+                {
+                  "name": "status",
+                  "value": {
+                    "kind": "output",
+                    "source": "home_captcha_record",
+                    "port": "status"
+                  }
+                }
+              ],
+              "always": []
+            },
+            "otherwise": {
+              "tasks": [
+                {
+                  "id": "fill_search_query",
+                  "kind": "operation",
+                  "objective": "Saisir l’entrée publique query dans la barre de recherche Amazon.fr et soumettre la recherche.",
+                  "dependsOn": [],
+                  "operation": "cap_416310ac4ff2808dc91e3a14",
+                  "inputs": [
+                    {
+                      "name": "selector",
+                      "value": {
+                        "kind": "string",
+                        "text": "#twotabsearchtextbox"
+                      }
+                    },
+                    {
+                      "name": "value",
+                      "value": {
+                        "kind": "input",
+                        "source": "query"
+                      }
+                    },
+                    {
+                      "name": "submit",
+                      "value": {
+                        "kind": "boolean",
+                        "boolean": true
+                      }
+                    },
+                    {
+                      "name": "timeoutMs",
+                      "value": {
+                        "kind": "number",
+                        "number": 15000
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "read_search_results",
+                  "kind": "operation",
+                  "objective": "Lire le HTML de la page de résultats Amazon.fr après soumission de la recherche.",
+                  "dependsOn": [
+                    "fill_search_query"
+                  ],
+                  "operation": "cap_490d9e16075cbdca5954ec27",
+                  "inputs": [
+                    {
+                      "name": "format",
+                      "value": {
+                        "kind": "string",
+                        "text": "html"
+                      }
+                    },
+                    {
+                      "name": "selector",
+                      "value": {
+                        "kind": "string",
+                        "text": "body"
+                      }
+                    },
+                    {
+                      "name": "maxCharacters",
+                      "value": {
+                        "kind": "number",
+                        "number": 200000
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "interpret_search_results",
+                  "kind": "transform",
+                  "objective": "Interpréter la page de résultats Amazon.fr: détecter un CAPTCHA éventuel, lister au maximum les trois premiers produits réels avec leurs URLs absolues, positions et titres visibles, et signaler explicitement l’absence de produits si applicable.",
+                  "dependsOn": [
+                    "read_search_results"
+                  ],
+                  "inputs": [
+                    {
+                      "name": "searchHtml",
+                      "value": {
+                        "kind": "output",
+                        "source": "read_search_results",
+                        "port": "content"
+                      }
+                    },
+                    {
+                      "name": "searchUrl",
+                      "value": {
+                        "kind": "output",
+                        "source": "read_search_results",
+                        "port": "url"
+                      }
+                    },
+                    {
+                      "name": "query",
+                      "value": {
+                        "kind": "input",
+                        "source": "query"
+                      }
+                    }
+                  ],
+                  "resultType": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "captchaDetected",
+                        "type": {
+                          "kind": "boolean"
+                        }
+                      },
+                      {
+                        "name": "status",
+                        "type": {
+                          "kind": "string"
+                        }
+                      },
+                      {
+                        "name": "products",
+                        "type": {
+                          "kind": "array",
+                          "items": {
+                            "kind": "object",
+                            "fields": [
+                              {
+                                "name": "position",
+                                "type": {
+                                  "kind": "integer"
+                                }
+                              },
+                              {
+                                "name": "title",
+                                "type": {
+                                  "kind": "string"
+                                }
+                              },
+                              {
+                                "name": "url",
+                                "type": {
+                                  "kind": "string"
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "extract_or_search_captcha",
+                  "kind": "conditional",
+                  "objective": "Si un CAPTCHA apparaît sur les résultats, conserver un enregistrement explicite; sinon visiter chaque produit retenu et extraire nom, description et prix.",
+                  "dependsOn": [
+                    "interpret_search_results"
+                  ],
+                  "condition": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "interpret_search_results",
+                        "port": null
+                      }
+                    ],
+                    "port": "captchaDetected"
+                  },
+                  "body": {
+                    "tasks": [
+                      {
+                        "id": "search_captcha_record",
+                        "kind": "value",
+                        "objective": "Assembler un enregistrement explicite indiquant que le CAPTCHA empêche l’extraction des résultats de recherche.",
+                        "dependsOn": [],
+                        "outputs": [
+                          {
+                            "name": "records",
+                            "value": {
+                              "kind": "array",
+                              "items": [
+                                {
+                                  "kind": "object",
+                                  "members": [
+                                    {
+                                      "name": "position",
+                                      "value": {
+                                        "kind": "number",
+                                        "number": 0
+                                      }
+                                    },
+                                    {
+                                      "name": "url",
+                                      "value": {
+                                        "kind": "output",
+                                        "source": "read_search_results",
+                                        "port": "url"
+                                      }
+                                    },
+                                    {
+                                      "name": "name",
+                                      "value": {
+                                        "kind": "string",
+                                        "text": "CAPTCHA détecté après la recherche"
+                                      }
+                                    },
+                                    {
+                                      "name": "description",
+                                      "value": {
+                                        "kind": "string",
+                                        "text": "CAPTCHA détecté sur la page de résultats Amazon.fr; aucune donnée produit inventée."
+                                      }
+                                    },
+                                    {
+                                      "name": "price",
+                                      "value": {
+                                        "kind": "string",
+                                        "text": "ABSENT - CAPTCHA"
+                                      }
+                                    },
+                                    {
+                                      "name": "status",
+                                      "value": {
+                                        "kind": "string",
+                                        "text": "CAPTCHA"
+                                      }
+                                    },
+                                    {
+                                      "name": "missingFields",
+                                      "value": {
+                                        "kind": "array",
+                                        "items": [
+                                          {
+                                            "kind": "string",
+                                            "text": "name"
+                                          },
+                                          {
+                                            "kind": "string",
+                                            "text": "description"
+                                          },
+                                          {
+                                            "kind": "string",
+                                            "text": "price"
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "name": "status",
+                            "value": {
+                              "kind": "string",
+                              "text": "CAPTCHA détecté après la recherche; aucun produit extrait."
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    "outputs": [
+                      {
+                        "name": "records",
+                        "value": {
+                          "kind": "output",
+                          "source": "search_captcha_record",
+                          "port": "records"
+                        }
+                      },
+                      {
+                        "name": "status",
+                        "value": {
+                          "kind": "output",
+                          "source": "search_captcha_record",
+                          "port": "status"
+                        }
+                      }
+                    ],
+                    "always": []
+                  },
+                  "otherwise": {
+                    "tasks": [
+                      {
+                        "id": "for_each_product",
+                        "kind": "foreach",
+                        "objective": "Parcourir au maximum les trois produits retenus par la page de résultats Amazon.fr et extraire chacun indépendamment.",
+                        "dependsOn": [],
+                        "items": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "interpret_search_results",
+                              "port": null
+                            }
+                          ],
+                          "port": "products"
+                        },
+                        "body": {
+                          "tasks": [
+                            {
+                              "id": "read_product_page",
+                              "kind": "operation",
+                              "objective": "Naviguer vers la page du produit courant Amazon.fr et lire son HTML.",
+                              "dependsOn": [],
+                              "operation": "cap_490d9e16075cbdca5954ec27",
+                              "inputs": [
+                                {
+                                  "name": "url",
+                                  "value": {
+                                    "kind": "field",
+                                    "items": [
+                                      {
+                                        "kind": "item"
+                                      }
+                                    ],
+                                    "port": "url"
+                                  }
+                                },
+                                {
+                                  "name": "format",
+                                  "value": {
+                                    "kind": "string",
+                                    "text": "html"
+                                  }
+                                },
+                                {
+                                  "name": "waitUntil",
+                                  "value": {
+                                    "kind": "string",
+                                    "text": "domcontentloaded"
+                                  }
+                                },
+                                {
+                                  "name": "maxCharacters",
+                                  "value": {
+                                    "kind": "number",
+                                    "number": 200000
+                                  }
+                                },
+                                {
+                                  "name": "timeoutMs",
+                                  "value": {
+                                    "kind": "number",
+                                    "number": 30000
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "id": "interpret_product_page",
+                              "kind": "transform",
+                              "objective": "Interpréter la page produit Amazon.fr courante pour produire un enregistrement avec position, URL, nom, description et prix. Si CAPTCHA, prix ou donnée absente, l’indiquer explicitement avec un statut et sans jamais inventer de valeur.",
+                              "dependsOn": [
+                                "read_product_page"
+                              ],
+                              "inputs": [
+                                {
+                                  "name": "productHtml",
+                                  "value": {
+                                    "kind": "output",
+                                    "source": "read_product_page",
+                                    "port": "content"
+                                  }
+                                },
+                                {
+                                  "name": "productUrl",
+                                  "value": {
+                                    "kind": "output",
+                                    "source": "read_product_page",
+                                    "port": "url"
+                                  }
+                                },
+                                {
+                                  "name": "listedProduct",
+                                  "value": {
+                                    "kind": "item"
+                                  }
+                                }
+                              ],
+                              "resultType": {
+                                "kind": "object",
+                                "fields": [
+                                  {
+                                    "name": "position",
+                                    "type": {
+                                      "kind": "integer"
+                                    }
+                                  },
+                                  {
+                                    "name": "url",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "name",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "description",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "price",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "status",
+                                    "type": {
+                                      "kind": "string"
+                                    }
+                                  },
+                                  {
+                                    "name": "missingFields",
+                                    "type": {
+                                      "kind": "array",
+                                      "items": {
+                                        "kind": "string"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "name": "captchaDetected",
+                                    "type": {
+                                      "kind": "boolean"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ],
+                          "outputs": [
+                            {
+                              "name": "productRecord",
+                              "value": {
+                                "kind": "output",
+                                "source": "interpret_product_page",
+                                "port": null
+                              }
+                            }
+                          ],
+                          "always": []
+                        },
+                        "parallel": false,
+                        "maxItems": 3,
+                        "maxConcurrency": 1
+                      }
+                    ],
+                    "outputs": [
+                      {
+                        "name": "records",
+                        "value": {
+                          "kind": "output",
+                          "source": "for_each_product",
+                          "port": null
+                        }
+                      },
+                      {
+                        "name": "status",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "interpret_search_results",
+                              "port": null
+                            }
+                          ],
+                          "port": "status"
+                        }
+                      }
+                    ],
+                    "always": []
+                  }
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "records",
+                  "value": {
+                    "kind": "output",
+                    "source": "extract_or_search_captcha",
+                    "port": "records"
+                  }
+                },
+                {
+                  "name": "status",
+                  "value": {
+                    "kind": "output",
+                    "source": "extract_or_search_captcha",
+                    "port": "status"
+                  }
+                }
+              ],
+              "always": []
+            }
+          }
+        ],
+        "outputs": [
+          {
+            "name": "records",
+            "value": {
+              "kind": "output",
+              "source": "search_and_extract",
+              "port": "records"
+            }
+          },
+          {
+            "name": "status",
+            "value": {
+              "kind": "output",
+              "source": "search_and_extract",
+              "port": "status"
+            }
+          }
+        ],
+        "always": []
+      },
+      "groups": [],
+      "choices": []
+    },
+    "clarifications": null,
+    "outcomeBindings": null
+  }
+}

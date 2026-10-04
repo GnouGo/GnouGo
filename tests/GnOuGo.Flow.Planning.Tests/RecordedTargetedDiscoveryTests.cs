@@ -29,6 +29,10 @@ public sealed class RecordedTargetedDiscoveryTests(ITestOutputHelper output)
             var proposal = call <= 5
                 ? failure["responses"]!.AsArray()[call - 1]!["response"]!["json"]!.Deserialize(PlanningJsonContext.Default.PlanningProposal)!
                 : new PlanningProposal { DiscoveryRequests = call == 6 ? inspections : null, Plan = call == 7 ? successful.Plan : null };
+            // This scripted continuation already knows the retained plan's caller interface.
+            // Declare it in the new requirements contract; historical recording stays untouched.
+            if (proposal.Requirements is { } requirements)
+            { requirements.Inputs = successful.Plan!.Inputs; requirements.Outputs = successful.Plan.Root.Outputs.Select(o => new TaskInput { Name = o.Name, Type = new() { Kind = "any" } }).ToList(); }
             try { return TestRuntime.Response(request, proposal); }
             catch (Exception ex) { output.WriteLine($"Scripted response {call}: {ex}"); throw; }
         };
@@ -78,7 +82,8 @@ public sealed class RecordedTargetedDiscoveryTests(ITestOutputHelper output)
             var before = PlanningJsonTransport.EstimateInputTokens(issued.Prompt, issued.StructuredOutputSchema!.AsObject());
             state.PendingCall = null; state.ModelCalls--; if (state.Usage is not null) state.Usage = state.Usage with { Calls = state.ModelCalls };
             var shortlist = HybridWorkflowPlanner.Shortlist(state); var prompt = HybridWorkflowPlanner.BuildPrompt(state, shortlist);
-            var after = PlanningJsonTransport.EstimateInputTokens(prompt, PlanningSchemas.Proposal(state));
+            var measured = new PlanningPrompt(state); prompt = measured.Build(shortlist);
+            var after = PlanningJsonTransport.EstimateInputTokens(prompt, measured.Schema);
             Assert.InRange(after, 1, 21600); beforeTotal += before; afterTotal += after;
             output.WriteLine($"Displacement request {++i}: input {before} -> {after}, bytes {Encoding.UTF8.GetByteCount(issued.Prompt)} -> {Encoding.UTF8.GetByteCount(prompt)}, detailed {TargetedDiscoveryTests.Context(issued.Prompt)["operations"]!.AsArray().Count} -> {TargetedDiscoveryTests.Context(prompt)["operations"]!.AsArray().Count}; pages={pages}.");
         }

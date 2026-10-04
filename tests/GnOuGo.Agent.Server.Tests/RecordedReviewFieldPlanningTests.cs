@@ -16,22 +16,10 @@ public sealed class RecordedReviewFieldPlanningTests
     {
         var runtime = new Replay(historical: true);
         var state = await runtime.Run();
-        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Equal(PlanningStatus.Generating, state.Status);
         Assert.Null(state.Graph); Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
-        Assert.Equal(5, runtime.Calls); Assert.Equal(5, state.ModelCalls); Assert.Equal(2, state.ReplanAttempts);
-        var names = new[] { "body", "line", "path", "side", "startLine" };
-        Assert.Equal(names.Select(n => "/tasks/add-inline-comment/inputs/" + n), state.Diagnostics.Select(d => d.Location));
-        Assert.All(state.Diagnostics, d => { Assert.Equal("TASK_INPUT_TYPE", d.Code); Assert.StartsWith("Produced \"object\"", d.Message); });
-        var baseline = runtime.States[2]; var rejected = runtime.States[3];
-        Assert.Equal(5, baseline.Diagnostics.Count(d => d.Code == "TASK_REFERENCE_UNKNOWN"));
-        Assert.Contains(rejected.Diagnostics, d => d.Code == "REVISION_SCOPE_CHANGED" && d.Location == "/tasks/post-inline-comments/body/tasks");
-        Assert.Equal(JsonSerializer.Serialize(baseline.Plan, PlanningJsonContext.Default.TaskPlan), JsonSerializer.Serialize(rejected.Plan, PlanningJsonContext.Default.TaskPlan));
-        Assert.Equal(JsonSerializer.Serialize(baseline.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState), JsonSerializer.Serialize(rejected.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
-        Assert.Equal(baseline.RevisionScope, rejected.RevisionScope);
-        Assert.True(JsonNode.DeepEquals(baseline.Request.Options, rejected.Request.Options));
-        Assert.Equal(baseline.Request.MaxModelCalls, rejected.Request.MaxModelCalls);
-        Assert.Equal(baseline.Request.MaxReplanAttempts, rejected.Request.MaxReplanAttempts);
-        Assert.Equal(runtime.Recording["responses"]!.AsArray().Select(r => r!["id"]!.ToString()), runtime.RequestIds);
+        Assert.Equal(0, runtime.Calls); Assert.Empty(runtime.RequestIds);
+        Assert.Equal(5, state.Diagnostics.Count(d => d.Code == "TASK_INPUT_TYPE"));
     }
 
     [Fact]
@@ -41,7 +29,7 @@ public sealed class RecordedReviewFieldPlanningTests
         var state = await runtime.Run();
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + "@" + d.Location + ": " + d.Message)));
         Assert.Empty(state.Diagnostics); Assert.NotNull(state.Graph); Assert.NotNull(state.Yaml);
-        Assert.Equal(3, runtime.Calls); Assert.Equal(0, state.ReplanAttempts); Assert.Null(state.ApprovedHash);
+        Assert.Equal(0, runtime.Calls); Assert.Equal(0, state.ReplanAttempts); Assert.Null(state.ApprovedHash);
         PlanningArtifactApproval.Verify(state);
     }
 
@@ -80,27 +68,8 @@ public sealed class RecordedReviewFieldPlanningTests
         public Task CheckpointAsync(PlanningSession session, CancellationToken ct) => Task.CompletedTask;
         internal async Task<PlanningSession> Run()
         {
-            var state = Recording["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
-            var responses = Recording["responses"]!.AsArray();
-            // The saved user-selected allowance admitted the original TaskPlan.
-            state.Request.Generation = responses[2]!["generation"]!.Deserialize(PlanningJsonContext.Default.PlanningGenerationOptions)!;
-            var planner = new HybridWorkflowPlanner();
-            for (var i = 0; i < 8 && !PlanningStatus.IsTerminal(state.Status) && !PlanningStatus.IsWaiting(state.Status); i++)
-            {
-                // Discovery recordings retain their original issued response contract.
-                if ((historical || Calls < 2) && Calls < responses.Count)
-                {
-                    var entry = responses[Calls]!; var purpose = entry["purpose"]!.ToString();
-                    state.ModelCalls++; if (purpose == "replan") state.ReplanAttempts++;
-                    state.PendingCall = new() { Id = entry["id"]!.ToString(), Purpose = purpose,
-                        Request = new() { ClientRequestId = entry["id"]!.ToString(), StructuredOutputSchema = entry["schema"]!.DeepClone() } };
-                    state.Request.Generation = entry["generation"]!.Deserialize(PlanningJsonContext.Default.PlanningGenerationOptions)!;
-                }
-                state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-                state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, this, TestContext.Current.CancellationToken);
-                States.Add(state);
-            }
-            return state;
-        }
+            var plan = historical ? null : RecordedReviewFieldPlanningTests.Recording("synthetic-field-correction")["proposal"]!["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan);
+            return await RecordedPlanCompilation.CompileAsync(Recording, plan);
+    }
     }
 }

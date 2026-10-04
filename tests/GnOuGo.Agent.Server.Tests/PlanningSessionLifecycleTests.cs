@@ -18,7 +18,7 @@ public sealed class PlanningSessionLifecycleTests
     public async Task ExhaustedRecoveryCommandsDoNotWriteAnotherRevision(string command)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var state = new PlanningSession { Request = new() { TenantId = "planning-tests", Prompt = "Retained intent" },
+        var state = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "planning-tests", Prompt = "Retained intent" },
             Status = PlanningStatus.Stopped, ModelCalls = 8, Revision = 19, ReplanAttempts = 0,
             Diagnostics = [new("LLM_BUDGET_EXCEEDED", "/", "The session model-call budget was exhausted.")],
             Usage = new() { Calls = 8, TotalTokens = 108394, EstimatedCost = 0.579m, EstimatedCostCurrency = "EUR" } };
@@ -44,7 +44,7 @@ public sealed class PlanningSessionLifecycleTests
         if (configured is { } limit) settings.MaxInputTokensPerRequest = limit;
         if (configuredOutput is { } output) settings.MaxOutputTokens = output;
         using var service = Create(fixture, new HybridWorkflowPlanner(), AgentCatalog(), settings: settings);
-        var saved = new PlanningSession { Request = new() { TenantId = "planning-tests", Prompt = "Saved intent" },
+        var saved = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "planning-tests", Prompt = "Saved intent" },
             Status = PlanningStatus.Stopped, Revision = 5, ModelCalls = 2,
             Discovery = new() { Sources = [new("source", "Declared metadata")], Pages = [new("source", null, [], null)] },
             Usage = new() { Calls = 2, TotalTokens = 10000, EstimatedCost = 0.07m, EstimatedCostCurrency = "EUR" },
@@ -82,7 +82,7 @@ public sealed class PlanningSessionLifecycleTests
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var runtime = new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask);
-        var state = new PlanningSession { Request = new() { TenantId = "planning-tests", Name = "test", Prompt = "Return value", Policy = AgentPlanningPolicy.Create() }, Status = PlanningStatus.FinalReview,
+        var state = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "planning-tests", Name = "test", Prompt = "Return value", Policy = AgentPlanningPolicy.Create() }, Status = PlanningStatus.FinalReview,
             Requirements = GnOuGo.Planning.Examples.PlanningCorpus.Requirements("local"), Plan = GnOuGo.Planning.Examples.PlanningCorpus.LiteralResult() };
         state.Catalog = await runtime.DiscoverAsync(state.Request, Ct);
         state.Graph = new TaskPlanCompiler().Compile(state.Plan!, state.Catalog).Graph!;
@@ -112,14 +112,19 @@ public sealed class PlanningSessionLifecycleTests
     public async Task EncryptedSessionRestartRetainsAuthorityBudgetsAndTenantIsolation(string status)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var state = new PlanningSession { Request = new() { TenantId = "one", SessionId = "same", Prompt = "PRIVATE_INTENT" }, Status = status, ModelCalls = 3, ReplanAttempts = 1, ActiveMilliseconds = 100,
+        var state = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "one", SessionId = "same", Prompt = "PRIVATE_INTENT" }, Status = status, ModelCalls = 3, ReplanAttempts = 1, ActiveMilliseconds = 100,
             PendingCall = status == PlanningStatus.Generating ? new() { Id = "reserved", Purpose = "intent", Request = new() { Prompt = "PRIVATE_MODEL_REQUEST" } } : null };
+        state.OutcomeVersion = 2;
+        state.Requirements = new() { Outcomes = [new("read", "Read every item") { Execution = "read", Always = false, Conditional = false, Coverage = "each_item" }] };
+        state.OutcomeBindings = [new("read", ["collect"], []) { ForEachTaskId = "collect" }];
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
-        var other = new PlanningSession { Request = new() { TenantId = "two", SessionId = "same", Prompt = "OTHER" } };
+        var other = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "two", SessionId = "same", Prompt = "OTHER" } };
         Assert.True(await fixture.Store.TrySaveAsync(other, null, Ct));
         var restored = (await fixture.Store.LoadAsync("one", "same", Ct))!;
         Assert.Equal(status, restored.Status); Assert.Equal(3, restored.ModelCalls); Assert.Equal(1, restored.ReplanAttempts); Assert.Equal(100, restored.ActiveMilliseconds);
         Assert.Equal(state.PendingCall?.Id, restored.PendingCall?.Id);
+        Assert.Equal(2, restored.OutcomeVersion); Assert.Equal("each_item", restored.Requirements!.Outcomes.Single().Coverage);
+        Assert.Equal("collect", restored.OutcomeBindings!.Single().ForEachTaskId);
         restored.Revision++; Assert.True(await fixture.Store.TrySaveAsync(restored, 0, Ct));
         restored.Revision++; Assert.False(await fixture.Store.TrySaveAsync(restored, 0, Ct));
         Assert.Equal("OTHER", (await fixture.Store.LoadAsync("two", "same", Ct))!.Request.Prompt);
@@ -132,9 +137,9 @@ public sealed class PlanningSessionLifecycleTests
     public async Task WorkflowSessionInspectionIsReadOnlyAndKeepsOriginsAndTenantsSeparate()
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var designer = new PlanningSession { Request = new() { TenantId = "planning-tests", SessionId = "shared", Name = "designer", Prompt = "Return a value" } };
+        var designer = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "planning-tests", SessionId = "shared", Name = "designer", Prompt = "Return a value" } };
         Assert.True(await fixture.Store.TrySaveAsync(designer, null, Ct));
-        var workflow = new PlanningSession { Request = new() { TenantId = "planning-tests", SessionId = "shared", Name = "chat", Prompt = "Return a value" },
+        var workflow = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "planning-tests", SessionId = "shared", Name = "chat", Prompt = "Return a value" },
             Status = PlanningStatus.Stopped, ModelCalls = 1, ReplanAttempts = 0, Revision = 3,
             PendingCall = new() { Id = "reserved", Purpose = "intent", Request = new() { Prompt = "private" } } };
         var payload = System.Text.Json.JsonSerializer.Serialize(workflow, PlanningJsonContext.Default.PlanningSession);
@@ -173,7 +178,7 @@ public sealed class PlanningSessionLifecycleTests
     public async Task EveryPhaseRestoresRequirementsDiscoveryAndCumulativeAccounting(string phase)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
-        var state = new PlanningSession { Request = new() { TenantId = "phase-tests", Prompt = "PRIVATE_PHASE_REQUIREMENT" }, Phase = phase,
+        var state = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "phase-tests", Prompt = "PRIVATE_PHASE_REQUIREMENT" }, Phase = phase,
             Requirements = new() { Outcomes = [new("action", "Required business outcome")] },
             Discovery = new() { Sources = [new("source", "Declared metadata")], Pages = [new("source", null, [], null)] },
             Graph = new(), ModelCalls = 5, ReplanAttempts = 1, Revision = 7 };

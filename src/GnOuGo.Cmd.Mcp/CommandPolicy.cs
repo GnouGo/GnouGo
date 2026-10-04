@@ -153,6 +153,28 @@ public sealed class CommandPolicy
         return sb.ToString().TrimEnd();
     }
 
+    public JsonObject? BuildArtifactMetadata()
+    {
+        var locations = new JsonArray();
+        foreach (var (name, configured) in _settings.AllowedCommands)
+        {
+            var command = ApplyOsOverride(configured);
+            foreach (var (parameter, settings) in command.Parameters.Where(p => p.Value.ArtifactAction is not null))
+            {
+                if (!settings.Required || !settings.IsWorkspacePath || settings.PathKind == WorkspacePathKind.Any || settings.ArtifactAction is not ("use" or "materialize" or "release"))
+                    throw new InvalidOperationException("ArtifactAction requires a required workspace file/directory parameter and use, materialize or release.");
+                locations.Add((JsonNode)new JsonObject
+                {
+                    ["pointer"] = "/parameters/" + parameter.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal),
+                    ["kind"] = settings.PathKind == WorkspacePathKind.File ? "file" : "directory", ["action"] = settings.ArtifactAction,
+                    ["space"] = new UriBuilder(new Uri(ResolveWorkingDirectory(command.WorkingDirectory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar)) { Host = Environment.MachineName }.Uri.AbsoluteUri,
+                    ["selectorPointer"] = "/commandName", ["selectorValue"] = name
+                });
+            }
+        }
+        return locations.Count == 0 ? null : new JsonObject { ["version"] = 1, ["locations"] = locations };
+    }
+
     public JsonElement BuildCmdRunInputSchema(JsonElement inputSchema)
     {
         var root = JsonNode.Parse(inputSchema.GetRawText()) as JsonObject

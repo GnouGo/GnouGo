@@ -1,9 +1,66 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 namespace GnOuGo.Flow.Planning;
 internal static class PlanningValues
 {
+    internal static PlanningValue? ReadGuard(PlanningValue value)
+    {
+        // Presence is safe even when the producer did not run.
+        if (value.Kind == "present") return null;
+        if (value.Kind == "output") return new() { Kind = "present", Source = value.Source };
+        if (value.Kind == "predicate" && value.Text is "and" or "or" && value.Items.Count == 2)
+        {
+            var left = ReadGuard(value.Items[0]); var right = ReadGuard(value.Items[1]);
+            if (right is null) return left;
+            // Only require the right operand when short-circuit evaluation reaches it.
+            var test = value.Text == "and" ? Predicate("not", value.Items[0]) : value.Items[0];
+            return And(left, Predicate("or", test, right));
+        }
+        return value.Members.Select(m => ReadGuard(m.Value)).Concat(value.Items.Select(ReadGuard)).Aggregate((PlanningValue?)null, And);
+    }
+
+    internal static PlanningValue? And(PlanningValue? left, PlanningValue? right) => left is null ? right :
+        right is null || Same(left, right) ? left : Predicate("and", left, right);
+    internal static bool Same(PlanningValue left, PlanningValue right) => JsonNode.DeepEquals(
+        JsonSerializer.SerializeToNode(left, PlanningJsonContext.Default.PlanningValue), JsonSerializer.SerializeToNode(right, PlanningJsonContext.Default.PlanningValue));
+    internal static bool ContainsGuard(PlanningValue? guard, PlanningValue required) => guard is not null &&
+        (Same(guard, required) || guard.Kind == "predicate" && guard.Text == "and" && guard.Items.Any(v => ContainsGuard(v, required)));
+
     internal const string Omitted = "omitted";
+    internal static PlanningValue Predicate(string operation, params PlanningValue[] operands)
+        => new() { Kind = "predicate", Text = operation, Items = operands.ToList() };
+
+    internal static string PredicateOperator(string? operation) => operation switch
+    {
+        "not" => "!", "and" => "&&", "or" => "||", "equal" => "===", "not_equal" => "!==",
+        "less" => "<", "less_equal" => "<=", "greater" => ">", "greater_equal" => ">=",
+        _ => throw new InvalidOperationException("Unknown typed predicate.")
+    };
+
+    internal static JsonObject ComputationContract(PlanningValue value, Func<PlanningValue, JsonObject?> resolve)
+    {
+        if (value.Source is not null || value.ResultChannel is not null || value.Path.Count != 0 || value.Members.Count != 0 ||
+            value.Number is not null || value.Boolean is not null)
+            throw new InvalidOperationException("A typed computation contains unsupported fields.");
+        if (value.Kind == "json")
+        {
+            if (value.Text is not null || value.Items.Count != 1 || resolve(value.Items[0]) is null)
+                throw new InvalidOperationException("JSON encoding requires exactly one established value.");
+            return new() { ["type"] = "string" };
+        }
+        _ = PredicateOperator(value.Text);
+        if (value.Items.Count != (value.Text == "not" ? 1 : 2)) throw new InvalidOperationException("Predicate arity is invalid.");
+        foreach (var operand in value.Items)
+        {
+            var schema = resolve(operand) ?? throw new InvalidOperationException("The predicate operand has no established contract.");
+            if (value.Text is "and" or "or" or "not" && schema["type"]?.ToString() != "boolean")
+                throw new InvalidOperationException("Logical predicates require boolean operands.");
+            if (value.Text is "less" or "less_equal" or "greater" or "greater_equal" && schema["type"]?.ToString() is not ("number" or "integer"))
+                throw new InvalidOperationException("Ordering predicates require numeric operands.");
+        }
+        return new() { ["type"] = "boolean" };
+    }
     internal static string LiteralLocation(PlanningValue value, string root, string pointer)
     {
         foreach (var token in pointer.Split('/').Skip(1))

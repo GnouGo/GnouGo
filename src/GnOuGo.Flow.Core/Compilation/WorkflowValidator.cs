@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Runtime;
@@ -17,8 +17,8 @@ public sealed class WorkflowValidator
     {
         "sequence", "parallel",
         "loop.sequential", "loop.parallel",
-        "agent.run", "array.project", "value.project", "number.add", "number.multiply", "number.default",
-        "switch", "decision.evaluate", "set", "value.validate", "assert.non_null",
+        "agent.run", "mapping.dynamic", "number.add", "number.multiply", "number.default",
+        "switch", "set",
         "template.render",
         "llm.call",
         "workflow.call", "workflow.route", "workflow.plan", "workflow.execute",
@@ -330,8 +330,16 @@ public sealed class WorkflowValidator
         return null;
     }
 
+    internal static bool IsRetiredStep(string type) => type is "value.project" or "assert.non_null" or "decision.evaluate" or "array.project" or "value.validate";
+
     private void ValidateStep(StepDef step, string wfName, WorkflowDocument doc, List<ValidationError> errors)
     {
+        if (IsRetiredStep(step.Type))
+            errors.Add(new ValidationError
+            {
+                Code = ErrorCodes.StepTypeRetired, WorkflowName = wfName, StepId = step.Id,
+                Message = $"Retired step type '{step.Type}'. Revise the workflow using checked set expressions and switch, then approve a new artifact. Stored workflows and runs are not migrated automatically."
+            });
         // Known step type
         var isKnownStepType = _registry?.Has(step.Type) ?? KnownStepTypes.Contains(step.Type);
         if (!isKnownStepType)
@@ -460,11 +468,11 @@ public sealed class WorkflowValidator
     {
         if (step.OutputSchema == null)
         {
-            if (step.Type is "value.validate" or "array.project" or "value.project") errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = "output_schema", Message = "value.validate requires a literal output schema." });
+            if (step.Type is "mapping.dynamic") errors.Add(new ValidationError { Code = ErrorCodes.InputValidation, WorkflowName = wfName, StepId = step.Id, Field = "output_schema", Message = "mapping.dynamic requires a literal output schema." });
             return;
         }
 
-        if (step.Type is not ("set" or "value.validate" or "array.project" or "value.project"))
+        if (step.Type is not ("set" or "mapping.dynamic"))
         {
             errors.Add(new ValidationError
             {
@@ -472,7 +480,7 @@ public sealed class WorkflowValidator
                 WorkflowName = wfName,
                 StepId = step.Id,
                 Field = "output_schema",
-                Message = "output_schema is supported on set, value.validate and array.project steps."
+                Message = "output_schema is supported on set and mapping.dynamic steps."
             });
             return;
         }

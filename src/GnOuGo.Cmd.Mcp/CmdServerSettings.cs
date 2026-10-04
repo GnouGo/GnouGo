@@ -66,6 +66,8 @@ public sealed class CommandParameterSettings
     public bool AllowAbsolutePath { get; set; }
     public bool MustExist { get; set; }
     public WorkspacePathKind PathKind { get; set; } = WorkspacePathKind.Any;
+    /// <summary>Optional producer assertion: use, materialize or release. Never inferred from scripts.</summary>
+    public string? ArtifactAction { get; set; }
 }
 
 public enum WorkspacePathKind

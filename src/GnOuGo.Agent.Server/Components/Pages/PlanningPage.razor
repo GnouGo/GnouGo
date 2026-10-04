@@ -60,7 +60,12 @@
             <p>The session model-call allowance is exhausted. Input/output token limits do not extend this cumulative budget.
                 <a href="/planning">Start a new planning session</a>. Existing requests and accounting are retained.</p>
         }
-        @if (_state.Usage is { } usage) { <p>Estimated cost @usage.EstimatedCost.ToString("0.00") @usage.EstimatedCostCurrency</p> }
+        @if (_inspectionDto is { } inspected) { <p>Estimated cost @inspected.EstimatedCost.ToString("0.00") @inspected.Currency</p> }
+        else if (_state.Usage is { } usage) { <p>Estimated cost @usage.EstimatedCost.ToString("0.00") @usage.EstimatedCostCurrency</p> }
+        @if (_requestInspection?.CancellationRequested == true)
+        { <p role="status">Cancellation requested. Waiting for the owner to stop; completed responses and accounting will be retained.</p> }
+        else if (_requestInspection?.State == "active" && _state.Status != PlanningStatus.Stopped)
+        { <p role="status">A worker owns this planning request. Its completion will be recorded before further planning.</p> }
         <p>@_state.Requirements?.Summary</p>
         <PlannerDiscovery @key="(_state.Request.SessionId, IsWorkflowSession)" Session="_state" Workflow="IsWorkflowSession" />
         @if (_state.Graph is { } graph)
@@ -68,9 +73,11 @@
             <MarkdownContent Content="@("```mermaid\n" + PlanningReviewFormatter.Diagram(graph) + "\n```")" />
 
         }
-        @if (!IsWorkflowSession && _state.Status == PlanningStatus.Clarification)
+        @if (!IsWorkflowSession && !_state.RequiresPlanningRevision && _state.Status == PlanningStatus.Clarification)
         {
-            <PlannerChoiceCard Choices="PlanningEndpoints.ToDto(_state).Choices" Busy="_busy" Select='selections => SubmitAsync("choose", selections: selections)' Cancel='() => SubmitAsync("cancel")' />
+            <PlannerChoiceCard Choices="PlanningEndpoints.ToDto(_state).Choices" Questions="PlanningEndpoints.ToDto(_state).Questions"
+                DecisionKey="@(_state.Request.SessionId + ":" + _state.Revision)" Busy="_busy" Select='selections => SubmitAsync("choose", selections: selections)'
+                Answer='answers => SubmitAsync("answer", answers: answers)' Cancel='() => SubmitAsync("cancel")' />
         }
         <PlannerStageDetails Session="PlanningEndpoints.ToDto(_state)" ShowFindings="false" />
         @if (_state.Diagnostics.Count > 0)
@@ -88,13 +95,17 @@
                 </li>
             }</ul>
         }
-        @if (_state.ValidationResults.Count > 0)
+        @if (_state.ValidationResults.Any(r => !r.Id.StartsWith("outcome:", StringComparison.Ordinal)))
         {
-            <h3>Validation results</h3><ul>@foreach (var scenario in _state.ValidationResults) { <li>@scenario.Id — @scenario.Outcome: @scenario.Description</li> }</ul>
+            <h3>Validation results</h3><ul>@foreach (var scenario in _state.ValidationResults.Where(r => !r.Id.StartsWith("outcome:", StringComparison.Ordinal))) { <li>@scenario.Id — @scenario.Outcome: @scenario.Description</li> }</ul>
             <p>Static or simulated validation does not establish external execution success.</p>
         }
         @if (_state.Yaml is { } yaml) { <details open><summary>Workflow YAML</summary><pre><code>@yaml</code></pre></details> }
-        @if (!IsWorkflowSession && _state.Status == PlanningStatus.FinalReview)
+        @if (_state.RequiresPlanningRevision && _state.Status is not (PlanningStatus.Saved or PlanningStatus.Approved or PlanningStatus.Saving or PlanningStatus.Cancelled))
+        {
+            <p role="status">This session uses a retired planning contract. Enter an explicit revision to continue with business tasks. Its saved responses, artifacts and usage remain retained; a new artifact requires approval.</p>
+        }
+        @if (!IsWorkflowSession && !_state.RequiresPlanningRevision && _state.Status == PlanningStatus.FinalReview)
         { <button class="btn btn-primary" disabled="@_busy" @onclick="ApproveAndSaveAsync">Approve this revision and save</button> }
         @if (!IsWorkflowSession && _state.Status == PlanningStatus.Approved)
         { <button class="btn btn-primary" disabled="@_busy" @onclick='() => SubmitAsync("save")'>Save approved workflow</button> }
@@ -104,10 +115,21 @@
             {
                 <p>The provider rejected this request. Correct the request or provider configuration, then start a new planning session. The original request and its accounting are retained.</p>
             }
+            else if (_requestInspection?.State == "active")
+            {
+                <p>The original request is active in another worker. Waiting for its completion; no request will be repeated.</p>
+            }
+            else if (_requestInspection?.State == "receipt_available")
+            {
+                <p>@(_state.RequiresPlanningRevision ? "Validate the saved response and restore its accounting before revising. Its old proposal will not be applied or dispatched again." : "A saved response is available. Resume will consume it under its original schema without another call reservation. Further planning may require subsequent calls.")</p>
+                <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("resume_response")'>@(_state.RequiresPlanningRevision ? "Settle saved response" : "Resume from saved response")</button>
+            }
             else
             {
-                <p>The previous request has no confirmed result. Retrying retains its call count and adds a conservative token and cost estimate before using another call. Session limits remain unchanged.</p>
-                <button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("retry_model")'>Retry with retained usage</button>
+                @if (_state.RequiresPlanningRevision)
+                { <p>The retired request cannot be retried. Unknown completion requires reconciliation; its reservation is retained.</p> }
+                else
+                { <p>The previous request has no confirmed result. Retrying retains its call count and conservatively reserves unknown usage.</p><button class="btn btn-secondary" disabled="@_busy" @onclick='() => SubmitAsync("retry_model")'>Retry with retained usage</button> }
             }
         }
         @if (!IsWorkflowSession && _state.Status is not (PlanningStatus.Saved or PlanningStatus.Saving or PlanningStatus.Cancelled))
@@ -115,7 +137,7 @@
             <label for="plan-revision">Requested changes</label><textarea id="plan-revision" class="form-control" rows="3" @bind="_revision"></textarea>
             <button class="btn btn-secondary" disabled="@(_busy || IsCallBudgetExhausted || string.IsNullOrWhiteSpace(_revision))" @onclick='() => SubmitAsync("revise", _revision)'>Revise workflow</button>
             <button class="btn btn-outline-secondary" disabled="@_busy" @onclick='() => SubmitAsync("cancel")'>Cancel planning</button>
-            @if (PlanningStatus.IsWaiting(_state.Status) || _state.Status == PlanningStatus.Stopped)
+            @if (!_state.RequiresPlanningRevision && (PlanningStatus.IsWaiting(_state.Status) || _state.Status == PlanningStatus.Stopped))
             {
                 <label>Planning mode<select @bind="_mode"><option value="interactive">Interactive</option><option value="auto">Auto</option></select></label>
                 <button disabled="@_busy" @onclick='() => SubmitAsync("configure_mode", mode: _mode)'>Apply planning mode</button>
@@ -173,6 +195,8 @@
         try { await Js.InvokeVoidAsync("GnOuGo.Agent.markdown.enhance", "planningReview"); _renderedRevision = _state.Revision; }
         catch (JSDisconnectedException) { }
     }
+    private PlanningRequestInspectionDto? _requestInspection;
+    private PlanningSessionDto? _inspectionDto;
     private async Task RefreshAsync()
     {
         var version = _viewVersion; var id = SessionId; var workflow = IsWorkflowSession;
@@ -188,7 +212,8 @@
             else
             {
                 var inspection = await Planning.InspectAsync(id, workflow, _lifetime.Token);
-                if (version == _viewVersion) { _state = inspection?.Session; _entry = inspection?.Entry; _error = null; }
+                var dto = !workflow && inspection?.Session is { } inspected ? await Planning.ToDtoAsync(inspected, _lifetime.Token) : null;
+                if (version == _viewVersion) { _inspectionDto = dto; _requestInspection = dto?.RequestInspection; _state = inspection?.Session; _entry = inspection?.Entry; _error = null; }
             }
         }
         finally { if (version == _viewVersion) _loading = false; }
@@ -213,11 +238,12 @@
         catch (Exception ex) { _error = ex.Message; }
         finally { _busy = false; }
     }
-    private async Task SubmitAsync(string kind, string? text = null, JsonObject? selections = null, PlanningGenerationOptions? generation = null, string? mode = null)
+    private async Task SubmitAsync(string kind, string? text = null, JsonObject? selections = null, PlanningGenerationOptions? generation = null, string? mode = null, IReadOnlyList<PlanningAnswerDto>? answers = null)
     {
         if (_state is null || IsWorkflowSession) return;
         _busy = true; _error = null;
-        try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Selections = selections, Generation = generation, Mode = mode }, _lifetime.Token); }
+        try { _state = await Planning.SubmitAsync(_state.Request.SessionId, new() { Kind = kind, ExpectedRevision = _state.Revision, RequestId = _requestInspection?.RequestId, ArtifactHash = PlanningArtifactApproval.Hash(_state), Text = text, Selections = selections, Generation = generation, Mode = mode,
+            Answers = answers?.Select(a => new PlanningAnswer(a.QuestionId, a.AlternativeId, a.Text)).ToList() }, _lifetime.Token); }
         catch (Exception ex) { _error = ex.Message; await RefreshAsync(); }
         finally { _busy = false; }
     }
@@ -226,7 +252,7 @@
     private static string Phase(string status) => status switch
     {
         PlanningStatus.Created => "Discovering capabilities", PlanningStatus.Generating => "Building and validating workflow",
-        PlanningStatus.Clarification => "Choose a business alternative", PlanningStatus.FinalReview => "Ready for your review",
+        PlanningStatus.Clarification => "Clarify the intended workflow", PlanningStatus.FinalReview => "Ready for your review",
         PlanningStatus.Approved => "Approved", PlanningStatus.Saving => "Saving", PlanningStatus.Saved => "Saved",
         PlanningStatus.Stopped or PlanningStatus.Failed => "Planning stopped", PlanningStatus.Cancelled => "Cancelled", _ => status
     };

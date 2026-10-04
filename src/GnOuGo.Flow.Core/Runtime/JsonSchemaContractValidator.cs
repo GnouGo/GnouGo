@@ -27,12 +27,6 @@ internal static class JsonSchemaContractValidator
         "schema_inline", "schema_ref", "strict"
     };
 
-    private static readonly string[] UnsupportedStrictKeywords =
-    {
-        "allOf", "oneOf", "uniqueItems", "minProperties", "maxProperties",
-        "dependentRequired", "if", "then", "else", "prefixItems"
-    };
-
     private static readonly string[] UnsupportedRuntimeKeywords =
     {
         "not", "dependentSchemas",
@@ -43,6 +37,14 @@ internal static class JsonSchemaContractValidator
     private static readonly HashSet<string> SupportedStrictFormats = new(StringComparer.Ordinal)
     {
         "date-time", "time", "date", "duration", "email", "hostname", "ipv4", "ipv6", "uuid"
+    };
+
+    private static readonly HashSet<string> SupportedStrictKeywords = new(StringComparer.Ordinal)
+    {
+        "$schema", "$id", "$comment", "$defs", "definitions", "$ref", "type", "title", "description",
+        "default", "examples", "deprecated", "readOnly", "writeOnly", "properties", "required", "additionalProperties",
+        "items", "anyOf", "enum", "const", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf",
+        "minLength", "maxLength", "pattern", "format", "minItems", "maxItems"
     };
 
     internal static StructuredOutputContract ValidateStructuredOutput(
@@ -118,6 +120,9 @@ internal static class JsonSchemaContractValidator
 
         if (strictProfile)
         {
+            foreach (var (path, target) in statistics.References)
+                if (target is null || !statistics.SchemaNodes.Contains(target))
+                    errors.Add($"{path}.$ref: reference must target a supported schema position");
             if (statistics.PropertyCount > 5000)
                 errors.Add($"$: strict structured output supports at most 5000 object properties, found {statistics.PropertyCount}");
             if (statistics.MaximumDepth > 10)
@@ -251,15 +256,20 @@ internal static class JsonSchemaContractValidator
             return;
         }
 
+        statistics.SchemaNodes.Add(obj);
+
         if (obj.TryGetPropertyValue("$ref", out var referenceNode))
         {
             if (!TryReadString(referenceNode, out var reference) || string.IsNullOrWhiteSpace(reference))
                 errors.Add($"{path}.$ref: expected a non-empty string");
-            else if (!TryResolveLocalReference(root, reference, out _))
+            else if (!TryResolveLocalReference(root, reference, out var target))
                 errors.Add($"{path}.$ref: unresolved or unsupported reference '{reference}'; only local '#' references are supported");
+            else if (strictProfile) statistics.References.Add((path, target));
         }
 
         var declaredTypes = ReadDeclaredTypes(obj, path, errors);
+        if (strictProfile && declaredTypes.Count == 0 && !obj.ContainsKey("$ref") && !obj.ContainsKey("anyOf"))
+            errors.Add($"{path}: strict schemas require a type, a reference or anyOf");
         if (isRoot && strictProfile)
         {
             if (obj.ContainsKey("anyOf"))
@@ -433,8 +443,18 @@ internal static class JsonSchemaContractValidator
 
         if (obj["pattern"] is JsonValue patternValue && patternValue.TryGetValue<string>(out var pattern) && pattern != null)
         {
-            try { _ = new Regex(pattern, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)); }
-            catch (ArgumentException) { errors.Add($"{path}.pattern: invalid regular expression"); }
+            if (strictProfile)
+            {
+                var compatibility = statistics.Patterns.Check(pattern);
+                if (compatibility != StructuredOutputPatterns.Compatibility.Portable)
+                    errors.Add($"{path}.pattern: " + (compatibility == StructuredOutputPatterns.Compatibility.Invalid
+                        ? "invalid regular expression" : "regular expression is not portable to strict structured output"));
+            }
+            else
+            {
+                try { _ = new Regex(pattern, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)); }
+                catch (ArgumentException) { errors.Add($"{path}.pattern: invalid regular expression"); }
+            }
         }
         else if (obj.ContainsKey("pattern"))
         {
@@ -470,8 +490,8 @@ internal static class JsonSchemaContractValidator
 
         if (strictProfile)
         {
-            foreach (var keyword in UnsupportedStrictKeywords)
-                if (obj.ContainsKey(keyword))
+            foreach (var keyword in obj.Select(p => p.Key))
+                if (!SupportedStrictKeywords.Contains(keyword))
                     errors.Add($"{path}.{keyword}: keyword is not supported by strict structured output");
         }
 
@@ -595,15 +615,15 @@ internal static class JsonSchemaContractValidator
     private static bool TryReadInteger(JsonNode? node, out long value)
     {
         value = 0;
-        if (node is not JsonValue jsonValue)
-            return false;
-        if (jsonValue.TryGetValue<long>(out value))
-            return true;
-        if (jsonValue.TryGetValue<int>(out var intValue))
-        {
-            value = intValue;
-            return true;
-        }
+        if (node is not JsonValue scalar) return false;
+        if (scalar.TryGetValue<long>(out value)) return true;
+        if (scalar.TryGetValue<int>(out var integer)) { value = integer; return true; }
+        if (scalar.TryGetValue<decimal>(out var number) && number == decimal.Truncate(number) && number >= long.MinValue && number <= long.MaxValue)
+        { value = (long)number; return true; }
+        // The upper bound is exclusive: double cannot represent Int64.MaxValue exactly.
+        if (scalar.TryGetValue<double>(out var floating) && double.IsFinite(floating) && floating == Math.Truncate(floating) &&
+            floating >= -9223372036854775808d && floating < 9223372036854775808d)
+        { value = (long)floating; return true; }
         return false;
     }
 
@@ -883,6 +903,9 @@ internal static class JsonSchemaContractValidator
 
     private sealed class StrictSchemaStatistics
     {
+        internal StructuredOutputPatterns Patterns { get; } = new();
+        internal HashSet<JsonNode> SchemaNodes { get; } = new(ReferenceEqualityComparer.Instance);
+        internal List<(string Path, JsonNode? Target)> References { get; } = [];
         public int PropertyCount { get; set; }
         public int MaximumDepth { get; set; }
         public int EnumValueCount { get; set; }

@@ -1,0 +1,569 @@
+{
+  "source_sha": "f05d52ffb05fccaad753df94ebe502480444a0ee",
+  "harness_sha": "f05d52ffb05fccaad753df94ebe502480444a0ee",
+  "prompt": "Read the observation from the available fixture MCP. Extract the observed displayName as a business field named name, using extract mode; it may be supplied as JSON, plain text or HTML. Declare exactly one public workflow output named result, whose value is an object with exactly one required string field named name. Export the whole extraction result as result; do not flatten name into a public output. Use no caller inputs, no synthetic values, no defaults, no other external operations. Keep the original observation available to extraction.",
+  "model": "gpt-5.5-2026-04-24",
+  "provider_policy_hash": "7a7fec4a3c4569be8862a2a27f071dcc6a4d080f76f86d11d40a47e9cdf85486",
+  "profile": 1,
+  "model_attempts_per_mapping": 2,
+  "reasoning": "medium",
+  "planning_input_limit": 96000,
+  "planning_output_limit": 32768,
+  "planning_attempt_limit": 8,
+  "planning_repair_limit": 2,
+  "mapping_output_limit": 8192,
+  "environment": "macOS 26.5.2; .NET 10.0.8",
+  "accounting_before": {
+    "campaign": "schema-portability-20261002",
+    "reserved_requests": 213,
+    "completed_receipts": 212,
+    "uncertain_requests": [
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "retained_inconclusive_requests": [
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "transport_accounting": {
+      "calls": 213,
+      "session_calls": 0,
+      "known_input_tokens": 3043469,
+      "known_output_tokens": 313381,
+      "known_cost_eur": 21.87013782323852,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "cost_upper_bound_eur": 21.87013782323852,
+      "unknown_attempts": 0
+    },
+    "recorded_failures": 1,
+    "known_budget_cost": null,
+    "budget_currency": null,
+    "known_input_tokens": null,
+    "known_output_tokens": null,
+    "completion_receipts_complete": false,
+    "evidence_hash": "6846cb855e72174d61b9e4b354c08da36ece40511298269af0e60081066b32a9"
+  },
+  "corpus_hash": "eb05efbd5854bfffabe2f9e5ac7998ae1ef26d2fed9acdaac91c866842d1a302",
+  "runs": [
+    {
+      "case": "json-cold",
+      "phase": "live-provider",
+      "artifact_hash": "da220b55bfb70aff51f350288da2d1c2c8d2a10de9015f4e9d5507ac0ad3c6d9",
+      "source_hash": "82761f9d9fbf20c9b6fce6004d7f836e16fa9b68425cccd033c3c0566a35ad74",
+      "execution_ms": 11653,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed alpha"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "mapping3-execution:2:0705a922c27457b17d9db9c8ee39406e05950e74912e950823af0f0f1c8326e8",
+          "usage": {
+            "input_tokens": 466,
+            "output_tokens": 537,
+            "total_tokens": 1003,
+            "benchmark_cost_eur": 0.016427616926503342,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name: source.originalObservation.displayName})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true
+    },
+    {
+      "case": "json-warm",
+      "phase": "live-provider",
+      "artifact_hash": "da220b55bfb70aff51f350288da2d1c2c8d2a10de9015f4e9d5507ac0ad3c6d9",
+      "source_hash": "82761f9d9fbf20c9b6fce6004d7f836e16fa9b68425cccd033c3c0566a35ad74",
+      "execution_ms": 69,
+      "model_calls": 0,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed alpha"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": true
+        }
+      ],
+      "usage_receipts": [],
+      "injected_attempts": 0,
+      "oracle": true
+    },
+    {
+      "case": "json-values",
+      "phase": "live-provider",
+      "artifact_hash": "da220b55bfb70aff51f350288da2d1c2c8d2a10de9015f4e9d5507ac0ad3c6d9",
+      "source_hash": "a5ce258196a7accdf4644a2e877fe6e006589610c22c78362d552938b90a9cb3",
+      "execution_ms": 57,
+      "model_calls": 0,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed beta"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": true
+        }
+      ],
+      "usage_receipts": [],
+      "injected_attempts": 0,
+      "oracle": true
+    },
+    {
+      "case": "json-shape",
+      "phase": "live-provider",
+      "artifact_hash": "da220b55bfb70aff51f350288da2d1c2c8d2a10de9015f4e9d5507ac0ad3c6d9",
+      "source_hash": "e65118aa2ee908906fb1ffd5df391f300aac07d6636299b300149282a99138bf",
+      "execution_ms": 4884,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed gamma"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "mapping3-execution:3:40ee60201ebfbf3401843dde5b03f26c59e8513bfc357fc14031e64123f987e8",
+          "usage": {
+            "input_tokens": 470,
+            "output_tokens": 66,
+            "total_tokens": 536,
+            "benchmark_cost_eur": 0.0038574610244988864,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name: source.originalObservation.displayName})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true
+    },
+    {
+      "case": "text-cold",
+      "phase": "live-provider",
+      "artifact_hash": "da220b55bfb70aff51f350288da2d1c2c8d2a10de9015f4e9d5507ac0ad3c6d9",
+      "source_hash": "e04fbf87ccb914218529d8b1a58f44f169fa967465657e5f4f29ad71157e595e",
+      "execution_ms": 6568,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed text"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "mapping3-execution:4:227771e4db1e0b78858b483ee03edd401825db89a8895ded3411460116a466aa",
+          "usage": {
+            "input_tokens": 467,
+            "output_tokens": 114,
+            "total_tokens": 581,
+            "benchmark_cost_eur": 0.0051269487750556795,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name: m.text(source.originalObservation, 'displayName: (.*)', 1)})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true
+    },
+    {
+      "case": "html-cold",
+      "phase": "live-provider",
+      "artifact_hash": "da220b55bfb70aff51f350288da2d1c2c8d2a10de9015f4e9d5507ac0ad3c6d9",
+      "source_hash": "b44379a0dac173104bb8e88c286e4921d6d9e0d6892ed3dfa9b16c898e7a1135",
+      "execution_ms": 7379,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed & HTML"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "mapping3-execution:5:c18765ba8570b610be2ee7b6f26cc5fe472bb1b069648256032e6ca4225df1f0",
+          "usage": {
+            "input_tokens": 509,
+            "output_tokens": 324,
+            "total_tokens": 833,
+            "benchmark_cost_eur": 0.010926503340757239,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.decode(m.text(source.originalObservation,'<span data-field=\"displayName\">([^<]*)</span>',1))})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true
+    },
+    {
+      "case": "target-change",
+      "phase": "live-provider",
+      "artifact_hash": "39b0164121784b092c3f489a70962f3ff6df4dc8a34a021a0ca65d49043babec",
+      "source_hash": "3567b896b615aa98aa4f054cd5869f1d0651da67e57d8b11104bcff7fc936a0b",
+      "execution_ms": 5081,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed delta",
+          "reference": "REF-7"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "mapping3-execution:6:8008f266d3294204be6406ae53f26996ec7a7935f3fdfbd7e6ef2e5b207e8d72",
+          "usage": {
+            "input_tokens": 481,
+            "output_tokens": 111,
+            "total_tokens": 592,
+            "benchmark_cost_eur": 0.00510913140311804,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name: source.originalObservation.displayName, reference: source.originalObservation.reference})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true
+    },
+    {
+      "case": "missing-required",
+      "phase": "live-provider",
+      "artifact_hash": "da220b55bfb70aff51f350288da2d1c2c8d2a10de9015f4e9d5507ac0ad3c6d9",
+      "source_hash": "871480dfe88b8c21e7e88661c879a4f3cbca2505363728ac9b30811ab6d17c39",
+      "execution_ms": 17974,
+      "model_calls": 2,
+      "success": false,
+      "error": "CONTRACT_UNSATISFIED",
+      "outputs": null,
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 2,
+          "gnougo.mapping.repairs": 1
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "mapping3-execution:7:9f18c440aad8d68ac1dacd776a15c556a9e18216e07ba4aeca14d7bb2166d672",
+          "usage": {
+            "input_tokens": 469,
+            "output_tokens": 197,
+            "total_tokens": 666,
+            "benchmark_cost_eur": 0.007354120267260579,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.select(source.originalObservation,[[\"displayName\"]],false)})"
+          }
+        },
+        {
+          "request_id": "mapping3-execution:8:260a745cb9860f1ab74a444f21d321f9fdc640a9ca4c37a943b7d04668c3d76d",
+          "usage": {
+            "input_tokens": 496,
+            "output_tokens": 545,
+            "total_tokens": 1041,
+            "benchmark_cost_eur": 0.016775055679287304,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.select(source.originalObservation,[[\"displayName\"]],false)})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true
+    },
+    {
+      "case": "injected-repair",
+      "phase": "fault-injection",
+      "artifact_hash": "da220b55bfb70aff51f350288da2d1c2c8d2a10de9015f4e9d5507ac0ad3c6d9",
+      "source_hash": "3d41fb6d24078d27d5bb8873086c815ff674143d0c43c00a0c2fe58df8f2e394",
+      "execution_ms": 5438,
+      "model_calls": 2,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed repair"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 2,
+          "gnougo.mapping.repairs": 1
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "mapping3-execution:10:e4a88efa6986f149b09102064c2c6ab263d443358a56f45a8b6b03904089ca28",
+          "usage": {
+            "input_tokens": 500,
+            "output_tokens": 102,
+            "total_tokens": 602,
+            "benchmark_cost_eur": 0.0049532293986636975,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.text(source.originalObservation,'displayName: (.*)',1)})"
+          }
+        }
+      ],
+      "injected_attempts": 1,
+      "oracle": true
+    }
+  ],
+  "catalog_hash": "e74412e3896922823aaa119170bfcd7616cad0af719cb52a48ce8962f4635fda",
+  "planning_ms": 11998,
+  "planning_calls": 1,
+  "repairs": 0,
+  "discovery_reads": 1,
+  "planning_usage_receipts": [
+    {
+      "request_id": "mapping3:1:mapping3-plan:1:e59ba46fe9d6f1acf1131c1cd7e4d270b252e5abb3fa1a120069e75f339d7dd6",
+      "usage": {
+        "input_tokens": 4439,
+        "output_tokens": 692,
+        "total_tokens": 5131,
+        "benchmark_cost_eur": 0.038267260579064585,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      }
+    }
+  ],
+  "accounting": {
+    "campaign": "schema-portability-20261002",
+    "reserved_requests": 222,
+    "completed_receipts": 221,
+    "uncertain_requests": [
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "retained_inconclusive_requests": [
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "transport_accounting": {
+      "calls": 222,
+      "session_calls": 0,
+      "known_input_tokens": 3051766,
+      "known_output_tokens": 316069,
+      "known_cost_eur": 21.978935150632726,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "cost_upper_bound_eur": 21.978935150632726,
+      "unknown_attempts": 0
+    },
+    "recorded_failures": 1,
+    "known_budget_cost": null,
+    "budget_currency": null,
+    "known_input_tokens": null,
+    "known_output_tokens": null,
+    "completion_receipts_complete": false,
+    "evidence_hash": "2256350fbbdd868aa64eb10c0dda5544f57e4df6366b3e1ef97d7ea85c6f8779"
+  },
+  "passed": true,
+  "generated_plan": {
+    "inputs": [],
+    "root": {
+      "tasks": [
+        {
+          "id": "read_observation",
+          "objective": "Read the original unstructured observation from the available fixture MCP so it remains available for extraction.",
+          "kind": "operation",
+          "dependsOn": [],
+          "operation": "cap_644dc8039f8abf160f1652ee",
+          "inputs": [],
+          "outputs": [],
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "extract_display_name",
+          "objective": "Extract the observed displayName from the original observation as a business field named name. The observation may be JSON, plain text, or HTML. Do not synthesize values or use defaults; fail if the displayName is not observed.",
+          "kind": "transform",
+          "mode": "extract",
+          "dependsOn": [
+            "read_observation"
+          ],
+          "operation": null,
+          "inputs": [
+            {
+              "name": "originalObservation",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "read_observation",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "items": null,
+            "fields": [
+              {
+                "name": "name",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              }
+            ]
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "value": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "extract_display_name",
+            "port": null,
+            "members": [],
+            "items": [],
+            "predicate": null
+          }
+        }
+      ],
+      "always": []
+    },
+    "groups": [],
+    "choices": []
+  }
+}

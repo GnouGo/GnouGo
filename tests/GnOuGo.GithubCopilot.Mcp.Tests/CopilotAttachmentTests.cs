@@ -1,3 +1,6 @@
+using GnOuGo.Flow.Integrations;
+using GnOuGo.KeyVault.Core.Services;
+using Microsoft.Extensions.DependencyInjection;
 using System.IO.Pipelines;
 using System.Reflection;
 using System.Text.Json;
@@ -14,9 +17,47 @@ using Xunit;
 
 namespace GnOuGo.GithubCopilot.Mcp.Tests;
 
+[Collection("Copilot tool discovery")]
 public sealed class CopilotAttachmentTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    [Fact]
+    public async Task ConcurrentPermissionCallbacksPreserveIndividualAnswersAndSerializeElicitation()
+    {
+        var active = 0; var completed = 0;
+        await using var fixture = await Fixture.CreateAsync(new McpClientOptions
+        {
+            Handlers = new()
+            {
+                ElicitationHandler = async (request, ct) =>
+                {
+                    if (Interlocked.Increment(ref active) != 1)
+                        throw new InvalidOperationException("Concurrent client requests are forbidden by this transport.");
+                    try
+                    {
+                        await Task.Delay(50, ct);
+                        Interlocked.Increment(ref completed);
+                        return new ElicitResult { Action = "accept", Content = new Dictionary<string, JsonElement>()
+                        { ["answer"] = JsonSerializer.SerializeToElement(request!.Message == "permission-0" ? "Refuse" : "Allow once") } };
+                    }
+                    finally { Interlocked.Decrement(ref active); }
+                }
+            }
+        });
+        fixture.Host.OnSend = async (configuration, handle, _, ct) =>
+        {
+            using var callback = fixture.Host.Trace.Push(null);
+            var answers = await Task.WhenAll(Enumerable.Range(0, 14).Select(i => configuration.HumanInputProvider!.RequestAsync(
+                new(new("fixture-tenant"), "permission", "permission-" + i, ["Allow once", "Refuse"], false), ct)));
+            Assert.False(answers[0].Accepted); Assert.Equal("Refuse", answers[0].Answer);
+            Assert.All(answers.Skip(1), answer => { Assert.True(answer.Accepted); Assert.Equal("Allow once", answer.Answer); });
+            return new(handle, "mock-session", "answers retained", "mock", []);
+        };
+        var result = await fixture.Call("copilot_interactive_one_shot", new() { ["projectRoot"] = "workflows/project", ["prompt"] = "Concurrent permissions" }, "fixture-tenant");
+        Assert.False(result.IsError == true, JsonSerializer.Serialize(result.Content));
+        Assert.Equal(14, completed);
+    }
+
     public static TheoryData<string> InvalidAttachments => new()
     {
         "{}", "\"[]\"", "[null]", "[true]", "[{}]", "[{\"type\":\"FILE\",\"path\":\"readme.md\"}]",
@@ -114,25 +155,30 @@ public sealed class CopilotAttachmentTests
         Assert.True(other.IsError); Assert.Equal(2, fixture.Host.Sends);
     }
 
-    private sealed class Fixture : IAsyncDisposable
+    internal sealed class Fixture : IAsyncDisposable
     {
         internal static readonly string[] Methods = ["copilot_one_shot", "copilot_interactive_one_shot", "copilot_session_send"];
         internal readonly string Root = Directory.CreateTempSubdirectory("attachment-contract-").FullName;
         internal string Project => Path.Combine(Root, "workflows", "project");
         internal CopilotTestHost Host = null!;
         internal readonly Dictionary<string, JsonNode> Schemas = [];
+        internal KeyVaultCopilotTaskStore tasks = null!;
+        private ServiceProvider services = null!;
         private McpServer server = null!; private McpClient client = null!; private Task running = null!;
         private readonly CancellationTokenSource stop = CancellationTokenSource.CreateLinkedTokenSource(Ct);
 
-        internal static async Task<Fixture> CreateAsync()
+        internal static async Task<Fixture> CreateAsync(McpClientOptions? clientOptions = null, Action<CodeServerSettings>? configure = null)
         {
             var f = new Fixture(); Directory.CreateDirectory(f.Project);
             var settings = new CodeServerSettings { DefaultWorkingDirectory = f.Root, AllowedWorkingRoots = [f.Root], Copilot = new() { Model = "mock" } };
+            configure?.Invoke(settings);
             var policy = new CodePolicy(settings, f.Root); var options = Options.Create(settings);
             f.Host = new(settings, f.Root, policy);
             f.Host.OnSend = (_, handle, _, _) => Task.FromResult(new CopilotSendResult(handle, "mock-session", "mock result", "mock", []));
+            f.tasks = new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(Path.Combine(f.Root, "vault.db"), f.Root), f.Host.Trace, Path.Combine(f.Root, "leases"), settings.Copilot.LogicalLimits);
+            var logical = new CopilotLogicalOperations(f.Host.Manager, f.tasks, f.Host.Human, options);
             var target = new CopilotTools(f.Host.Manager, new(f.Host.Manager), policy, options, f.Host.Trace, f.Host.Human,
-                new(f.Host.Trace), null!, new(policy, options, f.Host.Trace));
+                new(f.Host.Trace), null!, new(policy, options, f.Host.Trace), logical);
             var serverOptions = new McpServerOptions { ServerInfo = new() { Name = "attachments-fixture", Version = "1" }, ToolCollection = [] };
             serverOptions.AddGnOuGoToolErrorNormalizer(); CopilotAttachmentContract.Configure(serverOptions);
             serverOptions.Filters.Request.CallToolFilters.Add(next => async (request, ct) =>
@@ -143,20 +189,25 @@ public sealed class CopilotAttachmentTests
             foreach (var method in typeof(CopilotTools).GetMethods().Where(m => Methods.Contains(m.GetCustomAttribute<McpServerToolAttribute>()?.Name)))
                 serverOptions.ToolCollection.Add(McpServerTool.Create(method, target, new() { SerializerOptions = CodeMcpJson.SerializerOptions }));
             var incoming = new Pipe(); var outgoing = new Pipe();
-            f.server = McpServer.Create(new StreamServerTransport(incoming.Reader.AsStream(), outgoing.Writer.AsStream()), serverOptions);
+            var registrations = new ServiceCollection(); registrations.AddLogging();
+            registrations.AddMcpServer().WithCopilotTasks(f.tasks, f.Host.Trace);
+            f.services = registrations.BuildServiceProvider();
+            foreach (var registration in f.services.GetServices<IConfigureOptions<McpServerOptions>>()) registration.Configure(serverOptions);
+            f.server = McpServer.Create(new StreamServerTransport(incoming.Reader.AsStream(), outgoing.Writer.AsStream()), serverOptions, serviceProvider: f.services);
             f.running = f.server.RunAsync(f.stop.Token);
-            f.client = await McpClient.CreateAsync(new StreamClientTransport(incoming.Writer.AsStream(), outgoing.Reader.AsStream()), cancellationToken: Ct);
+            f.client = await McpClient.CreateAsync(new StreamClientTransport(incoming.Writer.AsStream(), outgoing.Reader.AsStream()), clientOptions, cancellationToken: Ct);
             foreach (var tool in await f.client.ListToolsAsync(cancellationToken: Ct)) f.Schemas.Add(tool.Name, JsonNode.Parse(tool.JsonSchema.GetRawText())!);
             return f;
         }
 
-        internal ValueTask<CallToolResult> Call(string name, Dictionary<string, object?> args, string? tenant = null)
-            => client.CallToolAsync(name, args, progress: null, new RequestOptions { Meta = tenant is null ? null : new JsonObject { ["gnougo"] = new JsonObject { ["tenantId"] = tenant } } }, Ct);
+        internal Task<CallToolResult> Call(string name, Dictionary<string, object?> args, string? tenant = null, CancellationToken? cancellation = null)
+            => McpTaskPolling.CallAsync(client, name, JsonSerializer.SerializeToNode(args),
+                tenant is null ? null : new JsonObject { ["gnougo"] = new JsonObject { ["tenantId"] = tenant } }, cancellation ?? Ct);
 
         public async ValueTask DisposeAsync()
         {
             await client.DisposeAsync(); await stop.CancelAsync(); await running; await server.DisposeAsync();
-            await Host.Manager.DisposeAsync(); stop.Dispose(); Directory.Delete(Root, true);
+            await Host.Manager.DisposeAsync(); await tasks.DisposeAsync(); await services.DisposeAsync(); stop.Dispose(); Directory.Delete(Root, true);
         }
     }
 }

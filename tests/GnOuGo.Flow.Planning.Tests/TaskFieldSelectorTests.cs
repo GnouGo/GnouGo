@@ -38,7 +38,7 @@ public sealed class TaskFieldSelectorTests
         Assert.Empty(compilation.Diagnostics); Assert.NotNull(compilation.Graph);
         var graph = compilation.Graph;
         var nodes = graph.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps)).ToArray();
-        Assert.Single(nodes, n => n.Type == "llm.call"); Assert.Contains(nodes, n => n.Type == "value.project");
+        Assert.Single(nodes, n => n.Type == "llm.call"); Assert.Contains(nodes, n => n.Type == "set" && n.Input.Kind == "projection");
         var yaml = new PlanningGraphCompiler().Compile(graph, catalog);
         var diagnostics = await runtime.ValidateAsync(new(yaml, new(), catalog, PlanningGraphCompiler.CapabilityBindings(graph)), PlannerFixture.Ct);
         Assert.True(diagnostics.Count == 0, JsonSerializer.Serialize(diagnostics));

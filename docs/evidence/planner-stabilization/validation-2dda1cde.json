@@ -1,0 +1,17 @@
+{
+  "production": "2dda1cde9e7977defe2f4d30d65bf8341a11402d",
+  "solution": {
+    "projects": 33,
+    "failed": 0,
+    "passed": 3757,
+    "skipped": 12
+  },
+  "logs": {
+    "final-solution-2dda1cde.log": "d5a1a0a484cf4c02ec7f22efa671ecc6973daba87dc3ac7f13669033bd89ce0a",
+    "iteration-guidance-tests.log": "8b9a226a2840bf9018b772be0fb587c07e6f21d9dac1a9d3573eaedb57a95eb6",
+    "pack-2dda1cde.log": "51d92f588002f45336ee914a5b76ad42a308d193ba5617499453f28b67c14813",
+    "aot-publish-2dda1cde.log": "7f5ab7485eef36c99d02f20a82388f251caf1387885e3702df355f0386df0e28",
+    "aot-smoke-2dda1cde.log": "fa4d33e6be712395cad32abd9cb768fb3da858367cedbeab9e59eb5ddf776c7d"
+  },
+  "production_ci": "https://github.com/GnouGo/GnouGo/actions/runs/36695646862"
+}

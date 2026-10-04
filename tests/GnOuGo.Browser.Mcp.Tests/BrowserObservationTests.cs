@@ -1,0 +1,74 @@
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Text.Json;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Xunit;
+
+namespace GnOuGo.Browser.Mcp.Tests;
+
+public sealed class BrowserObservationTests(ITestOutputHelper output)
+{
+    [Fact]
+    public async Task CompactSnapshotPreservesObservedGroupsAndLinksWithBoundedContinuation()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var portProbe = new TcpListener(IPAddress.Loopback, 0); portProbe.Start();
+        var port = ((IPEndPoint)portProbe.LocalEndpoint).Port; portProbe.Stop();
+        using var site = new HttpListener(); site.Prefixes.Add($"http://127.0.0.1:{port}/"); site.Start();
+        var origin = $"http://127.0.0.1:{port}";
+        var html = "<html><head><title>Observed catalogue</title><style>p { color: black }</style></head><body><main>" +
+            string.Concat(Enumerable.Range(0, 24).Select(i => $"<article id='entry-{i}' data-noise='{new string('x', 4000)}'><h2>Observed {i}</h2><a href='/item/{i}'>Visit {i}</a><p>Description {i}</p></article>")) +
+            "<p hidden>HIDDEN</p><script>const secret='SCRIPT';</script><input type='password' value='PASSWORD'><button id='change'>Continue</button></main></body></html>";
+        var serve = Task.Run(async () =>
+        {
+            try
+            {
+                while (site.IsListening)
+                {
+                    var context = await site.GetContextAsync(); var bytes = Encoding.UTF8.GetBytes(html);
+                    context.Response.ContentType = "text/html; charset=utf-8"; await context.Response.OutputStream.WriteAsync(bytes, ct); context.Response.Close();
+                }
+            }
+            catch (Exception ex) when (ex is HttpListenerException or ObjectDisposedException or OperationCanceledException) { }
+        }, ct);
+        try
+        {
+            await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings { AllowedHosts = ["127.0.0.1"], MaxObservationRecords = 12 }), NullLogger<PlaywrightBrowserHost>.Instance);
+            var page = await host.GetContentAsync(origin, "domcontentloaded", null, "main", "observation", null, false, ct);
+            var all = new List<BrowserObservationRecord>(); var serializedCharacters = 0; string? cursor;
+            do
+            {
+                var serialized = JsonSerializer.Serialize(page, BrowserMcpJsonContext.Default.BrowserContentResult);
+                Assert.True(serialized.Length <= 24_000); Assert.InRange(page.Observation!.Records.Count, 1, 12);
+                Assert.DoesNotContain("HIDDEN", serialized); Assert.DoesNotContain("SCRIPT", serialized); Assert.DoesNotContain("PASSWORD", serialized);
+                Assert.False(page.Observation.CaptureTruncated);
+                Assert.Equal(string.Join('\n', page.Observation.Records.Select(r => r.Text).Where(t => t.Length > 0)), page.Content);
+                all.AddRange(page.Observation.Records); serializedCharacters += serialized.Length; cursor = page.Observation.NextCursor;
+                if (cursor is not null) { Assert.True(page.Truncated); page = await host.GetContentAsync(null, "load", null, null, "observation", null, false, ct, cursor); }
+            } while (cursor is not null);
+            Assert.False(page.Truncated);
+            Assert.Equal(24, all.Count(r => r.Kind == "link"));
+            for (var i = 0; i < 24; i++)
+            {
+                Assert.Contains(all, r => r.Kind == "heading" && r.Text == "Observed " + i && r.Group == "#entry-" + i);
+                Assert.Contains(all, r => r.Kind == "link" && r.Href == origin + "/item/" + i && r.Group == "#entry-" + i);
+                Assert.Contains(all, r => r.Text == "Description " + i && r.Group == "#entry-" + i);
+            }
+            output.WriteLine($"OBSERVATION measured: {serializedCharacters} serialized characters versus {html.Length} source HTML characters; {all.Count} records.");
+            Assert.True(serializedCharacters < html.Length / 2, $"Observed {serializedCharacters} versus {html.Length} HTML characters.");
+            var first = await host.GetContentAsync(null, "load", null, "main", "observation", 2400, false, ct, maxRecords: 2);
+            var continuation = Assert.IsType<string>(first.Observation!.NextCursor);
+            await host.ClickAsync("#change", "domcontentloaded", 1000, ct);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, "observation", null, false, ct, continuation));
+            var recaptured = await host.GetContentAsync(null, "load", null, "main", "observation", null, false, ct);
+            await host.GetContentAsync(origin, "domcontentloaded", null, null, "text", 1000, false, ct);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, "observation", null, false, ct, recaptured.Observation!.NextCursor));
+            using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => host.GetContentAsync(null, "load", null, null, "observation", null, false, cancelled.Token));
+            await host.CloseAsync(ct);
+        }
+        finally { site.Stop(); await serve; }
+    }
+}

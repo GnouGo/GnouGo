@@ -1,0 +1,46 @@
+{
+  "kind": "disposable_readiness_not_live_provider",
+  "repository": "https://github.com/AxaFrance/SmartGuide.git",
+  "head": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488",
+  "base": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4",
+  "toolchains": {
+    "node": "24.20.0",
+    "pnpm": "10.34.5",
+    "python": "3.11.13"
+  },
+  "node_archive_sha256": "b7bf7707070b950ba1ec5f1af3bb6de0f2b1962c5033973d94068ab021ef3014",
+  "dependency_installations": [
+    {
+      "command": "pnpm install --frozen-lockfile",
+      "exit_code": 0
+    },
+    {
+      "command": "uv sync --native-tls --group tests --group ci --python <pinned-python>",
+      "exit_code": 0
+    }
+  ],
+  "checks": [
+    {
+      "command": "pnpm test",
+      "exit_code": 1,
+      "summary": "105 test cases passed; 7 failed; additional test suites failed while importing package CSS. Retain these failures as review evidence."
+    }
+  ],
+  "model_calls": 0,
+  "github_publication": false,
+  "manifest_hashes": {
+    "package.json": "e51a4cbe7afe0ff2a409dffa2836782c3de24ec9147dad1dfb7b489040dcdcbe",
+    "pnpm-lock.yaml": "3d7c158e8b65ff0b1c544c28325c3d65c96060be20f1f87fbc467a5b8390a219",
+    "pyproject.toml": "a931100757c9983067985b4bd295b87240980b0da1be4546b11e01b2694ad621",
+    "uv.lock": "02754a9c4b906cff798363ce63a636fecd662903df0e82f0cec2241412f136da"
+  },
+  "head_manifest_hashes": {
+    "package.json": "e51a4cbe7afe0ff2a409dffa2836782c3de24ec9147dad1dfb7b489040dcdcbe",
+    "pnpm-lock.yaml": "3d7c158e8b65ff0b1c544c28325c3d65c96060be20f1f87fbc467a5b8390a219",
+    "pyproject.toml": "a931100757c9983067985b4bd295b87240980b0da1be4546b11e01b2694ad621",
+    "uv.lock": "0ce56049ad18e4863e5a730b53dcab63156448f3f2e6397afefe2a3a94cfd79f"
+  },
+  "installation_changes": [
+    "uv.lock updated by uv sync; checkout HEAD remains pinned."
+  ]
+}

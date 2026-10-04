@@ -27,8 +27,7 @@ public static class BuiltInStepContracts
         new Dictionary<string, StepContract>(StringComparer.Ordinal)
         {
             ["agent.run"] = new Executors.AgentRunExecutor().Contract,
-            ["value.project"] = new Executors.ValueProjectExecutor().Contract,
-            ["array.project"] = new Executors.ArrayProjectExecutor().Contract,
+            ["mapping.dynamic"] = new Executors.DynamicMappingExecutor().Contract,
             ["number.add"] = new Executors.NumericTransformExecutor("number.add").Contract,
             ["number.multiply"] = new Executors.NumericTransformExecutor("number.multiply").Contract,
             ["number.default"] = new Executors.NumericTransformExecutor("number.default").Contract,
@@ -50,13 +49,7 @@ public static class BuiltInStepContracts
                 Object(("results", Array(Any())), ("count", Integer())),
                 inputRequired: true),
             ["switch"] = Contract(ClosedObject(), OpenObject()),
-            ["decision.evaluate"] = Contract(
-                Object(new[] { "decisions" }, ("decisions", OpenObject())),
-                OpenObject(),
-                inputRequired: true),
-            ["value.validate"] = Contract(Object(new[] { "value" }, ("value", Any()), ("format", Enum("json_value", "json_text"))), Object(("value", Any())), inputRequired: true),
             ["set"] = Contract(OpenObject(), OpenObject(), inputRequired: true),
-            ["assert.non_null"] = Contract(OpenObject(), OpenObject(), inputRequired: true),
             ["template.render"] = Contract(
                 Object(new[] { "template" },
                     ("engine", Enum("mustache")),

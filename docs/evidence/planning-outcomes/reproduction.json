@@ -1,0 +1,44 @@
+{
+  "session": "cb5a5d2d946246948aaa66597209b6f0",
+  "trace": "ce3e31cabf142545f7818b5fe59e2dde",
+  "historical": {
+    "planningCalls": 3,
+    "repairs": 2,
+    "discoveryPagesRead": 0,
+    "uninspectedSources": 10,
+    "clarificationBatches": 0,
+    "originalRequestPreserved": true,
+    "offlineCompilerAccepted": true,
+    "offlineApprovalValidatorAccepted": true
+  },
+  "replay": {
+    "fixture": "tests/GnOuGo.Flow.Planning.Tests/Fixtures/OutcomeCoverage/retained-placeholder-plan.json",
+    "sha256": "a2a3755a9f58ffb5b1e85e05314202f35328eea42fc40431b3ec1b6f3233147b",
+    "providerDispatches": 0,
+    "externalRepositoryExecution": false,
+    "savedWorkflowModified": false,
+    "unsafeYaml": {
+      "injectedDeterministicModelCalls": 1,
+      "externalOperationNodes": 0,
+      "claimedPublicationSuccess": true
+    },
+    "newGate": "Rejects operation requirements bound to transforms/constants; approval remains blocked"
+  },
+  "localExecution": {
+    "adapter": "in-process deterministic MCP adapters and real Flow engine",
+    "scenarios": [
+      "nominal",
+      "alternate",
+      "partial failure",
+      "permission denial"
+    ],
+    "successOracles": 4,
+    "filesystemAssertions": [
+      "exact seeded contents",
+      "exact copied contents",
+      "same producer directory reused",
+      "directory absent after cleanup",
+      "zero effects on denied execution"
+    ]
+  }
+}

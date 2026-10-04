@@ -57,6 +57,10 @@ internal static class PlanningJsonTransport
                 defaults = JsonSerializer.SerializeToNode(new TaskType(), PlanningJsonContext.Default.TaskType)!.AsObject();
                 if (JsonNode.DeepEquals(obj["nullable"], defaults["nullable"])) obj.Remove("nullable");
             }
+            else if (obj.ContainsKey("id") && obj.ContainsKey("description") && obj["execution"] is not null)
+            {
+                foreach (var key in new[] { "execution", "always", "conditional", "coverage", "operation" }) obj.Remove(key);
+            }
             else if (obj.ContainsKey("name") && obj["type"] is JsonObject)
             {
                 if (obj["required"] is JsonValue flag && flag.TryGetValue<bool>(out var required) && required) obj.Remove("required");

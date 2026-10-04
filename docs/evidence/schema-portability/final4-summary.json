@@ -1,0 +1,204 @@
+{
+  "percentile_method": "nearest rank; failed planning has zero execution time; total time ends at failure/completion; human waiting included",
+  "cohort": "final4",
+  "summary": {
+    "amazon": {
+      "execution_passes": 0,
+      "denominator": 3,
+      "metrics": {
+        "planning_calls": {
+          "n": 3,
+          "median": 4,
+          "p95": 5
+        },
+        "physical_planning_attempts": {
+          "n": 3,
+          "median": 4,
+          "p95": 5
+        },
+        "repairs": {
+          "n": 3,
+          "median": 2,
+          "p95": 2
+        },
+        "discovery_reads": {
+          "n": 3,
+          "median": 2,
+          "p95": 2
+        },
+        "planning_input_tokens": {
+          "n": 3,
+          "median": 26497,
+          "p95": 37450
+        },
+        "planning_output_tokens": {
+          "n": 3,
+          "median": 8731,
+          "p95": 9836
+        },
+        "planning_ms": {
+          "n": 3,
+          "median": 115245,
+          "p95": 185188
+        },
+        "execution_calls": {
+          "n": 3,
+          "median": 0,
+          "p95": 0
+        },
+        "execution_input_tokens": {
+          "n": 3,
+          "median": 0,
+          "p95": 0
+        },
+        "execution_output_tokens": {
+          "n": 3,
+          "median": 0,
+          "p95": 0
+        },
+        "execution_ms": {
+          "n": 3,
+          "median": 0,
+          "p95": 0
+        },
+        "total_ms": {
+          "n": 3,
+          "median": 115245,
+          "p95": 185188
+        }
+      }
+    },
+    "code": {
+      "execution_passes": 0,
+      "denominator": 3,
+      "metrics": {
+        "planning_calls": {
+          "n": 3,
+          "median": 5,
+          "p95": 5
+        },
+        "physical_planning_attempts": {
+          "n": 3,
+          "median": 5,
+          "p95": 5
+        },
+        "repairs": {
+          "n": 3,
+          "median": 2,
+          "p95": 2
+        },
+        "discovery_reads": {
+          "n": 3,
+          "median": 3,
+          "p95": 3
+        },
+        "planning_input_tokens": {
+          "n": 3,
+          "median": 48272,
+          "p95": 52633
+        },
+        "planning_output_tokens": {
+          "n": 3,
+          "median": 8957,
+          "p95": 10346
+        },
+        "planning_ms": {
+          "n": 3,
+          "median": 115399,
+          "p95": 155604
+        },
+        "execution_calls": {
+          "n": 3,
+          "median": 0,
+          "p95": 3
+        },
+        "execution_input_tokens": {
+          "n": 3,
+          "median": 0,
+          "p95": 27139
+        },
+        "execution_output_tokens": {
+          "n": 3,
+          "median": 0,
+          "p95": 1207
+        },
+        "execution_ms": {
+          "n": 3,
+          "median": 0,
+          "p95": 405424
+        },
+        "total_ms": {
+          "n": 3,
+          "median": 155604,
+          "p95": 520474
+        }
+      }
+    },
+    "all": {
+      "execution_passes": 0,
+      "denominator": 6,
+      "metrics": {
+        "planning_calls": {
+          "n": 6,
+          "median": 4.5,
+          "p95": 5
+        },
+        "physical_planning_attempts": {
+          "n": 6,
+          "median": 4.5,
+          "p95": 5
+        },
+        "repairs": {
+          "n": 6,
+          "median": 2.0,
+          "p95": 2
+        },
+        "discovery_reads": {
+          "n": 6,
+          "median": 2.5,
+          "p95": 3
+        },
+        "planning_input_tokens": {
+          "n": 6,
+          "median": 38897.5,
+          "p95": 52633
+        },
+        "planning_output_tokens": {
+          "n": 6,
+          "median": 8844.0,
+          "p95": 10346
+        },
+        "planning_ms": {
+          "n": 6,
+          "median": 115322.0,
+          "p95": 185188
+        },
+        "execution_calls": {
+          "n": 6,
+          "median": 0.0,
+          "p95": 3
+        },
+        "execution_input_tokens": {
+          "n": 6,
+          "median": 0.0,
+          "p95": 27139
+        },
+        "execution_output_tokens": {
+          "n": 6,
+          "median": 0.0,
+          "p95": 1207
+        },
+        "execution_ms": {
+          "n": 6,
+          "median": 0.0,
+          "p95": 405424
+        },
+        "total_ms": {
+          "n": 6,
+          "median": 135501.5,
+          "p95": 520474
+        }
+      }
+    }
+  }
+}

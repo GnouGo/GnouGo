@@ -107,26 +107,23 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         maxConcurrency = Math.Clamp(maxConcurrency, 1, Math.Max(1, selected.Count));
         var humanInputConfig = ParseHumanInputConfig(argsInput);
 
-        List<RouteExecutionResult> routeResults;
-        if (humanInputConfig.Enabled)
-        {
-            var prepared = await PrepareSelectedSequentialAsync(
-                ctx,
-                input,
-                selected,
-                args,
-                argsInput,
-                humanInputConfig,
-                ct);
-            routeResults = executeInParallel
-                ? await ExecutePreparedParallelAsync(ctx, prepared, maxConcurrency, ct)
-                : await ExecutePreparedSequentialAsync(ctx, prepared, ct);
-        }
+        // Human questions are completed in order before any selected workflow starts.
+        var prepared = humanInputConfig.Enabled
+            ? await PrepareSelectedSequentialAsync(ctx, input, selected, args, argsInput, humanInputConfig, ct) : null;
+        async Task<RouteExecutionResult> Run(int index) => await ExecutePreparedCandidateAsync(ctx,
+            prepared?[index] ?? await PrepareCandidateAsync(ctx, input, selected[index], args, argsInput, HumanInputConfig.Disabled, ct), ct);
+        var routeResults = new List<RouteExecutionResult>();
+        if (!executeInParallel)
+            for (var i = 0; i < selected.Count; i++) routeResults.Add(await Run(i));
         else
         {
-            routeResults = executeInParallel
-                ? await ExecuteSelectedParallelAsync(ctx, input, selected, args, argsInput, maxConcurrency, ct)
-                : await ExecuteSelectedSequentialAsync(ctx, input, selected, args, argsInput, ct);
+            using var semaphore = new SemaphoreSlim(maxConcurrency);
+            routeResults.AddRange(await Task.WhenAll(Enumerable.Range(0, selected.Count).Select(async index =>
+            {
+                await semaphore.WaitAsync(ct);
+                try { return await Run(index); }
+                finally { semaphore.Release(); }
+            })));
         }
 
         var output = new JsonObject
@@ -280,9 +277,6 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             if (selected.Count >= maxSelected)
                 break;
         }
-
-        if (selected.Count == 0 && minSelected > 0)
-            selected.Add(candidates[0] with { Reason = "Fallback selection because the router returned no known candidate.", Confidence = 0 });
 
         return selected;
     }
@@ -819,46 +813,6 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
                 inputErrors.Select(static error => (JsonNode)JsonValue.Create(error)!).ToArray())
         };
 
-    private static async Task<List<RouteExecutionResult>> ExecuteSelectedSequentialAsync(
-        StepExecutionContext ctx,
-        JsonObject routeInput,
-        List<RouteCandidate> selected,
-        JsonObject args,
-        JsonObject? argsInput,
-        CancellationToken ct)
-    {
-        var results = new List<RouteExecutionResult>();
-        foreach (var candidate in selected)
-            results.Add(await ExecuteCandidateAsync(ctx, routeInput, candidate, args, argsInput, ct));
-        return results;
-    }
-
-    private static async Task<List<RouteExecutionResult>> ExecuteSelectedParallelAsync(
-        StepExecutionContext ctx,
-        JsonObject routeInput,
-        List<RouteCandidate> selected,
-        JsonObject args,
-        JsonObject? argsInput,
-        int maxConcurrency,
-        CancellationToken ct)
-    {
-        using var semaphore = new SemaphoreSlim(maxConcurrency);
-        var tasks = selected.Select(async candidate =>
-        {
-            await semaphore.WaitAsync(ct);
-            try
-            {
-                return await ExecuteCandidateAsync(ctx, routeInput, candidate, args, argsInput, ct);
-            }
-            finally
-            {
-                semaphore.Release();
-            }
-        }).ToArray();
-
-        return (await Task.WhenAll(tasks)).ToList();
-    }
-
     private static async Task<List<PreparedRouteCandidate>> PrepareSelectedSequentialAsync(
         StepExecutionContext ctx,
         JsonObject routeInput,
@@ -882,59 +836,6 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         }
 
         return prepared;
-    }
-
-    private static async Task<List<RouteExecutionResult>> ExecutePreparedSequentialAsync(
-        StepExecutionContext ctx,
-        IReadOnlyList<PreparedRouteCandidate> prepared,
-        CancellationToken ct)
-    {
-        var results = new List<RouteExecutionResult>(prepared.Count);
-        foreach (var candidate in prepared)
-            results.Add(await ExecutePreparedCandidateAsync(ctx, candidate, ct));
-        return results;
-    }
-
-    private static async Task<List<RouteExecutionResult>> ExecutePreparedParallelAsync(
-        StepExecutionContext ctx,
-        IReadOnlyList<PreparedRouteCandidate> prepared,
-        int maxConcurrency,
-        CancellationToken ct)
-    {
-        using var semaphore = new SemaphoreSlim(maxConcurrency);
-        var tasks = prepared.Select(async candidate =>
-        {
-            await semaphore.WaitAsync(ct);
-            try
-            {
-                return await ExecutePreparedCandidateAsync(ctx, candidate, ct);
-            }
-            finally
-            {
-                semaphore.Release();
-            }
-        }).ToArray();
-
-        return (await Task.WhenAll(tasks)).ToList();
-    }
-
-    private static async Task<RouteExecutionResult> ExecuteCandidateAsync(
-        StepExecutionContext ctx,
-        JsonObject routeInput,
-        RouteCandidate candidate,
-        JsonObject args,
-        JsonObject? argsInput,
-        CancellationToken ct)
-    {
-        var prepared = await PrepareCandidateAsync(
-            ctx,
-            routeInput,
-            candidate,
-            args,
-            argsInput,
-            HumanInputConfig.Disabled,
-            ct);
-        return await ExecutePreparedCandidateAsync(ctx, prepared, ct);
     }
 
     private static async Task<PreparedRouteCandidate> PrepareCandidateAsync(
@@ -961,35 +862,6 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             throw new WorkflowRuntimeException(ErrorCodes.WorkflowCycleDetected,
                 $"Cycle detected: workflow '{resolution.WorkflowName}' already in call stack");
 
-        var childEngine = new WorkflowEngine(ctx.Engine.Registry)
-        {
-            LLMClient = ctx.Engine.LLMClient,
-            ModelUsageCostEstimator = ctx.Engine.ModelUsageCostEstimator,
-            LLMUsageBudget = ctx.LLMUsageBudget ?? ctx.Engine.LLMUsageBudget,
-            WorkflowFetcher = ctx.Engine.WorkflowFetcher,
-            TemplateEngine = ctx.Engine.TemplateEngine,
-            McpClientFactory = ctx.Engine.McpClientFactory,
-            HumanInputProvider = ctx.Engine.HumanInputProvider,
-            PlanningInteraction = ctx.Engine.PlanningInteraction,
-            DefaultPlanningMode = ctx.Engine.DefaultPlanningMode,
-            WorkflowPlanner = ctx.Engine.WorkflowPlanner,
-            PlanningPolicy = ctx.Engine.PlanningPolicy,
-            PlanningRuntimeFactory = ctx.Engine.PlanningRuntimeFactory,
-            LLMCapabilities = ctx.Engine.LLMCapabilities,
-            Journal = ctx.Engine.Journal,
-            WorkflowCallResolver = ctx.Engine.WorkflowCallResolver,
-            WorkflowCandidateProvider = ctx.Engine.WorkflowCandidateProvider,
-            Telemetry = ctx.Engine.Telemetry,
-            LlmDefaults = ctx.Engine.LlmDefaults,
-            FetchPolicy = ctx.Engine.FetchPolicy,
-            Limits = CreateChildLimits(ctx.Limits, candidate),
-            Logger = ctx.Engine.Logger,
-            McpCache = ctx.Engine.McpCache,
-            McpCacheSlidingExpiration = ctx.Engine.McpCacheSlidingExpiration
-        };
-
-        foreach (var runner in ctx.Engine.AgentTaskRunners) childEngine.AgentTaskRunners.Add(runner);
-        childEngine.AgentTaskVerifier = ctx.Engine.AgentTaskVerifier;
         var candidateArgs = args.DeepClone() as JsonObject ?? new JsonObject();
         candidateArgs = await ApplyAutoExtractArgsAsync(ctx, routeInput, argsInput, candidate, resolution.Workflow, candidateArgs, ct);
         var resolvedArgs = WorkflowInputDefaults.Apply(resolution.Workflow.Source, candidateArgs);
@@ -1012,7 +884,7 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
             candidate,
             resolution.WorkflowName,
             resolution.Workflow,
-            childEngine,
+            CreateChildLimits(ctx.Limits, candidate),
             resolvedArgs,
             newCallStack);
     }
@@ -1022,10 +894,10 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         PreparedRouteCandidate prepared,
         CancellationToken ct)
     {
-        var result = await prepared.ChildEngine.ExecuteChildWorkflowAsync(
+        var result = await ctx.Engine.ExecuteChildWorkflowAsync(
             prepared.Workflow,
             prepared.ResolvedArgs,
-            prepared.ChildEngine.Limits,
+            prepared.Limits,
             ctx.CallDepth + 1,
             prepared.CallStack,
             ctx.TelemetrySpan,
@@ -1530,7 +1402,7 @@ public sealed class WorkflowRouteExecutor : IStepExecutor
         RouteCandidate Candidate,
         string WorkflowName,
         CompiledWorkflow Workflow,
-        WorkflowEngine ChildEngine,
+        ExecutionLimits Limits,
         JsonObject ResolvedArgs,
         HashSet<string> CallStack);
 

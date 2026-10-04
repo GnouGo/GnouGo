@@ -13,7 +13,7 @@ public sealed class BoundedRepairContextTests
     {
         var (plan, catalog) = ConstrainedBindingTests.Retained();
         var state = PlannerFixture.Session(); state.Plan = plan; state.Catalog = catalog;
-        state.Requirements = PlannerFixture.Requirements(); state.ModelCalls = 3; state.Status = PlanningStatus.Generating;
+        state.Requirements = PlannerFixture.Requirements(); state.Requirements.Inputs = plan.Inputs; state.ModelCalls = 3; state.Status = PlanningStatus.Generating;
         state.Request.Generation.MaxInputTokensPerRequest = 60397; state.Request.Generation.MaxOutputTokens = 32768;
         state.Usage = new() { Calls = 3, TotalTokens = 81391, EstimatedCost = 0.54m, EstimatedCostCurrency = "EUR" };
         // Recover the old four-slot scope, before producer constraints were expressible.

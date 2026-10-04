@@ -1,0 +1,392 @@
+{
+  "source_sha": "5057fd1c4b3436a6a966da4e524507a0e4102c1f",
+  "harness_sha": "5057fd1c4b3436a6a966da4e524507a0e4102c1f",
+  "prompt": "Read the observation from the available fixture MCP. Extract the observed displayName as a business field named name, using extract mode; it may be supplied as JSON, plain text or HTML. Declare exactly one public workflow output named result, whose value is an object with exactly one required string field named name. Export the whole extraction result as result; do not flatten name into a public output. Use no caller inputs, no synthetic values, no defaults, no other external operations. Keep the original observation available to extraction.",
+  "model": "gpt-5.5-2026-04-24",
+  "provider_policy_hash": "7a7fec4a3c4569be8862a2a27f071dcc6a4d080f76f86d11d40a47e9cdf85486",
+  "profile": 1,
+  "model_attempts_per_mapping": 2,
+  "reasoning": "medium",
+  "planning_input_limit": 96000,
+  "planning_output_limit": 32768,
+  "planning_attempt_limit": 8,
+  "planning_repair_limit": 2,
+  "mapping_output_limit": 8192,
+  "environment": "macOS 26.5.2; .NET 10.0.8",
+  "accounting_before": {
+    "campaign": "schema-portability-20261002",
+    "reserved_requests": 208,
+    "completed_receipts": 207,
+    "uncertain_requests": [
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "retained_inconclusive_requests": [
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "transport_accounting": {
+      "calls": 208,
+      "session_calls": 0,
+      "known_input_tokens": 3037192,
+      "known_output_tokens": 310407,
+      "known_cost_eur": 21.76269461611157,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "cost_upper_bound_eur": 21.76269461611157,
+      "unknown_attempts": 0
+    },
+    "recorded_failures": 1,
+    "known_budget_cost": null,
+    "budget_currency": null,
+    "known_input_tokens": null,
+    "known_output_tokens": null,
+    "completion_receipts_complete": false,
+    "evidence_hash": "a63f932df1b2de483cda666c5ff25888382bc14cfbc6036d8a544bacc11978de"
+  },
+  "corpus_hash": "eb05efbd5854bfffabe2f9e5ac7998ae1ef26d2fed9acdaac91c866842d1a302",
+  "runs": [
+    {
+      "case": "json-cold",
+      "phase": "live-provider",
+      "artifact_hash": "fa74a65388fdd7dc80bde910d291d460ca03487e5f2bca5990d084d099b2f0a0",
+      "source_hash": "82761f9d9fbf20c9b6fce6004d7f836e16fa9b68425cccd033c3c0566a35ad74",
+      "execution_ms": 11363,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed alpha"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "mapping2-execution:2:f3ad6112e890fbe0517acf08673c8f361e6316bc3c6441a522f50d188f2740c8",
+          "usage": {
+            "input_tokens": 437,
+            "output_tokens": 537,
+            "total_tokens": 974,
+            "benchmark_cost_eur": 0.016298440979955458,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:source.originalObservation.displayName})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true
+    },
+    {
+      "case": "json-warm",
+      "phase": "live-provider",
+      "artifact_hash": "fa74a65388fdd7dc80bde910d291d460ca03487e5f2bca5990d084d099b2f0a0",
+      "source_hash": "82761f9d9fbf20c9b6fce6004d7f836e16fa9b68425cccd033c3c0566a35ad74",
+      "execution_ms": 68,
+      "model_calls": 0,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed alpha"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": true
+        }
+      ],
+      "usage_receipts": [],
+      "injected_attempts": 0,
+      "oracle": true
+    },
+    {
+      "case": "json-values",
+      "phase": "live-provider",
+      "artifact_hash": "fa74a65388fdd7dc80bde910d291d460ca03487e5f2bca5990d084d099b2f0a0",
+      "source_hash": "a5ce258196a7accdf4644a2e877fe6e006589610c22c78362d552938b90a9cb3",
+      "execution_ms": 60,
+      "model_calls": 0,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed beta"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": true
+        }
+      ],
+      "usage_receipts": [],
+      "injected_attempts": 0,
+      "oracle": true
+    },
+    {
+      "case": "json-shape",
+      "phase": "live-provider",
+      "artifact_hash": "fa74a65388fdd7dc80bde910d291d460ca03487e5f2bca5990d084d099b2f0a0",
+      "source_hash": "e65118aa2ee908906fb1ffd5df391f300aac07d6636299b300149282a99138bf",
+      "execution_ms": 10599,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed gamma"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "mapping2-execution:3:6f645cb45c457296fbc97023770613196ed4a41ea2fd5933accb75102f8b2012",
+          "usage": {
+            "input_tokens": 441,
+            "output_tokens": 453,
+            "total_tokens": 894,
+            "benchmark_cost_eur": 0.014071269487750556,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.select(source,[[\"originalObservation\",\"displayName\"]],false)})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true
+    },
+    {
+      "case": "text-cold",
+      "phase": "live-provider",
+      "artifact_hash": "fa74a65388fdd7dc80bde910d291d460ca03487e5f2bca5990d084d099b2f0a0",
+      "source_hash": "e04fbf87ccb914218529d8b1a58f44f169fa967465657e5f4f29ad71157e595e",
+      "execution_ms": 21725,
+      "model_calls": 2,
+      "success": false,
+      "error": "CONTRACT_UNSATISFIED",
+      "outputs": null,
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 2,
+          "gnougo.mapping.repairs": 1
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "mapping2-execution:4:b64d8b2512d407c13cee1643201bbc32a784b024e4ecd27c94ea70a32f79b66c",
+          "usage": {
+            "input_tokens": 438,
+            "output_tokens": 577,
+            "total_tokens": 1015,
+            "benchmark_cost_eur": 0.01737193763919822,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.trim(m.decode(m.text(source.originalObservation,/['\\\"]?displayName['\\\"]?\\s*[:=]\\s*['\\\"]?([^'\\\"<,}\\r\\n]+)/,1)))})"
+          }
+        },
+        {
+          "request_id": "mapping2-execution:5:7709e2b81aa351e463e13b905f2b46b67f229fb46439d53e7eae4cf0313a42fd",
+          "usage": {
+            "input_tokens": 522,
+            "output_tokens": 601,
+            "total_tokens": 1123,
+            "benchmark_cost_eur": 0.018387527839643654,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.trim(m.decode(m.text(source.originalObservation,/(?:^|[\\s{,<])['\\\"]?displayName['\\\"]?\\s*[:=]\\s*['\\\"]?([^'\\\"<>,}\\r\\n]+)(?:['\\\"]|[,}\\r\\n]|$)/,1)))})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": false
+    }
+  ],
+  "catalog_hash": "e74412e3896922823aaa119170bfcd7616cad0af719cb52a48ce8962f4635fda",
+  "planning_ms": 13510,
+  "planning_calls": 1,
+  "repairs": 0,
+  "discovery_reads": 1,
+  "planning_usage_receipts": [
+    {
+      "request_id": "mapping2:1:mapping2-plan:1:e59ba46fe9d6f1acf1131c1cd7e4d270b252e5abb3fa1a120069e75f339d7dd6",
+      "usage": {
+        "input_tokens": 4439,
+        "output_tokens": 806,
+        "total_tokens": 5245,
+        "benchmark_cost_eur": 0.04131403118040089,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      }
+    }
+  ],
+  "accounting": {
+    "campaign": "schema-portability-20261002",
+    "reserved_requests": 213,
+    "completed_receipts": 212,
+    "uncertain_requests": [
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "retained_inconclusive_requests": [
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "transport_accounting": {
+      "calls": 213,
+      "session_calls": 0,
+      "known_input_tokens": 3043469,
+      "known_output_tokens": 313381,
+      "known_cost_eur": 21.87013782323852,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "cost_upper_bound_eur": 21.87013782323852,
+      "unknown_attempts": 0
+    },
+    "recorded_failures": 1,
+    "known_budget_cost": null,
+    "budget_currency": null,
+    "known_input_tokens": null,
+    "known_output_tokens": null,
+    "completion_receipts_complete": false,
+    "evidence_hash": "6846cb855e72174d61b9e4b354c08da36ece40511298269af0e60081066b32a9"
+  },
+  "passed": false,
+  "generated_plan": {
+    "inputs": [],
+    "root": {
+      "tasks": [
+        {
+          "id": "read_observation",
+          "objective": "Read the current observation from the available fixture MCP and keep the original unstructured payload available for extraction.",
+          "kind": "operation",
+          "dependsOn": [],
+          "operation": "cap_644dc8039f8abf160f1652ee",
+          "inputs": [],
+          "outputs": [],
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "extract_display_name",
+          "objective": "Using extract mode, extract the observed displayName from the original observation payload, which may be JSON, plain text, or HTML. Return exactly one required string field named name whose value is the observed displayName. Do not synthesize values, use defaults, or infer a missing displayName; missing data fails.",
+          "kind": "transform",
+          "mode": "extract",
+          "dependsOn": [
+            "read_observation"
+          ],
+          "operation": null,
+          "inputs": [
+            {
+              "name": "originalObservation",
+              "value": {
+                "kind": "output",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": "read_observation",
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "items": null,
+            "fields": [
+              {
+                "name": "name",
+                "type": {
+                  "kind": "string",
+                  "nullable": false,
+                  "items": null,
+                  "fields": []
+                },
+                "required": true,
+                "default": null
+              }
+            ]
+          },
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "value": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "extract_display_name",
+            "port": null,
+            "members": [],
+            "items": [],
+            "predicate": null
+          }
+        }
+      ],
+      "always": []
+    },
+    "groups": [],
+    "choices": []
+  }
+}

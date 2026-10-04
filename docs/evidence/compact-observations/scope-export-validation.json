@@ -1,0 +1,30 @@
+{
+  "baseline_sha": "4ae6b4d573625f0d6c6f0a75e04d9a29034ef78b",
+  "correction": "Reject whole-result consumption of structural scopes with no declared exports. Four production lines; no new framework, IR, phase or executor.",
+  "regressions": {
+    "before_failed": 7,
+    "after_passed": 7,
+    "planner_suite_passed": 851
+  },
+  "full_solution": {
+    "passed": 4237,
+    "failed": 0,
+    "skipped": 13,
+    "suites": 33,
+    "flags": "-m:1 -warnaserror",
+    "skips": "7 Windows-only cases, 5 opt-in paid Copilot cases, 1 opt-in Designer browser case"
+  },
+  "release_planning_package": "passed",
+  "planning_native_aot": "passed",
+  "frontend_production_build": "passed within solution build",
+  "planning_skill": "valid",
+  "paid_calls_during_validation": 0,
+  "log_sha256": {
+    "gnougo-empty-scope-before.log": "88102ec461fd0963d3b64f2ac36a24f868f042d05bf9b07eaacbac1cdd0e5d33",
+    "gnougo-empty-scope-planning.log": "a0db372ac215a725a98dc2f33966c0826a1446cb5b319f79833cd01444b2095e",
+    "gnougo-observations3-solution.log": "0f5f10e6e35ad6b056128880586b73fd366a095f76ae7d7c15ad06d26d0066bc",
+    "gnougo-observations3-pack.log": "51d92f588002f45336ee914a5b76ad42a308d193ba5617499453f28b67c14813",
+    "gnougo-observations3-aot-publish.log": "ee5565c02d844cc445a91def7ff11f477a8f8e7f35be171a2a217e5044a1d741",
+    "gnougo-observations3-aot.log": "ccb834dd8f850b4e1994cc2bb88eee5248c88642cbed4b723da93cdea3ea5b59"
+  }
+}
