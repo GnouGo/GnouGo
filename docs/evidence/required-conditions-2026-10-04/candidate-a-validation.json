@@ -1,0 +1,74 @@
+{
+  "source": "0cbc626b0e3d3e150f91306d069f0dc7c1a2b200",
+  "full_solution": {
+    "passed": 4418,
+    "failed": 0,
+    "skipped": 13,
+    "projects": 33
+  },
+  "planner": {
+    "passed": 926
+  },
+  "new_focused": {
+    "passed": 27
+  },
+  "local_browser_document_and_report": {
+    "passed": 21
+  },
+  "designer_browser_separate": {
+    "passed": 1,
+    "note": "Reran the environment-skipped smoke with explicit Playwright module/browser paths."
+  },
+  "release_packages": [
+    "Flow.Core",
+    "Flow.Planning"
+  ],
+  "native_aot": "passed",
+  "published_encrypted_recovery": "passed",
+  "planning_skill": "valid",
+  "logs": {
+    "/tmp/preconditions-targeted-final.log": {
+      "sha256": "3b20ebdb2a91f2a114d4cea691d1c05f326a3d9c44a85f4028879ec6be3823a7",
+      "bytes": 838
+    },
+    "/tmp/preconditions-local-execution.log": {
+      "sha256": "23766b1f0b12e00fd5cf6b28ae36428617cf53c551c0b6500d20f01a62196c9d",
+      "bytes": 6849
+    },
+    "/tmp/preconditions-core-pack.log": {
+      "sha256": "123c5b7fac9cced92fa8ee5fe6fdabc188109dde88b0bca9e6e90cd7feff7bf6",
+      "bytes": 465
+    },
+    "/tmp/preconditions-planning-pack.log": {
+      "sha256": "90296e9e5b9b373aa74c53c51c702039711847a5e81130862f1b0c6aa6a8d64c",
+      "bytes": 693
+    },
+    "/tmp/preconditions-final-aot-build.log": {
+      "sha256": "b33b6d004ea1bdd9de000806037e07bf38977fc414cf815cbc4851f6788589bb",
+      "bytes": 2240
+    },
+    "/tmp/preconditions-final-aot-run.log": {
+      "sha256": "15f7c56b07b4d10f1cb8648fabaa9351beeccf414c4dba1deae4465fe8d2651b",
+      "bytes": 2267
+    },
+    "/tmp/preconditions-server-publish.log": {
+      "sha256": "b98de5f22695c0def319b73e4795adf5768a6f840a8c8ae10c6060858bd408a9",
+      "bytes": 16662
+    },
+    "/tmp/preconditions-recovery.log": {
+      "sha256": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88",
+      "bytes": 86
+    },
+    "/tmp/preconditions-harness-final-build.log": {
+      "sha256": "d541e2166d4f65984aee117b7a220930b0eddd82677c2f57abe7e7fdc3289f5f",
+      "bytes": 10220
+    },
+    "/tmp/preconditions-solution-final.log": {
+      "sha256": "e6d5e21d5e11472041fa45d4e9ff3725f887f09f26e23be945bfd8b9ffb0bbe4"
+    },
+    "/tmp/preconditions-designer-browser.log": {
+      "sha256": "f48776ce31b333789525d05941ac10459f85e608b495498640c5b76ec0c3d0df"
+    }
+  },
+  "overlap": "Focused and component counts overlap the solution; do not sum them."
+}

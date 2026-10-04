@@ -75,6 +75,30 @@ public sealed class TaskPreconditionTests
     }
 
     [Theory]
+    [InlineData(null)]
+    [InlineData("observed")]
+    public async Task CapturedPredicatesValidateAfterFinalLoweringInBothBranches(string? observed)
+    {
+        var engine = new WorkflowEngine(); var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
+        var catalog = await runtime.DiscoverAsync(new(), PlannerFixture.Ct);
+        TaskValue Field() => new() { Kind = "field", Port = "selected", Items = [new() { Kind = "output", Source = "observe" }] };
+        TaskValue Condition() => new() { Kind = "predicate", Predicate = "not_equal", Items = [Field(), new() { Kind = "null" }] };
+        var plan = new TaskPlan { Inputs = [new() { Name = "selection", Type = new() { Kind = "string", Nullable = true } }], Root = new()
+        {
+            Tasks = [new() { Id = "observe", Kind = "value", Objective = "Retain an observed nullable value", Outputs = [new("selected", Input("selection"))] },
+                new() { Id = "branch", Kind = "conditional", Objective = "Use only a present selection", Condition = Condition(),
+                    Body = new() { Tasks = [new() { Id = "publish", Kind = "value", Objective = "Require the selected value", Requires = Condition(), Outputs = [new("selected", Field())] }] }, Otherwise = new() }]
+        } };
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(compiled.Diagnostics);
+        Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog);
+        Assert.Empty(await runtime.ValidateAsync(new(yaml, new(), catalog, PlanningGraphCompiler.CapabilityBindings(compiled.Graph!)), PlannerFixture.Ct));
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["selection"] = observed }, PlannerFixture.Ct);
+        Assert.True(result.Success, result.Error?.Message);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task PerItemRequirementsRunBeforeEffectsInBothLoopModes(bool parallel)

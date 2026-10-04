@@ -78,3 +78,33 @@ It needs an explicit revision; this correction does not rewrite or approve it.
 Deterministic validation and retained-proposal replay are separate from live-provider
 acceptance. Fresh evaluations must use new IDs, the same oracles and the existing
 campaign spending gate. Historical benchmarks remain unchanged.
+
+## Retained first candidate
+
+Candidate `0cbc626b0e3d3e150f91306d069f0dc7c1a2b200` passed 4,418 solution tests
+with zero failures and 13 skips, including 926 planner tests. The separately enabled
+Designer browser smoke also passed. Release packages, Native AOT and published
+encrypted recovery passed. [Validation evidence](evidence/required-conditions-2026-10-04/candidate-a-validation.json)
+keeps overlapping counts separate.
+
+[Fresh cohort a](evidence/required-conditions-2026-10-04/preconditions20261004a.json)
+remains **0/6 execution oracles, incomplete**. Amazon reached review in three calls
+without repair, but omitted consent and continuation handling. Its explicit revision
+exposed a final-lowering defect: a checked computed envelope was emitted as one
+JavaScript object expression, hiding its field shape from final YAML validation.
+A two-branch regression reproduces the exact `EXPR_TYPE_MISMATCH` without inference.
+The correction retains the envelope as structured YAML and compiles only its value;
+it changes neither validation constraints nor the runtime.
+
+Code-review first selected a field from an already selected Boolean port. Its revision
+retained missing scope exports and cross-scope references after two repairs. Those
+proposals remain rejected. [Explicit review feedback](evidence/required-conditions-2026-10-04/candidate-a-reviews.json)
+preserved accepted requirements in both sessions. No artifact was approved, no workflow
+ran, and no new Copilot SDK invocation began. Four repetition slots were unattempted.
+
+These separate failed runs used nine logical planning calls, ten physical attempts,
+two repairs and two review revisions, costing **€1.184900**. Campaign committed/reserved
+usage became **€56.247367/€100**, including the unchanged **€1.303376** historical
+reservation. New usage is verified. Execution and runtime inference remain unmeasured.
+No uncertain invocation was resumed. A corrected candidate needs a fresh cohort;
+these failures must not be pooled into its success rate.

@@ -261,6 +261,12 @@ public sealed partial class PlanningGraphCompiler
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
+            case "projection" when allowReferences && PlanningGraphValidation.Member(value, "value") is { Kind: "json" or "predicate" or "arithmetic" } computed &&
+                PlanningGraphValidation.Member(value, "each")?.Boolean != true && PlanningGraphValidation.Member(value, "paths") is { Kind: "array", Items.Count: 1 } paths &&
+                paths.Items[0] is { Kind: "array", Items.Count: 0 }:
+                // Keep the envelope visible to final contract validation. The
+                // expression computes only its value; set checks the whole result.
+                return new JsonObject { ["value"] = LowerValue(computed, scope, allowReferences, depth + 1) };
             case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "arithmetic" or "json" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
@@ -288,10 +294,6 @@ public sealed partial class PlanningGraphCompiler
             var paths = PlanningGraphValidation.Member(value, "paths") ?? throw new InvalidOperationException("Projection needs paths.");
             var each = PlanningGraphValidation.Member(value, "each")?.Boolean == true;
             var selections = PlanningGraphValidation.Literal(paths)!;
-            // Whole-value guards only assemble an envelope; set validates the result.
-            // Do not route computed bindings through the structural-selection sandbox.
-            if (source.Kind is "json" or "predicate" or "arithmetic" && !each && selections is JsonArray { Count: 1 } whole && whole[0] is JsonArray { Count: 0 })
-                return "${({value:" + ExpressionBody(source) + "})}";
             var script = "({value:m.select(source," + selections.ToJsonString() + "," + (each ? "true" : "false") + ")})";
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
             expression = "checkedMapping(" + JsonValue.Create(script)!.ToJsonString() + "," + ExpressionBody(source) + ")";
