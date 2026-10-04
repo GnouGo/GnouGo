@@ -108,3 +108,102 @@ usage became **€56.247367/€100**, including the unchanged **€1.303376** hi
 reservation. New usage is verified. Execution and runtime inference remain unmeasured.
 No uncertain invocation was resumed. A corrected candidate needs a fresh cohort;
 these failures must not be pooled into its success rate.
+
+## Corrected candidate and live execution
+
+Frozen production and harness commit `df47ec31640e7fb0ba6a275780639c5ab6ff2642`
+passes **4,420 solution tests, zero failures and 13 skips**, including 928 planner
+tests. The final-lowering regression and arithmetic selection passes 55 tests.
+Release packaging, planning Native AOT and published encrypted recovery pass.
+The 22 Copilot logical-boundary and 10 real-transport receipt regressions also pass
+after inspecting the live failure. Counts overlap; do not add them together.
+[Validation and log hashes](evidence/required-conditions-2026-10-04/candidate-b-validation.json)
+include successful [planner CI](https://github.com/GnouGo/GnouGo/actions/runs/37214926807)
+and [build/package CI](https://github.com/GnouGo/GnouGo/actions/runs/37214926974).
+One version-tag API lookup job was retried without changing source.
+
+[Cohort b](evidence/required-conditions-2026-10-04/preconditions20261004b.json)
+is **0/6 execution oracles, incomplete**. Requirements review and execution are
+reported separately:
+
+| Run suffix | Planning | Execution and unchanged oracle |
+| --- | --- | --- |
+| `amazon-1` | Seven logical calls, eight physical attempts, one repair, three explicit revisions | Not approved: extract-only output still requested a synthesized status without a declared default. Its planning allowance is exhausted. |
+| `amazon-2` | Five calls, one repair, two revisions; approved after correcting continuation metadata | Actual Browser reads consumed three continuations. A cursor still remained, so `requires` failed before product selection/extraction or XLSX writing. Browser cleanup passed. No cookie control was detected initially; live consent acceptance and product/XLSX coverage remain unverified. |
+| `code-1` | Three calls, zero repairs, one revision; approved | Operator supplied bare `true` instead of `{"response":true}` to confirmation. Rejected before external calls; retained as failed and never replayed. |
+| `code-2` | Three calls, zero repairs, one revision; approved | Real pinned clone/diff and Copilot commands ran. Completion remained unverified; reporting and cleanup were blocked. |
+| Both `*-3` slots | Not attempted | Remain in the six-slot denominator. |
+
+The Amazon result demonstrates safe failure on an incomplete observation, **not**
+successful extraction. The final snapshot still reported continuation and truncation;
+no empty product result or successful workbook was manufactured. A subsequent
+fresh plan needs sufficient bounded reads or an observed, narrower read scope.
+Do not remove the condition or treat earlier partial observations as complete.
+
+The encrypted Copilot checkpoint records one SDK session, 43 interactions, 49 tool
+observations and 12 inference attempts. The next inference was denied because
+1,915,633 conservatively reserved tokens plus its 221,003 required input tokens
+would exceed the unchanged two-million-token ceiling. An idle event was observed,
+but two successful shell callbacks lacked terminal exit evidence. Those callbacks
+and idle alone do not establish external completion. The checkpoint retained
+`completionVerified: false`; the workflow therefore correctly retained
+`RUN_NEEDS_RECONCILIATION`. This run does not demonstrate a false reconciliation
+diagnostic or validate the report/cleanup path live.
+
+Attempts to read the SDK's memory-only session paths through the host shell returned
+missing paths and contributed to repeated commands. That is retained evidence for
+future producer-side investigation, not a reason to expose host files, add planner
+rules or increase limits. One fixed `/tmp` write was individually refused. The
+uncertain invocation and its checkout remain untouched; no automatic reconciliation,
+cleanup or replay occurred. No review was published to GitHub.
+
+[Explicit reviews](evidence/required-conditions-2026-10-04/candidate-b-reviews.json)
+and [sanitized execution/termination evidence](evidence/required-conditions-2026-10-04/candidate-b-execution.json)
+retain the failures independently from candidate a. Third repetitions were not
+dispatched after these blockers; this is incomplete coverage, not budget exhaustion.
+PR #117 stays draft.
+
+### Measured accounting
+
+| Stage, cohort b | Logical calls | Physical attempts | Repairs | Verified input/output tokens | Verified cost |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Planning | 18 | 19 | 2 | 268,921 / 79,681 | €3.327425 |
+| Execution inference | 14 | 14 | 0 mapping repairs | 415,939 / 8,540 | €2.080976 |
+
+Planning used ten discovery reads and seven explicit review revisions. One planning
+attempt has unknown usage and retains a **€1.303376** reservation. All recorded
+execution inference usage is verified. Planning latency is retained per run in the
+report; actual Amazon execution took 95.496 seconds and code-review execution took
+1,130.805 seconds, including interaction. The confirmation-only failed run took
+39.013 seconds. These failed runs do not establish a before/after success or latency
+improvement; the historical cohorts and 33/33 benchmark are unchanged.
+
+Final campaign accounting is **€60.352392 verified + €2.606753 reserved =
+€62.959145/€100**, leaving €37.040855 under the authorized ceiling. No unknown
+reservation was released. No further paid dispatch accompanies this report.
+
+### Reproduce inspection and collect separately
+
+Use the frozen commit, the manifest's provider/configuration and the same toolchain
+environment (Node 24.20.0, pnpm 10.34.5, Python 3.11.13). The manifest pins the
+environment, harness tree, prompt hashes and unchanged oracle version. Build the
+benchmark and current MCP binaries before collection. These inspections are read-only:
+
+```sh
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability report --campaign schema-portability-20261002 \
+  --workspace "$GNOU_GO_WORKSPACE" --cohort preconditions20261004b
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability inspect-run --campaign schema-portability-20261002 \
+  --workspace "$GNOU_GO_WORKSPACE" --run preconditions20261004b-code-2
+```
+
+New collection must use unused cohort/run IDs, recheck the campaign journal, and
+retain its own manifest. Submit implementation feedback through `--schema-portability
+revise --revision-command <file>` with `preserveRequirements: true`. Review the
+resulting requirements, loop bodies, conditions, dependencies and finalizers before
+supplying `execute --review-command <file>` with exact revision/hash and explicitly
+reviewed requirement IDs. Confirm-mode runtime forms return `{"response":true}`;
+choice-mode forms return `{"response":"<selected option>"}`. Do not automatically
+acknowledge requirements or approve subsequent permission requests. Started and
+uncertain runs above must never be replayed by these commands.
