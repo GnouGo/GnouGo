@@ -1,0 +1,381 @@
+{
+  "campaign": "schema-portability-20261002",
+  "passed": 0,
+  "required": 6,
+  "complete": false,
+  "manifest": {
+    "production_sha": "36fc937d8a846dce820cb7792ac7c6e19f4b0c7b",
+    "harness_sha": "36fc937d8a846dce820cb7792ac7c6e19f4b0c7b",
+    "cohort": "contractsreview20261004e",
+    "provider": "OpenAi",
+    "model": "gpt-5.5-2026-04-24",
+    "reasoning": "medium",
+    "host_configuration_hash": "7a7fec4a3c4569be8862a2a27f071dcc6a4d080f76f86d11d40a47e9cdf85486",
+    "max_input_tokens": 96000,
+    "max_output_tokens": 32768,
+    "planning_attempts": 8,
+    "repairs": 2,
+    "cost_ceiling_eur": 100,
+    "browser_keep_open": false,
+    "os": "macOS 26.5.2",
+    "architecture": "Arm64",
+    "framework": ".NET 10.0.8",
+    "execution_path_hash": "30376bcf6d2aca1e22a089c131963b8e49f26a6eeb6809b6c061d6b95149c1f8",
+    "amazon_prompt": "417bb3fcd521d097b40775505acc75ede0896e8d83e06da2f5d04077c7812a50",
+    "code_prompt": "bdb354f8cd88a2a6cf06d0bce25d077a0c1eefc195a57d3c0ff60fcf46d5286c",
+    "harness_tree": "633ca05ed15250f84f54353df66855a0c31deac8",
+    "scenario_count": 2,
+    "repetitions": 3,
+    "oracle_version": "real-workflows-v1"
+  },
+  "runs": [
+    {
+      "status": "stopped",
+      "planning_ms": 666852,
+      "calls": 7,
+      "repairs": 2,
+      "discovery_reads": 2,
+      "review_revisions": 2,
+      "diagnostics": [
+        {
+          "code": "CONTRACT_UNSATISFIED",
+          "location": "/tasks/clickConsent/inputs/selector",
+          "message": "TASK_INPUT_TYPE: Produced [\"string\",\"null\"] from /tasks/identifyConsentControl/resultType/fields/consentSelector/type; expected \"string\". The business value does not satisfy its authoritative contract.",
+          "required": true,
+          "validationStage": "contract:TASK_INPUT_TYPE",
+          "rule": null
+        },
+        {
+          "code": "TASK_TRANSFORM_CONSTRAINT",
+          "location": "/tasks/identifyConsentControl/resultType/fields/consentSelector/type/nullable",
+          "message": "The consumer /tasks/clickConsent/inputs/selector rejects null; declare non-null only when consistent with accepted requirements and producer guarantees, or change the diagnosed consumer binding. Expected \"string\".",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_BRANCH_OUTPUTS",
+          "location": "/tasks/publishIfComplete/otherwise/outputs/workbookPath",
+          "message": "Declare the matching business output explicitly in this alternative.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 7,
+          "physical_attempts": 8,
+          "known_input_tokens": 79579,
+          "known_output_tokens": 29708,
+          "known_cost_eur": 1.1484498886414254,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 517,
+          "session_calls": 0,
+          "known_input_tokens": 7694215,
+          "known_output_tokens": 731435,
+          "known_cost_eur": 53.75909105263718,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 55.062467444619365,
+          "unknown_attempts": 1
+        }
+      },
+      "run": "contractsreview20261004e-amazon-1"
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "contractsreview20261004e-amazon-2",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 517,
+          "session_calls": 0,
+          "known_input_tokens": 7694215,
+          "known_output_tokens": 731435,
+          "known_cost_eur": 53.75909105263718,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 55.062467444619365,
+          "unknown_attempts": 1
+        }
+      }
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "contractsreview20261004e-amazon-3",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 517,
+          "session_calls": 0,
+          "known_input_tokens": 7694215,
+          "known_output_tokens": 731435,
+          "known_cost_eur": 53.75909105263718,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 55.062467444619365,
+          "unknown_attempts": 1
+        }
+      }
+    },
+    {
+      "status": "stopped",
+      "planning_ms": 426975,
+      "calls": 8,
+      "repairs": 2,
+      "discovery_reads": 4,
+      "review_revisions": 2,
+      "diagnostics": [
+        {
+          "code": "TASK_PRESENCE_SCOPE",
+          "location": "/tasks/collect_checks_observation/condition",
+          "message": "Presence requires a preceding task in the same scope.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_PRESENCE_SCOPE",
+          "location": "/tasks/collect_clone_observation/condition",
+          "message": "Presence requires a preceding task in the same scope.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_PRESENCE_SCOPE",
+          "location": "/tasks/collect_compare_observation/condition",
+          "message": "Presence requires a preceding task in the same scope.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_PRESENCE_SCOPE",
+          "location": "/tasks/collect_review_observation/condition",
+          "message": "Presence requires a preceding task in the same scope.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "TASK_PRESENCE_SCOPE",
+          "location": "/tasks/collect_runtime_context_observation/condition",
+          "message": "Presence requires a preceding task in the same scope.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        },
+        {
+          "code": "LLM_BUDGET_EXCEEDED",
+          "location": "/",
+          "message": "The session model-call budget was exhausted (8/8 calls). Input/output token settings do not extend this cumulative allowance. Start a new planning session; retained requests and accounting remain unchanged.",
+          "required": true,
+          "validationStage": null,
+          "rule": null
+        }
+      ],
+      "execution_success": false,
+      "execution_oracle": false,
+      "execution_status": "not_started",
+      "accounting": {
+        "planning": {
+          "logical_calls": 8,
+          "physical_attempts": 8,
+          "known_input_tokens": 220015,
+          "known_output_tokens": 31247,
+          "known_cost_eur": 1.81513140311804,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 517,
+          "session_calls": 0,
+          "known_input_tokens": 7694215,
+          "known_output_tokens": 731435,
+          "known_cost_eur": 53.75909105263718,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 55.062467444619365,
+          "unknown_attempts": 1
+        }
+      },
+      "run": "contractsreview20261004e-code-1"
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "contractsreview20261004e-code-2",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 517,
+          "session_calls": 0,
+          "known_input_tokens": 7694215,
+          "known_output_tokens": 731435,
+          "known_cost_eur": 53.75909105263718,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 55.062467444619365,
+          "unknown_attempts": 1
+        }
+      }
+    },
+    {
+      "status": "not_started",
+      "execution_oracle": false,
+      "run": "contractsreview20261004e-code-3",
+      "accounting": {
+        "planning": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "execution": {
+          "logical_calls": 0,
+          "physical_attempts": 0,
+          "known_input_tokens": 0,
+          "known_output_tokens": 0,
+          "known_cost_eur": 0,
+          "unknown_attempts": 0,
+          "reserved_input_tokens": 0,
+          "reserved_output_tokens": 0,
+          "reserved_cost_eur": 0
+        },
+        "campaign": {
+          "calls": 517,
+          "session_calls": 0,
+          "known_input_tokens": 7694215,
+          "known_output_tokens": 731435,
+          "known_cost_eur": 53.75909105263718,
+          "reserved_input_tokens": 96000,
+          "reserved_output_tokens": 32768,
+          "reserved_cost_eur": 1.3033763919821826,
+          "cost_upper_bound_eur": 55.062467444619365,
+          "unknown_attempts": 1
+        }
+      }
+    }
+  ],
+  "accounting": {
+    "calls": 517,
+    "session_calls": 0,
+    "known_input_tokens": 7694215,
+    "known_output_tokens": 731435,
+    "known_cost_eur": 53.75909105263718,
+    "reserved_input_tokens": 96000,
+    "reserved_output_tokens": 32768,
+    "reserved_cost_eur": 1.3033763919821826,
+    "cost_upper_bound_eur": 55.062467444619365,
+    "unknown_attempts": 1
+  }
+}

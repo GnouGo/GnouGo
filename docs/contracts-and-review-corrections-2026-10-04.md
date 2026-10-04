@@ -100,3 +100,67 @@ repair, but one continuation read per page did not establish completeness. Code
 stopped after four calls and one repair on artifact use after release; its plan also
 kept report creation on the success path. No approval or external execution occurred.
 These results and their accounting remain separate from any subsequent candidate.
+
+## Final tested candidate and live result
+
+Candidate **`36fc937d8a846dce820cb7792ac7c6e19f4b0c7b`** passes the complete
+planner suite (873 tests) and the full solution: **4,311 passed, zero failed,
+12 expected skips**, with `-m:1 -warnaserror`. Frontend production builds are included.
+Release Core/Planning packages, the planning Native AOT smoke, the published Document
+stdio regression, published encrypted recovery and planning-skill validation pass.
+[Counts and log hashes](evidence/contracts-review-2026-10-04/validation.json) distinguish
+overlapping focused tests. The CI deterministic-planner validation job also passes.
+
+**Live execution remains 0/6 and incomplete.** The
+[frozen cohort e report](evidence/contracts-review-2026-10-04/contractsreview20261004e.json)
+contains one fresh Amazon session and one fresh code session. Both received two
+explicit implementation revisions, preserving accepted requirements and reusing cached
+discovery. The four remaining repetition slots are unattempted. No artifact was
+approved, no workflow was executed, and no new Copilot SDK invocation was started.
+
+| Scenario | Calls / physical attempts | Repairs | Review revisions | Discovery reads | Verified input / output tokens | EUR | Planning seconds |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Amazon | 7 / 8 | 2 | 2 | 2 | 79,579 / 29,708 | 1.148450 | 666.852 |
+| Code-review | 8 / 8 | 2 | 2 | 4 | 220,015 / 31,247 | 1.815131 | 426.975 |
+
+Amazon initially compiled but omitted continuation handling. Its first correction added
+bounded reads, while publication gating still relied on transform instructions. The
+last proposal failed on a nullable consent selector and an unmatched branch output.
+The required public workbook path was not loosened or replaced by a fabricated value.
+
+Code initially returned a whole write envelope into an accepted two-field result and
+kept reporting on the success path. Its first correction used finalization but still
+read failed normal results unconditionally and discarded the actual review result.
+The last correction failed `TASK_PRESENCE_SCOPE` for checks inside a nested finalizer.
+These are retained proposal/coverage failures; they do not establish failure or success
+of the Copilot receipt correction, which was not exercised live here.
+
+[Review feedback and invariant checks](evidence/contracts-review-2026-10-04/review-corrections.json)
+record exact revisions/hashes and verify that accepted requirements stayed identical
+through every revision. Prior proposals and commands remain in encrypted history.
+Both final compiler failures reproduce without inference or saved-session modification:
+[Amazon replay](evidence/contracts-review-2026-10-04/amazon-final-replay.json),
+[code replay](evidence/contracts-review-2026-10-04/code-final-replay.json).
+No further request was sent after either session's attempt allowance was exhausted.
+
+Cohort e costs **€2.963581**; all new usage is verified. Runtime inference and execution
+latency are unmeasured because execution never started. Campaign accounting is
+**€53.759091 verified + €1.303376 retained reservation = €55.062467 / €100**, leaving
+**€44.937533**. Total added cost across this correction's separate cohorts c/d/e is
+€4.343653. The stopping limits were proposal validity and per-session allowances,
+not the campaign ceiling. No unknown reservation was released or invocation resumed.
+
+Reproduce the retained failures with the frozen source, without provider calls:
+
+```sh
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability replay-compile --campaign schema-portability-20261002 \
+  --workspace "$GNOU_GO_WORKSPACE" --run contractsreview20261004e-amazon-1
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability replay-compile --campaign schema-portability-20261002 \
+  --workspace "$GNOU_GO_WORKSPACE" --run contractsreview20261004e-code-1
+```
+
+Actual Amazon visits/XLSX output, live Copilot final receipts/report preservation and
+cleanup therefore remain unverified. PR #117 stays draft. The implementation and its
+deterministic regressions are complete; these live results are not an acceptance claim.

@@ -1,0 +1,27 @@
+{
+  "run": "contractsreview20261004e-amazon-1",
+  "source": "36fc937d8a846dce820cb7792ac7c6e19f4b0c7b",
+  "working_tree_dirty": false,
+  "compiled": false,
+  "valid": false,
+  "diagnostics": [
+    {
+      "code": "TASK_INPUT_TYPE",
+      "message": "Produced [\"string\",\"null\"] from /tasks/identifyConsentControl/resultType/fields/consentSelector/type; expected \"string\". The business value does not satisfy its authoritative contract.",
+      "location": "/tasks/clickConsent/inputs/selector"
+    },
+    {
+      "code": "TASK_TRANSFORM_CONSTRAINT",
+      "message": "The consumer /tasks/clickConsent/inputs/selector rejects null; declare non-null only when consistent with accepted requirements and producer guarantees, or change the diagnosed consumer binding. Expected \"string\".",
+      "location": "/tasks/identifyConsentControl/resultType/fields/consentSelector/type/nullable"
+    },
+    {
+      "code": "TASK_BRANCH_OUTPUTS",
+      "message": "Declare the matching business output explicitly in this alternative.",
+      "location": "/tasks/publishIfComplete/otherwise/outputs/workbookPath"
+    }
+  ],
+  "model_calls": 0,
+  "repairs": 0,
+  "saved_session_modified": false
+}
