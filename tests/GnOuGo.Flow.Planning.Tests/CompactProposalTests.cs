@@ -18,7 +18,7 @@ public sealed class CompactProposalTests
         Assert.False(schema["properties"]!.AsObject().ContainsKey("explanation"));
         var wire = JsonNode.Parse("""
             {"discoveryRequests":null,"clarifications":null,"plan":{"inputs":[],"groups":[],"choices":[],"root":{"tasks":[
-              {"id":"interpret","kind":"transform","objective":"Interpret supplied text","dependsOn":[],
+              {"id":"interpret","kind":"transform","objective":"Interpret supplied text","dependsOn":[],"requires":null,
                "inputs":[{"name":"text","value":{"kind":"string","text":"one"}}],
                "resultType":{"kind":"object","fields":[{"name":"items","type":{"kind":"array","items":{"kind":"string","nullable":true}}}]}}
             ],"always":[],"outputs":[{"name":"items","value":{"kind":"output","source":"interpret","port":"items"}}]}}}

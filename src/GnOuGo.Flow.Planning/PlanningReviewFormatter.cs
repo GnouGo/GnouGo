@@ -31,7 +31,7 @@ public static class PlanningReviewFormatter
             {
                 var id = "t" + PlanningGraphCompiler.Fingerprint(task.Id)[..12];
                 var businessResult = task.ResultType is null ? "" : " → " + string.Join(", ", task.ResultType.Fields.Select(f => f.Name + ": " + f.Type.Kind));
-                result.AppendLine(id + "[\"" + Label(task.Id + ": " + task.Objective + " (" + task.Kind + (scope.Always.Contains(task) ? ", always" : "") + ")" + businessResult) + "\"]");
+                result.AppendLine(id + "[\"" + Label(task.Id + ": " + task.Objective + " (" + task.Kind + (task.Requires is null ? "" : ", required precondition") + (scope.Always.Contains(task) ? ", always" : "") + ")" + businessResult + (task.Requires is null ? "" : "; requires " + Describe(task.Requires))) + "\"]");
                 if (previous is not null) result.AppendLine(previous + " --> " + id);
                 previous = id;
                 if (task.Body is not null) Draw(task.Body, task.Id + " body");
@@ -41,6 +41,20 @@ public static class PlanningReviewFormatter
             result.AppendLine("end");
         }
     }
+    private static string Describe(TaskValue value) => value.Kind switch
+    {
+        "input" => "input " + value.Source,
+        "output" => value.Source + (value.Port is null ? "" : "." + value.Port),
+        "present" => "present(" + value.Source + ")",
+        "field" when value.Items.Count == 1 => Describe(value.Items[0]) + "." + value.Port,
+        "boolean" => value.Boolean == true ? "true" : "false",
+        "null" => "null", "string" => "\"" + value.Text + "\"",
+        "predicate" => value.Predicate + "(" + string.Join(", ", value.Items.Select(Describe)) + ")",
+        "arithmetic" => value.Text + "(" + string.Join(", ", value.Items.Select(Describe)) + ")",
+        "number" => value.Number?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "invalid number",
+        _ => value.Kind
+    };
+
     public static string Diagram(PlanningGraph? graph)
     {
         var result = new StringBuilder("flowchart TD\n");

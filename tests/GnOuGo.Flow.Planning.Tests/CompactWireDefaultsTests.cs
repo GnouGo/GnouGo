@@ -14,7 +14,7 @@ public sealed class CompactWireDefaultsTests
         var schema = PlanningSchemas.Proposal(state);
         var json = JsonNode.Parse("""
             {"discoveryRequests":null,"clarifications":null,"plan":{"inputs":[{"name":"text","type":{"kind":"string"}}],"groups":[],"choices":[],
-            "root":{"tasks":[{"id":"interpret","kind":"transform","objective":"Interpret the supplied text","dependsOn":[],
+            "root":{"tasks":[{"id":"interpret","kind":"transform","objective":"Interpret the supplied text","dependsOn":[],"requires":null,
             "inputs":[{"name":"text","value":{"kind":"input","source":"text"}}],
             "resultType":{"kind":"object","fields":[{"name":"items","type":{"kind":"array","items":{"kind":"string","nullable":true}}}]}}],
             "always":[],"outputs":[{"name":"items","value":{"kind":"output","source":"interpret","port":"items"}}]}}}

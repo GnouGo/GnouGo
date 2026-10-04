@@ -64,6 +64,7 @@ public sealed partial class TaskPlanCompiler
                 if (task.Kind == "call") Reference(task.Group, location + "/group");
                 foreach (var input in task.Inputs) ScanValue(input.Value, location + "/inputs/" + input.Name);
                 foreach (var output in task.Outputs) ScanValue(output.Value, location + "/outputs/" + output.Name);
+                if (task.Requires is not null) ScanValue(task.Requires, location + "/requires");
                 if (task.Condition is not null) ScanValue(task.Condition, location + "/condition");
                 if (task.Items is not null) ScanValue(task.Items, location + "/items");
                 if (task.Body is not null) ScanScope(task.Body, location + "/body");
@@ -157,7 +158,7 @@ public sealed partial class TaskPlanCompiler
         void InspectScope(TaskScope source, Scope scope, string path)
         {
             Check(path + "/outputs", () => Unique(source.Outputs.Select(o => o.Name)));
-            InspectTasks(source.Tasks, scope); InspectTasks(source.Always, scope);
+            InspectTasks(source.Tasks, scope); scope.Cleanup = true; InspectTasks(source.Always, scope);
             foreach (var output in source.Outputs)
             {
                 var value = Read(output.Value, scope, path + "/outputs/" + output.Name);
@@ -204,7 +205,7 @@ public sealed partial class TaskPlanCompiler
             Scope? Child(TaskScope? body, string role)
             {
                 if (body is null) { findings.Add(new("TASK_SCOPE_REQUIRED", path + "/" + role, "This task requires a semantic scope.")); return null; }
-                var child = new Scope(new(), scope) { NonNullReference = task.Kind == "conditional" ? NonNullReference(task.Condition, role == "body") : null };
+                var child = new Scope(new(), scope) { FailurePath = scope.FailurePath || scope.Cleanup, NonNullReference = task.Kind == "conditional" ? NonNullReference(task.Condition, role == "body") : null };
                 if (task.Kind == "foreach")
                 {
                     var items = task.Items is null ? null : Read(task.Items, scope, path + "/items");
@@ -222,6 +223,8 @@ public sealed partial class TaskPlanCompiler
                 }
                 InspectScope(body, child, path + "/" + role); return child;
             }
+            if (task.Requires is not null && Read(task.Requires, scope, path + "/requires") is { } required)
+                Check(path + "/requires", () => RequireBoolean(required));
             switch (task.Kind)
             {
                 case "transform":

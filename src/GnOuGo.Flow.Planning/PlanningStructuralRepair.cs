@@ -78,6 +78,7 @@ internal static class PlanningStructuralRepair
         {
             if (finding.Location.Split('/') is not ["", "tasks", var id, var field] || !symbols.Tasks.TryGetValue(id, out var site)) continue;
             var task = site.Task;
+            if (task.Requires is not null) continue;
             if (finding.Code is "TASK_KIND_INVALID" or "TASK_OPERATION_UNKNOWN" && field is "kind" or "operation" &&
                 task.Body is null && task.Otherwise is null && task.Branches.Count == 0 && task.Outputs.Count == 0 && allowed.Count > 0)
             {
@@ -97,7 +98,7 @@ internal static class PlanningStructuralRepair
     }
     private static bool Removable(TaskPlan plan, PlanTask task, TaskPlanSymbols symbols)
     {
-        if (task.Kind != "value" || task.Inputs.Count > 0 || task.Outputs.Count == 0 || task.Body is not null || task.Otherwise is not null || task.Branches.Count > 0 ||
+        if (task.Requires is not null || task.Kind != "value" || task.Inputs.Count > 0 || task.Outputs.Count == 0 || task.Body is not null || task.Otherwise is not null || task.Branches.Count > 0 ||
             task.Outputs.Select(o => o.Name).Distinct(StringComparer.Ordinal).Count() != task.Outputs.Count ||
             task.Outputs.Any(o => o.Value.Kind != "output" || o.Value.Source == task.Id || o.Value.Source is null || !symbols.Tasks.ContainsKey(o.Value.Source)) ||
             !symbols.Tasks[task.Id].Scope.Source.Tasks.Contains(task)) return false;

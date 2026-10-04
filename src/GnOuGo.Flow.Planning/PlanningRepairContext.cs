@@ -109,6 +109,7 @@ internal static class PlanningRepairContext
             taskNodes.Add(PlanningJsonTransport.TaskPlanPart(node));
             foreach (var value in task.Inputs.Concat(task.Outputs).Select(o => o.Value)) Referenced(value);
             if (task.Items is { } items) Referenced(items);
+            if (task.Requires is { } requires) Referenced(requires);
             if (task.Condition is { } condition) Referenced(condition);
         }
         foreach (var scope in symbols.Scopes.Where(s => selection.Scopes.Contains(s.Path)).OrderBy(s => s.Path, StringComparer.Ordinal))

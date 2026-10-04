@@ -133,6 +133,9 @@ internal static class PlanningSchemas
 
     internal static JsonObject Compact(JsonObject root)
     {
+        // Contract descriptions already accompany the admitted operations in the
+        // prompt. Remove only schema annotations, never properties named description.
+        foreach (var (_, schema) in PlanningSchemaReferences.Walk(root, "", 0)) schema.Remove("description");
         var definitions = root["$defs"]!.AsObject();
         ShareRepeatedSchemas(root, definitions);
         for (var pass = 0; pass < 3; pass++) { ShareRepeatedSchemas(root, definitions, 30); CollapseAliases(root, definitions); PruneDefinitions(root, definitions); }
@@ -275,7 +278,8 @@ internal static class PlanningSchemas
     private static JsonObject Tasks(PlanningSession state, JsonObject definitions, IReadOnlySet<string>? admitted = null)
     {
         JsonObject Task(string kind, params (string Name, JsonObject Schema)[] fields) => Object(new (string Name, JsonObject Schema)[]
-        { ("id", Ref("id")), ("kind", Enum(kind)), ("objective", Ref("goal")), ("dependsOn", Ref("identities")) }.Concat(fields).ToArray());
+        { ("id", Ref("id")), ("kind", Enum(kind)), ("objective", Ref("goal")), ("dependsOn", Ref("identities")),
+          ("requires", Nullable(Ref("value"))) }.Concat(fields).ToArray());
         var operations = OperationTasks(state, definitions, (ids, inputs) => Task("operation", ("operation", ids), ("inputs", inputs)), admitted);
         return new() { ["anyOf"] = new JsonArray(operations.Concat(new JsonNode?[] {
             Described(Task("value", ("outputs", Array(Ref("output")))), "Copies/assembles values; objectives do not compute."),

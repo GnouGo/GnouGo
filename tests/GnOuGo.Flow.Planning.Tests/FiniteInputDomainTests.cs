@@ -149,7 +149,7 @@ internal static class FiniteInputProposal
     {
         proposal["plan"]!["root"]!["tasks"]!.AsArray().Add(new JsonObject
         {
-            ["id"] = "consume", ["kind"] = "operation", ["objective"] = "Use a declared value", ["dependsOn"] = new JsonArray(),
+            ["id"] = "consume", ["kind"] = "operation", ["objective"] = "Use a declared value", ["dependsOn"] = new JsonArray(), ["requires"] = null,
             ["operation"] = operation, ["inputs"] = new JsonArray(new JsonObject { ["name"] = "selector", ["value"] = value })
         });
         return proposal;

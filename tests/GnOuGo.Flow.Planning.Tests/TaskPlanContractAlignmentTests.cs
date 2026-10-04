@@ -128,9 +128,9 @@ public sealed class TaskPlanContractAlignmentTests
         }
         else
         {
-            value = JsonNode.Parse("""{"id":"iterate","kind":"foreach","objective":"Collect values","dependsOn":[],"items":{"kind":"array","items":[]},"body":{"tasks":[],"always":[],"outputs":[]},"parallel":false,"maxItems":100,"maxConcurrency":4}""")!;
+            value = JsonNode.Parse("""{"id":"iterate","kind":"foreach","objective":"Collect values","dependsOn":[],"requires":null,"items":{"kind":"array","items":[]},"body":{"tasks":[],"always":[],"outputs":[]},"parallel":false,"maxItems":100,"maxConcurrency":4}""")!;
             if (fault == "objective") value["objective"] = " \n";
-            else if (fault == "parallel_count") value = JsonNode.Parse("""{"id":"parallel","kind":"parallel","objective":"Work","dependsOn":[],"branches":[{"tasks":[],"always":[],"outputs":[]}],"maxConcurrency":1}""")!;
+            else if (fault == "parallel_count") value = JsonNode.Parse("""{"id":"parallel","kind":"parallel","objective":"Work","dependsOn":[],"requires":null,"branches":[{"tasks":[],"always":[],"outputs":[]}],"maxConcurrency":1}""")!;
             else value[fault.StartsWith("items", StringComparison.Ordinal) ? "maxItems" : "maxConcurrency"] = fault.EndsWith("low", StringComparison.Ordinal) ? 0 : fault == "items_high" ? 10001 : 101;
         }
         Assert.NotEmpty(Errors(value, definition));
@@ -141,7 +141,7 @@ public sealed class TaskPlanContractAlignmentTests
     [InlineData(10000, 100)]
     public void SchemaAcceptsBoundsAndBothPredicateArities(int items, int concurrency)
     {
-        var task = JsonNode.Parse($$"""{"id":"iterate","kind":"foreach","objective":"Collect","dependsOn":[],"items":{"kind":"array","items":[]},"body":{"tasks":[],"always":[],"outputs":[]},"parallel":true,"maxItems":{{items}},"maxConcurrency":{{concurrency}}}""")!;
+        var task = JsonNode.Parse($$"""{"id":"iterate","kind":"foreach","objective":"Collect","dependsOn":[],"requires":null,"items":{"kind":"array","items":[]},"body":{"tasks":[],"always":[],"outputs":[]},"parallel":true,"maxItems":{{items}},"maxConcurrency":{{concurrency}}}""")!;
         Assert.Empty(Errors(task, "task"));
         Assert.Empty(Errors(JsonNode.Parse("""{"kind":"predicate","predicate":"not","items":[{"kind":"boolean","boolean":true}]}""")!, "value"));
         Assert.Empty(Errors(JsonNode.Parse("""{"kind":"predicate","predicate":"equal","items":[{"kind":"number","number":1},{"kind":"number","number":1}]}""")!, "value"));

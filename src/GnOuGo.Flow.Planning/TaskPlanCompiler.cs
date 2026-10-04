@@ -60,6 +60,8 @@ public sealed partial class TaskPlanCompiler
         public List<PlanningMember> Captures { get; } = [];
         public HashSet<(string Kind, string Source, string Port)> Blocked { get; } = [];
         public string? NonNullReference { get; init; }
+        public bool FailurePath { get; init; }
+        public Dictionary<string, Bound> FailureCaptures { get; } = new(StringComparer.Ordinal);
         public Bound? Item { get; set; }
         public Bound? Index { get; set; }
         public List<PlanningNode>? Target { get; set; }
@@ -211,6 +213,16 @@ public sealed partial class TaskPlanCompiler
         if (task.DependsOn.Any(d => !scope.Tasks.ContainsKey(d))) Fail("TASK_DEPENDENCY_UNKNOWN", "A dependency must name a preceding task in this scope.");
         var key = Key(parent, task.Id); _sources[key] = _location;
         var start = target.Count;
+        if (task.Requires is not null)
+        {
+            _location += "/requires";
+            var required = Value(task.Requires, scope); RequireBoolean(required);
+            var guard = Key(key, "requires"); _sources[guard] = _location;
+            target.Add(new() { Key = guard, Type = "set", Purpose = "Required condition: " + task.Objective,
+                Input = Projection([new("value", required.Value), new("paths", Array([Strings([])]))]),
+                OutputSchema = Contract(ObjectSchema([("value", new JsonObject { ["type"] = "boolean", ["enum"] = new JsonArray(true) })])) });
+            _location = "/tasks/" + task.Id;
+        }
         Dictionary<string, Bound> outputs;
         switch (task.Kind)
         {
@@ -297,8 +309,12 @@ public sealed partial class TaskPlanCompiler
                 GuardCleanup(node);
             }
         }
+        var afterRequirement = false;
         foreach (var node in target.Skip(start))
         {
+            if (cleanup && afterRequirement)
+                node.If = PlanningValues.And(new() { Kind = "present", Source = Key(key, "requires") }, node.If);
+            if (task.Requires is not null && node.Key == Key(key, "requires")) afterRequirement = true;
             _sources.TryAdd(node.Key, "/tasks/" + task.Id);
             node.Dependencies = task.DependsOn.SelectMany(id => scope.Tasks[id].Values.Select(b => b.Value.Source)).OfType<string>().Concat(node.Dependencies).Distinct().ToList();
         }
@@ -437,7 +453,7 @@ public sealed partial class TaskPlanCompiler
         var childKey = Key(key, role); var workflow = new PlanningWorkflow { Key = childKey };
         _graph.Workflows.Add(workflow); _sources[childKey] = _location + "/" + (role switch
         { "yes" or "iteration" => "body", "no" => "otherwise", _ => role.Replace("branch:", "branches/", StringComparison.Ordinal) });
-        var location = _location; var child = new Scope(workflow, parent) { NonNullReference = nonNull }; CompileScope(source, child, childKey); _location = location;
+        var location = _location; var child = new Scope(workflow, parent) { NonNullReference = nonNull, FailurePath = parent.FailurePath || parent.Cleanup }; CompileScope(source, child, childKey); _location = location;
         return (workflow, Call(Key(childKey, "call"), childKey, Object(child.Captures)));
     }
 
@@ -546,15 +562,18 @@ public sealed partial class TaskPlanCompiler
             case "item": if (scope.Item is not null) return scope.Item; break;
             case "index": if (scope.Index is not null) return scope.Index; break;
             case "present":
-                if (value.Source is null || !scope.Tasks.TryGetValue(value.Source, out var producer)) Fail("TASK_PRESENCE_SCOPE", "Presence requires a preceding task in the same scope.");
-                var result = scope.Tasks[value.Source!][""];
-                return new(new() { Kind = "present", Source = result.Value.Source }, new() { ["type"] = "boolean" });
+                if (value.Source is not null && scope.Tasks.TryGetValue(value.Source, out var producer))
+                    return new(new() { Kind = "present", Source = producer[""].Value.Source }, new() { ["type"] = "boolean" });
+                if (scope.Parent is null) Fail("TASK_PRESENCE_SCOPE", "Presence requires a preceding task in this scope or a lexical ancestor.");
+                break;
             case "arithmetic": return Arithmetic(value, scope);
             case "predicate": return Predicate(value, scope);
             case "json": return EncodeJson(value, scope);
             case "field": return SelectField(value, scope, consume);
             default: Fail("TASK_VALUE_INVALID", "Values allow literals, business references, declared fields, JSON encoding, typed arithmetic and predicates only."); break;
         }
+        if (value.Kind == "output" && scope.FailurePath && value.Source is not null)
+            return CaptureFailureOutput(value, scope, consume);
         if (scope.Parent is null) Fail("TASK_REFERENCE_UNKNOWN", "Business reference '" + value.Source + "' is unavailable in this scope.");
         // Capture the authoritative container, not an unchecked optional field.
         // Its check belongs inside the consuming branch/iteration/finalizer.
@@ -625,6 +644,32 @@ public sealed partial class TaskPlanCompiler
 
     private Bound Predicate(TaskValue value, Scope scope)
     {
+        if (value.Predicate is "and" or "or" && value.Items.Count == 2 && scope.Target is { } target)
+        {
+            var left = Value(value.Items[0], scope); RequireBoolean(left);
+            var location = _location; var rightNodes = new List<PlanningNode>(); Bound right;
+            scope.Target = rightNodes; _location += "/items/1";
+            try { right = Value(value.Items[1], scope); RequireBoolean(right); }
+            finally { scope.Target = target; _location = location; }
+            if (rightNodes.Count == 0)
+                return new(PlanningValues.Predicate(value.Predicate, left.Value, right.Value), new() { ["type"] = "boolean" });
+            // Checks of a selected field must short-circuit along with the predicate.
+            // Use native control flow only when the right operand needs materialization.
+            var key = Key(scope.Workflow.Key, "predicate:" + location + ":" + JsonSerializer.Serialize(value, PlanningJsonContext.Default.TaskValue));
+            var selected = Key(key, "selected"); var skipped = Key(key, "skipped"); var merged = Key(key, "result");
+            var schema = ObjectSchema([("value", new JsonObject { ["type"] = "boolean" })]);
+            if (!target.Any(n => n.Key == merged))
+            {
+                rightNodes.Add(new() { Key = selected, Type = "set", Input = Object([new("value", right.Value)]), OutputSchema = Contract(schema) });
+                target.Add(new() { Key = key, Type = "switch", Expr = left.Value,
+                    Cases = [new(value.Predicate == "and" ? "true" : "false", null, rightNodes)],
+                    Default = [new() { Key = skipped, Type = "set", Input = Object([new("value", new() { Kind = "boolean", Boolean = value.Predicate == "or" })]), OutputSchema = Contract(schema) }] });
+                target.Add(new() { Key = merged, Type = "set", Input = Projection([new("value", Reference(key)),
+                    new("paths", Array([Strings([selected, "value"]), Strings([skipped, "value"])]))]), OutputSchema = Contract(schema) });
+                _sources[key] = location; _sources[merged] = location;
+            }
+            return Output(merged, "set", ["value"], new() { ["type"] = "boolean" });
+        }
         var operands = value.Items.Select(i => Value(i, scope)).ToArray();
         var unary = value.Predicate == "not";
         if (operands.Length != (unary ? 1 : 2)) Fail("TASK_PREDICATE_INVALID", "Predicate arity is invalid.");
@@ -694,6 +739,6 @@ public sealed partial class TaskPlanCompiler
         }
     }
     internal static IEnumerable<TaskValue> Values(PlanTask task) => task.Inputs.Concat(task.Outputs).SelectMany(o => Values(o.Value))
-        .Concat(task.Condition is null ? [] : Values(task.Condition)).Concat(task.Items is null ? [] : Values(task.Items));
+        .Concat(task.Requires is null ? [] : Values(task.Requires)).Concat(task.Condition is null ? [] : Values(task.Condition)).Concat(task.Items is null ? [] : Values(task.Items));
     internal static IEnumerable<TaskValue> Values(TaskValue value) => new[] { value }.Concat(value.Members.SelectMany(m => Values(m.Value))).Concat(value.Items.SelectMany(Values));
 }

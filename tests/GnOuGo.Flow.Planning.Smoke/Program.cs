@@ -63,6 +63,40 @@ if (projectedPattern["properties"]!["path"]!["pattern"] is not null || authorita
     throw new InvalidOperationException("Structured-output projection weakened authoritative pattern validation.");
 Console.WriteLine("schema projection: portable wire, unchanged authoritative restrictions");
 
+foreach (var complete in new[] { true, false })
+{
+    var finalizerPlan = new TaskPlan
+    {
+        Root = new()
+        {
+            Tasks = [new() { Id = "observed", Kind = "value", Objective = "Require the observed business condition",
+                Requires = new() { Kind = "boolean", Boolean = complete }, Outputs = [new("record", new() { Kind = "string", Text = "observed" })] }],
+            Always = [new() { Id = "finalize", Kind = "sequence", Objective = "Preserve available evidence", Body = new()
+            {
+                Tasks = [new() { Id = "collect", Kind = "conditional", Objective = "Read only available observations",
+                    Condition = new() { Kind = "present", Source = "observed" },
+                    Body = new() { Outputs = [new("record", new() { Kind = "output", Source = "observed", Port = "record" })] },
+                    Otherwise = new() { Outputs = [new("record", new() { Kind = "null" })] } }],
+                Outputs = [new("record", new() { Kind = "output", Source = "collect", Port = "record" })],
+                Always = [new() { Id = "release", Kind = "value", Objective = "Finalize after evidence", Outputs = [new("released", new() { Kind = "boolean", Boolean = true })] }]
+            } }]
+        }
+    };
+    finalizerPlan = JsonSerializer.Deserialize(JsonSerializer.Serialize(finalizerPlan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
+    if (finalizerPlan.Root.Tasks[0].Requires?.Boolean != complete) throw new InvalidOperationException("Required condition serialization failed.");
+    var finalizerEngine = new WorkflowEngine();
+    var finalizerCatalog = await new WorkflowPlanningRuntime(finalizerEngine, (_, _) => Task.CompletedTask).DiscoverAsync(new(), CancellationToken.None);
+    var finalizerCompilation = new TaskPlanCompiler().Compile(finalizerPlan, finalizerCatalog);
+    if (finalizerCompilation.Graph is null || finalizerCompilation.Diagnostics.Count != 0 || PlanningExecutableValidation.Validate(finalizerCompilation.Graph, finalizerCatalog).Count != 0)
+        throw new InvalidOperationException("Required condition/finalizer capture compilation failed.");
+    var finalizerDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(finalizerCompilation.Graph, finalizerCatalog)));
+    var finalizerResult = await finalizerEngine.ExecuteAsync(finalizerDocument.Workflows[finalizerDocument.Entrypoint!], new JsonObject(), CancellationToken.None);
+    if (finalizerResult.Success != complete || !complete && finalizerResult.Error?.Code != "INPUT_VALIDATION" ||
+        !finalizerResult.StepResults.Any(r => r.Output?["outputs"] is JsonObject obj && obj.ContainsKey("record") && obj["record"]?.ToString() == (complete ? "observed" : null)))
+        throw new InvalidOperationException("Required condition/finalizer capture execution failed: " + finalizerResult.Error?.Code + ": " + finalizerResult.Error?.Message + "; " + string.Join("; ", finalizerResult.StepResults.Select(r => r.Output?.ToJsonString())));
+}
+Console.WriteLine("required conditions: true/false and guarded ancestor payloads survive Native AOT serialization and execution");
+
 var mapped = new GnOuGo.Flow.Core.Scripting.JintSandbox().ExecuteMapping(
     "({name:m.decode(m.text(source.html,'<h1>([^<]+)</h1>')),amount:source.amount})",
     JsonNode.Parse("{\"html\":\"<h1>A &amp; B</h1>\",\"amount\":7922816251426433759354395033.5}"), CancellationToken.None);

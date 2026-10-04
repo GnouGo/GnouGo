@@ -162,3 +162,9 @@ See [compact observations, accepted outputs and resource lifecycle](../../docs/c
 ## Ordinary arithmetic and decimal boundaries
 
 TaskPlan `arithmetic` values describe closed formulas using `text` (`add`, `subtract`, `multiply`, `divide`, `remainder`, `negate`) and `items`. Operand contracts must be numeric and nonnullable. The compiler retains structured values through contract closure, then emits JavaScript into existing checked `set` steps. There is no numeric executor or runtime inference. Exact business arithmetic is an MCP responsibility; explicitly declared decimal fields are converted automatically at the MCP boundary. See [migration and validation](../../docs/numeric-compilation.md).
+
+### Required conditions and finalization
+
+A task may declare `requires` as a boolean TaskValue. Omission preserves historical behavior. New strict provider responses use `requires: null` for omission; persisted TaskPlans omit the absent field. The compiler checks the condition with the existing `set` output schema before task inputs, inference or effects. False fails rather than skipping the task; normal finalization still applies. Keep both conditional exports explicit: require completeness before a publishing sequence instead of inventing an output for an incomplete branch.
+
+`present` can inspect preceding tasks in the same or a lexically enclosing scope. Nested finalizers capture availability independently and retain an absent payload as omission inside compiler-owned switch envelopes. They never eagerly evaluate an unavailable result. Report observed evidence in `always` and put release operations in its nested `always`, so preservation failure still permits cleanup. Unknown completion continues to block both. Required conditions cannot be weakened by scoped repairs; use an explicit revision and fresh approval.

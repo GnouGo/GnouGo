@@ -34,6 +34,9 @@ public sealed class PlanTask
     /// <summary>Transform results: a closed object of required, fully typed business fields.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public TaskType? ResultType { get; set; }
+    /// <summary>Required boolean business condition. False fails before task execution; omission adds no guard.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TaskValue? Requires { get; set; }
     public TaskValue? Condition { get; set; }
     public TaskScope? Body { get; set; }
     public TaskScope? Otherwise { get; set; }

@@ -70,6 +70,7 @@ internal static class TaskPlanRevisions
         foreach (var finding in findings.Where(d => d.Required && d.Code != "REVISION_SCOPE_CHANGED"))
         {
             var path = finding.Location;
+            if (path.EndsWith("/requires", StringComparison.Ordinal)) continue;
             if (finding.Code == "TASK_KIND_INVALID" && path.Split('/') is ["", "tasks", var invalidTask, "kind"] && symbols.Tasks.ContainsKey(invalidTask)) { scope.Add(path); continue; }
             if (finding.Code is "TASK_TRANSFORM_TYPE" or "TASK_TRANSFORM_CONSTRAINT" or "TASK_INPUT_CONSTRAINT" && resultSlots.Contains(path)) { scope.Add(path); continue; }
             if (symbols.Values.ContainsKey(path) || inputs.Contains(path) || plan.Choices.Any(c => path == "/choices/" + c.Id)) scope.Add(path);
@@ -97,6 +98,11 @@ internal static class TaskPlanRevisions
         }
         if (previous is null) yield break;
         var symbols = new TaskPlanSymbols(previous); var revised = new TaskPlanSymbols(candidate);
+        foreach (var (id, original) in symbols.Tasks)
+            if (revised.Tasks.TryGetValue(id, out var updated) && !JsonNode.DeepEquals(
+                JsonSerializer.SerializeToNode(original.Task.Requires, PlanningJsonContext.Default.TaskValue),
+                JsonSerializer.SerializeToNode(updated.Task.Requires, PlanningJsonContext.Default.TaskValue)))
+                yield return new("REVISION_SCOPE_CHANGED", "/tasks/" + id + "/requires", "Required conditions are immutable during repair; changing one requires an explicit revision.");
         var before = JsonSerializer.SerializeToNode(previous, PlanningJsonContext.Default.TaskPlan)!;
         var after = JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskPlan)!;
         var additions = new HashSet<string>(StringComparer.Ordinal);
@@ -109,7 +115,7 @@ internal static class TaskPlanRevisions
                 symbols.Tasks.TryGetValue(consumer, out var originalTask) && revised.Tasks.TryGetValue(consumer, out var revisedTask) &&
                 revisedTask.Task.Kind == "operation" && originalTask.Task.Operation == revisedTask.Task.Operation &&
                 revisedTask.Task.Inputs.All(i => i.Name != argument) && RemovableInput(originalTask.Task, argument, catalog)) removals.Add(path);
-            if (symbols.Values.TryGetValue(path, out var site) && revised.Values.TryGetValue(path, out var replacement))
+            if (!path.EndsWith("/requires", StringComparison.Ordinal) && symbols.Values.TryGetValue(path, out var site) && revised.Values.TryGetValue(path, out var replacement))
             {
                 var used = new HashSet<string>(StringComparer.Ordinal);
                 var owned = OwnedInput(symbols, path, catalog);

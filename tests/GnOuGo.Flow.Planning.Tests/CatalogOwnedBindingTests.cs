@@ -68,7 +68,12 @@ public sealed class CatalogOwnedBindingTests
         var prompt = HybridWorkflowPlanner.BuildPrompt(state, []);
         Assert.DoesNotContain("\"name\":\"selector\"", prompt);
         var schema = PlanningSchemas.Proposal(state);
-        JsonObject Response() => new() { ["discoveryRequests"] = null, ["clarifications"] = null, ["plan"] = PlanningJsonTransport.TaskPlanPrompt(plan) };
+        JsonObject Response()
+        {
+            var wire = PlanningJsonTransport.TaskPlanPrompt(plan)!;
+            foreach (var task in wire["root"]!["tasks"]!.AsArray()) task!["requires"] = null;
+            return new() { ["discoveryRequests"] = null, ["clarifications"] = null, ["plan"] = wire };
+        }
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         Assert.Empty(PlanningContractValidation.ValidateInstance(Response(), schema));
         plan.Root.Tasks[0].Inputs.Add(new("selector", Text("host")));
@@ -224,7 +229,12 @@ public sealed class CatalogOwnedBindingTests
         var state = PlannerFixture.Session(); state.Catalog = catalog; state.Requirements = PlannerFixture.Requirements();
         var schema = PlanningSchemas.Proposal(state);
         plan.Root.Tasks[0].Inputs.Add(new("selector", Text("host")));
-        JsonObject Response() => new() { ["discoveryRequests"] = null, ["clarifications"] = null, ["plan"] = PlanningJsonTransport.TaskPlanPrompt(plan) };
+        JsonObject Response()
+        {
+            var wire = PlanningJsonTransport.TaskPlanPrompt(plan)!;
+            foreach (var task in wire["root"]!["tasks"]!.AsArray()) task!["requires"] = null;
+            return new() { ["discoveryRequests"] = null, ["clarifications"] = null, ["plan"] = wire };
+        }
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Response(), schema));
         plan.Root.Tasks[0].Operation = "other";
         Assert.Empty(PlanningContractValidation.ValidateInstance(Response(), schema));

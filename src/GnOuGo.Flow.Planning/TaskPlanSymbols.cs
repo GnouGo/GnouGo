@@ -30,6 +30,7 @@ internal sealed class TaskPlanSymbols
             var location = "/tasks/" + task.Id;
             foreach (var input in task.Inputs) AddValue(input.Value, scope, location + "/inputs/" + input.Name);
             foreach (var output in task.Outputs) AddValue(output.Value, scope, location + "/outputs/" + output.Name);
+            if (task.Requires is not null) AddValue(task.Requires, scope, location + "/requires");
             if (task.Condition is not null) AddValue(task.Condition, scope, location + "/condition");
             if (task.Items is not null) AddValue(task.Items, scope, location + "/items");
             if (task.Body is not null) Add(task.Body, location + "/body", scope, task);

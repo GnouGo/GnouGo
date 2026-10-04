@@ -36,6 +36,8 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
     [InlineData("delayed-consent")]
     [InlineData("unrelated-modal")]
     [InlineData("incomplete-observation")]
+    [InlineData("required-consent")]
+    [InlineData("required-incomplete-observation")]
     public async Task RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(string variant)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -45,7 +47,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         builder.WebHost.ConfigureKestrel(o => o.Listen(System.Net.IPAddress.Loopback, 0)); builder.Logging.ClearProviders();
         await using var site = builder.Build();
         var visits = new List<string>();
-        var consentScenario = variant is "consent" or "no-consent" or "delayed-consent" or "unrelated-modal" or "incomplete-observation";
+        var consentScenario = variant is "required-consent" or "required-incomplete-observation" or "consent" or "no-consent" or "delayed-consent" or "unrelated-modal" or "incomplete-observation";
         var consentReceipts = new List<bool>();
         site.MapGet("/{**path}", async (HttpContext context) =>
         {
@@ -58,7 +60,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var body = path == "/search" ? string.Join("", links.Select(p => "<a href='" + origin + "/" + p + "'>Product</a>")) : path == "/missing" ? "<h1>Only a name</h1>" :
                 path == "/one" ? variant == "changed" ? "<h1>Changed lamp</h1><p>New description</p><price>9,90 €</price>" : "<h1>Lampe été, &quot;A&quot;</h1><p>Bright and small {{values}}</p><price>19,99 €</price>" :
                 variant == "changed" ? "<h1>Second</h1><p>Updated</p><price>12.00</price>" : "<h1>東京 lamp</h1><p>Line one\nLine two</p><price>25.00</price>";
-            var banner = path == "/search" && variant is "consent" or "delayed-consent" or "unrelated-modal";
+            var banner = path == "/search" && variant is "required-consent" or "consent" or "delayed-consent" or "unrelated-modal";
             var dialog = "<section role='dialog' aria-modal='true' id='notice'><p>" + (variant == "unrelated-modal" ? "Account verification" : "Cookie preferences") +
                 "</p><div><span role='button' tabindex='0' id='accept' onclick=\"document.cookie='fixtureConsent=accepted;path=/';document.querySelector('main').hidden=false;document.getElementById('notice').remove()\">" +
                 (variant == "unrelated-modal" ? "Continue" : "Accept cookies") + "</span></div></section>";
@@ -77,12 +79,13 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             await using var transport = new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>
             {
                 ["browser"] = Server("Browser", new() { ["Browser__AllowedHosts__0"] = "127.0.0.1", ["Browser__Headless"] = "true", ["Browser__KeepBrowserOpen"] = "false",
-                    ["Browser__MaxObservationRecords"] = variant == "incomplete-observation" ? "1" : "80",
+                    ["Browser__MaxObservationRecords"] = variant is "incomplete-observation" or "required-incomplete-observation" ? "1" : "80",
                     ["Browser__SlowMoMs"] = "0", ["Browser__HoldOpenMs"] = "0", ["Browser__NavigationTimeoutMs"] = "3000", ["OpenTelemetry__Enabled"] = "false" }),
                 ["document"] = Server("Document", new() { ["Document__DefaultWorkingDirectory"] = workspace, ["OpenTelemetry__Enabled"] = "false" })
             });
             var model = new ProductTransformationFixture(variant) { ReadMethod = "browser_get_content", WriteMethod = "document_write", CloseMethod = "browser_close" };
-            var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = consentScenario ? new ConsentModel(model) : variant is "extract" or "observation" ? new ExtractModel(model) : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
+            var consentModel = new ConsentModel(model);
+            var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = consentScenario ? consentModel : variant is "extract" or "observation" ? new ExtractModel(model) : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await runtime.DiscoverAsync(new(), ct); var reads = 0;
             foreach (var source in await runtime.Capabilities.ListSourcesAsync(ct))
@@ -101,6 +104,15 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             Assert.Equal("lifecycle", catalog.Capabilities.Single(c => c.Method == "browser_close").EffectKind);
             var plan = ProductTransformationPlan.Create(catalog, model);
             if (consentScenario) AddConsentSteps(plan, catalog);
+            if (variant.StartsWith("required-", StringComparison.Ordinal))
+            {
+                TaskValue Field(TaskValue value, string name) => new() { Kind = "field", Port = name, Items = [value] };
+                TaskValue Not(TaskValue value) => new() { Kind = "predicate", Predicate = "not", Items = [value] };
+                TaskValue And(TaskValue left, TaskValue right) => new() { Kind = "predicate", Predicate = "and", Items = [left, right] };
+                var observation = ProductTransformationPlan.Ref("inspect", "observation");
+                plan.Root.Tasks.Single(t => t.Id == "consent").Requires = And(Not(ProductTransformationPlan.Ref("inspect", "truncated")),
+                    And(Not(Field(observation, "captureTruncated")), new() { Kind = "predicate", Predicate = "equal", Items = [Field(observation, "nextCursor"), new() { Kind = "null" }] }));
+            }
             if (variant == "observation")
             {
                 foreach (var task in new[] { plan.Root.Tasks.Single(t => t.Id == "search"), plan.Root.Tasks.Single(t => t.Id == "products").Body!.Tasks.Single(t => t.Id == "page") })
@@ -136,7 +148,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var result = await engine.ExecuteAsync(doc.Workflows[doc.Entrypoint!], new JsonObject { ["search"] = site.Urls.Single() + "/search" }, ct);
             var executionMs = timer.Elapsed.TotalMilliseconds;
             output.WriteLine($"LOCAL {variant}: success={result.Success}, calls={session.ModelCalls}, discovery={reads}, repairs={session.ReplanAttempts}, inputEstimate={planning.InputEstimate}, executionAdapterCalls={model.Calls.Count}, planningMs={planningMs:F1}, executionMs={executionMs:F1}; error={result.Error?.Code} {result.Error?.Message}");
-            Assert.Equal(variant is "nominal" or "changed" or "empty" or "missing" or "extract" or "observation" or "consent" or "no-consent" or "delayed-consent", result.Success);
+            Assert.Equal(variant is "required-consent" or "nominal" or "changed" or "empty" or "missing" or "extract" or "observation" or "consent" or "no-consent" or "delayed-consent", result.Success);
             var browser = await transport.GetClientAsync("browser", ct);
             var afterCleanup = await browser.CallToolAsync("browser_get_content", new JsonObject(), ct);
             Assert.True(afterCleanup.IsError);
@@ -146,6 +158,11 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             if (!result.Success)
             {
                 Assert.False(File.Exists(file)); Assert.False(File.Exists(Path.Combine(root, "outside.xlsx")));
+                if (variant == "required-incomplete-observation")
+                {
+                    Assert.Equal("INPUT_VALIDATION", result.Error!.Code); Assert.Equal(0, consentModel.Calls); Assert.Empty(model.Calls);
+                    Assert.Empty(consentReceipts); Assert.Equal(["/search"], visits.Where(v => v != "/favicon.ico")); return;
+                }
                 if (variant is "unrelated-modal" or "incomplete-observation")
                 {
                     Assert.Contains("CONTRACT_UNSATISFIED", result.Error!.Code + result.Error.Message);
@@ -193,9 +210,11 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
 
     private sealed class ConsentModel(ILLMClient next) : ILLMClient
     {
+        public int Calls { get; private set; }
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             if (request.StructuredOutputSchema?["properties"]?["accept"] is null) return next.CallAsync(request, ct);
+            Calls++;
             var start = request.Prompt.IndexOf('{', request.Prompt.LastIndexOf("Business data", StringComparison.Ordinal));
             var page = JsonNode.Parse(request.Prompt[start..])!["page"]!;
             if (page["truncated"]!.GetValue<bool>() || page["observation"]?["nextCursor"] is not null || page["observation"]!["captureTruncated"]!.GetValue<bool>())
