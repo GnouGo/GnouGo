@@ -468,8 +468,11 @@ public sealed partial class TaskPlanCompiler
         if (value.Kind == "output" && value.Source is not null && !scope.Tasks.ContainsKey(value.Source) &&
             _symbols.Values.TryGetValue(_location, out var site) && _symbols.ExportedReference(site.Scope, value) is { } exported)
             value = exported;
-        if (scope.Blocked.Contains((value.Kind, value.Source ?? "", value.Port ?? "")) ||
-            scope.Blocked.Contains((value.Kind, value.Source ?? "", "*"))) throw new UnavailableValue();
+        // Presence reads the whole task result, which preflight withholds after an invalid export.
+        var referenceKind = value.Kind == "present" ? "output" : value.Kind;
+        var referencePort = value.Kind == "present" ? "" : value.Port ?? "";
+        if (scope.Blocked.Contains((referenceKind, value.Source ?? "", referencePort)) ||
+            scope.Blocked.Contains((referenceKind, value.Source ?? "", "*"))) throw new UnavailableValue();
         switch (value.Kind)
         {
             case "null": return new(new(), new() { ["type"] = "null" });
