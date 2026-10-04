@@ -60,13 +60,11 @@ internal static class LiveWorkflowEvaluation
         });
         if (phase == "execute")
         {
-            if (run["execution_started"] is not null) throw new InvalidOperationException("Execution already started; never rerun an uncertain workflow.");
-            var session = run["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
-            if (session.Status != PlanningStatus.FinalReview || session.ComputeArtifactHash() != SchemaPortabilityCampaign.Option(args, "--artifact-hash"))
-                throw new InvalidOperationException("Review the generated artifact and supply its exact --artifact-hash.");
-            PlanningArtifactApproval.Verify(session);
-            session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision, ArtifactHash = session.ComputeArtifactHash() }, runtime, CancellationToken.None);
-            if (session.Status != PlanningStatus.Approved) throw new InvalidOperationException("Artifact approval failed.");
+            var reviewPath = SchemaPortabilityCampaign.Option(args, "--review-command")
+                ?? throw new ArgumentException("Review the accepted requirements and actual TaskPlan, then supply an explicit approval with --review-command <file>.");
+            var command = JsonSerializer.Deserialize(await File.ReadAllTextAsync(reviewPath), PlanningJsonContext.Default.PlanningCommand)
+                ?? throw new ArgumentException("The review command must be an explicit approval.");
+            var session = await ApproveAsync(run, command, runtime, CancellationToken.None);
             if (scenario == "code" && !proxy.Ready) throw new InvalidOperationException("SDK inference interception is not attested.");
             proxy.ExecutionEnabled = true;
             var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(session.Yaml!));
@@ -143,6 +141,17 @@ internal static class LiveWorkflowEvaluation
         if (run["artifact_hash"] is not null) Console.WriteLine("artifact_hash=" + run["artifact_hash"]);
 
         Task Save() => campaign.SaveAsync(SchemaPortabilityCampaign.Collection, key, run, CancellationToken.None);
+    }
+
+    internal static async Task<PlanningSession> ApproveAsync(JsonObject run, PlanningCommand command, IPlanningRuntime runtime, CancellationToken ct)
+    {
+        if (run["execution_started"] is not null) throw new InvalidOperationException("Execution already started; never rerun an uncertain workflow.");
+        if (command.Kind != "approve") throw new ArgumentException("The review command must be an explicit approval.");
+        var session = run["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+        // The reviewer supplies the revision, hash and acknowledgments. Never infer them from the retained plan.
+        session = await new HybridWorkflowPlanner().AdvanceAsync(session, command, runtime, ct);
+        if (session.Status != PlanningStatus.Approved) throw new InvalidOperationException("Artifact approval failed.");
+        return session;
     }
 
     internal static Dictionary<string, McpServerOptions> Configuration(IReadOnlyDictionary<string, McpServerOptions> configured, string scenario, string inferenceEndpoint)

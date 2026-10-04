@@ -338,15 +338,33 @@ dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror -p:SkipClie
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
   --schema-portability plan --workspace "$GNOU_GO_WORKSPACE" \
   --campaign schema-portability-20261002 --cohort final4 --case amazon --run final4-amazon-1
-# Review the retained artifact first, then provide its exact printed hash:
+# Inspect accepted requirements, the actual TaskPlan, revision and artifact hash:
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability inspect-run --workspace "$GNOU_GO_WORKSPACE" \
+  --campaign schema-portability-20261002 --run final4-amazon-1
+# Review explicitly, then supply the approval command written by the reviewer:
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
   --schema-portability execute --workspace "$GNOU_GO_WORKSPACE" \
   --campaign schema-portability-20261002 --cohort final4 --case amazon --run final4-amazon-1 \
-  --artifact-hash <reviewed-artifact-hash>
+  --review-command /private/path/review-command.json
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
   --schema-portability report --workspace "$GNOU_GO_WORKSPACE" \
   --campaign schema-portability-20261002 --cohort final4
 ```
+
+The review file uses the existing planning command contract:
+
+```json
+{"kind":"approve","expectedRevision":7,"artifactHash":"<exact reviewed hash>","reviewedRequirementIds":["<explicitly reviewed requirement ID>"]}
+```
+
+Supply every accepted requirement ID exactly once only after comparing it with actual
+operations, loop bodies, conditions and data dependencies. Never generate this list
+automatically from the requirements. Missing visits, extraction or observation completeness
+require revision; they cannot be acknowledged as covered. The planner rejects missing,
+duplicate, unknown or stale submissions before execution. The old `--artifact-hash`
+argument alone no longer approves a live run. Inspection includes private retained
+content; keep command files and raw inspection output outside the repository.
 
 Use repetitions 1–3 for `amazon` and `code`, preserving every failed slot. Execution
 requires a terminal with explicit human answers. Recommendations never approve a
