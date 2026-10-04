@@ -276,7 +276,7 @@ public sealed class OperationResultContractTests
         JsonArray a => new() { Kind = "array", Items = a.Select(Literal).ToList() },
         JsonValue v when v.TryGetValue<string>(out var text) => Text(text),
         JsonValue v when v.TryGetValue<bool>(out var boolean) => new() { Kind = "boolean", Boolean = boolean },
-        JsonValue v when v.TryGetValue<decimal>(out var number) => new() { Kind = "number", Number = number },
+        JsonValue v when v.TryGetValue<double>(out var number) => new() { Kind = "number", Number = number },
         null => new() { Kind = "null" },
         _ => throw new InvalidOperationException()
     };

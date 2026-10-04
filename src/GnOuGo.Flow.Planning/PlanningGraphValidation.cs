@@ -299,7 +299,7 @@ public static class PlanningGraphValidation
 
             void CheckValue(PlanningValue value, string location)
             {
-                if (value.Kind is "predicate" or "json")
+                if (value.Kind is "predicate" or "arithmetic" or "json")
                     try { _ = ValueSchema(value, new(StringComparer.Ordinal)); }
                     catch (InvalidOperationException ex) { errors.Add(new("COMPUTATION_CONTRACT_INVALID", location, ex.Message)); }
                 if (value.Kind == "workflow" && !graph.Workflows.Any(w => w.Key == value.Source))
@@ -328,7 +328,7 @@ public static class PlanningGraphValidation
             JsonObject? ValueSchema(PlanningValue value, HashSet<string> visiting)
             {
                 if (value.Kind is "projection" or "dynamic_mapping") return null; // Checked only as a complete set input, below.
-                if (value.Kind is "predicate" or "json") return PlanningValues.ComputationContract(value, operand => ValueSchema(operand, visiting));
+                if (value.Kind is "predicate" or "arithmetic" or "json") return PlanningValues.ComputationContract(value, operand => ValueSchema(operand, visiting));
                 if (value.Kind == "present")
                 {
                     if (value.Source is null || !byKey.ContainsKey(value.Source) || value.Path.Count != 0 || value.ResultChannel is not null ||
@@ -486,7 +486,7 @@ public static class PlanningGraphValidation
                 var inferred = value.Kind switch
                 {
                     "string" => new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(value.Text ?? "") },
-                    "number" => new JsonObject { ["type"] = value.Number is { } n && n == decimal.Truncate(n) ? "integer" : "number", ["enum"] = new JsonArray(JsonValue.Create(value.Number)) },
+                    "number" => new JsonObject { ["type"] = value.Number is { } n && n == Math.Truncate(n) ? "integer" : "number", ["enum"] = new JsonArray(JsonValue.Create(value.Number)) },
                     "boolean" => new JsonObject { ["type"] = "boolean", ["enum"] = new JsonArray(JsonValue.Create(value.Boolean)) },
                     "template" => new JsonObject { ["type"] = "string" },
                     "null" => new JsonObject { ["type"] = "null" },

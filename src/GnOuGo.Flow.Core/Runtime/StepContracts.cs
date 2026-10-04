@@ -28,9 +28,6 @@ public static class BuiltInStepContracts
         {
             ["agent.run"] = new Executors.AgentRunExecutor().Contract,
             ["mapping.dynamic"] = new Executors.DynamicMappingExecutor().Contract,
-            ["number.add"] = new Executors.NumericTransformExecutor("number.add").Contract,
-            ["number.multiply"] = new Executors.NumericTransformExecutor("number.multiply").Contract,
-            ["number.default"] = new Executors.NumericTransformExecutor("number.default").Contract,
             ["sequence"] = Contract(ClosedObject(), OpenObject()),
             ["parallel"] = Contract(
                 Object(("max_concurrency", PositiveInteger())),
@@ -436,15 +433,9 @@ internal static class StepContractValidator
         };
     }
 
-    private static bool IsNumber(JsonNode value) =>
-        value is JsonValue scalar
-        && (scalar.TryGetValue<decimal>(out _) || scalar.TryGetValue<double>(out _)
-            || scalar.TryGetValue<long>(out _) || scalar.TryGetValue<int>(out _));
+    private static bool IsNumber(JsonNode value) => JsonSchemaInstanceValidator.TryReadNumber(value, out _);
 
-    private static bool IsInteger(JsonNode value) =>
-        value is JsonValue scalar
-        && (scalar.TryGetValue<long>(out _) || scalar.TryGetValue<int>(out _)
-            || (scalar.TryGetValue<decimal>(out var number) && decimal.Truncate(number) == number));
+    private static bool IsInteger(JsonNode value) => IsNumber(value) && JsonSchemaInstanceValidator.IsMultiple(value, JsonValue.Create(1)!);
 
     private static string DescribeType(JsonNode? value) => value switch
     {

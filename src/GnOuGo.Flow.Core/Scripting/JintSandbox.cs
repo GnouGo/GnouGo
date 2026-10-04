@@ -246,6 +246,7 @@ public sealed partial class JintSandbox
         if (value.IsNumber())
         {
             var d = value.AsNumber();
+            if (!double.IsFinite(d)) throw new WorkflowRuntimeException(ErrorCodes.EvalError, "An expression produced a nonfinite number.");
             // Preserve integer types when possible
             if (d == Math.Floor(d) && d >= int.MinValue && d <= int.MaxValue && !double.IsInfinity(d))
                 return JsonValue.Create((int)d);

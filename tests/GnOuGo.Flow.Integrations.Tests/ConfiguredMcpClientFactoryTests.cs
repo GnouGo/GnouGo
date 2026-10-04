@@ -747,6 +747,18 @@ public class ConfiguredMcpClientFactoryTests
     }
 
     [Fact]
+    public void ConvertArguments_PreservesDeclaredDecimalWithoutConvertingOrdinaryJsonNumbers()
+    {
+        var arguments = JsonNode.Parse("""{"small":1e-100,"large":1e100,"ratio":0.12345678901234567}""")!.AsObject();
+        arguments["declared"] = JsonValue.Create(0.1234567890123456789012345678m);
+        var result = InvokeConvertArguments(arguments)!;
+        Assert.Equal(1e-100, Assert.IsType<double>(result["small"]));
+        Assert.Equal(1e100, Assert.IsType<double>(result["large"]));
+        Assert.Equal(0.12345678901234567, Assert.IsType<double>(result["ratio"]));
+        Assert.Equal(0.1234567890123456789012345678m, Assert.IsType<decimal>(result["declared"]));
+    }
+
+    [Fact]
     public void BuildCurrentCorrelationMeta_IncludesTraceParentAndParentSpanId()
     {
         using var activity = new Activity("test-mcp-call");

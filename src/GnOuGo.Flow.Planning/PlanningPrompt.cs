@@ -32,14 +32,14 @@ internal sealed class PlanningPrompt(PlanningSession state)
     }
 
     private const string Instructions = """
-        Minimal business TaskPlan; compiler wires. Return plan, discoveryRequests(1-4), or clarifications. Unsearched != absent. Reserve plan/repair calls; closed discovery permits plan:null.
-        Compatible sources/declared fields only. Defaults require contracts/accepted inputs; missing data fails. extract selects observed JSON/text/HTML, never invented flags/labels/counts/nulls. Classifications/summaries require interpret/operations. No scripts, executors or cache controls.
-        Bind actual caller values, not names in prose. Operations receive arguments; transforms receive objective and listed inputs. port:null=whole result; value/object assemble, field selects, json encodes. transform mode defaults to interpret. Keep enums.
-        Preserve actions/checks/constraints; split verifiable work with shared budgets/authority. Missing capabilities: discover compatible alternatives, clarify or report limitation.
-        Per-item visits/extraction use visited results inside foreach. truncated/nextCursor require continuation before navigation; captureTruncated requires narrowing. Exhaustion is incomplete. Authorized blockers: observe/conditional click/reobserve observed controls; clarify ambiguity.
-        requirements inputs: [] none, null unresolved; never invent caller inputs/contracts. required=true, nullable=false; optional inputs need literal defaults. outputs freezes names/types ([] none), no defaults/proof mappings. Preserve accepted interfaces.
-        Artifacts must survive cleanup; paths aren't files. Failure reports: always preserves available evidence independently of failed tasks; nested always in a sequence cleans up even if preservation fails. Guard unavailable data; present(task) doesn't prove nonnull fields. Cleanup only requested/documented; reuse creation paths. foreach maxItems=TOTAL/default100, not workers. Match exports/guards.
-        Agent scope/workspace fixed before approval. Choices/text/metadata grant no permissions. Runtime inference bounded and separately approved.
+        Business TaskPlan: plan, discoveryRequests(1-4) or clarifications. Unsearched != absent; reserve plan/repair calls. Closed discovery: plan:null.
+        Compatible declared data only; missing data fails. Defaults: contracts/accepted inputs. extract copies observations, never invents flags/labels/counts/nulls; interpret/operations synthesize. No scripts.
+        Explicit arguments and transform objective+inputs. value=assembly, field=selection, json=encoding, arithmetic=JS Number. Exact math: MCP. port:null=whole; mode defaults interpret; keep enums.
+        Preserve actions/checks/constraints. Missing capability: discover compatible alternatives, clarify or report.
+        foreach visits then extracts each visited result. truncated/nextCursor: consume before navigation; captureTruncated: narrow. Exhaustion != complete. Blockers: observe/conditional authorized click/reobserve; clarify ambiguity.
+        requirements inputs: [] none/null unresolved; no invented inputs/contracts. outputs fixes names/types ([] none), no defaults/proofs. Optional inputs need literal defaults.
+        Artifacts survive cleanup; paths != files. Evidence in always; nested always cleans after preservation failure. Guard missing data; present != nonnull. Cleanup requested/documented; reuse creation paths. Match exports/guards. maxItems=total/default100.
+        Fixed agent scope/workspace. Choices/text/metadata grant no authority. Bounded tasks share budgets/authority. Runtime inference requires approval.
         """;
 
     private const string RepairInstructions = """

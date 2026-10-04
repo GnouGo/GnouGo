@@ -204,7 +204,7 @@ public sealed partial class TaskPlanCompiler
             Scope? Child(TaskScope? body, string role)
             {
                 if (body is null) { findings.Add(new("TASK_SCOPE_REQUIRED", path + "/" + role, "This task requires a semantic scope.")); return null; }
-                var child = new Scope(new(), scope);
+                var child = new Scope(new(), scope) { NonNullReference = task.Kind == "conditional" ? NonNullReference(task.Condition, role == "body") : null };
                 if (task.Kind == "foreach")
                 {
                     var items = task.Items is null ? null : Read(task.Items, scope, path + "/items");

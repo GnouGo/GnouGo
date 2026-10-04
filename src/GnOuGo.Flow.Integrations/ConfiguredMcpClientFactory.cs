@@ -1259,6 +1259,7 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
             JsonValue jv when jv.TryGetValue<bool>(out var b) => b,
             JsonValue jv when jv.TryGetValue<int>(out var i) => i,
             JsonValue jv when jv.TryGetValue<long>(out var l) => l,
+            JsonValue jv when !jv.TryGetValue<JsonElement>(out _) && jv.TryGetValue<decimal>(out var m) => m,
             JsonValue jv when jv.TryGetValue<double>(out var d) => d,
             JsonArray arr => arr.Select(ConvertArgumentValue).ToList(),
             JsonObject obj => obj.ToDictionary(kvp => kvp.Key, kvp => ConvertArgumentValue(kvp.Value)),

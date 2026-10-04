@@ -1725,3 +1725,7 @@ unknown outcomes still require reconciliation. A completed result with a failure
 invalid. The field uses existing source-generated serialization; journal schema remains 9.
 
 Agent budget stops retain safe admission diagnostics and execution observations. Only verified cessation permits a terminal failure and cleanup; unknown outcomes require explicit reconciliation. See [budget stops and recovery](../../docs/agent-budget-interruptions.md).
+
+## Numeric execution
+
+Ordinary calculations use JavaScript `Number` (binary64) through expressions and `set`; nonfinite expression results fail before publication. `NumericTransformExecutor`, `number.add`, `number.multiply` and `number.default` are removed, including their public C# API. Saved uses fail preflight and require explicit revision and approval. Exact business arithmetic belongs to the MCP producer. The optional `type: number, format: decimal` annotation enables validated MCP boundary conversion; see [numeric compilation](../../docs/numeric-compilation.md).

@@ -2962,17 +2962,9 @@ public static class WorkflowPlanSemanticValidator
             errors.Add(new SchemaValidationError(path, $"expected {expectedType}"));
     }
 
-    private static bool IsJsonNumber(JsonValue jsonValue) =>
-        jsonValue.TryGetValue<double>(out _)
-        || jsonValue.TryGetValue<float>(out _)
-        || jsonValue.TryGetValue<decimal>(out _)
-        || jsonValue.TryGetValue<long>(out _)
-        || jsonValue.TryGetValue<int>(out _)
-        || jsonValue.TryGetValue<short>(out _)
-        || jsonValue.TryGetValue<byte>(out _);
+    private static bool IsJsonNumber(JsonValue value) => JsonSchemaInstanceValidator.TryReadNumber(value, out _);
 
-    private static bool IsJsonInteger(JsonValue jsonValue) =>
-        TryReadDecimal(jsonValue, out var number) && decimal.Truncate(number) == number;
+    private static bool IsJsonInteger(JsonValue value) => IsJsonNumber(value) && JsonSchemaInstanceValidator.IsMultiple(value, JsonValue.Create(1)!);
 
     private static void ValidateConstAndEnum(
         JsonNode? value,
@@ -3039,23 +3031,9 @@ public static class WorkflowPlanSemanticValidator
         string path,
         List<SchemaValidationError> errors)
     {
-        if (!TryReadDecimal(value, out var number))
-            return;
-
-        if (TryReadSchemaDecimal(schema, "minimum", out var minimum) && number < minimum)
-            errors.Add(new SchemaValidationError(path, $"number must be greater than or equal to {minimum}"));
-        if (TryReadSchemaDecimal(schema, "maximum", out var maximum) && number > maximum)
-            errors.Add(new SchemaValidationError(path, $"number must be less than or equal to {maximum}"));
-        if (TryReadSchemaDecimal(schema, "exclusiveMinimum", out var exclusiveMinimum) && number <= exclusiveMinimum)
-            errors.Add(new SchemaValidationError(path, $"number must be greater than {exclusiveMinimum}"));
-        if (TryReadSchemaDecimal(schema, "exclusiveMaximum", out var exclusiveMaximum) && number >= exclusiveMaximum)
-            errors.Add(new SchemaValidationError(path, $"number must be less than {exclusiveMaximum}"));
-        if (TryReadSchemaDecimal(schema, "multipleOf", out var multipleOf)
-            && multipleOf > 0
-            && number % multipleOf != 0)
-        {
-            errors.Add(new SchemaValidationError(path, $"number must be a multiple of {multipleOf}"));
-        }
+        foreach (var finding in JsonSchemaInstanceValidator.ValidateInstanceFindings(value, schema))
+            if (finding.Rule is "minimum" or "maximum" or "exclusiveMinimum" or "exclusiveMaximum" or "multipleOf")
+                errors.Add(new SchemaValidationError(path, finding.Message));
     }
 
     private static void ValidateCountConstraint(
@@ -3085,57 +3063,6 @@ public static class WorkflowPlanSemanticValidator
         {
             value = intValue;
             return value >= 0;
-        }
-
-        return false;
-    }
-
-    private static bool TryReadSchemaDecimal(JsonObject schema, string propertyName, out decimal value) =>
-        TryReadDecimal(schema[propertyName], out value);
-
-    private static bool TryReadDecimal(JsonNode? node, out decimal value)
-    {
-        value = 0;
-        if (node is not JsonValue jsonValue)
-            return false;
-
-        if (jsonValue.TryGetValue<decimal>(out value))
-            return true;
-        if (jsonValue.TryGetValue<long>(out var longValue))
-        {
-            value = longValue;
-            return true;
-        }
-        if (jsonValue.TryGetValue<int>(out var intValue))
-        {
-            value = intValue;
-            return true;
-        }
-        if (jsonValue.TryGetValue<short>(out var shortValue))
-        {
-            value = shortValue;
-            return true;
-        }
-        if (jsonValue.TryGetValue<float>(out var floatValue)
-            && !float.IsNaN(floatValue)
-            && !float.IsInfinity(floatValue))
-        {
-            value = (decimal)floatValue;
-            return true;
-        }
-        if (jsonValue.TryGetValue<double>(out var doubleValue)
-            && !double.IsNaN(doubleValue)
-            && !double.IsInfinity(doubleValue))
-        {
-            try
-            {
-                value = (decimal)doubleValue;
-                return true;
-            }
-            catch (OverflowException)
-            {
-                return false;
-            }
         }
 
         return false;

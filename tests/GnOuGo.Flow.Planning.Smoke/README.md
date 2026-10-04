@@ -6,6 +6,8 @@ Also checks early clarification in automatic mode, a custom answer checkpoint, r
 
 Mapping checks execute the restricted HTML extraction profile, preserve exact decimal observations and round-trip mapping artifacts through source-generated serialization. Encrypted mapping persistence is covered separately by the published Agent.Server persistence smoke.
 
+Numeric checks preserve historical numeric JSON tokens and execute the corpus arithmetic as compiled JavaScript Number formulas. The native binary also launches itself as a bounded local stdio MCP to verify annotated decimal arguments and results through actual transport; exact arithmetic occurs only in that MCP. This check makes no provider calls.
+
 ```bash
 dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 -m:1 -warnaserror
 tests/GnOuGo.Flow.Planning.Smoke/bin/Release/net10.0/osx-arm64/publish/GnOuGo.Flow.Planning.Smoke

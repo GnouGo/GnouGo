@@ -89,6 +89,8 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("choice", "present")), ("source", Ref("id"))),
                 Object(("kind", Enum("output")), ("source", Ref("id")), ("port", Nullable(String()))),
                 Object(("kind", Enum("item", "index"))),
+                Object(("kind", Enum("arithmetic")), ("text", Enum("negate")), ("items", Array(Ref("value"), 1, 1))),
+                Object(("kind", Enum("arithmetic")), ("text", Enum("add", "subtract", "multiply", "divide", "remainder")), ("items", Array(Ref("value"), 2, 2))),
                 Object(("kind", Enum("predicate")), ("predicate", Enum("not")), ("items", Array(Ref("value"), 1, 1))),
                 Object(("kind", Enum("predicate")), ("predicate", Enum("and", "or", "equal", "not_equal", "less", "less_equal", "greater", "greater_equal")), ("items", Array(Ref("value"), 2, 2)))) },
             ["literal"] = new JsonObject { ["anyOf"] = new JsonArray(

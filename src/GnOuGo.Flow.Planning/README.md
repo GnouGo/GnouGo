@@ -158,3 +158,7 @@ during final lowering. Opaque bindings use approved bounded runtime extraction a
 See [compiled and bounded runtime mappings](../../docs/runtime-mappings.md) for optional extraction mode, runtime inference review, encrypted cache, recovery and the breaking projection migration.
 
 See [compact observations, accepted outputs and resource lifecycle](../../docs/compact-observations-and-execution.md) for the current producer/compiler boundaries and executor simplification.
+
+## Ordinary arithmetic and decimal boundaries
+
+TaskPlan `arithmetic` values describe closed formulas using `text` (`add`, `subtract`, `multiply`, `divide`, `remainder`, `negate`) and `items`. Operand contracts must be numeric and nonnullable. The compiler retains structured values through contract closure, then emits JavaScript into existing checked `set` steps. There is no numeric executor or runtime inference. Exact business arithmetic is an MCP responsibility; explicitly declared decimal fields are converted automatically at the MCP boundary. See [migration and validation](../../docs/numeric-compilation.md).

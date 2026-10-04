@@ -17,7 +17,7 @@ public sealed class WorkflowValidator
     {
         "sequence", "parallel",
         "loop.sequential", "loop.parallel",
-        "agent.run", "mapping.dynamic", "number.add", "number.multiply", "number.default",
+        "agent.run", "mapping.dynamic",
         "switch", "set",
         "template.render",
         "llm.call",
@@ -330,7 +330,7 @@ public sealed class WorkflowValidator
         return null;
     }
 
-    internal static bool IsRetiredStep(string type) => type is "value.project" or "assert.non_null" or "decision.evaluate" or "array.project" or "value.validate";
+    internal static bool IsRetiredStep(string type) => type is "number.add" or "number.multiply" or "number.default" or "value.project" or "assert.non_null" or "decision.evaluate" or "array.project" or "value.validate";
 
     private void ValidateStep(StepDef step, string wfName, WorkflowDocument doc, List<ValidationError> errors)
     {

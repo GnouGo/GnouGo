@@ -31,6 +31,12 @@ internal static class PlanningValues
     internal static PlanningValue Predicate(string operation, params PlanningValue[] operands)
         => new() { Kind = "predicate", Text = operation, Items = operands.ToList() };
 
+    internal static string ArithmeticOperator(string? operation) => operation switch
+    {
+        "add" => "+", "subtract" or "negate" => "-", "multiply" => "*", "divide" => "/", "remainder" => "%",
+        _ => throw new InvalidOperationException("Unknown typed arithmetic operator.")
+    };
+
     internal static string PredicateOperator(string? operation) => operation switch
     {
         "not" => "!", "and" => "&&", "or" => "||", "equal" => "===", "not_equal" => "!==",
@@ -48,6 +54,14 @@ internal static class PlanningValues
             if (value.Text is not null || value.Items.Count != 1 || resolve(value.Items[0]) is null)
                 throw new InvalidOperationException("JSON encoding requires exactly one established value.");
             return new() { ["type"] = "string" };
+        }
+        if (value.Kind == "arithmetic")
+        {
+            _ = ArithmeticOperator(value.Text);
+            if (value.Items.Count != (value.Text == "negate" ? 1 : 2)) throw new InvalidOperationException("Arithmetic arity is invalid.");
+            if (value.Items.Any(operand => resolve(operand) is not { } schema || !PlanningContractCompatibility.Fits(schema, new() { ["type"] = "number" })))
+                throw new InvalidOperationException("Arithmetic requires established, nonnullable numeric operands.");
+            return new() { ["type"] = "number" };
         }
         _ = PredicateOperator(value.Text);
         if (value.Items.Count != (value.Text == "not" ? 1 : 2)) throw new InvalidOperationException("Predicate arity is invalid.");

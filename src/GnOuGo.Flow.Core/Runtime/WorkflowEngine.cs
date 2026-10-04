@@ -1118,8 +1118,6 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         registry.Register(new Executors.SwitchExecutor());
         registry.Register(new Executors.SetExecutor());
         registry.Register(new Executors.DynamicMappingExecutor());
-        foreach (var type in new[] { "number.add", "number.multiply", "number.default" })
-            registry.Register(new Executors.NumericTransformExecutor(type));
         registry.Register(new Executors.TemplateRenderExecutor());
         registry.Register(new Executors.LlmCallExecutor());
         registry.Register(new Executors.AgentRunExecutor());

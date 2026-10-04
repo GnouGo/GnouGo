@@ -11,7 +11,7 @@ public static class PlanningCorpus
     public static readonly string[] Names = PlanningBenchmarkCases.Names;
     public static string Prompt(string name) => PlanningBenchmarkCases.Prompt(name);
     public static PlanningValue Ref(string kind, string source, params string[] path) => new() { Kind = kind, Source = source, Path = path.ToList() };
-    public static PlanningValue Num(decimal n) => new() { Kind = "number", Number = n };
+    public static PlanningValue Num(double n) => new() { Kind = "number", Number = n };
     public static PlanningValue Text(string text) => new() { Kind = "string", Text = text };
     public static PlanningValue Projection(params (string Name, PlanningValue Value)[] members)
         => new() { Kind = "projection", Members = members.Select(m => new PlanningMember(m.Name, m.Value)).ToList() };
@@ -37,23 +37,25 @@ public static class PlanningCorpus
     public static TaskPlan LiteralResult() => new() { Root = new() { Outputs = [new("result", Number(42))] } };
 
     public static TaskValue Business(string kind, string? source = null, string? port = null) => new() { Kind = kind, Source = source, Port = port };
-    public static TaskValue Number(decimal value) => new() { Kind = "number", Number = value };
+    public static TaskValue Number(double value) => new() { Kind = "number", Number = value };
     public static TaskValue String(string value) => new() { Kind = "string", Text = value };
     public static TaskPlan Tasks(string name, PlanningCatalog catalog)
     {
         var plan = new TaskPlan(); var main = plan.Root;
         PlanTask Invoke(string id, string method, params TaskOutput[] inputs) => new() { Id = id, Objective = "Perform " + method, Operation = TaskOperations.Describe(catalog.Capabilities.Single(c => c.Method == method)).Id, Inputs = inputs.ToList() };
-        PlanTask Math(string id, string operation, TaskValue left, TaskValue right) => new() { Id = id, Objective = "Calculate result", Operation = TaskOperations.Describe(catalog.Capabilities.Single(c => c.StepType == operation)).Id, Inputs = [new("left", left), new("right", right)] };
+        PlanTask Math(string id, string operation, TaskValue left, TaskValue right) => new() { Id = id, Objective = "Calculate result", Kind = "value", Outputs = [new("value", new() { Kind = "arithmetic", Text = operation, Items = [left, right] })] };
         TaskValue Output(string id, string? port = "value") => Business("output", id, port);
         var result = Output("result");
         switch (name)
         {
-            case "local": main.Tasks.Add(Math("result", "number.multiply", Number(6), Number(7))); break;
-            case "read_transform": main.Tasks.Add(Invoke("read", "read")); main.Tasks.Add(Math("result", "number.multiply", Output("read"), Number(2))); break;
+            case "local": main.Tasks.Add(Math("result", "multiply", Number(6), Number(7))); break;
+            case "read_transform": main.Tasks.Add(Invoke("read", "read")); main.Tasks.Add(Math("result", "multiply", Output("read"), Number(2))); break;
             case "nullable_defaults":
                 plan.Inputs.Add(new() { Name = "increment", Type = new() { Kind = "number" }, Required = false, Default = Number(2) });
-                main.Tasks.Add(Invoke("read", "read_optional")); main.Tasks.Add(Math("fallback", "number.default", Output("read"), Number(0)));
-                main.Tasks.Add(Math("result", "number.add", Output("fallback"), Business("input", "increment"))); break;
+                main.Tasks.Add(Invoke("read", "read_optional")); main.Tasks.Add(new() { Id = "fallback", Objective = "Use zero when the observed number is null", Kind = "conditional",
+                    Condition = new() { Kind = "predicate", Predicate = "not_equal", Items = [Output("read"), new()] },
+                    Body = new() { Outputs = [new("value", Output("read"))] }, Otherwise = new() { Outputs = [new("value", Number(0))] } });
+                main.Tasks.Add(Math("result", "add", Output("fallback"), Business("input", "increment"))); break;
             case "conditional":
                 plan.Inputs.Add(new() { Name = "enabled", Type = new() { Kind = "boolean" } });
                 main.Tasks.Add(new() { Id = "result", Objective = "Read only when enabled", Kind = "conditional", Condition = Business("input", "enabled"),
@@ -61,7 +63,7 @@ public static class PlanningCorpus
             case "collections":
                 plan.Inputs.Add(new() { Name = "values", Type = new() { Kind = "array", Items = new() { Kind = "number" } } });
                 plan.Groups.Add(new() { Id = "double_group", Inputs = [new() { Name = "value", Type = new() { Kind = "number" } }],
-                    Body = new() { Tasks = [Math("multiply_item", "number.multiply", Business("input", "value"), Number(2))], Outputs = [new("result", Output("multiply_item"))] } });
+                    Body = new() { Tasks = [Math("multiply_item", "multiply", Business("input", "value"), Number(2))], Outputs = [new("result", Output("multiply_item"))] } });
                 main.Tasks.Add(new() { Id = "result", Objective = "Double each value preserving order", Kind = "foreach", Items = Business("input", "values"), Parallel = true,
                     Body = new() { Tasks = [new() { Id = "double", Objective = "Double this item", Kind = "call", Group = "double_group", Inputs = [new("value", Business("item"))] }], Outputs = [new("values", Output("double", "result"))] } });
                 result = Output("result", "values"); break;

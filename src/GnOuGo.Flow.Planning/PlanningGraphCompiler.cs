@@ -242,8 +242,8 @@ public sealed partial class PlanningGraphCompiler
                 return JsonValue.Create(value.Text ?? "");
             case "number":
                 var number = value.Number ?? throw new InvalidOperationException("Missing number.");
-                if (number is > 9007199254740991m or < -9007199254740991m)
-                    throw new InvalidOperationException("A numeric literal exceeds Flow's exact numeric range. Represent identifiers requiring larger exact integers as strings.");
+                if (!double.IsFinite(number))
+                    throw new InvalidOperationException("A numeric literal must be a finite JavaScript Number.");
                 return JsonValue.Create(number);
             case "boolean": return JsonValue.Create(value.Boolean ?? throw new InvalidOperationException("Missing boolean."));
             case "dynamic_mapping":
@@ -261,7 +261,7 @@ public sealed partial class PlanningGraphCompiler
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
-            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "json" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
+            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "arithmetic" or "json" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
@@ -290,11 +290,19 @@ public sealed partial class PlanningGraphCompiler
             var selections = PlanningGraphValidation.Literal(paths)!;
             // Whole-value guards only assemble an envelope; set validates the result.
             // Do not route computed bindings through the structural-selection sandbox.
-            if (source.Kind is "json" or "predicate" && !each && selections is JsonArray { Count: 1 } whole && whole[0] is JsonArray { Count: 0 })
+            if (source.Kind is "json" or "predicate" or "arithmetic" && !each && selections is JsonArray { Count: 1 } whole && whole[0] is JsonArray { Count: 0 })
                 return "${({value:" + ExpressionBody(source) + "})}";
             var script = "({value:m.select(source," + selections.ToJsonString() + "," + (each ? "true" : "false") + ")})";
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
             expression = "checkedMapping(" + JsonValue.Create(script)!.ToJsonString() + "," + ExpressionBody(source) + ")";
+        }
+        else if (value.Kind == "arithmetic")
+        {
+            var op = PlanningValues.ArithmeticOperator(value.Text);
+            var unary = value.Text == "negate";
+            expression = "((a" + (unary ? "" : ",b") + ")=>{if(!Number.isFinite(a)" + (unary ? "" : "||!Number.isFinite(b)") +
+                ")throw new Error('Arithmetic operands must be finite numbers.');return (" + (unary ? "-a" : "a" + op + "b") + ");})(" +
+                string.Join(",", value.Items.Select(ExpressionBody)) + ")";
         }
         else if (value.Kind == "predicate")
         {

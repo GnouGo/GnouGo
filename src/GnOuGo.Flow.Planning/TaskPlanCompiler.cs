@@ -59,6 +59,7 @@ public sealed partial class TaskPlanCompiler
         public Dictionary<string, Dictionary<string, Bound>> Tasks { get; } = new(StringComparer.Ordinal);
         public List<PlanningMember> Captures { get; } = [];
         public HashSet<(string Kind, string Source, string Port)> Blocked { get; } = [];
+        public string? NonNullReference { get; init; }
         public Bound? Item { get; set; }
         public Bound? Index { get; set; }
         public List<PlanningNode>? Target { get; set; }
@@ -231,8 +232,8 @@ public sealed partial class TaskPlanCompiler
                 target.Add(sequence.Call); outputs = WorkflowResult(sequence.Call.Key, sequence.Workflow); break;
             case "conditional":
                 var condition = Value(task.Condition ?? MissingValue(), scope); RequireBoolean(condition);
-                var yes = Child(task.Body ?? MissingScope(), scope, key, "yes");
-                var no = Child(task.Otherwise ?? MissingScope(), scope, key, "no");
+                var yes = Child(task.Body ?? MissingScope(), scope, key, "yes", NonNullReference(task.Condition, true));
+                var no = Child(task.Otherwise ?? MissingScope(), scope, key, "no", NonNullReference(task.Condition, false));
                 if (!yes.Workflow.Outputs.Select(o => o.Name).Order().SequenceEqual(no.Workflow.Outputs.Select(o => o.Name).Order()))
                     Fail("TASK_BRANCH_OUTPUTS", "Both alternatives must declare the same named business outputs.");
                 target.Add(new() { Key = key, Purpose = task.Objective, Type = "switch", Expr = condition.Value,
@@ -431,12 +432,12 @@ public sealed partial class TaskPlanCompiler
         return OperationResults(key, capability, input);
     }
 
-    private (PlanningWorkflow Workflow, PlanningNode Call) Child(TaskScope source, Scope parent, string key, string role)
+    private (PlanningWorkflow Workflow, PlanningNode Call) Child(TaskScope source, Scope parent, string key, string role, string? nonNull = null)
     {
         var childKey = Key(key, role); var workflow = new PlanningWorkflow { Key = childKey };
         _graph.Workflows.Add(workflow); _sources[childKey] = _location + "/" + (role switch
         { "yes" or "iteration" => "body", "no" => "otherwise", _ => role.Replace("branch:", "branches/", StringComparison.Ordinal) });
-        var location = _location; var child = new Scope(workflow, parent); CompileScope(source, child, childKey); _location = location;
+        var location = _location; var child = new Scope(workflow, parent) { NonNullReference = nonNull }; CompileScope(source, child, childKey); _location = location;
         return (workflow, Call(Key(childKey, "call"), childKey, Object(child.Captures)));
     }
 
@@ -463,7 +464,34 @@ public sealed partial class TaskPlanCompiler
         }));
     }
 
+    private static string? NonNullReference(TaskValue? condition, bool whenTrue)
+    {
+        if (condition is not { Kind: "predicate", Items.Count: 2 } ||
+            !(whenTrue && condition.Predicate == "not_equal" || !whenTrue && condition.Predicate == "equal")) return null;
+        var reference = condition.Items[0].Kind == "null" ? condition.Items[1] : condition.Items[1].Kind == "null" ? condition.Items[0] : null;
+        return reference?.Kind is "input" or "output" or "field" ? JsonSerializer.Serialize(reference, PlanningJsonContext.Default.TaskValue) : null;
+    }
+
     private Bound Value(TaskValue value, Scope scope, bool consume = true)
+    {
+        var bound = ValueCore(value, scope, consume);
+        if (!consume || value.Kind is not ("input" or "output" or "field")) return bound;
+        var identity = JsonSerializer.Serialize(value, PlanningJsonContext.Default.TaskValue);
+        for (var ancestor = scope; ancestor is not null; ancestor = ancestor.Parent)
+            if (ancestor.NonNullReference == identity && bound.Schema["type"] is JsonArray types && types.Any(t => t?.ToString() == "null"))
+            {
+                var schema = bound.Schema.DeepClone().AsObject();
+                var remaining = types.Where(t => t?.ToString() != "null").Select(t => t!.DeepClone()).ToArray();
+                if (remaining.Length == 0) return bound;
+                schema["type"] = remaining.Length == 1 ? remaining[0] : new JsonArray(remaining);
+                // Keep the captured contract unchanged. A checked identity projection
+                // inside the selected branch establishes its nonnullable export.
+                return Consume(bound with { Schema = schema, SelectionSource = bound, SelectionPath = [] }, scope);
+            }
+        return bound;
+    }
+
+    private Bound ValueCore(TaskValue value, Scope scope, bool consume)
     {
         if (value.Kind == "output" && value.Source is not null && !scope.Tasks.ContainsKey(value.Source) &&
             _symbols.Values.TryGetValue(_location, out var site) && _symbols.ExportedReference(site.Scope, value) is { } exported)
@@ -482,7 +510,7 @@ public sealed partial class TaskPlanCompiler
                 // Workflow defaults and transform results keep their declared (possibly broader) types.
                 return new(new() { Kind = "string", Text = value.Text }, new() { ["type"] = "string", ["const"] = value.Text });
             case "number":
-                if (value.Number is null) Fail("TASK_LITERAL_INVALID", "Number is required.");
+                if (value.Number is null || !double.IsFinite(value.Number.Value)) Fail("TASK_LITERAL_INVALID", "A finite number is required.");
                 return new(Number(value.Number!.Value), new() { ["type"] = "number" });
             case "boolean":
                 if (value.Boolean is null) Fail("TASK_LITERAL_INVALID", "Boolean is required.");
@@ -521,10 +549,11 @@ public sealed partial class TaskPlanCompiler
                 if (value.Source is null || !scope.Tasks.TryGetValue(value.Source, out var producer)) Fail("TASK_PRESENCE_SCOPE", "Presence requires a preceding task in the same scope.");
                 var result = scope.Tasks[value.Source!][""];
                 return new(new() { Kind = "present", Source = result.Value.Source }, new() { ["type"] = "boolean" });
+            case "arithmetic": return Arithmetic(value, scope);
             case "predicate": return Predicate(value, scope);
             case "json": return EncodeJson(value, scope);
             case "field": return SelectField(value, scope, consume);
-            default: Fail("TASK_VALUE_INVALID", "Values allow literals, business references, declared fields, JSON encoding and typed predicates only."); break;
+            default: Fail("TASK_VALUE_INVALID", "Values allow literals, business references, declared fields, JSON encoding, typed arithmetic and predicates only."); break;
         }
         if (scope.Parent is null) Fail("TASK_REFERENCE_UNKNOWN", "Business reference '" + value.Source + "' is unavailable in this scope.");
         // Capture the authoritative container, not an unchecked optional field.
@@ -583,6 +612,17 @@ public sealed partial class TaskPlanCompiler
         return Output(key, "set", ["value"], value.Schema) with { TypeLocation = value.TypeLocation };
     }
 
+    private Bound Arithmetic(TaskValue value, Scope scope)
+    {
+        if (value.Source is not null || value.Port is not null || value.Predicate is not null || value.Number is not null ||
+            value.Boolean is not null || value.Members.Count != 0)
+            Fail("TASK_ARITHMETIC_INVALID", "Arithmetic contains unsupported fields.");
+        var operands = value.Items.Select(i => Value(i, scope)).ToArray();
+        var computation = new PlanningValue { Kind = "arithmetic", Text = value.Text, Items = operands.Select(o => o.Value).ToList() };
+        try { return new(computation, PlanningValues.ComputationContract(computation, operand => operands.First(o => ReferenceEquals(o.Value, operand)).Schema)); }
+        catch (InvalidOperationException ex) { Fail("TASK_ARITHMETIC_INVALID", ex.Message); throw; }
+    }
+
     private Bound Predicate(TaskValue value, Scope scope)
     {
         var operands = value.Items.Select(i => Value(i, scope)).ToArray();
@@ -618,7 +658,7 @@ public sealed partial class TaskPlanCompiler
     private static PlanningValue Object(IEnumerable<PlanningMember> members) => new() { Kind = "object", Members = members.ToList() };
     private static PlanningValue Array(IEnumerable<PlanningValue> items) => new() { Kind = "array", Items = items.ToList() };
     private static PlanningValue Strings(IEnumerable<string> items) => Array(items.Select(s => new PlanningValue { Kind = "string", Text = s }));
-    private static PlanningValue Number(decimal number) => new() { Kind = "number", Number = number };
+    private static PlanningValue Number(double number) => new() { Kind = "number", Number = number };
     private static JsonObject ObjectSchema(IEnumerable<(string Name, JsonObject Schema)> fields)
     {
         var ports = fields.ToArray(); return new() { ["type"] = "object", ["properties"] = new JsonObject(ports.Select(f => new KeyValuePair<string, JsonNode?>(f.Name, f.Schema.DeepClone()))), ["required"] = new JsonArray(ports.Select(f => (JsonNode?)JsonValue.Create(f.Name)).ToArray()), ["additionalProperties"] = false };

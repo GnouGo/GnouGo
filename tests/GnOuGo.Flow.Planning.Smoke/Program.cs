@@ -7,6 +7,54 @@ using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 using GnOuGo.Planning.Examples;
 
+if (args is ["--decimal-boundary-host"])
+{
+    var inputSchema = JsonDocument.Parse("""{"type":"object","properties":{"amount":{"type":"number","format":"decimal"},"ordinary":{"type":"number"}},"required":["amount","ordinary"]}""").RootElement.Clone();
+    var numericOutputSchema = JsonDocument.Parse("""{"type":"object","properties":{"result":{"type":"number","format":"decimal"},"ordinary":{"type":"number"}},"required":["result","ordinary"]}""").RootElement.Clone();
+    var options = new ModelContextProtocol.Server.McpServerOptions { ServerInfo = new() { Name = "numeric-smoke", Version = "1" } };
+    options.Handlers.ListToolsHandler = (_, _) => ValueTask.FromResult(new ModelContextProtocol.Protocol.ListToolsResult
+    { Tools = [new() { Name = "exchange", InputSchema = inputSchema, OutputSchema = numericOutputSchema }] });
+    options.Handlers.CallToolHandler = (request, _) =>
+    {
+        var amount = request.Params!.Arguments!["amount"].GetDecimal();
+        var content = new JsonObject { ["result"] = amount + 0.1m, ["ordinary"] = request.Params.Arguments["ordinary"].GetDouble() }.ToJsonString();
+        return ValueTask.FromResult(new ModelContextProtocol.Protocol.CallToolResult
+        { StructuredContent = JsonDocument.Parse(content).RootElement.Clone(), Content = [new ModelContextProtocol.Protocol.TextContentBlock { Text = content }] });
+    };
+    await using var transport = new ModelContextProtocol.Server.StreamServerTransport(Console.OpenStandardInput(), Console.OpenStandardOutput(), "numeric-smoke");
+    await using var server = ModelContextProtocol.Server.McpServer.Create(transport, options);
+    await server.RunAsync();
+    return;
+}
+
+var historicalNumber = JsonSerializer.Deserialize("""{"kind":"number","number":0.1234567890123456789012345678}""", PlanningJsonContext.Default.TaskValue)!;
+if (JsonSerializer.SerializeToNode(historicalNumber, PlanningJsonContext.Default.TaskValue)!["number"]!.ToJsonString() != "0.1234567890123456789012345678")
+    throw new InvalidOperationException("Historical numeric tokens changed during Native AOT serialization.");
+
+// Native publication provides a self-contained executable for a real stdio MCP
+// exchange. Managed runs exercise the same conversions in the integration suite.
+if (!System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported)
+{
+    await using var numericFactory = new GnOuGo.Flow.Integrations.ConfiguredMcpClientFactory(new Dictionary<string, GnOuGo.AI.Core.McpServerOptions>
+    { ["numeric-smoke"] = new() { Type = "stdio", Command = Environment.ProcessPath!, Args = ["--decimal-boundary-host"] } });
+    var numericDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
+        version: 1
+        workflows:
+          main:
+            steps:
+              - id: exchange
+                type: mcp.call
+                input: {server: numeric-smoke, method: exchange, request: {amount: 1.25, ordinary: 1e-100}}
+            outputs:
+              amount: "${data.steps.exchange.response.result}"
+              ordinary: "${data.steps.exchange.response.ordinary}"
+        """));
+    var numericResult = await new WorkflowEngine { McpClientFactory = numericFactory }.ExecuteAsync(numericDocument.Workflows["main"], new JsonObject(), CancellationToken.None);
+    if (!numericResult.Success || numericResult.Outputs?["amount"]?.GetValue<double>() != 1.35 || numericResult.Outputs?["ordinary"]?.GetValue<double>() != 1e-100)
+        throw new InvalidOperationException("Published decimal MCP boundary failed: " + numericResult.Error?.Message);
+    Console.WriteLine("numeric MCP: real native stdio decimal input/output conversion; exact producer-owned calculation");
+}
+
 var authoritativePattern = JsonNode.Parse("""{"type":"object","properties":{"path":{"type":"string","pattern":"^(?!blocked)[a-z]+$"}},"required":["path"],"additionalProperties":false}""")!.AsObject();
 var projectedPattern = PlanningContractValidation.ProjectStructuredOutputSchema(authoritativePattern);
 if (projectedPattern["properties"]!["path"]!["pattern"] is not null || authoritativePattern["properties"]!["path"]!["pattern"] is null ||

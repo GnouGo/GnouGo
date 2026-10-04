@@ -69,6 +69,7 @@ internal static class PlanningBindingSchemas
                 var kinds = binding["properties"]?["kind"]?["enum"]?.AsArray().Select(k => k!.ToString()).ToArray() ?? [];
                 if (kinds.Length == 0 || kinds.Any(k => k is "null" or "string" or "number" or "boolean" or "array" or "object")) continue;
                 if (workspace && kinds.Any(k => k is not ("output" or "field"))) continue;
+                if (kinds.Contains("arithmetic") && !types.Any(t => t is "number" or "integer")) continue;
                 if (kinds.Contains("json") && !types.Contains("string")) continue;
                 alternatives.Add(binding.DeepClone());
             }

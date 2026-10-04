@@ -64,6 +64,6 @@ public sealed class NullableSchemaContractTests
         Assert.Null(FlowTypeDescriptor.Enum("passed").FindAssignmentIssue(status));
         Assert.NotNull(FlowTypeDescriptor.Enum("invented").FindAssignmentIssue(status));
         var number = FlowTypeDescriptorConverter.FromJsonSchema(JsonNode.Parse("""{"type":["integer","null"],"minimum":0}"""));
-        Assert.Equal(0m, number.RemoveNull().Minimum);
+        Assert.Equal(0d, number.RemoveNull().Minimum);
     }
 }

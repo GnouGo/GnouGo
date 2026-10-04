@@ -2,7 +2,11 @@
 
 This change continues PR #117. It preserves `LLM → business TaskPlan → deterministic compiler → PlanningGraph → YAML`, public plan formats and storage format 10. There are no new planning phases, service interfaces, executors or MCP-specific rules.
 
-## Audit and implementation
+## Current numeric migration
+
+`NumericTransformExecutor` and `number.add`, `number.multiply`, `number.default` are removed. Ordinary arithmetic uses JavaScript `Number`; exact business arithmetic belongs to the producer MCP. See [numeric compilation and MCP conversions](numeric-compilation.md). Saved workflows containing retired steps must be explicitly revised and approved. This supersedes the numeric retention decision in the historical audit below.
+
+## Historical audit and implementation
 
 | Previous executor | Real usage | Current implementation |
 | --- | --- | --- |
@@ -103,7 +107,7 @@ Parse strictly in an ordinary set, then check the whole parsed value:
         properties: {x: {type: integer}}
 ```
 
-Malformed text and non-string inputs fail even when the target permits null. Do not replace strict parsing with `fromJson`, which returns null on malformed text. JavaScript numbers have double precision: this migration is not a lossless replacement for arbitrary decimal JSON numbers or integers beyond its exact range. Preserve exact identifiers/decimals as strings or use an authoritative producer contract; the existing numeric executors retain their decimal semantics.
+Malformed text and non-string inputs fail even when the target permits null. Do not replace strict parsing with `fromJson`, which returns null on malformed text. JavaScript numbers have double precision: this migration is not a lossless replacement for arbitrary decimal JSON numbers or integers beyond its exact range. Preserve exact identifiers/decimals as strings or use an authoritative producer contract; exact business calculations belong to the producer MCP. Numeric executors have since been removed; see the current migration above.
 
 ## Compatibility and deployment
 
@@ -113,7 +117,7 @@ Stored YAML, approvals, history and execution journals are not rewritten. Revise
 
 Python runtime implementations are outside this change. Shared historical fixtures retain the previous primitive names for evidence; .NET rejects those artifacts until explicitly revised. Historical benchmark results, including 33/33, are unchanged and do not validate this cleanup.
 
-## Validation
+## Historical validation
 
 Baseline: 177 focused existing tests passed with `-warnaserror` before editing. New regressions cover checked projection, strict parsing, decision compositions, retired steps in all control-flow positions, unchanged durable journals and custom executors. Compiler regressions cover strict confirmation, collection bounds and literal projection configuration. Existing local product execution independently inspects generated XLSX cells.
 
