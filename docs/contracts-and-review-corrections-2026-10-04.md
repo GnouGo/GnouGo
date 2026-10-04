@@ -88,3 +88,15 @@ retains its fresh Amazon attempt: four calls/attempts, two repairs, two discover
 stopped on a nullable consent selector and missing loop exports. No artifact was
 approved or executed. The other five slots are unattempted. This cohort stays separate
 from evaluation of the compacted candidate; it establishes no live execution success.
+
+Candidate `2ac36e43676b853d5559689af0b1bd0fc9fcabb8` fits the recorded token
+limits, but two existing capability-alternative regressions require the explicit
+guidance "compatible alternatives". That qualifier was restored without changing
+the tests or limits. The complete planner suite is required before further collection.
+
+[Cohort d](evidence/contracts-review-2026-10-04/contractsreview20261004d.json)
+retains two unexecuted proposals: Amazon reached review after three calls and one
+repair, but one continuation read per page did not establish completeness. Code
+stopped after four calls and one repair on artifact use after release; its plan also
+kept report creation on the success path. No approval or external execution occurred.
+These results and their accounting remain separate from any subsequent candidate.
