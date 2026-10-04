@@ -61,6 +61,28 @@ public sealed class BrowserObservationTests(ITestOutputHelper output)
             }
             output.WriteLine($"OBSERVATION measured: {serializedCharacters} serialized characters versus {html.Length} source HTML characters; {all.Count} records.");
             Assert.True(serializedCharacters < html.Length / 2, $"Observed {serializedCharacters} versus {html.Length} HTML characters.");
+            var manifestResult = await host.GetContentAsync(null, "load", null, "main", "observation_pages", 2400, false, ct, maxRecords: 8);
+            var manifest = Assert.IsType<BrowserObservationManifest>(manifestResult.ObservationManifest);
+            Assert.False(manifestResult.Truncated); Assert.False(manifest.ManifestTruncated); Assert.False(manifest.CaptureTruncated);
+            Assert.True(manifest.Pages.Count > 3); Assert.Empty(manifestResult.Content); Assert.Null(manifestResult.Observation);
+            Assert.Equal(manifest.Pages.Count, manifest.Pages.Select(p => p.Cursor).Distinct().Count());
+            var pagedRecords = new List<BrowserObservationRecord>();
+            var compactSize = 0;
+            foreach (var descriptor in manifest.Pages)
+            {
+                var chunk = await host.GetContentAsync(null, "load", null, null, "observation_pages", null, false, ct, descriptor.Cursor);
+                Assert.Equal(descriptor.RecordCount, chunk.Observation!.Records.Count); Assert.Empty(chunk.Content);
+                var serialized = JsonSerializer.Serialize(chunk, BrowserMcpJsonContext.Default.BrowserContentResult);
+                Assert.InRange(serialized.Length, 1, 2400); compactSize += serialized.Length;
+                Assert.Equal(serialized, JsonSerializer.Serialize(await host.GetContentAsync(null, "load", null, null, "observation_pages", null, false, ct, descriptor.Cursor), BrowserMcpJsonContext.Default.BrowserContentResult));
+                pagedRecords.AddRange(chunk.Observation.Records);
+            }
+            Assert.Equal(manifest.RecordCount, pagedRecords.Count); Assert.Equal(all, pagedRecords);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, "observation_pages", 2400, false, ct, manifest.Pages[0].Cursor));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, "observation_pages", null, false, ct, manifest.Id + ":page:999"));
+            output.WriteLine($"PAGED: {manifest.Pages.Count} frozen pages; {compactSize} response characters; exact {pagedRecords.Count} records.");
+            await host.ClickAsync("#change", "domcontentloaded", 1000, ct);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, "observation_pages", null, false, ct, manifest.Pages[0].Cursor));
             var first = await host.GetContentAsync(null, "load", null, "main", "observation", 2400, false, ct, maxRecords: 2);
             var continuation = Assert.IsType<string>(first.Observation!.NextCursor);
             await host.ClickAsync("#change", "domcontentloaded", 1000, ct);
@@ -79,6 +101,16 @@ public sealed class BrowserObservationTests(ITestOutputHelper output)
             Assert.Equal("Observed item", Assert.Single(narrowed.Observation.Records).Text);
             var empty = await host.GetContentAsync(null, "load", null, "#empty", "observation", null, false, ct);
             Assert.False(empty.Truncated); Assert.Null(empty.Observation!.NextCursor); Assert.Empty(empty.Observation.Records);
+            var emptyManifest = await host.GetContentAsync(null, "load", null, "#empty", "observation_pages", null, false, ct);
+            Assert.False(emptyManifest.Truncated); Assert.Empty(emptyManifest.ObservationManifest!.Pages);
+            var partialManifest = await host.GetContentAsync(origin + "/capture", "domcontentloaded", null, null, "observation_pages", null, false, ct);
+            Assert.True(partialManifest.Truncated); Assert.True(partialManifest.ObservationManifest!.CaptureTruncated);
+            await using var bounded = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings { AllowedHosts = ["127.0.0.1"], MaxObservationPages = 2 }), NullLogger<PlaywrightBrowserHost>.Instance);
+            var boundedResult = await bounded.GetContentAsync(origin, "domcontentloaded", null, "main", "observation_pages", null, false, ct, maxRecords: 2);
+            Assert.True(boundedResult.Truncated); Assert.True(boundedResult.ObservationManifest!.ManifestTruncated);
+            Assert.False(boundedResult.ObservationManifest.CaptureTruncated); Assert.Equal(2, boundedResult.ObservationManifest.Pages.Count);
+            var last = await bounded.GetContentAsync(null, "load", null, null, "observation_pages", null, false, ct, boundedResult.ObservationManifest.Pages[^1].Cursor);
+            Assert.True(last.Truncated); Assert.Null(last.Observation!.NextCursor);
             await host.CloseAsync(ct);
         }
         finally { site.Stop(); await serve; }

@@ -110,6 +110,12 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
                         state["termination"] = continuation ? "continuation" : verified ? final.Completed ? "completed" : "verified_failure" :
                             lifetime.IsCancellationRequested ? "cancelled_unverified" : budget.TransportFailed ? "transport_unverified" : "completion_unverified";
                         state["evidence"]!.AsArray().Add(JsonSerializer.SerializeToNode(final, CopilotCoreJsonContext.Default.CopilotSendResult));
+                        if (final.OutputLogs.Count > 0)
+                        {
+                            var logs = new JsonObject();
+                            foreach (var log in final.OutputLogs) logs[log.Key] = log.Value;
+                            (state["outputLogs"] ??= new JsonObject())[descriptor.CopilotSessionId] = logs;
+                        }
                     }, flush.Token);
                 // Deletion is allowed only after a verified idle/completion boundary. Unknown
                 // external work retains its SDK identity for explicit reconciliation.
@@ -187,7 +193,8 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
         => final with
         {
             ToolExecutions = evidence.SelectMany(e => e.ToolExecutions.Select(o => o with
-            { ToolCallId = e.CopilotSessionId + ":" + o.ToolCallId, ParentToolCallId = o.ParentToolCallId is null ? null : e.CopilotSessionId + ":" + o.ParentToolCallId })).ToArray(),
+            { ToolCallId = e.CopilotSessionId + ":" + o.ToolCallId, ParentToolCallId = o.ParentToolCallId is null ? null : e.CopilotSessionId + ":" + o.ParentToolCallId,
+              Terminals = o.Terminals.Select(t => t with { SourceToolCallId = t.SourceToolCallId is null ? null : e.CopilotSessionId + ":" + t.SourceToolCallId }).ToArray() })).ToArray(),
             ModifiedFiles = evidence.SelectMany(e => e.ModifiedFiles).Distinct(StringComparer.Ordinal).ToArray(),
             Events = evidence.SelectMany(e => e.Events).Append(new("logical_operation", "info", $"SDK sessions: {count}.", DateTimeOffset.UtcNow)).ToArray(),
             // Individual provider usage is retained in encrypted evidence. Never present the last session as a complete total.

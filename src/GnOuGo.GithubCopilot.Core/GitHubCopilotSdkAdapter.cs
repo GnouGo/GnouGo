@@ -174,7 +174,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
                     ValidateSandboxEnforcement(enforcement.Required, enforcement.Blocked);
                 }
             }
-            return new GitHubCopilotSdkSession(session, _configuration, configuration.FileSystem);
+            return new GitHubCopilotSdkSession(session, _configuration, configuration.FileSystem, configuration.SessionState);
         }
         catch { await session.DisposeAsync(); throw; }
     }
@@ -229,7 +229,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             ExcludedTools = source.FileSystem is null ? configuration.ExcludedTools?.ToArray()
                 : (configuration.ExcludedTools ?? []).Concat(CopilotProjectFileTool.NativeFileTools).Distinct(StringComparer.Ordinal).ToArray(),
             Tools = source.FileSystem is not null && request.PermissionMode != CopilotPermissionMode.Deny
-                ? CopilotProjectFileTool.Create(source.FileSystem, configuration.ExecutionBounds) : null,
+                ? CopilotProjectFileTool.Create(source.FileSystem, configuration.ExecutionBounds, source.SessionState) : null,
             McpServers = configuration.McpServers?.ToDictionary(static item => item.Key, static item => item.Value, StringComparer.Ordinal),
             SkillDirectories = configuration.SkillDirectories?.ToArray(),
             DisabledSkills = configuration.DisabledSkills?.ToArray(),
@@ -237,7 +237,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             SkipEmbeddingRetrieval = true,
             CreateSessionFsProvider = configuration.UseSessionFileSystem
                 ? _ => new GitHubCopilotSessionFsAdapter(source.FileSystem ?? throw new InvalidOperationException("A session filesystem is required."), source.SessionState ?? throw new InvalidOperationException("Session state is required.")) : null,
-            Hooks = BuildAuditHooks(_logger, source.FileSystem, configuration.ExecutionBounds, configuration.LogicalInferenceBudget),
+            Hooks = BuildAuditHooks(_logger, source.FileSystem, configuration.ExecutionBounds, configuration.LogicalInferenceBudget, source.SessionState),
             OnPermissionRequest = BuildPermissionHandler(source),
             OnUserInputRequest = BuildUserInputHandler(source),
             OnElicitationRequest = BuildElicitationHandler(source)
@@ -280,7 +280,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             ? null
             : new SystemMessageConfig { Mode = SystemMessageMode.Append, Content = content.Trim() };
 
-    private static SessionHooks BuildAuditHooks(ILogger logger, ICopilotFileAccessPolicy? filePolicy, CopilotExecutionBounds? bounds = null, CopilotInferenceBudget? logical = null)
+    private static SessionHooks BuildAuditHooks(ILogger logger, ICopilotFileAccessPolicy? filePolicy, CopilotExecutionBounds? bounds = null, CopilotInferenceBudget? logical = null, CopilotTransientSessionState? state = null)
         => new()
         {
             OnPreToolUse = (input, _) =>
@@ -288,7 +288,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
                 logger.LogDebug("Copilot hook pre-tool-use: {ToolName}", input.ToolName);
                 if (logical is { AdmitsTools: false })
                     return Task.FromResult<PreToolUseHookOutput?>(new() { PermissionDecision = "deny", PermissionDecisionReason = "The logical operation is stopped or its deadline elapsed." });
-                if (ValidateFileTool(input, filePolicy) is { } rejection) return Task.FromResult<PreToolUseHookOutput?>(rejection);
+                if (ValidateFileTool(input, filePolicy, state) is { } rejection) return Task.FromResult<PreToolUseHookOutput?>(rejection);
                 if (bounds is not null && !bounds.TryAdmitSdkTool(input.ToolName))
                     return Task.FromResult<PreToolUseHookOutput?>(new() { PermissionDecision = "deny", PermissionDecisionReason = "The operation exceeds the approved task scope or deadline." });
                 return Task.FromResult<PreToolUseHookOutput?>(null);
@@ -344,7 +344,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
                 return PermissionDecision.Reject("The logical operation no longer admits tool execution.");
             if (source.Request.Configuration.ExecutionBounds is not null && RequestsSandboxBypass(request))
                 return PermissionDecision.Reject("Bounded tasks cannot expand their approved sandbox scope.");
-            if (ValidateFilePermission(request, source.FileSystem) is { } rejection) return rejection;
+            if (ValidateFilePermission(request, source.FileSystem, source.SessionState) is { } rejection) return rejection;
             var permissions = source.Request.Configuration.LogicalPermissions;
             if (permissions is not null && await permissions.IsDeniedAsync(request))
                 return PermissionDecision.Reject("This operation was refused during the logical task.");
@@ -354,28 +354,32 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         };
     }
 
-    internal static PermissionDecision? ValidateFilePermission(PermissionRequest request, ICopilotFileAccessPolicy? policy)
+    internal static PermissionDecision? ValidateFilePermission(PermissionRequest request, ICopilotFileAccessPolicy? policy, CopilotTransientSessionState? state = null)
     {
         try
         {
-            if (request is PermissionRequestRead read) policy?.ValidateRead(read.Path);
+            if (request is PermissionRequestRead read)
+            {
+                if (CopilotTransientSessionState.Contains(read.Path)) (state ?? throw new UnauthorizedAccessException("No session output store.")).ValidateOutputRead(read.Path);
+                else policy?.ValidateRead(read.Path);
+            }
             if (request is PermissionRequestWrite write) policy?.ValidateWrite(write.FileName, write.NewFileContents);
             if (policy is not null && request is PermissionRequestCustomTool tool && CopilotProjectFileTool.IsProjectTool(tool.ToolName))
-                CopilotProjectFileTool.Validate(tool.ToolName, CopilotProjectFileTool.Arguments(tool.Args), policy);
+                CopilotProjectFileTool.Validate(tool.ToolName, CopilotProjectFileTool.Arguments(tool.Args), policy, state);
             return null;
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or ArgumentException or InvalidOperationException)
         { return PermissionDecision.Reject("The host filesystem policy denies this operation: " + ex.Message); }
     }
 
-    internal static PreToolUseHookOutput? ValidateFileTool(PreToolUseHookInput input, ICopilotFileAccessPolicy? policy)
+    internal static PreToolUseHookOutput? ValidateFileTool(PreToolUseHookInput input, ICopilotFileAccessPolicy? policy, CopilotTransientSessionState? state = null)
     {
         if (policy is null) return null;
         try
         {
             if (CopilotProjectFileTool.IsProjectTool(input.ToolName))
             {
-                CopilotProjectFileTool.Validate(input.ToolName, CopilotProjectFileTool.Arguments(input.ToolArgs), policy);
+                CopilotProjectFileTool.Validate(input.ToolName, CopilotProjectFileTool.Arguments(input.ToolArgs), policy, state);
                 return null;
             }
             var write = input.ToolName is "edit" or "edit_file" or "create" or "create_file" or "str_replace_editor" or "apply_patch";
@@ -462,7 +466,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         CopilotSdkSessionConfiguration source,
         InteractivePermissionTaskState taskState)
     {
-        if (ValidateFilePermission(request, source.FileSystem) is { } denied) return denied;
+        if (ValidateFilePermission(request, source.FileSystem, source.SessionState) is { } denied) return denied;
         if (source.HumanInputProvider is null)
             return PermissionDecision.UserNotAvailable();
 
@@ -934,19 +938,21 @@ internal sealed class GitHubCopilotSdkSession : ICopilotSdkSession
     private readonly CopilotRuntimeConfiguration _configuration;
 
     private readonly ICopilotFileAccessPolicy? _filePolicy;
+    private readonly CopilotTransientSessionState? _state;
 
-    public GitHubCopilotSdkSession(CopilotSession session, CopilotRuntimeConfiguration configuration, ICopilotFileAccessPolicy? filePolicy = null)
+    public GitHubCopilotSdkSession(CopilotSession session, CopilotRuntimeConfiguration configuration, ICopilotFileAccessPolicy? filePolicy = null, CopilotTransientSessionState? state = null)
     {
         _session = session;
         _configuration = configuration;
         _filePolicy = filePolicy;
+        _state = state;
     }
 
     public string SessionId => _session.SessionId;
 
     public async Task<CopilotSendResult> SendAsync(string handle, CopilotSendRequest request, CancellationToken cancellationToken)
     {
-        var observations = new CopilotExecutionObservations();
+        var observations = new CopilotExecutionObservations(SessionId, _state);
         var events = new List<CopilotStreamEvent>
         {
             new("request_send", "thinking", "Sending a message to Copilot.", DateTimeOffset.UtcNow)
@@ -962,6 +968,20 @@ internal sealed class GitHubCopilotSdkSession : ICopilotSdkSession
             if (MapProgressEvent(evt) is { } progress) Report(progress);
         });
 
+        var finalized = false;
+        async Task VerifyBoundaryAsync()
+        {
+            if (finalized) return;
+            finalized = true;
+            using var shutdown = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            shutdown.CancelAfter(TimeSpan.FromSeconds(2));
+            await observations.WaitForIdleAsync(shutdown.Token);
+            if (!observations.VerifiedTerminalCompletion && !shutdown.IsCancellationRequested)
+            {
+                try { observations.MergeHistory(await _session.GetEventsAsync(shutdown.Token).WaitAsync(shutdown.Token)); }
+                catch (Exception historyError) when (historyError is not OutOfMemoryException) { /* Missing delivery remains unknown. */ }
+            }
+        }
         try
         {
             var timeout = TimeSpan.FromSeconds(Math.Max(1, request.TimeoutSeconds ?? _configuration.RequestTimeoutSeconds));
@@ -975,19 +995,24 @@ internal sealed class GitHubCopilotSdkSession : ICopilotSdkSession
             }, timeout, cancellationToken);
 
             var content = response?.Data?.Content;
+            if (_configuration.LogicalInferenceBudget is { } completedBudget)
+            {
+                completedBudget.CloseAdmissions();
+                await VerifyBoundaryAsync();
+            }
             if (string.IsNullOrWhiteSpace(content))
                 throw new InvalidOperationException("GitHub Copilot returned an empty response.");
             if (_configuration.LogicalInferenceBudget is not null && !observations.VerifiedTerminalCompletion)
                 throw new InvalidOperationException("GitHub Copilot did not establish completion of its external operations.");
             Report(new CopilotStreamEvent("completed", "info", "Copilot completed the message.", DateTimeOffset.UtcNow));
-            return new CopilotSendResult(handle, SessionId, content, response?.Data?.Model, events.ToArray()) { ToolExecutions = observations.Snapshot(), Usage = new CopilotUsage(response?.Data?.OutputTokens, response?.Data?.RequestId, response?.Data?.InteractionId) };
+            return new CopilotSendResult(handle, SessionId, content, response?.Data?.Model, events.ToArray()) { ToolExecutions = observations.Snapshot(), OutputLogs = _state?.OutputSnapshot() ?? new Dictionary<string, string>(), Usage = new CopilotUsage(response?.Data?.OutputTokens, response?.Data?.RequestId, response?.Data?.InteractionId) };
         }
         catch (Exception ex) when (ex is not OutOfMemoryException && (_configuration.ExecutionBounds is not null || _configuration.LogicalInferenceBudget is not null))
         {
             if (_configuration.ExecutionBounds is null && _configuration.LogicalInferenceBudget is { } logical)
             {
                 if (!observations.ContextLimit || logical.AdmissionStop is not null || cancellationToken.IsCancellationRequested) logical.CloseAdmissions();
-                await observations.WaitForIdleAsync(cancellationToken);
+                await VerifyBoundaryAsync();
             }
             CopilotStreamEvent[] captured; lock (events) captured = events.ToArray();
             throw observations.Interrupted(handle, SessionId, ex, _configuration.ExecutionBounds, cancellationToken, _configuration.LogicalInferenceBudget, captured);

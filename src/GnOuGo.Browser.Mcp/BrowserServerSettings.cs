@@ -13,6 +13,7 @@ public sealed class BrowserServerSettings
     public int MaxContentCharacters { get; set; } = 12_000;
     public int MaxObservationCharacters { get; set; } = 24_000;
     public int MaxObservationRecords { get; set; } = 200;
+    public int MaxObservationPages { get; set; } = 100;
     public int ScreenshotQuality { get; set; } = 90;
     public int SlowMoMs { get; set; }
     public int HoldOpenMs { get; set; }

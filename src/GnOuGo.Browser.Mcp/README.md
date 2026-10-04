@@ -186,6 +186,30 @@ Example MCP configuration in `LLMOptions`:
 
 ### Compact observations
 
+`browser_get_content(format: "observation_pages")` captures one immutable snapshot
+and returns `observationManifest`: its `id`, captured `recordCount`, `pages`
+(`cursor`, `recordCount`), `captureTruncated` and `manifestTruncated`. Read every
+descriptor with the same format and cursor, omitting URL, selector and limits.
+Page boundaries are frozen at capture time. The existing per-response character
+and record caps apply; `Browser:MaxObservationPages` defaults to 100 and can only
+lower the hard 100-page ceiling. The manifest itself obeys the response allowance.
+
+This fits an ordinary bounded `foreach`: capture, read every listed page, collect
+the observations, then navigate. The manifest describes available pages; it does
+not acknowledge their delivery. Only consuming all listed pages with both
+truncation flags false establishes coverage of the captured scope. A truncated
+manifest or capture requires a narrower read. An empty complete manifest is an
+empty observation. Navigation, interaction, closure or a new capture expires the
+snapshot. Reads are idempotent; page results retain continuation/truncation facts.
+
+Paged results contain `observation.records` and an empty flat `content` field,
+avoiding duplicated text. Selectors are shortened only after checking uniqueness
+and identity in the DOM. Visible text, links, controls and grouping remain intact.
+The HTML `includeScriptContent` option remains false by default: it removes script
+elements from returned HTML before truncation, without disabling page execution.
+Refresh discovery and generate/review a new workflow to use the additive format;
+saved workflows and existing observation cursors are not rewritten.
+
 `browser_get_content(format: "observation")` returns visible DOM records (`kind`, `tag`, `selector`, `group`, `text`, `href`, `role`) in `observation.records`, plus the existing `content` text. Links retain observed resolved URLs; selectors and group locations retain context. Scripts, styles, hidden content, arbitrary attributes and input values are excluded. Existing HTML/text modes are unchanged.
 
 The complete serialized response is limited to 24,000 characters and 200 records, or stricter `Browser:MaxObservationCharacters` / `Browser:MaxObservationRecords` and request limits. Continue with `format: "observation", cursor: observation.nextCursor`, omitting URL and selector. Cursors refer to the original snapshot and expire on navigation, interaction or closure. `truncated` and `observation.captureTruncated` remain explicit: a capture limit requires a narrower selector; continuation cannot recover records beyond the capture limit. Oversized individual records fail rather than silently cutting values. Observations are data, never permission or factual verification.

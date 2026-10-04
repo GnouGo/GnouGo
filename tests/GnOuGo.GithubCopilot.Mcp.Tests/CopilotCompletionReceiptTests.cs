@@ -29,6 +29,8 @@ public sealed class CopilotCompletionReceiptTests
     [InlineData("disposal-failure")]
     [InlineData("pending-command")]
     [InlineData("pending-shell")]
+    [InlineData("async-exit")]
+    [InlineData("denied-command")]
     public async Task BoundedLocalCommandAndRealMcpTransportSeparateTerminalFailureFromUnknownCompletion(string scenario)
     {
         await using var fixture = await CopilotAttachmentTests.Fixture.CreateAsync(configure: s => s.Copilot.LogicalLimits.InferenceAttempts = 1);
@@ -45,7 +47,8 @@ public sealed class CopilotCompletionReceiptTests
         fixture.Host.OnSend = async (configuration, handle, _, ct) =>
         {
             taskId = fixture.tasks.CurrentTaskId;
-            var observations = new CopilotExecutionObservations();
+            var memory = new CopilotTransientSessionState();
+            var observations = new CopilotExecutionObservations("bounded-session", memory);
             var start = new ProcessStartInfo(OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/sh")
                 { WorkingDirectory = fixture.Project, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
             start.ArgumentList.Add(OperatingSystem.IsWindows() ? "/c" : "-c");
@@ -53,14 +56,31 @@ public sealed class CopilotCompletionReceiptTests
             // The pinned SDK marks its structured command/exit event fields experimental.
 #pragma warning disable GHCP001
             var started = new ToolExecutionStartEvent { Data = new() { ToolCallId = "local", ToolName = "arbitrary-execution",
-                ShellToolInfo = new() { DisplayCommand = start.ArgumentList[1], HasWriteFileRedirection = true, PossiblePaths = [] }, Arguments = JsonSerializer.SerializeToElement(new { command = start.ArgumentList[1] }) } };
+                ShellToolInfo = new() { DisplayCommand = start.ArgumentList[1], HasWriteFileRedirection = true, PossiblePaths = [] }, Arguments = JsonSerializer.SerializeToElement(new { command = start.ArgumentList[1], shellId = "fixture-shell" }) } };
             observations.Observe(started);
             using var command = Process.Start(start)!;
             await command.WaitForExitAsync(ct); Assert.Equal(0, command.ExitCode);
             var completed = new ToolExecutionCompleteEvent { Data = new() { ToolCallId = "local", Success = true,
-                ShellExecution = scenario == "pending-shell" ? null : new() { ExitCode = command.ExitCode } } };
+                ShellExecution = scenario is "pending-shell" or "async-exit" ? null : new() { ExitCode = command.ExitCode } } };
 #pragma warning restore GHCP001
             if (scenario != "pending-command") observations.Observe(completed);
+            if (scenario == "async-exit")
+            {
+                var log = CopilotTransientSessionState.Root + "/temp/command.txt";
+                memory.Write(log, await File.ReadAllTextAsync(Path.Combine(fixture.Project, "receipt.txt"), ct), false);
+                observations.Observe(new ToolExecutionStartEvent { Data = new() { ToolCallId = "poll", ToolName = "read_bash" } });
+#pragma warning disable GHCP001
+                observations.Observe(new ToolExecutionCompleteEvent { Data = new() { ToolCallId = "poll", Success = true,
+                    Result = new() { Content = "Completed", Contents = [new ToolExecutionCompleteContentShellExit { ShellId = "fixture-shell", ExitCode = command.ExitCode, Cwd = fixture.Project, OutputFilePath = log }] } } });
+#pragma warning restore GHCP001
+            }
+            if (scenario == "denied-command")
+            {
+#pragma warning disable GHCP001
+                observations.Observe(new ToolExecutionStartEvent { Data = new() { ToolCallId = "refused", ToolName = "bash", ShellToolInfo = new() { DisplayCommand = "denied", HasWriteFileRedirection = false, PossiblePaths = [] } } });
+#pragma warning restore GHCP001
+                observations.Observe(new ToolExecutionCompleteEvent { Data = new() { ToolCallId = "refused", Success = false, Error = new() { Code = "denied", Message = "Refused before execution" } } });
+            }
             var budget = configuration.Request.Configuration.LogicalInferenceBudget!;
             if (scenario == "budget")
             {
@@ -96,6 +116,14 @@ public sealed class CopilotCompletionReceiptTests
         using var tenantScope = fixture.Host.Trace.Push(Context());
         var checkpoint = (await fixture.tasks.ReadOperationAsync(taskId!, Ct))!;
         Assert.Equal(!uncertain, checkpoint["completionVerified"]!.GetValue<bool>());
+        if (scenario == "async-exit")
+        {
+            var logs = Assert.Single(checkpoint["outputLogs"]!.AsObject()).Value!.AsObject();
+            Assert.Equal("receipt", Assert.Single(logs).Value!.ToString().Trim());
+            Assert.DoesNotContain("outputLogs", checkpoint["result"]!.ToJsonString());
+            var observed = checkpoint["result"]!["toolExecutions"]!.AsArray().Single(t => t!["toolCallId"]!.ToString().EndsWith("local", StringComparison.Ordinal));
+            Assert.Equal(0, observed!["terminals"]![0]!["exitCode"]!.GetValue<int>());
+        }
         Assert.Equal(scenario == "budget" ? "Calls" : null, checkpoint["admissionStop"]?["kind"]?.ToString());
         Assert.Equal(inferenceCalls, checkpoint["inferenceAttempts"]!.GetValue<int>());
         // A restarted reader only returns the retained receipt, never calls the SDK.

@@ -57,9 +57,9 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             var contentFormat = NormalizeFormat(format);
             if (cursor is not null)
             {
-                if (contentFormat != "observation" || url is not null || selector is not null)
-                    throw new InvalidOperationException("A continuation requires format=observation and no new URL or selector.");
-                return ContinueObservation(cursor, maxCharacters, maxRecords, cancellationToken);
+                if (contentFormat is not ("observation" or "observation_pages") || url is not null || selector is not null)
+                    throw new InvalidOperationException("A continuation requires an observation format and no new URL or selector.");
+                return ContinueObservation(cursor, maxCharacters, maxRecords, cancellationToken, contentFormat == "observation_pages");
             }
             var limit = maxCharacters.GetValueOrDefault(_settings.MaxContentCharacters);
             var selectorTimeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
@@ -109,8 +109,8 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
 
             var locatorResolution = await ResolveContentLocatorAsync(page, selector, selectorTimeout);
             var locator = locatorResolution.Locator;
-            if (contentFormat == "observation")
-                return await CaptureObservationAsync(page, locator, locatorResolution, selector, statusCode, maxCharacters, maxRecords, cancellationToken);
+            if (contentFormat is "observation" or "observation_pages")
+                return await CaptureObservationAsync(page, locator, locatorResolution, selector, statusCode, maxCharacters, maxRecords, cancellationToken, contentFormat == "observation_pages");
             var rawContent = contentFormat switch
             {
                 "html" => await locator.EvaluateAsync<string>("element => element.outerHTML"),
@@ -826,8 +826,8 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         var normalized = string.IsNullOrWhiteSpace(format) ? "text" : format.Trim().ToLowerInvariant();
         return normalized switch
         {
-            "text" or "html" or "observation" => normalized,
-            _ => throw new InvalidOperationException("format must be 'text', 'html' or 'observation'.")
+            "text" or "html" or "observation" or "observation_pages" => normalized,
+            _ => throw new InvalidOperationException("format must be 'text', 'html', 'observation' or 'observation_pages'.")
         };
     }
 
@@ -902,6 +902,8 @@ public sealed record BrowserContentResult(
     public bool Ok => Success;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public BrowserObservation? Observation { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BrowserObservationManifest? ObservationManifest { get; init; }
 }
 
 internal sealed record LocatorResolution(ILocator? Locator, string? FailureReason);

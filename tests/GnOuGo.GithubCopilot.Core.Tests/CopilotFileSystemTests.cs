@@ -7,6 +7,44 @@ namespace GnOuGo.GithubCopilot.Core.Tests;
 
 public sealed class CopilotFileSystemTests
 {
+    [Fact]
+    public async Task PublishedVirtualLogsUseBoundedReadsAndNeverExposeOtherSessionState()
+    {
+        var state = new CopilotTransientSessionState();
+        var path = CopilotTransientSessionState.Root + "/temp/output.txt";
+        var secret = CopilotTransientSessionState.Root + "/events/private.json";
+        var text = new string('a', 20_000) + "final observed failure";
+        state.Write(path, text, false); state.Write(secret, "PRIVATE", false);
+        var files = new TestSessionFileSystem();
+        var tools = CopilotProjectFileTool.Create(files, state: state).Cast<Microsoft.Extensions.AI.AIFunction>().ToArray();
+        var read = tools.Single(t => t.Name == "project_read");
+        var ct = TestContext.Current.CancellationToken;
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => read.InvokeAsync(new() { ["path"] = path }, ct).AsTask());
+        var observations = new CopilotExecutionObservations("session", state);
+        observations.Observe(new ToolExecutionCompleteEvent { Data = new() { ToolCallId = "log", Success = true,
+            Result = new() { Content = "Preview", Contents = [new ToolExecutionCompleteContentShellExit { OutputFilePath = path, ExitCode = 1, OutputTruncated = true, ShellId = "log" }] } } });
+        var firstJson = (string)(await read.InvokeAsync(new() { ["path"] = path }, ct))!;
+        var first = JsonSerializer.Deserialize(firstJson, CopilotCoreJsonContext.Default.CopilotFileReadResult)!;
+        Assert.Equal(16384, first.Text.Length); Assert.True(first.Truncated); Assert.Equal(16384, first.NextOffset);
+        var last = JsonSerializer.Deserialize((string)(await read.InvokeAsync(new() { ["path"] = path, ["offset"] = first.NextOffset!.Value }, ct))!, CopilotCoreJsonContext.Default.CopilotFileReadResult)!;
+        Assert.Equal(text, first.Text + last.Text); Assert.False(last.Truncated); Assert.Null(last.NextOffset);
+        Assert.True(firstJson.Length < text.Length);
+        Assert.Equal(text, Assert.Single(state.OutputSnapshot()).Value);
+        foreach (var denied in new[] { secret, CopilotTransientSessionState.Root + "/temp/../events/private.json" })
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => read.InvokeAsync(new() { ["path"] = denied }, ct).AsTask());
+        var other = CopilotProjectFileTool.Create(files, state: new()).Cast<Microsoft.Extensions.AI.AIFunction>().Single(t => t.Name == "project_read");
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => other.InvokeAsync(new() { ["path"] = path }, ct).AsTask());
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => tools.Single(t => t.Name == "project_write").InvokeAsync(new() { ["path"] = path, ["content"] = "replace" }, ct).AsTask());
+        await Assert.ThrowsAsync<ArgumentException>(() => read.InvokeAsync(new() { ["path"] = path, ["maxCharacters"] = 16385 }, ct).AsTask());
+        await Assert.ThrowsAsync<ArgumentException>(() => read.InvokeAsync(new() { ["path"] = path, ["offset"] = -1 }, ct).AsTask());
+        var args = JsonSerializer.SerializeToElement(new { path });
+        Assert.Null(GitHubCopilotSdkClient.ValidateFileTool(new() { ToolName = "project_read", ToolArgs = args }, files, state));
+        Assert.Null(GitHubCopilotSdkClient.ValidateFilePermission(new PermissionRequestCustomTool { ToolName = "project_read", ToolDescription = "Read", Args = args }, files, state));
+        Assert.NotNull(GitHubCopilotSdkClient.ValidateFilePermission(new PermissionRequestCustomTool { ToolName = "project_read", ToolDescription = "Read", Args = args }, files, new()));
+        using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => read.InvokeAsync(new() { ["path"] = path }, cancelled.Token).AsTask());
+    }
+
     [Theory]
     [InlineData(null, "warning")]
     [InlineData("", "warning")]
@@ -110,7 +148,8 @@ public sealed class CopilotFileSystemTests
         Assert.Equal(8, tools.Length);
         Assert.All(tools, tool => Assert.False(tool.AdditionalProperties.TryGetValue("skip_permission", out var value) && value is true));
         var read = tools.Single(t => t.Name == "project_read");
-        Assert.Equal("content", await read.InvokeAsync(new() { ["path"] = "file.py" }, TestContext.Current.CancellationToken));
+        var chunk = JsonSerializer.Deserialize((string)(await read.InvokeAsync(new() { ["path"] = "file.py" }, TestContext.Current.CancellationToken))!, CopilotCoreJsonContext.Default.CopilotFileReadResult)!;
+        Assert.Equal("content", chunk.Text); Assert.False(chunk.Truncated); Assert.Null(chunk.NextOffset);
         var write = tools.Single(t => t.Name == "project_write");
         _ = await write.InvokeAsync(new() { ["path"] = "file.py", ["content"] = "changed" }, TestContext.Current.CancellationToken);
         Assert.Equal("file.py", files.WrittenPath);

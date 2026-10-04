@@ -23,6 +23,8 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
 {
     [Theory]
     [InlineData("nominal")]
+    [InlineData("pages")]
+    [InlineData("pages-parallel")]
     [InlineData("extract")]
     [InlineData("observation")]
     [InlineData("changed")]
@@ -60,6 +62,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var body = path == "/search" ? string.Join("", links.Select(p => "<a href='" + origin + "/" + p + "'>Product</a>")) : path == "/missing" ? "<h1>Only a name</h1>" :
                 path == "/one" ? variant == "changed" ? "<h1>Changed lamp</h1><p>New description</p><price>9,90 €</price>" : "<h1>Lampe été, &quot;A&quot;</h1><p>Bright and small {{values}}</p><price>19,99 €</price>" :
                 variant == "changed" ? "<h1>Second</h1><p>Updated</p><price>12.00</price>" : "<h1>東京 lamp</h1><p>Line one\nLine two</p><price>25.00</price>";
+            if (path == "/search" && variant.StartsWith("pages", StringComparison.Ordinal)) body = "<p>Catalogue</p><p>Observed introduction</p>" + body + "<p>Footer</p><p>End</p>";
             var banner = path == "/search" && variant is "required-consent" or "consent" or "delayed-consent" or "unrelated-modal";
             var dialog = "<section role='dialog' aria-modal='true' id='notice'><p>" + (variant == "unrelated-modal" ? "Account verification" : "Cookie preferences") +
                 "</p><div><span role='button' tabindex='0' id='accept' onclick=\"document.cookie='fixtureConsent=accepted;path=/';document.querySelector('main').hidden=false;document.getElementById('notice').remove()\">" +
@@ -79,13 +82,13 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             await using var transport = new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>
             {
                 ["browser"] = Server("Browser", new() { ["Browser__AllowedHosts__0"] = "127.0.0.1", ["Browser__Headless"] = "true", ["Browser__KeepBrowserOpen"] = "false",
-                    ["Browser__MaxObservationRecords"] = variant is "incomplete-observation" or "required-incomplete-observation" ? "1" : "80",
+                    ["Browser__MaxObservationRecords"] = variant is "incomplete-observation" or "required-incomplete-observation" or "pages" or "pages-parallel" ? "1" : "80",
                     ["Browser__SlowMoMs"] = "0", ["Browser__HoldOpenMs"] = "0", ["Browser__NavigationTimeoutMs"] = "3000", ["OpenTelemetry__Enabled"] = "false" }),
                 ["document"] = Server("Document", new() { ["Document__DefaultWorkingDirectory"] = workspace, ["OpenTelemetry__Enabled"] = "false" })
             });
             var model = new ProductTransformationFixture(variant) { ReadMethod = "browser_get_content", WriteMethod = "document_write", CloseMethod = "browser_close" };
             var consentModel = new ConsentModel(model);
-            var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = consentScenario ? consentModel : variant is "extract" or "observation" ? new ExtractModel(model) : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
+            var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = variant.StartsWith("pages", StringComparison.Ordinal) ? new PagedModel(model) : consentScenario ? consentModel : variant is "extract" or "observation" ? new ExtractModel(model) : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await runtime.DiscoverAsync(new(), ct); var reads = 0;
             foreach (var source in await runtime.Capabilities.ListSourcesAsync(ct))
@@ -103,6 +106,20 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             Assert.Equal("execute", catalog.Capabilities.Single(c => c.Method == "browser_fill").EffectKind);
             Assert.Equal("lifecycle", catalog.Capabilities.Single(c => c.Method == "browser_close").EffectKind);
             var plan = ProductTransformationPlan.Create(catalog, model);
+            if (variant.StartsWith("pages", StringComparison.Ordinal))
+            {
+                var search = plan.Root.Tasks[0]; search.Inputs.Add(new("format", ProductTransformationPlan.Text("observation_pages")));
+                TaskValue Field(TaskValue source, string name) => new() { Kind = "field", Items = [source], Port = name };
+                var manifest = ProductTransformationPlan.Ref("search", "observationManifest");
+                var pages = new PlanTask { Id = "consume_pages", Kind = "foreach", Objective = "Read every frozen snapshot page before visiting products",
+                    Items = Field(manifest, "pages"), MaxItems = 100, Parallel = variant == "pages-parallel", MaxConcurrency = 2,
+                    Requires = new() { Kind = "predicate", Predicate = "equal", Items = [ProductTransformationPlan.Ref("search", "truncated"), new() { Kind = "boolean", Boolean = false }] },
+                    Body = new() { Tasks = [new() { Id = "read_page", Kind = "operation", Objective = "Read the listed snapshot page", Operation = search.Operation,
+                        Inputs = [new("format", ProductTransformationPlan.Text("observation_pages")), new("cursor", Field(new() { Kind = "item" }, "cursor"))] }],
+                        Outputs = [new("observations", ProductTransformationPlan.Ref("read_page", "observation"))] } };
+                plan.Root.Tasks.Insert(1, pages);
+                plan.Root.Tasks.Single(t => t.Id == "urls").Inputs = [new("pages", ProductTransformationPlan.Ref("consume_pages", "observations"))];
+            }
             if (consentScenario) AddConsentSteps(plan, catalog);
             if (variant.StartsWith("required-", StringComparison.Ordinal))
             {
@@ -128,7 +145,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             }
             var write = plan.Root.Tasks.Single(t => t.Id == "write"); write.Inputs[0] = new("filePath", ProductTransformationPlan.Text(variant == "denied" ? "../outside.xlsx" : ProductTransformationFixture.OutputPath));
             plan.Root.Outputs[0] = new("file", ProductTransformationPlan.Ref("write", "filePath"));
-            plan.Root.Tasks.Single(t => t.Kind == "foreach").MaxItems = 3;
+            plan.Root.Tasks.Single(t => t.Id == "products").MaxItems = 3;
             var proposal = new PlanningProposal { Plan = plan, Requirements = new() { Summary = "Read products and save an XLSX document, always close the browser", Inputs = plan.Inputs,
                 Outputs = [new() { Name = "file", Type = new() { Kind = "string" } }],
                 Outcomes = [new("search", "Read search results"), new("products", "Read each product"),
@@ -148,7 +165,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var result = await engine.ExecuteAsync(doc.Workflows[doc.Entrypoint!], new JsonObject { ["search"] = site.Urls.Single() + "/search" }, ct);
             var executionMs = timer.Elapsed.TotalMilliseconds;
             output.WriteLine($"LOCAL {variant}: success={result.Success}, calls={session.ModelCalls}, discovery={reads}, repairs={session.ReplanAttempts}, inputEstimate={planning.InputEstimate}, executionAdapterCalls={model.Calls.Count}, planningMs={planningMs:F1}, executionMs={executionMs:F1}; error={result.Error?.Code} {result.Error?.Message}");
-            Assert.Equal(variant is "required-consent" or "nominal" or "changed" or "empty" or "missing" or "extract" or "observation" or "consent" or "no-consent" or "delayed-consent", result.Success);
+            Assert.Equal(variant is "required-consent" or "nominal" or "changed" or "empty" or "missing" or "extract" or "observation" or "consent" or "no-consent" or "delayed-consent" or "pages" or "pages-parallel", result.Success);
             var browser = await transport.GetClientAsync("browser", ct);
             var afterCleanup = await browser.CallToolAsync("browser_get_content", new JsonObject(), ct);
             Assert.True(afterCleanup.IsError);
@@ -242,6 +259,21 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => actual.ValidateAsync(request, ct);
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => actual.ValidateCatalogAsync(catalog, ct);
     }
+    private sealed class PagedModel(ILLMClient next) : ILLMClient
+    {
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            if (request.StructuredOutputSchema?["properties"]?["urls"] is null) return next.CallAsync(request, ct);
+            var start = request.Prompt.IndexOf('{', request.Prompt.LastIndexOf("Business data", StringComparison.Ordinal));
+            var pages = JsonNode.Parse(request.Prompt[start..])!["pages"]!.AsArray();
+            Assert.True(pages.Count > 3);
+            Assert.All(pages, p => Assert.False(p!["captureTruncated"]!.GetValue<bool>()));
+            Assert.Null(pages[^1]!["nextCursor"]);
+            var records = pages.SelectMany(p => p!["records"]!.AsArray());
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["urls"] = new JsonArray(records.Where(r => r!["kind"]!.ToString() == "link").Select(r => r!["href"]!.DeepClone()).ToArray()) } });
+        }
+    }
+
     private sealed class ExtractModel(ILLMClient interpretation) : ILLMClient
     {
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)

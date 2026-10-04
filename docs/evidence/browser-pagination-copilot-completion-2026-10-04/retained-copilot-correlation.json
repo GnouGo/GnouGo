@@ -1,0 +1,44 @@
+{
+  "historical_run": "preconditions20261004b-code-2",
+  "invocation_replayed": false,
+  "raw_checkpoint_sha256": "6d541847e0ab58e2fcc6a1f3308f03b40496dbe83496c8fb3139f76b9a1cb6a2",
+  "sdk_tool_callbacks": 49,
+  "asynchronous_pairs": [
+    {
+      "shell": "command-1",
+      "start": {
+        "tool": "bash",
+        "completionObserved": true,
+        "toolSucceeded": true,
+        "terminalCount": 0
+      },
+      "laterCallbacks": [
+        {
+          "tool": "read_bash",
+          "exits": [
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "shell": "command-2",
+      "start": {
+        "tool": "bash",
+        "completionObserved": true,
+        "toolSucceeded": true,
+        "terminalCount": 0
+      },
+      "laterCallbacks": [
+        {
+          "tool": "read_bash",
+          "exits": [
+            2
+          ]
+        }
+      ]
+    }
+  ],
+  "native_pre_execution_denials": 3,
+  "virtual_output_paths": "Session-owned SDK namespace; not host shell paths. Actual paths and contents omitted."
+}

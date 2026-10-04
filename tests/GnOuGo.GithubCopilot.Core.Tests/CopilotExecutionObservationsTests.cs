@@ -5,6 +5,68 @@ namespace GnOuGo.GithubCopilot.Core.Tests;
 
 public sealed class CopilotExecutionObservationsTests
 {
+    [Theory]
+    [InlineData("completed", true)]
+    [InlineData("missing", false)]
+    [InlineData("conflicting", false)]
+    [InlineData("reused", false)]
+    [InlineData("denied", true)]
+    [InlineData("execution_failed", false)]
+    public void AsynchronousShellReceiptsRequireUnambiguousExitsOrNativePreExecutionRefusal(string scenario, bool expected)
+    {
+        var observations = new CopilotExecutionObservations("session");
+        observations.Observe(StartShell("command", "shell"));
+        observations.Observe(new ToolExecutionCompleteEvent { Data = new() { ToolCallId = "command", Success = scenario is not ("denied" or "execution_failed"),
+            Error = scenario is "denied" or "execution_failed" ? new() { Code = scenario, Message = "Refused or failed" } : null } });
+        if (scenario is "completed" or "conflicting" or "reused")
+        {
+            if (scenario == "reused")
+            {
+                observations.Observe(StartShell("other", "shell"));
+                observations.Observe(new ToolExecutionCompleteEvent { Data = new() { ToolCallId = "other", Success = true } });
+            }
+            ObserveRead(observations, "read", 2);
+            if (scenario == "conflicting") ObserveRead(observations, "read-again", 0);
+        }
+        observations.Observe(new SessionIdleEvent { Data = new() { Mode = SessionMode.Interactive } });
+        Assert.Equal(expected, observations.VerifiedTerminalCompletion);
+        var all = observations.Snapshot(); var command = all.Single(c => c.ToolCallId == "command");
+        if (scenario == "completed")
+        {
+            Assert.Equal(2, Assert.Single(command.GetVerifiedTerminals(all)!).ExitCode); // failure is terminal, not success
+            Assert.Null(command.GetVerifiedTerminals(all.Select(c => c.ToolCallId == "read" ? c with { CopilotSessionId = "other-session" } : c).ToArray()));
+            var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(new CopilotSendResult("h", "session", "", null, []) { ToolExecutions = all }, CopilotCoreJsonContext.Default.CopilotSendResult), CopilotCoreJsonContext.Default.CopilotSendResult)!;
+            Assert.Equal(2, Assert.Single(restored.ToolExecutions[0].GetVerifiedTerminals(restored.ToolExecutions)!).ExitCode);
+        }
+    }
+
+    [Fact]
+    public void HistoryRefreshRecoversMissingDeliveryWithoutImportingOldInvocations()
+    {
+        var observations = new CopilotExecutionObservations("session");
+        var prior = StartShell("old", "old-shell");
+        var start = StartShell("new", "shell");
+        var complete = new ToolExecutionCompleteEvent { Id = Guid.NewGuid(), Data = new() { ToolCallId = "new", Success = true, ShellExecution = new() { ExitCode = 0 } } };
+        var idle = new SessionIdleEvent { Id = Guid.NewGuid(), Data = new() { Mode = SessionMode.Interactive } };
+        observations.Observe(start); observations.Observe(idle); Assert.False(observations.VerifiedTerminalCompletion);
+        observations.MergeHistory([prior, start, complete, idle]);
+        Assert.True(observations.VerifiedTerminalCompletion); Assert.Single(observations.Snapshot());
+        observations.MergeHistory([prior, start, complete, idle]); Assert.Single(observations.Snapshot()); Assert.True(observations.VerifiedTerminalCompletion);
+        observations.Observe(new ToolExecutionCompleteEvent { Id = complete.Id, Data = new() { ToolCallId = "new", Success = false } });
+        Assert.False(observations.VerifiedTerminalCompletion);
+    }
+
+    private static ToolExecutionStartEvent StartShell(string id, string shell) => new() { Id = Guid.NewGuid(), Data = new()
+    { ToolCallId = id, ToolName = "bash", Arguments = JsonSerializer.SerializeToElement(new { command = "fixture check", shellId = shell }),
+      ShellToolInfo = new() { DisplayCommand = "fixture check", PossiblePaths = [], HasWriteFileRedirection = false } } };
+
+    private static void ObserveRead(CopilotExecutionObservations observations, string id, long exit)
+    {
+        observations.Observe(new ToolExecutionStartEvent { Id = Guid.NewGuid(), Data = new() { ToolCallId = id, ToolName = "read_bash" } });
+        observations.Observe(new ToolExecutionCompleteEvent { Id = Guid.NewGuid(), Data = new() { ToolCallId = id, Success = true,
+            Result = new() { Content = "Observed exit", Contents = [new ToolExecutionCompleteContentShellExit { ShellId = "shell", ExitCode = exit, Cwd = "/fixture" }] } } });
+    }
+
     [Fact]
     public void ShellExitObservations_PreserveFailureThenEditThenSuccessAndPreviewMetadata()
     {
