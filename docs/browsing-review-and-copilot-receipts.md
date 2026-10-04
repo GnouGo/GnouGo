@@ -1,5 +1,9 @@
 # Incomplete browsing and verified Copilot receipts
 
+For the subsequent paid validation, authorized budget extension and retained failures,
+see [fresh live validation, 4 October](fresh-live-validation-2026-10-04.md).
+The results and budget snapshot below describe this correction's original candidate.
+
 These are separate corrections on PR #117. The business TaskPlan/compiler pipeline and
 `mapping.dynamic` are unchanged. No paid inference or historical invocation is replayed.
 The retained [observations4 cohort](evidence/compact-observations/observations4.json)

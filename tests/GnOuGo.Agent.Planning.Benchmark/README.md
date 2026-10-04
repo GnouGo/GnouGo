@@ -313,6 +313,10 @@ workflow outcomes do not establish real sandboxed Copilot command execution.
 
 ## Authorized schema-portability live campaign
 
+The [4 October fresh-validation report](../../docs/fresh-live-validation-2026-10-04.md)
+records the explicit EUR 100 ceiling, frozen cohorts and failures before execution.
+Use fresh identities for subsequent evaluation; never replay their retained artifacts.
+
 Replay a retained proposal against its original discovered contracts without inference,
 execution, approval or mutation of the saved session:
 

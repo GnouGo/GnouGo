@@ -1,0 +1,50 @@
+{
+  "kind": "inspection_findings_not_human_approval",
+  "reviews": [
+    {
+      "run": "receiptslive20261004b-code-1",
+      "revision": 2,
+      "artifact_hash": "71c11dd411e7e97a79d9e6fe76ccc1897488adf429344dcb2e7eda62459cc55b",
+      "review_outcome": "revision_required",
+      "approved": false,
+      "execution_started": false,
+      "reason": "The report preservation step depends on Copilot success; unconditional clone cleanup can delete an existing partial report after a verified Copilot failure.",
+      "unacknowledged_requirements": [
+        "review_json_written",
+        "cleanup_done"
+      ],
+      "saved_artifact_modified": false
+    },
+    {
+      "run": "receiptslive20261004b-code-2",
+      "revision": 3,
+      "artifact_hash": "ecddccc89f07ad79e460c5a1f3a1c2ba6827bf0fca8d6b815e832fd425178edc",
+      "approved": false,
+      "execution_started": false,
+      "reasons": [
+        "The literal Copilot prompt names reviewText but does not bind its runtime value or pullRequestUrl.",
+        "The report copy depends on successful Copilot completion. A verified terminal error can skip preservation before unconditional clone cleanup."
+      ],
+      "unacknowledged_requirements": [
+        "evidence_report_written_before_cleanup",
+        "cleanup_always",
+        "missing_or_failed_explicit"
+      ]
+    },
+    {
+      "run": "receiptslive20261004b-code-3",
+      "revision": 2,
+      "artifact_hash": "71a0b27eee8649e5a006340b1edfa532b64e54a462891db50c1d46aa97630df6",
+      "approved": false,
+      "execution_started": false,
+      "reasons": [
+        "Report assembly and writing are normal-path tasks after both Copilot operations. A verified terminal error skips the report while unconditional clone cleanup still runs."
+      ],
+      "unacknowledged_requirements": [
+        "evidence_artifact",
+        "cleanup_always",
+        "limitations_explicit"
+      ]
+    }
+  ]
+}
