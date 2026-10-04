@@ -11,6 +11,37 @@ public sealed class BenchmarkCampaignTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
     [Fact]
+    public async Task ExplicitBudgetExtensionPreservesReservationsConfigurationAndIsolationAcrossRestart()
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "extension");
+        var configuration = new JsonObject { ["cost_ceiling_eur"] = 50 };
+        await campaign.PinAsync(configuration, Ct);
+        var unknown = new BenchmarkHttpJournal(campaign, "unknown:1:hash", 100, 20, 49m);
+        await unknown.SaveAsync(new() { Attempts = [new() { Id = "unknown" }] }, Ct);
+        var request = new BenchmarkHttpJournal(campaign, "fresh:1:hash", 100, 20, 2m);
+        var attempt = new LLMHttpRetryState { Attempts = [new() { Id = "fresh" }] };
+        await Assert.ThrowsAsync<InvalidOperationException>(() => request.SaveAsync(attempt, Ct));
+        var before = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        var authorization = await campaign.ExtendBudgetAsync(50m, 100m, "Explicit test operator authorization", Ct);
+        var restarted = new BenchmarkCampaign(records, "extension");
+        Assert.Equal(100m, await restarted.CostCeilingAsync(Ct));
+        Assert.Equal(50m, await new BenchmarkCampaign(records, "other").CostCeilingAsync(Ct));
+        Assert.True(JsonNode.DeepEquals(before, await BenchmarkHttpJournal.AccountingAsync(restarted, ct: Ct)));
+        await restarted.PinAsync(configuration, Ct);
+        Assert.Single(authorization["history"]!.AsArray());
+        await request.SaveAsync(attempt, Ct);
+        var totals = await BenchmarkHttpJournal.AccountingAsync(restarted, ct: Ct);
+        Assert.Equal(51m, totals["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(2L, totals["unknown_attempts"]!.GetValue<long>());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new BenchmarkHttpJournal(restarted, "over:1:hash", 100, 20, 50m)
+            .SaveAsync(new() { Attempts = [new() { Id = "over" }] }, Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.ExtendBudgetAsync(50m, 100m, "Stale approval", Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.ExtendBudgetAsync(100m, 100m, "No increase", Ct));
+        await Assert.ThrowsAsync<ArgumentException>(() => restarted.ExtendBudgetAsync(100m, 150m, " ", Ct));
+        Assert.True(JsonNode.DeepEquals(authorization, await restarted.LoadAsync("planning-evaluation-configuration", "spending-authorization", Ct)));
+    }
+
+    [Fact]
     public void DurableMappingIdentitiesRemainStableAndBelongToExecutionAccounting()
     {
         var original = new LLMRequest { ClientRequestId = "durable-mapping-receipt", Prompt = "Observed data", MaxTokens = 8192 };

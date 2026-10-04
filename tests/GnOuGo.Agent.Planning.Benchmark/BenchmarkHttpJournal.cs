@@ -40,7 +40,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
                 throw new InvalidOperationException("Each new dispatch must have one reserved identity.");
             var totals = await AccountingAsync(campaign, requestId, record, ct);
             var sessionExhausted = sessionAttemptLimit is { } limit && totals["session_calls"]!.GetValue<long>() > limit;
-            if (totals["cost_upper_bound_eur"]!.GetValue<decimal>() > 50m || sessionExhausted)
+            if (totals["cost_upper_bound_eur"]!.GetValue<decimal>() > await campaign.CostCeilingAsync(ct) || sessionExhausted)
             { campaign.BudgetExceeded(sessionExhausted); throw new InvalidOperationException("The campaign or session cannot cover another HTTP attempt."); }
         }
         await campaign.SaveAsync(Collection, requestId, record, ct);

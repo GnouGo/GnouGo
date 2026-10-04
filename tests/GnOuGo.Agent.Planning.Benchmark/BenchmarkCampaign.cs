@@ -25,6 +25,24 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         if (saved is not null && !JsonNode.DeepEquals(saved, configuration)) throw new InvalidOperationException("The campaign configuration changed; no model request was dispatched.");
         if (saved is null) await SaveAsync("planning-evaluation-configuration", "configuration", configuration, ct);
     }
+    internal async Task<decimal> CostCeilingAsync(CancellationToken ct = default)
+        => (await LoadAsync("planning-evaluation-configuration", "spending-authorization", ct))?["ceiling_eur"]?.GetValue<decimal>() ?? 50m;
+
+    // Explicit operator action under the campaign lease; never resets usage or changes issued manifests.
+    internal async Task<JsonObject> ExtendBudgetAsync(decimal expected, decimal ceiling, string authorization, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(authorization);
+        if (expected != await CostCeilingAsync(ct) || ceiling <= expected)
+            throw new InvalidOperationException("The budget extension must identify the current ceiling and explicitly increase it.");
+        var saved = await LoadAsync("planning-evaluation-configuration", "spending-authorization", ct)
+            ?? new JsonObject { ["history"] = new JsonArray() };
+        saved["history"]!.AsArray().Add(new JsonObject { ["previous_ceiling_eur"] = expected, ["ceiling_eur"] = ceiling,
+            ["authorization"] = authorization, ["authorized_at"] = DateTimeOffset.UtcNow.ToString("O"),
+            ["accounting_before"] = await BenchmarkHttpJournal.AccountingAsync(this, ct: ct) });
+        saved["ceiling_eur"] = ceiling;
+        await SaveAsync("planning-evaluation-configuration", "spending-authorization", saved, ct);
+        return saved;
+    }
     internal async Task<bool> HasUncertainRequestAsync(CancellationToken ct)
     {
         foreach (var request in (await records.ListAsync("planning-evaluation-requests", "benchmark", Author, ct)).Where(r => r.Key.StartsWith(Id + ":", StringComparison.Ordinal)))
@@ -182,7 +200,7 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         return new() { ["campaign"] = Id, ["reserved_requests"] = requests.Length, ["completed_receipts"] = receipts.Length,
             ["uncertain_requests"] = new JsonArray(missing.Select(r => (JsonNode)JsonValue.Create(r.Key[(Id.Length + 1)..])).ToArray()),
             ["retained_inconclusive_requests"] = new JsonArray(evidence.Where(r => r.Collection == "planning-evaluation-closures").Select(r => (JsonNode)JsonValue.Create(r.Key[(Id.Length + 1)..])).ToArray()),
-            ["transport_accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, ct: ct),
+            ["transport_accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, ct: ct), ["cost_ceiling_eur"] = await CostCeilingAsync(ct),
             ["recorded_failures"] = evidence.Count(r => r.Collection == "planning-evaluation-failures"),
             ["known_budget_cost"] = snapshot?.EstimatedCost, ["budget_currency"] = snapshot?.EstimatedCostCurrency,
             ["known_input_tokens"] = snapshot?.InputTokens, ["known_output_tokens"] = snapshot?.OutputTokens,

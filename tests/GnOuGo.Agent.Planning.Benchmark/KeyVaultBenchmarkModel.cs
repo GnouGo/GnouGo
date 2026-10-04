@@ -17,7 +17,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.ML.Tokenizers;
 
-/// <summary>One configured live model and one EUR 50 ledger shared by planning and explicit live execution hosts.</summary>
+/// <summary>One configured live model and one authorized spending ledger shared by planning and explicit live execution hosts.</summary>
 internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
 {
     private readonly BenchmarkCampaign _campaign;
@@ -59,6 +59,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
         if (string.IsNullOrWhiteSpace(options.DefaultModel) || expectedModel is not null && options.DefaultModel != expectedModel)
             throw new InvalidOperationException("The configured model does not match the evaluation model.");
         var settings = options.ResolveProvider(options.DefaultProvider) ?? throw new InvalidOperationException("No configured provider.");
+        // Preserve the initial configuration; explicit later budget authorizations have their own durable history.
         await campaign.PinAsync(new() { ["provider"] = options.DefaultProvider, ["model"] = options.DefaultModel, ["endpoint"] = settings.Url,
             ["request_policy"] = JsonSerializer.SerializeToNode(settings.RequestPolicy), ["reasoning"] = "medium", ["max_input_tokens"] = 96_000,
             ["max_output_tokens"] = 32_768, ["max_calls"] = 8, ["max_repairs"] = 2, ["cost_ceiling_eur"] = 50 }, ct);

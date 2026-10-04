@@ -132,6 +132,13 @@ internal static class SchemaPortabilityCampaign
         Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
         await using var lease = new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         if (Git("status", "--porcelain").Length != 0) throw new InvalidOperationException("Commit the tested source and harness before paid dispatch.");
+        if (phase == "extend-budget")
+        {
+            decimal Amount(string option) => decimal.Parse(Option(args, option) ?? throw new ArgumentException("Supply " + option + "."), System.Globalization.CultureInfo.InvariantCulture);
+            Console.WriteLine((await campaign.ExtendBudgetAsync(Amount("--from-eur"), Amount("--to-eur"),
+                Option(args, "--authorization") ?? throw new ArgumentException("Supply the explicit authorization."), CancellationToken.None)).ToJsonString());
+            return;
+        }
         if (phase == "retain-exhausted-request")
         {
             Console.WriteLine((await campaign.RetainExhaustedRequestAsync(

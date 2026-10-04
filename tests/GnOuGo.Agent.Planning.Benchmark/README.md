@@ -329,6 +329,21 @@ under the explicit authorization recorded for `schema-portability-20261002`.
 It shares one encrypted EUR 50 ledger across planning, Flow inference and intercepted
 Copilot SDK inference. Missing receipts retain conservative reservations.
 
+The original ceiling remains EUR 50 unless the user explicitly authorizes an extension.
+Record that authorization under the existing campaign lease before collecting a new
+cohort; keep the original configuration, cohorts and every usage reservation intact:
+
+```sh
+dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
+  --schema-portability extend-budget --workspace "$GNOU_GO_WORKSPACE" \
+  --campaign schema-portability-20261002 --from-eur 50 --to-eur 100 \
+  --authorization "User explicitly authorized an additional EUR 50 on 2026-10-04."
+```
+
+This operator command never dispatches inference. It checks the previous ceiling,
+stores authorization history and preserves all token, attempt and permission limits.
+Fresh cohort manifests pin the new ceiling; historical manifests remain unchanged.
+
 Build a clean committed checkout before collection. Keep the same source and
 configuration for every run within a cohort; a changed candidate requires a new
 cohort identity under the same campaign. Do not repeat the original diagnostic.

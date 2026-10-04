@@ -13,7 +13,7 @@ internal static class LiveCampaignEvidence
             ["provider"] = provider, ["model"] = model, ["reasoning"] = "medium",
             ["host_configuration_hash"] = configurationFingerprint,
             ["max_input_tokens"] = 96000, ["max_output_tokens"] = 32768,
-            ["planning_attempts"] = 8, ["repairs"] = 2, ["cost_ceiling_eur"] = 50,
+            ["planning_attempts"] = 8, ["repairs"] = 2, ["cost_ceiling_eur"] = await campaign.CostCeilingAsync(),
             ["browser_keep_open"] = false,
             ["os"] = RuntimeInformation.OSDescription, ["architecture"] = RuntimeInformation.ProcessArchitecture.ToString(),
             ["framework"] = RuntimeInformation.FrameworkDescription,
