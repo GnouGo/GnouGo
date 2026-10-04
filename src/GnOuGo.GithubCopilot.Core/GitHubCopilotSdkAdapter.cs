@@ -358,6 +358,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
     {
         try
         {
+            if (state is not null && request is PermissionRequestShell shell) ValidateVirtualShellAccess(shell.FullCommandText);
             if (request is PermissionRequestRead read)
             {
                 if (CopilotTransientSessionState.Contains(read.Path)) (state ?? throw new UnauthorizedAccessException("No session output store.")).ValidateOutputRead(read.Path);
@@ -377,6 +378,12 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         if (policy is null) return null;
         try
         {
+            if (state is not null && input.ToolName is "bash" or "powershell")
+            {
+                var shell = CopilotProjectFileTool.Arguments(input.ToolArgs);
+                if (shell.ValueKind == System.Text.Json.JsonValueKind.Object && shell.TryGetProperty("command", out var command) && command.ValueKind == System.Text.Json.JsonValueKind.String)
+                    ValidateVirtualShellAccess(command.GetString());
+            }
             if (CopilotProjectFileTool.IsProjectTool(input.ToolName))
             {
                 CopilotProjectFileTool.Validate(input.ToolName, CopilotProjectFileTool.Arguments(input.ToolArgs), policy, state);
@@ -399,6 +406,12 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or ArgumentException or InvalidOperationException)
         { return new PreToolUseHookOutput { PermissionDecision = "deny", PermissionDecisionReason = "Host filesystem policy: " + ex.Message }; }
+    }
+
+    private static void ValidateVirtualShellAccess(string? command)
+    {
+        if (command?.Replace('\\', '/').Contains(CopilotTransientSessionState.Root, StringComparison.Ordinal) == true)
+            throw new UnauthorizedAccessException("SDK output logs are virtual, not host shell paths. Use project_read with the exact published outputFilePath, offset and maxCharacters (at most 16384). Do not rerun a completed command to retrieve its output.");
     }
 
     private static Func<PermissionRequest, PermissionInvocation, Task<PermissionDecision>> BuildInteractivePermissionHandler(

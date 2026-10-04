@@ -84,6 +84,39 @@ dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
   --case CASE --run RUN --cohort COHORT --review-command REVIEW.json
 ```
 
-Fresh validation results will be recorded alongside this document. Historical
+### Candidate A: retained failed cohort
+
+Candidate `90bf33d84e894f689daa813240846304e287afba` passed the full solution:
+4,432 tests, zero failures, 13 existing skips. Release Core packaging, planning
+and Copilot Native AOT, published MCP discovery and encrypted recovery passed.
+See [validation evidence](evidence/browser-pagination-copilot-completion-2026-10-04/validation-a.json).
+
+Fresh cohort `pagination20261004a` has **0/6 execution oracles**, with four slots
+unstarted after a reproducible defect was identified. Amazon repetition one was
+rejected during review for missing query binding and incomplete reads. Explicit
+revisions retained the original requirements but exhausted repairs on incompatible
+control bindings: six calls, two repairs, no execution. Code repetition one reached
+execution after seven planning calls, two repairs and two explicit review revisions.
+It made eleven runtime inference calls (448,230 input and 5,525 output tokens).
+
+Copilot committed a **verified terminal failure** at its unchanged two-million-token
+reservation ceiling. There was no false `RUN_NEEDS_RECONCILIATION`. No final review
+report was produced. Clone cleanup was attempted but exceeded the existing 30-second
+finalization deadline; it remains a failed oracle and is not replayed. Required-check
+coverage also failed the unchanged independent oracle. See the
+[six-slot report](evidence/browser-pagination-copilot-completion-2026-10-04/cohort-a.json)
+and [failure evidence](evidence/browser-pagination-copilot-completion-2026-10-04/cohort-a-failures.json).
+
+The run revealed a producer serialization defect: `project_read` returned JSON as
+a string, so SDK escaping expanded a bounded range to 20.1 KB. The SDK truncated
+that response into another virtual output artifact, without shell-exit metadata.
+Access to that unregistered artifact was correctly refused; subsequent host-shell
+reads and output-only reruns were refused too. Follow-up regressions require native
+structured results, a serialized byte cap, exact continuation, and shell rejection
+with guidance to the supported reader. Complete registered command logs remain
+encrypted; no inference ceiling, permission or oracle is relaxed.
+
+Campaign usage after this cohort is EUR 66.71637835775968 committed or reserved
+out of EUR 100, including the same two historical unknown reservations. Historical
 33/33 benchmark evidence and failed live cohorts are unchanged. PR #117 remains
 draft until six unchanged execution oracles pass on one frozen candidate.

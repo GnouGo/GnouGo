@@ -16,7 +16,7 @@ internal sealed class CopilotProjectFileTool(string operation, ICopilotSessionFi
     public override string Name => "project_" + operation;
     public override string Description => operation switch
     {
-        "read" => "Read a bounded text range from an allowed project file or an SDK-published virtual output log. Returns text, offset, nextOffset and truncated. Follow nextOffset for more; maxCharacters defaults to 16384 and cannot exceed it. SDK outputFilePath paths belong to the session filesystem, not the host shell: read them here, never with shell commands or by rerunning the original work.",
+        "read" => "Read a bounded text range from an allowed project file or an SDK-published virtual output log. Returns text, offset, nextOffset and truncated. Follow nextOffset for more; maxCharacters defaults to 16384 and cannot exceed it. The serialized response also has a 16384-byte cap, so escaped text may return fewer characters. SDK outputFilePath paths belong to the session filesystem, not the host shell: read them here, never with shell commands or by rerunning the original work.",
         "write" => "Create or replace one allowed UTF-8 project file with the complete content. Requires user permission and host write policy.",
         "append" => "Append UTF-8 text to one allowed project file. Requires user permission and host write policy.",
         "list" => "List allowed files and directories under a project path; use '.' for the project root.",
@@ -84,10 +84,28 @@ internal sealed class CopilotProjectFileTool(string operation, ICopilotSessionFi
                 if (offset < 0 || count is < 1 or > ReadLimit) throw new ArgumentException("Invalid read range: offset must be nonnegative and maxCharacters must be 1..16384.");
                 var content = CopilotTransientSessionState.Contains(path) ? state!.Read(path) : await files.ReadFileAsync(path, ct);
                 if (offset > content.Length) throw new ArgumentException("Read offset exceeds the file length.");
+                if (offset > 0 && offset < content.Length && char.IsLowSurrogate(content[offset]) && char.IsHighSurrogate(content[offset - 1]))
+                    throw new ArgumentException("Read offset splits a Unicode character.");
                 var end = (int)Math.Min(content.Length, (long)offset + count);
+                JsonElement Payload(int boundary) => JsonSerializer.SerializeToElement(new CopilotFileReadResult(content[offset..boundary], offset,
+                    boundary < content.Length ? boundary : null, boundary < content.Length), CopilotCoreJsonContext.Default.CopilotFileReadResult);
+                // The SDK serializes function results before applying its own output cap.
+                // Return an object, not JSON-in-a-string, and reserve space for escaping and metadata.
+                if (System.Text.Encoding.UTF8.GetByteCount(Payload(end).GetRawText()) > ReadLimit)
+                {
+                    var low = offset; var high = end;
+                    while (low < high)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var middle = low + (high - low + 1) / 2;
+                        if (System.Text.Encoding.UTF8.GetByteCount(Payload(middle).GetRawText()) <= ReadLimit) low = middle;
+                        else high = middle - 1;
+                    }
+                    end = low;
+                }
                 if (end < content.Length && end > offset && char.IsHighSurrogate(content[end - 1]) && char.IsLowSurrogate(content[end])) end--;
                 if (end == offset && end < content.Length) throw new ArgumentException("The range is too small for the next Unicode character.");
-                return JsonSerializer.Serialize(new CopilotFileReadResult(content[offset..end], offset, end < content.Length ? end : null, end < content.Length), CopilotCoreJsonContext.Default.CopilotFileReadResult);
+                return Payload(end);
             case "write": await files.WriteFileAsync(path, Text(arguments, "content"), null, ct); break;
             case "append": await files.AppendFileAsync(path, Text(arguments, "content"), null, ct); break;
             case "list": return JsonSerializer.Serialize(await files.ReadDirectoryAsync(path, ct), CopilotCoreJsonContext.Default.IReadOnlyListCopilotDirectoryEntry);

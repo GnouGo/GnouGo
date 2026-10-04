@@ -13,7 +13,13 @@ allowance. It never sends another prompt or re-executes a command.
 
 `project_read` returns a JSON range result (`text`, `offset`, `nextOffset`,
 `truncated`). `offset` defaults to zero; `maxCharacters` defaults to and cannot
-exceed 16,384. Read subsequent ranges instead of repeating completed commands.
+exceed 16,384. The result is a structured object, not an encoded JSON string.
+Its serialized UTF-8 representation is also capped at 16,384 bytes; escaping may
+therefore shorten a range. Follow the returned `nextOffset`, rather than adding
+the requested length. Read subsequent ranges instead of repeating completed commands.
+Permission callbacks and pre-tool hooks reject shell access to the virtual SDK
+namespace and direct the caller to `project_read`. This routing is not an OS
+sandbox and does not broaden project access or override individual refusals.
 SDK `outputFilePath` values under the virtual session namespace are readable only
 after the SDK publishes that exact log path in the current session. They are not
 host shell paths. Other session state and all virtual writes remain inaccessible
