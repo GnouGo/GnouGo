@@ -4,6 +4,8 @@ using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Server.Configuration;
+using GnOuGo.Agent.Mcp;
+using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Integrations;
@@ -44,27 +46,64 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     internal string Model => _options.DefaultModel;
     internal string Provider => _options.DefaultProvider;
     internal IReadOnlyDictionary<string, McpServerOptions> McpServers => _options.McpServers;
-    internal string ConfigurationFingerprint => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(_options));
-    internal static async Task<KeyVaultBenchmarkModel> CreateAsync(string providerName, string? expectedModel, BenchmarkCampaign campaign, string root, CancellationToken ct)
+    internal string ConfigurationFingerprint => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(_options) +
+        JsonSerializer.Serialize(new RoutingLLMClient(_options, []).ResolveDeclaredMetadata(Provider, Model)));
+    internal JsonObject MetadataSources { get; private init; } = new();
+    internal async Task<JsonObject> ReadinessAsync(CancellationToken ct)
+    {
+        var metadata = new RoutingLLMClient(_options, []).ResolveDeclaredMetadata(Provider, Model);
+        var planning = await InputTokenAllowanceAsync(Provider, Model, 32768, ct);
+        var mapping = await InputTokenAllowanceAsync(Provider, Model, 8192, ct);
+        return new JsonObject { ["provider"] = Provider, ["model"] = Model, ["configuration_hash"] = ConfigurationFingerprint,
+            ["metadata_sources"] = MetadataSources.DeepClone(), ["declared_metadata_hash"] = metadata is null ? null : PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(metadata)),
+            ["max_input_tokens"] = metadata?.MaxInputTokens, ["context_window_tokens"] = metadata?.ContextWindowTokens,
+            ["max_output_tokens"] = metadata?.MaxOutputTokens, ["planning_input_allowance"] = planning is null ? null : Math.Min(96000, planning.Value),
+            ["mapping_input_allowance"] = mapping is null ? null : Math.Min(96000, mapping.Value), ["model_calls"] = 0,
+            ["ready"] = planning is > 0 && mapping is > 0,
+            ["limitation"] = planning is > 0 && mapping is > 0 ? null : "Exact deployment limits (MaxInputTokens, ContextWindowTokens and MaxOutputTokens) are required; no nearby-model or campaign-limit fallback is permitted." };
+    }
+    internal static void ApplyUserMetadata(LLMOptions options, IReadOnlyDictionary<string, LLMModelMetadata>? overrides, string provider, string? model)
+    {
+        if (!string.Equals(options.DefaultProvider, provider, StringComparison.OrdinalIgnoreCase) ||
+            string.IsNullOrWhiteSpace(options.DefaultModel) || model is not null && options.DefaultModel != model)
+            throw new InvalidOperationException("The configured provider/model does not match the evaluation pin.");
+        // Same precedence as Server startup. Persisted user defaults cannot switch a pinned campaign.
+        var runtime = new LLMRuntimeOptionsStore(Options.Create(options), NullLogger<LLMRuntimeOptionsStore>.Instance);
+        foreach (var item in overrides ?? new Dictionary<string, LLMModelMetadata>()) runtime.UpsertModelOverride(item.Key, item.Value);
+        options.ModelOverrides = runtime.Current.ModelOverrides;
+    }
+    internal static async Task<KeyVaultBenchmarkModel> CreateAsync(string providerName, string? expectedModel, BenchmarkCampaign campaign, string root, CancellationToken ct, bool pinConfiguration = true)
     {
         var services = new ServiceCollection(); services.AddLogging();
         var vault = KeyVaultDatabasePathResolver.Resolve(null, root);
         services.AddDbContext<KeyVaultDbContext>(o => o.UseSqlite("Data Source=" + vault)); services.AddScoped<KeyVaultService>();
         await using var provider = services.BuildServiceProvider();
-        var baseline = new LLMOptions { DefaultProvider = providerName, DefaultModel = expectedModel ?? "" };
         // Bundled definitions are host defaults; KeyVault applies the same current
         // per-server overrides as Agent.Server. No credentials are printed/exported.
         var hostDefaults = Path.Combine("src", "GnOuGo.Agent.Server", "appsettings.json");
         var host = File.Exists(hostDefaults) ? JsonNode.Parse(await File.ReadAllTextAsync(hostDefaults, ct)) : null;
-        if (host?["LLM"]?["McpServers"] is { } servers)
-            baseline.McpServers = JsonSerializer.Deserialize<Dictionary<string, McpServerOptions>>(servers, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+        var baseline = host?["LLM"]?.Deserialize<LLMOptions>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+        baseline.DefaultProvider = providerName; baseline.DefaultModel = expectedModel ?? "";
         var bundled = host?["BundledMcp"]?.Deserialize<BundledMcpSettings>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
         var config = new KeyVaultRuntimeConfigStore(provider.GetRequiredService<IServiceScopeFactory>(), NullLogger<KeyVaultRuntimeConfigStore>.Instance,
             Options.Create(bundled), Options.Create(new KeyVaultSettings { DatabasePath = vault }));
         var options = await config.BuildEffectiveOptionsAsync(baseline, ct);
-        if (string.IsNullOrWhiteSpace(options.DefaultModel) || expectedModel is not null && options.DefaultModel != expectedModel)
-            throw new InvalidOperationException("The configured model does not match the evaluation model.");
+        var database = AgentMcpHostingExtensions.ResolveDatabasePath(host?["Agent"]?["DatabasePath"]?.GetValue<string>(), root);
+        IReadOnlyDictionary<string, LLMModelMetadata>? userOverrides = null;
+        if (File.Exists(database))
+        {
+            var userServices = new ServiceCollection(); userServices.AddLogging(); userServices.AddAgentMcpPersistence(database);
+            await using var userProvider = userServices.BuildServiceProvider();
+            await using var userScope = userProvider.CreateAsyncScope();
+            userOverrides = (await userScope.ServiceProvider.GetRequiredService<IUserConfigRepository>().GetAsync(ct: ct)).ModelOverrides;
+        }
+        ApplyUserMetadata(options, userOverrides, providerName, expectedModel);
+        var sources = new JsonObject { ["host_metadata_files"] = options.ModelMetadataFiles.Count,
+            ["host_overrides_hash"] = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(baseline.ModelOverrides)),
+            ["persisted_user_config_available"] = File.Exists(database), ["persisted_override_count"] = userOverrides?.Count ?? 0,
+            ["persisted_overrides_hash"] = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(userOverrides)) };
         var settings = options.ResolveProvider(options.DefaultProvider) ?? throw new InvalidOperationException("No configured provider.");
+        if (!pinConfiguration) return new(campaign, options) { MetadataSources = sources };
         // Preserve the initial configuration; explicit later budget authorizations have their own durable history.
         await campaign.PinAsync(new() { ["provider"] = options.DefaultProvider, ["model"] = options.DefaultModel, ["endpoint"] = settings.Url,
             ["request_policy"] = JsonSerializer.SerializeToNode(settings.RequestPolicy), ["reasoning"] = "medium", ["max_input_tokens"] = 96_000,
@@ -74,7 +113,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         if (pinnedRetry is not null && !JsonNode.DeepEquals(pinnedRetry, retryConfiguration))
             throw new InvalidOperationException("The campaign HTTP retry policy changed.");
         if (pinnedRetry is null) await campaign.SaveAsync("planning-evaluation-configuration", "http-retry-policy", retryConfiguration, ct);
-        return new(campaign, options);
+        return new(campaign, options) { MetadataSources = sources };
     }
     internal static LLMRequest CreateDispatchRequest(LLMRequest request, string provider, string model, bool execution = false)
     {

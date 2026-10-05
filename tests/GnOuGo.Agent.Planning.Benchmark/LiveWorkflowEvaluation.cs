@@ -21,6 +21,9 @@ internal static class LiveWorkflowEvaluation
 
     internal static async Task RunAsync(string[] args, string phase, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, string root)
     {
+        var readiness = await model.ReadinessAsync(CancellationToken.None);
+        Console.WriteLine(readiness.ToJsonString());
+        if (readiness["ready"]?.GetValue<bool>() != true) throw new InvalidOperationException("Exact deployment allowances are required before live planning or execution.");
         var scenario = SchemaPortabilityCampaign.Option(args, "--case") ?? "amazon";
         if (scenario is not ("amazon" or "code")) throw new ArgumentException("Choose amazon or code.");
         var label = SchemaPortabilityCampaign.Option(args, "--run") ?? (phase == "readiness" ? "readiness-" : "diagnostic-") + scenario + "-1";
@@ -41,7 +44,7 @@ internal static class LiveWorkflowEvaluation
         var human = new ConsoleHuman(campaign, label);
         await using var transport = new ConfiguredMcpClientFactory(configurations, human, model.Provider, model.Model);
         var run = continuing ? retained!.DeepClone().AsObject() : new JsonObject { ["scenario"] = scenario, ["label"] = label, ["source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"),
-            ["phase"] = manifest is not null ? "final" : "diagnostic", ["events"] = new JsonArray(), ["manifest"] = manifest };
+            ["phase"] = manifest is not null ? "final" : "diagnostic", ["events"] = new JsonArray(), ["manifest"] = manifest, ["provider_readiness"] = readiness };
         var observed = new ObservedMcp(transport, async e =>
         {
             run["events"]!.AsArray().Add(e);
@@ -215,7 +218,7 @@ internal static class LiveWorkflowEvaluation
         return result;
     }
 
-    private sealed class ConsoleHuman(BenchmarkCampaign campaign, string run) : IHumanInputProvider
+    internal sealed class ConsoleHuman(BenchmarkCampaign campaign, string run) : IHumanInputProvider
     {
         private int _count;
         public async Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)

@@ -60,6 +60,26 @@ internal static class TaskPlanRevisions
     internal static IEnumerable<PlanTask> Tasks(TaskScope scope) => scope.Tasks.Concat(scope.Always).SelectMany(t => new[] { t }.Concat(
         (t.Body is null ? [] : Tasks(t.Body)).Concat(t.Otherwise is null ? [] : Tasks(t.Otherwise)).Concat(t.Branches.SelectMany(Tasks))));
     internal static IEnumerable<PlanTask> Tasks(TaskPlan plan) => Tasks(plan.Root).Concat(plan.Groups.SelectMany(g => Tasks(g.Body)));
+    internal static IEnumerable<PlanningDiagnostic> UnrepairableRequirements(PlanningSession state)
+    {
+        var symbols = new TaskPlanSymbols(state.Plan!);
+        var catalog = PlanningStructuralRepair.Catalog(state);
+        foreach (var finding in state.Diagnostics.Where(d => d.Required && d.Code == "TASK_OUTPUT_UNKNOWN"))
+        {
+            if (finding.Location.Split('/') is not ["", "tasks", var consumer, "requires"] ||
+                !symbols.Tasks.TryGetValue(consumer, out var site) || site.Task.Requires is not { } condition) continue;
+            foreach (var reference in TaskPlanCompiler.Values(condition).Where(v => v.Kind == "output" && !string.IsNullOrEmpty(v.Port)))
+            {
+                if (reference.Source is not { } id || !symbols.Tasks.TryGetValue(id, out var producer) || producer.Task.Kind != "operation" ||
+                    !catalog.Capabilities.Any(c => TaskOperations.Describe(c).Id == producer.Task.Operation) ||
+                    state.RevisionScope.Any(p => p.StartsWith("/tasks/" + id + "/", StringComparison.Ordinal)) ||
+                    PlanningRepairContext.Ports(producer.Task, state).Contains(reference.Port, StringComparer.Ordinal)) continue;
+                yield return finding with { Code = "REVISION_REQUIRED", Message = finding.Message +
+                    " The required condition and producer contract are outside repair authority. Explicitly revise the binding; unrelated repairs cannot resolve it." };
+                break;
+            }
+        }
+    }
     internal static IReadOnlyList<string> Scope(TaskPlan plan, IReadOnlyList<PlanningDiagnostic> findings)
     {
         if (TaskPlanCompiler.InvalidDeclarations(plan).Count > 0) return [];

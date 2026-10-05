@@ -442,14 +442,31 @@ separates deterministic adapter execution from live-provider results.
 
 ### Bounded mapping cohort
 
-After deterministic tests and a clean frozen commit, run the real-provider/stdio matrix within the existing campaign:
+First inspect exact deployment metadata without inference. The harness loads host metadata and persisted Agent user overrides with Server precedence; it keeps the campaign provider/model pinned. Output contains allowances and fingerprints, never credentials. Missing limits stop dependent paid dispatch; campaign ceilings are not deployment metadata.
+
+```bash
+dotnet run --project tests/GnOuGo.Agent.Planning.Benchmark -- --schema-portability provider-readiness --campaign schema-portability-20261002 --workspace /path/to/GnOuGo
+```
+
+After deterministic tests and a clean frozen commit, prepare the real-provider/stdio matrix within the existing campaign:
 
 ```bash
 dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror -p:SkipClientBuild=true
 dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability mapping --campaign schema-portability-20261002 --workspace /path/to/GnOuGo --run mapping-cohort-1
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability mapping --campaign schema-portability-20261002 --workspace /path/to/GnOuGo --run mapping-cohort-1 --variant scalar --review-command /private/path/scalar-review.json
 dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability mapping-report --campaign schema-portability-20261002 --workspace /path/to/GnOuGo --run mapping-cohort-1
 ```
 
-The harness starts a disposable MCP process with no structured output metadata, generates and approves a business extraction plan using the pinned provider, then executes cold/warm JSON, changed data/shape, text, HTML, changed target and missing-data cases. A separately labelled fault-injection case substitutes one invalid script before real-provider repair. Source observations and exact output expectations are frozen before dispatch. Revisions for the target-schema fixture are explicit and independently compiled; they are not runtime plan edits. A failed case stops the matrix and remains in the denominator. Use a new identity after fixing a regression.
+Preparation starts a disposable MCP process with no structured output metadata and deterministically compiles three fixtures with zero planning inference. Each `--variant scalar|extended|each` displays its persisted requirements, plan, revision and artifact hash. Submit a separate existing approval command for each variant with explicitly reviewed requirement IDs. No acknowledgment or runtime permission is auto-accepted. An already-started variant cannot be replayed, including after interruption.
+
+The scalar fixture executes cold/warm JSON, changed data/shape, text, HTML and missing-data cases. A separately labelled fault-injection case substitutes one invalid script before real-provider repair. The extended fixture tests a changed target; the each fixture reads 80 complete HTML observations through real MCP, checks every extracted row and repeats for a warm-cache run. The full collection exceeds the campaign input allowance; bounded examples must suffice without truncating execution. All eleven cases and exact expectations are frozen before dispatch. A failed case stops that variant and remains in the denominator. Fixes require new identities; artifacts never change at runtime.
 
 Mapping scripts/attempt receipts persist through the existing encrypted run store under a cohort-specific tenant; measurements and manifests use `planning-mapping-evaluation`. All paid calls use the existing campaign gate. Printed rows contain only public fixture observations. The existing Amazon/code commands and their independent execution oracles are unchanged. Do not pool this matrix with historical 33/33 or prior live cohorts.
+
+The independent Copilot producer probe uses the actual task-enabled MCP, an inference-policy proxy and one disposable Python command. It checks the observed report, command exit, durable receipt and encrypted receipt reload before cleanup. Permission requests remain interactive. Unknown completion retains the directory and blocks replay; the probe is not full code-review acceptance.
+
+```bash
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability copilot-probe --campaign schema-portability-20261002 --workspace /path/to/GnOuGo --run completion-probe-1
+```
+
+Only after focused probes pass, freeze a fresh Amazon/code cohort and attempt repetition one of each with unchanged execution oracles. Preserve all failures and the campaign's unknown reservations.

@@ -25,7 +25,7 @@ internal static class LiveCodeEvidence
         if (run["checkout_head"]?.ToString() == LiveWorkflowEvaluation.Head) run["repository_manifest"] = manifest;
     }
 
-    internal static JsonObject Verify(JsonObject run, string repository)
+    internal static JsonArray Commands(JsonObject run, string repository)
     {
         var commands = new JsonArray();
         foreach (var evt in run["events"]!.AsArray())
@@ -42,6 +42,12 @@ internal static class LiveCodeEvidence
                         commands.Add(new JsonObject { ["command"] = command, ["exit_code"] = terminal["exitCode"]!.DeepClone(),
                             ["output"] = terminal["text"]?.DeepClone(), ["tool_call_id"] = call["toolCallId"]?.DeepClone() });
             }
+        return commands;
+    }
+
+    internal static JsonObject Verify(JsonObject run, string repository)
+    {
+        var commands = Commands(run, repository);
         bool Executed(params string[] accepted) => commands.Any(c => accepted.Contains(c!["command"]!.ToString(), StringComparer.Ordinal));
         bool Installed(params string[] accepted) => commands.Any(c => c!["exit_code"]!.GetValue<long>() == 0 && accepted.Contains(c["command"]!.ToString(), StringComparer.Ordinal));
         bool Version(string command, string expected) => commands.Any(c => c!["command"]!.ToString() == command && c["exit_code"]!.GetValue<long>() == 0 && c["output"]?.ToString().Trim().TrimStart('v') == expected);

@@ -584,7 +584,9 @@ public sealed partial class TaskPlanCompiler
                         producerTask.Task.Kind is "sequence" or "foreach" or "conditional" or "parallel" or "call")
                         Fail("TASK_EXPORT_REQUIRED", "This scope declares no business outputs. Select explicit scope exports for data; use dependsOn or present for ordering or presence.");
                     if (ports.TryGetValue(value.Port ?? "", out var output)) return consume ? Consume(output, scope) : output;
-                    Fail("TASK_OUTPUT_UNKNOWN", "This task has no declared business output '" + value.Port + "'. Opaque results cannot supply typed fields.");
+                    Fail("TASK_OUTPUT_UNKNOWN", "Task '" + value.Source + "' has no declared business output '" + value.Port +
+                        "'. Available ports: " + new JsonArray(ports.Keys.Where(p => p.Length > 0).Order(StringComparer.Ordinal).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()).ToJsonString() +
+                        ". Opaque results cannot supply typed fields.");
                 }
                 break;
             case "item": if (scope.Item is not null) return scope.Item; break;

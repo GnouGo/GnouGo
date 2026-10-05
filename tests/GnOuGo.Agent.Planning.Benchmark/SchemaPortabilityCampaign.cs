@@ -43,6 +43,15 @@ internal static class SchemaPortabilityCampaign
         }
         var campaignId = Option(args, "--campaign") ?? throw new ArgumentException("Supply a new --campaign.");
         var campaign = new BenchmarkCampaign(records, campaignId);
+        if (phase == "provider-readiness")
+        {
+            using var configured = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Model, campaign, root, CancellationToken.None, pinConfiguration: false);
+            var readiness = await configured.ReadinessAsync(CancellationToken.None);
+            Console.WriteLine(readiness.ToJsonString());
+            Console.WriteLine((await campaign.InspectAsync()).ToJsonString());
+            if (readiness["ready"]?.GetValue<bool>() != true) Environment.ExitCode = 1;
+            return;
+        }
         if (phase == "mapping-report")
         {
             var label = Option(args, "--run") ?? throw new ArgumentException("Supply --run.");
@@ -51,7 +60,7 @@ internal static class SchemaPortabilityCampaign
             saved["generated_plan"] = saved["planning_session"]?["plan"]?.DeepClone();
             saved.Remove("planning_session");
             foreach (var row in saved["runs"]!.AsArray().OfType<JsonObject>())
-                foreach (var usage in row["usage_receipts"]!.AsArray().OfType<JsonObject>())
+                foreach (var usage in (row["usage_receipts"] as JsonArray ?? []).OfType<JsonObject>())
                     if (await campaign.LoadAsync("planning-evaluation-receipts", usage["request_id"]!.ToString()) is { } receipt)
                         usage["mapping_response"] = receipt["json"]?.DeepClone() ?? receipt["text"]?.DeepClone();
             Console.WriteLine(saved.ToJsonString()); return;
@@ -148,6 +157,7 @@ internal static class SchemaPortabilityCampaign
             return;
         }
         using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Model, campaign, root, CancellationToken.None);
+        if (phase == "copilot-probe") { await LiveExecutionReadiness.CopilotAsync(args, campaign, model, root); return; }
         if (phase == "mapping") { await MappingLiveEvaluation.RunAsync(args, campaign, model, root); return; }
         if (phase is "readiness" or "plan" or "revise" or "execute")
         { await LiveWorkflowEvaluation.RunAsync(args, phase, campaign, model, root); return; }

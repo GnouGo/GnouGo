@@ -412,7 +412,9 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         var unsupported = findings.Where(d => d.Code == "TASK_ARTIFACT_PREREQUISITE_MISSING").Any(d =>
             !structural.Any(s => s.Kind == "prerequisites" && s.Location.Replace("/prerequisites/", "/inputs/", StringComparison.Ordinal) == d.Location));
         if (unsupported) state.RevisionScope.RemoveAll(p => findings.Any(d => d.Code == "TASK_ARTIFACT_PREREQUISITE_MISSING" && d.Location == p));
-        if (state.RevisionScope.Count == 0 || unsupported || findings.Any(d => d.Code == "TASK_COMPILER_VALIDATION")) Stop(state);
+        var immutable = TaskPlanRevisions.UnrepairableRequirements(state).ToArray();
+        state.Diagnostics.AddRange(immutable);
+        if (state.RevisionScope.Count == 0 || unsupported || immutable.Length > 0 || findings.Any(d => d.Code == "TASK_COMPILER_VALIDATION")) Stop(state);
         else state.Status = PlanningStatus.Generating;
     }
 

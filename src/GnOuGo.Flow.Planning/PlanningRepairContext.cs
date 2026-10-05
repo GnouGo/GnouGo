@@ -57,6 +57,7 @@ internal static class PlanningRepairContext
             foreach (var value in site.Task.Inputs.Concat(site.Task.Outputs).Select(v => v.Value)) References(value);
             if (site.Task.Items is { } items) References(items);
             if (site.Task.Condition is { } condition) References(condition);
+            if (site.Task.Requires is { } requires) References(requires);
         }
         // Producer constraints can affect other consumers. Include their contracts
         // without authorizing them or recursively retaining unrelated work.
@@ -152,7 +153,7 @@ internal static class PlanningRepairContext
     private static bool IsLiteral(TaskValue value) => value.Kind is "null" or "string" or "number" or "boolean" ||
         value.Kind == "object" && value.Members.All(m => IsLiteral(m.Value)) || value.Kind == "array" && value.Items.All(IsLiteral);
 
-    private static IEnumerable<string> Ports(PlanTask task, PlanningSession state)
+    internal static IEnumerable<string> Ports(PlanTask task, PlanningSession state)
     {
         if (task.Kind == "transform") return task.ResultType?.Fields.Select(f => f.Name) ?? [];
         if (task.Kind == "operation") return state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).FirstOrDefault(c => TaskOperations.Describe(c).Id == task.Operation) is { } cap
