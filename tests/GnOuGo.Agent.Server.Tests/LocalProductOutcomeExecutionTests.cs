@@ -25,6 +25,8 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
     [InlineData("nominal")]
     [InlineData("pages")]
     [InlineData("pages-parallel")]
+    [InlineData("pages-compact")]
+    [InlineData("pages-compact-consent")]
     [InlineData("extract")]
     [InlineData("each")]
     [InlineData("each-parallel")]
@@ -51,7 +53,8 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         builder.WebHost.ConfigureKestrel(o => o.Listen(System.Net.IPAddress.Loopback, 0)); builder.Logging.ClearProviders();
         await using var site = builder.Build();
         var visits = new List<string>();
-        var consentScenario = variant is "required-consent" or "required-incomplete-observation" or "consent" or "no-consent" or "delayed-consent" or "unrelated-modal" or "incomplete-observation";
+        var compact = variant.StartsWith("pages-compact", StringComparison.Ordinal);
+        var consentScenario = variant is "pages-compact-consent" or "required-consent" or "required-incomplete-observation" or "consent" or "no-consent" or "delayed-consent" or "unrelated-modal" or "incomplete-observation";
         var consentReceipts = new List<bool>();
         site.MapGet("/{**path}", async (HttpContext context) =>
         {
@@ -65,7 +68,8 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 path == "/one" ? variant == "changed" ? "<h1>Changed lamp</h1><p>New description</p><price>9,90 €</price>" : "<h1>Lampe été, &quot;A&quot;</h1><p>Bright and small {{values}}</p><price>19,99 €</price>" :
                 variant == "changed" ? "<h1>Second</h1><p>Updated</p><price>12.00</price>" : "<h1>東京 lamp</h1><p>Line one\nLine two</p><price>25.00</price>";
             if (path == "/search" && variant.StartsWith("pages", StringComparison.Ordinal)) body = "<p>Catalogue</p><p>Observed introduction</p>" + body + "<p>Footer</p><p>End</p>";
-            var banner = path == "/search" && variant is "required-consent" or "consent" or "delayed-consent" or "unrelated-modal";
+            if (path == "/search" && compact) body = string.Concat(Enumerable.Range(0, 120).Select(i => "<p>irrelevant-observation-" + i + new string('x', 600) + "</p>")) + body;
+            var banner = path == "/search" && variant is "pages-compact-consent" or "required-consent" or "consent" or "delayed-consent" or "unrelated-modal";
             var dialog = "<section role='dialog' aria-modal='true' id='notice'><p>" + (variant == "unrelated-modal" ? "Account verification" : "Cookie preferences") +
                 "</p><div><span role='button' tabindex='0' id='accept' onclick=\"document.cookie='fixtureConsent=accepted;path=/';document.querySelector('main').hidden=false;document.getElementById('notice').remove()\">" +
                 (variant == "unrelated-modal" ? "Continue" : "Accept cookies") + "</span></div></section>";
@@ -84,14 +88,15 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             await using var transport = new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>
             {
                 ["browser"] = Server("Browser", new() { ["Browser__AllowedHosts__0"] = "127.0.0.1", ["Browser__Headless"] = "true", ["Browser__KeepBrowserOpen"] = "false",
-                    ["Browser__MaxObservationRecords"] = variant is "incomplete-observation" or "required-incomplete-observation" or "pages" or "pages-parallel" ? "1" : "80",
+                    ["Browser__MaxObservationRecords"] = compact ? "8" : variant is "incomplete-observation" or "required-incomplete-observation" or "pages" or "pages-parallel" ? "1" : "80",
                     ["Browser__SlowMoMs"] = "0", ["Browser__HoldOpenMs"] = "0", ["Browser__NavigationTimeoutMs"] = "3000", ["OpenTelemetry__Enabled"] = "false" }),
                 ["document"] = Server("Document", new() { ["Document__DefaultWorkingDirectory"] = workspace, ["OpenTelemetry__Enabled"] = "false" })
             });
             var model = new ProductTransformationFixture(variant) { ReadMethod = "browser_get_content", WriteMethod = "document_write", CloseMethod = "browser_close" };
             var consentModel = new ConsentModel(model);
             var extractionModel = new ExtractModel(model);
-            var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = variant.StartsWith("pages", StringComparison.Ordinal) ? new PagedModel(model) : consentScenario ? consentModel : variant is "extract" or "observation" or "each" or "each-parallel" ? extractionModel : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
+            var compactModel = new CompactModel(new ConsentModel(new PagedModel(model, compact: true)));
+            var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = compact ? compactModel : variant.StartsWith("pages", StringComparison.Ordinal) ? new PagedModel(model) : consentScenario ? consentModel : variant is "extract" or "observation" or "each" or "each-parallel" ? extractionModel : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await runtime.DiscoverAsync(new(), ct); var reads = 0;
             foreach (var source in await runtime.Capabilities.ListSourcesAsync(ct))
@@ -135,8 +140,17 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                         Outputs = [new("observations", ProductTransformationPlan.Ref("read_page", "observation"))] } };
                 plan.Root.Tasks.Insert(1, pages);
                 plan.Root.Tasks.Single(t => t.Id == "urls").Inputs = [new("pages", ProductTransformationPlan.Ref("consume_pages", "observations"))];
+                if (compact)
+                {
+                    pages.Body.Tasks.Add(new() { Id = "compact_records", Kind = "transform", Mode = "extract", Each = new("records", "candidates"),
+                        Objective = "From each observed record, retain its text, href and DOM group only when it is a link. Return an ordered candidate array per record, empty for other record kinds. Never rank or infer missing links.",
+                        Inputs = [new("records", Field(ProductTransformationPlan.Ref("read_page", "observation"), "records"))],
+                        ResultType = ProductTransformationPlan.Obj(("candidates", new() { Kind = "array", Items = new() { Kind = "array", Items = ProductTransformationPlan.Obj(("text", new()), ("href", new()), ("group", new())) } })) });
+                    pages.Body.Outputs = [new("observations", ProductTransformationPlan.Ref("compact_records", "candidates"))];
+                }
             }
             if (consentScenario) AddConsentSteps(plan, catalog);
+            if (variant == "pages-compact-consent") plan.Root.Tasks.Single(t => t.Id == "search").Inputs.Add(new("format", ProductTransformationPlan.Text("observation_pages")));
             if (variant.StartsWith("required-", StringComparison.Ordinal))
             {
                 TaskValue Field(TaskValue value, string name) => new() { Kind = "field", Port = name, Items = [value] };
@@ -181,7 +195,13 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var result = await engine.ExecuteAsync(doc.Workflows[doc.Entrypoint!], new JsonObject { ["search"] = site.Urls.Single() + "/search" }, ct);
             var executionMs = timer.Elapsed.TotalMilliseconds;
             output.WriteLine($"LOCAL {variant}: success={result.Success}, calls={session.ModelCalls}, discovery={reads}, repairs={session.ReplanAttempts}, inputEstimate={planning.InputEstimate}, executionAdapterCalls={model.Calls.Count}, planningMs={planningMs:F1}, executionMs={executionMs:F1}; error={result.Error?.Code} {result.Error?.Message}");
-            Assert.Equal(variant is "required-consent" or "nominal" or "changed" or "empty" or "missing" or "extract" or "observation" or "each" or "each-parallel" or "consent" or "no-consent" or "delayed-consent" or "pages" or "pages-parallel", result.Success);
+            Assert.Equal(compact || variant is "required-consent" or "nominal" or "changed" or "empty" or "missing" or "extract" or "observation" or "each" or "each-parallel" or "consent" or "no-consent" or "delayed-consent" or "pages" or "pages-parallel", result.Success);
+            if (compact)
+            {
+                Assert.NotEmpty(compactModel.Requests);
+                Assert.All(compactModel.Requests, r => Assert.InRange(KeyVaultBenchmarkModel.ExecutionInputEstimate(JsonSerializer.Serialize(r, PlanningJsonContext.Default.LLMRequest)), 1, 96000));
+                output.WriteLine($"COMPACT {variant}: mapping requests={compactModel.Requests.Count}; complete request estimates=[{string.Join(',', compactModel.Requests.Select(r => KeyVaultBenchmarkModel.ExecutionInputEstimate(JsonSerializer.Serialize(r, PlanningJsonContext.Default.LLMRequest))))}]");
+            }
             if (variant is "each" or "each-parallel") Assert.Equal(1, extractionModel.Calls);
             var browser = await transport.GetClientAsync("browser", ct);
             var afterCleanup = await browser.CallToolAsync("browser_get_content", new JsonObject(), ct);
@@ -284,7 +304,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => actual.ValidateAsync(request, ct);
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => actual.ValidateCatalogAsync(catalog, ct);
     }
-    private sealed class PagedModel(ILLMClient next) : ILLMClient
+    private sealed class PagedModel(ILLMClient next, bool compact = false) : ILLMClient
     {
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
@@ -292,11 +312,34 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var start = request.Prompt.IndexOf('{', request.Prompt.LastIndexOf("Business data", StringComparison.Ordinal));
             var pages = JsonNode.Parse(request.Prompt[start..])!["pages"]!.AsArray();
             Assert.True(pages.Count > 3);
-            Assert.All(pages, p => Assert.False(p!["captureTruncated"]!.GetValue<bool>()));
-            Assert.Null(pages[^1]!["nextCursor"]);
-            var records = pages.SelectMany(p => p!["records"]!.AsArray());
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["urls"] = new JsonArray(records.Where(r => r!["kind"]!.ToString() == "link").Select(r => r!["href"]!.DeepClone()).ToArray()) } });
+            if (!compact)
+            {
+                Assert.All(pages, p => Assert.False(p!["captureTruncated"]!.GetValue<bool>()));
+                Assert.Null(pages[^1]!["nextCursor"]);
+            }
+            else
+            {
+                Assert.DoesNotContain("irrelevant-observation", request.Prompt);
+                Assert.True(pages.Sum(p => p!.AsArray().Count) > 120);
+                Assert.InRange(KeyVaultBenchmarkModel.ExecutionInputEstimate(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)), 1, 12000);
+            }
+            var records = compact ? pages.SelectMany(p => p!.AsArray()).SelectMany(r => r!.AsArray()) : pages.SelectMany(p => p!["records"]!.AsArray()).Where(r => r!["kind"]!.ToString() == "link");
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["urls"] = new JsonArray(records.Select(r => r!["href"]!.DeepClone()).ToArray()) } });
         }
+    }
+
+    private sealed class CompactModel(ILLMClient next) : ILLMClient, ILLMCapabilityResolver
+    {
+        internal List<LLMRequest> Requests { get; } = [];
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            if (request.StructuredOutputSchema?["properties"]?["script"] is null) return next.CallAsync(request, ct);
+            Requests.Add(request);
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = "[source.records].filter(r=>m.test(r.kind,'^link$')).map(r=>({text:r.text,href:r.href,group:r.group}))" } });
+        }
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(12000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>([]);
     }
 
     private sealed class ExtractModel(ILLMClient interpretation) : ILLMClient, ILLMCapabilityResolver

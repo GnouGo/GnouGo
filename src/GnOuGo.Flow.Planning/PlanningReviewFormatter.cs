@@ -33,7 +33,9 @@ public static class PlanningReviewFormatter
                 var id = "t" + PlanningGraphCompiler.Fingerprint(task.Id)[..12];
                 var businessResult = (task.Each is null ? "" : " · each " + task.Each.Input + " → " + task.Each.Output) +
                     (task.ResultType is null ? "" : " → " + string.Join(", ", task.ResultType.Fields.Select(f => f.Name + ": " + f.Type.Kind)));
-                result.AppendLine(id + "[\"" + Label(task.Id + ": " + task.Objective + " (" + task.Kind + (task.Requires is null ? "" : ", required precondition") + (scope.Always.Contains(task) ? ", always" : "") + ")" + businessResult + (task.Requires is null ? "" : "; requires " + Describe(task.Requires))) + "\"]");
+                var transform = task.Kind == "transform" ? ", " + (task.Mode ?? "interpret") : "";
+                var inputs = task.Kind == "transform" ? "; inputs: " + string.Join(", ", task.Inputs.Select(i => i.Name + " ← " + Describe(i.Value))) : "";
+                result.AppendLine(id + "[\"" + Label(task.Id + ": " + task.Objective + " (" + task.Kind + transform + (task.Requires is null ? "" : ", required precondition") + (scope.Always.Contains(task) ? ", always" : "") + ")" + businessResult + inputs + (task.Requires is null ? "" : "; requires " + Describe(task.Requires))) + "\"]");
                 if (previous is not null) result.AppendLine(previous + " --> " + id);
                 previous = id;
                 if (task.Body is not null) Draw(task.Body, task.Id + " body");
@@ -49,6 +51,9 @@ public static class PlanningReviewFormatter
         "output" => value.Source + (value.Port is null ? "" : "." + value.Port),
         "present" => "present(" + value.Source + ")",
         "field" when value.Items.Count == 1 => Describe(value.Items[0]) + "." + value.Port,
+        "object" => "{" + string.Join(", ", value.Members.Select(m => m.Name + ": " + Describe(m.Value))) + "}",
+        "array" => "[" + string.Join(", ", value.Items.Select(Describe)) + "]",
+        "json" => "json(" + string.Join(", ", value.Items.Select(Describe)) + ")",
         "boolean" => value.Boolean == true ? "true" : "false",
         "null" => "null", "string" => "\"" + value.Text + "\"",
         "predicate" => value.Predicate + "(" + string.Join(", ", value.Items.Select(Describe)) + ")",
