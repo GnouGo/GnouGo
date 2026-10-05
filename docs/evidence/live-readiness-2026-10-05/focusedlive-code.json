@@ -1,0 +1,4421 @@
+{
+  "result": {
+    "status": "stopped",
+    "planning_ms": 345276,
+    "calls": 8,
+    "repairs": 2,
+    "discovery_reads": 6,
+    "review_revisions": 3,
+    "diagnostics": [
+      {
+        "code": "TASK_EXPORT_REQUIRED",
+        "location": "/tasks/recoverIfCloneOutputUnavailableThenCleanup/body/outputs",
+        "message": "Declare the business outputs needed by consumers outside this scope; exports are never implicit.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_BRANCH_OUTPUTS",
+        "location": "/tasks/recoverIfCloneOutputUnavailableThenCleanup/body/outputs/reviewJson",
+        "message": "Declare the matching business output explicitly in this alternative.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_EXPORT_REQUIRED",
+        "location": "/tasks/recoverIfCloneOutputUnavailableThenCleanup/otherwise/outputs",
+        "message": "Declare the business outputs needed by consumers outside this scope; exports are never implicit.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_DEPENDENCY_UNKNOWN",
+        "location": "/tasks/writeCloneFailureFallbackReviewJson/dependsOn",
+        "message": "Dependencies assembleCloneFailureFallbackReviewJson must name preceding tasks in scope /tasks/preserveCloneFailureBranchReportThenCleanup/body. Ancestor values may be captured without cross-scope dependsOn entries.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_DEPENDENCY_UNKNOWN",
+        "location": "/tasks/writeFallbackSuccessfulBranchReviewJson/dependsOn",
+        "message": "Dependencies preserveSuccessfulBranchFallbackWithChecksIfPresent must name preceding tasks in scope /tasks/preserveSuccessfulCloneBranchReportThenCleanup/body. Ancestor values may be captured without cross-scope dependsOn entries.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_DEPENDENCY_UNKNOWN",
+        "location": "/tasks/writeNoCloneObservationReviewJson/dependsOn",
+        "message": "Dependencies assembleNoCloneObservationReviewJson must name preceding tasks in scope /root. Ancestor values may be captured without cross-scope dependsOn entries.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/writeNoCloneObservationReviewJson/inputs/content",
+        "message": "TASK_REFERENCE_UNKNOWN: Business reference 'assembleNoCloneObservationReviewJson' is unavailable in this scope.",
+        "required": true,
+        "validationStage": "contract:TASK_REFERENCE_UNKNOWN",
+        "rule": null
+      },
+      {
+        "code": "LLM_BUDGET_EXCEEDED",
+        "location": "/",
+        "message": "The session model-call budget was exhausted (8/8 calls). Input/output token settings do not extend this cumulative allowance. Start a new planning session; retained requests and accounting remain unchanged.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 8,
+        "physical_attempts": 8,
+        "known_input_tokens": 203065,
+        "known_output_tokens": 29206,
+        "known_cost_eur": 1.6882408068546948,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 705,
+        "session_calls": 0,
+        "known_input_tokens": 10884662,
+        "known_output_tokens": 1095191,
+        "known_cost_eur": 77.69732951305022,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 80.30408229701459,
+        "unknown_attempts": 2
+      }
+    }
+  },
+  "status": "stopped",
+  "revision": 14,
+  "artifact_hash": null,
+  "requirements": {
+    "summary": "Réaliser localement une review automatique de la PR GitHub publique SmartGuide #610 à partir de pullRequestUrl et reviewText, avec un seul clone à l’emplacement imposé, en utilisant les toolchains/checks déclarés par le dépôt et l’assistance GitHub Copilot, sans publication GitHub, puis écrire un rapport JSON et supprimer le clone quoi qu’il arrive.",
+    "outcomes": [
+      {
+        "id": "single_clone_fixed_destination",
+        "description": "Cloner une seule fois le dépôt ciblé dans workflows/schema-portability-20261002/focusedlive20261005a-code-1/repository et utiliser uniquement ce répertoire pour les opérations projet."
+      },
+      {
+        "id": "local_pr_review",
+        "description": "Comparer localement la PR #610 avec head f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488 et base 8f1779dc25c1843e9ce4d4ec76d02e066ae892c4, exécuter les vérifications disponibles, puis produire une décision approve ou request_changes avec commentaires de diff locaux."
+      },
+      {
+        "id": "evidence_and_cleanup",
+        "description": "Sauvegarder dans workflows/schema-portability-20261002/focusedlive20261005a-code-1/review.json les commandes exécutées et codes de sortie observés, rendre explicites les capacités/prérequis absents et tests échoués, puis supprimer le répertoire cloné même en cas d’échec."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "pullRequestUrl",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      },
+      {
+        "name": "reviewText",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "outputs": [
+      {
+        "name": "reviewJson",
+        "type": {
+          "kind": "object",
+          "nullable": false,
+          "items": null,
+          "fields": [
+            {
+              "name": "decision",
+              "type": {
+                "kind": "string",
+                "nullable": false,
+                "enum": [
+                  "approve",
+                  "request_changes"
+                ],
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "findings",
+              "type": {
+                "kind": "array",
+                "nullable": false,
+                "items": {
+                  "kind": "object",
+                  "nullable": false,
+                  "items": null,
+                  "fields": [
+                    {
+                      "name": "title",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "severity",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "file",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "line",
+                      "type": {
+                        "kind": "integer",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "comment",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    }
+                  ]
+                },
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "commands",
+              "type": {
+                "kind": "array",
+                "nullable": false,
+                "items": {
+                  "kind": "object",
+                  "nullable": false,
+                  "items": null,
+                  "fields": [
+                    {
+                      "name": "command",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "cwd",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "exitCode",
+                      "type": {
+                        "kind": "integer",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "stdout",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "stderr",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    }
+                  ]
+                },
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            }
+          ]
+        },
+        "required": true,
+        "default": null
+      }
+    ]
+  },
+  "review": [],
+  "diagnostics": [
+    {
+      "code": "TASK_EXPORT_REQUIRED",
+      "location": "/tasks/recoverIfCloneOutputUnavailableThenCleanup/body/outputs",
+      "message": "Declare the business outputs needed by consumers outside this scope; exports are never implicit.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_BRANCH_OUTPUTS",
+      "location": "/tasks/recoverIfCloneOutputUnavailableThenCleanup/body/outputs/reviewJson",
+      "message": "Declare the matching business output explicitly in this alternative.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_EXPORT_REQUIRED",
+      "location": "/tasks/recoverIfCloneOutputUnavailableThenCleanup/otherwise/outputs",
+      "message": "Declare the business outputs needed by consumers outside this scope; exports are never implicit.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_DEPENDENCY_UNKNOWN",
+      "location": "/tasks/writeCloneFailureFallbackReviewJson/dependsOn",
+      "message": "Dependencies assembleCloneFailureFallbackReviewJson must name preceding tasks in scope /tasks/preserveCloneFailureBranchReportThenCleanup/body. Ancestor values may be captured without cross-scope dependsOn entries.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_DEPENDENCY_UNKNOWN",
+      "location": "/tasks/writeFallbackSuccessfulBranchReviewJson/dependsOn",
+      "message": "Dependencies preserveSuccessfulBranchFallbackWithChecksIfPresent must name preceding tasks in scope /tasks/preserveSuccessfulCloneBranchReportThenCleanup/body. Ancestor values may be captured without cross-scope dependsOn entries.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_DEPENDENCY_UNKNOWN",
+      "location": "/tasks/writeNoCloneObservationReviewJson/dependsOn",
+      "message": "Dependencies assembleNoCloneObservationReviewJson must name preceding tasks in scope /root. Ancestor values may be captured without cross-scope dependsOn entries.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "CONTRACT_UNSATISFIED",
+      "location": "/tasks/writeNoCloneObservationReviewJson/inputs/content",
+      "message": "TASK_REFERENCE_UNKNOWN: Business reference 'assembleNoCloneObservationReviewJson' is unavailable in this scope.",
+      "required": true,
+      "validationStage": "contract:TASK_REFERENCE_UNKNOWN",
+      "rule": null
+    },
+    {
+      "code": "LLM_BUDGET_EXCEEDED",
+      "location": "/",
+      "message": "The session model-call budget was exhausted (8/8 calls). Input/output token settings do not extend this cumulative allowance. Start a new planning session; retained requests and accounting remain unchanged.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "questions": null,
+  "plan": {
+    "inputs": [
+      {
+        "name": "pullRequestUrl",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      },
+      {
+        "name": "reviewText",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "root": {
+      "tasks": [
+        {
+          "id": "cloneRepository",
+          "objective": "Cloner une seule fois le dépôt GitHub public SmartGuide dans la destination littérale imposée, avec l’historique nécessaire pour comparer exactement base et head, et conserver cette destination pour le nettoyage même après échec partiel.",
+          "kind": "operation",
+          "dependsOn": [],
+          "operation": "cap_fa8aa0024ff2ec0a4f9e61ad",
+          "inputs": [
+            {
+              "name": "remoteUrl",
+              "value": {
+                "kind": "string",
+                "text": "https://github.com/AxaFrance/SmartGuide.git",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "targetDirectory",
+              "value": {
+                "kind": "string",
+                "text": "workflows/schema-portability-20261002/focusedlive20261005a-code-1/repository",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "branch",
+              "value": {
+                "kind": "string",
+                "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "fetchAllBranches",
+              "value": {
+                "kind": "boolean",
+                "text": null,
+                "number": null,
+                "boolean": true,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "historyDepth",
+              "value": {
+                "kind": "number",
+                "text": null,
+                "number": 0,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "tagFetchMode",
+              "value": {
+                "kind": "string",
+                "text": "none",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "reviewWorkflowIfCloneSucceeded",
+          "objective": "N’exécuter les opérations projet que si le clone a réussi; sinon produire un rapport local truthful request_changes. La condition est un branchement métier, pas un requires de skip.",
+          "kind": "conditional",
+          "dependsOn": [
+            "cloneRepository"
+          ],
+          "operation": null,
+          "inputs": [],
+          "outputs": [],
+          "condition": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "cloneRepository",
+            "port": "success",
+            "members": [],
+            "items": [],
+            "predicate": null
+          },
+          "body": {
+            "tasks": [
+              {
+                "id": "runRepoChecksWithCopilot",
+                "objective": "Via GitHub Copilot, dans l’unique clone, inspecter les toolchains/checks déclarés, vérifier explicitement node --version, pnpm --version et python --version, installer les dépendances et exécuter les linters/tests présents; conserver les observations de commandes et ne jamais présenter un prérequis absent ou un échec comme un succès.",
+                "kind": "operation",
+                "dependsOn": [],
+                "operation": "cap_e87238bc6035a17954299a78",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "cloneRepository",
+                      "port": "projectRootRelative",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "contextFiles",
+                    "value": {
+                      "kind": "null",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "task",
+                    "value": {
+                      "kind": "string",
+                      "text": "Travaille uniquement dans ce répertoire de projet cloné. Ne publie rien sur GitHub. N’utilise aucune permission ou sandbox supplémentaire. Inspecte les fichiers déclaratifs du dépôt (package.json, pnpm-lock.yaml, README, scripts CI, workflows, etc. s’ils existent) pour déterminer les toolchains et checks déclarés. Exécute explicitement et séparément: node --version, pnpm --version, python --version. Puis installe les dépendances selon le dépôt, en préférant pnpm si déclaré, et exécute les linters, tests unitaires et tests d’intégration présents/déclarés. Si une commande, capacité, dépendance ou prérequis est absent ou échoue, indique-le explicitement et ne le présente jamais comme un succès. Conserve dans la réponse structurée les commandes réellement lancées, leur cwd, code de sortie observé, stdout et stderr disponibles. N’écris pas le rapport final review.json depuis le clone; il sera assemblé et écrit hors du clone ensuite.",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              },
+              {
+                "id": "compareFirstPage",
+                "objective": "Comparer localement le head exact de la PR au base exact depuis le clone unique et obtenir la première page bornée de fichiers modifiés avec métadonnées de troncature.",
+                "kind": "operation",
+                "dependsOn": [],
+                "operation": "cap_6c40004fe4610a44cf97c2c7",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "cloneRepository",
+                      "port": "projectRootRelative",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "baseRef",
+                    "value": {
+                      "kind": "string",
+                      "text": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "headRef",
+                    "value": {
+                      "kind": "string",
+                      "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488",
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "compareFromMergeBase",
+                    "value": {
+                      "kind": "boolean",
+                      "text": null,
+                      "number": null,
+                      "boolean": true,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "pageSize",
+                    "value": {
+                      "kind": "number",
+                      "text": null,
+                      "number": 100,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "cursor",
+                    "value": {
+                      "kind": "null",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              },
+              {
+                "id": "reviewFirstPageWithCopilot",
+                "objective": "Réaliser la revue de code locale par GitHub Copilot sur les patches de la première page, avec le texte de review et les résultats de commandes/checks observés; ne publier aucun commentaire.",
+                "kind": "operation",
+                "dependsOn": [
+                  "runRepoChecksWithCopilot",
+                  "compareFirstPage"
+                ],
+                "operation": "cap_bed15f26b6b53fb1f2f33e52",
+                "inputs": [
+                  {
+                    "name": "projectRoot",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "cloneRepository",
+                      "port": "projectRootRelative",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "baseSha",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "compareFirstPage",
+                      "port": "baseSha",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "headSha",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "compareFirstPage",
+                      "port": "headSha",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "filesJson",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "compareFirstPage",
+                      "port": "filesJson",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "existingCommentsJson",
+                    "value": {
+                      "kind": "null",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "reviewInstructions",
+                    "value": {
+                      "kind": "input",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "reviewText",
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "runtimeContextJson",
+                    "value": {
+                      "kind": "json",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [
+                        {
+                          "kind": "output",
+                          "text": null,
+                          "number": null,
+                          "boolean": null,
+                          "source": "runRepoChecksWithCopilot",
+                          "port": null,
+                          "members": [],
+                          "items": [],
+                          "predicate": null
+                        }
+                      ],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "maxBatchCharacters",
+                    "value": {
+                      "kind": "number",
+                      "text": null,
+                      "number": 60000,
+                      "boolean": null,
+                      "source": null,
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              },
+              {
+                "id": "compareAndReviewContinuation",
+                "objective": "Si la première comparaison indique une continuation, consommer explicitement une seule page supplémentaire puis réaliser sa revue dans le même corps conditionnel. Chaque branche exporte explicitement les résultats métier; si une deuxième page existe encore après cette borne, la comparaison est incomplète et la décision finale devra être request_changes.",
+                "kind": "conditional",
+                "dependsOn": [
+                  "runRepoChecksWithCopilot",
+                  "compareFirstPage"
+                ],
+                "operation": null,
+                "inputs": [],
+                "outputs": [],
+                "condition": {
+                  "kind": "output",
+                  "text": null,
+                  "number": null,
+                  "boolean": null,
+                  "source": "compareFirstPage",
+                  "port": "hasMore",
+                  "members": [],
+                  "items": [],
+                  "predicate": null
+                },
+                "body": {
+                  "tasks": [
+                    {
+                      "id": "compareSecondPage",
+                      "objective": "Consommer la page suivante de comparaison avec le curseur exact renvoyé par la première page.",
+                      "kind": "operation",
+                      "dependsOn": [],
+                      "operation": "cap_6c40004fe4610a44cf97c2c7",
+                      "inputs": [
+                        {
+                          "name": "projectRoot",
+                          "value": {
+                            "kind": "output",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": "cloneRepository",
+                            "port": "projectRootRelative",
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "baseRef",
+                          "value": {
+                            "kind": "string",
+                            "text": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4",
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "headRef",
+                          "value": {
+                            "kind": "string",
+                            "text": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488",
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "compareFromMergeBase",
+                          "value": {
+                            "kind": "boolean",
+                            "text": null,
+                            "number": null,
+                            "boolean": true,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "pageSize",
+                          "value": {
+                            "kind": "number",
+                            "text": null,
+                            "number": 100,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "cursor",
+                          "value": {
+                            "kind": "output",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": "compareFirstPage",
+                            "port": "nextCursor",
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        }
+                      ],
+                      "outputs": [],
+                      "condition": null,
+                      "body": null,
+                      "otherwise": null,
+                      "branches": [],
+                      "items": null,
+                      "parallel": false,
+                      "maxItems": 100,
+                      "maxConcurrency": 4,
+                      "group": null
+                    },
+                    {
+                      "id": "reviewSecondPageWithCopilot",
+                      "objective": "Réaliser la revue locale Copilot sur les patches de la deuxième page bornée dans le même corps conditionnel que compareSecondPage, avec les mêmes instructions et résultats de checks.",
+                      "kind": "operation",
+                      "dependsOn": [
+                        "compareSecondPage"
+                      ],
+                      "operation": "cap_bed15f26b6b53fb1f2f33e52",
+                      "inputs": [
+                        {
+                          "name": "projectRoot",
+                          "value": {
+                            "kind": "output",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": "cloneRepository",
+                            "port": "projectRootRelative",
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "baseSha",
+                          "value": {
+                            "kind": "output",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": "compareSecondPage",
+                            "port": "baseSha",
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "headSha",
+                          "value": {
+                            "kind": "output",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": "compareSecondPage",
+                            "port": "headSha",
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "filesJson",
+                          "value": {
+                            "kind": "output",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": "compareSecondPage",
+                            "port": "filesJson",
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "existingCommentsJson",
+                          "value": {
+                            "kind": "null",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "reviewInstructions",
+                          "value": {
+                            "kind": "input",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": "reviewText",
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "runtimeContextJson",
+                          "value": {
+                            "kind": "json",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [
+                              {
+                                "kind": "output",
+                                "text": null,
+                                "number": null,
+                                "boolean": null,
+                                "source": "runRepoChecksWithCopilot",
+                                "port": null,
+                                "members": [],
+                                "items": [],
+                                "predicate": null
+                              }
+                            ],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "maxBatchCharacters",
+                          "value": {
+                            "kind": "number",
+                            "text": null,
+                            "number": 60000,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        }
+                      ],
+                      "outputs": [],
+                      "condition": null,
+                      "body": null,
+                      "otherwise": null,
+                      "branches": [],
+                      "items": null,
+                      "parallel": false,
+                      "maxItems": 100,
+                      "maxConcurrency": 4,
+                      "group": null
+                    },
+                    {
+                      "id": "exportSecondPageAndReviewPresent",
+                      "objective": "Exporter explicitement les données de continuation et la revue de deuxième page présentes, sans sélectionner deux fois un champ scalaire déjà exporté.",
+                      "kind": "value",
+                      "dependsOn": [
+                        "compareSecondPage",
+                        "reviewSecondPageWithCopilot"
+                      ],
+                      "operation": null,
+                      "inputs": [],
+                      "outputs": [
+                        {
+                          "name": "secondPagePresent",
+                          "value": {
+                            "kind": "boolean",
+                            "text": null,
+                            "number": null,
+                            "boolean": true,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "secondPage",
+                          "value": {
+                            "kind": "output",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": "compareSecondPage",
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "secondPageFilesJson",
+                          "value": {
+                            "kind": "output",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": "compareSecondPage",
+                            "port": "filesJson",
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "secondPageHasMore",
+                          "value": {
+                            "kind": "output",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": "compareSecondPage",
+                            "port": "hasMore",
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "comparisonIncompleteAfterBound",
+                          "value": {
+                            "kind": "output",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": "compareSecondPage",
+                            "port": "hasMore",
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "secondReviewPresent",
+                          "value": {
+                            "kind": "boolean",
+                            "text": null,
+                            "number": null,
+                            "boolean": true,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "secondReview",
+                          "value": {
+                            "kind": "output",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": "reviewSecondPageWithCopilot",
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        }
+                      ],
+                      "condition": null,
+                      "body": null,
+                      "otherwise": null,
+                      "branches": [],
+                      "items": null,
+                      "parallel": false,
+                      "maxItems": 100,
+                      "maxConcurrency": 4,
+                      "group": null
+                    }
+                  ],
+                  "outputs": [
+                    {
+                      "name": "secondPagePresent",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "exportSecondPageAndReviewPresent",
+                        "port": "secondPagePresent",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    },
+                    {
+                      "name": "secondPage",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "exportSecondPageAndReviewPresent",
+                        "port": "secondPage",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    },
+                    {
+                      "name": "secondPageFilesJson",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "exportSecondPageAndReviewPresent",
+                        "port": "secondPageFilesJson",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    },
+                    {
+                      "name": "secondPageHasMore",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "exportSecondPageAndReviewPresent",
+                        "port": "secondPageHasMore",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    },
+                    {
+                      "name": "comparisonIncompleteAfterBound",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "exportSecondPageAndReviewPresent",
+                        "port": "comparisonIncompleteAfterBound",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    },
+                    {
+                      "name": "secondReviewPresent",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "exportSecondPageAndReviewPresent",
+                        "port": "secondReviewPresent",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    },
+                    {
+                      "name": "secondReview",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "exportSecondPageAndReviewPresent",
+                        "port": "secondReview",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    }
+                  ],
+                  "always": []
+                },
+                "otherwise": {
+                  "tasks": [
+                    {
+                      "id": "exportNoSecondPageOrReview",
+                      "objective": "Exporter explicitement l’absence de continuation et de revue de deuxième page, avec valeurs typées nulles ou vides uniquement pour cette branche.",
+                      "kind": "value",
+                      "dependsOn": [],
+                      "operation": null,
+                      "inputs": [],
+                      "outputs": [
+                        {
+                          "name": "secondPagePresent",
+                          "value": {
+                            "kind": "boolean",
+                            "text": null,
+                            "number": null,
+                            "boolean": false,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "secondPage",
+                          "value": {
+                            "kind": "null",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "secondPageFilesJson",
+                          "value": {
+                            "kind": "string",
+                            "text": "[]",
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "secondPageHasMore",
+                          "value": {
+                            "kind": "boolean",
+                            "text": null,
+                            "number": null,
+                            "boolean": false,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "comparisonIncompleteAfterBound",
+                          "value": {
+                            "kind": "boolean",
+                            "text": null,
+                            "number": null,
+                            "boolean": false,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "secondReviewPresent",
+                          "value": {
+                            "kind": "boolean",
+                            "text": null,
+                            "number": null,
+                            "boolean": false,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "secondReview",
+                          "value": {
+                            "kind": "null",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        }
+                      ],
+                      "condition": null,
+                      "body": null,
+                      "otherwise": null,
+                      "branches": [],
+                      "items": null,
+                      "parallel": false,
+                      "maxItems": 100,
+                      "maxConcurrency": 4,
+                      "group": null
+                    }
+                  ],
+                  "outputs": [
+                    {
+                      "name": "secondPagePresent",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "exportNoSecondPageOrReview",
+                        "port": "secondPagePresent",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    },
+                    {
+                      "name": "secondPage",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "exportNoSecondPageOrReview",
+                        "port": "secondPage",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    },
+                    {
+                      "name": "secondPageFilesJson",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "exportNoSecondPageOrReview",
+                        "port": "secondPageFilesJson",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    },
+                    {
+                      "name": "secondPageHasMore",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "exportNoSecondPageOrReview",
+                        "port": "secondPageHasMore",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    },
+                    {
+                      "name": "comparisonIncompleteAfterBound",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "exportNoSecondPageOrReview",
+                        "port": "comparisonIncompleteAfterBound",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    },
+                    {
+                      "name": "secondReviewPresent",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "exportNoSecondPageOrReview",
+                        "port": "secondReviewPresent",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    },
+                    {
+                      "name": "secondReview",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "exportNoSecondPageOrReview",
+                        "port": "secondReview",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    }
+                  ],
+                  "always": []
+                },
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              },
+              {
+                "id": "assembleSuccessfulCloneReviewJson",
+                "objective": "Assembler le rapport local reviewJson depuis les observations déclarées: decision=request_changes si un check/prérequis/capacité requis a échoué, si Copilot signale des findings bloquants, si une page est tronquée/incomplète après la borne, ou si la couverture n’est pas complète; sinon approve. commands contient uniquement les commandes réellement observées avec cwd, exitCode, stdout et stderr disponibles.",
+                "kind": "transform",
+                "mode": "interpret",
+                "dependsOn": [
+                  "runRepoChecksWithCopilot",
+                  "compareFirstPage",
+                  "reviewFirstPageWithCopilot",
+                  "compareAndReviewContinuation"
+                ],
+                "operation": null,
+                "inputs": [
+                  {
+                    "name": "pullRequestUrl",
+                    "value": {
+                      "kind": "input",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "pullRequestUrl",
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "reviewText",
+                    "value": {
+                      "kind": "input",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "reviewText",
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "clone",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "cloneRepository",
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "checks",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "runRepoChecksWithCopilot",
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "compareFirstPage",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "compareFirstPage",
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "secondPagePresent",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "compareAndReviewContinuation",
+                      "port": "secondPagePresent",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "secondPage",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "compareAndReviewContinuation",
+                      "port": "secondPage",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "comparisonIncompleteAfterBound",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "compareAndReviewContinuation",
+                      "port": "comparisonIncompleteAfterBound",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "reviewFirstPage",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "reviewFirstPageWithCopilot",
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "secondReviewPresent",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "compareAndReviewContinuation",
+                      "port": "secondReviewPresent",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "secondReview",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "compareAndReviewContinuation",
+                      "port": "secondReview",
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "resultType": {
+                  "kind": "object",
+                  "nullable": false,
+                  "items": null,
+                  "fields": [
+                    {
+                      "name": "reviewJson",
+                      "type": {
+                        "kind": "object",
+                        "nullable": false,
+                        "items": null,
+                        "fields": [
+                          {
+                            "name": "decision",
+                            "type": {
+                              "kind": "string",
+                              "nullable": false,
+                              "enum": [
+                                "approve",
+                                "request_changes"
+                              ],
+                              "items": null,
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          },
+                          {
+                            "name": "findings",
+                            "type": {
+                              "kind": "array",
+                              "nullable": false,
+                              "items": {
+                                "kind": "object",
+                                "nullable": false,
+                                "items": null,
+                                "fields": [
+                                  {
+                                    "name": "title",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "severity",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "file",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": true,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "line",
+                                    "type": {
+                                      "kind": "integer",
+                                      "nullable": true,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "comment",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  }
+                                ]
+                              },
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          },
+                          {
+                            "name": "commands",
+                            "type": {
+                              "kind": "array",
+                              "nullable": false,
+                              "items": {
+                                "kind": "object",
+                                "nullable": false,
+                                "items": null,
+                                "fields": [
+                                  {
+                                    "name": "command",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "cwd",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "exitCode",
+                                    "type": {
+                                      "kind": "integer",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "stdout",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "stderr",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  }
+                                ]
+                              },
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          }
+                        ]
+                      },
+                      "required": true,
+                      "default": null
+                    }
+                  ]
+                },
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              }
+            ],
+            "outputs": [
+              {
+                "name": "reviewJson",
+                "value": {
+                  "kind": "output",
+                  "text": null,
+                  "number": null,
+                  "boolean": null,
+                  "source": "assembleSuccessfulCloneReviewJson",
+                  "port": "reviewJson",
+                  "members": [],
+                  "items": [],
+                  "predicate": null
+                }
+              }
+            ],
+            "always": [
+              {
+                "id": "preserveSuccessfulCloneBranchReportThenCleanup",
+                "objective": "Dans le scope qui voit les opérations du clone réussi, préserver le rapport/evidence disponible hors du clone avec alternatives explicites si l’assemblage normal manque, puis nettoyer le clone dans un always imbriqué après la tentative d’écriture, même si l’écriture échoue.",
+                "kind": "sequence",
+                "dependsOn": [],
+                "operation": null,
+                "inputs": [],
+                "outputs": [],
+                "condition": null,
+                "body": {
+                  "tasks": [
+                    {
+                      "id": "preserveAvailableSuccessfulBranchReport",
+                      "objective": "Écrire le rapport assemblé s’il est disponible; sinon assembler et écrire un rapport request_changes truthful à partir des observations disponibles dans ce scope, sans inventer de commandes ni succès.",
+                      "kind": "conditional",
+                      "dependsOn": [],
+                      "operation": null,
+                      "inputs": [],
+                      "outputs": [],
+                      "condition": {
+                        "kind": "present",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "assembleSuccessfulCloneReviewJson",
+                        "port": null,
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      },
+                      "body": {
+                        "tasks": [
+                          {
+                            "id": "writeAssembledSuccessfulBranchReviewJson",
+                            "objective": "Écrire le review.json local hors du clone avec sérialisation typed JSON déterministe via binding json et writer texte, sans base64 synthétique.",
+                            "kind": "operation",
+                            "dependsOn": [],
+                            "operation": "cap_37c513d225bb1b870053c5d3",
+                            "inputs": [
+                              {
+                                "name": "filePath",
+                                "value": {
+                                  "kind": "string",
+                                  "text": "workflows/schema-portability-20261002/focusedlive20261005a-code-1/review.json",
+                                  "number": null,
+                                  "boolean": null,
+                                  "source": null,
+                                  "port": null,
+                                  "members": [],
+                                  "items": [],
+                                  "predicate": null
+                                }
+                              },
+                              {
+                                "name": "content",
+                                "value": {
+                                  "kind": "json",
+                                  "text": null,
+                                  "number": null,
+                                  "boolean": null,
+                                  "source": null,
+                                  "port": null,
+                                  "members": [],
+                                  "items": [
+                                    {
+                                      "kind": "output",
+                                      "text": null,
+                                      "number": null,
+                                      "boolean": null,
+                                      "source": "assembleSuccessfulCloneReviewJson",
+                                      "port": "reviewJson",
+                                      "members": [],
+                                      "items": [],
+                                      "predicate": null
+                                    }
+                                  ],
+                                  "predicate": null
+                                }
+                              },
+                              {
+                                "name": "append",
+                                "value": {
+                                  "kind": "boolean",
+                                  "text": null,
+                                  "number": null,
+                                  "boolean": false,
+                                  "source": null,
+                                  "port": null,
+                                  "members": [],
+                                  "items": [],
+                                  "predicate": null
+                                }
+                              },
+                              {
+                                "name": "encoding",
+                                "value": {
+                                  "kind": "string",
+                                  "text": "utf-8",
+                                  "number": null,
+                                  "boolean": null,
+                                  "source": null,
+                                  "port": null,
+                                  "members": [],
+                                  "items": [],
+                                  "predicate": null
+                                }
+                              }
+                            ],
+                            "outputs": [],
+                            "condition": null,
+                            "body": null,
+                            "otherwise": null,
+                            "branches": [],
+                            "items": null,
+                            "parallel": false,
+                            "maxItems": 100,
+                            "maxConcurrency": 4,
+                            "group": null
+                          },
+                          {
+                            "id": "exportWrittenAssembledSuccessfulBranchReviewJson",
+                            "objective": "Exporter le rapport écrit pour ce chemin de préservation normal.",
+                            "kind": "value",
+                            "dependsOn": [
+                              "writeAssembledSuccessfulBranchReviewJson"
+                            ],
+                            "operation": null,
+                            "inputs": [],
+                            "outputs": [
+                              {
+                                "name": "reviewJson",
+                                "value": {
+                                  "kind": "output",
+                                  "text": null,
+                                  "number": null,
+                                  "boolean": null,
+                                  "source": "assembleSuccessfulCloneReviewJson",
+                                  "port": "reviewJson",
+                                  "members": [],
+                                  "items": [],
+                                  "predicate": null
+                                }
+                              }
+                            ],
+                            "condition": null,
+                            "body": null,
+                            "otherwise": null,
+                            "branches": [],
+                            "items": null,
+                            "parallel": false,
+                            "maxItems": 100,
+                            "maxConcurrency": 4,
+                            "group": null
+                          }
+                        ],
+                        "outputs": [
+                          {
+                            "name": "reviewJson",
+                            "value": {
+                              "kind": "output",
+                              "text": null,
+                              "number": null,
+                              "boolean": null,
+                              "source": "exportWrittenAssembledSuccessfulBranchReviewJson",
+                              "port": "reviewJson",
+                              "members": [],
+                              "items": [],
+                              "predicate": null
+                            }
+                          }
+                        ],
+                        "always": []
+                      },
+                      "otherwise": {
+                        "tasks": [
+                          {
+                            "id": "preserveSuccessfulBranchFallbackWithChecksIfPresent",
+                            "objective": "Si l’assemblage normal manque après clone réussi, préserver les checks observés s’ils sont disponibles; sinon écrire explicitement que les observations de checks/review manquent.",
+                            "kind": "conditional",
+                            "dependsOn": [],
+                            "operation": null,
+                            "inputs": [],
+                            "outputs": [],
+                            "condition": {
+                              "kind": "present",
+                              "text": null,
+                              "number": null,
+                              "boolean": null,
+                              "source": "runRepoChecksWithCopilot",
+                              "port": null,
+                              "members": [],
+                              "items": [],
+                              "predicate": null
+                            },
+                            "body": {
+                              "tasks": [
+                                {
+                                  "id": "assembleInterruptedAfterChecksReviewJson",
+                                  "objective": "Assembler un rapport request_changes de préservation après interruption/échec ultérieur: inclure les commandes réellement observées dans les sorties Copilot disponibles; signaler que la comparaison/revue finale n’a pas produit de rapport complet. Ne pas inventer de commandes ou résultats.",
+                                  "kind": "transform",
+                                  "mode": "interpret",
+                                  "dependsOn": [],
+                                  "operation": null,
+                                  "inputs": [
+                                    {
+                                      "name": "pullRequestUrl",
+                                      "value": {
+                                        "kind": "input",
+                                        "text": null,
+                                        "number": null,
+                                        "boolean": null,
+                                        "source": "pullRequestUrl",
+                                        "port": null,
+                                        "members": [],
+                                        "items": [],
+                                        "predicate": null
+                                      }
+                                    },
+                                    {
+                                      "name": "reviewText",
+                                      "value": {
+                                        "kind": "input",
+                                        "text": null,
+                                        "number": null,
+                                        "boolean": null,
+                                        "source": "reviewText",
+                                        "port": null,
+                                        "members": [],
+                                        "items": [],
+                                        "predicate": null
+                                      }
+                                    },
+                                    {
+                                      "name": "clone",
+                                      "value": {
+                                        "kind": "output",
+                                        "text": null,
+                                        "number": null,
+                                        "boolean": null,
+                                        "source": "cloneRepository",
+                                        "port": null,
+                                        "members": [],
+                                        "items": [],
+                                        "predicate": null
+                                      }
+                                    },
+                                    {
+                                      "name": "checks",
+                                      "value": {
+                                        "kind": "output",
+                                        "text": null,
+                                        "number": null,
+                                        "boolean": null,
+                                        "source": "runRepoChecksWithCopilot",
+                                        "port": null,
+                                        "members": [],
+                                        "items": [],
+                                        "predicate": null
+                                      }
+                                    }
+                                  ],
+                                  "outputs": [],
+                                  "resultType": {
+                                    "kind": "object",
+                                    "nullable": false,
+                                    "items": null,
+                                    "fields": [
+                                      {
+                                        "name": "reviewJson",
+                                        "type": {
+                                          "kind": "object",
+                                          "nullable": false,
+                                          "items": null,
+                                          "fields": [
+                                            {
+                                              "name": "decision",
+                                              "type": {
+                                                "kind": "string",
+                                                "nullable": false,
+                                                "enum": [
+                                                  "approve",
+                                                  "request_changes"
+                                                ],
+                                                "items": null,
+                                                "fields": []
+                                              },
+                                              "required": true,
+                                              "default": null
+                                            },
+                                            {
+                                              "name": "findings",
+                                              "type": {
+                                                "kind": "array",
+                                                "nullable": false,
+                                                "items": {
+                                                  "kind": "object",
+                                                  "nullable": false,
+                                                  "items": null,
+                                                  "fields": [
+                                                    {
+                                                      "name": "title",
+                                                      "type": {
+                                                        "kind": "string",
+                                                        "nullable": false,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    },
+                                                    {
+                                                      "name": "severity",
+                                                      "type": {
+                                                        "kind": "string",
+                                                        "nullable": false,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    },
+                                                    {
+                                                      "name": "file",
+                                                      "type": {
+                                                        "kind": "string",
+                                                        "nullable": true,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    },
+                                                    {
+                                                      "name": "line",
+                                                      "type": {
+                                                        "kind": "integer",
+                                                        "nullable": true,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    },
+                                                    {
+                                                      "name": "comment",
+                                                      "type": {
+                                                        "kind": "string",
+                                                        "nullable": false,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    }
+                                                  ]
+                                                },
+                                                "fields": []
+                                              },
+                                              "required": true,
+                                              "default": null
+                                            },
+                                            {
+                                              "name": "commands",
+                                              "type": {
+                                                "kind": "array",
+                                                "nullable": false,
+                                                "items": {
+                                                  "kind": "object",
+                                                  "nullable": false,
+                                                  "items": null,
+                                                  "fields": [
+                                                    {
+                                                      "name": "command",
+                                                      "type": {
+                                                        "kind": "string",
+                                                        "nullable": false,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    },
+                                                    {
+                                                      "name": "cwd",
+                                                      "type": {
+                                                        "kind": "string",
+                                                        "nullable": false,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    },
+                                                    {
+                                                      "name": "exitCode",
+                                                      "type": {
+                                                        "kind": "integer",
+                                                        "nullable": false,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    },
+                                                    {
+                                                      "name": "stdout",
+                                                      "type": {
+                                                        "kind": "string",
+                                                        "nullable": false,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    },
+                                                    {
+                                                      "name": "stderr",
+                                                      "type": {
+                                                        "kind": "string",
+                                                        "nullable": false,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    }
+                                                  ]
+                                                },
+                                                "fields": []
+                                              },
+                                              "required": true,
+                                              "default": null
+                                            }
+                                          ]
+                                        },
+                                        "required": true,
+                                        "default": null
+                                      }
+                                    ]
+                                  },
+                                  "condition": null,
+                                  "body": null,
+                                  "otherwise": null,
+                                  "branches": [],
+                                  "items": null,
+                                  "parallel": false,
+                                  "maxItems": 100,
+                                  "maxConcurrency": 4,
+                                  "group": null
+                                }
+                              ],
+                              "outputs": [
+                                {
+                                  "name": "reviewJson",
+                                  "value": {
+                                    "kind": "output",
+                                    "text": null,
+                                    "number": null,
+                                    "boolean": null,
+                                    "source": "assembleInterruptedAfterChecksReviewJson",
+                                    "port": "reviewJson",
+                                    "members": [],
+                                    "items": [],
+                                    "predicate": null
+                                  }
+                                }
+                              ],
+                              "always": []
+                            },
+                            "otherwise": {
+                              "tasks": [
+                                {
+                                  "id": "assembleInterruptedBeforeChecksReviewJson",
+                                  "objective": "Assembler un rapport request_changes de préservation quand aucun résultat de checks n’est disponible dans ce scope: signaler explicitement que les observations de commandes/checks/revue manquent; commands est vide car aucune commande observée n’est disponible.",
+                                  "kind": "transform",
+                                  "mode": "interpret",
+                                  "dependsOn": [],
+                                  "operation": null,
+                                  "inputs": [
+                                    {
+                                      "name": "pullRequestUrl",
+                                      "value": {
+                                        "kind": "input",
+                                        "text": null,
+                                        "number": null,
+                                        "boolean": null,
+                                        "source": "pullRequestUrl",
+                                        "port": null,
+                                        "members": [],
+                                        "items": [],
+                                        "predicate": null
+                                      }
+                                    },
+                                    {
+                                      "name": "reviewText",
+                                      "value": {
+                                        "kind": "input",
+                                        "text": null,
+                                        "number": null,
+                                        "boolean": null,
+                                        "source": "reviewText",
+                                        "port": null,
+                                        "members": [],
+                                        "items": [],
+                                        "predicate": null
+                                      }
+                                    },
+                                    {
+                                      "name": "clone",
+                                      "value": {
+                                        "kind": "output",
+                                        "text": null,
+                                        "number": null,
+                                        "boolean": null,
+                                        "source": "cloneRepository",
+                                        "port": null,
+                                        "members": [],
+                                        "items": [],
+                                        "predicate": null
+                                      }
+                                    }
+                                  ],
+                                  "outputs": [],
+                                  "resultType": {
+                                    "kind": "object",
+                                    "nullable": false,
+                                    "items": null,
+                                    "fields": [
+                                      {
+                                        "name": "reviewJson",
+                                        "type": {
+                                          "kind": "object",
+                                          "nullable": false,
+                                          "items": null,
+                                          "fields": [
+                                            {
+                                              "name": "decision",
+                                              "type": {
+                                                "kind": "string",
+                                                "nullable": false,
+                                                "enum": [
+                                                  "approve",
+                                                  "request_changes"
+                                                ],
+                                                "items": null,
+                                                "fields": []
+                                              },
+                                              "required": true,
+                                              "default": null
+                                            },
+                                            {
+                                              "name": "findings",
+                                              "type": {
+                                                "kind": "array",
+                                                "nullable": false,
+                                                "items": {
+                                                  "kind": "object",
+                                                  "nullable": false,
+                                                  "items": null,
+                                                  "fields": [
+                                                    {
+                                                      "name": "title",
+                                                      "type": {
+                                                        "kind": "string",
+                                                        "nullable": false,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    },
+                                                    {
+                                                      "name": "severity",
+                                                      "type": {
+                                                        "kind": "string",
+                                                        "nullable": false,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    },
+                                                    {
+                                                      "name": "file",
+                                                      "type": {
+                                                        "kind": "string",
+                                                        "nullable": true,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    },
+                                                    {
+                                                      "name": "line",
+                                                      "type": {
+                                                        "kind": "integer",
+                                                        "nullable": true,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    },
+                                                    {
+                                                      "name": "comment",
+                                                      "type": {
+                                                        "kind": "string",
+                                                        "nullable": false,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    }
+                                                  ]
+                                                },
+                                                "fields": []
+                                              },
+                                              "required": true,
+                                              "default": null
+                                            },
+                                            {
+                                              "name": "commands",
+                                              "type": {
+                                                "kind": "array",
+                                                "nullable": false,
+                                                "items": {
+                                                  "kind": "object",
+                                                  "nullable": false,
+                                                  "items": null,
+                                                  "fields": [
+                                                    {
+                                                      "name": "command",
+                                                      "type": {
+                                                        "kind": "string",
+                                                        "nullable": false,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    },
+                                                    {
+                                                      "name": "cwd",
+                                                      "type": {
+                                                        "kind": "string",
+                                                        "nullable": false,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    },
+                                                    {
+                                                      "name": "exitCode",
+                                                      "type": {
+                                                        "kind": "integer",
+                                                        "nullable": false,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    },
+                                                    {
+                                                      "name": "stdout",
+                                                      "type": {
+                                                        "kind": "string",
+                                                        "nullable": false,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    },
+                                                    {
+                                                      "name": "stderr",
+                                                      "type": {
+                                                        "kind": "string",
+                                                        "nullable": false,
+                                                        "items": null,
+                                                        "fields": []
+                                                      },
+                                                      "required": true,
+                                                      "default": null
+                                                    }
+                                                  ]
+                                                },
+                                                "fields": []
+                                              },
+                                              "required": true,
+                                              "default": null
+                                            }
+                                          ]
+                                        },
+                                        "required": true,
+                                        "default": null
+                                      }
+                                    ]
+                                  },
+                                  "condition": null,
+                                  "body": null,
+                                  "otherwise": null,
+                                  "branches": [],
+                                  "items": null,
+                                  "parallel": false,
+                                  "maxItems": 100,
+                                  "maxConcurrency": 4,
+                                  "group": null
+                                }
+                              ],
+                              "outputs": [
+                                {
+                                  "name": "reviewJson",
+                                  "value": {
+                                    "kind": "output",
+                                    "text": null,
+                                    "number": null,
+                                    "boolean": null,
+                                    "source": "assembleInterruptedBeforeChecksReviewJson",
+                                    "port": "reviewJson",
+                                    "members": [],
+                                    "items": [],
+                                    "predicate": null
+                                  }
+                                }
+                              ],
+                              "always": []
+                            },
+                            "branches": [],
+                            "items": null,
+                            "parallel": false,
+                            "maxItems": 100,
+                            "maxConcurrency": 4,
+                            "group": null
+                          }
+                        ],
+                        "outputs": [
+                          {
+                            "name": "reviewJson",
+                            "value": {
+                              "kind": "output",
+                              "text": null,
+                              "number": null,
+                              "boolean": null,
+                              "source": "preserveSuccessfulBranchFallbackWithChecksIfPresent",
+                              "port": "reviewJson",
+                              "members": [],
+                              "items": [],
+                              "predicate": null
+                            }
+                          }
+                        ],
+                        "always": []
+                      },
+                      "branches": [],
+                      "items": null,
+                      "parallel": false,
+                      "maxItems": 100,
+                      "maxConcurrency": 4,
+                      "group": null
+                    },
+                    {
+                      "id": "writeFallbackSuccessfulBranchReviewJson",
+                      "objective": "Écrire hors clone le rapport fallback disponible, avec sérialisation typed JSON déterministe.",
+                      "kind": "operation",
+                      "dependsOn": [
+                        "preserveSuccessfulBranchFallbackWithChecksIfPresent"
+                      ],
+                      "operation": "cap_37c513d225bb1b870053c5d3",
+                      "inputs": [
+                        {
+                          "name": "filePath",
+                          "value": {
+                            "kind": "string",
+                            "text": "workflows/schema-portability-20261002/focusedlive20261005a-code-1/review.json",
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "content",
+                          "value": {
+                            "kind": "json",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [
+                              {
+                                "kind": "output",
+                                "text": null,
+                                "number": null,
+                                "boolean": null,
+                                "source": "preserveSuccessfulBranchFallbackWithChecksIfPresent",
+                                "port": "reviewJson",
+                                "members": [],
+                                "items": [],
+                                "predicate": null
+                              }
+                            ],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "append",
+                          "value": {
+                            "kind": "boolean",
+                            "text": null,
+                            "number": null,
+                            "boolean": false,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "encoding",
+                          "value": {
+                            "kind": "string",
+                            "text": "utf-8",
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        }
+                      ],
+                      "outputs": [],
+                      "condition": null,
+                      "body": null,
+                      "otherwise": null,
+                      "branches": [],
+                      "items": null,
+                      "parallel": false,
+                      "maxItems": 100,
+                      "maxConcurrency": 4,
+                      "group": null
+                    },
+                    {
+                      "id": "exportWrittenFallbackSuccessfulBranchReviewJson",
+                      "objective": "Exporter le rapport fallback écrit pour ce chemin de préservation.",
+                      "kind": "value",
+                      "dependsOn": [
+                        "writeFallbackSuccessfulBranchReviewJson"
+                      ],
+                      "operation": null,
+                      "inputs": [],
+                      "outputs": [
+                        {
+                          "name": "reviewJson",
+                          "value": {
+                            "kind": "output",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": "preserveSuccessfulBranchFallbackWithChecksIfPresent",
+                            "port": "reviewJson",
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        }
+                      ],
+                      "condition": null,
+                      "body": null,
+                      "otherwise": null,
+                      "branches": [],
+                      "items": null,
+                      "parallel": false,
+                      "maxItems": 100,
+                      "maxConcurrency": 4,
+                      "group": null
+                    }
+                  ],
+                  "outputs": [
+                    {
+                      "name": "reviewJson",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "exportWrittenFallbackSuccessfulBranchReviewJson",
+                        "port": "reviewJson",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    }
+                  ],
+                  "always": []
+                },
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              }
+            ]
+          },
+          "otherwise": {
+            "tasks": [
+              {
+                "id": "assembleCloneFailureReviewJson",
+                "objective": "Assembler un rapport local truthful lorsque le clone n’a pas réussi: decision=request_changes, findings explique l’impossibilité de réaliser comparaison/checks/revue dans le clone unique; commands reste limité aux commandes réellement observées disponibles dans les sorties déclarées.",
+                "kind": "transform",
+                "mode": "interpret",
+                "dependsOn": [],
+                "operation": null,
+                "inputs": [
+                  {
+                    "name": "pullRequestUrl",
+                    "value": {
+                      "kind": "input",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "pullRequestUrl",
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "reviewText",
+                    "value": {
+                      "kind": "input",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "reviewText",
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "clone",
+                    "value": {
+                      "kind": "output",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "cloneRepository",
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "resultType": {
+                  "kind": "object",
+                  "nullable": false,
+                  "items": null,
+                  "fields": [
+                    {
+                      "name": "reviewJson",
+                      "type": {
+                        "kind": "object",
+                        "nullable": false,
+                        "items": null,
+                        "fields": [
+                          {
+                            "name": "decision",
+                            "type": {
+                              "kind": "string",
+                              "nullable": false,
+                              "enum": [
+                                "approve",
+                                "request_changes"
+                              ],
+                              "items": null,
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          },
+                          {
+                            "name": "findings",
+                            "type": {
+                              "kind": "array",
+                              "nullable": false,
+                              "items": {
+                                "kind": "object",
+                                "nullable": false,
+                                "items": null,
+                                "fields": [
+                                  {
+                                    "name": "title",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "severity",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "file",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": true,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "line",
+                                    "type": {
+                                      "kind": "integer",
+                                      "nullable": true,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "comment",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  }
+                                ]
+                              },
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          },
+                          {
+                            "name": "commands",
+                            "type": {
+                              "kind": "array",
+                              "nullable": false,
+                              "items": {
+                                "kind": "object",
+                                "nullable": false,
+                                "items": null,
+                                "fields": [
+                                  {
+                                    "name": "command",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "cwd",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "exitCode",
+                                    "type": {
+                                      "kind": "integer",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "stdout",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "stderr",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  }
+                                ]
+                              },
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          }
+                        ]
+                      },
+                      "required": true,
+                      "default": null
+                    }
+                  ]
+                },
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              }
+            ],
+            "outputs": [
+              {
+                "name": "reviewJson",
+                "value": {
+                  "kind": "output",
+                  "text": null,
+                  "number": null,
+                  "boolean": null,
+                  "source": "assembleCloneFailureReviewJson",
+                  "port": "reviewJson",
+                  "members": [],
+                  "items": [],
+                  "predicate": null
+                }
+              }
+            ],
+            "always": [
+              {
+                "id": "preserveCloneFailureBranchReportThenCleanup",
+                "objective": "Préserver hors clone le rapport d’échec de clone, avec alternative explicite si l’assemblage manque, puis nettoyer le chemin de clone dans un always imbriqué après tentative d’écriture.",
+                "kind": "sequence",
+                "dependsOn": [],
+                "operation": null,
+                "inputs": [],
+                "outputs": [],
+                "condition": null,
+                "body": {
+                  "tasks": [
+                    {
+                      "id": "preserveAvailableCloneFailureReport",
+                      "objective": "Écrire le rapport d’échec de clone assemblé s’il est disponible; sinon écrire un fallback sans lire de sortie absente.",
+                      "kind": "conditional",
+                      "dependsOn": [],
+                      "operation": null,
+                      "inputs": [],
+                      "outputs": [],
+                      "condition": {
+                        "kind": "present",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "assembleCloneFailureReviewJson",
+                        "port": null,
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      },
+                      "body": {
+                        "tasks": [
+                          {
+                            "id": "writeAssembledCloneFailureReviewJson",
+                            "objective": "Écrire le review.json d’échec de clone hors du clone.",
+                            "kind": "operation",
+                            "dependsOn": [],
+                            "operation": "cap_37c513d225bb1b870053c5d3",
+                            "inputs": [
+                              {
+                                "name": "filePath",
+                                "value": {
+                                  "kind": "string",
+                                  "text": "workflows/schema-portability-20261002/focusedlive20261005a-code-1/review.json",
+                                  "number": null,
+                                  "boolean": null,
+                                  "source": null,
+                                  "port": null,
+                                  "members": [],
+                                  "items": [],
+                                  "predicate": null
+                                }
+                              },
+                              {
+                                "name": "content",
+                                "value": {
+                                  "kind": "json",
+                                  "text": null,
+                                  "number": null,
+                                  "boolean": null,
+                                  "source": null,
+                                  "port": null,
+                                  "members": [],
+                                  "items": [
+                                    {
+                                      "kind": "output",
+                                      "text": null,
+                                      "number": null,
+                                      "boolean": null,
+                                      "source": "assembleCloneFailureReviewJson",
+                                      "port": "reviewJson",
+                                      "members": [],
+                                      "items": [],
+                                      "predicate": null
+                                    }
+                                  ],
+                                  "predicate": null
+                                }
+                              },
+                              {
+                                "name": "append",
+                                "value": {
+                                  "kind": "boolean",
+                                  "text": null,
+                                  "number": null,
+                                  "boolean": false,
+                                  "source": null,
+                                  "port": null,
+                                  "members": [],
+                                  "items": [],
+                                  "predicate": null
+                                }
+                              },
+                              {
+                                "name": "encoding",
+                                "value": {
+                                  "kind": "string",
+                                  "text": "utf-8",
+                                  "number": null,
+                                  "boolean": null,
+                                  "source": null,
+                                  "port": null,
+                                  "members": [],
+                                  "items": [],
+                                  "predicate": null
+                                }
+                              }
+                            ],
+                            "outputs": [],
+                            "condition": null,
+                            "body": null,
+                            "otherwise": null,
+                            "branches": [],
+                            "items": null,
+                            "parallel": false,
+                            "maxItems": 100,
+                            "maxConcurrency": 4,
+                            "group": null
+                          },
+                          {
+                            "id": "exportWrittenCloneFailureReviewJson",
+                            "objective": "Exporter le rapport d’échec de clone écrit.",
+                            "kind": "value",
+                            "dependsOn": [
+                              "writeAssembledCloneFailureReviewJson"
+                            ],
+                            "operation": null,
+                            "inputs": [],
+                            "outputs": [
+                              {
+                                "name": "reviewJson",
+                                "value": {
+                                  "kind": "output",
+                                  "text": null,
+                                  "number": null,
+                                  "boolean": null,
+                                  "source": "assembleCloneFailureReviewJson",
+                                  "port": "reviewJson",
+                                  "members": [],
+                                  "items": [],
+                                  "predicate": null
+                                }
+                              }
+                            ],
+                            "condition": null,
+                            "body": null,
+                            "otherwise": null,
+                            "branches": [],
+                            "items": null,
+                            "parallel": false,
+                            "maxItems": 100,
+                            "maxConcurrency": 4,
+                            "group": null
+                          }
+                        ],
+                        "outputs": [
+                          {
+                            "name": "reviewJson",
+                            "value": {
+                              "kind": "output",
+                              "text": null,
+                              "number": null,
+                              "boolean": null,
+                              "source": "exportWrittenCloneFailureReviewJson",
+                              "port": "reviewJson",
+                              "members": [],
+                              "items": [],
+                              "predicate": null
+                            }
+                          }
+                        ],
+                        "always": []
+                      },
+                      "otherwise": {
+                        "tasks": [
+                          {
+                            "id": "assembleCloneFailureFallbackReviewJson",
+                            "objective": "Assembler un rapport request_changes minimal si le rapport d’échec de clone n’est pas disponible malgré une sortie clone présente; ne pas inventer de commande observée.",
+                            "kind": "transform",
+                            "mode": "interpret",
+                            "dependsOn": [],
+                            "operation": null,
+                            "inputs": [
+                              {
+                                "name": "pullRequestUrl",
+                                "value": {
+                                  "kind": "input",
+                                  "text": null,
+                                  "number": null,
+                                  "boolean": null,
+                                  "source": "pullRequestUrl",
+                                  "port": null,
+                                  "members": [],
+                                  "items": [],
+                                  "predicate": null
+                                }
+                              },
+                              {
+                                "name": "reviewText",
+                                "value": {
+                                  "kind": "input",
+                                  "text": null,
+                                  "number": null,
+                                  "boolean": null,
+                                  "source": "reviewText",
+                                  "port": null,
+                                  "members": [],
+                                  "items": [],
+                                  "predicate": null
+                                }
+                              },
+                              {
+                                "name": "clone",
+                                "value": {
+                                  "kind": "output",
+                                  "text": null,
+                                  "number": null,
+                                  "boolean": null,
+                                  "source": "cloneRepository",
+                                  "port": null,
+                                  "members": [],
+                                  "items": [],
+                                  "predicate": null
+                                }
+                              }
+                            ],
+                            "outputs": [],
+                            "resultType": {
+                              "kind": "object",
+                              "nullable": false,
+                              "items": null,
+                              "fields": [
+                                {
+                                  "name": "reviewJson",
+                                  "type": {
+                                    "kind": "object",
+                                    "nullable": false,
+                                    "items": null,
+                                    "fields": [
+                                      {
+                                        "name": "decision",
+                                        "type": {
+                                          "kind": "string",
+                                          "nullable": false,
+                                          "enum": [
+                                            "approve",
+                                            "request_changes"
+                                          ],
+                                          "items": null,
+                                          "fields": []
+                                        },
+                                        "required": true,
+                                        "default": null
+                                      },
+                                      {
+                                        "name": "findings",
+                                        "type": {
+                                          "kind": "array",
+                                          "nullable": false,
+                                          "items": {
+                                            "kind": "object",
+                                            "nullable": false,
+                                            "items": null,
+                                            "fields": [
+                                              {
+                                                "name": "title",
+                                                "type": {
+                                                  "kind": "string",
+                                                  "nullable": false,
+                                                  "items": null,
+                                                  "fields": []
+                                                },
+                                                "required": true,
+                                                "default": null
+                                              },
+                                              {
+                                                "name": "severity",
+                                                "type": {
+                                                  "kind": "string",
+                                                  "nullable": false,
+                                                  "items": null,
+                                                  "fields": []
+                                                },
+                                                "required": true,
+                                                "default": null
+                                              },
+                                              {
+                                                "name": "file",
+                                                "type": {
+                                                  "kind": "string",
+                                                  "nullable": true,
+                                                  "items": null,
+                                                  "fields": []
+                                                },
+                                                "required": true,
+                                                "default": null
+                                              },
+                                              {
+                                                "name": "line",
+                                                "type": {
+                                                  "kind": "integer",
+                                                  "nullable": true,
+                                                  "items": null,
+                                                  "fields": []
+                                                },
+                                                "required": true,
+                                                "default": null
+                                              },
+                                              {
+                                                "name": "comment",
+                                                "type": {
+                                                  "kind": "string",
+                                                  "nullable": false,
+                                                  "items": null,
+                                                  "fields": []
+                                                },
+                                                "required": true,
+                                                "default": null
+                                              }
+                                            ]
+                                          },
+                                          "fields": []
+                                        },
+                                        "required": true,
+                                        "default": null
+                                      },
+                                      {
+                                        "name": "commands",
+                                        "type": {
+                                          "kind": "array",
+                                          "nullable": false,
+                                          "items": {
+                                            "kind": "object",
+                                            "nullable": false,
+                                            "items": null,
+                                            "fields": [
+                                              {
+                                                "name": "command",
+                                                "type": {
+                                                  "kind": "string",
+                                                  "nullable": false,
+                                                  "items": null,
+                                                  "fields": []
+                                                },
+                                                "required": true,
+                                                "default": null
+                                              },
+                                              {
+                                                "name": "cwd",
+                                                "type": {
+                                                  "kind": "string",
+                                                  "nullable": false,
+                                                  "items": null,
+                                                  "fields": []
+                                                },
+                                                "required": true,
+                                                "default": null
+                                              },
+                                              {
+                                                "name": "exitCode",
+                                                "type": {
+                                                  "kind": "integer",
+                                                  "nullable": false,
+                                                  "items": null,
+                                                  "fields": []
+                                                },
+                                                "required": true,
+                                                "default": null
+                                              },
+                                              {
+                                                "name": "stdout",
+                                                "type": {
+                                                  "kind": "string",
+                                                  "nullable": false,
+                                                  "items": null,
+                                                  "fields": []
+                                                },
+                                                "required": true,
+                                                "default": null
+                                              },
+                                              {
+                                                "name": "stderr",
+                                                "type": {
+                                                  "kind": "string",
+                                                  "nullable": false,
+                                                  "items": null,
+                                                  "fields": []
+                                                },
+                                                "required": true,
+                                                "default": null
+                                              }
+                                            ]
+                                          },
+                                          "fields": []
+                                        },
+                                        "required": true,
+                                        "default": null
+                                      }
+                                    ]
+                                  },
+                                  "required": true,
+                                  "default": null
+                                }
+                              ]
+                            },
+                            "condition": null,
+                            "body": null,
+                            "otherwise": null,
+                            "branches": [],
+                            "items": null,
+                            "parallel": false,
+                            "maxItems": 100,
+                            "maxConcurrency": 4,
+                            "group": null
+                          }
+                        ],
+                        "outputs": [
+                          {
+                            "name": "reviewJson",
+                            "value": {
+                              "kind": "output",
+                              "text": null,
+                              "number": null,
+                              "boolean": null,
+                              "source": "assembleCloneFailureFallbackReviewJson",
+                              "port": "reviewJson",
+                              "members": [],
+                              "items": [],
+                              "predicate": null
+                            }
+                          }
+                        ],
+                        "always": []
+                      },
+                      "branches": [],
+                      "items": null,
+                      "parallel": false,
+                      "maxItems": 100,
+                      "maxConcurrency": 4,
+                      "group": null
+                    },
+                    {
+                      "id": "writeCloneFailureFallbackReviewJson",
+                      "objective": "Écrire hors clone le rapport fallback d’échec de clone.",
+                      "kind": "operation",
+                      "dependsOn": [
+                        "assembleCloneFailureFallbackReviewJson"
+                      ],
+                      "operation": "cap_37c513d225bb1b870053c5d3",
+                      "inputs": [
+                        {
+                          "name": "filePath",
+                          "value": {
+                            "kind": "string",
+                            "text": "workflows/schema-portability-20261002/focusedlive20261005a-code-1/review.json",
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "content",
+                          "value": {
+                            "kind": "json",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [
+                              {
+                                "kind": "output",
+                                "text": null,
+                                "number": null,
+                                "boolean": null,
+                                "source": "assembleCloneFailureFallbackReviewJson",
+                                "port": "reviewJson",
+                                "members": [],
+                                "items": [],
+                                "predicate": null
+                              }
+                            ],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "append",
+                          "value": {
+                            "kind": "boolean",
+                            "text": null,
+                            "number": null,
+                            "boolean": false,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        },
+                        {
+                          "name": "encoding",
+                          "value": {
+                            "kind": "string",
+                            "text": "utf-8",
+                            "number": null,
+                            "boolean": null,
+                            "source": null,
+                            "port": null,
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        }
+                      ],
+                      "outputs": [],
+                      "condition": null,
+                      "body": null,
+                      "otherwise": null,
+                      "branches": [],
+                      "items": null,
+                      "parallel": false,
+                      "maxItems": 100,
+                      "maxConcurrency": 4,
+                      "group": null
+                    },
+                    {
+                      "id": "exportWrittenCloneFailureFallbackReviewJson",
+                      "objective": "Exporter le rapport fallback d’échec de clone écrit.",
+                      "kind": "value",
+                      "dependsOn": [
+                        "writeCloneFailureFallbackReviewJson"
+                      ],
+                      "operation": null,
+                      "inputs": [],
+                      "outputs": [
+                        {
+                          "name": "reviewJson",
+                          "value": {
+                            "kind": "output",
+                            "text": null,
+                            "number": null,
+                            "boolean": null,
+                            "source": "assembleCloneFailureFallbackReviewJson",
+                            "port": "reviewJson",
+                            "members": [],
+                            "items": [],
+                            "predicate": null
+                          }
+                        }
+                      ],
+                      "condition": null,
+                      "body": null,
+                      "otherwise": null,
+                      "branches": [],
+                      "items": null,
+                      "parallel": false,
+                      "maxItems": 100,
+                      "maxConcurrency": 4,
+                      "group": null
+                    }
+                  ],
+                  "outputs": [
+                    {
+                      "name": "reviewJson",
+                      "value": {
+                        "kind": "output",
+                        "text": null,
+                        "number": null,
+                        "boolean": null,
+                        "source": "exportWrittenCloneFailureFallbackReviewJson",
+                        "port": "reviewJson",
+                        "members": [],
+                        "items": [],
+                        "predicate": null
+                      }
+                    }
+                  ],
+                  "always": []
+                },
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              }
+            ]
+          },
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "reviewJson",
+          "value": {
+            "kind": "output",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "reviewWorkflowIfCloneSucceeded",
+            "port": "reviewJson",
+            "members": [],
+            "items": [],
+            "predicate": null
+          }
+        }
+      ],
+      "always": [
+        {
+          "id": "recoverIfCloneOutputUnavailableThenCleanup",
+          "objective": "Si même la sortie du clone n’est pas disponible, préserver un rapport request_changes minimal sans lire de sortie absente, puis nettoyer; sinon ne rien dupliquer car les branches du workflow gèrent déjà préservation et cleanup.",
+          "kind": "conditional",
+          "dependsOn": [],
+          "operation": null,
+          "inputs": [],
+          "outputs": [],
+          "condition": {
+            "kind": "present",
+            "text": null,
+            "number": null,
+            "boolean": null,
+            "source": "cloneRepository",
+            "port": null,
+            "members": [],
+            "items": [],
+            "predicate": null
+          },
+          "body": {
+            "tasks": [],
+            "outputs": [],
+            "always": []
+          },
+          "otherwise": {
+            "tasks": [
+              {
+                "id": "assembleNoCloneObservationReviewJson",
+                "objective": "Assembler un rapport request_changes minimal lorsque l’opération de clone n’a fourni aucune sortie disponible: signaler que clone/comparaison/checks/revue sont non observables, commands=[] faute d’observations déclarées.",
+                "kind": "transform",
+                "mode": "interpret",
+                "dependsOn": [],
+                "operation": null,
+                "inputs": [
+                  {
+                    "name": "pullRequestUrl",
+                    "value": {
+                      "kind": "input",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "pullRequestUrl",
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  },
+                  {
+                    "name": "reviewText",
+                    "value": {
+                      "kind": "input",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "reviewText",
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  }
+                ],
+                "outputs": [],
+                "resultType": {
+                  "kind": "object",
+                  "nullable": false,
+                  "items": null,
+                  "fields": [
+                    {
+                      "name": "reviewJson",
+                      "type": {
+                        "kind": "object",
+                        "nullable": false,
+                        "items": null,
+                        "fields": [
+                          {
+                            "name": "decision",
+                            "type": {
+                              "kind": "string",
+                              "nullable": false,
+                              "enum": [
+                                "approve",
+                                "request_changes"
+                              ],
+                              "items": null,
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          },
+                          {
+                            "name": "findings",
+                            "type": {
+                              "kind": "array",
+                              "nullable": false,
+                              "items": {
+                                "kind": "object",
+                                "nullable": false,
+                                "items": null,
+                                "fields": [
+                                  {
+                                    "name": "title",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "severity",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "file",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": true,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "line",
+                                    "type": {
+                                      "kind": "integer",
+                                      "nullable": true,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "comment",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  }
+                                ]
+                              },
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          },
+                          {
+                            "name": "commands",
+                            "type": {
+                              "kind": "array",
+                              "nullable": false,
+                              "items": {
+                                "kind": "object",
+                                "nullable": false,
+                                "items": null,
+                                "fields": [
+                                  {
+                                    "name": "command",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "cwd",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "exitCode",
+                                    "type": {
+                                      "kind": "integer",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "stdout",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  },
+                                  {
+                                    "name": "stderr",
+                                    "type": {
+                                      "kind": "string",
+                                      "nullable": false,
+                                      "items": null,
+                                      "fields": []
+                                    },
+                                    "required": true,
+                                    "default": null
+                                  }
+                                ]
+                              },
+                              "fields": []
+                            },
+                            "required": true,
+                            "default": null
+                          }
+                        ]
+                      },
+                      "required": true,
+                      "default": null
+                    }
+                  ]
+                },
+                "condition": null,
+                "body": null,
+                "otherwise": null,
+                "branches": [],
+                "items": null,
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4,
+                "group": null
+              }
+            ],
+            "outputs": [
+              {
+                "name": "reviewJson",
+                "value": {
+                  "kind": "output",
+                  "text": null,
+                  "number": null,
+                  "boolean": null,
+                  "source": "assembleNoCloneObservationReviewJson",
+                  "port": "reviewJson",
+                  "members": [],
+                  "items": [],
+                  "predicate": null
+                }
+              }
+            ],
+            "always": []
+          },
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        },
+        {
+          "id": "writeNoCloneObservationReviewJson",
+          "objective": "Écrire hors clone le rapport minimal lorsque la sortie clone est indisponible.",
+          "kind": "operation",
+          "dependsOn": [
+            "assembleNoCloneObservationReviewJson"
+          ],
+          "operation": "cap_37c513d225bb1b870053c5d3",
+          "inputs": [
+            {
+              "name": "filePath",
+              "value": {
+                "kind": "string",
+                "text": "workflows/schema-portability-20261002/focusedlive20261005a-code-1/review.json",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "content",
+              "value": {
+                "kind": "json",
+                "text": null,
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [
+                  {
+                    "kind": "output",
+                    "text": null,
+                    "number": null,
+                    "boolean": null,
+                    "source": "assembleNoCloneObservationReviewJson",
+                    "port": "reviewJson",
+                    "members": [],
+                    "items": [],
+                    "predicate": null
+                  }
+                ],
+                "predicate": null
+              }
+            },
+            {
+              "name": "append",
+              "value": {
+                "kind": "boolean",
+                "text": null,
+                "number": null,
+                "boolean": false,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            },
+            {
+              "name": "encoding",
+              "value": {
+                "kind": "string",
+                "text": "utf-8",
+                "number": null,
+                "boolean": null,
+                "source": null,
+                "port": null,
+                "members": [],
+                "items": [],
+                "predicate": null
+              }
+            }
+          ],
+          "outputs": [],
+          "condition": null,
+          "body": null,
+          "otherwise": null,
+          "branches": [],
+          "items": null,
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4,
+          "group": null
+        }
+      ]
+    },
+    "groups": [],
+    "choices": []
+  },
+  "failure": null,
+  "execution": null,
+  "oracle": null,
+  "run": "focusedlive20261005a-code-1",
+  "source_sha": "34bfd6040181cf789a5472506821c5a7f5e2e552",
+  "history": [
+    {
+      "revision": 5,
+      "result": {
+        "status": "stopped",
+        "planning_ms": 108144,
+        "calls": 4,
+        "repairs": 2,
+        "discovery_reads": 3,
+        "review_revisions": 0,
+        "diagnostics": [
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/compareFirstPage/requires",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/compareSecondPageIfNeeded/requires",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/reviewFirstPageWithCopilot/requires",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/runRepoChecksWithCopilot/requires",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/writeReviewJson/inputs/parameters",
+            "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+            "required": true,
+            "validationStage": "contract:TASK_FIELD_TYPE",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/writeReviewJson/inputs/parameters",
+            "message": "TASK_INPUT_TYPE: Produced \"object\"; expected \"object\". The business value does not satisfy its authoritative contract. This argument may be omitted; if supplied it must satisfy the contract. Null is not omission.",
+            "required": true,
+            "validationStage": "contract:TASK_INPUT_TYPE",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/writeReviewJson/inputs",
+            "message": "TASK_INPUT_TYPE: The complete effective request does not satisfy its authoritative contract, including conditional parameter requirements. Omission and null are distinct.",
+            "required": true,
+            "validationStage": "contract:TASK_INPUT_TYPE",
+            "rule": null
+          }
+        ],
+        "execution_success": false,
+        "execution_oracle": false,
+        "execution_status": "not_started",
+        "accounting": {
+          "planning": {
+            "logical_calls": 4,
+            "physical_attempts": 4,
+            "known_input_tokens": 41216,
+            "known_output_tokens": 7332,
+            "known_cost_eur": 0.3802570510531953,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "execution": {
+            "logical_calls": 0,
+            "physical_attempts": 0,
+            "known_input_tokens": 0,
+            "known_output_tokens": 0,
+            "known_cost_eur": 0,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "campaign": {
+            "calls": 699,
+            "session_calls": 0,
+            "known_input_tokens": 10699700,
+            "known_output_tokens": 1065433,
+            "known_cost_eur": 76.07509638202559,
+            "reserved_input_tokens": 192000,
+            "reserved_output_tokens": 65536,
+            "reserved_cost_eur": 2.606752783964365,
+            "cost_upper_bound_eur": 78.68184916598996,
+            "unknown_attempts": 2
+          }
+        }
+      },
+      "artifact_hash": null,
+      "command": {
+        "mode": null,
+        "kind": "revise",
+        "expectedRevision": 5,
+        "artifactHash": null,
+        "text": "Implementation review: preserve every accepted requirement, literal destination, public interface and limits. Fix the invalid double field selections: an output with port success or hasMore is already that scalar; do not select the same field again. Preserve their business conditions using direct typed output bindings. Optional next-page work must use a conditional with explicit branch exports; requires is fail-before-work and never means skip. Ensure all compared pages are covered or explicitly reject incomplete comparison, with bounded continuation and truthful final completeness. Avoid synthesized base64 serialization; serialize the typed report deterministically with existing json bindings and a discovered text-capable writer. Keep exact command evidence and real checks. Save available truthful report/evidence outside the clone in failure handling before cleanup; normal-path dependencies cannot guarantee report preservation after failure. Keep the one clone, pinned head/base, local-only feedback, confinement and no permission expansion. Inspect any missing authoritative operation contract; do not invent fields or weaken guards.",
+        "preserveRequirements": true,
+        "selections": null,
+        "generation": null
+      }
+    },
+    {
+      "revision": 9,
+      "result": {
+        "status": "stopped",
+        "planning_ms": 196316,
+        "calls": 6,
+        "repairs": 2,
+        "discovery_reads": 6,
+        "review_revisions": 1,
+        "diagnostics": [
+          {
+            "code": "TASK_BRANCH_OUTPUTS",
+            "location": "/tasks/compareContinuation/otherwise/outputs/secondPage",
+            "message": "Declare the matching business output explicitly in this alternative.",
+            "required": true,
+            "validationStage": null,
+            "rule": null
+          },
+          {
+            "code": "TASK_BRANCH_OUTPUTS",
+            "location": "/tasks/reviewContinuation/otherwise/outputs/secondReview",
+            "message": "Declare the matching business output explicitly in this alternative.",
+            "required": true,
+            "validationStage": null,
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/reviewSecondPageWithCopilot/inputs/baseSha",
+            "message": "TASK_REFERENCE_UNKNOWN: Business reference 'compareSecondPage' is unavailable in this scope.",
+            "required": true,
+            "validationStage": "contract:TASK_REFERENCE_UNKNOWN",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/reviewSecondPageWithCopilot/inputs/filesJson",
+            "message": "TASK_REFERENCE_UNKNOWN: Business reference 'compareSecondPage' is unavailable in this scope.",
+            "required": true,
+            "validationStage": "contract:TASK_REFERENCE_UNKNOWN",
+            "rule": null
+          },
+          {
+            "code": "CONTRACT_UNSATISFIED",
+            "location": "/tasks/reviewSecondPageWithCopilot/inputs/headSha",
+            "message": "TASK_REFERENCE_UNKNOWN: Business reference 'compareSecondPage' is unavailable in this scope.",
+            "required": true,
+            "validationStage": "contract:TASK_REFERENCE_UNKNOWN",
+            "rule": null
+          }
+        ],
+        "execution_success": false,
+        "execution_oracle": false,
+        "execution_status": "not_started",
+        "accounting": {
+          "planning": {
+            "logical_calls": 6,
+            "physical_attempts": 6,
+            "known_input_tokens": 115384,
+            "known_output_tokens": 14384,
+            "known_cost_eur": 0.9000714030703321,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "execution": {
+            "logical_calls": 0,
+            "physical_attempts": 0,
+            "known_input_tokens": 0,
+            "known_output_tokens": 0,
+            "known_cost_eur": 0,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "campaign": {
+            "calls": 703,
+            "session_calls": 0,
+            "known_input_tokens": 10796981,
+            "known_output_tokens": 1080369,
+            "known_cost_eur": 76.90916010926585,
+            "reserved_input_tokens": 192000,
+            "reserved_output_tokens": 65536,
+            "reserved_cost_eur": 2.606752783964365,
+            "cost_upper_bound_eur": 79.51591289323022,
+            "unknown_attempts": 2
+          }
+        }
+      },
+      "artifact_hash": null,
+      "command": {
+        "mode": null,
+        "kind": "revise",
+        "expectedRevision": 9,
+        "artifactHash": null,
+        "text": "Implementation review: preserve accepted requirements and work. The remaining findings are invalid conditional exports and out-of-scope references. Put a continuation comparison and its dependent review in the same existing conditional body, or consume explicit scope exports; never reference compareSecondPage from a sibling/outside scope. Export the needed business result explicitly in both alternatives, using an explicit absent/null or empty result only for the branch where no continuation work is requested. Do not fabricate an external operation result, discard requested review, or weaken completeness guards. Preserve the current typed report serialization, exact observed command evidence, pinned clone and failure-safe report preservation before cleanup. Produce a fully scope-valid plan; the two repair attempts have already been consumed and all model calls remain cumulative.",
+        "preserveRequirements": true,
+        "selections": null,
+        "generation": null
+      }
+    },
+    {
+      "revision": 11,
+      "result": {
+        "status": "final_review",
+        "planning_ms": 244354,
+        "calls": 7,
+        "repairs": 2,
+        "discovery_reads": 6,
+        "review_revisions": 2,
+        "diagnostics": [],
+        "execution_success": false,
+        "execution_oracle": false,
+        "execution_status": "not_started",
+        "accounting": {
+          "planning": {
+            "logical_calls": 7,
+            "physical_attempts": 7,
+            "known_input_tokens": 160331,
+            "known_output_tokens": 19194,
+            "known_cost_eur": 1.2294493038200642,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "execution": {
+            "logical_calls": 0,
+            "physical_attempts": 0,
+            "known_input_tokens": 0,
+            "known_output_tokens": 0,
+            "known_cost_eur": 0,
+            "unknown_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0
+          },
+          "campaign": {
+            "calls": 704,
+            "session_calls": 0,
+            "known_input_tokens": 10841928,
+            "known_output_tokens": 1085179,
+            "known_cost_eur": 77.23853801001559,
+            "reserved_input_tokens": 192000,
+            "reserved_output_tokens": 65536,
+            "reserved_cost_eur": 2.606752783964365,
+            "cost_upper_bound_eur": 79.84529079397996,
+            "unknown_attempts": 2
+          }
+        }
+      },
+      "artifact_hash": "3ef7ca365927a68797c6fbc8bdc0258aaf6012053a52ef5c8d88dd1a9479bbed",
+      "command": {
+        "mode": null,
+        "kind": "revise",
+        "expectedRevision": 11,
+        "artifactHash": "3ef7ca365927a68797c6fbc8bdc0258aaf6012053a52ef5c8d88dd1a9479bbed",
+        "text": "Final implementation review: preserve accepted requirements and the corrected scopes/typed serialization. The plan still does not preserve a report after a verified failure during checks or review: writeReviewJson is only on the normal path, while cleanupAfterPreservationAttempt has an empty body. Its objective/dependency is not an actual preservation operation. Put the available-report/evidence preservation operation in an existing always scope, guarded by actual availability with explicit alternatives for missing observations; put clone deletion in that scope's nested always so it runs after the preservation attempt, including when writing fails. Do not synthesize command receipts or successes, fabricate a producer result, change the output interface, or expand authority. Unknown completion must continue to block finalization. This is the last remaining planning call; return a fully valid plan using the already inspected contracts.",
+        "preserveRequirements": true,
+        "selections": null,
+        "generation": null
+      }
+    }
+  ],
+  "full_encrypted_evidence_retained": true
+}

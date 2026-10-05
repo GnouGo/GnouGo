@@ -1,0 +1,39 @@
+{
+  "source_sha": "34bfd6040181cf789a5472506821c5a7f5e2e552",
+  "deterministic_reproducer": {
+    "failed_before": 2,
+    "passed_after": 2,
+    "cause": "Jint cumulative allocation limit exhausted by recompiling identical regular expressions"
+  },
+  "mapping_tests": {
+    "passed": 66,
+    "failed": 0
+  },
+  "solution": {
+    "passed": 4513,
+    "failed": 0,
+    "skipped": 13,
+    "projects": 33
+  },
+  "separate_browser": {
+    "passed": 1,
+    "note": "The additional browser skip passed separately; twelve historical skips remain."
+  },
+  "checks": [
+    "Flow.Core Release package",
+    "planning Native AOT with 80-item extraction",
+    "frontend production build",
+    "real local Browser observation, XLSX read and cleanup"
+  ],
+  "log_sha256": {
+    "gnougo-mapping-allocation-before": "6c20be5d64a2097de7dde3884cffd50d3c0b4915cd8b43c421580fcc919e959e",
+    "gnougo-mapping-allocation-after": "fe48209720fca0426573d8c34bf88e30dbcb3e8b9f525894bfe14462332f9643",
+    "gnougo-regex-reuse-solution": "20dff0c6afe09032ce7bccdb1afd0e367deb3748982f813f075ebcf55637f8bc",
+    "gnougo-regex-reuse-pack": "32a8efd6d6864b183fd45918f8b8a5e19ea1a427ce48f84f53c480ba4db158e5",
+    "gnougo-regex-reuse-aot-publish": "9194258c192eaff707d011c3a1b869dbf7158e6b1064f0355e6d04af963b64ef",
+    "gnougo-regex-reuse-aot": "58d18fa680a7a61dde7fbbc9ac47ee44981e3fcbfeb5101a33e13e88ecc84a34",
+    "gnougo-regex-reuse-browser": "d4fbc93d0633fe8a172ebeb1e926e631ff6d5e223c11c6dae4775c8c788e4e92",
+    "gnougo-regex-reuse-harness": "661b6bf373fdfa818cd55097cbdb278c35078e1d6657a2c31c80db9022d74d8e",
+    "gnougo-regex-reuse-amazon-readiness": "711ea98e44a4014b5bf5863da2341f8c092d6fbf2d4df06b19b1e9ebf3885530"
+  }
+}

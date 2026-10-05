@@ -1,0 +1,1100 @@
+{
+  "source_sha": "34bfd6040181cf789a5472506821c5a7f5e2e552",
+  "harness_sha": "34bfd6040181cf789a5472506821c5a7f5e2e552",
+  "model": "gpt-5.5-2026-04-24",
+  "provider_policy_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+  "catalog_hash": "dc4c96fcf41fcf827e47b286427a9d2c99bd9f83bd7fbfcec956a0a8d329aea2",
+  "profile": 4,
+  "model_attempts_per_mapping": 2,
+  "planning_calls": 0,
+  "repairs": 0,
+  "corpus_hash": "55e44f289ccb30f184be6cdc1d2df8b7647db37d88f6d9bb57b90ded18191e9a",
+  "passed": true,
+  "accounting_before": {
+    "campaign": "schema-portability-20261002",
+    "reserved_requests": 667,
+    "completed_receipts": 665,
+    "uncertain_requests": [
+      "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "retained_inconclusive_requests": [
+      "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "transport_accounting": {
+      "calls": 682,
+      "session_calls": 0,
+      "known_input_tokens": 10604678,
+      "known_output_tokens": 1048825,
+      "known_cost_eur": 75.20634415067964,
+      "reserved_input_tokens": 192000,
+      "reserved_output_tokens": 65536,
+      "reserved_cost_eur": 2.606752783964365,
+      "cost_upper_bound_eur": 77.81309693464401,
+      "unknown_attempts": 2
+    },
+    "cost_ceiling_eur": 100,
+    "recorded_failures": 3,
+    "known_budget_cost": null,
+    "budget_currency": null,
+    "known_input_tokens": null,
+    "known_output_tokens": null,
+    "completion_receipts_complete": false,
+    "evidence_hash": "0fff91a11bbb4032597447532c502f6112bfb8b646ac38cd93fab109bf0468e4"
+  },
+  "accounting": {
+    "campaign": "schema-portability-20261002",
+    "reserved_requests": 677,
+    "completed_receipts": 675,
+    "uncertain_requests": [
+      "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "retained_inconclusive_requests": [
+      "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "transport_accounting": {
+      "calls": 692,
+      "session_calls": 0,
+      "known_input_tokens": 10626787,
+      "known_output_tokens": 1050431,
+      "known_cost_eur": 75.34801230491027,
+      "reserved_input_tokens": 192000,
+      "reserved_output_tokens": 65536,
+      "reserved_cost_eur": 2.606752783964365,
+      "cost_upper_bound_eur": 77.95476508887464,
+      "unknown_attempts": 2
+    },
+    "cost_ceiling_eur": 100,
+    "recorded_failures": 3,
+    "known_budget_cost": null,
+    "budget_currency": null,
+    "known_input_tokens": null,
+    "known_output_tokens": null,
+    "completion_receipts_complete": false,
+    "evidence_hash": "91ecf3ae614678124cce7f6f2f7c4df28ae08d03ca4e483518116bd761ee443c"
+  },
+  "run": "focused20261005b",
+  "required_cases": 11,
+  "attempted_cases": 11,
+  "passed_cases": 11,
+  "unexecuted_cases": [],
+  "artifact_hashes": {
+    "scalar": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+    "extended": "2dabfa60db3d46ff862e0bb212a10d824efa125a9edff66ab6c222e051f2f382",
+    "each": "2bc25cea743033d0017e2b58dc8c517c87eedc3b152c2583a405eb77883dbdc4"
+  },
+  "runs": [
+    {
+      "case": "each-cold",
+      "phase": "live-provider",
+      "artifact_hash": "2bc25cea743033d0017e2b58dc8c517c87eedc3b152c2583a405eb77883dbdc4",
+      "source_hash": "f3de4bcc03aa1d01e9eaf4080ba6df10a438af0a848a758b87ec9417d4cb6971",
+      "source_bytes": 1119671,
+      "execution_started": "2026-10-05T14:24:49.5815750+00:00",
+      "execution_ms": 81464,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "rows": [
+            {
+              "name": "Observed 0"
+            },
+            {
+              "name": "Observed 1"
+            },
+            {
+              "name": "Observed 2"
+            },
+            {
+              "name": "Observed 3"
+            },
+            {
+              "name": "Observed 4"
+            },
+            {
+              "name": "Observed 5"
+            },
+            {
+              "name": "Observed 6"
+            },
+            {
+              "name": "Observed 7"
+            },
+            {
+              "name": "Observed 8"
+            },
+            {
+              "name": "Observed 9"
+            },
+            {
+              "name": "Observed 10"
+            },
+            {
+              "name": "Observed 11"
+            },
+            {
+              "name": "Observed 12"
+            },
+            {
+              "name": "Observed 13"
+            },
+            {
+              "name": "Observed 14"
+            },
+            {
+              "name": "Observed 15"
+            },
+            {
+              "name": "Observed 16"
+            },
+            {
+              "name": "Observed 17"
+            },
+            {
+              "name": "Observed 18"
+            },
+            {
+              "name": "Observed 19"
+            },
+            {
+              "name": "Observed 20"
+            },
+            {
+              "name": "Observed 21"
+            },
+            {
+              "name": "Observed 22"
+            },
+            {
+              "name": "Observed 23"
+            },
+            {
+              "name": "Observed 24"
+            },
+            {
+              "name": "Observed 25"
+            },
+            {
+              "name": "Observed 26"
+            },
+            {
+              "name": "Observed 27"
+            },
+            {
+              "name": "Observed 28"
+            },
+            {
+              "name": "Observed 29"
+            },
+            {
+              "name": "Observed 30"
+            },
+            {
+              "name": "Observed 31"
+            },
+            {
+              "name": "Observed 32"
+            },
+            {
+              "name": "Observed 33"
+            },
+            {
+              "name": "Observed 34"
+            },
+            {
+              "name": "Observed 35"
+            },
+            {
+              "name": "Observed 36"
+            },
+            {
+              "name": "Observed 37"
+            },
+            {
+              "name": "Observed 38"
+            },
+            {
+              "name": "Observed 39"
+            },
+            {
+              "name": "Observed 40"
+            },
+            {
+              "name": "Observed 41"
+            },
+            {
+              "name": "Observed 42"
+            },
+            {
+              "name": "Observed 43"
+            },
+            {
+              "name": "Observed 44"
+            },
+            {
+              "name": "Observed 45"
+            },
+            {
+              "name": "Observed 46"
+            },
+            {
+              "name": "Observed 47"
+            },
+            {
+              "name": "Observed 48"
+            },
+            {
+              "name": "Observed 49"
+            },
+            {
+              "name": "Observed 50"
+            },
+            {
+              "name": "Observed 51"
+            },
+            {
+              "name": "Observed 52"
+            },
+            {
+              "name": "Observed 53"
+            },
+            {
+              "name": "Observed 54"
+            },
+            {
+              "name": "Observed 55"
+            },
+            {
+              "name": "Observed 56"
+            },
+            {
+              "name": "Observed 57"
+            },
+            {
+              "name": "Observed 58"
+            },
+            {
+              "name": "Observed 59"
+            },
+            {
+              "name": "Observed 60"
+            },
+            {
+              "name": "Observed 61"
+            },
+            {
+              "name": "Observed 62"
+            },
+            {
+              "name": "Observed 63"
+            },
+            {
+              "name": "Observed 64"
+            },
+            {
+              "name": "Observed 65"
+            },
+            {
+              "name": "Observed 66"
+            },
+            {
+              "name": "Observed 67"
+            },
+            {
+              "name": "Observed 68"
+            },
+            {
+              "name": "Observed 69"
+            },
+            {
+              "name": "Observed 70"
+            },
+            {
+              "name": "Observed 71"
+            },
+            {
+              "name": "Observed 72"
+            },
+            {
+              "name": "Observed 73"
+            },
+            {
+              "name": "Observed 74"
+            },
+            {
+              "name": "Observed 75"
+            },
+            {
+              "name": "Observed 76"
+            },
+            {
+              "name": "Observed 77"
+            },
+            {
+              "name": "Observed 78"
+            },
+            {
+              "name": "Observed 79"
+            }
+          ]
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.source_items": 80,
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0,
+          "gnougo.mapping.sample_items": 2,
+          "gnougo.mapping.omitted_items": 78,
+          "gnougo.mapping.request_bytes": 31406,
+          "gnougo.mapping.processed_items": 80,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 14070.0362
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "focused20261005b-execution:a7f81fe7e37bf7316e3f18fe0438cb7e4fa29c2377f59f4e19a576bc1dbc0d0f",
+          "usage": {
+            "input_tokens": 16806,
+            "output_tokens": 254,
+            "total_tokens": 17060,
+            "benchmark_cost_eur": 0.08180114244912531,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.text(source.observation,'<p data-field=\"displayName\">([^<]*)</p>')})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:26:11.0488280+00:00"
+    },
+    {
+      "case": "each-warm",
+      "phase": "live-provider",
+      "artifact_hash": "2bc25cea743033d0017e2b58dc8c517c87eedc3b152c2583a405eb77883dbdc4",
+      "source_hash": "f3de4bcc03aa1d01e9eaf4080ba6df10a438af0a848a758b87ec9417d4cb6971",
+      "source_bytes": 1119671,
+      "execution_started": "2026-10-05T14:26:17.8094060+00:00",
+      "execution_ms": 72064,
+      "model_calls": 0,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "rows": [
+            {
+              "name": "Observed 0"
+            },
+            {
+              "name": "Observed 1"
+            },
+            {
+              "name": "Observed 2"
+            },
+            {
+              "name": "Observed 3"
+            },
+            {
+              "name": "Observed 4"
+            },
+            {
+              "name": "Observed 5"
+            },
+            {
+              "name": "Observed 6"
+            },
+            {
+              "name": "Observed 7"
+            },
+            {
+              "name": "Observed 8"
+            },
+            {
+              "name": "Observed 9"
+            },
+            {
+              "name": "Observed 10"
+            },
+            {
+              "name": "Observed 11"
+            },
+            {
+              "name": "Observed 12"
+            },
+            {
+              "name": "Observed 13"
+            },
+            {
+              "name": "Observed 14"
+            },
+            {
+              "name": "Observed 15"
+            },
+            {
+              "name": "Observed 16"
+            },
+            {
+              "name": "Observed 17"
+            },
+            {
+              "name": "Observed 18"
+            },
+            {
+              "name": "Observed 19"
+            },
+            {
+              "name": "Observed 20"
+            },
+            {
+              "name": "Observed 21"
+            },
+            {
+              "name": "Observed 22"
+            },
+            {
+              "name": "Observed 23"
+            },
+            {
+              "name": "Observed 24"
+            },
+            {
+              "name": "Observed 25"
+            },
+            {
+              "name": "Observed 26"
+            },
+            {
+              "name": "Observed 27"
+            },
+            {
+              "name": "Observed 28"
+            },
+            {
+              "name": "Observed 29"
+            },
+            {
+              "name": "Observed 30"
+            },
+            {
+              "name": "Observed 31"
+            },
+            {
+              "name": "Observed 32"
+            },
+            {
+              "name": "Observed 33"
+            },
+            {
+              "name": "Observed 34"
+            },
+            {
+              "name": "Observed 35"
+            },
+            {
+              "name": "Observed 36"
+            },
+            {
+              "name": "Observed 37"
+            },
+            {
+              "name": "Observed 38"
+            },
+            {
+              "name": "Observed 39"
+            },
+            {
+              "name": "Observed 40"
+            },
+            {
+              "name": "Observed 41"
+            },
+            {
+              "name": "Observed 42"
+            },
+            {
+              "name": "Observed 43"
+            },
+            {
+              "name": "Observed 44"
+            },
+            {
+              "name": "Observed 45"
+            },
+            {
+              "name": "Observed 46"
+            },
+            {
+              "name": "Observed 47"
+            },
+            {
+              "name": "Observed 48"
+            },
+            {
+              "name": "Observed 49"
+            },
+            {
+              "name": "Observed 50"
+            },
+            {
+              "name": "Observed 51"
+            },
+            {
+              "name": "Observed 52"
+            },
+            {
+              "name": "Observed 53"
+            },
+            {
+              "name": "Observed 54"
+            },
+            {
+              "name": "Observed 55"
+            },
+            {
+              "name": "Observed 56"
+            },
+            {
+              "name": "Observed 57"
+            },
+            {
+              "name": "Observed 58"
+            },
+            {
+              "name": "Observed 59"
+            },
+            {
+              "name": "Observed 60"
+            },
+            {
+              "name": "Observed 61"
+            },
+            {
+              "name": "Observed 62"
+            },
+            {
+              "name": "Observed 63"
+            },
+            {
+              "name": "Observed 64"
+            },
+            {
+              "name": "Observed 65"
+            },
+            {
+              "name": "Observed 66"
+            },
+            {
+              "name": "Observed 67"
+            },
+            {
+              "name": "Observed 68"
+            },
+            {
+              "name": "Observed 69"
+            },
+            {
+              "name": "Observed 70"
+            },
+            {
+              "name": "Observed 71"
+            },
+            {
+              "name": "Observed 72"
+            },
+            {
+              "name": "Observed 73"
+            },
+            {
+              "name": "Observed 74"
+            },
+            {
+              "name": "Observed 75"
+            },
+            {
+              "name": "Observed 76"
+            },
+            {
+              "name": "Observed 77"
+            },
+            {
+              "name": "Observed 78"
+            },
+            {
+              "name": "Observed 79"
+            }
+          ]
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.source_items": 80,
+          "gnougo.mapping.cache_hit": true,
+          "gnougo.mapping.processed_items": 80,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 1272.1858
+        }
+      ],
+      "usage_receipts": [],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:27:29.8747400+00:00"
+    },
+    {
+      "case": "json-cold",
+      "phase": "live-provider",
+      "artifact_hash": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+      "source_hash": "82761f9d9fbf20c9b6fce6004d7f836e16fa9b68425cccd033c3c0566a35ad74",
+      "source_bytes": 32,
+      "execution_started": "2026-10-05T14:27:58.9615240+00:00",
+      "execution_ms": 26758,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed alpha"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 8075.9531
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "focused20261005b-execution:02f6f8c1b0fc37f484f700b49af9c37fc9ec2c3aaed106bd1ce2dd08227c4fd9",
+          "usage": {
+            "input_tokens": 564,
+            "output_tokens": 19,
+            "total_tokens": 583,
+            "benchmark_cost_eur": 0.0030257051053195288,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:source.observation.displayName})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:28:25.7222570+00:00"
+    },
+    {
+      "case": "json-warm",
+      "phase": "live-provider",
+      "artifact_hash": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+      "source_hash": "82761f9d9fbf20c9b6fce6004d7f836e16fa9b68425cccd033c3c0566a35ad74",
+      "source_bytes": 32,
+      "execution_started": "2026-10-05T14:28:32.3024030+00:00",
+      "execution_ms": 9241,
+      "model_calls": 0,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed alpha"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": true,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 13.5164
+        }
+      ],
+      "usage_receipts": [],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:28:41.5452280+00:00"
+    },
+    {
+      "case": "json-values",
+      "phase": "live-provider",
+      "artifact_hash": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+      "source_hash": "a5ce258196a7accdf4644a2e877fe6e006589610c22c78362d552938b90a9cb3",
+      "source_bytes": 31,
+      "execution_started": "2026-10-05T14:28:48.4019110+00:00",
+      "execution_ms": 23404,
+      "model_calls": 0,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed beta"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": true,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 13.5052
+        }
+      ],
+      "usage_receipts": [],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:29:11.8082040+00:00"
+    },
+    {
+      "case": "json-shape",
+      "phase": "live-provider",
+      "artifact_hash": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+      "source_hash": "e65118aa2ee908906fb1ffd5df391f300aac07d6636299b300149282a99138bf",
+      "source_bytes": 45,
+      "execution_started": "2026-10-05T14:29:18.7620620+00:00",
+      "execution_ms": 21713,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed gamma"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 7419.6308
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "focused20261005b-execution:ee9805562710bee263cc347260df3b22fa8c3b6aa22231d128aa15d968b0be91",
+          "usage": {
+            "input_tokens": 568,
+            "output_tokens": 19,
+            "total_tokens": 587,
+            "benchmark_cost_eur": 0.003043555872902535,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:source.observation.displayName})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:29:40.4766230+00:00"
+    },
+    {
+      "case": "text-cold",
+      "phase": "live-provider",
+      "artifact_hash": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+      "source_hash": "e04fbf87ccb914218529d8b1a58f44f169fa967465657e5f4f29ad71157e595e",
+      "source_bytes": 26,
+      "execution_started": "2026-10-05T14:29:47.5440120+00:00",
+      "execution_ms": 20636,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed text"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 8472.6934
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "focused20261005b-execution:8273e928442e5a3b6f74708ab8477cef6a64a8fa9e93e95ad2f5445a58e6a3b1",
+          "usage": {
+            "input_tokens": 565,
+            "output_tokens": 85,
+            "total_tokens": 650,
+            "benchmark_cost_eur": 0.004797393787932881,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.text(source.observation,'displayName: (.*)',1)})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:30:08.1816830+00:00"
+    },
+    {
+      "case": "html-cold",
+      "phase": "live-provider",
+      "artifact_hash": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+      "source_hash": "b44379a0dac173104bb8e88c286e4921d6d9e0d6892ed3dfa9b16c898e7a1135",
+      "source_bytes": 68,
+      "execution_started": "2026-10-05T14:30:15.2274200+00:00",
+      "execution_ms": 39803,
+      "model_calls": 2,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed & HTML"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 2,
+          "gnougo.mapping.repairs": 1,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 20410.6222
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "focused20261005b-execution:19461a109216f22e1aea2ea7c16cf7437d42e188f66587f595074b66be7a892c",
+          "usage": {
+            "input_tokens": 607,
+            "output_tokens": 297,
+            "total_tokens": 904,
+            "benchmark_cost_eur": 0.010661370938950376,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.decode(m.text(source.observation,'data-field=\"displayName\">([^<]*)</span>',1))}"
+          }
+        },
+        {
+          "request_id": "focused20261005b-execution:bea38e2e59dd197fedb8c612bf3b3fa8831f31eab5646bd8951439392f460f92",
+          "usage": {
+            "input_tokens": 659,
+            "output_tokens": 219,
+            "total_tokens": 878,
+            "benchmark_cost_eur": 0.008804891110317743,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.decode(m.text(source.observation,'data-field=\"displayName\">([^<]*)</span>',1))})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:30:55.0326630+00:00"
+    },
+    {
+      "case": "missing-required",
+      "phase": "live-provider",
+      "artifact_hash": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+      "source_hash": "871480dfe88b8c21e7e88661c879a4f3cbca2505363728ac9b30811ab6d17c39",
+      "source_bytes": 41,
+      "execution_started": "2026-10-05T14:31:02.2378770+00:00",
+      "execution_ms": 31839,
+      "model_calls": 2,
+      "success": false,
+      "error": "CONTRACT_UNSATISFIED",
+      "outputs": null,
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 2,
+          "gnougo.mapping.repairs": 1,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Failed",
+          "duration_ms": 20906.438
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "focused20261005b-execution:d9932c68790074d2cee77d98c1d8e78e4f185a65959f44b3788b471b5cd2d810",
+          "usage": {
+            "input_tokens": 567,
+            "output_tokens": 19,
+            "total_tokens": 586,
+            "benchmark_cost_eur": 0.0030390931810067834,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:source.observation.displayName})"
+          }
+        },
+        {
+          "request_id": "focused20261005b-execution:7a8de8971829b727f326bf56ab8b61688eb25ba098de10d8b7e9cb2427797186",
+          "usage": {
+            "input_tokens": 589,
+            "output_tokens": 538,
+            "total_tokens": 1127,
+            "benchmark_cost_eur": 0.017034094966083543,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.optional(source.observation,[\"displayName\"])})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:31:34.0792310+00:00"
+    },
+    {
+      "case": "injected-repair",
+      "phase": "fault-injection",
+      "artifact_hash": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+      "source_hash": "3d41fb6d24078d27d5bb8873086c815ff674143d0c43c00a0c2fe58df8f2e394",
+      "source_bytes": 28,
+      "execution_started": "2026-10-05T14:31:40.7489190+00:00",
+      "execution_ms": 33383,
+      "model_calls": 2,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed repair"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 2,
+          "gnougo.mapping.repairs": 1,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 9136.1475
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "focused20261005b-execution:3f436f8a7c6f50302f755b5423e1fe81b9636dac030c5c1ffd23e35c3d6be4be",
+          "usage": {
+            "input_tokens": 600,
+            "output_tokens": 99,
+            "total_tokens": 699,
+            "benchmark_cost_eur": 0.0053284541235273115,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.text(source.observation,'^displayName: (.*)$',1)})"
+          }
+        }
+      ],
+      "injected_attempts": 1,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:32:14.1351420+00:00"
+    },
+    {
+      "case": "target-change",
+      "phase": "live-provider",
+      "artifact_hash": "2dabfa60db3d46ff862e0bb212a10d824efa125a9edff66ab6c222e051f2f382",
+      "source_hash": "3567b896b615aa98aa4f054cd5869f1d0651da67e57d8b11104bcff7fc936a0b",
+      "source_bytes": 52,
+      "execution_started": "2026-10-05T14:32:34.4563350+00:00",
+      "execution_ms": 41663,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed delta",
+          "reference": "REF-7"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 8166.4623
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "focused20261005b-execution:5028e4281e4e801cb8a89a1e08e7995c25e3880a750e889336a8cf283be5887d",
+          "usage": {
+            "input_tokens": 584,
+            "output_tokens": 57,
+            "total_tokens": 641,
+            "benchmark_cost_eur": 0.004132452695465905,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:source.observation.displayName,reference:source.observation.reference})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:33:16.1231580+00:00"
+    }
+  ]
+}

@@ -44,6 +44,39 @@ The frozen source/harness `f199a5d7` executed ten of eleven cases: **nine passed
 
 The 80-item probe read all original observations. Generation sampled three complete items from 1,119,671 source bytes; the repair request was 45,596 bytes, below the unchanged allowance. Both returned expressions were valid extractions. Deterministic replay exposes the actual failure: recompiling the same nonbacktracking regex for each item exhausts Jint's cumulative 50,000,000-byte allocation allowance around item 20. A scoped sandbox correction reuses each compiled regex within one evaluation. It changes no expression semantics, inference attempts, `mapping.dynamic` code, cache identity, plan or approval contract, and resets no limits. Two regressions fail before this correction and pass afterward; all 66 focused mapping tests pass. Native AOT additionally checks 80 ordered HTML extractions.
 
-The failed run and its receipts remain retained; no started variant is replayed. Further paid validation requires a new frozen candidate and run identity after deterministic checks pass.
+The failed run and its receipts remain retained; no started variant is replayed. Subsequent validation uses the separately frozen candidate and run below.
 
-**Fresh Amazon and full code-review E2Es have not run.** They remain gated on successful focused mapping execution; the passing small Copilot producer probe does not replace a full code review. No six-run acceptance claim is made. PR #117 remains draft; historical 33/33 evidence and all earlier failed cohorts remain unchanged.
+## Corrected mapping candidate
+
+Candidate **`34bfd6040181cf789a5472506821c5a7f5e2e552`**, matrix **`focused20261005b`**, passes **11/11 independent execution oracles**. This matrix is separate from the failed candidate above. It uses the same prompts, data, targets and oracles; all three business artifact hashes are unchanged from the user's explicit acknowledgment.
+
+The 80-item cold run uses **one model call, zero repairs**, two complete examples and a 31,406-byte request. All 80 original items are processed and independently checked. The warm run validates all 80 items with **zero model calls**, taking 1,272 ms in the mapping step versus 14,070 ms cold. Complete workflow times were 81,464 ms cold and 72,064 ms warm, including the 80 actual MCP reads, durable journaling and confirmation waiting; these are not pure mapping latency measurements. The scalar HTML response needed one natural provider repair and then passed. Injected repair remains separately labelled. Missing required data correctly failed its contract and passed the expected-failure oracle.
+
+The matrix used ten paid calls, **22,109 input / 1,606 output tokens, €0.141668**, plus one injected non-provider attempt. Generation fixtures required zero planning calls/repairs. [Matrix evidence](evidence/live-readiness-2026-10-05/mapping-focused20261005b.json).
+
+Validation after the correction: **4,513 passed, zero failed, 13 skipped across 33 solution projects**, with `-m:1 -warnaserror`. The additional browser skip passes separately, leaving twelve historical skips. Flow.Core Release packaging, planning Native AOT including the 80-item case, frontend production build and local Browser/Document readiness pass. No storage/serialization contracts changed; the earlier published encrypted-recovery evidence remains separate. [Validation counts and log hashes](evidence/live-readiness-2026-10-05/regex-reuse-validation.json).
+
+## Fresh E2E planning and remaining execution gates
+
+Frozen cohort **`focusedlive20261005a`** uses candidate `34bfd604`, unchanged prompts/oracles/limits and new identities. Disposable toolchains resolve Node 24.20.0, repository-selected pnpm 10.34.5 and Python 3.11.13. The recorded SmartGuide PR head is still available. Readiness independently checks a local Browser page, XLSX cells and Browser cleanup with zero inference.
+
+| Measurement | Amazon | Code review |
+| --- | ---: | ---: |
+| Planning calls / physical attempts | 5 / 5 | 8 / 8 |
+| Repairs / explicit review revisions | 1 / 1 | 2 / 3 |
+| Discovery reads | 2 | 6 |
+| Verified input / output tokens | 54,810 / 15,554 | 203,065 / 29,206 |
+| Planning latency | 206,104 ms | 345,276 ms |
+| Planning cost | €0.661076 | €1.688241 |
+| Current state | Final review, revision 6 | Stopped, revision 14; call allowance exhausted |
+| Workflow execution | Not started; acknowledgment pending | Not started; invalid proposal |
+
+Amazon's first proposal was withheld for guessed selectors, full-observation interpretation and placeholder-cell behavior. Its revision explicitly consumes snapshot pages, uses independent source-grounded compaction, conditionally accepts observed consent, visits products sequentially, guards workbook publication and closes the browser. Explicit interpretation steps remain visible in the [artifact review](evidence/live-readiness-2026-10-05/amazon-review.md). It is not approved automatically: the four requirement acknowledgments are pending, bound to revision 6 and artifact hash `0588d6083951556a1c7fe4cf397b46221944374148c89a0b1d7e07cc6edbb05e`.
+
+Code proposals were retained with their failures: double selection of scalar ports; missing conditional exports and sibling-scope references; and report writing only on the normal path before cleanup. Explicit revisions preserved accepted requirements and cumulative accounting. The last proposal attempts failure-path preservation but still has missing exports and invalid cross-scope dependencies. The existing compiler rejects it, and the eight-call ceiling stops further dispatch. No Copilot session, command execution, report or cleanup ran in this E2E. The earlier successful small producer probe does not establish full code-review success. No planner or integration checks were weakened to admit these proposals.
+
+Zero-inference replay confirms the Amazon artifact still compiles on the isolated frozen checkout and the code proposal deterministically fails the same scope checks; saved sessions remain unchanged. [Amazon evidence](evidence/live-readiness-2026-10-05/focusedlive-amazon.json), [code evidence](evidence/live-readiness-2026-10-05/focusedlive-code.json), [six-slot cohort report](evidence/live-readiness-2026-10-05/focusedlive20261005a.json).
+
+Campaign upper bound: **€80.304082/€100**, leaving **€19.695918**, including the unchanged **€2.606753** historical unknown reservations. All new calls have completion/usage receipts. No uncertain invocation was resumed, and no GitHub feedback was published.
+
+The E2E cohort remains **0/6, incomplete**; repetitions two and three are unattempted. PR #117 stays draft. Historical 33/33 evidence and every earlier failed cohort remain unchanged. To continue Amazon after explicit acknowledgment, use source `34bfd604` and the retained revision/hash-bound approval through the existing `--review-command`; the isolated checkout is `/private/tmp/gnougo-live-34bfd604`. Never resume any started or uncertain execution.
