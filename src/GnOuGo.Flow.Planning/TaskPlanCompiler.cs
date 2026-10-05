@@ -59,7 +59,7 @@ public sealed partial class TaskPlanCompiler
         public Dictionary<string, Dictionary<string, Bound>> Tasks { get; } = new(StringComparer.Ordinal);
         public List<PlanningMember> Captures { get; } = [];
         public HashSet<(string Kind, string Source, string Port)> Blocked { get; } = [];
-        public string? NonNullReference { get; init; }
+        public IReadOnlySet<string>? NonNullReferences { get; init; }
         public bool FailurePath { get; init; }
         public Dictionary<string, Bound> FailureCaptures { get; } = new(StringComparer.Ordinal);
         public Bound? Item { get; set; }
@@ -244,8 +244,8 @@ public sealed partial class TaskPlanCompiler
                 target.Add(sequence.Call); outputs = WorkflowResult(sequence.Call.Key, sequence.Workflow); break;
             case "conditional":
                 var condition = Value(task.Condition ?? MissingValue(), scope); RequireBoolean(condition);
-                var yes = Child(task.Body ?? MissingScope(), scope, key, "yes", NonNullReference(task.Condition, true));
-                var no = Child(task.Otherwise ?? MissingScope(), scope, key, "no", NonNullReference(task.Condition, false));
+                var yes = Child(task.Body ?? MissingScope(), scope, key, "yes", NonNullReferences(task.Condition, true));
+                var no = Child(task.Otherwise ?? MissingScope(), scope, key, "no", NonNullReferences(task.Condition, false));
                 if (!yes.Workflow.Outputs.Select(o => o.Name).Order().SequenceEqual(no.Workflow.Outputs.Select(o => o.Name).Order()))
                     Fail("TASK_BRANCH_OUTPUTS", "Both alternatives must declare the same named business outputs.");
                 target.Add(new() { Key = key, Purpose = task.Objective, Type = "switch", Expr = condition.Value,
@@ -448,12 +448,12 @@ public sealed partial class TaskPlanCompiler
         return OperationResults(key, capability, input);
     }
 
-    private (PlanningWorkflow Workflow, PlanningNode Call) Child(TaskScope source, Scope parent, string key, string role, string? nonNull = null)
+    private (PlanningWorkflow Workflow, PlanningNode Call) Child(TaskScope source, Scope parent, string key, string role, IReadOnlySet<string>? nonNull = null)
     {
         var childKey = Key(key, role); var workflow = new PlanningWorkflow { Key = childKey };
         _graph.Workflows.Add(workflow); _sources[childKey] = _location + "/" + (role switch
         { "yes" or "iteration" => "body", "no" => "otherwise", _ => role.Replace("branch:", "branches/", StringComparison.Ordinal) });
-        var location = _location; var child = new Scope(workflow, parent) { NonNullReference = nonNull, FailurePath = parent.FailurePath || parent.Cleanup }; CompileScope(source, child, childKey); _location = location;
+        var location = _location; var child = new Scope(workflow, parent) { NonNullReferences = nonNull, FailurePath = parent.FailurePath || parent.Cleanup }; CompileScope(source, child, childKey); _location = location;
         return (workflow, Call(Key(childKey, "call"), childKey, Object(child.Captures)));
     }
 
@@ -480,12 +480,44 @@ public sealed partial class TaskPlanCompiler
         }));
     }
 
-    private static string? NonNullReference(TaskValue? condition, bool whenTrue)
+    private static IReadOnlySet<string> NonNullReferences(TaskValue? condition, bool whenTrue)
     {
-        if (condition is not { Kind: "predicate", Items.Count: 2 } ||
-            !(whenTrue && condition.Predicate == "not_equal" || !whenTrue && condition.Predicate == "equal")) return null;
-        var reference = condition.Items[0].Kind == "null" ? condition.Items[1] : condition.Items[1].Kind == "null" ? condition.Items[0] : null;
-        return reference?.Kind is "input" or "output" or "field" ? JsonSerializer.Serialize(reference, PlanningJsonContext.Default.TaskValue) : null;
+        var references = new HashSet<string>(StringComparer.Ordinal);
+        if (condition is not { Kind: "predicate" }) return references;
+        if (condition.Predicate == "not" && condition.Items.Count == 1)
+            return NonNullReferences(condition.Items[0], !whenTrue);
+        // True conjunctions and false disjunctions establish every operand's facts.
+        // The opposite paths do not establish which operand determined the result.
+        if (whenTrue && condition.Predicate == "and" || !whenTrue && condition.Predicate == "or")
+            foreach (var item in condition.Items) references.UnionWith(NonNullReferences(item, whenTrue));
+        else if (condition.Items.Count == 2 &&
+            (whenTrue && condition.Predicate == "not_equal" || !whenTrue && condition.Predicate == "equal"))
+        {
+            var reference = condition.Items[0].Kind == "null" ? condition.Items[1] : condition.Items[1].Kind == "null" ? condition.Items[0] : null;
+            if (reference?.Kind is "input" or "output" or "field")
+                references.Add(JsonSerializer.Serialize(reference, PlanningJsonContext.Default.TaskValue));
+        }
+        return references;
+    }
+
+    private static JsonObject? WithoutNull(JsonObject source)
+    {
+        var schema = source.DeepClone().AsObject();
+        if (schema["type"]?.ToString() == "null") return null;
+        if (schema["type"] is JsonArray types)
+        {
+            var remaining = types.Where(t => t?.ToString() != "null").Select(t => t!.DeepClone()).ToArray();
+            if (remaining.Length == 0) return null;
+            schema["type"] = remaining.Length == 1 ? remaining[0] : new JsonArray(remaining);
+        }
+        foreach (var keyword in new[] { "anyOf", "oneOf" })
+            if (schema[keyword] is JsonArray alternatives && alternatives.All(a => a is JsonObject))
+            {
+                var remaining = alternatives.Cast<JsonObject>().Select(WithoutNull).OfType<JsonObject>().ToArray();
+                if (remaining.Length == 0) return null;
+                schema[keyword] = new JsonArray(remaining.Select(s => (JsonNode)s).ToArray());
+            }
+        return schema;
     }
 
     private Bound Value(TaskValue value, Scope scope, bool consume = true)
@@ -494,14 +526,10 @@ public sealed partial class TaskPlanCompiler
         if (!consume || value.Kind is not ("input" or "output" or "field")) return bound;
         var identity = JsonSerializer.Serialize(value, PlanningJsonContext.Default.TaskValue);
         for (var ancestor = scope; ancestor is not null; ancestor = ancestor.Parent)
-            if (ancestor.NonNullReference == identity && bound.Schema["type"] is JsonArray types && types.Any(t => t?.ToString() == "null"))
+            if (ancestor.NonNullReferences?.Contains(identity) == true && WithoutNull(bound.Schema) is { } schema &&
+                !JsonNode.DeepEquals(schema, bound.Schema))
             {
-                var schema = bound.Schema.DeepClone().AsObject();
-                var remaining = types.Where(t => t?.ToString() != "null").Select(t => t!.DeepClone()).ToArray();
-                if (remaining.Length == 0) return bound;
-                schema["type"] = remaining.Length == 1 ? remaining[0] : new JsonArray(remaining);
-                // Keep the captured contract unchanged. A checked identity projection
-                // inside the selected branch establishes its nonnullable export.
+                // Keep captured contracts intact; check the refined value in the selected branch.
                 return Consume(bound with { Schema = schema, SelectionSource = bound, SelectionPath = [] }, scope);
             }
         return bound;
