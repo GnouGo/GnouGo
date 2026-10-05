@@ -27,4 +27,47 @@ dotnet test tests/GnOuGo.Flow.Planning.Tests -m:1 -warnaserror --filter 'FullyQu
 Kestrel__Endpoints__Grpc__Url=http://127.0.0.1:0 dotnet test tests/GnOuGo.Agent.Server.Tests -m:1 -warnaserror -p:SkipModelMetadataGeneration=true --filter 'FullyQualifiedName~LocalProductOutcomeExecutionTests|FullyQualifiedName~PlanningPersistenceTests'
 ```
 
-The focused gate passed **109 planning tests** and **12 host tests**, including the real workbook fixture and encrypted persistence. Skill validation passed. Final solution/package checks and fresh live evidence follow below after collection. No deterministic result is presented as live acceptance. PR #117 remains draft.
+The focused gate passed **109 planning tests** and **12 host tests**, including the real workbook fixture and encrypted persistence. Final validation on frozen candidate `5afe0fa6` passed:
+
+- **4,574 solution tests**, zero failures, 12 existing skips across 33 suites, with `dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true`. Seven skips require Windows; five are opt-in paid Copilot tests. The existing browser component check ran using the packaged Playwright module, and the frontend production builds passed.
+- Release packages for Flow.Core, Flow.Planning and Agent.Shared.
+- **29 Native AOT planning checks** on `osx-arm64`, including explicit revision authority/patch serialization and immutable baseline checks.
+- Published, trimmed Agent.Server encrypted recovery, including the new optional scope field and unchanged planning format 10. Unchanged bundled MCP publishing was skipped for this host persistence check; current Debug MCP processes were independently exercised by the local execution fixture and readiness probe.
+- Planning skill validation and `git diff --check`.
+
+[Machine-readable validation](evidence/targeted-planning-revisions-2026-10-05/validation.json) separates deterministic tests from live results. GitHub's deterministic planner check passed on `5afe0fa6`; broader CI is incomplete because several jobs could not acquire hosted runners after repeated attempts. [Retained CI status](evidence/targeted-planning-revisions-2026-10-05/ci.json) records the affected checks. Local success does not establish those remote checks or live acceptance. PR #117 remains draft.
+
+## Fresh Amazon run
+
+Frozen production/harness candidate `5afe0fa6`, cohort `targetedlive20261005a`, run `targetedlive20261005a-amazon-1`. Before dispatch, [deployment readiness](evidence/targeted-planning-revisions-2026-10-05/provider-readiness.json) resolved the exact configured model and retained the 96,000/32,768 request allowances. A zero-inference disposable Browser/Document probe verified local page reading, independent XLSX cells and Browser cleanup.
+
+The [campaign ledger before dispatch](evidence/targeted-planning-revisions-2026-10-05/campaign-before.json) retains **EUR 84.319318 / 150**, including **EUR 2.606753** historical unknown reservations. No code-review run, cohort expansion or uncertain invocation replay is included. Generation and review precede explicit artifact approval and any execution.
+
+The initial proposal compiled in two calls with zero repairs, but review rejected missing continuation handling and extraction absence placeholders. Two explicit global revisions were necessary to add observation-consumption scopes and replace technical interpretation/pass-through tasks with deterministic bindings; a field-only revision cannot authorize that restructuring. Revisions [2](evidence/targeted-planning-revisions-2026-10-05/rejected-r2.json), [5](evidence/targeted-planning-revisions-2026-10-05/rejected-r5.json) and [8](evidence/targeted-planning-revisions-2026-10-05/rejected-r8.json) remain retained. Static compilation did not override review findings.
+
+The final correction used **eight explicit `EditablePaths`**: three manifest predicates, three page-status literals and two publication guards. The real provider returned only typed patches. Revision **10**, artifact `6a473e95d4e9e26f2e4b017499ac83b86cfcb91b3af0701309c93b41047bd59b`, validates and awaits explicit execution approval. The [complete comparison](evidence/targeted-planning-revisions-2026-10-05/targeted-live-review.json) confirms no changes outside those paths, unchanged accepted requirements and preserved writer/verification/cleanup. The targeted patch used **one planning call and no additional repair**.
+
+| Measurement | Fresh planning | Execution |
+| --- | --- | --- |
+| Logical calls / physical attempts | 7 / 7 | Not started |
+| Automatic repairs / explicit revisions | 2 / 3 | Not started |
+| Discovery reads | 2 | Not started |
+| Verified input / output tokens | 81,357 / 28,517 | Not measured |
+| Cost | EUR 1.126647 | No dispatch |
+| Cumulative planning latency | 339,625 ms | Not measured |
+| Mapping samples, processed items, cache results, request sizes | Not applicable | Unverified |
+| Independent execution oracle | Not applicable | Not run |
+
+The campaign upper bound is **EUR 85.445965 / 150**, with the same historical unknown reservations and no new unknown usage. Planning required review iteration and did not meet a one-call target. [Exact artifact and requirement review](evidence/targeted-planning-revisions-2026-10-05/amazon-review.md) are ready for the user; approval acknowledgments have not been generated or submitted. The six-slot acceptance gate remains incomplete; this task authorizes only the fresh Amazon run.
+
+
+## Reproduce the pending live review
+
+Use the frozen source/harness `5afe0fa6` with the same deployment configuration, execution path and manifest hashes. The existing encrypted journal retains requests, responses, revisions, receipts and reservations. These read-only commands inspect the pending run and six-slot report:
+
+```sh
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability inspect-run --campaign schema-portability-20261002 --run targetedlive20261005a-amazon-1
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability report --campaign schema-portability-20261002 --cohort targetedlive20261005a
+```
+
+Only after explicit acknowledgment of the five requirements in the [artifact review](evidence/targeted-planning-revisions-2026-10-05/amazon-review.md), submit the existing `approve` command in a private `--review-command` file with revision 10 and the exact artifact hash. Use the benchmark's existing `execute` command once; never reset or replay an execution already started. Approval has not been recorded for this artifact. [The frozen cohort report](evidence/targeted-planning-revisions-2026-10-05/cohort.json) therefore remains 0/6 and incomplete, with execution statuses kept distinct from planning validation.

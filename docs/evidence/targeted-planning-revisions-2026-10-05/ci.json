@@ -1,0 +1,141 @@
+{
+  "candidate": "5afe0fa6bfcd923268edfac259754237f7b2d609",
+  "status": "incomplete",
+  "runs": [
+    {
+      "id": 37366291670,
+      "name": "Deterministic planner validation",
+      "conclusion": "success",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366291670",
+      "jobs": [
+        {
+          "name": "validate",
+          "conclusion": "success",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366291670/job/111952182028"
+        }
+      ]
+    },
+    {
+      "id": 37366291745,
+      "name": "Build ProxyCopilot Native AOT",
+      "conclusion": "failure",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366291745",
+      "jobs": [
+        {
+          "name": "ProxyCopilot AOT (win-arm64)",
+          "conclusion": "cancelled",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366291745/job/111952182259"
+        },
+        {
+          "name": "ProxyCopilot AOT (win-x64)",
+          "conclusion": "cancelled",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366291745/job/111952182378"
+        },
+        {
+          "name": "ProxyCopilot AOT (osx-x64)",
+          "conclusion": "cancelled",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366291745/job/111952182408"
+        },
+        {
+          "name": "ProxyCopilot AOT (linux-x64)",
+          "conclusion": "cancelled",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366291745/job/111952182473"
+        },
+        {
+          "name": "ProxyCopilot AOT (linux-arm64)",
+          "conclusion": "success",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366291745/job/111952182556"
+        },
+        {
+          "name": "ProxyCopilot AOT (osx-arm64)",
+          "conclusion": "success",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366291745/job/111952182716"
+        }
+      ]
+    },
+    {
+      "id": 37366292309,
+      "name": "Build (GnOuGo.Agent)",
+      "conclusion": "failure",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366292309",
+      "jobs": [
+        {
+          "name": "Server (linux-x64) / Server (linux-x64)",
+          "conclusion": "cancelled",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366292309/job/111952183773"
+        },
+        {
+          "name": "Stable Unit Tests / Python Unit Tests",
+          "conclusion": "cancelled",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366292309/job/111952184027"
+        },
+        {
+          "name": "Agent Server Tests (non-blocking) / Agent Server Tests",
+          "conclusion": "cancelled",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366292309/job/111952184050"
+        },
+        {
+          "name": "Stable Unit Tests / Stable .NET Unit Tests",
+          "conclusion": "cancelled",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366292309/job/111952184066"
+        },
+        {
+          "name": "KeyVault MCP / KeyVault MCP (win-x64)",
+          "conclusion": "cancelled",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366292309/job/111952186415"
+        },
+        {
+          "name": "OTLP Collector",
+          "conclusion": "skipped",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366292309/job/111957369023"
+        },
+        {
+          "name": "Compute Version Tag",
+          "conclusion": "skipped",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366292309/job/111957369951"
+        },
+        {
+          "name": "Publish gnougo-flow-core to PyPI",
+          "conclusion": "skipped",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366292309/job/111957370292"
+        },
+        {
+          "name": "Publish Release ()",
+          "conclusion": "skipped",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366292309/job/111957370295"
+        },
+        {
+          "name": "Desktop (Trimmed + Native AOT tools)",
+          "conclusion": "skipped",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366292309/job/111957370584"
+        },
+        {
+          "name": "Publish .NET packages to NuGet",
+          "conclusion": "skipped",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366292309/job/111957370652"
+        },
+        {
+          "name": "ProxyCopilot (Native AOT)",
+          "conclusion": "skipped",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366292309/job/111957370665"
+        },
+        {
+          "name": "Docker Builds",
+          "conclusion": "skipped",
+          "url": "https://github.com/GnouGo/GnouGo/actions/runs/37366292309/job/111957370721"
+        }
+      ]
+    }
+  ],
+  "limitation": "Several GitHub-hosted jobs could not acquire a runner after multiple attempts. This is not evidence of a code/test failure or a successful check.",
+  "confirmed_runner_errors": [
+    {
+      "job_id": 111952183773,
+      "message": "The job was not acquired by Runner of type hosted even after multiple attempts"
+    },
+    {
+      "job_id": 111952182378,
+      "message": "The job was not acquired by Runner of type hosted even after multiple attempts"
+    }
+  ]
+}
