@@ -1,0 +1,58 @@
+{
+  "candidate": "f199a5d705e2a16d8a37607597c54191c261c6e7",
+  "full_solution": {
+    "failed": 0,
+    "passed": 4511,
+    "skipped": 13,
+    "projects": 33
+  },
+  "separate_browser_smoke": {
+    "passed": 1,
+    "note": "The sole extra full-suite skip was run successfully with PLAYWRIGHT_MODULE_PATH; twelve historical skips remain."
+  },
+  "logs": {
+    "gnougo-unblock-solution-final": "fbb406ccacfe171c341e4289072c0706115e2b6d7a0a5c024a9bdaa5b1062352",
+    "gnougo-live-unblock-solution": "50ec2100d630e2cf0b1cc6f73830d276f759ee401a072d0b66aeeda0fa7ab685",
+    "gnougo-immutable-tests": "6559b2b603a8a4466420e9f44401fac05a097c17c2f5d32366d7cdeeaaf3b71b",
+    "gnougo-probe-tests": "261a743101518ea56e1fa3e6f3c5ab5f5e74d0b2a16555157a7e92f6166a289e",
+    "gnougo-probe-tests2": "a6136611905848d2814f88b8d6f3eb01b6511a97e563aab106a7202230aad1cd",
+    "gnougo-mapping-probe-tests3": "5a1a1e1cde638b25cde7a52b4229db0604a5198a9692f9f4e152aaa33c8ff5e4",
+    "gnougo-unblock-pack": "51d92f588002f45336ee914a5b76ad42a308d193ba5617499453f28b67c14813",
+    "gnougo-unblock-aot": "313251eeb1559c3a5978d9ebf46dfd9dad13c2cc0138896fca8cc0b7cb0eade0",
+    "gnougo-unblock-aot-smoke": "58d18fa680a7a61dde7fbbc9ac47ee44981e3fcbfeb5101a33e13e88ecc84a34",
+    "gnougo-unblock-server-publish": "deb07339918a0599c49e85db6702b4be2120a14259f31bfcd870ef2937a5957e",
+    "gnougo-unblock-server-recovery": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88",
+    "gnougo-unblock-copilot-aot": "033f7d68743894a1e5021c807c44b5ede509f0111ddacf67c0faff054e6528b0",
+    "gnougo-unblock-copilot-recovery-current": "8106da92aaf89232b85ae84be49c4760a0b88b9c0fd41639e448dcaa2cb6a44f",
+    "gnougo-unblock-browser": "ad38048bb1967e1478866f1440bb38fb228576fed5b7e93c020b603505400dd2",
+    "gnougo-readiness-amazon": "711ea98e44a4014b5bf5863da2341f8c092d6fbf2d4df06b19b1e9ebf3885530",
+    "gnougo-readiness-code": "86adbf7b202f4054e2a5d94b1219f4142ee48cd4533799001a13ba7b46b29dca",
+    "gnougo-provider-readiness-final": "4f8b52898852f319a2052c5ba80c2d37cef702e737d7d260e95ae80f8584c9b2"
+  },
+  "provider_readiness": {
+    "provider": "OpenAi",
+    "model": "gpt-5.5-2026-04-24",
+    "configuration_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+    "metadata_sources": {
+      "host_metadata_files": 0,
+      "host_overrides_hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "persisted_user_config_available": true,
+      "persisted_override_count": 3,
+      "persisted_overrides_hash": "06c4f42ec6cb1ea0a999c84bf0a7910ac2bbcae0c9bb3cbc515131cec5d68c6d"
+    },
+    "declared_metadata_hash": "0027a030d8aa6ebcc7ec8d0e2e23dc04b1a28a208443c579251e1374a75fa094",
+    "max_input_tokens": 1050000,
+    "context_window_tokens": 1050000,
+    "max_output_tokens": 128000,
+    "planning_input_allowance": 96000,
+    "mapping_input_allowance": 96000,
+    "model_calls": 0,
+    "ready": true,
+    "limitation": null
+  },
+  "retained_failures": [
+    "Initial build required source-generated/AOT-safe diagnostic serialization.",
+    "New fixture initially omitted runtime tool declaration/confirmation; fixture setup fixed without changing production.",
+    "First full solution attempt cancelled at the known unrelated local port-4317 conflict. Final run used Kestrel__Endpoints__Grpc__Url=http://127.0.0.1:0."
+  ]
+}
