@@ -440,7 +440,22 @@ structuralPatch = JsonSerializer.Deserialize(JsonSerializer.Serialize(structural
 var structurallyRepaired = PlanningRepairPatch.Apply(repairState, structuralPatch, structuralRequest);
 if (structurallyRepaired.Root.Tasks[0].Operation != "owned_operation" || structurallyRepaired.Root.Tasks[0].Inputs.Single().Value.Text != "business" ||
     repairState.Plan.Root.Tasks[0].Operation != "unresolved_operation") throw new InvalidOperationException("Structural repair lost authority or business intent");
-Console.WriteLine("structural repair: passed; version-seven authority, preserved arguments and atomic AOT round trip; no inference");
+Console.WriteLine("structural repair: passed; version-eight authority, preserved arguments and atomic AOT round trip; no inference");
+
+repairState.Plan = structurallyRepaired;
+repairState.Diagnostics.Clear();
+repairState.EditablePaths = ["/tasks/work/inputs/text"];
+repairState.RevisionScope = [.. repairState.EditablePaths];
+TaskPlanRevisions.ValidateEditablePaths(repairState, repairState.EditablePaths);
+repairState = JsonSerializer.Deserialize(JsonSerializer.Serialize(repairState, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+var targetedRequest = new PlanningPrompt(repairState).Request();
+var targetedPatch = JsonNode.Parse("""{"edits":[{"slot":"s0","action":"replace","value":{"kind":"string","text":"explicit revision"}}]}""")!
+    .Deserialize(RepairJsonContext.Default.RepairPatch)!;
+var targetedPlan = PlanningRepairPatch.Apply(repairState, targetedPatch, targetedRequest);
+if (targetedPlan.Root.Tasks[0].Inputs.Single().Value.Text != "explicit revision" ||
+    repairState.Plan!.Root.Tasks[0].Inputs.Single().Value.Text != "business" || repairState.EditablePaths?.Single() != "/tasks/work/inputs/text")
+    throw new InvalidOperationException("Targeted revision lost its serialized authority or changed the retained baseline");
+Console.WriteLine("targeted revision: passed; optional authority round trip, typed patches and unchanged baseline; no inference");
 
 sealed class ClarificationRuntime : IPlanningRuntime
 {

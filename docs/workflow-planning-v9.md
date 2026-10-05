@@ -247,7 +247,7 @@ the alternatives. Auto mode validates and records the recommendation without ano
 model call. Selection recompiles deterministically. Choices cannot change agent scope,
 grant permissions, raise budgets or replace runtime confirmation.
 
-A custom answer to a literal choice requests an intent revision; it is never inserted as an unchecked literal or expression. Repair envelope 7 includes clarification as an exclusive action and fingerprints accepted requirements. Retired requests preserve their original schemas and fingerprints for accounting; unfinished sessions require explicit revision. Nullable interaction metadata leaves absent historical fields and stored approval hashes unchanged.
+A custom answer to a literal choice requests an intent revision; it is never inserted as an unchecked literal or expression. Repair envelope 8 includes clarification as an exclusive action and fingerprints accepted requirements, explicit revision paths and reference-preserving permissions. Already-issued version-7 requests retain their original schema and authority. Retired requests preserve their original schemas and fingerprints for accounting; unfinished sessions require explicit revision. Nullable interaction metadata leaves absent historical fields and stored approval hashes unchanged.
 
 ## Migration to planning format 10
 
