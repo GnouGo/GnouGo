@@ -30,7 +30,7 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
 {
     internal async Task<CopilotSendResult> RunAsync(CopilotSessionCreateRequest original, string objective,
         IReadOnlyList<CopilotAttachment>? attachments, McpServer server, Action<CopilotStreamEvent> progress,
-        IReadOnlyDictionary<string, string>? headers, CancellationToken ct)
+        IReadOnlyDictionary<string, string>? headers, CancellationToken ct, Func<CopilotSendResult, JsonElement>? receiptPayload = null)
     {
         var id = store.CurrentTaskId ?? throw new McpException("Long interactive operations require the negotiated MCP Tasks extension.");
         var limits = settings.Value.Copilot.LogicalLimits; limits.Validate();
@@ -152,7 +152,7 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
             {
                 // Commit the exact MCP receipt before releasing ownership or disposing
                 // the final SDK session. The Tasks extension's subsequent completion is idempotent.
-                var payload = JsonSerializer.SerializeToElement(final, CopilotCoreJsonContext.Default.CopilotSendResult);
+                var payload = receiptPayload?.Invoke(final) ?? JsonSerializer.SerializeToElement(final, CopilotCoreJsonContext.Default.CopilotSendResult);
                 var result = new CallToolResult { IsError = !final.Completed, StructuredContent = payload,
                     Content = [new TextContentBlock { Text = payload.GetRawText() }] };
                 await store.SetCompletedAsync(id, JsonSerializer.SerializeToElement(result,

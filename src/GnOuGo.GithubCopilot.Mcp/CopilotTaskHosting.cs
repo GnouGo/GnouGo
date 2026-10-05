@@ -19,7 +19,8 @@ internal static class CopilotTaskHosting
             // returns the existing INVALID_INPUT envelope before tenant/session work.
             try { CopilotListContract.ValidateArguments(request.Params); CopilotAttachmentContract.ValidateArguments(request.Params); }
             catch (Exception error) when (error is ArgumentException or McpException) { return McpTaskExecutionMode.Synchronous; }
-            return request.Params.Name == "copilot_interactive_one_shot" && !string.IsNullOrWhiteSpace(trace.Current?.TenantId) ? McpTaskExecutionMode.Required : McpTaskExecutionMode.Synchronous;
+            return request.Params.Name is "copilot_interactive_one_shot" or "code_agent_edit" && !string.IsNullOrWhiteSpace(trace.Current?.TenantId)
+                ? McpTaskExecutionMode.Required : McpTaskExecutionMode.Synchronous;
         });
     }
     internal static void ConfigureContext(McpServerOptions options, KeyVaultCopilotTaskStore store, CodeMcpTraceContextAccessor trace)

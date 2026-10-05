@@ -70,7 +70,7 @@ internal sealed class CodeTools
             return await _assistantClient.SuggestChangeAsync(task, resolvedRoot, files, provider, cancellationToken);
         });
 
-    [McpServerTool(Name = "code_agent_edit", UseStructuredContent = true, OutputSchemaType = typeof(CodeAgentEditResult)), Description("Runs GitHub Copilot SDK in agent mode with controlled file editing inside an existing project root. Requires Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
+    [McpServerTool(Name = "code_agent_edit", UseStructuredContent = true, OutputSchemaType = typeof(CodeAgentEditResult)), Description("Runs GitHub Copilot SDK in agent mode with controlled file editing inside an existing project root. Interactive execution uses one bounded MCP task; its exact terminal result is saved before session disposal. Requires Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public async Task<CodeAgentEditResult> AgentEditAsync(
         [Description(RequiredProjectRootDescription)] string projectRoot,
@@ -84,7 +84,7 @@ internal sealed class CodeTools
             using var humanScope = requestContext is null ? null : _humanInput.Push(requestContext.Server, cancellationToken);
             var files = _projectService.ReadContextFiles(projectRoot, CopilotListContract.Normalize(contextFiles, nameof(contextFiles), StringComparer.OrdinalIgnoreCase) ?? []);
             var resolvedRoot = _projectService.GetSummary(projectRoot).RootPath;
-            return await _assistantClient.AgentEditAsync(task, resolvedRoot, files, provider, cancellationToken);
+            return await _assistantClient.AgentEditAsync(task, resolvedRoot, files, provider, cancellationToken, requestContext?.Server);
         });
 
     [McpServerTool(Name = "code_write_file", UseStructuredContent = true, OutputSchemaType = typeof(CodeWriteResult)), Description("Writes one allowlisted text/code file inside an existing project root. Disabled unless Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]

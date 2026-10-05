@@ -20,6 +20,37 @@ public sealed class CopilotTasksTests
     private static Dictionary<string, object?> Args => new() { ["projectRoot"] = "workflows/project", ["prompt"] = "Inspect the project and report verified results." };
     private static CodeMcpTraceContext Context(string tenant) => CodeMcpTraceContext.FromMcpMeta(new() { ["gnougo"] = new JsonObject { ["tenantId"] = tenant } })!;
 
+    [Theory]
+    [InlineData("copilot_interactive_one_shot")]
+    [InlineData("code_agent_edit")]
+    public async Task InteractiveEntryPointsRetainTypedReceiptBeyondTenInputRounds(string operation)
+    {
+        var answers = 0; string? taskId = null;
+        await using var fixture = await CopilotAttachmentTests.Fixture.CreateAsync(new McpClientOptions { Handlers = new()
+        { ElicitationHandler = (_, _) => { answers++; return ValueTask.FromResult(new ElicitResult { Action = "accept", Content = new Dictionary<string, JsonElement> { ["answer"] = JsonSerializer.SerializeToElement("A") } }); } } },
+            settings => settings.AllowWrites = true);
+        fixture.Host.OnSend = async (configuration, handle, _, ct) =>
+        {
+            taskId = fixture.tasks.CurrentTaskId;
+            for (var i = 0; i < 12; i++)
+                await configuration.HumanInputProvider!.RequestAsync(new(new("fixture-tenant"), "question", "Decision " + i, ["A", "B"], true), ct);
+            return new(handle, "mock", "verified result", "mock", [])
+            { ToolExecutions = [new("one", null, "arbitrary-operation", "{}", true, true, false, [], null)] };
+        };
+        var arguments = operation == "code_agent_edit"
+            ? new Dictionary<string, object?> { ["projectRoot"] = "workflows/project", ["task"] = "Inspect and report." } : Args;
+        var response = await fixture.Call(operation, arguments, "fixture-tenant");
+        Assert.False(response.IsError == true); Assert.Equal(12, answers); Assert.NotNull(taskId);
+        Assert.Equal("verified result", response.StructuredContent!.Value.GetProperty(operation == "code_agent_edit" ? "summary" : "content").GetString());
+        Assert.Single(response.StructuredContent.Value.GetProperty("toolExecutions").EnumerateArray());
+        using var tenant = fixture.Host.Trace.Push(Context("fixture-tenant"));
+        var saved = await fixture.tasks.GetTaskAsync(taskId, Ct);
+        Assert.Equal(McpTaskStatus.Completed, saved!.Status);
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(response.StructuredContent.Value.GetRawText()),
+            JsonNode.Parse(saved.Result!.Value.GetRawText())!["structuredContent"]));
+        Assert.Equal(1, fixture.Host.Sends); Assert.Equal(1, fixture.Host.DisposedSessions);
+    }
+
     [Fact]
     public async Task VerifiedContinuationRetainsObjectiveEvidenceAndCumulativeReservations()
     {

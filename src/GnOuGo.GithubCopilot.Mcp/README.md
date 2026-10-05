@@ -146,8 +146,10 @@ Policy, input, provider, cancellation, and unexpected tool failures are returned
 
 ## Agent edit mode
 
-`code_agent_edit` is a compatibility wrapper over Core's ephemeral managed interactive
-session. `code_suggest_change` also uses Core, with tool execution disabled. MCP never
+`code_agent_edit` is a compatibility wrapper over the same bounded logical operation
+and durable MCP Tasks receipt as `copilot_interactive_one_shot`. Its existing
+`CodeAgentEditResult` contract is preserved, including truthful `toolExecutions`.
+`code_suggest_change` also uses Core, with tool execution disabled. MCP never
 creates SDK clients or sessions. The shared configuration builder preserves provider,
 telemetry, trace, and timeout settings for both legacy and managed tools.
 
@@ -327,11 +329,11 @@ Agent budget stops retain safe admission diagnostics and execution observations.
 
 ## Long interactive operations
 
-`copilot_interactive_one_shot` requires the negotiated MCP Tasks extension, pinned
+`copilot_interactive_one_shot` and `code_agent_edit` require the negotiated MCP Tasks extension, pinned
 with `ModelContextProtocol.Extensions.Tasks` 2.2.0 (protocol 2026-07-28 or later).
 The generic Flow MCP client polls task status, presents each new human-input request
 once, resends retained answers on repeated pending IDs, and returns one final tool
-result. Older clients must add Tasks support for this operation. Other tools retain
+result. Older clients must add Tasks support for these operations. Other tools retain
 their existing synchronous behavior, including bounded `agent.run` tasks.
 
 The MCP owns encrypted task records in KeyVault and cross-process owner/write leases
@@ -365,7 +367,7 @@ See [recovery and execution validation](../../docs/planning-recovery-and-live-bl
 Interactive tasks distinguish verified terminal completion from eligibility to continue
 in another SDK session. A verified stop without a valid final response, including an
 inference admission limit, returns a completed MCP transport task with `isError: true`
-and `completed: false` in its existing result. Tool/exit observations remain truthful
+and `completed: false` in its existing result (`success: false` for `code_agent_edit`). Tool/exit observations remain truthful
 partial evidence. This is not successful execution of the objective.
 
 The exact terminal result is committed through encrypted KeyVault storage before

@@ -1,7 +1,9 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using GnOuGo.GithubCopilot.Core;
 using Microsoft.Extensions.Options;
+using ModelContextProtocol.Server;
 
 namespace GnOuGo.GithubCopilot.Mcp;
 
@@ -12,7 +14,8 @@ internal sealed class CopilotCodeService(
     CodePolicy policy,
     IOptions<CodeServerSettings> options,
     CodeMcpTraceContextAccessor trace,
-    CodeProgressReporter reporter)
+    CodeProgressReporter reporter,
+    CopilotLogicalOperations? logical = null)
 {
     internal async Task<CodeSuggestionResult> SuggestChangeAsync(string task, string projectRoot,
         IReadOnlyList<CodeFileContent> contextFiles, string? providerName, CancellationToken ct)
@@ -31,7 +34,7 @@ internal sealed class CopilotCodeService(
     }
 
     internal async Task<CodeAgentEditResult> AgentEditAsync(string task, string projectRoot,
-        IReadOnlyList<CodeFileContent> contextFiles, string? providerName, CancellationToken ct)
+        IReadOnlyList<CodeFileContent> contextFiles, string? providerName, CancellationToken ct, McpServer? server = null)
     {
         ValidateTask(task);
         if (!options.Value.AllowWrites) throw new InvalidOperationException("Copilot agent edits are disabled by policy. Set Code:AllowWrites=true to enable code_agent_edit.");
@@ -39,14 +42,30 @@ internal sealed class CopilotCodeService(
         var request = new CopilotSessionCreateRequest(configuration.Context(), configuration.Build(projectRoot, providerName));
         var events = new List<CodeProgressEvent>();
         var progress = reporter.Capture();
-        var result = await sessions.InteractiveOneShotAsync(request, BuildAgentEditPrompt(task, projectRoot, contextFiles), null, ct,
-            value => Report(value, "code_agent_edit", events, progress), configuration.RequestHeaders());
-        foreach (var file in result.ModifiedFiles)
-            events.Add(reporter.Report("file_modified", "info", $"Modified {file}.", file, fallbackMethod: "code_agent_edit"));
-        var context = CodeMcpTraceContext.Capture(trace);
-        return new(task, contextFiles.Select(f => f.Path).ToArray(), result.ModifiedFiles, result.Content, result.Model,
-            Usage(result.Usage), events.ToArray(), BuildAgentEditOutput(result.Content, result.ModifiedFiles, result.Model, context, events, result.Usage),
-            context?.TraceId, context?.CorrelationId, context?.TraceParent) { ToolExecutions = result.ToolExecutions };
+        var prompt = BuildAgentEditPrompt(task, projectRoot, contextFiles);
+        CodeAgentEditResult? receipt = null;
+        var result = server is null
+            ? await sessions.InteractiveOneShotAsync(request, prompt, null, ct,
+                value => Report(value, "code_agent_edit", events, progress), configuration.RequestHeaders())
+            : await (logical ?? throw new InvalidOperationException("MCP task execution is unavailable.")).RunAsync(request, prompt, null, server,
+                value => Report(value, "code_agent_edit", events, progress), configuration.RequestHeaders(), ct,
+                value => JsonSerializer.SerializeToElement(Convert(value),
+                    (JsonTypeInfo<CodeAgentEditResult>)CodeMcpJson.SerializerOptions.GetTypeInfo(typeof(CodeAgentEditResult))));
+        return Convert(result);
+
+        CodeAgentEditResult Convert(CopilotSendResult value)
+        {
+            if (receipt is not null) return receipt;
+            foreach (var file in value.ModifiedFiles)
+                events.Add(reporter.Report("file_modified", "info", $"Modified {file}.", file, fallbackMethod: "code_agent_edit"));
+            var context = CodeMcpTraceContext.Capture(trace);
+            var error = value.Completed ? null : value.Content.StartsWith("COPILOT_LIMIT_REACHED:", StringComparison.Ordinal)
+                ? "COPILOT_LIMIT_REACHED" : value.Content.StartsWith("COPILOT_SESSION_LIMIT:", StringComparison.Ordinal) ? "COPILOT_SESSION_LIMIT" : "COPILOT_TURN_FAILED";
+            return receipt = new(task, contextFiles.Select(f => f.Path).ToArray(), value.ModifiedFiles, value.Content, value.Model,
+                Usage(value.Usage), events.ToArray(), BuildAgentEditOutput(value.Content, value.ModifiedFiles, value.Model, context, events, value.Usage),
+                context?.TraceId, context?.CorrelationId, context?.TraceParent, Success: value.Completed, ErrorCode: error,
+                ErrorMessage: value.Completed ? null : value.Content) { ToolExecutions = value.ToolExecutions };
+        }
     }
 
     private void ValidateTask(string task)
