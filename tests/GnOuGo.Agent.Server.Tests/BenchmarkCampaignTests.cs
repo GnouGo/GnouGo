@@ -254,6 +254,26 @@ public sealed class BenchmarkCampaignTests
         Assert.Throws<InvalidOperationException>(() => KeyVaultBenchmarkModel.CreateDispatchRequest(request, "provider", "model"));
     }
 
+    [Theory]
+    [InlineData("Allow once")]
+    [InlineData("Refuse")]
+    public async Task LiveHumanInputRejectsWrongWrappersWithoutAbortingOrChoosingAnAnswer(string choice)
+    {
+        var payload = new JsonObject { ["mode"] = "choice", ["choices"] = new JsonArray("Allow once", "Refuse"),
+            ["fields"] = new JsonArray(new JsonObject { ["name"] = "answer", ["type"] = "select" }) };
+        using var input = new StringReader("invalid JSON\n{\"answer\":\"Allow once\"}\n" + new JsonObject { ["response"] = choice }.ToJsonString() + "\n");
+        using var output = new StringWriter();
+        var response = await LiveWorkflowEvaluation.ReadHumanAnswerAsync(payload, input, output, Ct);
+        Assert.Equal(choice, response!["response"]!.GetValue<string>());
+        Assert.Contains("Required response schema", output.ToString());
+        Assert.Contains("no approval submitted", output.ToString());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => LiveWorkflowEvaluation.ReadHumanAnswerAsync(payload,
+            new StringReader("{\"answer\":\"Allow once\"}\n"), output, Ct));
+        using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => LiveWorkflowEvaluation.ReadHumanAnswerAsync(payload,
+            new StringReader("{\"response\":\"Allow once\"}\n"), output, cancelled.Token));
+    }
+
     [Fact]
     public async Task HttpRecoveryPreservesUnknownAllowanceAndReplaysAfterReceiptWriteFailure()
     {

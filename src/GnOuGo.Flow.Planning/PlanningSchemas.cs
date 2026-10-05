@@ -149,7 +149,7 @@ internal static class PlanningSchemas
 
     private static void CompactDefinitionNames(JsonObject root, JsonObject definitions)
     {
-        var names = definitions.Select((p, i) => (p.Key, Name: "d" + i.ToString("x", System.Globalization.CultureInfo.InvariantCulture)))
+        var names = definitions.Select((p, i) => (p.Key, Name: i.ToString("x", System.Globalization.CultureInfo.InvariantCulture)))
             .ToDictionary(p => p.Key, p => p.Name, StringComparer.Ordinal);
         void Visit(JsonNode? node)
         {
@@ -284,8 +284,10 @@ internal static class PlanningSchemas
         return new() { ["anyOf"] = new JsonArray(operations.Concat(new JsonNode?[] {
             Described(Task("value", ("outputs", Array(Ref("output")))), "Copies/assembles values; objectives do not compute."),
             Described(Task("transform", ("mode", Enum("extract")),
-                ("each", Object(("input", Ref("id")), ("output", Ref("id")))), ("inputs", NonEmptyArray(Ref("output"))),
-                ("resultType", Object(("kind", Enum("object")), ("fields", NonEmptyArray(Ref("resultField")))))),
+                ("each", Object(("input", Described(Ref("id"), "Exact named binding in this task's inputs.")),
+                    ("output", Described(Ref("id"), "Exact name of the sole array result field.")))), ("inputs", NonEmptyArray(Ref("output"))),
+                ("resultType", Object(("kind", Enum("object")), ("fields", Array(Object(("name", Ref("goal")),
+                    ("type", Object(("kind", Enum("array")), ("items", Ref("resultType"))))), 1, 1))))),
                 "Independent extraction: each names one collection input and the sole array result field. Produce exactly one result per item in order; nested arrays stay nested. No global comparison, filtering or implicit flattening. Shared inputs are read-only. Mapping examples are bounded; all items are checked under one shared two-attempt allowance."),
             Described(Task("transform", ("mode", Enum("extract", "interpret")), ("inputs", NonEmptyArray(Ref("output"))),
                 ("resultType", Object(("kind", Enum("object")), ("fields", NonEmptyArray(Ref("resultField")))))),

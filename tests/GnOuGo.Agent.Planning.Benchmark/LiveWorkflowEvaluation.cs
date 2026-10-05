@@ -225,12 +225,25 @@ internal static class LiveWorkflowEvaluation
             await campaign.SaveAsync("planning-evaluation-dialogs", key, new() { ["request"] = payload }, ct);
             Console.WriteLine("Explicit interaction required; submit one JSON response. No default is accepted:");
             Console.WriteLine(payload.ToJsonString());
-            var line = await Console.In.ReadLineAsync(ct) ?? throw new InvalidOperationException("No interaction provider is attached.");
-            var answer = JsonNode.Parse(line);
-            var schema = HumanInputContract.ResolveOutputSchema(payload);
-            if (PlanningContractValidation.ValidateInstance(answer, schema).Count != 0) throw new InvalidOperationException("The submitted interaction response violates its contract.");
+            var answer = await ReadHumanAnswerAsync(payload, Console.In, Console.Out, ct);
             await campaign.SaveAsync("planning-evaluation-dialogs", key, new() { ["request"] = payload.DeepClone(), ["answer"] = answer?.DeepClone() }, CancellationToken.None);
             return answer;
+        }
+    }
+
+    internal static async Task<JsonNode?> ReadHumanAnswerAsync(JsonObject payload, TextReader input, TextWriter output, CancellationToken ct)
+    {
+        var schema = HumanInputContract.ResolveOutputSchema(payload);
+        await output.WriteLineAsync("Required response schema: " + schema.ToJsonString());
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            var line = await input.ReadLineAsync(ct) ?? throw new InvalidOperationException("No interaction provider is attached.");
+            JsonNode? answer;
+            try { answer = JsonNode.Parse(line); }
+            catch (JsonException) { await output.WriteLineAsync("Invalid JSON. Submit an explicit response matching the displayed schema."); continue; }
+            if (PlanningContractValidation.ValidateInstance(answer, schema).Count == 0) return answer;
+            await output.WriteLineAsync("Response rejected; no approval submitted. Correct it using the displayed schema.");
         }
     }
 

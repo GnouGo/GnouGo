@@ -35,3 +35,14 @@ The initial new parallel fixture incorrectly assumed sequential HTTP arrival ord
 Campaign `schema-portability-20261002` remains capped at €100. The pre-dispatch ledger records €71.595429582704 committed or reserved, including two retained unknown attempts. Fresh Amazon and code-review identities are required; no historical invocation is resumed. Only one attempt per scenario is collected initially. The six-slot acceptance report stays incomplete unless all execution gates pass on the same frozen candidate.
 
 Validation results and sanitized live evidence are recorded after collection. Historical cohorts, the historical 33/33 benchmark, and their oracles remain unchanged.
+
+## First fresh cohort: retained failures
+
+Candidate `902219b18985667248d782b52280f8c94e8e3d1e`, cohort `collections20261005a`: **0/6 execution oracles**. Only repetition one of each case was attempted; later slots remain unexecuted.
+
+- Amazon stopped before execution after five planning calls, two repairs and one explicit revision. The revised proposal put a task ID in `each.input` and supplied multiple scalar results rather than the sole array result. The compiler rejected it; no product visits or XLSX are claimed.
+- Code reached approved execution after five planning calls and three explicit review revisions. Clone and pinned comparison completed. The test operator submitted the wrong JSON wrapper to a permission prompt (`answer` instead of the choice contract’s `response`). The console host rejected it, interrupting the MCP call; one provider inference completed, but no command completion was established. The run remains uncertain, with cleanup blocked and no final report. It has not been resumed or reconciled. This is not evidence of a Copilot completion-contract defect.
+
+The campaign upper bound after these attempts is **€73.200819337715/€100**, including the original €2.606752783964 unknown inference reservations. [Six-slot report](evidence/bounded-collection-mappings-2026-10-05/cohort-a.json), [Amazon proposals](evidence/bounded-collection-mappings-2026-10-05/cohort-a-amazon.json), [code execution and classification](evidence/bounded-collection-mappings-2026-10-05/cohort-a-code.json). Raw receipts and observations stay encrypted.
+
+The follow-up constrains the new generation schema to one nonnullable array result and states the `each` business contract in the existing prompt, since schema compaction removes descriptions. Private definition names lose a redundant prefix to keep the existing input limit; no limits or authoritative contracts change. Three regression cases reproduce the invalid shapes against the old schema and reject them after correction. The console host now displays the expected response schema and re-prompts after invalid input, preserving explicit selection, refusal, EOF and cancellation. Neither correction changes runtime permissions or uncertain-completion handling.

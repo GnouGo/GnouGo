@@ -35,6 +35,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
         Business TaskPlan: plan, discoveryRequests(1-4) or clarifications. Unsearched != absent; reserve plan/repair calls. Closed discovery: plan:null.
         Compatible declared data only; missing data fails. Defaults: contracts/accepted inputs. extract copies observations, never invents flags/labels/counts/nulls; interpret/operations synthesize. No scripts.
         Explicit arguments and transform objective+inputs. Ports required unless false. value=assembly, field=selection, json=encoding, arithmetic=JS Number. Exact math: MCP. port:null=whole; mode defaults interpret; keep enums.
+        extract each:{input,output} names this task's collection input and sole array result field: one result per item, ordered/nested; no implicit aggregation.
         Preserve actions/checks/constraints. Missing capability: discover compatible alternatives, clarify or report.
         foreach visits then extracts each visited result. truncated/nextCursor: consume before navigation; captureTruncated: narrow. Exhaustion != complete. Blockers: observe/conditional authorized click/reobserve; clarify ambiguity.
         requirements inputs: [] none/null unresolved; no invented inputs/contracts. outputs fixes names/types ([] none), no defaults/proofs. Optional inputs need literal defaults.

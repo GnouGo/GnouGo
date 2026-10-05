@@ -11,6 +11,30 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class DynamicMappingCompilationTests
 {
     [Theory]
+    [InlineData("multiple_fields")]
+    [InlineData("scalar_field")]
+    [InlineData("nullable_array")]
+    public void IndependentGenerationSchemaRejectsInvalidResultShapes(string variant)
+    {
+        var root = PlanningSchemas.FullProposal(new() { Catalog = new() }, compact: false);
+        var schema = PlanningSchemas.Ref("task"); schema["$defs"] = root["$defs"]!.DeepClone();
+        var task = JsonNode.Parse("""
+            {"id":"extract","kind":"transform","objective":"Extract one value per observation","dependsOn":[],"requires":null,
+             "mode":"extract","each":{"input":"observations","output":"rows"},
+             "inputs":[{"name":"observations","value":{"kind":"input","source":"records"}}],
+             "resultType":{"kind":"object","fields":[{"name":"rows","type":{"kind":"array","items":{"kind":"string"}}}]}}
+            """)!.AsObject();
+        Assert.Empty(PlanningContractValidation.ValidateInstance(task, schema));
+        var fields = task["resultType"]!["fields"]!.AsArray();
+        if (variant == "multiple_fields") fields.Add(JsonNode.Parse("""{"name":"extra","type":{"kind":"string"}}"""));
+        if (variant == "scalar_field") fields[0]!["type"] = JsonNode.Parse("""{"kind":"string"}""");
+        if (variant == "nullable_array") fields[0]!["type"]!["nullable"] = true;
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(task, schema));
+        task.Remove("each");
+        Assert.Empty(PlanningContractValidation.ValidateInstance(task, schema)); // Historical extraction is unchanged.
+    }
+
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task IndependentExtractionKeepsBusinessDeclarationAndTypedInputsNeedNoInference(bool typed)
