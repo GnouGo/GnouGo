@@ -1,0 +1,374 @@
+[
+  {
+    "gnougo.mapping.source_items": 67,
+    "gnougo.mapping.cache_hit": false,
+    "gnougo.mapping.model_attempts": 1,
+    "gnougo.mapping.repairs": 0,
+    "gnougo.mapping.sample_items": 5,
+    "gnougo.mapping.omitted_items": 62,
+    "gnougo.mapping.request_bytes": 5177,
+    "gnougo.mapping.processed_items": 67,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 21308.1307
+  },
+  {
+    "gnougo.mapping.source_items": 15,
+    "gnougo.mapping.cache_hit": false,
+    "gnougo.mapping.model_attempts": 1,
+    "gnougo.mapping.repairs": 0,
+    "gnougo.mapping.sample_items": 3,
+    "gnougo.mapping.omitted_items": 12,
+    "gnougo.mapping.request_bytes": 8083,
+    "gnougo.mapping.processed_items": 15,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 13699.5363
+  },
+  {
+    "gnougo.mapping.source_items": 32,
+    "gnougo.mapping.cache_hit": false,
+    "gnougo.mapping.model_attempts": 2,
+    "gnougo.mapping.repairs": 1,
+    "gnougo.mapping.sample_items": 4,
+    "gnougo.mapping.omitted_items": 28,
+    "gnougo.mapping.request_bytes": 6440,
+    "gnougo.mapping.processed_items": 32,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 32538.3353
+  },
+  {
+    "gnougo.mapping.source_items": 34,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 34,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 361.398
+  },
+  {
+    "gnougo.mapping.source_items": 29,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 29,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 516.5946
+  },
+  {
+    "gnougo.mapping.source_items": 30,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 30,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 539.4459
+  },
+  {
+    "gnougo.mapping.source_items": 28,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 28,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 629.5272
+  },
+  {
+    "gnougo.mapping.source_items": 28,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 28,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 690.0788
+  },
+  {
+    "gnougo.mapping.source_items": 33,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 33,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 856.8374
+  },
+  {
+    "gnougo.mapping.source_items": 24,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 24,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 954.1365
+  },
+  {
+    "gnougo.mapping.source_items": 20,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 20,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 1040.405
+  },
+  {
+    "gnougo.mapping.source_items": 22,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 22,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 1015.1857
+  },
+  {
+    "gnougo.mapping.source_items": 20,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 20,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 1190.2491
+  },
+  {
+    "gnougo.mapping.source_items": 14,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 14,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 1307.4244
+  },
+  {
+    "gnougo.mapping.source_items": 31,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 31,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 1355.1686
+  },
+  {
+    "gnougo.mapping.source_items": 32,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 32,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 1426.6495
+  },
+  {
+    "gnougo.mapping.source_items": 33,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 33,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 1560.4828
+  },
+  {
+    "gnougo.mapping.source_items": 33,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 33,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 1772.6171
+  },
+  {
+    "gnougo.mapping.source_items": 32,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 32,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 1749.6836
+  },
+  {
+    "gnougo.mapping.source_items": 30,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 30,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 1880.3444
+  },
+  {
+    "gnougo.mapping.source_items": 28,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 28,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 1937.9275
+  },
+  {
+    "gnougo.mapping.source_items": 29,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 29,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 2086.7425
+  },
+  {
+    "gnougo.mapping.source_items": 35,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 35,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 2265.7026
+  },
+  {
+    "gnougo.mapping.source_items": 34,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 34,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 2419.6495
+  },
+  {
+    "gnougo.mapping.source_items": 30,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 30,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 2391.109
+  },
+  {
+    "gnougo.mapping.source_items": 30,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 30,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 2483.602
+  },
+  {
+    "gnougo.mapping.source_items": 30,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 30,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 2483.715
+  },
+  {
+    "gnougo.mapping.source_items": 34,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 34,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 2585.206
+  },
+  {
+    "gnougo.mapping.source_items": 31,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 31,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 2632.8832
+  },
+  {
+    "gnougo.mapping.source_items": 32,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 32,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 2786.519
+  },
+  {
+    "gnougo.mapping.source_items": 30,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 30,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 2874.1014
+  },
+  {
+    "gnougo.mapping.source_items": 33,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 33,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 2919.9852
+  },
+  {
+    "gnougo.mapping.source_items": 34,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 34,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 3042.9667
+  },
+  {
+    "gnougo.mapping.source_items": 33,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 33,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 3735.8108
+  },
+  {
+    "gnougo.mapping.source_items": 29,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 29,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 3206.702
+  },
+  {
+    "gnougo.mapping.source_items": 20,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 20,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 3251.0392
+  },
+  {
+    "gnougo.mapping.source_items": 21,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 21,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 3419.39
+  },
+  {
+    "gnougo.mapping.source_items": 25,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 25,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 3501.0524
+  },
+  {
+    "gnougo.mapping.source_items": 44,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 44,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 3526.3387
+  },
+  {
+    "gnougo.mapping.source_items": 59,
+    "gnougo.mapping.cache_hit": false,
+    "gnougo.mapping.model_attempts": 1,
+    "gnougo.mapping.repairs": 0,
+    "gnougo.mapping.sample_items": 3,
+    "gnougo.mapping.omitted_items": 56,
+    "gnougo.mapping.request_bytes": 5084,
+    "gnougo.mapping.processed_items": 59,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 28449.6144
+  },
+  {
+    "gnougo.mapping.source_items": 50,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 50,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 4489.7371
+  },
+  {
+    "gnougo.mapping.source_items": 52,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 52,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 3969.4986
+  },
+  {
+    "gnougo.mapping.source_items": 55,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 55,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 4081.1889
+  },
+  {
+    "gnougo.mapping.source_items": 53,
+    "gnougo.mapping.cache_hit": true,
+    "gnougo.mapping.processed_items": 53,
+    "step": "n_e4128fb92ef46cb0",
+    "status": "Succeeded",
+    "duration_ms": 4140.3787
+  }
+]
