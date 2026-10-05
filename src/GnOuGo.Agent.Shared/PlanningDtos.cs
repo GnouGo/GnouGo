@@ -9,6 +9,8 @@ public sealed record PlanningCommandDto(string Kind, long ExpectedRevision, stri
     public IReadOnlyList<string>? ReviewedRequirementIds { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public bool? PreserveRequirements { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? EditablePaths { get; init; }
 }
 public sealed record PlanningQuestionDto(string Id, string Question, IReadOnlyList<PlanningAlternativeDto> Alternatives, string? Recommended);
 public sealed record PlanningAnswerDto(string QuestionId, string? AlternativeId = null, string? Text = null);

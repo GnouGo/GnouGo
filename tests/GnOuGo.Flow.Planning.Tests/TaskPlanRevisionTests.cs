@@ -28,7 +28,7 @@ public sealed class TaskPlanRevisionTests
     public async Task RejectedScopeExpansionCannotReplaceTheRepairBaselineOrDiscovery()
     {
         var runtime = new TestRuntime();
-        runtime.Proposal.Plan!.Root.Tasks.Add(new() { Id = "bad", Kind = "value", Objective = "Return an unavailable value", Outputs = [new("value", PlanningCorpus.Business("output", "absent", "value"))] });
+        runtime.Proposal.Plan!.Root.Tasks.Add(new() { Id = "bad", Kind = "value", Objective = "Return an unavailable value", Outputs = [new("value", PlanningCorpus.Business("output", runtime.Proposal.Plan.Root.Tasks[0].Id, "missing_port"))] });
         var planner = new HybridWorkflowPlanner();
         var state = await planner.AdvanceAsync(PlannerFixture.Session(), new(), runtime, PlannerFixture.Ct);
         Assert.Equal(new[] { "/tasks/bad/outputs/value" }, state.RevisionScope);

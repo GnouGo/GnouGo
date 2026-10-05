@@ -239,7 +239,7 @@ public sealed class TaskPlanContractAlignmentTests
     public async Task RecoveredMalformedRepairPreservesBaselineSelectionsReceiptsAndBudgets(string invalidGroupId)
     {
         var runtime = new TestRuntime { Proposal = new() { Requirements = PlannerFixture.Requirements(), Plan = PlanningCorpus.Decision() } };
-        runtime.Proposal.Plan.Root.Outputs.Add(new("bad", PlanningCorpus.Business("output", "absent", "value")));
+        runtime.Proposal.Plan.Root.Outputs.Add(new("bad", PlanningCorpus.Business("output", runtime.Proposal.Plan.Root.Tasks[0].Id, "missing_port")));
         var planner = new HybridWorkflowPlanner();
         var state = await planner.AdvanceAsync(PlannerFixture.Session(), new(), runtime, PlannerFixture.Ct);
         state.Plan!.Choices[0].Selected = "formal";

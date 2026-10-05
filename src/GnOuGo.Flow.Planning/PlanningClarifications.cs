@@ -44,15 +44,19 @@ internal static class PlanningClarifications
         Revise(state);
     }
 
-    internal static void Revise(PlanningSession state, bool preserveRequirements = false)
+    internal static void Revise(PlanningSession state, bool preserveRequirements = false, List<string>? editablePaths = null)
     {
         state.Request.Baseline = state.Plan ?? state.Request.Baseline;
         if (state.Requirements is not null)
             state.Request.RevisionContext = "Preserve unrelated accepted outcomes and inputs when applying the explicit user revision. Previous requirements:\n" +
                 PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements))!.ToJsonString();
         if (!preserveRequirements) state.Requirements = null;
-        state.IntentVersion = 2; state.OutcomeVersion = null; state.OutcomeBindings = null; state.Plan = null; state.Graph = null; state.PendingQuestions = null;
+        state.IntentVersion = 2; state.OutcomeVersion = null; state.OutcomeBindings = null;
+        state.EditablePaths = editablePaths?.Order(StringComparer.Ordinal).ToList();
+        if (editablePaths is null) state.Plan = null;
+        state.Graph = null; state.PendingQuestions = null;
         state.Diagnostics.Clear(); state.ValidationResults.Clear(); state.RevisionScope.Clear();
+        if (state.EditablePaths is not null) state.RevisionScope.AddRange(state.EditablePaths);
         state.Yaml = null; state.ApprovedHash = null; state.Status = PlanningStatus.Generating;
     }
 

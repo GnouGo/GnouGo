@@ -12,6 +12,34 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class ContractClosureTests
 {
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task PresenceRequirementUsesCheckedBooleanBeforeExternalEffects(bool present)
+    {
+        var calls = 0; var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("arbitrary", new()
+        {
+            Tools = [new() { Name = "consume", InputSchema = ObjectSchema(), OutputSchema = ObjectSchema() }],
+            ToolHandlers = new() { ["consume"] = _ => { calls++; return new() { Content = new JsonObject() }; } }
+        });
+        var engine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human() };
+        var catalog = await TaskPlanCompilerTests.Catalog(new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask));
+        var plan = new TaskPlan { Root = new() { Tasks = [
+            new() { Id = "observed", Kind = "value", Objective = "Retain observed value", Outputs = [new("payload", new() { Kind = "string", Text = "exact" })] },
+            new() { Id = "consume", Objective = "Consume only after observation", Operation = catalog.Capabilities.Single(c => c.Method == "consume").Id,
+                Requires = new() { Kind = "present", Source = "observed" } }] } };
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(compiled.Diagnostics);
+        var graph = compiled.Graph!;
+        graph.Workflows[0].Steps[0].If = new() { Kind = "boolean", Boolean = present };
+        PlanningConfirmationGuards.Apply(graph, catalog);
+        Assert.Empty(PlanningExecutableValidation.Validate(graph, catalog));
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, catalog)));
+        var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), PlannerFixture.Ct);
+        Assert.Equal(present, result.Success); Assert.Equal(present ? 1 : 0, calls);
+        if (!present) Assert.Equal(ErrorCodes.InputValidation, result.Error!.Code);
+    }
+
+    [Theory]
     [InlineData("alpha", "exact", true)]
     [InlineData("omega", "exact", true)]
     [InlineData("alpha", "different", false)]

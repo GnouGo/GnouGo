@@ -261,7 +261,7 @@ public sealed partial class PlanningGraphCompiler
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
-            case "projection" when allowReferences && PlanningGraphValidation.Member(value, "value") is { Kind: "json" or "predicate" or "arithmetic" } computed &&
+            case "projection" when allowReferences && PlanningGraphValidation.Member(value, "value") is { Kind: "json" or "predicate" or "arithmetic" or "present" } computed &&
                 PlanningGraphValidation.Member(value, "each")?.Boolean != true && PlanningGraphValidation.Member(value, "paths") is { Kind: "array", Items.Count: 1 } paths &&
                 paths.Items[0] is { Kind: "array", Items.Count: 0 }:
                 // Keep the envelope visible to final contract validation. The

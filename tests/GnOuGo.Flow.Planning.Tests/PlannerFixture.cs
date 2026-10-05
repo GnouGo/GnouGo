@@ -59,7 +59,7 @@ internal sealed class TestRuntime : IPlanningRuntime
     // differences into explicit edits; never discard an attempted unrelated change.
     internal static JsonNode PatchResponse(LLMRequest request, PlanningSession state, TaskPlan candidate)
     {
-        var violations = TaskPlanRevisions.Validate(state.Plan, candidate, state.RevisionScope, state.Catalog).ToList();
+        var violations = TaskPlanRevisions.Validate(state.Plan, candidate, state.RevisionScope, state.Catalog, state.EditablePaths).ToList();
         if (violations.Count > 0) return new JsonObject { ["plan"] = JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskPlan) };
         var before = PlanningRepairPatch.Index(JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)!);
         var after = PlanningRepairPatch.Index(JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskPlan)!);
@@ -79,7 +79,7 @@ internal sealed class TestRuntime : IPlanningRuntime
             else
             {
                 if (JsonNode.DeepEquals(old, value)) continue;
-                if (slot.Kind is "value" or "binding")
+                if (slot.Kind is "value" or "reference" or "binding")
                 {
                     if (value is null && slot.Actions.Contains("remove")) action = "remove";
                     else if (slot.Actions.Contains("remove_owned")) action = "remove_owned";

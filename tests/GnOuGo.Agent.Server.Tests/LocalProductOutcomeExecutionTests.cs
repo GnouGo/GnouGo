@@ -27,6 +27,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
     [InlineData("pages-parallel")]
     [InlineData("pages-compact")]
     [InlineData("pages-compact-consent")]
+    [InlineData("pages-compact-scoped")]
     [InlineData("extract")]
     [InlineData("each")]
     [InlineData("each-parallel")]
@@ -188,6 +189,36 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var planningMs = timer.Elapsed.TotalMilliseconds;
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join("; ", session.Diagnostics.Select(d => d.Code + " " + d.Location + " " + d.Message)));
             PlanningArtifactApproval.Verify(session); Assert.Equal(1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
+            if (variant == "pages-compact-scoped")
+            {
+                var before = JsonSerializer.Serialize(session.Plan, PlanningJsonContext.Default.TaskPlan);
+                var paths = new List<string> { "/tasks/write/inputs", "/tasks/write/requires" };
+                session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "revise", PreserveRequirements = true,
+                    ExpectedRevision = session.Revision, ArtifactHash = session.ComputeArtifactHash(), EditablePaths = paths,
+                    Text = "Explicitly disable append and require the formatted table before writing; preserve all observations, product visits and cleanup." }, planning, ct);
+                Assert.Equal(before, JsonSerializer.Serialize(session.Plan, PlanningJsonContext.Default.TaskPlan));
+                write.Inputs.Add(new("append", new() { Kind = "boolean", Boolean = false }));
+                planning.Patch = request =>
+                {
+                    var context = JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
+                    var edits = context["repair"]!["slots"]!.AsArray().Select(slot => (JsonNode)new JsonObject
+                    {
+                        ["slot"] = slot!["id"]!.ToString(), ["action"] = "replace",
+                        ["value"] = slot["location"]!.ToString().EndsWith("/inputs", StringComparison.Ordinal)
+                            ? JsonSerializer.SerializeToNode(write.Inputs, PlanningJsonContext.Default.ListTaskOutput)
+                            : new JsonObject { ["kind"] = "present", ["source"] = "table" }
+                    }).ToArray();
+                    return new() { ["discoveryRequests"] = null, ["clarifications"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray(edits) } };
+                };
+                session = JsonSerializer.SerializeToNode(session, PlanningJsonContext.Default.PlanningSession)!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+                session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, planning, ct);
+                Assert.True(session.Status == PlanningStatus.FinalReview, string.Join(';', session.Diagnostics));
+                Assert.Equal(2, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
+                Assert.Equal(plan.Root.Tasks.Select(t => t.Id), session.Plan!.Root.Tasks.Select(t => t.Id));
+                Assert.Equal(plan.Root.Always.Select(t => t.Id), session.Plan.Root.Always.Select(t => t.Id));
+                Assert.Equal("write", session.Plan.Root.Outputs[0].Value.Source);
+                PlanningArtifactApproval.Verify(session);
+            }
             session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision,
                 ArtifactHash = session.ComputeArtifactHash(), ReviewedRequirementIds = proposal.Requirements.Outcomes.Select(r => r.Id).ToList() }, planning, ct);
             Assert.Equal(PlanningStatus.Approved, session.Status);
@@ -293,12 +324,13 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
     internal sealed class ProposalRuntime(WorkflowPlanningRuntime actual, PlanningProposal proposal) : IPlanningRuntime
     {
         public int InputEstimate;
+        public Func<LLMRequest, JsonObject>? Patch;
         public ICapabilityCatalog Capabilities => actual.Capabilities;
         public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => actual.DiscoverAsync(request, ct);
         public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
         {
             InputEstimate = (System.Text.Encoding.UTF8.GetByteCount(request.Prompt) + System.Text.Encoding.UTF8.GetByteCount(request.StructuredOutputSchema!.ToJsonString()) + 2) / 3 + 256;
-            return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal), request.StructuredOutputSchema.AsObject(), request.StructuredOutputSchema.AsObject()) });
+            return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(Patch?.Invoke(request) ?? JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal), request.StructuredOutputSchema.AsObject(), request.StructuredOutputSchema.AsObject()) });
         }
         public Task CheckpointAsync(PlanningSession state, CancellationToken ct) => Task.CompletedTask;
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => actual.ValidateAsync(request, ct);

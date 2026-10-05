@@ -377,6 +377,15 @@ The review file uses the existing planning command contract:
 {"kind":"approve","expectedRevision":7,"artifactHash":"<exact reviewed hash>","reviewedRequirementIds":["<explicitly reviewed requirement ID>"]}
 ```
 
+For a targeted implementation correction before execution, the existing `--revision-command` file may include `editablePaths`:
+
+```json
+{"kind":"revise","expectedRevision":7,"artifactHash":"<exact reviewed hash>","preserveRequirements":true,"editablePaths":["/tasks/compose/inputs","/tasks/publish/requires"],"text":"Use only the compact export and strengthen the publication guard; preserve other work."}
+```
+
+These host-selected paths authorize typed replacements only. Task insertion/removal/movement requires a separate explicit global revision. An exhausted or already-started run remains ineligible; neither form resets accounting. Review the new artifact and submit its own requirement acknowledgments before execution.
+
+
 Before execution, concrete review feedback can use the same planning loop without
 discarding accepted intent, discovery or cumulative allowances:
 

@@ -59,6 +59,8 @@ public sealed class PlanningCommand
     public string? Text { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? PreserveRequirements { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? EditablePaths { get; set; }
     public JsonObject? Selections { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<PlanningAnswer>? Answers { get; set; }
@@ -124,6 +126,9 @@ public sealed class PlanningSession
     public List<PlanningAnswerBatch>? AnswerHistory { get; set; }
     public CapabilityDiscoveryState Discovery { get; set; } = new();
     public List<string> RevisionScope { get; set; } = [];
+    /// <summary>Explicit implementation revision authority; absent for ordinary generation and diagnostic repair.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? EditablePaths { get; set; }
     public string Phase { get; set; } = PlanningPhase.Requirements;
     public TaskPlan? Plan { get; set; }
     public PlanningGraph? Graph { get; set; }

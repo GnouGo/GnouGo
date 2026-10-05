@@ -70,10 +70,10 @@ public sealed class CompactProposalTests
     [Fact]
     public async Task RepairOmitsRequirementsAndRetainsAcceptedIntent()
     {
-        var runtime = new TestRuntime(); runtime.Proposal.Plan!.Root.Outputs.Add(new("broken", PlanningCorpus.Business("output", "absent", "value")));
+        var runtime = new TestRuntime(); runtime.Proposal.Plan!.Root.Outputs.Add(new("broken", PlanningCorpus.Business("output", runtime.Proposal.Plan.Root.Tasks[0].Id, "missing_port")));
         var planner = new HybridWorkflowPlanner(); var state = await planner.AdvanceAsync(PlannerFixture.Session(), new(), runtime, PlannerFixture.Ct);
         var accepted = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
-        runtime.Proposal.Plan.Root.Outputs[^1] = new("broken", PlanningCorpus.String("fixed"));
+        runtime.Proposal.Plan.Root.Outputs[^1] = new("broken", runtime.Proposal.Plan.Root.Outputs[0].Value);
         runtime.Respond = (request, _) =>
         {
             Assert.False(request.StructuredOutputSchema!["properties"]!.AsObject().ContainsKey("requirements"));

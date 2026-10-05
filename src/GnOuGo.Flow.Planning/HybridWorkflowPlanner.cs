@@ -24,6 +24,8 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             throw new ArgumentException("Invalid planning limits.");
         PlanningMode.Validate(session.Request.Mode);
         PlanningGenerationPolicy.Validate(session.Request.Generation);
+        if (command.EditablePaths is not null && (command.Kind != "revise" || command.PreserveRequirements != true))
+            throw new ArgumentException("EditablePaths requires an explicit implementation revision with preserveRequirements: true.");
         if (session.RequiresPlanningRevision && command.Kind is not ("revise" or "cancel") &&
             !(command.Kind == "save" && session.Status == PlanningStatus.Approved))
         {
@@ -112,8 +114,9 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
                     if (command.PreserveRequirements == true && (state.RequiresPlanningRevision || state.Requirements is null ||
                         command.ArtifactHash != state.ComputeArtifactHash()))
                         throw new PlanningConflictException("A correction must retain current accepted requirements and identify the exact artifact, when present.");
+                    if (command.EditablePaths is not null) TaskPlanRevisions.ValidateEditablePaths(state, command.EditablePaths);
                     state.Request.Prompt += "\nRequested revision: " + command.Text;
-                    PlanningClarifications.Revise(state, command.PreserveRequirements == true); break;
+                    PlanningClarifications.Revise(state, command.PreserveRequirements == true, command.EditablePaths); break;
                 case "cancel": state.Status = PlanningStatus.Cancelled; state.ApprovedHash = null; break;
                 default: throw new ArgumentException("Unsupported planning command.");
             }
@@ -127,7 +130,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         {
             state.Diagnostics = state.Plan is not null && state.RevisionScope.Count > 0
                 ? state.Diagnostics.Concat(ex.Diagnostics).Distinct().ToList() : ex.Diagnostics;
-            Invalidate(state); state.Status = PlanningStatus.Generating;
+            Invalidate(state); state.Status = state.EditablePaths is null ? PlanningStatus.Generating : PlanningStatus.Stopped;
         }
         catch (WorkflowRuntimeException ex)
         {
@@ -316,7 +319,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         }
         var findings = patchRequest ? [] : TaskPlanRevisions.Validate(state.Plan, plan, state.RevisionScope, state.Catalog).ToList();
         if (findings.Count > 0) throw new PlanningResponseException(findings);
-        state.Plan = plan; state.Graph = null; Invalidate(state);
+        state.Plan = plan; state.Graph = null; state.EditablePaths = null; Invalidate(state);
         foreach (var operation in TaskPlanRevisions.Tasks(plan).Where(t => t.Kind == "operation").Select(t => t.Operation).Distinct(StringComparer.Ordinal))
         {
             if (state.Catalog.Capabilities.Any(c => TaskOperations.Describe(c).Id == operation)) continue;

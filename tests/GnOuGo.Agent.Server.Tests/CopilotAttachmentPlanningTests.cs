@@ -115,7 +115,7 @@ public sealed class CopilotAttachmentPlanningTests
     private static IReadOnlyList<string> Scope(TaskPlan plan, IReadOnlyList<PlanningDiagnostic> diagnostics)
         => (IReadOnlyList<string>)Revisions.GetMethod("Scope", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [plan, diagnostics])!;
     private static IEnumerable<PlanningDiagnostic> ValidateRevision(TaskPlan plan, TaskPlan changed, IReadOnlyList<string> scope, PlanningCatalog catalog)
-        => (IEnumerable<PlanningDiagnostic>)Revisions.GetMethod("Validate", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [plan, changed, scope, catalog])!;
+        => (IEnumerable<PlanningDiagnostic>)Revisions.GetMethod("Validate", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [plan, changed, scope, catalog, null])!;
 
     private static TaskPlan SyntheticCorrectedProposal(string clone, string send) => new()
     {

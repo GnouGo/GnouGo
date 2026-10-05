@@ -36,7 +36,7 @@ public sealed class RepairPatchTests
     internal static LLMRequest Request(PlanningSession state) => new()
     {
         StructuredOutputSchema = PlanningRepairPatch.Schema(state, PlanningSchemas.FullProposal(state, compact: false, clarifications: false)),
-        Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = 7, ["authority"] = PlanningRepairPatch.Authority(state) } }.ToJsonString()
+        Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = 8, ["authority"] = PlanningRepairPatch.Authority(state) } }.ToJsonString()
     };
     internal static JsonObject Edit(PlanningSession state, string path, string action, JsonNode? value = null)
     {

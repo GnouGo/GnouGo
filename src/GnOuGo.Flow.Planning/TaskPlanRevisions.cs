@@ -6,6 +6,73 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Only diagnosed semantic slots are editable. Revalidation never grants edit permission.</summary>
 internal static class TaskPlanRevisions
 {
+    internal static void ValidateEditablePaths(PlanningSession state, IReadOnlyList<string> paths)
+    {
+        if (state.Plan is null || state.Catalog is null || paths.Count == 0 || paths.Any(string.IsNullOrWhiteSpace) ||
+            TaskPlanCompiler.IdentityDiagnostics(state.Plan, includeReferences: false).Count > 0)
+            throw new PlanningConflictException("A targeted revision needs an unambiguous retained TaskPlan and explicit editable paths.");
+        var symbols = new TaskPlanSymbols(state.Plan);
+        var index = PlanningRepairPatch.Index(JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)!);
+        foreach (var path in paths)
+        {
+            if (string.IsNullOrWhiteSpace(path) || paths.Count(p => p == path) != 1 ||
+                paths.Any(p => p != path && p.StartsWith(path + "/", StringComparison.Ordinal)))
+                throw new ArgumentException("Editable paths must be distinct, nonoverlapping semantic paths.");
+            var binding = symbols.Values.ContainsKey(path) && (path.Contains("/inputs/", StringComparison.Ordinal) || path.Contains("/outputs/", StringComparison.Ordinal));
+            var field = path.Split('/') is ["", "tasks", var id, var name] && symbols.Tasks.TryGetValue(id, out var task) &&
+                (name == "inputs" && task.Task.Kind is "operation" or "transform" or "call" || name == "requires" || name == "condition" && task.Task.Kind == "conditional");
+            if (PlanningRepairPatch.FindSite(index, path) is null || !binding && !field || OwnedInput(symbols, path, state.Catalog) is not null)
+                throw new ArgumentException("EditablePaths supports existing business bindings, input lists, conditions and export values only: " + path);
+        }
+    }
+
+    // Null means this is not a broken-reference slot. Empty means revision is
+    // required: no existing, visible producer port can resolve this dependency.
+    internal static IReadOnlyList<TaskValue>? ReferenceRepairs(PlanningSession state, string path)
+    {
+        if (state.EditablePaths is not null || !state.Diagnostics.Any(d => d.Required && d.Location == path &&
+            d.Code is "TASK_OUTPUT_UNKNOWN" or "TASK_REFERENCE_UNKNOWN")) return null;
+        var symbols = new TaskPlanSymbols(state.Plan!);
+        if (!symbols.Values.TryGetValue(path, out var site)) return [];
+        var references = TaskPlanCompiler.Values(site.Value).Where(v => v.Kind == "output").ToArray();
+        if (references.Any(v => v.Source is null || !symbols.Tasks.ContainsKey(v.Source))) return [];
+        var sourcePlan = JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        // As in complete patch validation, a local witness permits preflight of
+        // finite choices. No selection is applied to the session or approved.
+        foreach (var choice in sourcePlan.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
+        var sources = TaskPlanCompiler.RepairSources(sourcePlan, state.Catalog!).GetValueOrDefault(path) ?? [];
+        var broken = references.Where(v => !PlanningRepairContext.Ports(symbols.Tasks[v.Source!].Task, state).Contains(v.Port ?? "", StringComparer.Ordinal)).ToArray();
+        if (broken.Length != 1) return [];
+        var reference = broken[0]; var values = new List<TaskValue>();
+        var outputType = path.Split('/') is ["", "root", "outputs", var outputName]
+            ? state.Requirements?.Outputs?.SingleOrDefault(o => o.Name == outputName)?.Type : null;
+        foreach (var source in sources.Where(s => s.Value.Kind == "output" && s.Value.Source == reference.Source))
+        {
+            if (ReferenceEquals(site.Value, reference) && outputType is not null &&
+                !PlanningGraphValidation.TypesFit(source.Schema, TaskPlanCompiler.TypeSchema(outputType))) continue;
+            var replacement = Rewrite(site.Value);
+            var tree = JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)!;
+            var target = PlanningRepairPatch.Index(tree)[path];
+            if (target.Node is JsonObject binding && binding.ContainsKey("name") && binding.ContainsKey("value"))
+                binding["value"] = JsonSerializer.SerializeToNode(replacement, PlanningJsonContext.Default.TaskValue);
+            else target.Set(JsonSerializer.SerializeToNode(replacement, PlanningJsonContext.Default.TaskValue));
+            var probe = tree.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+            foreach (var choice in probe.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
+            if (!new TaskPlanCompiler().Compile(probe, state.Catalog!).Diagnostics.Any(d => d.Required &&
+                (d.Location == path || d.Location.StartsWith(path + "/", StringComparison.Ordinal)))) values.Add(replacement);
+
+            TaskValue Rewrite(TaskValue value)
+            {
+                if (ReferenceEquals(value, reference)) return source.Value;
+                var copy = JsonSerializer.SerializeToNode(value, PlanningJsonContext.Default.TaskValue)!.Deserialize(PlanningJsonContext.Default.TaskValue)!;
+                copy.Items = value.Items.Select(Rewrite).ToList();
+                copy.Members = value.Members.Select(m => new TaskOutput(m.Name, Rewrite(m.Value))).ToList();
+                return copy;
+            }
+        }
+        return values;
+    }
+
     internal sealed record Export(TaskPlanSymbols.Scope Scope, string Name, TaskValue? Value, TaskValue Producer, TaskPlanSymbols.Scope ProducerScope);
 
     internal static (Dictionary<string, TaskValue> Consumers, Dictionary<string, Export> Additions) Exports(TaskPlan plan, IEnumerable<string> paths)
@@ -54,7 +121,7 @@ internal static class TaskPlanRevisions
     }
 
 
-    internal static bool FixedOperations(PlanningSession state) => state.Plan is not null && state.RevisionScope.Count > 0 &&
+    internal static bool FixedOperations(PlanningSession state) => state.EditablePaths is not null || state.Plan is not null && state.RevisionScope.Count > 0 &&
         state.Diagnostics.Any(d => d.Required) && !PlanningStructuralRepair.CanChangeOperations(state) && !state.RevisionScope.Any(p => p.EndsWith("/operation", StringComparison.Ordinal));
 
     internal static IEnumerable<PlanTask> Tasks(TaskScope scope) => scope.Tasks.Concat(scope.Always).SelectMany(t => new[] { t }.Concat(
@@ -64,6 +131,11 @@ internal static class TaskPlanRevisions
     {
         var symbols = new TaskPlanSymbols(state.Plan!);
         var catalog = PlanningStructuralRepair.Catalog(state);
+        var exports = Exports(state.Plan!, state.RevisionScope);
+        foreach (var finding in state.Diagnostics.Where(d => d.Required && !d.Location.EndsWith("/requires", StringComparison.Ordinal)))
+            if (!exports.Consumers.ContainsKey(finding.Location) && ReferenceRepairs(state, finding.Location) is { Count: 0 })
+                yield return finding with { Code = "REVISION_REQUIRED", Message = finding.Message +
+                    " No compatible port of the referenced producer is available. Explicitly revise the dependency; a constant or unrelated producer cannot replace missing work." };
         foreach (var finding in state.Diagnostics.Where(d => d.Required && d.Code is "TASK_OUTPUT_UNKNOWN" or "TASK_REFERENCE_UNKNOWN" or "TASK_PRESENCE_SCOPE"))
         {
             if (finding.Location.Split('/') is not ["", "tasks", var consumer, "requires"] ||
@@ -72,9 +144,9 @@ internal static class TaskPlanRevisions
             {
                 // Another diagnosed consumer may already authorize the missing data exports.
                 // Such exports never make an inaccessible task identity visible to present.
-                var exports = Exports(state.Plan!, [finding.Location]);
-                if (finding.Code != "TASK_PRESENCE_SCOPE" && exports.Consumers.ContainsKey(finding.Location) &&
-                    exports.Additions.Count > 0 && exports.Additions.Keys.All(state.RevisionScope.Contains) &&
+                var conditionExports = Exports(state.Plan!, [finding.Location]);
+                if (finding.Code != "TASK_PRESENCE_SCOPE" && conditionExports.Consumers.ContainsKey(finding.Location) &&
+                    conditionExports.Additions.Count > 0 && conditionExports.Additions.Keys.All(state.RevisionScope.Contains) &&
                     TaskPlanCompiler.Values(condition).Where(v => v.Kind is "output" or "present").All(v =>
                         v.Source is { } source && symbols.Tasks.TryGetValue(source, out var producer) &&
                         (producer.Scope == site.Scope || IsAncestor(producer.Scope, site.Scope) ||
@@ -128,7 +200,7 @@ internal static class TaskPlanRevisions
         return scope.Order(StringComparer.Ordinal).ToArray();
     }
 
-    internal static IEnumerable<PlanningDiagnostic> Validate(TaskPlan? previous, TaskPlan candidate, IReadOnlyList<string> scope, PlanningCatalog? catalog = null)
+    internal static IEnumerable<PlanningDiagnostic> Validate(TaskPlan? previous, TaskPlan candidate, IReadOnlyList<string> scope, PlanningCatalog? catalog = null, IReadOnlyList<string>? editablePaths = null)
     {
         var identities = TaskPlanCompiler.IdentityDiagnostics(candidate);
         if (previous is not null) identities = identities.Concat(TaskPlanCompiler.IdentityDiagnostics(previous, includeReferences: false)).Distinct().ToArray();
@@ -143,7 +215,7 @@ internal static class TaskPlanRevisions
             if (revised.Tasks.TryGetValue(id, out var updated) && original.Task.Each != updated.Task.Each)
                 yield return new("REVISION_SCOPE_CHANGED", "/tasks/" + id + "/each", "Independent extraction semantics require an explicit revision and fresh approval.");
         foreach (var (id, original) in symbols.Tasks)
-            if (revised.Tasks.TryGetValue(id, out var updated) && !JsonNode.DeepEquals(
+            if (editablePaths?.Contains("/tasks/" + id + "/requires") != true && revised.Tasks.TryGetValue(id, out var updated) && !JsonNode.DeepEquals(
                 JsonSerializer.SerializeToNode(original.Task.Requires, PlanningJsonContext.Default.TaskValue),
                 JsonSerializer.SerializeToNode(updated.Task.Requires, PlanningJsonContext.Default.TaskValue)))
                 yield return new("REVISION_SCOPE_CHANGED", "/tasks/" + id + "/requires", "Required conditions are immutable during repair; changing one requires an explicit revision.");
@@ -155,6 +227,7 @@ internal static class TaskPlanRevisions
         var permittedValues = new HashSet<string>(StringComparer.Ordinal);
         foreach (var path in scope)
         {
+            if (editablePaths?.Contains(path) == true) { permittedValues.Add(path); continue; }
             if (symbols.Values.ContainsKey(path) && path.Split('/') is ["", "tasks", var consumer, "inputs", var argument] &&
                 symbols.Tasks.TryGetValue(consumer, out var originalTask) && revised.Tasks.TryGetValue(consumer, out var revisedTask) &&
                 revisedTask.Task.Kind == "operation" && originalTask.Task.Operation == revisedTask.Task.Operation &&
@@ -252,6 +325,7 @@ internal static class TaskPlanRevisions
             foreach (var (key, child) in obj.ToArray())
             {
                 var location = path + "/" + key;
+                if (editablePaths?.Contains(location) == true) { obj[key] = null; continue; }
                 if (scope.Contains(location) && (resultSlots.Contains(location) || permittedValues.Contains(location) || location.Split('/') is ["", "tasks", _, var field] &&
                     field is "objective" or "operation" or "group" or "dependsOn" or "maxItems" or "maxConcurrency")) obj[key] = null;
                 else Mask(child, location, updated);
