@@ -112,6 +112,12 @@ if (JsonSerializer.Deserialize(JsonSerializer.Serialize(eachDeclaration, Plannin
 var eachValues = new GnOuGo.Flow.Core.Scripting.JintSandbox().ExecuteMappingItems("m.text(source.pages,'<h1>([^<]+)</h1>')",
     JsonNode.Parse("{\"pages\":[\"<h1>first</h1>\",\"<h1>second</h1>\"]}")!.AsObject(), "pages", new JsonObject { ["type"] = "string" });
 if (eachValues.ToJsonString() != "[\"first\",\"second\"]") throw new InvalidOperationException("Independent extraction failed in Native AOT.");
+var repeatedPages = new JsonObject { ["pages"] = new JsonArray(Enumerable.Range(0, 80)
+    .Select(i => (JsonNode?)JsonValue.Create("<h1>row-" + i + "</h1><pre>" + new string('x', 14000) + "</pre>")).ToArray()) };
+var repeatedValues = new GnOuGo.Flow.Core.Scripting.JintSandbox().ExecuteMappingItems("m.text(source.pages,'<h1>([^<]+)</h1>')",
+    repeatedPages, "pages", new JsonObject { ["type"] = "string" });
+if (!repeatedValues.Select(v => v!.GetValue<string>()).SequenceEqual(Enumerable.Range(0, 80).Select(i => "row-" + i)))
+    throw new InvalidOperationException("Repeated extraction exceeded the unchanged sandbox allowance or lost values in Native AOT.");
 Console.WriteLine("collection mappings: independent extraction, ordered complete results, optional declaration serialization");
 
 // Additive host failure contracts must survive source-generated Native AOT serialization.

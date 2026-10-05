@@ -28,11 +28,11 @@ Amazon readiness verifies a real local Browser observation, independent XLSX rea
 
 Measured inference: **3 attempts, 19,375 input tokens, 161 output tokens, €0.090606**, with complete usage receipts. Execution took **92,400 ms**, including interaction waiting. The operation retained 142,427 conservatively reserved tokens under its existing ceilings. [Sanitized producer evidence](evidence/live-readiness-2026-10-05/copilot-probe.json).
 
-The campaign upper bound is now **€77.562334/€100**, leaving **€22.437666**. The previous **€2.606753 unknown reservations are unchanged**. No uncertain invocation was resumed and no GitHub feedback was published.
+After that producer probe, the campaign upper bound was **€77.562334/€100**, leaving **€22.437666**. The previous **€2.606753 unknown reservations are unchanged**. No uncertain invocation was resumed and no GitHub feedback was published.
 
 ## Remaining gates
 
-Mapping run `focused20261005a` contains three persisted, compiled review artifacts and **zero model calls or executions**. Each requires explicit acknowledgment of `extraction` and `completeness`, at revision 1:
+Mapping run `focused20261005a` contains three compiled review artifacts. The user explicitly approved their `extraction` and `completeness` requirements at revision 1 before execution:
 
 | Variant | Artifact hash | Business behavior |
 | --- | --- | --- |
@@ -40,6 +40,10 @@ Mapping run `focused20261005a` contains three persisted, compiled review artifac
 | extended | `2dabfa60db3d46ff862e0bb212a10d824efa125a9edff66ab6c222e051f2f382` | Observe complete source, extract observed name and reference under the changed target. |
 | each | `2bc25cea743033d0017e2b58dc8c517c87eedc3b152c2583a405eb77883dbdc4` | Read every source item, extract exactly one row per item in order, verify all 80 rows and warm reuse. |
 
-The review request is pending; acknowledgments have not been populated. Preserve the frozen source/harness `f199a5d7` for execution (an isolated checkout is appropriate when later commits only publish evidence). Never resume a started variant.
+The frozen source/harness `f199a5d7` executed ten of eleven cases: **nine passed, independent-collection cold extraction failed, and its warm-cache case was not attempted**. All scalar and changed-target oracles passed, including zero-inference JSON cache reuse, HTML decoding, expected missing-data rejection and separately labelled fault-injection repair. Ten paid calls used 46,357 input / 1,639 output tokens and **€0.250763**; one injected attempt incurred no provider call. The campaign upper bound became **€77.813097/€100**, retaining every unknown reservation. [Complete sanitized evidence](evidence/live-readiness-2026-10-05/mapping-focused20261005a.json).
+
+The 80-item probe read all original observations. Generation sampled three complete items from 1,119,671 source bytes; the repair request was 45,596 bytes, below the unchanged allowance. Both returned expressions were valid extractions. Deterministic replay exposes the actual failure: recompiling the same nonbacktracking regex for each item exhausts Jint's cumulative 50,000,000-byte allocation allowance around item 20. A scoped sandbox correction reuses each compiled regex within one evaluation. It changes no expression semantics, inference attempts, `mapping.dynamic` code, cache identity, plan or approval contract, and resets no limits. Two regressions fail before this correction and pass afterward; all 66 focused mapping tests pass. Native AOT additionally checks 80 ordered HTML extractions.
+
+The failed run and its receipts remain retained; no started variant is replayed. Further paid validation requires a new frozen candidate and run identity after deterministic checks pass.
 
 **Fresh Amazon and full code-review E2Es have not run.** They remain gated on successful focused mapping execution; the passing small Copilot producer probe does not replace a full code review. No six-run acceptance claim is made. PR #117 remains draft; historical 33/33 evidence and all earlier failed cohorts remain unchanged.

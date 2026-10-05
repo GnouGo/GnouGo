@@ -1,0 +1,608 @@
+{
+  "source_sha": "f199a5d705e2a16d8a37607597c54191c261c6e7",
+  "harness_sha": "f199a5d705e2a16d8a37607597c54191c261c6e7",
+  "model": "gpt-5.5-2026-04-24",
+  "provider_policy_hash": "0d9b3f888b2a23348f7efbdc00cc764d2e388e63c076dd350b945bc161539d31",
+  "catalog_hash": "dc4c96fcf41fcf827e47b286427a9d2c99bd9f83bd7fbfcec956a0a8d329aea2",
+  "profile": 4,
+  "model_attempts_per_mapping": 2,
+  "planning_calls": 0,
+  "repairs": 0,
+  "corpus_hash": "55e44f289ccb30f184be6cdc1d2df8b7647db37d88f6d9bb57b90ded18191e9a",
+  "passed": false,
+  "accounting_before": {
+    "campaign": "schema-portability-20261002",
+    "reserved_requests": 654,
+    "completed_receipts": 652,
+    "uncertain_requests": [
+      "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "retained_inconclusive_requests": [
+      "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "transport_accounting": {
+      "calls": 669,
+      "session_calls": 0,
+      "known_input_tokens": 10538946,
+      "known_output_tokens": 1047025,
+      "known_cost_eur": 74.86497523971958,
+      "reserved_input_tokens": 192000,
+      "reserved_output_tokens": 65536,
+      "reserved_cost_eur": 2.606752783964365,
+      "cost_upper_bound_eur": 77.47172802368395,
+      "unknown_attempts": 2
+    },
+    "cost_ceiling_eur": 100,
+    "recorded_failures": 3,
+    "known_budget_cost": null,
+    "budget_currency": null,
+    "known_input_tokens": null,
+    "known_output_tokens": null,
+    "completion_receipts_complete": false,
+    "evidence_hash": "a4f296dd12c34d98ebf29c7c44663718254b5756627d5282470fff515f72d1e2"
+  },
+  "accounting": {
+    "campaign": "schema-portability-20261002",
+    "reserved_requests": 667,
+    "completed_receipts": 665,
+    "uncertain_requests": [
+      "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "retained_inconclusive_requests": [
+      "observations1-mapping:1:observations1-mapping-plan:1:dbfe9974cd61088546ba1b389abf828515fb805417762f5e49be28f4154ed0d3",
+      "schema-diagnostic:1:7dff37f9c9780e6b7a24ff13d47e7c80adb3572fa0fadc7b479cf7ade021e0bd"
+    ],
+    "transport_accounting": {
+      "calls": 682,
+      "session_calls": 0,
+      "known_input_tokens": 10604678,
+      "known_output_tokens": 1048825,
+      "known_cost_eur": 75.20634415067964,
+      "reserved_input_tokens": 192000,
+      "reserved_output_tokens": 65536,
+      "reserved_cost_eur": 2.606752783964365,
+      "cost_upper_bound_eur": 77.81309693464401,
+      "unknown_attempts": 2
+    },
+    "cost_ceiling_eur": 100,
+    "recorded_failures": 3,
+    "known_budget_cost": null,
+    "budget_currency": null,
+    "known_input_tokens": null,
+    "known_output_tokens": null,
+    "completion_receipts_complete": false,
+    "evidence_hash": "0fff91a11bbb4032597447532c502f6112bfb8b646ac38cd93fab109bf0468e4"
+  },
+  "run": "focused20261005a",
+  "required_cases": 11,
+  "attempted_cases": 10,
+  "passed_cases": 9,
+  "unexecuted_cases": [
+    "each-warm"
+  ],
+  "artifact_hashes": {
+    "scalar": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+    "extended": "2dabfa60db3d46ff862e0bb212a10d824efa125a9edff66ab6c222e051f2f382",
+    "each": "2bc25cea743033d0017e2b58dc8c517c87eedc3b152c2583a405eb77883dbdc4"
+  },
+  "runs": [
+    {
+      "case": "json-cold",
+      "phase": "live-provider",
+      "artifact_hash": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+      "source_hash": "82761f9d9fbf20c9b6fce6004d7f836e16fa9b68425cccd033c3c0566a35ad74",
+      "source_bytes": 32,
+      "execution_started": "2026-10-05T14:12:10.8131370+00:00",
+      "execution_ms": 21512,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed alpha"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 8470.6646
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "focused20261005a-execution:95cc8d7aa2ff6124f0ced80fe966091628546796f5bf6118b07307cb1ce7fbee",
+          "usage": {
+            "input_tokens": 564,
+            "output_tokens": 19,
+            "total_tokens": 583,
+            "benchmark_cost_eur": 0.0030257051053195288,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:source.observation.displayName})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:12:32.3281360+00:00"
+    },
+    {
+      "case": "json-warm",
+      "phase": "live-provider",
+      "artifact_hash": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+      "source_hash": "82761f9d9fbf20c9b6fce6004d7f836e16fa9b68425cccd033c3c0566a35ad74",
+      "source_bytes": 32,
+      "execution_started": "2026-10-05T14:12:39.2900560+00:00",
+      "execution_ms": 3596,
+      "model_calls": 0,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed alpha"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": true,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 13.7958
+        }
+      ],
+      "usage_receipts": [],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:12:42.8880060+00:00"
+    },
+    {
+      "case": "json-values",
+      "phase": "live-provider",
+      "artifact_hash": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+      "source_hash": "a5ce258196a7accdf4644a2e877fe6e006589610c22c78362d552938b90a9cb3",
+      "source_bytes": 31,
+      "execution_started": "2026-10-05T14:12:49.6491930+00:00",
+      "execution_ms": 10292,
+      "model_calls": 0,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed beta"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": true,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 11.6385
+        }
+      ],
+      "usage_receipts": [],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:12:59.9431230+00:00"
+    },
+    {
+      "case": "json-shape",
+      "phase": "live-provider",
+      "artifact_hash": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+      "source_hash": "e65118aa2ee908906fb1ffd5df391f300aac07d6636299b300149282a99138bf",
+      "source_bytes": 45,
+      "execution_started": "2026-10-05T14:13:06.6353760+00:00",
+      "execution_ms": 19902,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed gamma"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 8367.7448
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "focused20261005a-execution:25a63736932dce02b9dc79958098b14bb3c5232145a5887730b6db949fc321b8",
+          "usage": {
+            "input_tokens": 568,
+            "output_tokens": 19,
+            "total_tokens": 587,
+            "benchmark_cost_eur": 0.003043555872902535,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:source.observation.displayName})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:13:26.5390030+00:00"
+    },
+    {
+      "case": "text-cold",
+      "phase": "live-provider",
+      "artifact_hash": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+      "source_hash": "e04fbf87ccb914218529d8b1a58f44f169fa967465657e5f4f29ad71157e595e",
+      "source_bytes": 26,
+      "execution_started": "2026-10-05T14:13:33.0499220+00:00",
+      "execution_ms": 33166,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed text"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 9623.8629
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "focused20261005a-execution:e6a3a670bd338a5f11e9a0ed35defe7463a12ea997fd58b0c3fe3738ce55c7c2",
+          "usage": {
+            "input_tokens": 565,
+            "output_tokens": 27,
+            "total_tokens": 592,
+            "benchmark_cost_eur": 0.003244377008211353,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.text(source.observation,'displayName: (.*)',1)})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:14:06.2192660+00:00"
+    },
+    {
+      "case": "html-cold",
+      "phase": "live-provider",
+      "artifact_hash": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+      "source_hash": "b44379a0dac173104bb8e88c286e4921d6d9e0d6892ed3dfa9b16c898e7a1135",
+      "source_bytes": 68,
+      "execution_started": "2026-10-05T14:14:12.4760090+00:00",
+      "execution_ms": 20932,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed & HTML"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 11608.1579
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "focused20261005a-execution:d8120b2c2ab7e06e6e7b6518c66eb6a6f00b0d9732c519ed6a0963c303cb7c0c",
+          "usage": {
+            "input_tokens": 607,
+            "output_tokens": 257,
+            "total_tokens": 864,
+            "benchmark_cost_eur": 0.00959032488397001,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.decode(m.text(source.observation,'<span data-field=\"displayName\">([^<]*)</span>',1))})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:14:33.4191880+00:00"
+    },
+    {
+      "case": "missing-required",
+      "phase": "live-provider",
+      "artifact_hash": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+      "source_hash": "871480dfe88b8c21e7e88661c879a4f3cbca2505363728ac9b30811ab6d17c39",
+      "source_bytes": 41,
+      "execution_started": "2026-10-05T14:14:40.1476700+00:00",
+      "execution_ms": 33619,
+      "model_calls": 2,
+      "success": false,
+      "error": "CONTRACT_UNSATISFIED",
+      "outputs": null,
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 2,
+          "gnougo.mapping.repairs": 1,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Failed",
+          "duration_ms": 20194.4372
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "focused20261005a-execution:389c4dff5e58aca576aa1f831b47d4bcdd4c5f603e08220bf818bb1a8dc5040e",
+          "usage": {
+            "input_tokens": 567,
+            "output_tokens": 19,
+            "total_tokens": 586,
+            "benchmark_cost_eur": 0.0030390931810067834,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:source.observation.displayName})"
+          }
+        },
+        {
+          "request_id": "focused20261005a-execution:84e5137ed85a4e4cfae65a5a7f9869aeb19fb4dbcf42525bccec2ce643b0c6c0",
+          "usage": {
+            "input_tokens": 589,
+            "output_tokens": 542,
+            "total_tokens": 1131,
+            "benchmark_cost_eur": 0.017141199571581577,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.optional(source.observation,[\"displayName\"])})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:15:13.7688710+00:00"
+    },
+    {
+      "case": "injected-repair",
+      "phase": "fault-injection",
+      "artifact_hash": "6b00c5600388828cdaaeb2c11490820725eec1574b8ca2a8c537aa10ee3110c8",
+      "source_hash": "3d41fb6d24078d27d5bb8873086c815ff674143d0c43c00a0c2fe58df8f2e394",
+      "source_bytes": 28,
+      "execution_started": "2026-10-05T14:15:20.3900820+00:00",
+      "execution_ms": 11507,
+      "model_calls": 2,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed repair"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 2,
+          "gnougo.mapping.repairs": 1,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 8007.5098
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "focused20261005a-execution:f6cdee2672e27b69e7e10ea241a29e3ce3505b9144e382f5902387a6eed97039",
+          "usage": {
+            "input_tokens": 600,
+            "output_tokens": 100,
+            "total_tokens": 700,
+            "benchmark_cost_eur": 0.005355230274901821,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.text(source.observation,'displayName: (.*)',1)})"
+          }
+        }
+      ],
+      "injected_attempts": 1,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:15:31.8989090+00:00"
+    },
+    {
+      "case": "target-change",
+      "phase": "live-provider",
+      "artifact_hash": "2dabfa60db3d46ff862e0bb212a10d824efa125a9edff66ab6c222e051f2f382",
+      "source_hash": "3567b896b615aa98aa4f054cd5869f1d0651da67e57d8b11104bcff7fc936a0b",
+      "source_bytes": 52,
+      "execution_started": "2026-10-05T14:15:49.6376060+00:00",
+      "execution_ms": 20974,
+      "model_calls": 1,
+      "success": true,
+      "error": null,
+      "outputs": {
+        "result": {
+          "name": "Observed delta",
+          "reference": "REF-7"
+        }
+      },
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 1,
+          "gnougo.mapping.repairs": 0,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Succeeded",
+          "duration_ms": 7403.0805
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "focused20261005a-execution:390a607a1e46630a16cce66b728f12519375293c44a434547d883efa03e07824",
+          "usage": {
+            "input_tokens": 584,
+            "output_tokens": 26,
+            "total_tokens": 610,
+            "benchmark_cost_eur": 0.003302392002856123,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:source.observation.displayName,reference:source.observation.reference})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": true,
+      "execution_completed": "2026-10-05T14:16:10.6150250+00:00"
+    },
+    {
+      "case": "each-cold",
+      "phase": "live-provider",
+      "artifact_hash": "2bc25cea743033d0017e2b58dc8c517c87eedc3b152c2583a405eb77883dbdc4",
+      "source_hash": "f3de4bcc03aa1d01e9eaf4080ba6df10a438af0a848a758b87ec9417d4cb6971",
+      "source_bytes": 1119671,
+      "execution_started": "2026-10-05T14:16:32.1619660+00:00",
+      "execution_ms": 90357,
+      "model_calls": 2,
+      "success": false,
+      "error": "CONTRACT_UNSATISFIED",
+      "outputs": null,
+      "mapping_telemetry": [
+        {
+          "gnougo.mapping.source_items": 80,
+          "gnougo.mapping.cache_hit": false,
+          "gnougo.mapping.model_attempts": 2,
+          "gnougo.mapping.repairs": 1,
+          "gnougo.mapping.sample_items": 3,
+          "gnougo.mapping.omitted_items": 77,
+          "gnougo.mapping.request_bytes": 45596,
+          "step": "n_1cad963b1a6bb950",
+          "status": "Failed",
+          "duration_ms": 27736.812
+        }
+      ],
+      "usage_receipts": [
+        {
+          "request_id": "focused20261005a-execution:1bc566f77f34d10450a45542313b6383035986979d6337df3905cc99bbd807f0",
+          "usage": {
+            "input_tokens": 16806,
+            "output_tokens": 469,
+            "total_tokens": 17275,
+            "benchmark_cost_eur": 0.08755801499464477,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.text(source.observation,'<p data-field=\"displayName\">(.*)</p>',1)})"
+          }
+        },
+        {
+          "request_id": "focused20261005a-execution:ce7c2a0286157e6215d2e2f6a2e3d4dfecacbd2ef651d1832b5a6a1cf41ef424",
+          "usage": {
+            "input_tokens": 24907,
+            "output_tokens": 161,
+            "total_tokens": 25068,
+            "benchmark_cost_eur": 0.11546322741877901,
+            "transport_attempts": 1,
+            "uncertain_attempts": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_cost_eur": 0,
+            "benchmark_usage_bounded": true
+          },
+          "mapping_response": {
+            "script": "({name:m.text(source.observation,'<p data-field=\"displayName\">([^<]*)</p>',1)})"
+          }
+        }
+      ],
+      "injected_attempts": 0,
+      "oracle": false,
+      "execution_completed": "2026-10-05T14:18:02.5220290+00:00"
+    }
+  ],
+  "retained_error": {
+    "code": "CONTRACT_UNSATISFIED",
+    "type": "CONTRACT_UNSATISFIED",
+    "message": "The required mapping could not be established after two bounded attempts: The mapping could not be executed within its restricted profile. [workflow 'w_81be22d7f1c8baf9', step 'n_1cad963b1a6bb950']",
+    "retryable": false,
+    "details": {
+      "consumer_binding": "task_71093fa9e2d9dbc2665b5fc5",
+      "mapping_attempts": 2,
+      "source_index": 20,
+      "failed_workflow": "w_81be22d7f1c8baf9",
+      "failed_step_id": "n_1cad963b1a6bb950",
+      "failed_step_type": "mapping.dynamic",
+      "execution_phase": "step",
+      "workflow": "w_81be22d7f1c8baf9",
+      "step_id": "n_1cad963b1a6bb950",
+      "step_type": "mapping.dynamic",
+      "step_status": "Failed"
+    }
+  },
+  "deterministic_cause": "Repeated regex compilation exhausts the unchanged 50,000,000-byte cumulative sandbox allocation limit.",
+  "validation_logs": {
+    "gnougo-mapping-allocation-before": "6c20be5d64a2097de7dde3884cffd50d3c0b4915cd8b43c421580fcc919e959e",
+    "gnougo-mapping-allocation-after": "fe48209720fca0426573d8c34bf88e30dbcb3e8b9f525894bfe14462332f9643"
+  }
+}

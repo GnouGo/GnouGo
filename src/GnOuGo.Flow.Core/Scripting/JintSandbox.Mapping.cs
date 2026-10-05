@@ -34,6 +34,7 @@ public sealed partial class JintSandbox
         var origins = new Dictionary<ObjectInstance, JsonNode?>();
         var containers = new HashSet<ObjectInstance>();
         var absent = new HashSet<ObjectInstance>();
+        var patterns = new Dictionary<string, Regex>(StringComparer.Ordinal);
         long importedBytes = 0;
         var helpers = new JsObject(engine);
         foreach (var name in MappingHelpers)
@@ -163,8 +164,15 @@ public sealed partial class JintSandbox
         Regex Pattern(JsValue value)
         {
             if (!value.IsString() || value.AsString().Length > 2048) throw Unsatisfied("Extraction needs a bounded literal pattern.");
-            return new Regex(value.AsString(), RegexOptions.CultureInvariant | RegexOptions.Singleline | RegexOptions.NonBacktracking,
-                TimeSpan.FromMilliseconds(Math.Min(1000, _timeout.TotalMilliseconds)));
+            var text = value.AsString();
+            if (!patterns.TryGetValue(text, out var pattern))
+            {
+                // Reuse compilation within this evaluation; repeated items still share every sandbox limit.
+                pattern = new Regex(text, RegexOptions.CultureInvariant | RegexOptions.Singleline | RegexOptions.NonBacktracking,
+                    TimeSpan.FromMilliseconds(Math.Min(1000, _timeout.TotalMilliseconds)));
+                patterns.Add(text, pattern);
+            }
+            return pattern;
         }
         JsValue Invoke(string name, JsValue[] args)
         {

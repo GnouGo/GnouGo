@@ -105,6 +105,19 @@ public sealed class DynamicMappingCollectionTests
         Assert.Throws<OperationCanceledException>(() => new JintSandbox().ExecuteMappingItems("source.records", source, "records", schema, cancel.Token));
     }
 
+    [Theory]
+    [InlineData("<p data-field=\"label\">(.*)</p>")]
+    [InlineData("<p data-field=\"label\">([^<]*)</p>")]
+    public void RepeatedTextExtractionFitsOneUnchangedSandboxAllowance(string pattern)
+    {
+        var noise = string.Join(' ', Enumerable.Range(0, 3000));
+        var source = new JsonObject { ["records"] = new JsonArray(Enumerable.Range(0, 80)
+            .Select(i => (JsonNode?)JsonValue.Create("<p data-field=\"label\">Observed " + i + "</p><pre>" + noise + "</pre>")).ToArray()) };
+        var expression = "m.text(source.records," + System.Text.Json.JsonSerializer.Serialize(pattern) + ",1)";
+        var result = new JintSandbox().ExecuteMappingItems(expression, source, "records", new() { ["type"] = "string" }, Ct);
+        Assert.Equal(Enumerable.Range(0, 80).Select(i => "Observed " + i), result.Select(v => v!.GetValue<string>()));
+    }
+
     [Fact]
     public async Task DefaultsRequireObservedAbsenceAndDoNotReplaceNull()
     {
