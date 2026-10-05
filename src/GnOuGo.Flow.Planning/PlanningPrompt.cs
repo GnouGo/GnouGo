@@ -37,7 +37,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
         Explicit ports (required unless false); transforms get objective+inputs. value/field/json/arithmetic=assembly/selection/encoding/JS Number; exact math:MCP. port:null=whole; default mode:interpret; keep enums.
         Before global interpret, select fields or extract each:{input,output} to compact observations, no raw duplicates. One bounded complete item per result, sole array field, ordered/nested. Keep context/source/grouping; large pages: records/loops. Never split global reasoning/drop facts; report limitations.
         dependsOn: same-scope; bindings order/capture. Export boundaries via owner.port; match branch names/values.
-        Preserve actions/checks/constraints; discover/clarify alternatives or limitations.
+        Preserve actions/checks/constraints; discover/clarify compatible alternatives or limitations.
         Per item visit/extract result. truncated/nextCursor: consume before navigation; captureTruncated:narrow. Exhaustion!=complete; guard observed completeness. Blockers:observe/conditional authorized click/reobserve; clarify.
         requirements.inputs: [] none/null unresolved; no invented inputs/contracts. outputs fixes names/types([] none), no defaults/proofs. Optional inputs need literal defaults.
         Preserve evidence in always,cleanup nested always; paths!=files. Cleanup explicit with creation paths. requires:false fails. present: preceding local/ancestor completion, never hidden tasks/nullability; guard payload. maxItems=total/default100.
