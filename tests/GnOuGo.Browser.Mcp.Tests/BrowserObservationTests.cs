@@ -10,6 +10,58 @@ namespace GnOuGo.Browser.Mcp.Tests;
 
 public sealed class BrowserObservationTests(ITestOutputHelper output)
 {
+    [Theory]
+    [InlineData("observation")]
+    [InlineData("observation_pages")]
+    public async Task PageInitiatedNavigationInvalidatesUnconsumedSnapshot(string format)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var portProbe = new TcpListener(IPAddress.Loopback, 0); portProbe.Start();
+        var port = ((IPEndPoint)portProbe.LocalEndpoint).Port; portProbe.Stop();
+        using var site = new HttpListener(); site.Prefixes.Add($"http://127.0.0.1:{port}/"); site.Start();
+        var origin = $"http://127.0.0.1:{port}";
+        var navigate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var arrived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var serve = Task.Run(async () =>
+        {
+            try
+            {
+                while (site.IsListening)
+                {
+                    var context = await site.GetContextAsync();
+                    var path = context.Request.Url!.AbsolutePath;
+                    if (path == "/advance") await navigate.Task.WaitAsync(ct);
+                    var html = path == "/settled" ? "<html><body><main id='settled'>Fresh observation</main></body></html>"
+                        : path == "/advance" ? ""
+                        : "<html><body><main><p>First observation</p><p>Second observation</p></main><script>fetch('/advance').then(() => location.replace('/settled'));</script></body></html>";
+                    context.Response.ContentType = "text/html; charset=utf-8";
+                    await context.Response.OutputStream.WriteAsync(Encoding.UTF8.GetBytes(html), ct);
+                    context.Response.Close();
+                    if (path == "/settled") arrived.TrySetResult();
+                }
+            }
+            catch (Exception ex) when (ex is HttpListenerException or ObjectDisposedException or OperationCanceledException) { }
+        }, ct);
+        try
+        {
+            await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance);
+            var captured = await host.GetContentAsync(origin, "domcontentloaded", null, "main", format, null, false, ct, maxRecords: 1);
+            var cursor = format == "observation_pages" ? captured.ObservationManifest!.Pages[0].Cursor : captured.Observation!.NextCursor!;
+            Assert.False(string.IsNullOrEmpty(cursor));
+            navigate.SetResult();
+            await arrived.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
+            // This ordinary read waits for the new document without creating a replacement snapshot.
+            var current = await host.GetContentAsync(null, "load", 10000, "#settled", "text", null, false, ct);
+            Assert.Equal("Fresh observation", current.Content);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, format, null, false, ct, cursor));
+            var fresh = await host.GetContentAsync(null, "load", null, "#settled", "observation", null, false, ct);
+            Assert.False(fresh.Truncated);
+            Assert.Equal("Fresh observation", Assert.Single(fresh.Observation!.Records).Text);
+            await host.CloseAsync(ct);
+        }
+        finally { navigate.TrySetResult(); site.Stop(); await serve; }
+    }
+
     [Fact]
     public async Task CompactSnapshotPreservesObservedGroupsAndLinksWithBoundedContinuation()
     {

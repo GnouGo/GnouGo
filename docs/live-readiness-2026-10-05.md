@@ -1,5 +1,7 @@
 # Configuration parity and focused live probes
 
+Subsequent explicit approvals, the EUR 150 budget extension, completed Amazon failures and fresh code-review results are retained in the [approved live validation report](approved-live-validation-2026-10-05.md). The snapshots and measurements below remain historical evidence.
+
 The latest Amazon run stopped before mapping inference because the benchmark did not hydrate persisted model overrides. Agent.Server already loaded those overrides. A zero-inference inspection now resolves the exact `gpt-5.5-2026-04-24` declaration: 1,050,000 input/context tokens and 128,000 output tokens. The campaign still admits at most 96,000 input and 32,768 output tokens; mapping retains its 8,192 output allowance. No configuration or ceiling was changed.
 
 The benchmark reuses the existing Agent configuration repository and runtime option merge, preserving host/file metadata and persisted override precedence. Provider/model pins cannot change. Readiness prints only declared limits, metadata/configuration fingerprints and availability. Unknown limits fail before paid planning/execution. It neither guesses a nearby model nor treats a campaign ceiling as provider metadata.
