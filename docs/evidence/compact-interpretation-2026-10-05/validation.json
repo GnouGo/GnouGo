@@ -1,0 +1,40 @@
+{
+  "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true",
+  "environment": {
+    "PLAYWRIGHT_MODULE_PATH": "src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/.playwright/package/index.mjs",
+    "Kestrel__Endpoints__Grpc__Url": "http://127.0.0.1:0"
+  },
+  "passed": 4544,
+  "failed": 0,
+  "skipped": 12,
+  "projects": 33,
+  "planner_passed": 978,
+  "agent_server_passed": 663,
+  "local_browser_document_passed": 22,
+  "release_pack": "passed",
+  "planning_native_aot_osx_arm64": "passed",
+  "aot_checks": 28,
+  "frontend_build": "passed",
+  "skill_validation": "passed",
+  "retained_initial_failures": {
+    "candidate": "6997cd46",
+    "solution_passed": 4542,
+    "solution_failed": 2,
+    "tests": "CapabilityAlternativeTests: compatible alternatives wording omitted during prompt compression",
+    "correction": "Restored guidance; assertions and limits unchanged."
+  },
+  "discovery_regression": {
+    "calls": 7,
+    "repairs": 0,
+    "allowance": 24000,
+    "input_estimates": [
+      9653,
+      21337,
+      21123,
+      21474,
+      21402,
+      21504,
+      23997
+    ]
+  }
+}

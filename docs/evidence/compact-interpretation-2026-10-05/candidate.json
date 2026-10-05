@@ -1,0 +1,16 @@
+{
+  "production_sha": "c1160e17465a65e138371b182fa3510a1f8e01d2",
+  "harness_sha": "c1160e17465a65e138371b182fa3510a1f8e01d2",
+  "file_sha256": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "9823a7e897f1da575bdc02e2ccc3ec87af14bbf65076aad39bd846682feed76f",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "645f978498cb9f600ba7286113c16c99a89ea271fb0c151e11f56738980faab8",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveCodeEvidence.cs": "53ce1ad86c93147ca17eefbe089aa6e47724453b539697e29c69b0980c83943c"
+  },
+  "generation_guidance_utf8_bytes": {
+    "baseline": 1775,
+    "candidate": 1777
+  },
+  "baseline_commit": "cecb1c94657f686d6c2496aa63478eff2f9d6f1a",
+  "runtime_mapping_changed": false,
+  "oracle_version": "real-workflows-v1"
+}
