@@ -138,7 +138,9 @@ public sealed class CopilotListContractTests
             var logical = new CopilotLogicalOperations(f.Host.Manager, f.tasks, f.Host.Human, options);
             var copilot = new CopilotTools(f.Host.Manager, new(f.Host.Manager), policy, options, f.Host.Trace, f.Host.Human,
                 new(f.Host.Trace), null!, new(policy, options, f.Host.Trace), logical);
-            var code = new CodeTools(new(policy, options), f.Host.Service, NullLogger<CodeTools>.Instance, f.Host.Human);
+            var service = new CopilotCodeService(f.Host.Manager, new(policy, options, f.Host.Trace), policy, options,
+                f.Host.Trace, new(f.Host.Trace), logical);
+            var code = new CodeTools(new(policy, options), service, NullLogger<CodeTools>.Instance, f.Host.Human);
             var serverOptions = new McpServerOptions { ServerInfo = new() { Name = "lists-fixture", Version = "1" }, ToolCollection = [] };
             serverOptions.AddGnOuGoToolErrorNormalizer(); CopilotAttachmentContract.Configure(serverOptions); CopilotListContract.Configure(serverOptions);
             // Same boundary registrations as the published MCP host.
