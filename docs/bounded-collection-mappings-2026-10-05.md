@@ -62,3 +62,47 @@ Code reached review in five calls, no repairs and two explicit revisions. Actual
 Campaign upper bound: **€75.371309315443/€100**, including the unchanged €2.606752783964 unknown inference reservations. The new uncertain external invocation is retained separately from provider-usage accounting. [Six-slot report](evidence/bounded-collection-mappings-2026-10-05/cohort-b.json), [Amazon proposals](evidence/bounded-collection-mappings-2026-10-05/cohort-b-amazon.json), [code evidence](evidence/bounded-collection-mappings-2026-10-05/cohort-b-code.json).
 
 Candidate B passed **4,478 solution tests**, zero failures and 12 existing skips; Release Planning packaging, Native AOT and the rebuilt harness also passed. [Validation](evidence/bounded-collection-mappings-2026-10-05/validation-b.json). The compiler follow-up's isolated full run passed 4,485 tests with one test-host bind failure because an unrelated local container occupied port 4317. Final reruns use an ephemeral test-only gRPC endpoint; live host configuration and that external process remain unchanged. The null-refinement regression fails in four cases before the fix and passes all eight positive/negative cases afterward. The affected producer suite passes 123 tests, including the extended real-command receipt cases. Final combined validation and fresh live evidence are recorded separately.
+
+## Final deterministic gate
+
+Candidate **`43b5358a1b8a617b19352704d60cfde6977b574a`** passes **4,499 solution tests**, zero failures and 12 existing skips across 33 projects, with `-warnaserror`. The preceding combined run found one list-contract fixture using the old service constructor; the production host already registered durable Tasks. After correcting that fixture, all 240 Copilot MCP tests and the full solution rerun pass. Both runs remain retained.
+
+Release Planning packaging, planning Native AOT, Copilot Native AOT and the published encrypted Copilot task-recovery smoke pass. The smoke verifies tenant isolation and stopping on unknown completion with zero inference. Earlier frontend, skill, remaining affected packages and published Server recovery checks remain applicable to unchanged implementations. The retained Amazon proposal compiles and validates on the clean final candidate with **zero calls, zero repairs and no saved-session mutation**. [Final validation and log hashes](evidence/bounded-collection-mappings-2026-10-05/validation-final.json).
+
+## Final fresh cohort: incomplete live acceptance
+
+Frozen cohort **`collections20261005d`**, candidate `43b5358a`: **0/6 execution oracles**. Only repetition one of each case was attempted; repetitions two and three were not started. No cohort expansion is authorized by these results.
+
+| Measurement | Amazon | Code review |
+| --- | ---: | ---: |
+| Logical / physical planning calls | 5 / 5 | 8 / 8 |
+| Discovery reads / repairs / explicit review revisions | 2 / 1 / 2 | 4 / 2 / 3 |
+| Verified planning input / output tokens | 59,567 / 19,661 | 176,231 / 19,630 |
+| Planning latency | 241,652 ms | 247,952 ms |
+| Runtime inference calls | 0 | 0 |
+| Execution latency | 30,460 ms | Not started |
+| New measured cost | €0.790793 | €1.309626 |
+
+Amazon initially reached review in two calls and zero repairs (73,386 ms). Review rejected guessed controls and incomplete capped observations. The approved revision uses explicit consent handling, complete page lists, actual per-product visits, independent page extraction, compact downstream values and browser cleanup. Actual execution consumed **all three matching home-page pages: 137 records, 44,114 UTF-8 bytes of observation JSON**, without capture truncation. The compiled collection projection succeeded. The mapping encountered a cold cache, then stopped before inference because the pinned deployment `gpt-5.5-2026-04-24` has no exact declared safe input allowance available to the resolver. Browser cleanup passed. Consent selection, product visits, learned mapping execution and XLSX cells remain unverified. No workbook was produced.
+
+This is a missing provider-metadata prerequisite, **not a missing completion receipt**. The execution adapter forwards capability queries correctly; an initial adapter diagnosis was ruled out. The existing exact-limit and unknown-allowance regressions reproduce the fail-closed behavior with zero dispatch. The telemetry's one generation-attempt entry records entering preflight, not a provider call; processed/sample counts and request size were not established. Authoritative limits for the exact deployment are required before another collection-mapping live. Neither the nearby catalog snapshot nor the campaign's 96,000-token ceiling establishes those limits.
+
+Code review stopped during planning. Revisions corrected double field selection, an unsupported encoded-string binding and an attempted synthetic comparison artifact. The last two responses still contained a malformed output-port identifier. The cumulative eight-call/two-repair limits stopped the session. **No Copilot task, command execution, final report or cleanup ran in this cohort.** The producer receipt correction therefore has deterministic transport/recovery evidence, but remains unverified with a live provider on this candidate. All earlier uncertain invocations remain untouched.
+
+The campaign upper bound is **€77.471728023684/€100**: €74.864975239720 verified plus **€2.606752783964 retained unknown reservations**, leaving €22.528271976316. New cohort inference has complete usage receipts. The remaining balance does not reset session limits or justify bypassing missing metadata. [Six-slot report and frozen manifest](evidence/bounded-collection-mappings-2026-10-05/cohort-d.json), [Amazon evidence](evidence/bounded-collection-mappings-2026-10-05/cohort-d-amazon.json), [code evidence](evidence/bounded-collection-mappings-2026-10-05/cohort-d-code.json). Requests, receipts, observations and failed history remain encrypted; public evidence contains sanitized proposals, diagnostics, counts and hashes. Historical cohorts and the historical 33/33 benchmark are unchanged. PR #117 remains draft.
+
+### Reproducible live commands
+
+Use the recorded model/provider policy and the manifest's toolchain environment. `report` is read-only; the retained run IDs cannot be dispatched again. New evaluation requires a new unused cohort/run identity, current readiness checks and explicit review of the generated requirements/task tree.
+
+```sh
+dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll \
+  --schema-portability report --campaign schema-portability-20261002 \
+  --workspace "$GNOUGO_WORKSPACE" --cohort collections20261005d
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll \
+  --schema-portability replay-compile --campaign schema-portability-20261002 \
+  --workspace "$GNOUGO_WORKSPACE" --run collections20261005b-amazon-1
+```
+
+Fresh runs use the same executable with `--schema-portability readiness|plan|execute`, `--case amazon|code`, and new `--cohort`/`--run` values. Execution additionally requires `--review-command <file>` containing the reviewed revision, artifact hash and explicitly selected requirement IDs. Recommendations, acknowledgments and permission responses are never submitted automatically.

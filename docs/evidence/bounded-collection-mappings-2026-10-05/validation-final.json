@@ -1,0 +1,243 @@
+{
+  "candidate": "43b5358a1b8a617b19352704d60cfde6977b574a",
+  "full_solution": {
+    "passed": 4499,
+    "failed": 0,
+    "skipped": 12
+  },
+  "projects": [
+    {
+      "failed": 0,
+      "passed": 89,
+      "skipped": 0,
+      "name": "GnOuGo.DocIngestor.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 52,
+      "skipped": 0,
+      "name": "GnOuGo.Diff.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 12,
+      "skipped": 0,
+      "name": "GnOuGo.KeyVault.Core.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 1104,
+      "skipped": 0,
+      "name": "GnOuGo.Flow.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 97,
+      "skipped": 0,
+      "name": "GnOuGo.Flow.Integrations.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 225,
+      "skipped": 0,
+      "name": "GnOuGo.AI.Core.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 14,
+      "skipped": 0,
+      "name": "GnOuGo.AI.Local.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 103,
+      "skipped": 0,
+      "name": "GnOuGo.Agent.Mcp.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 93,
+      "skipped": 7,
+      "name": "GnOuGo.Cmd.Mcp.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 48,
+      "skipped": 0,
+      "name": "GnOuGo.Browser.Mcp.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 652,
+      "skipped": 0,
+      "name": "GnOuGo.Agent.Server.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 64,
+      "skipped": 0,
+      "name": "GnOuGo.Document.Mcp.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 9,
+      "skipped": 0,
+      "name": "GnOuGo.KeyVault.Mcp.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 10,
+      "skipped": 0,
+      "name": "GnOuGo.Files.Server.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 0,
+      "name": "GnOuGo.DocIngestor.Mcp.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 0,
+      "name": "GnOuGo.OtlpCollector.Server.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 240,
+      "skipped": 0,
+      "name": "GnOuGo.GithubCopilot.Mcp.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 173,
+      "skipped": 0,
+      "name": "GnOuGo.GithubCopilot.Core.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 5,
+      "name": "GnOuGo.GithubCopilot.E2E.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 3,
+      "skipped": 0,
+      "name": "GnOuGo.Observability.Core.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 83,
+      "skipped": 0,
+      "name": "GnOuGo.Git.Mcp.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 30,
+      "skipped": 0,
+      "name": "GnOuGo.Workspace.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 49,
+      "skipped": 0,
+      "name": "GnOuGo.Mcp.Core.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 12,
+      "skipped": 0,
+      "name": "GnOuGo.Flow.Mermaid.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 91,
+      "skipped": 0,
+      "name": "GnOuGo.Assets.Bears.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 42,
+      "skipped": 0,
+      "name": "GnOuGo.Assets.Animation.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 13,
+      "skipped": 0,
+      "name": "GnOuGo.Assets.Animation.Server.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 28,
+      "skipped": 0,
+      "name": "GnOuGo.Assets.Bears.Server.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 948,
+      "skipped": 0,
+      "name": "GnOuGo.Flow.Planning.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 177,
+      "skipped": 0,
+      "name": "GnOuGo.ProxyCopilot.Server.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 8,
+      "skipped": 0,
+      "name": "GnOuGo.Auth.Core.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 4,
+      "skipped": 0,
+      "name": "GnOuGo.Flow.Persistence.Tests.dll"
+    },
+    {
+      "failed": 0,
+      "passed": 5,
+      "skipped": 0,
+      "name": "GnOuGo.Flow.Copilot.Tests.dll"
+    }
+  ],
+  "test_environment": {
+    "Kestrel__Endpoints__Grpc__Url": "http://127.0.0.1:0",
+    "PLAYWRIGHT_MODULE_PATH": "current Browser MCP packaged Playwright"
+  },
+  "logs": {
+    "solution-d": "1314ff02516a4bd17bab4bcde291787a5678c596b5cd05befca4884d1eea922c",
+    "solution-final": "49d4f3fa4fbfec23f19219353c15046755845a0f56e9cf651bdb6c598b430a32",
+    "copilot-final": "8dae75c4546ac0eb8ce56149014d56a43ec63f39c1f0baaa4721b8af5769be62",
+    "pack-d": "51d92f588002f45336ee914a5b76ad42a308d193ba5617499453f28b67c14813",
+    "aot-d": "4550e3848a2bba9225dc5a5fbc170e05adddbe02fab54caee5c14ab3f92088ec",
+    "aot-smoke-d": "58d18fa680a7a61dde7fbbc9ac47ee44981e3fcbfeb5101a33e13e88ecc84a34",
+    "copilot-aot-d": "567d6429360fe43059388416b7a7ae95efbe76c497efddc9b1efbea71097ccb9",
+    "copilot-persistence-d": "8106da92aaf89232b85ae84be49c4760a0b88b9c0fd41639e448dcaa2cb6a44f",
+    "harness-d": "6746594221b6ba819702c7aa562981ace43f9d1feffd1bc69fc2c9e307584f31",
+    "readiness-amazon-d": "1b1e9648eacb643ae82eb4dddaa215b54bffc5588d9f92ea793e81adc48e6181",
+    "readiness-code-d": "fb3615f163dfc42eb471697f9279c9124aa9bccb4ea070a013027e4010a5ec62",
+    "entry-before": "591b6df02c45724fe96b7809aefdd68639ff65b39349c663eae56c18c80aa018",
+    "entry-suite2": "628f9eec25e5148707573165bafd224907930cb15fdd49c62ed6ae38bd321f4b",
+    "null-replay-final": "d94a98e8380029d7f87b22b02788c276097d9e858f9d7167ce1671f8ee8e0d00",
+    "unknown-limit-adapter": "8cb2f9683e080a114996aec9a63edfc26443ebd8ebcab317dcb680098c0a9382",
+    "unknown-limit-runtime": "bfd800cf24432c1613d2a55ab672e9d2e3a6fb06dfe78cf25fa4c120cf62ee1e"
+  },
+  "retained_failures": "First combined run: 4498 passed, one list-contract fixture omitted the existing durable task service. Fixture updated; all 240 Copilot MCP tests and final solution pass. No production behavior changed for this fixture correction.",
+  "replay": {
+    "run": "collections20261005b-amazon-1",
+    "source": "43b5358a1b8a617b19352704d60cfde6977b574a",
+    "working_tree_dirty": false,
+    "compiled": true,
+    "valid": true,
+    "diagnostics": [],
+    "model_calls": 0,
+    "repairs": 0,
+    "saved_session_modified": false
+  },
+  "prior_candidate_checks": "Frontend production build, planning skill validation, AI/Core/Integrations/Persistence Release packages and published Server encrypted recovery passed on the earlier feature candidate; these implementations are unchanged."
+}
