@@ -25,6 +25,9 @@ public interface ILLMClient
 /// </summary>
 public interface ILLMCapabilityResolver
 {
+    /// <summary>Known input allowance after reserving the requested output; null means unverifiable.</summary>
+    Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct)
+        => Task.FromResult<int?>(null);
     Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct);
     Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct);
 }

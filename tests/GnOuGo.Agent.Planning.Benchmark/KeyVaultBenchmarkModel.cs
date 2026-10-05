@@ -18,8 +18,14 @@ using Microsoft.Extensions.Options;
 using Microsoft.ML.Tokenizers;
 
 /// <summary>One configured live model and one authorized spending ledger shared by planning and explicit live execution hosts.</summary>
-internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
+internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolver, IDisposable
 {
+    public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct)
+        => ((ILLMCapabilityResolver)_client).InputTokenAllowanceAsync(Provider, Model, outputTokens, ct);
+    public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct)
+        => ((ILLMCapabilityResolver)_client).SupportsStructuredOutputAsync(Provider, Model, ct);
+    public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct)
+        => ((ILLMCapabilityResolver)_client).SupportedReasoningLevelsAsync(Provider, Model, ct);
     private readonly BenchmarkCampaign _campaign;
     private readonly LLMOptions _options;
     private readonly HttpClient _http;
@@ -76,7 +82,9 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, IDisposable
             throw new InvalidOperationException("Benchmark recovery permits only side-effect-free generation without tools.");
         var dispatched = JsonSerializer.Deserialize(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
         dispatched.Provider = provider; dispatched.Model = model;
-        dispatched.DisableTransportRetries = false; // AI.Core owns the only retry loop.
+        // Planning uses the pinned transport policy; runtime bindings may impose
+        // a stricter invocation allowance that the harness must preserve.
+        dispatched.DisableTransportRetries = execution && request.DisableTransportRetries;
         // The planner may prefer background generation. This adapter owns synchronous HTTP
         // recovery; change only its dispatch copy, never the durable planner reservation.
         dispatched.UseBackgroundMode = false;

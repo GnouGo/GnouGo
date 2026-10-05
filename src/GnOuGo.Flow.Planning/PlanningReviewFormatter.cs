@@ -14,7 +14,8 @@ public static class PlanningReviewFormatter
                     "; contract effect: " + contract.EffectKind + ". " + (contract.ArtifactContract?.Locations is { Count: > 0 } ? "Declared resource locations checked; dynamic relationships still require execution evidence. " : "Resource lifecycle is not established by this contract; review cleanup and retained artifacts. ") + "Execution has not been observed; review the business requirements separately.", []);
             }).Concat(PlanningGraphCompiler.Enumerate(state.Graph!.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)))
                 .Where(n => n.Input.Kind == "dynamic_mapping").Select(n => new PlanningValidationResult("mapping:" + n.Key, "declared",
-                    n.Purpose + " — runtime extraction, at most two model attempts per invocation; cache hits still validate the complete result. No execution evidence yet.", [])));
+                    n.Purpose + " — runtime extraction, at most two model attempts per invocation; cache hits still validate the complete result. " +
+                    (PlanningGraphValidation.Member(n.Input, "each") is null ? "" : "Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and the two attempts are shared. ") + "No execution evidence yet.", [])));
 
     public static string TaskDiagram(TaskPlan? plan)
     {
@@ -30,7 +31,8 @@ public static class PlanningReviewFormatter
             foreach (var task in scope.Tasks.Concat(scope.Always))
             {
                 var id = "t" + PlanningGraphCompiler.Fingerprint(task.Id)[..12];
-                var businessResult = task.ResultType is null ? "" : " → " + string.Join(", ", task.ResultType.Fields.Select(f => f.Name + ": " + f.Type.Kind));
+                var businessResult = (task.Each is null ? "" : " · each " + task.Each.Input + " → " + task.Each.Output) +
+                    (task.ResultType is null ? "" : " → " + string.Join(", ", task.ResultType.Fields.Select(f => f.Name + ": " + f.Type.Kind)));
                 result.AppendLine(id + "[\"" + Label(task.Id + ": " + task.Objective + " (" + task.Kind + (task.Requires is null ? "" : ", required precondition") + (scope.Always.Contains(task) ? ", always" : "") + ")" + businessResult + (task.Requires is null ? "" : "; requires " + Describe(task.Requires))) + "\"]");
                 if (previous is not null) result.AppendLine(previous + " --> " + id);
                 previous = id;

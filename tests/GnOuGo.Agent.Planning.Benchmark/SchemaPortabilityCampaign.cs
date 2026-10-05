@@ -100,6 +100,7 @@ internal static class SchemaPortabilityCampaign
             {
                 ["responses"] = responses,
                 ["runtime_mapping_receipts"] = mappings,
+                ["mapping_telemetry"] = saved["mapping_telemetry"]?.DeepClone(),
                 ["runtime_llm_inputs"] = new JsonArray((executionRun?.Invocations.Values.Where(i => i.StepType == "llm.call" && i.ResolvedInput is JsonObject input && input["prompt"] is JsonValue) ?? [])
                     .Select(i => (JsonNode)new JsonObject { ["invocation"] = i.Id, ["status"] = i.Status,
                         ["observed_completion"] = i.ExternalCompletionObserved,

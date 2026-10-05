@@ -106,6 +106,13 @@ var mappingArtifact = new MappingArtifact("smoke", "source", null, GnOuGo.Flow.C
 if (JsonSerializer.Deserialize(JsonSerializer.Serialize(mappingArtifact, MappingArtifactJsonContext.Default.MappingArtifact), MappingArtifactJsonContext.Default.MappingArtifact) != mappingArtifact)
     throw new InvalidOperationException("Mapping artifact serialization failed.");
 Console.WriteLine("restricted mappings: observed HTML extraction, exact decimals, source-generated artifact serialization");
+var eachDeclaration = new TaskPlan { Root = new() { Tasks = [new() { Id = "extract", Kind = "transform", Mode = "extract", Each = new("pages", "rows") }] } };
+if (JsonSerializer.Deserialize(JsonSerializer.Serialize(eachDeclaration, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!.Root.Tasks[0].Each != new TaskExtractionEach("pages", "rows"))
+    throw new InvalidOperationException("Independent extraction declaration did not survive Native AOT serialization.");
+var eachValues = new GnOuGo.Flow.Core.Scripting.JintSandbox().ExecuteMappingItems("m.text(source.pages,'<h1>([^<]+)</h1>')",
+    JsonNode.Parse("{\"pages\":[\"<h1>first</h1>\",\"<h1>second</h1>\"]}")!.AsObject(), "pages", new JsonObject { ["type"] = "string" });
+if (eachValues.ToJsonString() != "[\"first\",\"second\"]") throw new InvalidOperationException("Independent extraction failed in Native AOT.");
+Console.WriteLine("collection mappings: independent extraction, ordered complete results, optional declaration serialization");
 
 // Additive host failure contracts must survive source-generated Native AOT serialization.
 var taskFailure = new AgentTaskResult("failed", null, [], [], new(0, 0, 0))

@@ -782,6 +782,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
             MaxExpressionStatements = source.MaxExpressionStatements,
             ExpressionTimeoutSeconds = source.ExpressionTimeoutSeconds,
             ExpressionMemoryLimitBytes = source.ExpressionMemoryLimitBytes,
+            MaxMappingInputTokens = source.MaxMappingInputTokens,
             MaxSwitchCases = source.MaxSwitchCases,
             MaxFunctionCallDepth = source.MaxFunctionCallDepth,
             FinalizationTimeoutSeconds = source.FinalizationTimeoutSeconds,

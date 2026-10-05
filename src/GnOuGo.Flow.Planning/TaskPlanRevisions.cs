@@ -99,6 +99,9 @@ internal static class TaskPlanRevisions
         if (previous is null) yield break;
         var symbols = new TaskPlanSymbols(previous); var revised = new TaskPlanSymbols(candidate);
         foreach (var (id, original) in symbols.Tasks)
+            if (revised.Tasks.TryGetValue(id, out var updated) && original.Task.Each != updated.Task.Each)
+                yield return new("REVISION_SCOPE_CHANGED", "/tasks/" + id + "/each", "Independent extraction semantics require an explicit revision and fresh approval.");
+        foreach (var (id, original) in symbols.Tasks)
             if (revised.Tasks.TryGetValue(id, out var updated) && !JsonNode.DeepEquals(
                 JsonSerializer.SerializeToNode(original.Task.Requires, PlanningJsonContext.Default.TaskValue),
                 JsonSerializer.SerializeToNode(updated.Task.Requires, PlanningJsonContext.Default.TaskValue)))

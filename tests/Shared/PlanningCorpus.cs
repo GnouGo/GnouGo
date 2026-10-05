@@ -162,6 +162,8 @@ public static class PlanningCorpus
         if (value is null) return false;
         JsonNode? Resolve(JsonNode? node) => node?["$ref"] is { } link ? Resolve(root["$defs"]![link.ToString().Split('/')[^1]]) : node;
         var properties = schema["properties"] as JsonObject;
+        if (value is JsonObject task && task["kind"]?.ToString() == "transform" && properties?.ContainsKey("mode") == true &&
+            properties.ContainsKey("each") != (task["each"] is not null)) return false;
         if (properties?.ContainsKey("sourceId") == true &&
             (Resolve(properties["operationIds"])?["type"]?.ToString() == "array") != (value["operationIds"] is not null)) return false;
         if (properties?.ContainsKey("sourceId") == true && properties.ContainsKey("producedArtifactKind") != (value["producedArtifactKind"] is not null)) return false;

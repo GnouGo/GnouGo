@@ -39,8 +39,7 @@ internal static class LiveWorkflowOracles
                     if (nameIndex < 0 || descriptionIndex < 0 || priceIndex < 0) findings.Add("workbook_columns_missing");
                     else
                     {
-                        var observations = events.Where(e => e["tool"]?.ToString() == "browser_get_content" && e["error"]?.GetValue<bool>() == false)
-                            .Select(e => e["result"]!).Where(r => Uri.TryCreate(r["url"]?.ToString(), UriKind.Absolute, out var url) &&
+                        var observations = CompleteBrowserObservations(events).Where(r => Uri.TryCreate(r["url"]?.ToString(), UriKind.Absolute, out var url) &&
                                 (url.Host == "amazon.fr" || url.Host.EndsWith(".amazon.fr", StringComparison.Ordinal)) &&
                                 (url.AbsolutePath.Contains("/dp/", StringComparison.Ordinal) || url.AbsolutePath.Contains("/gp/product/", StringComparison.Ordinal))).ToArray();
                         var pages = observations.GroupBy(r => r["url"]!.ToString()).ToArray();
@@ -86,6 +85,60 @@ internal static class LiveWorkflowOracles
             }
         }
         return new JsonObject { ["passed"] = findings.Count == 0, ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()) };
+    }
+
+    // Adapt producer formats, not the oracle: only complete observed snapshots
+    // supply text. Never read generated rows, mapping examples or assistant claims.
+    internal static IEnumerable<JsonObject> CompleteBrowserObservations(IReadOnlyList<JsonObject> events)
+    {
+        var reads = events.Where(e => e["tool"]?.ToString() == "browser_get_content" && e["error"]?.GetValue<bool>() == false && e["result"] is JsonObject).ToArray();
+        foreach (var read in reads)
+        {
+            var result = read["result"]!.AsObject();
+            var url = result["url"]?.ToString();
+            if (result["observationManifest"] is JsonObject manifest)
+            {
+                if (manifest["captureTruncated"]?.GetValue<bool>() != false || manifest["manifestTruncated"]?.GetValue<bool>() != false ||
+                    manifest["pages"] is not JsonArray pages || pages.Count > 100 || manifest["id"]?.ToString() is not { Length: > 0 } id) continue;
+                var records = new List<JsonNode?>(); var valid = true; var cursors = new HashSet<string>(StringComparer.Ordinal);
+                for (var i = 0; i < pages.Count; i++)
+                {
+                    var cursor = pages[i]?["cursor"]?.ToString();
+                    if (cursor is null || !cursors.Add(cursor)) { valid = false; break; }
+                    var matches = reads.SkipWhile(r => !ReferenceEquals(r, read)).Skip(1)
+                        .Where(r => r["arguments"]?["cursor"]?.ToString() == cursor).ToArray();
+                    if (matches.Length == 0 || matches.Any(r => !JsonNode.DeepEquals(r["result"], matches[0]["result"]))) { valid = false; break; }
+                    var page = matches[0]["result"]!;
+                    if (page["url"]?.ToString() != url || page["observation"] is not JsonObject observed || observed["id"]?.ToString() != id ||
+                        observed["captureTruncated"]?.GetValue<bool>() != false || observed["records"] is not JsonArray values ||
+                        values.Count != pages[i]?["recordCount"]?.GetValue<int>() || observed["nextCursor"]?.ToString() != (i + 1 < pages.Count ? pages[i + 1]?["cursor"]?.ToString() : null))
+                    { valid = false; break; }
+                    records.AddRange(values);
+                }
+                if (valid && records.Count == manifest["recordCount"]?.GetValue<int>())
+                    yield return new JsonObject { ["url"] = url, ["content"] = string.Join("\n", records.Select(r => r?["text"]?.ToString() ?? "")) };
+            }
+            else if (result["observation"] is JsonObject observation)
+            {
+                if (read["arguments"]?["cursor"] is not null || observation["captureTruncated"]?.GetValue<bool>() != false) continue;
+                var id = observation["id"]?.ToString(); var current = observation;
+                var text = new List<string>(); var seen = new HashSet<string>(StringComparer.Ordinal); var valid = true;
+                while (true)
+                {
+                    if (current["records"] is not JsonArray records) { valid = false; break; }
+                    text.AddRange(records.Select(r => r?["text"]?.ToString() ?? ""));
+                    if (current["nextCursor"]?.ToString() is not { } cursor) break;
+                    if (!seen.Add(cursor) || seen.Count > 100) { valid = false; break; }
+                    var next = reads.SkipWhile(r => !ReferenceEquals(r, read)).Skip(1)
+                        .FirstOrDefault(r => r["arguments"]?["cursor"]?.ToString() == cursor)?["result"];
+                    if (next?["url"]?.ToString() != url || next?["observation"] is not JsonObject following ||
+                        following["id"]?.ToString() != id || following["captureTruncated"]?.GetValue<bool>() != false) { valid = false; break; }
+                    current = following;
+                }
+                if (valid) yield return new JsonObject { ["url"] = url, ["content"] = string.Join("\n", text) };
+            }
+            else if (result["truncated"]?.GetValue<bool>() == false && result["nextCursor"] is null) yield return result;
+        }
     }
 
     private static string CellText(Cell cell, WorkbookPart workbook) => cell.DataType?.Value == CellValues.SharedString

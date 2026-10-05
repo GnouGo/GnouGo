@@ -19,6 +19,13 @@ public sealed partial class JintSandbox
 
     /// <summary>Only source-backed scalar identities may leave this sandbox. JS never holds their numeric approximations.</summary>
     public JsonNode? ExecuteMapping(string expression, JsonNode? source, CancellationToken ct = default, JsonObject? target = null)
+        => ExecuteMappingCore(expression, source, ct, target, null);
+
+    /// <summary>One engine evaluation and one constraint window for all independent items.</summary>
+    public JsonArray ExecuteMappingItems(string expression, JsonObject sources, string input, JsonObject itemTarget, CancellationToken ct = default)
+        => (JsonArray)ExecuteMappingCore(expression, sources, ct, itemTarget, input)!;
+
+    private JsonNode? ExecuteMappingCore(string expression, JsonNode? source, CancellationToken ct, JsonObject? target, string? collectionInput)
     {
         ValidateMapping(expression, learned: false);
         ct.ThrowIfCancellationRequested();
@@ -34,11 +41,48 @@ public sealed partial class JintSandbox
             var method = name;
             helpers.Set(name, new ClrFunction(engine, name, (_, args) => Invoke(method, args)));
         }
-        engine.SetValue("source", Import(source));
+        var items = collectionInput is null ? null : (source as JsonObject)?[collectionInput] as JsonArray
+            ?? (collectionInput is null ? null : throw Unsatisfied("Independent extraction requires an observed array."));
+        var results = new JsonArray();
+        var itemIndex = -1;
+        engine.SetValue("source", items is null ? Import(source) : JsValue.Undefined);
         engine.SetValue("m", helpers);
-        try { return Export(engine.Evaluate(expression), 0, target); }
+        if (items is not null)
+        {
+            // These host functions are inaccessible to learned expressions: their
+            // identifiers are not admitted by ValidateMapping. Engine evaluation
+            // is entered once, so time, statements and allocation limits never reset.
+            engine.SetValue("__mappingLoad", new ClrFunction(engine, "__mappingLoad", (_, args) =>
+            {
+                itemIndex = (int)args[0].AsNumber();
+                origins.Clear(); containers.Clear(); absent.Clear();
+                var current = new JsObject(engine); containers.Add(current);
+                foreach (var field in source!.AsObject())
+                    current.CreateDataProperty(field.Key, Import(field.Key == collectionInput ? items[itemIndex] : field.Value));
+                return current;
+            }));
+            engine.SetValue("__mappingSave", new ClrFunction(engine, "__mappingSave", (_, args) =>
+            {
+                var value = Export(args[0], 0, target);
+                var errors = JsonSchemaContractValidator.ValidateInstance(value, target!);
+                if (errors.Count > 0) throw Unsatisfied("The mapped item does not satisfy its target: " + string.Join("; ", errors));
+                importedBytes += value is null ? 4 : System.Text.Encoding.UTF8.GetByteCount(value.ToJsonString());
+                if (importedBytes > _memoryLimit) throw Unsatisfied("The assembled mapping result exceeds its memory allowance.");
+                results.Add(value); return JsValue.Undefined;
+            }));
+        }
+        try
+        {
+            if (items is null) return Export(engine.Evaluate(expression), 0, target);
+            engine.Evaluate("(()=>{for(let i=0;i<" + items.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                ";i++){source=__mappingLoad(i);__mappingSave(" + expression + ");}})()");
+            return results;
+        }
+        catch (WorkflowRuntimeException ex) when (itemIndex >= 0)
+        { throw new WorkflowRuntimeException(ex.Code, ex.Message, inner: ex, details: new JsonObject { ["source_index"] = itemIndex }); }
         catch (Exception ex) when (ex is not OperationCanceledException and not WorkflowRuntimeException and not OutOfMemoryException)
-        { ct.ThrowIfCancellationRequested(); throw Unsatisfied("The mapping could not be executed within its restricted profile.", ex); }
+        { ct.ThrowIfCancellationRequested(); throw new WorkflowRuntimeException("CONTRACT_UNSATISFIED", "The mapping could not be executed within its restricted profile.", inner: ex,
+            details: itemIndex < 0 ? null : new JsonObject { ["source_index"] = itemIndex }); }
 
         JsValue Import(JsonNode? value, int depth = 0)
         {

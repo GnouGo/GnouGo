@@ -27,6 +27,9 @@ public sealed class PlanTask
     /// <summary>Extract observed data or interpret it. Omission preserves historical interpretation.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Mode { get; set; }
+    /// <summary>Independent extraction: one result item per source item, in source order.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TaskExtractionEach? Each { get; set; }
     public List<string> DependsOn { get; set; } = [];
     public string? Operation { get; set; }
     public List<TaskOutput> Inputs { get; set; } = [];
@@ -47,6 +50,8 @@ public sealed class PlanTask
     public int MaxConcurrency { get; set; } = 4;
     public string? Group { get; set; }
 }
+
+public sealed record TaskExtractionEach(string Input, string Output);
 
 public sealed class TaskGroup
 {

@@ -26,6 +26,8 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
     [InlineData("pages")]
     [InlineData("pages-parallel")]
     [InlineData("extract")]
+    [InlineData("each")]
+    [InlineData("each-parallel")]
     [InlineData("observation")]
     [InlineData("changed")]
     [InlineData("empty")]
@@ -88,7 +90,8 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             });
             var model = new ProductTransformationFixture(variant) { ReadMethod = "browser_get_content", WriteMethod = "document_write", CloseMethod = "browser_close" };
             var consentModel = new ConsentModel(model);
-            var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = variant.StartsWith("pages", StringComparison.Ordinal) ? new PagedModel(model) : consentScenario ? consentModel : variant is "extract" or "observation" ? new ExtractModel(model) : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
+            var extractionModel = new ExtractModel(model);
+            var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = variant.StartsWith("pages", StringComparison.Ordinal) ? new PagedModel(model) : consentScenario ? consentModel : variant is "extract" or "observation" or "each" or "each-parallel" ? extractionModel : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await runtime.DiscoverAsync(new(), ct); var reads = 0;
             foreach (var source in await runtime.Capabilities.ListSourcesAsync(ct))
@@ -106,6 +109,19 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             Assert.Equal("execute", catalog.Capabilities.Single(c => c.Method == "browser_fill").EffectKind);
             Assert.Equal("lifecycle", catalog.Capabilities.Single(c => c.Method == "browser_close").EffectKind);
             var plan = ProductTransformationPlan.Create(catalog, model);
+            if (variant is "each" or "each-parallel")
+            {
+                var products = plan.Root.Tasks.Single(t => t.Id == "products");
+                products.Parallel = variant == "each-parallel"; products.MaxConcurrency = 2;
+                var extraction = products.Body!.Tasks.Single(t => t.Id == "extract");
+                products.Body.Tasks.Remove(extraction);
+                products.Body.Outputs = [new("pages", ProductTransformationPlan.Ref("page", "content"))];
+                plan.Root.Tasks.Insert(3, new() { Id = "extract_collection", Kind = "transform", Mode = "extract", Each = new("html", "records"),
+                    Objective = "Extract name, description and price independently from each observed product page in order",
+                    Inputs = [new("html", ProductTransformationPlan.Ref("products", "pages"))],
+                    ResultType = ProductTransformationPlan.Obj(("records", new() { Kind = "array", Items = extraction.ResultType })) });
+                plan.Root.Tasks.Single(t => t.Id == "table").Inputs = [new("records", ProductTransformationPlan.Ref("extract_collection", "records"))];
+            }
             if (variant.StartsWith("pages", StringComparison.Ordinal))
             {
                 var search = plan.Root.Tasks[0]; search.Inputs.Add(new("format", ProductTransformationPlan.Text("observation_pages")));
@@ -165,7 +181,8 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var result = await engine.ExecuteAsync(doc.Workflows[doc.Entrypoint!], new JsonObject { ["search"] = site.Urls.Single() + "/search" }, ct);
             var executionMs = timer.Elapsed.TotalMilliseconds;
             output.WriteLine($"LOCAL {variant}: success={result.Success}, calls={session.ModelCalls}, discovery={reads}, repairs={session.ReplanAttempts}, inputEstimate={planning.InputEstimate}, executionAdapterCalls={model.Calls.Count}, planningMs={planningMs:F1}, executionMs={executionMs:F1}; error={result.Error?.Code} {result.Error?.Message}");
-            Assert.Equal(variant is "required-consent" or "nominal" or "changed" or "empty" or "missing" or "extract" or "observation" or "consent" or "no-consent" or "delayed-consent" or "pages" or "pages-parallel", result.Success);
+            Assert.Equal(variant is "required-consent" or "nominal" or "changed" or "empty" or "missing" or "extract" or "observation" or "each" or "each-parallel" or "consent" or "no-consent" or "delayed-consent" or "pages" or "pages-parallel", result.Success);
+            if (variant is "each" or "each-parallel") Assert.Equal(1, extractionModel.Calls);
             var browser = await transport.GetClientAsync("browser", ct);
             var afterCleanup = await browser.CallToolAsync("browser_get_content", new JsonObject(), ct);
             Assert.True(afterCleanup.IsError);
@@ -201,7 +218,15 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var rows = Assert.Single(workbook.WorkbookPart!.WorksheetParts).Worksheet!.Descendants<Row>().Select(r => r.Elements<Cell>().Select(c => c.InnerText).ToArray()).ToArray();
             Assert.Equal(model.ExpectedRows.Length, rows.Length);
             for (var i = 0; i < rows.Length; i++) Assert.Equal(model.ExpectedRows[i], rows[i]);
-            Assert.Equal(variant == "empty" ? ["/search"] : variant == "missing" ? ["/search", "/missing"] : new[] { "/search", "/one", "/two" }, visits.Where(v => v != "/favicon.ico"));
+            var observedVisits = visits.Where(v => v != "/favicon.ico").ToArray();
+            if (variant == "each-parallel")
+            {
+                Assert.Equal("/search", observedVisits[0]);
+                Assert.Equal(new[] { "/one", "/two" }, observedVisits.Skip(1).Order(StringComparer.Ordinal));
+                // Requests may arrive concurrently; workbook rows above must still
+                // match source order exactly, regardless of completion order.
+            }
+            else Assert.Equal(variant == "empty" ? ["/search"] : variant == "missing" ? ["/search", "/missing"] : new[] { "/search", "/one", "/two" }, observedVisits);
         }
         finally { await site.StopAsync(ct); Directory.Delete(root, true); }
     }
@@ -274,11 +299,16 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         }
     }
 
-    private sealed class ExtractModel(ILLMClient interpretation) : ILLMClient
+    private sealed class ExtractModel(ILLMClient interpretation) : ILLMClient, ILLMCapabilityResolver
     {
+        public int Calls;
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(12000);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>([]);
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             if (request.StructuredOutputSchema?["properties"]?["script"] is null) return interpretation.CallAsync(request, ct);
+            Calls++;
             var data = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
             var observation = data["source"]?["page"] is not null;
             if (observation) Assert.NotEmpty(data["source"]!["page"]!["records"]!.AsArray());

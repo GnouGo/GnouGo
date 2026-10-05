@@ -137,11 +137,12 @@ internal static class MappingLiveEvaluation
     private static IEnumerable<PlanTask> All(TaskScope scope) => scope.Tasks.Concat(scope.Always).SelectMany(t => new[] { t }.Concat(t.Body is null ? [] : All(t.Body)));
     private sealed class Approved : IHumanInputProvider
     { public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct) => Task.FromResult<JsonNode?>(new JsonObject { ["response"] = true }); }
-    private sealed class MappingTelemetry : IWorkflowTelemetry
+    internal sealed class MappingTelemetry : IWorkflowTelemetry
     {
         internal JsonArray Mappings { get; } = [];
         private sealed class Span : IWorkflowSpan, IStepSpan
         {
+            internal string? StepId { get; init; }
             internal JsonObject Values { get; } = new();
             public void SetAttribute(string key, object? value)
             { if (key.StartsWith("gnougo.mapping.", StringComparison.Ordinal)) Values[key] = JsonSerializer.SerializeToNode(value); }
@@ -149,9 +150,14 @@ internal static class MappingLiveEvaluation
         }
         public IWorkflowSpan WorkflowStart(WorkflowTelemetryInfo info) => new Span();
         public void WorkflowEnd(IWorkflowSpan span, WorkflowResultInfo result) { }
-        public IStepSpan StepStart(ITelemetrySpan parent, StepTelemetryInfo info) => new Span();
+        public IStepSpan StepStart(ITelemetrySpan parent, StepTelemetryInfo info) => new Span { StepId = info.StepId };
         public void StepEnd(IStepSpan span, StepResultInfo result)
-        { if (span is Span { Values.Count: > 0 } current) Mappings.Add(current.Values.DeepClone()); }
+        {
+            if (span is not Span { Values.Count: > 0 } current) return;
+            var values = current.Values.DeepClone().AsObject();
+            values["step"] = current.StepId; values["status"] = result.Status.ToString(); values["duration_ms"] = result.Duration.TotalMilliseconds;
+            lock (Mappings) Mappings.Add(values);
+        }
     }
     private sealed class Measured(KeyVaultBenchmarkModel provider, string label) : ILLMClient
     {

@@ -241,6 +241,8 @@ public sealed class BenchmarkCampaignTests
         Assert.Equal(request.ClientRequestId, dispatched.ClientRequestId); Assert.Equal(32768, dispatched.MaxTokens);
         Assert.True(dispatched.StructuredOutputStrict);
         Assert.True(JsonNode.DeepEquals(request.StructuredOutputSchema, dispatched.StructuredOutputSchema));
+        var boundedRuntime = KeyVaultBenchmarkModel.CreateDispatchRequest(request, "configured-provider", "configured-model", execution: true);
+        Assert.True(boundedRuntime.DisableTransportRetries);
         dispatched.StructuredOutputSchema!["type"] = "string";
         Assert.Equal(original, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
     }

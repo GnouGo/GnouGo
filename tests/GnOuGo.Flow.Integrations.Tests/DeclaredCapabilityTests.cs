@@ -6,6 +6,18 @@ namespace GnOuGo.Flow.Integrations.Tests;
 public sealed class DeclaredCapabilityTests
 {
     [Fact]
+    public async Task MappingAllowanceUsesOnlyExactLimitsAndReservesOutput()
+    {
+        var options = new LLMOptions { DefaultProvider = "deployment", DefaultModel = "known", Models = { ["deployment"] = new() { Type = "openai" } },
+            ModelOverrides = { ["openai/known"] = new() { MaxInputTokens = 12000, ContextWindowTokens = 16000, MaxOutputTokens = 8192 } } };
+        var adapter = new RoutingLLMClientAdapter(new RoutingLLMClient(options, []));
+        var ct = TestContext.Current.CancellationToken;
+        Assert.Equal(7808, await adapter.InputTokenAllowanceAsync(null, "known", 8192, ct));
+        Assert.Null(await adapter.InputTokenAllowanceAsync(null, "unrecognized-model", 8192, ct));
+        Assert.Null(await adapter.InputTokenAllowanceAsync(null, "gpt-4o-mni", 8192, ct));
+        Assert.Null(await adapter.InputTokenAllowanceAsync(null, "known", 8193, ct));
+    }
+    [Fact]
     public async Task AdapterUsesDeclaredMetadataAndDispatchDefaultsWithoutTransport()
     {
         var options = new LLMOptions { DefaultProvider = "deployment", DefaultModel = "reviewed", Models = { ["deployment"] = new() { Type = "openai" } },

@@ -11,11 +11,11 @@ using GnOuGo.Flow.Core.Scripting;
 namespace GnOuGo.Flow.Core.Runtime.Executors;
 
 /// <summary>Runtime binding adaptation. Neither scripts nor cache entries modify the logical workflow.</summary>
-public sealed class DynamicMappingExecutor : IStepExecutor
+public sealed partial class DynamicMappingExecutor : IStepExecutor
 {
     public string StepType => "mapping.dynamic";
     public StepRecovery Recovery => StepRecovery.Composite;
-    public StepContract Contract => new(JsonNode.Parse("""{"type":"object","properties":{"sources":{"type":"object"},"objective":{"type":"string","minLength":1},"binding":{"type":"string","minLength":1},"producer_contract":{"type":"string","minLength":1}},"required":["sources","objective","binding","producer_contract"],"additionalProperties":false}""")!.AsObject(),
+    public StepContract Contract => new(JsonNode.Parse("""{"type":"object","properties":{"sources":{"type":"object"},"objective":{"type":"string","minLength":1},"binding":{"type":"string","minLength":1},"producer_contract":{"type":"string","minLength":1},"each":{"type":"object","properties":{"input":{"type":"string","minLength":1},"output":{"type":"string","minLength":1}},"required":["input","output"],"additionalProperties":false}},"required":["sources","objective","binding","producer_contract"],"additionalProperties":false}""")!.AsObject(),
         JsonNode.Parse("""{"type":"object","properties":{"value":{}},"required":["value"],"additionalProperties":false}""")!.AsObject(), InputRequired: true);
 
     public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
@@ -27,19 +27,51 @@ public sealed class DynamicMappingExecutor : IStepExecutor
             throw JintSandbox.Unsatisfied("Dynamic mapping requires approved sources, binding identity and a literal target schema.");
         var sources = input!["sources"]!.AsObject();
         var invocationId = ctx.StageInvocationId ?? ctx.InvocationId;
+        var each = input["each"] as JsonObject;
+        var eachInput = each?["input"]?.GetValue<string>();
+        var eachOutput = each?["output"]?.GetValue<string>();
+        JsonArray? collection = null;
+        JsonObject? itemTarget = null;
+        if (each is not null)
+        {
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                var pending = ctx.Engine.Journal?.Run.Invocations.GetValueOrDefault(invocationId + "/mapping/" + attempt);
+                if (pending is { DispatchedAt: not null, CompletedAt: null }) throw WorkflowRunJournal.Uncertain(pending.Id);
+                if (ctx.Engine.Journal is null && ctx.Engine.MappingAttempts.TryGetValue(invocationId + ":mapping:" + attempt, out var local) && local["response"] is null)
+                    throw WorkflowRunJournal.Uncertain(invocationId + ":mapping:" + attempt);
+            }
+            if (sources[eachInput!] is not JsonArray values || target["type"]?.ToString() != "object" ||
+                target["properties"] is not JsonObject { Count: 1 } fields || fields[eachOutput!] is not JsonObject resultArray ||
+                resultArray["type"]?.ToString() != "array" || resultArray["items"] is not JsonObject item)
+                throw JintSandbox.Unsatisfied("Independent extraction requires one observed collection and one array result field.");
+            collection = values; itemTarget = item;
+            if (values.Count > ctx.Limits.MaxLoopIterations)
+                throw new WorkflowRuntimeException(ErrorCodes.LoopLimit, "Independent extraction exceeds the host collection limit.");
+            ctx.SetTelemetryAttribute("gnougo.mapping.source_items", values.Count);
+            if (values.Count == 0)
+            {
+                var empty = new JsonObject { [eachOutput!] = new JsonArray() };
+                if (JsonSchemaContractValidator.ValidateInstance(empty, target).Count != 0)
+                    throw JintSandbox.Unsatisfied("An empty collection does not satisfy the target contract.");
+                return new JsonObject { ["value"] = empty };
+            }
+        }
         // A whole observed value already satisfying the consumer needs no learned adaptation.
-        if (sources.Count == 1 && sources.TryGetPropertyValue("value", out var identity) &&
+        if (each is null && sources.Count == 1 && sources.TryGetPropertyValue("value", out var identity) &&
             JsonSchemaContractValidator.ValidateInstance(identity, target).Count == 0)
             return new JsonObject { ["value"] = identity?.DeepClone() };
         var tenant = ctx.Limits.TenantId;
         var persistent = !string.IsNullOrWhiteSpace(tenant) ? ctx.Engine.MappingArtifacts : null;
-        var key = Hash(new JsonObject
+        var fingerprintData = new JsonObject
         {
             ["tenant"] = tenant, ["binding"] = input["binding"]!.DeepClone(), ["objective"] = input["objective"]!.DeepClone(),
             ["producer"] = input["producer_contract"]!.DeepClone(), ["target"] = target.DeepClone(),
             ["profile"] = JintSandbox.MappingProfileVersion, ["sources"] = new JsonObject(sources.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, Shape(p.Value, true))))
-        });
-        var contentHash = Hash(sources);
+        };
+        if (each is not null) { fingerprintData["each"] = each.DeepClone(); fingerprintData["collection_profile"] = 1; }
+        var key = Hash(fingerprintData, ct);
+        var contentHash = Hash(sources, ct);
         var sandbox = new JintSandbox(Math.Min(ctx.Limits.MaxExpressionStatements, 10000), Math.Min(ctx.Limits.ExpressionTimeoutSeconds * 1000, 5000),
             Math.Min(ctx.Limits.ExpressionMemoryLimitBytes, 50000000));
         var cached = persistent is null ? ctx.Engine.MappingMemory.GetValueOrDefault(key) : await persistent.ReadAsync(tenant!, key, ct);
@@ -60,7 +92,7 @@ public sealed class DynamicMappingExecutor : IStepExecutor
             }
         }
         var client = ctx.Engine.LLMClient ?? throw new WorkflowRuntimeException(ErrorCodes.LlmNetwork, "Dynamic mapping requires an approved runtime model client.");
-        string? previous = null; string? failure = null;
+        string? previous = null; string? failure = null; int? failedIndex = null;
         for (var attempt = 0; attempt < 2; attempt++)
         {
             ct.ThrowIfCancellationRequested();
@@ -83,10 +115,10 @@ public sealed class DynamicMappingExecutor : IStepExecutor
                 return result;
             }
             catch (WorkflowRuntimeException ex) when (ex.Code == "CONTRACT_UNSATISFIED")
-            { previous = script; failure = ex.Message; }
+            { previous = script; failure = ex.Message; failedIndex = ex.Details?["source_index"]?.GetValue<int>(); }
         }
         throw new WorkflowRuntimeException("CONTRACT_UNSATISFIED", "The required mapping could not be established after two bounded attempts: " + failure,
-            details: new JsonObject { ["consumer_binding"] = input["binding"]!.DeepClone(), ["mapping_attempts"] = 2 });
+            details: new JsonObject { ["consumer_binding"] = input["binding"]!.DeepClone(), ["mapping_attempts"] = 2, ["source_index"] = failedIndex });
 
         static JsonObject CheckReceipt(JsonObject receipt)
         {
@@ -97,23 +129,36 @@ public sealed class DynamicMappingExecutor : IStepExecutor
         JsonObject Evaluate(string script)
         {
             JintSandbox.ValidateMapping(script);
-            var value = sandbox.ExecuteMapping(script, sources, ct, target);
+            var value = each is null ? sandbox.ExecuteMapping(script, sources, ct, target)
+                : new JsonObject { [eachOutput!] = sandbox.ExecuteMappingItems(script, sources, eachInput!, itemTarget!, ct) };
             var findings = JsonSchemaContractValidator.ValidateInstance(value, target);
             if (findings.Count > 0) throw JintSandbox.Unsatisfied("The mapped result does not satisfy its target: " + string.Join("; ", findings));
+            if (collection is not null) ctx.SetTelemetryAttribute("gnougo.mapping.processed_items", collection.Count);
             return new() { ["value"] = value };
         }
         async Task<JsonObject> Model(int attempt)
         {
+            if (ctx.Engine.Journal is null && ctx.Engine.MappingAttempts.TryGetValue(invocationId + ":mapping:" + attempt, out var savedResponse))
+                return savedResponse["response"] is JsonObject completedResponse ? CheckReceipt(completedResponse.DeepClone().AsObject())
+                    : throw WorkflowRunJournal.Uncertain(invocationId + ":mapping:" + attempt);
             var (provider, model) = ctx.Engine.ResolveLlmTarget(null, null);
             var request = new LLMRequest
             {
                 Provider = provider, Model = model ?? throw new WorkflowRuntimeException(ErrorCodes.LlmNetwork, "No runtime model configured."), MaxTokens = 8192,
                 ClientRequestId = Hash(JsonValue.Create(ctx.Limits.TenantId + ":" + ctx.Engine.MappingExecutionId + ":" + invocationId + ":mapping:" + attempt + ":" + key)),
-                Prompt = Instructions + "\n" + new JsonObject { ["objective"] = input["objective"]!.DeepClone(), ["source"] = sources.DeepClone(),
+                Prompt = each is not null ? "" : Instructions + "\n" + new JsonObject { ["objective"] = input["objective"]!.DeepClone(), ["source"] = sources.DeepClone(),
                     ["target"] = target.DeepClone(), ["previous_script"] = previous, ["failure"] = failure }.ToJsonString(),
                 StructuredOutputSchema = JsonNode.Parse("""{"type":"object","properties":{"script":{"type":"string"}},"required":["script"],"additionalProperties":false}"""),
                 StructuredOutputStrict = true
             };
+            if (ctx.Engine.Journal?.Run.Invocations.GetValueOrDefault(invocationId + "/mapping/" + attempt)?.ResolvedInput is { } issued)
+                request = JsonSerializer.Deserialize(issued, PlanningJsonContext.Default.LLMRequest)!;
+            else if (each is not null)
+            {
+                request.RequireOutputTokenLimit = true; request.DisableTransportRetries = true;
+                await PackCollectionRequestAsync(ctx, client, request, sources, collection!, eachInput!, target, itemTarget!,
+                    input["objective"]!, previous, failure, failedIndex, ct);
+            }
             async Task<JsonNode?> Dispatch(string? id)
             {
                 JsonObject receipt;
@@ -178,12 +223,33 @@ public sealed class DynamicMappingExecutor : IStepExecutor
         node is CallExpression { Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier { Name: "parse" or "text" or "texts" or "trim" or "decode" or "percentDecode" or "resolveUri" or "number" } } } ||
         node.ChildNodes.Any(InterpretsText);
 
-    internal static string Hash(JsonNode? value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(Canonical(value))));
-    private static string Canonical(JsonNode? value) => value switch
+    internal static string Hash(JsonNode? value, CancellationToken ct = default)
     {
-        JsonObject obj => "{" + string.Join(",", obj.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => JsonValue.Create(p.Key)!.ToJsonString() + ":" + Canonical(p.Value))) + "}",
-        JsonArray array => "[" + string.Join(",", array.Select(Canonical)) + "]", _ => value?.ToJsonString() ?? "null"
-    };
+        // Preserve canonical cache identities without materializing a second copy
+        // of a potentially large collection as one string/byte array.
+        using var hash = SHA256.Create();
+        using var stream = new CryptoStream(Stream.Null, hash, CryptoStreamMode.Write);
+        using (var writer = new Utf8JsonWriter(stream)) { Write(value, writer, 0); writer.Flush(); }
+        stream.FlushFinalBlock();
+        return Convert.ToHexStringLower(hash.Hash!);
+        void Write(JsonNode? node, Utf8JsonWriter writer, int depth)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (depth > 64) throw JintSandbox.Unsatisfied("Mapping observations exceed the nesting allowance.");
+            if (node is JsonObject obj)
+            {
+                writer.WriteStartObject();
+                foreach (var field in obj.OrderBy(p => p.Key, StringComparer.Ordinal))
+                { writer.WritePropertyName(field.Key); Write(field.Value, writer, depth + 1); }
+                writer.WriteEndObject();
+            }
+            else if (node is JsonArray array)
+            { writer.WriteStartArray(); foreach (var item in array) Write(item, writer, depth + 1); writer.WriteEndArray(); }
+            else if (node is null) writer.WriteNullValue();
+            else node.WriteTo(writer);
+            writer.Flush();
+        }
+    }
     private static JsonNode Shape(JsonNode? value, bool root = false) => value switch
     {
         JsonObject obj => new JsonObject(obj.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => new KeyValuePair<string, JsonNode?>(p.Key, Shape(p.Value)))),

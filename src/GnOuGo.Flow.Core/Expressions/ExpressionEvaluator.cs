@@ -24,6 +24,63 @@ public sealed class ExpressionEvaluator
     private readonly TimeSpan _timeout;
     private readonly int _memoryLimitBytes;
 
+    // Only this closed compiler recipe bypasses JS import. Learned programs still
+    // use Jint; selection cannot compute values or grant new artifact provenance.
+    private bool TrySelectMapping(string script, JsonNode? source, out JsonNode? result)
+    {
+        result = null;
+        if (script.Length > 65536) return false;
+        if (new Acornima.Parser().ParseExpression(script) is not ObjectExpression { Properties.Count: 1 } expression ||
+            expression.Properties[0] is not Property { Computed: false, Method: false, Kind: PropertyKind.Init } property ||
+            (property.Key is Identifier name ? name.Name : (property.Key as Literal)?.Value?.ToString()) != "value" ||
+            property.Value is not CallExpression { Arguments.Count: 3, Callee: MemberExpression { Computed: false,
+                Object: Identifier { Name: "m" }, Property: Identifier { Name: "select" } } } call ||
+            call.Arguments[0] is not Identifier { Name: "source" } || call.Arguments[1] is not ArrayExpression paths ||
+            call.Arguments[2] is not BooleanLiteral each ||
+            paths.Elements.Any(p => p is not ArrayExpression a || a.Elements.Any(v => v is not StringLiteral))) return false;
+        var selections = paths.Elements.Cast<ArrayExpression>().Select(p => p.Elements.Cast<StringLiteral>().Select(s => s.Value).ToArray()).ToArray();
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        long bytes = 0; var count = 0;
+        void Check()
+        {
+            if (++count > Math.Min(_maxStatements, 10000) || watch.Elapsed > TimeSpan.FromMilliseconds(Math.Min(_timeout.TotalMilliseconds, 5000)))
+                throw JintSandbox.Unsatisfied("Collection selection exceeded its execution allowance.");
+        }
+        void Charge(JsonNode? value, int depth = 0)
+        {
+            bytes += 128 + (value is JsonValue scalar && scalar.TryGetValue<string>(out var text) ? (long)text.Length * 4 : 0);
+            if (depth > 64 || bytes > Math.Min(_memoryLimitBytes, 50000000)) throw JintSandbox.Unsatisfied("Selected data exceeds its nesting or memory allowance.");
+            if (value is JsonArray array) foreach (var item in array) Charge(item, depth + 1);
+            if (value is JsonObject obj) foreach (var field in obj) Charge(field.Value, depth + 1);
+        }
+        JsonNode? Select(JsonNode? item)
+        {
+            Check();
+            foreach (var path in selections)
+            {
+                var current = item; var present = true;
+                foreach (var part in path)
+                {
+                    if (current is JsonObject obj && obj.TryGetPropertyValue(part, out var field)) current = field;
+                    else if (current is JsonArray array && int.TryParse(part, out var index) && index >= 0 && index < array.Count && part == index.ToString(System.Globalization.CultureInfo.InvariantCulture)) current = array[index];
+                    else { present = false; break; }
+                }
+                if (present) { Charge(current); return current?.DeepClone(); }
+            }
+            throw JintSandbox.Unsatisfied("No declared selection path was present.");
+        }
+        JsonNode? value;
+        if (each.Value)
+        {
+            if (source is not JsonArray items) throw JintSandbox.Unsatisfied("Per-item selection requires an observed array.");
+            var output = new JsonArray();
+            foreach (var item in items) output.Add(Select(item));
+            value = output;
+        }
+        else value = Select(source);
+        result = new JsonObject { ["value"] = value }; return true;
+    }
+
     public ExpressionEvaluator(Dictionary<string, Func<JsonNode?[], JsonNode?>>? extraFunctions = null)
         : this(extraFunctions, maxStatements: DefaultMaxStatements, timeout: TimeSpan.FromSeconds(DefaultTimeoutSeconds), memoryLimitBytes: DefaultMemoryLimitBytes)
     {
@@ -64,6 +121,7 @@ public sealed class ExpressionEvaluator
         {
             if (!Structural(mapping.Arguments[1], out var source))
                 throw new WorkflowRuntimeException(ErrorCodes.EvalError, "checkedMapping requires a direct structured source binding.");
+            if (TrySelectMapping(script, source, out var selected)) return selected;
             return new JintSandbox(Math.Min(_maxStatements, 10000), (int)Math.Min(_timeout.TotalMilliseconds, 5000), Math.Min(_memoryLimitBytes, 50000000))
                 .ExecuteMapping(script, source);
         }
@@ -75,6 +133,7 @@ public sealed class ExpressionEvaluator
             if (node is CallExpression { Callee: Identifier { Name: JintSandbox.MappingFunction }, Arguments.Count: 2 } nested &&
                 nested.Arguments[0] is Literal { Value: string nestedScript } && Structural(nested.Arguments[1], out var nestedSource))
             {
+                if (TrySelectMapping(nestedScript, nestedSource, out value)) return true;
                 value = new JintSandbox(Math.Min(_maxStatements, 10000), (int)Math.Min(_timeout.TotalMilliseconds, 5000), Math.Min(_memoryLimitBytes, 50000000))
                     .ExecuteMapping(nestedScript, nestedSource); return true;
             }

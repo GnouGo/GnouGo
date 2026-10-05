@@ -46,11 +46,22 @@ public sealed partial class TaskPlanCompiler
             var bindings = task.Inputs.Select(i => (i.Name, Bound: Value(i.Value, scope))).ToArray();
             var observed = Object(bindings.Select(i => new PlanningMember(i.Name, i.Bound.Value)));
             var inputShape = ObjectSchema(bindings.Select(i => (i.Name, i.Bound.Schema)));
-            var node = PlanningGraphValidation.TypesFit(inputShape, schema)
+            var node = task.Each is null && PlanningGraphValidation.TypesFit(inputShape, schema)
                 ? new PlanningNode { Key = key, Type = "set", Purpose = task.Objective,
                     Input = Projection([new("value", observed), new("paths", Array([Strings([])]))]),
                     OutputSchema = Contract(ObjectSchema([("value", schema)])) }
                 : Mapping(key, observed, schema, task.Objective);
+            if (task.Each is { } each)
+            {
+                var collection = bindings.Single(i => i.Name == each.Input).Bound;
+                var items = PlanningContractShapes.IterationItems(collection.Schema)!;
+                var expected = schema["properties"]![each.Output]!["items"]!.AsObject();
+                if (PlanningGraphValidation.TypesFit(items, expected))
+                    node = new() { Key = key, Type = "set", Purpose = task.Objective,
+                        Input = Object([new("value", Object([new(each.Output, collection.Value)]))]),
+                        OutputSchema = Contract(ObjectSchema([("value", schema)])) };
+                else node.Input.Members.Add(new("each", Object([new("input", Text(each.Input)), new("output", Text(each.Output))])));
+            }
             target.Add(node);
             var results = Result(key, "set", schema);
             foreach (var result in results.Values) result.Value.Path.Insert(0, "value");

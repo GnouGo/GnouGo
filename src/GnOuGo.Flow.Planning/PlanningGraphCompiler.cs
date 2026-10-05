@@ -294,9 +294,21 @@ public sealed partial class PlanningGraphCompiler
             var paths = PlanningGraphValidation.Member(value, "paths") ?? throw new InvalidOperationException("Projection needs paths.");
             var each = PlanningGraphValidation.Member(value, "each")?.Boolean == true;
             var selections = PlanningGraphValidation.Literal(paths)!;
+            string sourceExpression;
+            if (each && source is { Kind: "output", Source: not null, Path.Count: 1 } && source.Path[0] == "results" &&
+                scope.NodeTypes[source.Source] is "loop.sequential" or "loop.parallel")
+            {
+                // Select declared exports using physical addresses before any
+                // whole-container key projection imports surrounding step results.
+                selections = new JsonArray(selections.AsArray().Select(p => (JsonNode)new JsonArray(
+                    PhysicalPath("sequence", p!.AsArray().Select(s => s!.GetValue<string>()).ToArray(), scope)
+                        .Select(s => (JsonNode?)JsonValue.Create(s)).ToArray())).ToArray());
+                sourceExpression = "data.steps." + scope.NodeIds[source.Source] + ".results";
+            }
+            else sourceExpression = ExpressionBody(source);
             var script = "({value:m.select(source," + selections.ToJsonString() + "," + (each ? "true" : "false") + ")})";
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
-            expression = "checkedMapping(" + JsonValue.Create(script)!.ToJsonString() + "," + ExpressionBody(source) + ")";
+            expression = "checkedMapping(" + JsonValue.Create(script)!.ToJsonString() + "," + sourceExpression + ")";
         }
         else if (value.Kind == "arithmetic")
         {
@@ -419,13 +431,16 @@ public sealed partial class PlanningGraphCompiler
     }
 
     private static string ResultPath(string type, IReadOnlyList<string> path, LoweringScope scope)
+        => string.Concat(PhysicalPath(type, path, scope).Select(Segment));
+
+    private static IEnumerable<string> PhysicalPath(string type, IReadOnlyList<string> path, LoweringScope scope)
     {
-        if (path.Count == 0) return "";
+        if (path.Count == 0) return [];
         var childIndex = type is "switch" or "sequence" ? 0 :
             ((type is "loop.sequential" or "loop.parallel" && path[0] == "results") || (type == "parallel" && path[0] == "branches")) && path.Count >= 3 ? 2 : -1;
         if (childIndex >= 0 && scope.NodeIds.TryGetValue(path[childIndex], out var child))
-            return string.Concat(path.Take(childIndex).Select(Segment)) + Segment(child) + ResultPath(scope.NodeTypes[path[childIndex]], path.Skip(childIndex + 1).ToArray(), scope);
-        return string.Concat(path.Select(Segment));
+            return path.Take(childIndex).Append(child).Concat(PhysicalPath(scope.NodeTypes[path[childIndex]], path.Skip(childIndex + 1).ToArray(), scope));
+        return path;
     }
 
     // A whole container binding must have the same logical keys as its typed

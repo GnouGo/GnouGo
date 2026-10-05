@@ -191,6 +191,8 @@ public sealed partial class TaskPlanCompiler
         void InspectTask(PlanTask task, Scope scope)
         {
             var path = "/tasks/" + task.Id;
+            if (task.Each is not null && (task.Kind != "transform" || task.Mode != "extract"))
+                findings.Add(new("TASK_TRANSFORM_EACH", path + "/each", "Only explicit extraction transforms can declare independent items."));
             if (task.Mode is not null && task.Kind != "transform") findings.Add(new("TASK_TRANSFORM_MODE", path + "/mode", "Only business transforms declare an extraction or interpretation mode."));
             if (symbols.InvalidIds.Contains(task.Id)) { scope.Blocked.Add(("output", task.Id, "*")); return; }
             Check(path + "/objective", () => { if (string.IsNullOrWhiteSpace(task.Objective)) Fail("TASK_OBJECTIVE_REQUIRED", "Each task requires an objective."); });
@@ -241,6 +243,17 @@ public sealed partial class TaskPlanCompiler
                         if (task.Inputs.Count == 0) Fail("TASK_TRANSFORM_INPUT", "A transform interprets supplied business data; bind at least one input.");
                     });
                     foreach (var input in task.Inputs) Read(input.Value, scope, path + "/inputs/" + input.Name);
+                    if (task.Each is { } each)
+                    {
+                        var collection = task.Inputs.Where(i => i.Name == each.Input).ToArray();
+                        if (collection.Length != 1 || string.IsNullOrWhiteSpace(each.Input) ||
+                            task.ResultType is not { Fields.Count: 1 } || task.ResultType.Fields[0].Name != each.Output ||
+                            task.ResultType.Fields[0].Type is not { Kind: "array", Nullable: false, Items: not null })
+                            findings.Add(new("TASK_TRANSFORM_EACH", path + "/each", "Identify one bound collection input and the sole nonnullable array result field."));
+                        else if (Read(collection[0].Value, scope, path + "/inputs/" + each.Input) is { } collected &&
+                            PlanningContractShapes.IterationItems(collected.Schema) is null)
+                            findings.Add(new("TASK_TRANSFORM_EACH", path + "/inputs/" + each.Input, "Independent extraction requires an authoritative array; its contents may be opaque."));
+                    }
                     var typeFindings = TransformTypeFindings(task.ResultType, path + "/resultType").ToArray();
                     findings.AddRange(typeFindings);
                     if (typeFindings.Length == 0)

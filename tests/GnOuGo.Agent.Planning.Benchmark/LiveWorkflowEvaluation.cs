@@ -49,9 +49,11 @@ internal static class LiveWorkflowEvaluation
             await Save();
         });
         var measured = new ExecutionModel(model, label);
+        var mappingTelemetry = new MappingLiveEvaluation.MappingTelemetry();
         var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = phase == "execute" ? measured : model,
+            Telemetry = mappingTelemetry,
             RunStore = EncryptedWorkflowRunStore.CreateWorkspace(baseDirectory: root),
-            Limits = new() { TenantId = "benchmark", RunId = label, AgentId = campaign.Id + "-" + scenario, AgentName = "Live evaluation " + scenario },
+            Limits = new() { TenantId = "benchmark", RunId = label, AgentId = campaign.Id + "-" + scenario, AgentName = "Live evaluation " + scenario, MaxMappingInputTokens = 96000 },
             HumanInputProvider = human, LlmDefaults = new() { Model = model.Model, Provider = model.Provider } };
         if (scenario == "code") engine.WithCopilotRunners(configurations.Keys.Where(k => k.Contains("GithubCopilot", StringComparison.Ordinal)).Select(k => new KeyValuePair<string, string>("coding", k)));
         JsonObject? revisionSnapshot = null;
@@ -85,7 +87,8 @@ internal static class LiveWorkflowEvaluation
                     ["error"] = result.Error is null ? null : JsonSerializer.SerializeToNode(result.Error) };
             }
             catch (Exception ex) { run["execution"] = new JsonObject { ["success"] = false, ["exception"] = ex.ToString() }; }
-            finally { proxy.ExecutionEnabled = false; run["execution_ms"] = timer.ElapsedMilliseconds; await Save(); }
+            finally { proxy.ExecutionEnabled = false; run["execution_ms"] = timer.ElapsedMilliseconds;
+                run["mapping_telemetry"] = mappingTelemetry.Mappings; await Save(); }
             var oracle = await LiveWorkflowOracles.VerifyAsync(scenario, root, run, observed);
             run["oracle"] = oracle;
             run["result"]!["execution_success"] = run["execution"]!["success"]!.DeepClone();
@@ -239,8 +242,14 @@ internal static class LiveWorkflowEvaluation
         return copy;
     }
 
-    private sealed class ExecutionModel(KeyVaultBenchmarkModel model, string run) : ILLMClient
+    private sealed class ExecutionModel(KeyVaultBenchmarkModel model, string run) : ILLMClient, ILLMCapabilityResolver
     {
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string name, int outputTokens, CancellationToken ct)
+            => model.InputTokenAllowanceAsync(provider, name, outputTokens, ct);
+        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string name, CancellationToken ct)
+            => model.SupportsStructuredOutputAsync(provider, name, ct);
+        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string name, CancellationToken ct)
+            => model.SupportedReasoningLevelsAsync(provider, name, ct);
         private int _calls;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {

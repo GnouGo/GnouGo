@@ -109,6 +109,9 @@ public sealed class ExecutionLimits
     public int MaxCallDepth { get; set; } = 20;
     public int MaxParallelBranches { get; set; } = 50;
     public int MaxLoopIterations { get; set; } = 1_000;
+    /// <summary>Host ceiling for bounded mapping-generation input, including schema and framing.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxMappingInputTokens { get; set; }
     public int MaxExpressionAstNodes { get; set; } = 500;
     public int MaxExpressionStatements { get; set; } = 1_000_000;
     public int ExpressionTimeoutSeconds { get; set; } = 15;
