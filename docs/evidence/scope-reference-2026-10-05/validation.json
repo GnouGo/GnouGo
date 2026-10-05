@@ -1,0 +1,259 @@
+{
+  "baseline_commit": "0ffd1440b698d6abaa418c8b0a3cedf438474de3",
+  "date": "2026-10-05",
+  "paid_calls": 0,
+  "saved_workflows_modified": false,
+  "runtime_architecture_changed": false,
+  "dynamic_mapping_changed": false,
+  "solution": {
+    "exit_code": 0,
+    "projects": 33,
+    "passed": 4534,
+    "failed": 0,
+    "skipped": 12,
+    "skip_reasons": {
+      "windows_only": 7,
+      "opt_in_paid_live": 5
+    },
+    "suites": [
+      {
+        "project": "GnOuGo.DocIngestor.Tests",
+        "passed": 89,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Diff.Tests",
+        "passed": 52,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.KeyVault.Core.Tests",
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Tests",
+        "passed": 1106,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Integrations.Tests",
+        "passed": 97,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.AI.Core.Tests",
+        "passed": 225,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.AI.Local.Tests",
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Agent.Mcp.Tests",
+        "passed": 103,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Cmd.Mcp.Tests",
+        "passed": 93,
+        "failed": 0,
+        "skipped": 7
+      },
+      {
+        "project": "GnOuGo.Browser.Mcp.Tests",
+        "passed": 50,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Agent.Server.Tests",
+        "passed": 661,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Document.Mcp.Tests",
+        "passed": 64,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.KeyVault.Mcp.Tests",
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Files.Server.Tests",
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.DocIngestor.Mcp.Tests",
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.OtlpCollector.Server.Tests",
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.GithubCopilot.Mcp.Tests",
+        "passed": 240,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.GithubCopilot.Core.Tests",
+        "passed": 173,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.GithubCopilot.E2E.Tests",
+        "passed": 7,
+        "failed": 0,
+        "skipped": 5
+      },
+      {
+        "project": "GnOuGo.Observability.Core.Tests",
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Git.Mcp.Tests",
+        "passed": 83,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Workspace.Tests",
+        "passed": 30,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Mcp.Core.Tests",
+        "passed": 49,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Mermaid.Tests",
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Assets.Bears.Tests",
+        "passed": 91,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Assets.Animation.Tests",
+        "passed": 42,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Assets.Animation.Server.Tests",
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Assets.Bears.Server.Tests",
+        "passed": 28,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Planning.Tests",
+        "passed": 970,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.ProxyCopilot.Server.Tests",
+        "passed": 177,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Auth.Core.Tests",
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Persistence.Tests",
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "GnOuGo.Flow.Copilot.Tests",
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "focused_host": {
+    "passed": 3,
+    "failed": 0
+  },
+  "release_pack": "passed",
+  "native_aot": {
+    "rid": "osx-arm64",
+    "publish": "passed",
+    "execution": "passed",
+    "log_lines": 28
+  },
+  "frontend_build": "passed_as_part_of_solution",
+  "skill_validation": "passed",
+  "new_scope_test_cases": 18,
+  "generation_instructions_utf8_bytes": {
+    "before": 1814,
+    "after": 1775
+  },
+  "logs_sha256": {
+    "gnougo-scope-solution-final.log": "39361b8db6b1dcd80f5ef0c919b2eab95137ac4560ae7957fba5ae7f5f19ba37",
+    "gnougo-scope-host-targeted.log": "dba9fca0f5a4dae24e54c8d3e49be54e119db0bf2d51d7af17a813e43b2acfe5",
+    "gnougo-scope-pack-final.log": "af560fbee8c255a846224150027cd23848b6665d1d9aaaa1f585dd6e75b66d86",
+    "gnougo-scope-aot-publish-final.log": "86160d6ba16095c454d9832932f50a093824083260ffc2995787bfd0d5acbbdc",
+    "gnougo-scope-aot-run-final.log": "58d18fa680a7a61dde7fbbc9ac47ee44981e3fcbfeb5101a33e13e88ecc84a34"
+  },
+  "production_sha256": {
+    "src/GnOuGo.Flow.Planning/PlanningPrompt.cs": "85354b4fa926512c4ba60e4dbf41ea99559eebcbf79d549385c5b19727a3f9e7",
+    "src/GnOuGo.Flow.Planning/PlanningRepairContext.cs": "452e3eca52754c2ad1e27f003122e4b38a85d3e4e657455ef66d129800782c42",
+    "src/GnOuGo.Flow.Planning/PlanningRepairPatch.cs": "ae02a1f289a20b0c1c1820138e488f91377ef7db7c7d1fd2b1f995f5533a3187",
+    "src/GnOuGo.Flow.Planning/PlanningSchemas.cs": "a3c8617fda7ddb45e1b003df941a70acdfca68cf8edb7a1ac396dcd70a1608e4",
+    "src/GnOuGo.Flow.Planning/TaskPlanCompiler.Validation.cs": "28ed6833a3c0991dbccb357db09b51274260a5d07f31cb51ee3e4440f899d49f",
+    "src/GnOuGo.Flow.Planning/TaskPlanCompiler.cs": "c964014ef61a69ab66a6cb098445d05aa6035c3ae169589e8ed38e40d54ee969",
+    "src/GnOuGo.Flow.Planning/TaskPlanRevisions.cs": "cddd77c14918ccf3ad2261d209587cfb579da76b2653a7690a5373283ea18e81",
+    "src/GnOuGo.Flow.Planning/TaskPlanSymbols.cs": "238dc4bb79998446d945e69c59bb2ce8d22be8f12bf6ac1f1eeaf1ec314af8fa"
+  },
+  "fixture_sha256": {
+    "missing-exports.json": "4fc4371e64e99be9bd920b2915fc41bfa8e000d11b6a7afe7b30fb40b0e1947f",
+    "existing-export-hidden-task.json": "72a8584c60df70f958d007962648871de0bc0e5c6b3cd036e26a632ccb95db88",
+    "issued-v7.json": "9bff202478aae081f53706226a3d81f2fe42cc810727193c4f4d6f1edc1a793f"
+  }
+}

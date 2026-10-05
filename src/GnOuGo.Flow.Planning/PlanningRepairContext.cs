@@ -58,6 +58,7 @@ internal static class PlanningRepairContext
             if (site.Task.Items is { } items) References(items);
             if (site.Task.Condition is { } condition) References(condition);
             if (site.Task.Requires is { } requires) References(requires);
+            foreach (var dependency in site.Task.DependsOn) Producer(dependency, null);
         }
         // Producer constraints can affect other consumers. Include their contracts
         // without authorizing them or recursively retaining unrelated work.
@@ -101,6 +102,10 @@ internal static class PlanningRepairContext
             var task = symbols.Tasks[id].Task;
             var node = JsonSerializer.SerializeToNode(task, PlanningJsonContext.Default.PlanTask)!.AsObject();
             node.Remove("body"); node.Remove("otherwise"); node.Remove("branches");
+            node["scope"] = symbols.Tasks[id].Scope.Path;
+            node["phase"] = symbols.Phase(id);
+            if (state.RevisionScope.Contains("/tasks/" + id + "/dependsOn"))
+                node["eligibleDependencies"] = new JsonArray(symbols.DependencyTargets(id).Select(d => (JsonNode?)JsonValue.Create(d)).ToArray());
             if (!selection.EditableTasks.Contains(id) && task.Kind is "operation" or "transform")
             {
                 node.Remove("inputs");

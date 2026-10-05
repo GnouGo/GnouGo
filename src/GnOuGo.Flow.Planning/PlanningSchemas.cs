@@ -33,7 +33,7 @@ internal static class PlanningSchemas
     internal static JsonObject Proposal(PlanningSession state, IReadOnlySet<string>? admitted = null) => PlanningRepairPatch.Active(state)
         ? PlanningRepairPatch.Schema(state, FullProposal(state, compact: false)) : FullProposal(state, admitted: admitted);
 
-    internal static JsonObject FullProposal(PlanningSession state, bool compact = true, bool clarifications = true, IReadOnlySet<string>? admitted = null)
+    internal static JsonObject FullProposal(PlanningSession state, bool compact = true, bool clarifications = true, IReadOnlySet<string>? admitted = null, bool scopeGuidance = true)
     {
         var actions = new List<JsonNode?>();
         if (PlanningDiscoveryContext.CanDiscover(state))
@@ -127,6 +127,16 @@ internal static class PlanningSchemas
             }
         }
         definitions["task"] = Tasks(state, definitions, admitted);
+        if (scopeGuidance)
+        {
+            definitions["scope"]!["properties"]!["outputs"]!["description"] = "Explicit business exports. Consumers outside this scope use enclosingTask.export; conditional alternatives declare matching names and explicit values.";
+            definitions["scope"]!["properties"]!["always"]!["description"] = "Failure-path work. Preserve available payloads here before nested cleanup; hidden descendants and absent results remain inaccessible.";
+            foreach (var task in definitions["task"]!["anyOf"]!.AsArray())
+                task!["properties"]!["dependsOn"]!["description"] = "Eligible same-scope tasks only. Business bindings already establish data dependencies; available ancestor values use captures without cross-scope dependsOn.";
+            foreach (var value in definitions["value"]!["anyOf"]!.AsArray().OfType<JsonObject>())
+                if (value["properties"]?["kind"]?["enum"] is JsonArray kinds && kinds.Any(k => k?.ToString() == "present"))
+                    value["description"] = "Choice selects a declared alternative. present tests preceding local or lexical-ancestor task completion, never a hidden descendant or the presence of a business field.";
+        }
         if (state.Requirements is not null && (!clarifications || state.IntentVersion != 2 || state.Requirements.Inputs is not null)) root["$defs"]!.AsObject().Remove("requirements");
         return compact ? Compact(root) : root;
     }

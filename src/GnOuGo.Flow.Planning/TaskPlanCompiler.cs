@@ -582,11 +582,11 @@ public sealed partial class TaskPlanCompiler
                     if (string.IsNullOrEmpty(value.Port) && ports.Keys.All(string.IsNullOrEmpty) &&
                         _symbols.Tasks.TryGetValue(value.Source, out var producerTask) &&
                         producerTask.Task.Kind is "sequence" or "foreach" or "conditional" or "parallel" or "call")
-                        Fail("TASK_EXPORT_REQUIRED", "This scope declares no business outputs. Select explicit scope exports for data; use dependsOn or present for ordering or presence.");
+                        Fail("TASK_EXPORT_REQUIRED", "This scope declares no business outputs. Select explicit scope exports for data; use dependsOn or present for ordering or presence." + _symbols.ReferenceContext(_location, value.Source));
                     if (ports.TryGetValue(value.Port ?? "", out var output)) return consume ? Consume(output, scope) : output;
                     Fail("TASK_OUTPUT_UNKNOWN", "Task '" + value.Source + "' has no declared business output '" + value.Port +
                         "'. Available ports: " + new JsonArray(ports.Keys.Where(p => p.Length > 0).Order(StringComparer.Ordinal).Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()).ToJsonString() +
-                        ". Opaque results cannot supply typed fields.");
+                        ". Opaque results cannot supply typed fields." + _symbols.ReferenceContext(_location, value.Source));
                 }
                 break;
             case "item": if (scope.Item is not null) return scope.Item; break;
@@ -594,7 +594,7 @@ public sealed partial class TaskPlanCompiler
             case "present":
                 if (value.Source is not null && scope.Tasks.TryGetValue(value.Source, out var producer))
                     return new(new() { Kind = "present", Source = producer[""].Value.Source }, new() { ["type"] = "boolean" });
-                if (scope.Parent is null) Fail("TASK_PRESENCE_SCOPE", "Presence requires a preceding task in this scope or a lexical ancestor.");
+                if (scope.Parent is null) Fail("TASK_PRESENCE_SCOPE", "Presence requires a preceding task in this scope or a lexical ancestor. A scope export exposes data, not the inner task's completion." + _symbols.ReferenceContext(_location, value.Source));
                 break;
             case "arithmetic": return Arithmetic(value, scope);
             case "predicate": return Predicate(value, scope);
@@ -604,7 +604,8 @@ public sealed partial class TaskPlanCompiler
         }
         if (value.Kind == "output" && scope.FailurePath && value.Source is not null)
             return CaptureFailureOutput(value, scope, consume);
-        if (scope.Parent is null) Fail("TASK_REFERENCE_UNKNOWN", "Business reference '" + value.Source + "' is unavailable in this scope.");
+        if (scope.Parent is null) Fail("TASK_REFERENCE_UNKNOWN", "Business reference '" + value.Source + "' is unavailable in this scope." +
+            (value.Kind is "output" or "present" ? _symbols.ReferenceContext(_location, value.Source) : ""));
         // Capture the authoritative container, not an unchecked optional field.
         // Its check belongs inside the consuming branch/iteration/finalizer.
         var captured = Value(value, scope.Parent!, consume: false);

@@ -84,6 +84,11 @@ public sealed class FinalizerCaptureTests
         for (var i = 1; i < depth; i++) body = new() { Tasks = [new() { Id = "nested" + i, Kind = "sequence", Objective = "Preserve scoped evidence", Body = body }] };
         var plan = new TaskPlan { Root = new() { Tasks = [Op("producer", "observe"), new() { Id = "later", Kind = "value", Objective = "Perform subsequent verified work", Requires = Bool(mode != "later_failure") }],
             Always = [new() { Id = "finalize", Kind = "sequence", Objective = "Report before cleanup", Body = body }] } };
+        var planning = new TestRuntime(engine) { Proposal = new() { Requirements = new() { Summary = "Preserve available observations before release", Inputs = [],
+            Outcomes = [new("preserve", "Retain the actual available observation before cleanup")] }, Plan = plan } };
+        var reviewed = await PlannerFixture.RunAsync(planning);
+        Assert.True(reviewed.Status == PlanningStatus.FinalReview, string.Join("; ", reviewed.Diagnostics.Select(d => d.Code + ": " + d.Message)));
+        Assert.Single(planning.Calls); Assert.Equal(0, reviewed.ReplanAttempts);
         var compiled = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(compiled.Diagnostics);
         var findings = PlanningExecutableValidation.Validate(compiled.Graph!, catalog);
         Assert.True(findings.Count == 0, string.Join('\n', findings));

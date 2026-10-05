@@ -124,7 +124,7 @@ public sealed partial class TaskPlanCompiler
             if (result is null && value.Kind == "output" && value.Source is { } producer && symbols.Values.TryGetValue(location, out var site))
                 foreach (var boundary in symbols.ExportRoute(site.Scope, producer))
                     foreach (var affected in boundary.Owner?.Kind == "conditional" ? symbols.Scopes.Where(s => s.Owner == boundary.Owner) : [boundary])
-                        findings.Add(new("TASK_EXPORT_REQUIRED", affected.Path + "/outputs", "Declare the business outputs needed by consumers outside this scope; exports are never implicit."));
+                        findings.Add(new("TASK_EXPORT_REQUIRED", affected.Path + "/outputs", "Declare the business outputs needed by consumers outside this scope; exports are never implicit." + symbols.ReferenceContext(location, producer)));
             return result;
         }
         void Inputs(Scope scope, List<TaskInput> inputs, string path)
@@ -200,7 +200,8 @@ public sealed partial class TaskPlanCompiler
             {
                 var unknown = task.DependsOn.Where(d => !scope.Tasks.ContainsKey(d)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
                 if (unknown.Length > 0) Fail("TASK_DEPENDENCY_UNKNOWN", "Dependencies " + string.Join(", ", unknown) +
-                    " must name preceding tasks in scope " + symbols.Tasks[task.Id].Scope.Path + ". Ancestor values may be captured without cross-scope dependsOn entries.");
+                    " must name preceding tasks in scope " + symbols.Tasks[task.Id].Scope.Path + ". Ancestor values may be captured without cross-scope dependsOn entries." +
+                    string.Concat(unknown.Select(id => symbols.ReferenceContext(path + "/dependsOn", id))));
             });
             var ports = new Dictionary<string, Bound>(StringComparer.Ordinal);
             var declared = new List<string>();

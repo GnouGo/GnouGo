@@ -26,6 +26,21 @@ The existing loop also accepts an exclusive `clarifications` response before a p
 
 Tasks declare stable IDs, objectives, operation IDs, named business bindings and dependencies. Sequence is the default; concurrency requires a parallel scope or parallel iteration. Conditional alternatives declare matching business outputs. Reusable groups declare their inputs and outputs. Iteration has finite item and concurrency ceilings, preserves order and duplicates, and validates the collection bound before dispatch. Each scope can own `always` tasks.
 
+`dependsOn` names eligible tasks in the same scope. Ordinary data bindings already
+establish dependencies; available ancestors are captured without cross-scope
+ordering entries. Descendant values pass through explicit exports at every boundary,
+then consumers use the enclosing task's named output. Existing equivalent export
+chains are reused. `present` checks an accessible task's completion, not a business
+field or hidden descendant; an export never aliases an inner task identity.
+
+Fresh dependency repairs enumerate only local, phase-compatible, noncyclic targets
+and preserve unaffected edges. An inaccessible immutable `requires` reference stops
+with `REVISION_REQUIRED` before another repair, unless existing authority can resolve
+its data exports. Diagnostics and read-only repair context identify scopes, phases
+and export names. Historical version-7 requests retain their original schema and
+fingerprint; full semantic validation remains mandatory for every patch. See the
+[scope-reference regressions](../../docs/scope-reference-planning-2026-10-05.md).
+
 Task, group and choice declarations share one case-sensitive namespace throughout the TaskPlan, including nested scopes and reusable-group definitions. Their IDs and references use only nonempty ASCII letters, digits, underscores or hyphens, excluding the reserved `__` prefix. Repeated calls do not redeclare a group. Alternative IDs remain local to each choice; business ports, operation IDs and requirement IDs are outside this namespace. Invalid declarations fail closed without normalization, automatic renaming or broader repair permissions. Existing malformed consumer references can be corrected only in their diagnosed binding slots. Recovered plans and approval verification use the same identity rules; regenerate a saved plan with invalid declarations.
 
 `TaskPlanCompiler` owns executor selection, stable generated IDs, request envelopes, references, declared branch merges, collection projections, explicitly supplied literal defaults and cleanup guards. Transient symbol tables and source maps are not another persisted plan. Compilation diagnostics address business tasks and ports. Generated executor validation failures stop as compiler diagnostics; the model is never asked to repair generated plumbing.

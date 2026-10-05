@@ -64,7 +64,7 @@ internal static class PlanningRepairPatch
             ? new(null, parent, path[(split + 1)..], null, -1) : null;
     }
 
-    internal static IReadOnlyList<Slot> Slots(PlanningSession state, JsonObject definitions, bool structural = true)
+    internal static IReadOnlyList<Slot> Slots(PlanningSession state, JsonObject definitions, bool structural = true, bool scopedDependencies = true)
     {
         var plan = state.Plan!; var symbols = new TaskPlanSymbols(plan);
         var index = Index(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!);
@@ -149,6 +149,9 @@ internal static class PlanningRepairPatch
                         .Where(c => state.Catalog.AllowedStepTypes.Contains(c.StepType) && !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id) && TaskOperations.Validate(c).Count == 0)
                         .Select(c => TaskOperations.Describe(c).Id).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray()),
                     "group" => PlanningSchemas.Enum(plan.Groups.Select(g => g.Id).ToArray()),
+                    "dependsOn" when scopedDependencies => symbols.DependencyTargets(ownerId) is { Count: > 0 } targets
+                        ? PlanningSchemas.Array(PlanningSchemas.Enum(targets.ToArray()), 0, targets.Count)
+                        : PlanningSchemas.Array(PlanningSchemas.Ref("id"), 0, 0),
                     "dependsOn" => PlanningSchemas.Ref("identities"),
                     "maxItems" => PlanningSchemas.Integer(1, 10000), "maxConcurrency" => PlanningSchemas.Integer(1, 100),
                     _ => schema
@@ -228,14 +231,14 @@ internal static class PlanningRepairPatch
         return PlanningSchemas.Compact(schema);
     }
 
-    internal static string Authority(PlanningSession state) => PlanningGraphCompiler.Fingerprint(new JsonObject
+    internal static string Authority(PlanningSession state, bool scopedDependencies = true) => PlanningGraphCompiler.Fingerprint(new JsonObject
     {
         ["version"] = 7, ["intentVersion"] = state.IntentVersion,
         ["tenant"] = state.Request.TenantId, ["session"] = state.Request.SessionId,
         ["baseline"] = JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan),
         ["requirements"] = JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements),
         ["scope"] = new JsonArray(state.RevisionScope.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
-        ["permissions"] = PermissionDescriptors(state),
+        ["permissions"] = PermissionDescriptors(state, scopedDependencies),
         ["diagnostics"] = new JsonArray(state.Diagnostics.Where(d => d.Required && d.Code is not ("MODEL_DISPATCH_UNVERIFIABLE" or "LLM_BUDGET_UNVERIFIABLE" or "PLANNING_HOST_FAILURE"))
             .OrderBy(d => d.Location, StringComparer.Ordinal).ThenBy(d => d.Code, StringComparer.Ordinal)
             .Select(d => (JsonNode)new JsonObject { ["code"] = d.Code, ["location"] = d.Location }).ToArray()),
@@ -247,10 +250,10 @@ internal static class PlanningRepairPatch
         ["options"] = state.Request.Options.DeepClone(), ["clarifications"] = PlanningSchemas.Clarifications()
     }.ToJsonString());
 
-    private static JsonObject PermissionDescriptors(PlanningSession state)
+    private static JsonObject PermissionDescriptors(PlanningSession state, bool scopedDependencies)
     {
-        var definitions = PlanningSchemas.FullProposal(state, compact: false, clarifications: false)["$defs"]!.AsObject();
-        var slots = Slots(state, definitions);
+        var definitions = PlanningSchemas.FullProposal(state, compact: false, clarifications: false, scopeGuidance: scopedDependencies)["$defs"]!.AsObject();
+        var slots = Slots(state, definitions, scopedDependencies: scopedDependencies);
         return new() { ["definitions"] = definitions.DeepClone(), ["slots"] = new JsonArray(slots.Select(s => (JsonNode)new JsonObject
         { ["id"] = s.Id, ["location"] = s.Location, ["kind"] = s.Kind, ["schema"] = s.ValueSchema.DeepClone(),
             ["actions"] = new JsonArray(s.Actions.Select(a => (JsonNode?)JsonValue.Create(a)).ToArray()) }).ToArray()) };
@@ -263,19 +266,25 @@ internal static class PlanningRepairPatch
         return context;
     }
 
-    internal static void Verify(PlanningSession state, LLMRequest request)
+    internal static bool Verify(PlanningSession state, LLMRequest request)
     {
         var repair = RequestContext(request)["repair"];
         var version = repair?["version"]?.GetValue<int>();
-        if (state.IntentVersion != 2 || version != 7 || repair!["authority"]?.ToString() != Authority(state))
-            throw new PlanningConflictException("The repair baseline, scope or contracts changed. The retained request cannot be rebased or redispatched.");
+        if (state.IntentVersion == 2 && version == 7)
+        {
+            if (repair!["authority"]?.ToString() == Authority(state)) return true;
+            // Already-issued version-7 requests keep their original schemas and authority.
+            // This compatibility path never issues a new unrestricted dependency slot.
+            if (repair["authority"]?.ToString() == Authority(state, scopedDependencies: false)) return false;
+        }
+        throw new PlanningConflictException("The repair baseline, scope or contracts changed. The retained request cannot be rebased or redispatched.");
     }
 
     internal static TaskPlan Apply(PlanningSession state, RepairPatch patch, LLMRequest request)
     {
-        Verify(state, request);
-        var definitions = PlanningSchemas.FullProposal(state, compact: false)["$defs"]!.AsObject();
-        var slots = Slots(state, definitions).ToDictionary(s => s.Id, StringComparer.Ordinal);
+        var scopedDependencies = Verify(state, request);
+        var definitions = PlanningSchemas.FullProposal(state, compact: false, scopeGuidance: scopedDependencies)["$defs"]!.AsObject();
+        var slots = Slots(state, definitions, scopedDependencies: scopedDependencies).ToDictionary(s => s.Id, StringComparer.Ordinal);
         // Recovery and direct callers both enforce the exact issued response schema.
         var response = new JsonObject { ["discoveryRequests"] = null, ["patch"] = JsonSerializer.SerializeToNode(patch, RepairJsonContext.Default.RepairPatch) };
         if (request.StructuredOutputSchema?["properties"]?["clarifications"] is not null) response["clarifications"] = null;
@@ -321,6 +330,19 @@ internal static class PlanningRepairPatch
         }
         var candidate = tree.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
         var findings = TaskPlanRevisions.Validate(baseline, candidate, state.RevisionScope, state.Catalog).ToList();
+        if (scopedDependencies)
+        {
+            var revised = new TaskPlanSymbols(candidate);
+            foreach (var (id, original) in symbols.Tasks.Where(t => state.RevisionScope.Contains("/tasks/" + t.Key + "/dependsOn")))
+                if (revised.Tasks.TryGetValue(id, out var updated))
+                {
+                    var eligible = symbols.DependencyTargets(id);
+                    if (updated.Task.DependsOn.Distinct(StringComparer.Ordinal).Count() != updated.Task.DependsOn.Count ||
+                        updated.Task.DependsOn.Any(d => !eligible.Contains(d, StringComparer.Ordinal)) ||
+                        original.Task.DependsOn.Where(d => eligible.Contains(d, StringComparer.Ordinal)).Except(updated.Task.DependsOn, StringComparer.Ordinal).Any())
+                        findings.Add(new("REVISION_SCOPE_CHANGED", "/tasks/" + id + "/dependsOn", "Use eligible same-scope dependencies and preserve every unaffected edge; duplicate, cyclic and cross-phase dependencies are not repair targets."));
+                }
+        }
         if (findings.Count > 0) throw new PlanningResponseException(findings);
         if (structural.Length > 0) PlanningStructuralRepair.Validate(state, candidate, structural.Select(e => slots[e.Slot]).ToArray());
         if (JsonNode.DeepEquals(before, JsonSerializer.SerializeToNode(candidate, PlanningJsonContext.Default.TaskPlan)))

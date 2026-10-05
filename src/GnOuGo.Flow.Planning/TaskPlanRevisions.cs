@@ -64,10 +64,25 @@ internal static class TaskPlanRevisions
     {
         var symbols = new TaskPlanSymbols(state.Plan!);
         var catalog = PlanningStructuralRepair.Catalog(state);
-        foreach (var finding in state.Diagnostics.Where(d => d.Required && d.Code == "TASK_OUTPUT_UNKNOWN"))
+        foreach (var finding in state.Diagnostics.Where(d => d.Required && d.Code is "TASK_OUTPUT_UNKNOWN" or "TASK_REFERENCE_UNKNOWN" or "TASK_PRESENCE_SCOPE"))
         {
             if (finding.Location.Split('/') is not ["", "tasks", var consumer, "requires"] ||
                 !symbols.Tasks.TryGetValue(consumer, out var site) || site.Task.Requires is not { } condition) continue;
+            if (finding.Code is "TASK_REFERENCE_UNKNOWN" or "TASK_PRESENCE_SCOPE")
+            {
+                // Another diagnosed consumer may already authorize the missing data exports.
+                // Such exports never make an inaccessible task identity visible to present.
+                var exports = Exports(state.Plan!, [finding.Location]);
+                if (finding.Code != "TASK_PRESENCE_SCOPE" && exports.Consumers.ContainsKey(finding.Location) &&
+                    exports.Additions.Count > 0 && exports.Additions.Keys.All(state.RevisionScope.Contains) &&
+                    TaskPlanCompiler.Values(condition).Where(v => v.Kind is "output" or "present").All(v =>
+                        v.Source is { } source && symbols.Tasks.TryGetValue(source, out var producer) &&
+                        (producer.Scope == site.Scope || IsAncestor(producer.Scope, site.Scope) ||
+                            v.Kind == "output" && symbols.ExportRoute(site.Scope, source).Count > 0))) continue;
+                yield return finding with { Code = "REVISION_REQUIRED", Message = finding.Message +
+                    " The required condition is immutable and its reference cannot be made accessible by the issued edits. Explicitly revise the scope/binding; unrelated repairs cannot resolve it." };
+                continue;
+            }
             foreach (var reference in TaskPlanCompiler.Values(condition).Where(v => v.Kind == "output" && !string.IsNullOrEmpty(v.Port)))
             {
                 if (reference.Source is not { } id || !symbols.Tasks.TryGetValue(id, out var producer) || producer.Task.Kind != "operation" ||
@@ -78,6 +93,12 @@ internal static class TaskPlanRevisions
                     " The required condition and producer contract are outside repair authority. Explicitly revise the binding; unrelated repairs cannot resolve it." };
                 break;
             }
+        }
+
+        static bool IsAncestor(TaskPlanSymbols.Scope ancestor, TaskPlanSymbols.Scope scope)
+        {
+            for (var parent = scope.Parent; parent is not null; parent = parent.Parent) if (parent == ancestor) return true;
+            return false;
         }
     }
     internal static IReadOnlyList<string> Scope(TaskPlan plan, IReadOnlyList<PlanningDiagnostic> findings)
