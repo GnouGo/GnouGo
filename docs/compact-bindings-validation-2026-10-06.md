@@ -55,3 +55,15 @@ Review then exposed an optimization gap: an entry requirement on a copy-only loo
 A read-only recompilation of the retained r6 proposal shrinks from 98,442 to 85,393 bytes and 17 to 11 workflows. Its approved/stored artifacts are not replaced (no approval was issued for this proposal). This remains compilation evidence, not execution success. [Retained cohort](evidence/compact-bindings-2026-10-06/cohort-b-before-execution.json), [regression evidence](evidence/compact-bindings-2026-10-06/guarded-copy-regression.json).
 
 The one requested live execution will use a fresh identity on the corrected frozen candidate after validation. The earlier cohort is not pooled with that candidate.
+
+## Corrected candidate gate
+
+Frozen production/harness `71315a5a` contains the guarded-copy fix and a test-only assertion-style correction. The final solution rerun passes **4,603 tests, zero failures, twelve existing skips**, with `-warnaserror`; [per-project results](evidence/compact-bindings-2026-10-06/solution-validation-final.json). The preceding run passed all behavioral assertions but failed on `xUnit2031`; the predicate-overload correction changes no test expectation. Planning Release packaging and Native AOT were rerun for the guard correction. Core/Persistence and published recovery code remain unchanged from their earlier successful checks.
+
+Cohort `compactbindings20261006d` uses the corrected frozen candidate and a fresh planning/execution identity. Cohorts `compactbindings20261006a` and `compactbindings20261006c` contain readiness only, with zero inference. [Corrected readiness](evidence/compact-bindings-2026-10-06/readiness-d.json) confirms actual Browser/Document operations against disposable local data and independent XLSX reading. No saved execution is replayed.
+
+## Fresh Amazon ready for review
+
+Run `compactbindings20261006d-amazon-1` reached final review at revision 8, artifact `0e86683a295778310311f8acda2d3c88a9b771a50cfdca30e940193fe24aad9f`. Two rejected proposals and both review commands remain retained. The reviewed composition uses producer completeness guards, four fused record-copy projections, actual product visits, explicit observed-field extraction, actual workbook writing and root cleanup. There is no startup confirmation. [Concrete review and requirement acknowledgments](evidence/compact-bindings-2026-10-06/amazon-review.md).
+
+Planning used six calls/attempts, two repairs, two review revisions and two discovery reads; 66,235 input / 24,537 output tokens, EUR 0.947098 and 288,310 ms. The campaign upper bound is EUR 90.553146 / 150 with unchanged unknown reservations. Generation/review is complete; execution, runtime cache behavior, collected live-result/journal sizes and the independent XLSX oracle are **not yet observed**. Separate revision/hash-bound approval is required by the accepted plan before the single execution. PR #117 remains draft.
