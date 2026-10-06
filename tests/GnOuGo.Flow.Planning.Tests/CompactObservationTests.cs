@@ -15,6 +15,64 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactObservationTests(ITestOutputHelper output)
 {
     [Theory]
+    [InlineData("bundles", "facts", false)]
+    [InlineData("observations", "candidates", false)]
+    [InlineData("bundles", "facts", true)]
+    public async Task GlobalExtractionNeedsAnExplicitIndependentCandidateView(string input, string port, bool absent)
+    {
+        // Sanitized shape of the retained failure: complete pages, but one global
+        // extraction result. A collection input alone must not change semantics.
+        var record = ProductTransformationPlan.Obj(("kind", new()), ("label", new()), ("group", new()), ("reference", new()));
+        var plan = Plan(false, input, port);
+        plan.Inputs[0].Type.Items = ProductTransformationPlan.Obj(("records", new() { Kind = "array", Items = record }));
+        plan.Root.Tasks[0].ResultType!.Fields[0].Type.Items = new() { Kind = "array", Items = plan.Root.Tasks[0].ResultType!.Fields[0].Type.Items };
+        plan.Root.Tasks[0].Objective = "Extract the observed candidate facts and exact references from every complete page. Keep one array per page, empty only when that page has no candidate; the later comparison remains global.";
+        var values = new JsonObject { ["complete"] = true, [input] = new JsonArray(Enumerable.Range(0, 52).Select(page => (JsonNode)new JsonObject
+        {
+            ["records"] = new JsonArray(Enumerable.Range(0, page < 32 ? 29 : 28).Select(index => (JsonNode)new JsonObject
+            {
+                ["kind"] = !absent && page == 26 && index is 7 or 8 ? "candidate" : "note",
+                ["label"] = page == 26 && index is 7 or 8 ? "middle_required" : "observed/" + page + "/" + index,
+                ["group"] = page == 26 ? "target" : "group/" + new string('g', 256),
+                ["reference"] = "ref/" + page + "/" + index
+            }).ToArray())
+        }).ToArray()) };
+        var original = values.ToJsonString();
+        var direct = JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        direct.Root.Tasks.RemoveAt(0);
+        var global = direct.Root.Tasks[0]; global.Mode = "extract";
+        global.Inputs[0] = new(port, new() { Kind = "input", Source = input });
+        global.ResultType = ProductTransformationPlan.Obj(("selected", new() { Nullable = true }));
+        direct.Root.Outputs = [new("selected", ProductTransformationPlan.Ref(global.Id, "selected"))];
+        // Both compositions share the retained live ceiling. Existing 12k
+        // fixtures continue exercising narrower hosts and oversized examples.
+        var rejected = new Model(input, port, nested: true, limit: 96000);
+        var failed = await Execute(direct, values, rejected);
+        Assert.False(failed.Success); Assert.Equal(ErrorCodes.LlmBudgetExceeded, failed.Error!.Code);
+        Assert.Empty(rejected.Mapping); Assert.Empty(rejected.Interpretation);
+
+        var model = new Model(input, port, nested: true, limit: 96000);
+        var result = await Execute(plan, values, model);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(absent ? [] : new[] { "middle_required", "middle_required" }, result.Outputs!["labels"]!.AsArray().Select(v => v!.ToString()));
+        var request = Assert.Single(model.Mapping);
+        Assert.Contains("item_target", request.Prompt); Assert.DoesNotContain("middle_required", request.Prompt);
+        var candidates = Business(Assert.Single(model.Interpretation))[port]!.AsArray();
+        Assert.Equal(52, candidates.Count);
+        Assert.All(candidates.Where((_, index) => index != 26), page => Assert.Empty(page!.AsArray()));
+        if (absent) Assert.Empty(candidates[26]!.AsArray());
+        else Assert.Equal(new[] { "ref/26/7", "ref/26/8" }, candidates[26]!.AsArray().Select(v => v!["reference"]!.ToString()));
+        Assert.Equal(original, values.ToJsonString());
+        Assert.DoesNotContain("observed/", model.Interpretation[0].Prompt);
+        output.WriteLine($"Global extract rejected bytes={rejected.RejectedBytes}, estimate={rejected.RejectedEstimate}; bounded mapping bytes={Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest))}, estimate={Model.Estimate(request)}; global decision bytes={Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(model.Interpretation[0], PlanningJsonContext.Default.LLMRequest))}, estimate={Model.Estimate(model.Interpretation[0])}; complete pages=52, records=1488, absent={absent}.");
+
+        values["complete"] = false;
+        var incomplete = new Model(input, port, nested: true, limit: 96000);
+        var stopped = await Execute(plan, values, incomplete);
+        Assert.False(stopped.Success); Assert.Empty(incomplete.Mapping); Assert.Empty(incomplete.Interpretation);
+    }
+
+    [Theory]
     [InlineData(false, "records", "observations")]
     [InlineData(true, "entries", "facts")]
     public async Task CompleteCompactionPrecedesGlobalReasoningWithoutRawCollectionLeakage(bool typed, string input, string port)
@@ -193,7 +251,7 @@ public sealed class CompactObservationTests(ITestOutputHelper output)
 
     private static async Task<GnOuGo.Flow.Core.Models.RunResult> Execute(TaskPlan plan, JsonObject values, Model model)
     {
-        var engine = new WorkflowEngine { LLMClient = model, LlmDefaults = new() { Model = "deterministic" } };
+        var engine = new WorkflowEngine { LLMClient = model, LlmDefaults = new() { Model = "deterministic" }, Limits = new() { MaxMappingInputTokens = model.Limit } };
         var catalog = await new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask).DiscoverAsync(new() { Policy = new() { RequireExternalConfirmation = false } }, PlannerFixture.Ct);
         var compiled = new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Empty(compiled.Diagnostics); Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
@@ -203,27 +261,31 @@ public sealed class CompactObservationTests(ITestOutputHelper output)
     }
 
     private static JsonNode Business(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf("Business data (JSON):", StringComparison.Ordinal) + "Business data (JSON):".Length)..])!;
-    private sealed class Model(string input, string port) : ILLMClient, ILLMCapabilityResolver
+    private sealed class Model(string input, string port, bool nested = false, int limit = 12000) : ILLMClient, ILLMCapabilityResolver
     {
+        internal int Limit => limit;
         internal readonly List<LLMRequest> Mapping = [], Interpretation = [];
         internal int RejectedBytes, RejectedEstimate;
         internal static int Estimate(LLMRequest request) => PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema!.AsObject());
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
-            if (Estimate(request) > 12000)
+            if (Estimate(request) > limit)
             {
                 RejectedEstimate = Estimate(request); RejectedBytes = Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
                 throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetExceeded, "Complete request exceeds the fixed test allowance before dispatch.");
             }
             if (request.StructuredOutputSchema?["properties"]?["script"] is not null)
             {
-                Mapping.Add(request); return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = "({label:m.parse(source." + input + ".note).label,group:m.parse(source." + input + ".note).group,reference:m.parse(source." + input + ".note).reference})" } });
+                Mapping.Add(request); return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = nested
+                    ? "source." + input + ".records.filter(r=>m.test(r.kind,'^candidate$')).map(r=>({label:r.label,group:r.group,reference:r.reference}))"
+                    : "({label:m.parse(source." + input + ".note).label,group:m.parse(source." + input + ".note).group,reference:m.parse(source." + input + ".note).reference})" } });
             }
             Interpretation.Add(request); var data = Business(request);
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["labels"] = new JsonArray(data[port]!.AsArray()
+            var facts = nested ? data[port]!.AsArray().SelectMany(page => page!.AsArray()) : data[port]!.AsArray();
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["labels"] = new JsonArray(facts
                 .Where(r => r!["group"]?.ToString() == data["group"]!.ToString()).Select(r => r!["label"]!.DeepClone()).ToArray()) } });
         }
-        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(12000);
+        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(limit);
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>([]);
     }
