@@ -1,6 +1,6 @@
-# Fresh Amazon artifact awaiting approval
+# Historical review of the approved Amazon artifact
 
-This artifact has **not executed**. The frozen production and harness are `4d0337b589aada4406531923c7596895c8246253`; cohort `boundeddecision20261006a`. Prior approvals and failed invocations remain unchanged.
+**Execution status:** approved by the user and executed once; failed on the first expired snapshot cursor, with verified cleanup. [Execution evidence](amazon-execution.md). The following records the pre-execution review. The frozen production and harness are `4d0337b589aada4406531923c7596895c8246253`; cohort `boundeddecision20261006a`. Prior approvals and failed invocations remain unchanged.
 
 - Run: `boundeddecision20261006a-amazon-1`
 - Revision: **7**

@@ -1,0 +1,63 @@
+{
+  "run_id": "boundeddecision20261006a-amazon-1",
+  "status": "failed",
+  "steps_started": 18,
+  "finalization_steps_started": 1,
+  "finalization_started": true,
+  "finalization_completed": true,
+  "logical_json_bytes": 842083,
+  "checkpoint_json_bytes": 3079,
+  "referenced_block_count": 58,
+  "referenced_block_json_bytes": 421240,
+  "checkpoint_read_ms": 252.5242,
+  "reconstruction_ms": 178.0568,
+  "invocations": 19,
+  "events": 66,
+  "invocation_types": {
+    "mcp.call": 3,
+    "set": 10,
+    "workflow.call": 2,
+    "llm.call": 1,
+    "template.render": 1,
+    "loop.sequential": 1,
+    "switch": 1
+  },
+  "finalizers": [
+    {
+      "id": "/workflow/main/finally/step/n_38125c2e8d49993f",
+      "type": "mcp.call",
+      "status": "completed",
+      "observed_completion": true,
+      "description": "Fermer le navigateur et le contexte même en cas d’échec d’une étape précédente."
+    }
+  ],
+  "mappings": [],
+  "request_sizes": [],
+  "non_completed": [
+    {
+      "id": "/workflow/main/step/n_2b2e3394599e6a8d/workflow/w_b2fd18075ce94365/step/n_53f7f290df133b63/iteration/0/step/n_90891b88642efb67",
+      "type": "workflow.call",
+      "status": "failed",
+      "observed_completion": false
+    },
+    {
+      "id": "/workflow/main/step/n_2b2e3394599e6a8d",
+      "type": "workflow.call",
+      "status": "failed",
+      "observed_completion": false
+    },
+    {
+      "id": "/workflow/main/step/n_2b2e3394599e6a8d/workflow/w_b2fd18075ce94365/step/n_53f7f290df133b63/iteration/0/step/n_90891b88642efb67/workflow/w_7d8978c60e044edb/step/n_49a59ecda6cbc0f1",
+      "type": "mcp.call",
+      "status": "failed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_2b2e3394599e6a8d/workflow/w_b2fd18075ce94365/step/n_53f7f290df133b63",
+      "type": "loop.sequential",
+      "status": "failed",
+      "observed_completion": false
+    }
+  ],
+  "note": "Read-only public KeyVault APIs. Referenced immutable blocks only; superseded blocks and encryption/SQLite overhead excluded. Read/reconstruction timings are inspection, not checkpoint-write latency. No execution or dispatch."
+}

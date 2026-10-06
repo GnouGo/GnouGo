@@ -40,4 +40,12 @@ Provider metadata and disposable Browser/Document readiness pass with zero infer
 
 The new artifact reaches review at revision **7**, after five calls, zero repairs and two concrete review revisions. The initial proposal still repeated the raw global extraction; the next declared one object per source record despite requesting optional candidates. Both were rejected during review without execution. The final proposal has explicit nested candidate arrays, consumer-specific fields, deterministic product assembly and guards on original completeness metadata. Requirements and unrelated work remain preserved. This demonstrates a reviewable corrected composition, **not reliable first-proposal generation**.
 
-Known planning usage is 72,806 input / 21,846 output tokens, EUR 0.904614 and 331,564 ms. The campaign upper bound is EUR 92.810955 / 150 with historical unknown reservations intact. [Review the exact new artifact](evidence/global-extraction-2026-10-06/amazon-review.md). It has not executed; all six cohort execution slots remain unpassed. PR #117 remains draft.
+Known planning usage is 72,806 input / 21,846 output tokens, EUR 0.904614 and 331,564 ms. The campaign upper bound is EUR 92.810955 / 150 with historical unknown reservations intact. [Review the exact new artifact](evidence/global-extraction-2026-10-06/amazon-review.md). At that checkpoint it had not executed. The subsequent approved execution is recorded below. PR #117 remains draft.
+
+## Approved execution result
+
+The user approved the exact revision-7 hash; the artifact executed once and remains byte-for-byte unchanged. Browser returned HTTP 202 and a three-page snapshot manifest, then rejected the matching first cursor as expired. No mapping, product visit or workbook write occurred. The failed read has a verified durable completion, and Browser cleanup passed with one finalization step. The oracle failed (`workflow_execution_failed`, `workbook_missing`). [Full result, diagnosis and proposed next investigation](evidence/global-extraction-2026-10-06/amazon-execution.md).
+
+Existing local tests reproduce navigation invalidating snapshots and fresh capture succeeding: three tests pass without source changes or paid inference. The live run did not retain its triggering navigation event, so its specific navigation cause is not established. Stale-cursor rejection remains intact.
+
+Execution used one URL-construction call, 116 verified input / 96 output tokens and EUR 0.003070; execution including oracle was 17,167 ms. Campaign upper bound is **EUR 92.814025 / 150**, including unchanged unknown reservations. The cohort remains **0/6**, with one failed and five unexecuted slots. No automatic replay, new code-review run or cohort expansion is authorized by this result.
