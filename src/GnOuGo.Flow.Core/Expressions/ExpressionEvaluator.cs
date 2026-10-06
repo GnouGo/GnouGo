@@ -30,15 +30,27 @@ public sealed class ExpressionEvaluator
     {
         result = null;
         if (script.Length > 65536) return false;
-        if (new Acornima.Parser().ParseExpression(script) is not ObjectExpression { Properties.Count: 1 } expression ||
-            expression.Properties[0] is not Property { Computed: false, Method: false, Kind: PropertyKind.Init } property ||
-            (property.Key is Identifier name ? name.Name : (property.Key as Literal)?.Value?.ToString()) != "value" ||
-            property.Value is not CallExpression { Arguments.Count: 3, Callee: MemberExpression { Computed: false,
-                Object: Identifier { Name: "m" }, Property: Identifier { Name: "select" } } } call ||
-            call.Arguments[0] is not Identifier { Name: "source" } || call.Arguments[1] is not ArrayExpression paths ||
-            call.Arguments[2] is not BooleanLiteral each ||
-            paths.Elements.Any(p => p is not ArrayExpression a || a.Elements.Any(v => v is not StringLiteral))) return false;
-        var selections = paths.Elements.Cast<ArrayExpression>().Select(p => p.Elements.Cast<StringLiteral>().Select(s => s.Value).ToArray()).ToArray();
+        var syntax = new Acornima.Parser().ParseExpression(script);
+        static string? Key(Property property) => property.Key is Identifier id ? id.Name : (property.Key as StringLiteral)?.Value;
+        static bool Supported(Node node, HashSet<string> names) => node switch
+        {
+            Identifier id => names.Contains(id.Name),
+            Literal literal => literal.Value is null or string or bool or double,
+            MemberExpression member => Supported(member.Object, names) &&
+                (member.Computed ? member.Property is StringLiteral : member.Property is Identifier),
+            ObjectExpression obj => obj.Properties.All(p => p is Property { Computed: false, Method: false, Kind: PropertyKind.Init } property &&
+                Key(property) is not (null or "__proto__" or "constructor" or "prototype") && Supported(property.Value, names)),
+            ArrayExpression array => array.Elements.All(v => v is not null && Supported(v, names)),
+            CallExpression { Arguments.Count: 3, Callee: MemberExpression { Computed: false,
+                Object: Identifier { Name: "m" }, Property: Identifier { Name: "select" } } } call =>
+                Supported(call.Arguments[0], names) && call.Arguments[1] is ArrayExpression paths &&
+                paths.Elements.All(p => p is ArrayExpression path && path.Elements.All(v => v is StringLiteral)) && call.Arguments[2] is BooleanLiteral,
+            CallExpression { Arguments.Count: 1, Callee: MemberExpression { Computed: false, Property: Identifier { Name: "map" } } member } call =>
+                Supported(member.Object, names) && call.Arguments[0] is ArrowFunctionExpression { Params.Count: 1, Async: false } arrow &&
+                arrow.Params[0] is Identifier parameter && Supported(arrow.Body, new HashSet<string>(names, StringComparer.Ordinal) { parameter.Name }),
+            _ => false
+        };
+        if (!Supported(syntax, new(StringComparer.Ordinal) { "source" })) return false;
         var watch = System.Diagnostics.Stopwatch.StartNew();
         long bytes = 0; var count = 0;
         void Check()
@@ -53,7 +65,7 @@ public sealed class ExpressionEvaluator
             if (value is JsonArray array) foreach (var item in array) Charge(item, depth + 1);
             if (value is JsonObject obj) foreach (var field in obj) Charge(field.Value, depth + 1);
         }
-        JsonNode? Select(JsonNode? item)
+        JsonNode? Select(JsonNode? item, string[][] selections)
         {
             Check();
             foreach (var path in selections)
@@ -65,20 +77,48 @@ public sealed class ExpressionEvaluator
                     else if (current is JsonArray array && int.TryParse(part, out var index) && index >= 0 && index < array.Count && part == index.ToString(System.Globalization.CultureInfo.InvariantCulture)) current = array[index];
                     else { present = false; break; }
                 }
-                if (present) { Charge(current); return current?.DeepClone(); }
+                if (present) return current;
             }
             throw JintSandbox.Unsatisfied("No declared selection path was present.");
         }
-        JsonNode? value;
-        if (each.Value)
+        JsonNode? Copy(JsonNode? value) => value?.DeepClone();
+        JsonNode? EvaluateSelection(Node node, Dictionary<string, JsonNode?> bindings)
         {
-            if (source is not JsonArray items) throw JintSandbox.Unsatisfied("Per-item selection requires an observed array.");
-            var output = new JsonArray();
-            foreach (var item in items) output.Add(Select(item));
-            value = output;
+            Check();
+            switch (node)
+            {
+                case Identifier id: return bindings[id.Name];
+                case Literal literal: return literal.Value switch { string text => JsonValue.Create(text), bool boolean => JsonValue.Create(boolean), double number => JsonValue.Create(number), _ => null };
+                case MemberExpression member:
+                    var container = EvaluateSelection(member.Object, bindings);
+                    var key = member.Property is Identifier property ? property.Name : ((StringLiteral)member.Property).Value;
+                    if (container is JsonArray memberArray && key == "length") return JsonValue.Create(memberArray.Count);
+                    return Select(container, [[key]]);
+                case ObjectExpression obj:
+                    return new JsonObject(obj.Properties.Cast<Property>().Select(p => new KeyValuePair<string, JsonNode?>(Key(p)!, Copy(EvaluateSelection(p.Value, bindings)))));
+                case ArrayExpression array:
+                    return new JsonArray(array.Elements.Select(v => Copy(EvaluateSelection(v!, bindings))).ToArray());
+                case CallExpression { Callee: MemberExpression { Property: Identifier { Name: "select" } } } call:
+                    var selections = ((ArrayExpression)call.Arguments[1]).Elements.Cast<ArrayExpression>()
+                        .Select(p => p.Elements.Cast<StringLiteral>().Select(v => v.Value).ToArray()).ToArray();
+                    var sourceValue = EvaluateSelection(call.Arguments[0], bindings);
+                    if (!((BooleanLiteral)call.Arguments[2]).Value) return Select(sourceValue, selections);
+                    if (sourceValue is not JsonArray items) throw JintSandbox.Unsatisfied("Per-item selection requires an observed array.");
+                    return new JsonArray(items.Select(item => Copy(Select(item, selections))).ToArray());
+                case CallExpression { Callee: MemberExpression member } call:
+                    if (EvaluateSelection(member.Object, bindings) is not JsonArray collection)
+                        throw JintSandbox.Unsatisfied("Collection projection requires an observed array.");
+                    var arrow = (ArrowFunctionExpression)call.Arguments[0]; var parameter = ((Identifier)arrow.Params[0]).Name;
+                    var local = new Dictionary<string, JsonNode?>(bindings, StringComparer.Ordinal);
+                    var result = new JsonArray();
+                    foreach (var item in collection) { local[parameter] = item; result.Add(Copy(EvaluateSelection(arrow.Body, local))); }
+                    return result;
+                default: throw JintSandbox.Unsatisfied("Unsupported structural selection.");
+            }
         }
-        else value = Select(source);
-        result = new JsonObject { ["value"] = value }; return true;
+        result = EvaluateSelection(syntax, new(StringComparer.Ordinal) { ["source"] = source });
+        Charge(result); result = result?.DeepClone();
+        return true;
     }
 
     public ExpressionEvaluator(Dictionary<string, Func<JsonNode?[], JsonNode?>>? extraFunctions = null)
@@ -150,6 +190,7 @@ public sealed class ExpressionEvaluator
                 var key = member.Property is Identifier id && !member.Computed ? id.Name : (member.Property as Literal)?.Value?.ToString();
                 if (key is null) return false;
                 if (container is JsonObject obj) { obj.TryGetPropertyValue(key, out value); return true; }
+                if (container is JsonArray counted && key == "length") { value = JsonValue.Create(counted.Count); return true; }
                 if (container is JsonArray array && int.TryParse(key, out var index) && index >= 0 && index < array.Count) { value = array[index]; return true; }
                 return false;
             }

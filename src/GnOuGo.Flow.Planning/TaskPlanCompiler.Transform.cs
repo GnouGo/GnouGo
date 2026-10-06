@@ -51,7 +51,14 @@ public sealed partial class TaskPlanCompiler
                     Input = Projection([new("value", observed), new("paths", Array([Strings([])]))]),
                     OutputSchema = Contract(ObjectSchema([("value", schema)])) }
                 : Mapping(key, observed, schema, task.Objective);
-            if (task.Each is { } each)
+            var independent = task.Each;
+            if (_compactBindings && independent is null && schema["properties"] is JsonObject { Count: 1 } fields &&
+                fields.First().Value is JsonObject { } array && array["type"]?.ToString() == "array")
+            {
+                var collections = bindings.Where(b => PlanningContractShapes.IterationItems(b.Bound.Schema) is not null).ToArray();
+                if (collections.Length == 1) independent = new(collections[0].Name, fields.First().Key);
+            }
+            if (independent is { } each)
             {
                 var collection = bindings.Single(i => i.Name == each.Input).Bound;
                 var items = PlanningContractShapes.IterationItems(collection.Schema)!;

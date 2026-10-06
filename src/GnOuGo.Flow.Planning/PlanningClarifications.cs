@@ -51,6 +51,7 @@ internal static class PlanningClarifications
             state.Request.RevisionContext = "Preserve unrelated accepted outcomes and inputs when applying the explicit user revision. Previous requirements:\n" +
                 PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements))!.ToJsonString();
         if (!preserveRequirements) state.Requirements = null;
+        state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
         state.IntentVersion = 2; state.OutcomeVersion = null; state.OutcomeBindings = null;
         state.EditablePaths = editablePaths?.Order(StringComparer.Ordinal).ToList();
         if (editablePaths is null) state.Plan = null;

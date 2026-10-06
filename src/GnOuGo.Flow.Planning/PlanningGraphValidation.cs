@@ -172,9 +172,11 @@ public static class PlanningGraphValidation
                 if (node.Input.Kind == "dynamic_mapping")
                 {
                     var each = Member(node.Input, "each");
+                    var inferEach = Member(node.Input, "infer_each");
                     if (node.Type != "set" || !catalog.AllowedStepTypes.Contains("mapping.dynamic") ||
                         node.OutputSchema is null || Member(node.Input, "sources") is not { Kind: "object", Members.Count: > 0 } ||
-                        node.Input.Members.Count != (each is null ? 4 : 5) || new[] { "objective", "binding", "producer_contract" }.Any(name =>
+                        node.Input.Members.Count != 4 + (each is null ? 0 : 1) + (inferEach is null ? 0 : 1) ||
+                        inferEach is not null && inferEach is not { Kind: "boolean", Boolean: not null } || new[] { "objective", "binding", "producer_contract" }.Any(name =>
                             Member(node.Input, name) is not { Kind: "string", Text: { Length: > 0 } }))
                         errors.Add(new("CONTRACT_UNSATISFIED", location + "/input", "Deferred extraction requires approved sources, a literal objective, binding/contract identities, a target contract and permitted bounded runtime inference."));
                     if (each is not null && (each is not { Kind: "object", Members.Count: 2 } ||

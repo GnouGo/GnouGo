@@ -16,6 +16,8 @@ internal static class LiveWorkflowOracles
         var events = run["events"]!.AsArray().OfType<JsonObject>().ToArray();
         if (scenario == "amazon")
         {
+            var productLimit = run["max_products"]?.GetValue<int>() ?? 3;
+            if (productLimit is < 1 or > 10) throw new InvalidOperationException("Invalid retained product bound.");
             var browser = await transport.GetClientAsync("GnOuGo.Browser.Mcp", CancellationToken.None);
             var cleanup = await browser.CallToolAsync("browser_get_content", new JsonObject(), CancellationToken.None);
             if (!cleanup.IsError || cleanup.Content?.ToJsonString().Contains("No active page", StringComparison.Ordinal) != true)
@@ -29,7 +31,7 @@ internal static class LiveWorkflowOracles
                 var part = workbook.WorkbookPart!;
                 var rows = part.WorksheetParts.SelectMany(w => w.Worksheet!.Descendants<Row>())
                     .Select(row => row.Elements<Cell>().Select(c => CellText(c, part)).ToArray()).ToArray();
-                if (rows.Length is < 2 or > 4 || rows.Any(r => r.Length < 3)) findings.Add("workbook_row_shape_or_product_bound");
+                if (rows.Length < 2 || rows.Length > productLimit + 1 || rows.Any(r => r.Length < 3)) findings.Add("workbook_row_shape_or_product_bound");
                 else
                 {
                     var names = rows[0].Select(Normalize).ToArray();
@@ -43,7 +45,7 @@ internal static class LiveWorkflowOracles
                                 (url.Host == "amazon.fr" || url.Host.EndsWith(".amazon.fr", StringComparison.Ordinal)) &&
                                 (url.AbsolutePath.Contains("/dp/", StringComparison.Ordinal) || url.AbsolutePath.Contains("/gp/product/", StringComparison.Ordinal))).ToArray();
                         var pages = observations.GroupBy(r => r["url"]!.ToString()).ToArray();
-                        if (pages.Length != rows.Length - 1 || pages.Length > 3) findings.Add("product_visits_do_not_match_rows");
+                        if (pages.Length != rows.Length - 1 || pages.Length > productLimit) findings.Add("product_visits_do_not_match_rows");
                         foreach (var row in rows.Skip(1))
                         {
                             var name = Normalize(row[nameIndex]); var description = Normalize(row[descriptionIndex]); var price = Normalize(row[priceIndex]);

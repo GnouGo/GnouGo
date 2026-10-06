@@ -15,7 +15,7 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
 {
     public string StepType => "mapping.dynamic";
     public StepRecovery Recovery => StepRecovery.Composite;
-    public StepContract Contract => new(JsonNode.Parse("""{"type":"object","properties":{"sources":{"type":"object"},"objective":{"type":"string","minLength":1},"binding":{"type":"string","minLength":1},"producer_contract":{"type":"string","minLength":1},"each":{"type":"object","properties":{"input":{"type":"string","minLength":1},"output":{"type":"string","minLength":1}},"required":["input","output"],"additionalProperties":false}},"required":["sources","objective","binding","producer_contract"],"additionalProperties":false}""")!.AsObject(),
+    public StepContract Contract => new(JsonNode.Parse("""{"type":"object","properties":{"sources":{"type":"object"},"objective":{"type":"string","minLength":1},"binding":{"type":"string","minLength":1},"producer_contract":{"type":"string","minLength":1},"infer_each":{"type":"boolean"},"each":{"type":"object","properties":{"input":{"type":"string","minLength":1},"output":{"type":"string","minLength":1}},"required":["input","output"],"additionalProperties":false}},"required":["sources","objective","binding","producer_contract"],"additionalProperties":false}""")!.AsObject(),
         JsonNode.Parse("""{"type":"object","properties":{"value":{}},"required":["value"],"additionalProperties":false}""")!.AsObject(), InputRequired: true);
 
     public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
@@ -28,6 +28,18 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
         var sources = input!["sources"]!.AsObject();
         var invocationId = ctx.StageInvocationId ?? ctx.InvocationId;
         var each = input["each"] as JsonObject;
+        if (each is null && input["infer_each"]?.GetValue<bool>() == true)
+        {
+            var collections = sources.Where(p => p.Value is JsonArray).Select(p => p.Key).ToArray();
+            var fields = target["properties"] as JsonObject;
+            var resultCollections = fields?.Where(p => p.Value?["type"]?.ToString() == "array").Select(p => p.Key).ToArray() ?? [];
+            if (collections.Length > 0 && (resultCollections.Length > 0 || target["type"]?.ToString() == "array"))
+            {
+                if (collections.Length != 1 || target["type"]?.ToString() != "array" && (fields!.Count != 1 || resultCollections.Length != 1))
+                    throw JintSandbox.Unsatisfied("Ambiguous independent extraction. Explicitly select the collection input and sole array output with each.");
+                each = new() { ["input"] = collections[0], ["output"] = target["type"]?.ToString() == "array" ? "" : resultCollections[0] };
+            }
+        }
         var eachInput = each?["input"]?.GetValue<string>();
         var eachOutput = each?["output"]?.GetValue<string>();
         JsonArray? collection = null;
@@ -41,9 +53,9 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
                 if (ctx.Engine.Journal is null && ctx.Engine.MappingAttempts.TryGetValue(invocationId + ":mapping:" + attempt, out var local) && local["response"] is null)
                     throw WorkflowRunJournal.Uncertain(invocationId + ":mapping:" + attempt);
             }
-            if (sources[eachInput!] is not JsonArray values || target["type"]?.ToString() != "object" ||
-                target["properties"] is not JsonObject { Count: 1 } fields || fields[eachOutput!] is not JsonObject resultArray ||
-                resultArray["type"]?.ToString() != "array" || resultArray["items"] is not JsonObject item)
+            var resultArray = eachOutput == "" && input["infer_each"]?.GetValue<bool>() == true ? target :
+                target["type"]?.ToString() == "object" && target["properties"] is JsonObject { Count: 1 } fields ? fields[eachOutput!] as JsonObject : null;
+            if (sources[eachInput!] is not JsonArray values || resultArray?["type"]?.ToString() != "array" || resultArray["items"] is not JsonObject item)
                 throw JintSandbox.Unsatisfied("Independent extraction requires one observed collection and one array result field.");
             collection = values; itemTarget = item;
             if (values.Count > ctx.Limits.MaxLoopIterations)
@@ -51,7 +63,7 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
             ctx.SetTelemetryAttribute("gnougo.mapping.source_items", values.Count);
             if (values.Count == 0)
             {
-                var empty = new JsonObject { [eachOutput!] = new JsonArray() };
+                JsonNode empty = eachOutput == "" ? new JsonArray() : new JsonObject { [eachOutput!] = new JsonArray() };
                 if (JsonSchemaContractValidator.ValidateInstance(empty, target).Count != 0)
                     throw JintSandbox.Unsatisfied("An empty collection does not satisfy the target contract.");
                 return new JsonObject { ["value"] = empty };
@@ -129,8 +141,8 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
         JsonObject Evaluate(string script)
         {
             JintSandbox.ValidateMapping(script);
-            var value = each is null ? sandbox.ExecuteMapping(script, sources, ct, target)
-                : new JsonObject { [eachOutput!] = sandbox.ExecuteMappingItems(script, sources, eachInput!, itemTarget!, ct) };
+            JsonNode? value = each is null ? sandbox.ExecuteMapping(script, sources, ct, target) : sandbox.ExecuteMappingItems(script, sources, eachInput!, itemTarget!, ct);
+            if (each is not null && eachOutput != "") value = new JsonObject { [eachOutput!] = value };
             var findings = JsonSchemaContractValidator.ValidateInstance(value, target);
             if (findings.Count > 0) throw JintSandbox.Unsatisfied("The mapped result does not satisfy its target: " + string.Join("; ", findings));
             if (collection is not null) ctx.SetTelemetryAttribute("gnougo.mapping.processed_items", collection.Count);

@@ -57,7 +57,8 @@ public sealed class WorkflowRunTests
         var effect = new Effect();
         var fault = new FaultStore(store, r => r.Invocations.Values.Any(i => i.Id.EndsWith("/write") && i.Status == "completed"), receiptPersisted);
         var engine = Engine(fault, effect);
-        await Assert.ThrowsAnyAsync<Exception>(() => engine.ExecuteAsync(Compile(Simple), null, TestContext.Current.CancellationToken));
+        var failure = await Assert.ThrowsAsync<IOException>(() => engine.ExecuteAsync(Compile(Simple), null, TestContext.Current.CancellationToken));
+        Assert.Equal(receiptPersisted ? "Injected process crash after commit." : "Injected persistence crash before commit.", failure.Message);
         Assert.Equal(["written"], effect.Values);
         var saved = (await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken))!;
         Assert.False(saved.FinalizationStarted);
@@ -89,7 +90,8 @@ public sealed class WorkflowRunTests
         var fault = new FaultStore(store, r => r.Events.Last().Kind == "dispatch", false);
         var engine = Engine(fault, effect);
         engine.Limits.MaxTotalStepsExecuted = 2;
-        await Assert.ThrowsAnyAsync<Exception>(() => engine.ExecuteAsync(Compile(Simple), null, TestContext.Current.CancellationToken));
+        var failure = await Assert.ThrowsAsync<IOException>(() => engine.ExecuteAsync(Compile(Simple), null, TestContext.Current.CancellationToken));
+        Assert.Equal("Injected persistence crash before commit.", failure.Message);
         Assert.Empty(effect.Values);
         var run = (await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken))!;
         var result = await Engine(store, effect).ResumeAsync("tenant", "run", run.Revision, Compile(Simple), TestContext.Current.CancellationToken);

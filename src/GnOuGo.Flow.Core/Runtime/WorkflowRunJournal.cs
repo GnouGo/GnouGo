@@ -9,6 +9,7 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private bool _storageFailed;
+    private System.Runtime.ExceptionServices.ExceptionDispatchInfo? _storageFailure;
     public WorkflowEffectGate Effects { get; } = new();
     public WorkflowRun Run => lease.Run;
     public bool HasPendingHumanInput => !Run.CancelRequested && Run.Invocations.Values.Any(i => i.Status == "waiting_for_human");
@@ -193,10 +194,10 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
 
     private async Task SaveAsync(string kind, string? id, CancellationToken ct)
     {
-        if (_storageFailed) throw new WorkflowRunConflictException("Journal persistence failed. Stop execution and inspect the durable run.");
+        _storageFailure?.Throw();
         Run.Events.Add(new(DateTimeOffset.UtcNow, kind, id));
         try { await lease.SaveAsync(id is null ? [] : new[] { id }, ct); }
-        catch { _storageFailed = true; throw; }
+        catch (Exception error) { _storageFailed = true; _storageFailure = System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error); throw; }
     }
 
     internal static void Restore(JsonObject target, JsonObject source)

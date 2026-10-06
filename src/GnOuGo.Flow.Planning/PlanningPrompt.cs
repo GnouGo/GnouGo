@@ -33,9 +33,9 @@ internal sealed class PlanningPrompt(PlanningSession state)
 
     private const string Instructions = """
         Business TaskPlan, discoveryRequests(1-4), or clarifications. Unsearched != absent; reserve plan/repair; closed discovery: plan:null.
-        Compatible data; missing fails; defaults only contracts/accepted inputs. extract copies, never invents flags/labels/counts/nulls; interpret/operations synthesize. No scripts.
+        Typed copies compile; extract structures JSON/text/HTML; interpret decides/compares/synthesizes. Missing fails; defaults only contracts/accepted inputs. No invented facts/scripts.
         Explicit ports (required unless false); transforms get objective+inputs. value/field/json/arithmetic=assembly/selection/encoding/JS Number; exact math:MCP. port:null=whole; default mode:interpret; keep enums.
-        Before global interpret, select fields/extract each:{input,output} per consumer, not a superset. Retain action references at source; pass only needed ones. Use complete bounded items (records/loops), ordered/nested; preserve facts/grouping/completeness. Never split global reasoning/truncate; report limits.
+        Before global interpret, select/extract only consumer fields. Unambiguous arrays extract item-wise; each:{input,output} disambiguates. Retain action references at source; pass only needed ones. Use complete bounded items (records/loops), ordered/nested; preserve facts/grouping/completeness. Never split global reasoning/truncate; report limits.
         dependsOn: same-scope; bindings order/capture. Export boundaries via owner.port; match branch names/values.
         Preserve actions/checks/constraints; discover/clarify compatible alternatives or limitations.
         Per item visit/extract result. truncated/nextCursor: consume before navigation; captureTruncated:narrow. Exhaustion!=complete; guard observed completeness. Blockers:observe/conditional authorized click/reobserve; clarify.

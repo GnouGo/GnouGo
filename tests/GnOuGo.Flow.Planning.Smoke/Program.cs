@@ -120,6 +120,24 @@ if (!repeatedValues.Select(v => v!.GetValue<string>()).SequenceEqual(Enumerable.
     throw new InvalidOperationException("Repeated extraction exceeded the unchanged sandbox allowance or lost values in Native AOT.");
 Console.WriteLine("collection mappings: independent extraction, ordered complete results, optional declaration serialization");
 
+var compactPlan = JsonSerializer.Deserialize("""
+    {"inputs":[{"name":"rows","type":{"kind":"array","items":{"kind":"object","fields":[{"name":"label"}]}}}],
+     "root":{"tasks":[{"id":"copy","kind":"foreach","objective":"Select labels","items":{"kind":"input","source":"rows"},
+       "body":{"outputs":[{"name":"labels","value":{"kind":"field","port":"label","items":[{"kind":"item"}]}}]}}],
+       "outputs":[{"name":"labels","value":{"kind":"output","source":"copy","port":"labels"}}]}}
+    """, PlanningJsonContext.Default.TaskPlan)!;
+var compactEngine = new WorkflowEngine();
+var compactCatalog = await new WorkflowPlanningRuntime(compactEngine, (_, _) => Task.CompletedTask).DiscoverAsync(new(), CancellationToken.None);
+var compactGraph = new TaskPlanCompiler().Compile(compactPlan, compactCatalog, compactBindings: true);
+if (compactGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Compact typed compilation failed.");
+var compactYaml = new PlanningGraphCompiler().Compile(compactGraph.Graph!, compactCatalog);
+var compactDoc = new WorkflowCompiler().Compile(WorkflowParser.Parse(compactYaml));
+var compactResult = await compactEngine.ExecuteAsync(compactDoc.Workflows["main"], JsonNode.Parse("{\"rows\":[{\"label\":\"same\"},{\"label\":\"same\"}]}"), CancellationToken.None);
+if (!compactResult.Success || compactDoc.Workflows.Count != 1 || compactYaml.Contains("loop.sequential", StringComparison.Ordinal) ||
+    compactResult.Outputs?["labels"]?.ToJsonString() != "[\"same\",\"same\"]")
+    throw new InvalidOperationException("Compact typed collection failed in Native AOT: " + compactResult.Error?.Message);
+Console.WriteLine("compact bindings: fused collection, zero per-item calls, exact duplicates, no inference");
+
 // Additive host failure contracts must survive source-generated Native AOT serialization.
 var taskFailure = new AgentTaskResult("failed", null, [], [], new(0, 0, 0))
 { Failure = new() { Code = "AGENT_ISOLATION_REQUIRED", Message = "Mandatory host isolation is not configured." } };

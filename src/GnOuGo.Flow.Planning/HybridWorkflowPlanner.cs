@@ -47,6 +47,8 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             throw new PlanningConflictException("The session model-call budget is exhausted. Token settings and revisions cannot extend it. Start a new planning session; retained requests and accounting remain unchanged.");
         var state = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         if (!state.RequiresPlanningRevision) state.IntentVersion = 2;
+        if (state.Revision == 0 && state.PendingCall is null && state.Plan is null)
+            state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         if (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } maximum)
         {
@@ -197,7 +199,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             // saved baseline. Pending requests always retain their issued scope.
             var candidate = JsonSerializer.Deserialize(JsonSerializer.Serialize(baseline, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
             foreach (var choice in candidate.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
-            var baselineFindings = new TaskPlanCompiler().Compile(candidate, state.Catalog!).Diagnostics;
+            var baselineFindings = new TaskPlanCompiler().Compile(candidate, state.Catalog!, TaskPlanCompiler.UsesCompactBindings(state.Request)).Diagnostics;
             state.Diagnostics = state.Diagnostics.Concat(baselineFindings.Where(d => d.Code == "TASK_TRANSFORM_CONSTRAINT")).Distinct().ToList();
             state.RevisionScope = TaskPlanRevisions.Scope(baseline, state.Diagnostics).ToList();
         }
@@ -363,7 +365,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         // Validate the recommendation by compiling it before either automatic selection or a human pause.
         var candidate = JsonSerializer.Deserialize(JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
         foreach (var choice in candidate.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
-        var compilation = new TaskPlanCompiler().Compile(candidate, state.Catalog!);
+        var compilation = new TaskPlanCompiler().Compile(candidate, state.Catalog!, TaskPlanCompiler.UsesCompactBindings(state.Request));
         if (compilation.Diagnostics.Count > 0) { SemanticFailure(state, compilation.Diagnostics); return; }
         if (plan.Choices.Any(c => c.Selected is null))
         {
@@ -373,7 +375,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         var graph = compilation.Graph!;
         if (PlanningClarifications.OutputFindings(state, graph) is { Count: > 0 } outputFindings)
         { state.Diagnostics = outputFindings; state.Graph = null; Stop(state); return; }
-        var findings = PlanningGeneratedGraph.Validate(graph, state.Catalog!).Select(compilation.Locate).ToList();
+        var findings = PlanningGeneratedGraph.Validate(graph, state.Catalog!, TaskPlanCompiler.UsesCompactBindings(state.Request)).Select(compilation.Locate).ToList();
         if (findings.Count > 0)
         {
             state.Diagnostics = findings.Select(d => d with { Code = "TASK_COMPILER_VALIDATION", Message = d.Code + ": " + d.Message }).ToList();

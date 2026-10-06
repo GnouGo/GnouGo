@@ -13,6 +13,43 @@ public sealed class DynamicMappingCollectionTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Theory]
+    [InlineData("source.records.label", "[{\"label\":\"x\"},{\"label\":\"y\"}]")]
+    [InlineData("m.text(source.records,'Name: (.+)')", "[\"Name: x\",\"Name: y\"]")]
+    [InlineData("m.text(source.records,'<h1>([^<]+)</h1>')", "[\"<h1>x</h1>\",\"<h1>y</h1>\"]")]
+    public async Task NewBindingsInferOneUnambiguousCollection(string script, string observed)
+    {
+        var doc = Document(); var input = doc.Workflows["main"].Steps[0].Input!.AsObject();
+        input.Remove("each"); input["infer_each"] = true;
+        var model = new Model(script); var store = new Store();
+        var items = JsonNode.Parse(observed)!.AsArray();
+        var result = await Run(model, store, items, doc);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(new[] { "x", "y" }, Result(result).Select(v => v!.GetValue<string>()));
+        Assert.Contains("item_target", Assert.Single(model.Requests).Prompt);
+        Assert.True((await Run(model, store, items, doc)).Success); Assert.Single(model.Requests);
+        input["sources"]!["other"] = new JsonArray("ambiguous");
+        result = await Run(model, store, items, doc);
+        Assert.False(result.Success); Assert.Equal("CONTRACT_UNSATISFIED", result.Error?.Code); Assert.Single(model.Requests);
+        input["each"] = new JsonObject { ["input"] = "records", ["output"] = "rows" };
+        Assert.True((await Run(model, store, items, doc)).Success);
+    }
+
+    [Fact]
+    public async Task InferredWholeArrayTargetAndLegacyOmissionRemainDistinct()
+    {
+        var doc = Document(); var step = doc.Workflows["main"].Steps[0];
+        var input = step.Input!.AsObject(); input.Remove("each"); input["infer_each"] = true;
+        step.OutputSchema!["properties"]!["value"] = JsonNode.Parse("{\"type\":\"array\",\"items\":{\"type\":\"string\"}}");
+        var model = new Model("source.records.label");
+        var result = await Run(model, new Store(), JsonNode.Parse("[{\"label\":\"first\"},{\"label\":\"second\"}]")!.AsArray(), doc);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.True(JsonNode.DeepEquals(new JsonArray("first", "second"), result.StepResults[0].Output!["value"]));
+        input.Remove("infer_each"); model = new Model("source.records.map(item=>item.label)");
+        result = await Run(model, new Store(), JsonNode.Parse("[{\"label\":\"first\"}]")!.AsArray(), doc);
+        Assert.True(result.Success, result.Error?.Message); Assert.DoesNotContain("item_target", Assert.Single(model.Requests).Prompt);
+    }
+
     [Fact]
     public async Task SamplesLearnCodeButEveryItemIsValidatedInOrderAndCacheSurvivesRestart()
     {

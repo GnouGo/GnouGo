@@ -5,7 +5,7 @@ using GnOuGo.Flow.Planning;
 
 internal static class LiveCampaignEvidence
 {
-    internal static async Task<JsonObject> PinAsync(BenchmarkCampaign campaign, string source, string provider, string model, string configurationFingerprint, string cohort)
+    internal static async Task<JsonObject> PinAsync(BenchmarkCampaign campaign, string source, string provider, string model, string configurationFingerprint, string cohort, int productLimit = 3)
     {
         var manifest = new JsonObject
         {
@@ -23,6 +23,7 @@ internal static class LiveCampaignEvidence
             ["harness_tree"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD:tests/GnOuGo.Agent.Planning.Benchmark"),
             ["scenario_count"] = 2, ["repetitions"] = 3, ["oracle_version"] = "real-workflows-v1"
         };
+        if (productLimit != 3) manifest["max_products"] = productLimit;
         var saved = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, cohort + "-manifest");
         if (saved is not null) RequireMatch(saved, manifest);
         else await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, cohort + "-manifest", manifest);

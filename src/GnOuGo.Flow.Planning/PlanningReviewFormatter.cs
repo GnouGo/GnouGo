@@ -15,6 +15,7 @@ public static class PlanningReviewFormatter
             }).Concat(PlanningGraphCompiler.Enumerate(state.Graph!.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)))
                 .Where(n => n.Input.Kind == "dynamic_mapping").Select(n => new PlanningValidationResult("mapping:" + n.Key, "declared",
                     n.Purpose + " — runtime extraction, at most two model attempts per invocation; cache hits still validate the complete result. " +
+                    (PlanningGraphValidation.Member(n.Input, "infer_each")?.Boolean == true ? "Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. " : "") +
                     (PlanningGraphValidation.Member(n.Input, "each") is null ? "" : "Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and the two attempts are shared. ") + "No execution evidence yet.", [])));
 
     public static string TaskDiagram(TaskPlan? plan)

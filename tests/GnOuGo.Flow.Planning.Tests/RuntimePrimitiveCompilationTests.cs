@@ -43,9 +43,11 @@ public sealed class RuntimePrimitiveCompilationTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ForeachUsesOneCheckedPrimitiveAndRejectsExcessItems(bool parallel)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task ForeachUsesOneCheckedPrimitiveAndRejectsExcessItems(bool parallel, bool compact)
     {
         var engine = new WorkflowEngine(); var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
         var catalog = await runtime.DiscoverAsync(new(), PlannerFixture.Ct);
@@ -55,12 +57,18 @@ public sealed class RuntimePrimitiveCompilationTests
                 Body = new() { Outputs = [new("items", PlanningCorpus.Business("item"))] } }],
             Outputs = [new("items", PlanningCorpus.Business("output", "collect", "items"))]
         } };
-        var compiled = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(compiled.Diagnostics);
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog, compact); Assert.Empty(compiled.Diagnostics);
         var nodes = compiled.Graph!.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps)).ToArray();
         Assert.DoesNotContain(nodes, n => n.Type is "array.project" or "value.validate" or "decision.evaluate" or "assert.non_null");
         Assert.Contains(nodes, n => n.Type == "set" && n.Input.Kind == "projection" && PlanningGraphValidation.Member(n.Input, "each")?.Boolean == true);
         var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        if (compact)
+        {
+            Assert.Single(document.Workflows);
+            Assert.DoesNotContain("loop.sequential", yaml); Assert.DoesNotContain("loop.parallel", yaml);
+            Assert.DoesNotContain("workflow.call", yaml);
+        }
         foreach (var values in new[] { new JsonArray(), new JsonArray("a", "a"), new JsonArray("a", "b", "c") })
         {
             var result = await engine.ExecuteAsync(document.Workflows["main"], new JsonObject { ["values"] = values }, PlannerFixture.Ct);

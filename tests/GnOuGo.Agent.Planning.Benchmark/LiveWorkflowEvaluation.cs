@@ -33,12 +33,16 @@ internal static class LiveWorkflowEvaluation
         var key = "run:" + label;
         var retained = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, key);
         if (phase == "inspect-run") { Console.WriteLine(retained?.ToJsonString() ?? "No run."); return; }
+        var productLimit = int.Parse(SchemaPortabilityCampaign.Option(args, "--max-products") ?? "3", System.Globalization.CultureInfo.InvariantCulture);
+        if (productLimit is < 1 or > 10) throw new ArgumentException("--max-products must be between 1 and 10.");
+        if (phase is "execute" or "revise" && (retained?["max_products"]?.GetValue<int>() ?? 3) != productLimit)
+            throw new InvalidOperationException("Use the retained product limit for this run.");
         var sourceRevision = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
         var continuing = phase is "execute" or "revise";
         if (continuing && retained?["source"]?.ToString() != sourceRevision)
             throw new InvalidOperationException("Continuation must use the retained planning build.");
         var manifest = label.StartsWith(cohort + "-", StringComparison.Ordinal)
-            ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model, model.ConfigurationFingerprint, cohort) : null;
+            ? await LiveCampaignEvidence.PinAsync(campaign, sourceRevision, model.Provider, model.Model, model.ConfigurationFingerprint, cohort, productLimit) : null;
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, label);
         var configurations = Configuration(model.McpServers, scenario, proxy.Endpoint);
         var human = new ConsoleHuman(campaign, label);
@@ -122,10 +126,11 @@ internal static class LiveWorkflowEvaluation
         if (retained is not null && phase != "revise") throw new InvalidOperationException("Run already retained; inspect it instead of overwriting.");
         var relative = "workflows/" + campaign.Id + "/" + label;
         var prompt = scenario == "amazon"
-            ? AmazonPrompt + "\nContraintes de cette évaluation autorisée: utilise Amazon.fr, au maximum les trois premiers produits; une seule entrée publique nommée query. Sauvegarde le classeur à " + relative + "/products.xlsx. Ferme le navigateur même en cas d’échec. CAPTCHA, prix ou données absents restent explicites, jamais inventés."
+            ? AmazonPrompt + "\nContraintes de cette évaluation autorisée: utilise Amazon.fr, au maximum les " + productLimit + " premiers produits; une seule entrée publique nommée query. Sauvegarde le classeur à " + relative + "/products.xlsx. Ferme le navigateur même en cas d’échec. CAPTCHA, prix ou données absents restent explicites, jamais inventés."
             : CodePrompt + "\nÉvaluation autorisée: deux entrées publiques nommées pullRequestUrl et reviewText. Cible SmartGuide PR #610, https://github.com/AxaFrance/SmartGuide/pull/610 ; head " + Head + " et base " + Base + ". Destination fixe du clone: " + relative + "/repository. Utilise les toolchains et checks déclarés par ce dépôt. Tous les feedbacks, décisions et commentaires de diff restent LOCAUX: aucune publication GitHub. Sauvegarde les preuves exactes de commandes et leurs codes de sortie dans " + relative + "/review.json, puis nettoie le clone même en cas d’échec. Une capacité absente ou un test échoué reste explicite. Aucune extension de permission/sandbox. Le rapport review.json contient decision (approve ou request_changes), findings (liste), et les commandes/codes de sortie observés. Vérifie explicitement node --version, pnpm --version et python --version avant les checks. Ne présente pas une capacité manquante ou un prérequis indisponible comme un test réussi.";
         if (phase != "revise")
         {
+            run["max_products"] = productLimit;
             run["prompt"] = prompt; run["prompt_hash"] = PlanningGraphCompiler.Fingerprint(prompt);
             run["oracle_version"] = "real-workflows-v1"; run["workspace_relative"] = relative;
             run["inputs"] = scenario == "amazon" ? new JsonObject { ["query"] = "chaussure geox homme 45" }
@@ -140,6 +145,7 @@ internal static class LiveWorkflowEvaluation
         var state = phase == "revise" ? run["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)! : new PlanningSession { Request = new() { SessionId = label, TenantId = "benchmark", Name = "Live " + scenario,
             Prompt = prompt, Mode = PlanningMode.Auto, MaxModelCalls = 8, MaxReplanAttempts = 2,
             Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768, Reasoning = "medium" },
+            Policy = new() { RequireExternalConfirmation = false },
             Options = new() { ["generator"] = new JsonObject { ["provider"] = model.Provider, ["model"] = model.Model } } } };
         if (phase == "revise")
         {

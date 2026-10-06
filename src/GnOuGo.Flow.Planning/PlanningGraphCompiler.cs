@@ -43,7 +43,7 @@ public sealed partial class PlanningGraphCompiler
             EnsureUnique(allNodes.Select(n => n.Key), "node");
             if (allNodes.Length > 300) throw new InvalidOperationException("A workflow exceeds the 300-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
-            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal));
+            var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal));
             var lowered = new JsonObject();
             if (workflow.Inputs.Count > 0)
             {
@@ -75,6 +75,21 @@ public sealed partial class PlanningGraphCompiler
             }
             workflows[workflowIds[workflow.Key]] = lowered;
         }
+        // Copy-loop lowering removes calls. Do not publish their unused adapters.
+        var reachable = new HashSet<string>(StringComparer.Ordinal) { "main" };
+        void Visit(JsonNode? value)
+        {
+            if (value is JsonObject obj)
+            {
+                if (obj["type"]?.ToString() == "workflow.call" && obj["input"]?["ref"]?["name"]?.ToString() is { } name && reachable.Add(name))
+                    Visit(workflows[name]);
+                foreach (var child in obj) Visit(child.Value);
+            }
+            else if (value is JsonArray array) foreach (var child in array) Visit(child);
+        }
+        Visit(workflows["main"]);
+        if (graph.Workflows.Any(w => Enumerate(w.Steps).Any(n => n.InternalRole == "typed_projection")))
+            foreach (var unused in workflows.Select(p => p.Key).Where(n => !reachable.Contains(n)).ToArray()) workflows.Remove(unused);
         root["workflows"] = workflows;
         var main = (JsonObject)workflows["main"]!;
         root["skill"] = new JsonObject
@@ -102,20 +117,22 @@ public sealed partial class PlanningGraphCompiler
     }
 
     private static JsonArray LowerSteps(List<PlanningNode> nodes, LoweringScope scope)
-        => new(nodes.Select(n => (JsonNode)LowerNode(n, scope)).ToArray());
+        => new(nodes.Where(n => n.InternalRole?.StartsWith("inline:", StringComparison.Ordinal) != true).Select(n => (JsonNode)LowerNode(n, scope)).ToArray());
 
     private static JsonObject LowerNode(PlanningNode node, LoweringScope scope)
     {
         if (!scope.Catalog.AllowedStepTypes.Contains(node.Type, StringComparer.Ordinal))
             throw new InvalidOperationException("A node uses a step type outside the locked policy.");
+        if (node.InternalRole == "typed_projection" && node.Type is "loop.sequential" or "loop.parallel")
+            return LowerCopyLoop(node, scope);
         // A reviewed empty grouping is an explicit no-op. Runtime sequences require
         // children; a native empty set preserves the same empty-object result and id.
         var emptySequence = node.Type == "sequence" && node.Steps.Count == 0 && node.CapabilityId is null && node.Input.Kind == "object" && node.Input.Members.Count == 0;
         if (emptySequence && !scope.Catalog.AllowedStepTypes.Contains("set", StringComparer.Ordinal))
             throw new InvalidOperationException("An empty grouping requires the native set step in the locked policy.");
         var result = new JsonObject { ["id"] = scope.NodeIds[node.Key], ["type"] = emptySequence ? "set" : node.Type };
-        var loweredInput = LowerValue(node.Input, scope);
-        var computedSetInput = node.Type == "set" && node.Input.Kind is "expression" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "projection";
+        var loweredInput = node.InternalRole == "typed_assembly" ? JsonValue.Create(LowerAssembly(node, scope)) : LowerValue(node.Input, scope);
+        var computedSetInput = node.InternalRole == "typed_assembly" || node.Type == "set" && node.Input.Kind is "expression" or "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "projection";
         var input = loweredInput as JsonObject ?? (computedSetInput ? new JsonObject() : throw new InvalidOperationException("A step input must be a typed object."));
         if (node.CapabilityId is { Length: > 0 })
         {
@@ -147,6 +164,13 @@ public sealed partial class PlanningGraphCompiler
         if (emptySequence) result["input"] = new JsonObject();
         else if (computedSetInput) result["input"] = loweredInput;
         else if (input.Count > 0 || node.Type == "set") result["input"] = input;
+        if (node.InternalRole == "isolated_collection" && node.Type == "loop.sequential")
+        {
+            // The collection lives in captured inputs. A counted loop avoids
+            // embedding that entire collection in each legacy steps snapshot.
+            input.Remove("items");
+            input["times"] = "${" + ToExpression(PlanningGraphValidation.Member(node.Input, "items")!, scope)[2..^1] + ".length}";
+        }
         if (node.If is not null) result["if"] = ToExpression(node.If, scope);
         if (node.Expr is not null) result["expr"] = ToExpression(node.Expr, scope);
         if (node.Input.Kind == "dynamic_mapping")
@@ -334,6 +358,9 @@ public sealed partial class PlanningGraphCompiler
         else if (value.Kind is "loop_item" or "loop_index")
         {
             if (value.Source is null || !scope.NodeTypes.TryGetValue(value.Source, out var type) || type is not ("loop.sequential" or "loop.parallel")) throw new InvalidOperationException("Unknown loop binding producer.");
+            if (value.Kind == "loop_item" && scope.Nodes[value.Source].InternalRole == "isolated_collection" && type == "loop.sequential")
+                return "${" + ExpressionBody(PlanningGraphValidation.Member(scope.Nodes[value.Source].Input, "items")!) +
+                    "[data" + Segment(scope.LoopVariables[value.Source].Index) + "]" + string.Concat(value.Path.Select(Segment)) + "}";
             expression = "data" + Segment(value.Kind == "loop_index" ? scope.LoopVariables[value.Source].Index : scope.LoopVariables[value.Source].Item) + string.Concat(value.Path.Select(Segment));
         }
         else if (value.Kind == "loop_previous")
@@ -594,7 +621,7 @@ public sealed partial class PlanningGraphCompiler
 
     private static Dictionary<string, (string Item, string Index)> LoopVariables(IEnumerable<PlanningNode> nodes) => nodes.Where(n => n.Type is "loop.sequential" or "loop.parallel").ToDictionary(n => n.Key, n => (n.ItemVar ?? "item", n.IndexVar ?? "i"), StringComparer.Ordinal);
 
-    private sealed record LoweringScope(PlanningCatalog Catalog, Dictionary<string, string> NodeIds, Dictionary<string, string> WorkflowIds, HashSet<string> Inputs, Dictionary<string, string> NodeTypes, Dictionary<string, (string Item, string Index)> LoopVariables, Dictionary<string, PlanningNode> Nodes);
+    private sealed record LoweringScope(PlanningCatalog Catalog, Dictionary<string, string> NodeIds, Dictionary<string, string> WorkflowIds, HashSet<string> Inputs, Dictionary<string, string> NodeTypes, Dictionary<string, (string Item, string Index)> LoopVariables, Dictionary<string, PlanningNode> Nodes, Dictionary<string, PlanningWorkflow> Workflows);
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.CultureInvariant)]
     private static partial Regex Identifier();
     [GeneratedRegex(@"\{\{[^{}]+\}\}", RegexOptions.CultureInvariant)]

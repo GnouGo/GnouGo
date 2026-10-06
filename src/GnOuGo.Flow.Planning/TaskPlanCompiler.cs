@@ -76,10 +76,14 @@ public sealed partial class TaskPlanCompiler
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
     private readonly HashSet<string> _compilingGroups = new(StringComparer.Ordinal);
     private readonly Dictionary<string, PlanningWorkflow> _groups = new(StringComparer.Ordinal);
+    internal const string CompactProfile = "compact-bindings-v1";
+    internal static bool UsesCompactBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() == CompactProfile;
+    private bool _compactBindings;
     private string _location = "/tasks";
 
-    public TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog)
+    public TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings = false)
     {
+        _compactBindings = compactBindings;
         _plan = plan; _symbols = new(plan); _catalog = catalog; _location = "/"; _graph = new(); _sources.Clear(); _groups.Clear(); _compilingGroups.Clear();
         try
         {
@@ -230,8 +234,12 @@ public sealed partial class TaskPlanCompiler
             case "transform": outputs = Transform(task, scope, target, key); break;
             case "value":
                 Unique(task.Outputs.Select(o => o.Name));
+                var selectionStart = target.Count;
                 var values = task.Outputs.Select(o => (o.Name, Bound: Value(o.Value, scope))).ToArray();
-                target.Add(new() { Key = key, Purpose = task.Objective, Type = "set", Input = Object(values.Select(v => new PlanningMember(v.Name, v.Bound.Value))), OutputSchema = Contract(ObjectSchema(values.Select(v => (v.Name, v.Bound.Schema)))) });
+                var fuse = _compactBindings && !cleanup && task.Requires is null && task.Outputs.All(o => CopyValue(o.Value)) &&
+                    target.Skip(selectionStart).All(n => n.Type == "set" && n.Input.Kind == "projection" && n.If is null);
+                if (fuse) foreach (var node in target.Skip(selectionStart)) node.InternalRole = "inline:" + key;
+                target.Add(new() { Key = key, Purpose = task.Objective, InternalRole = fuse ? "typed_assembly" : null, Type = "set", Input = Object(values.Select(v => new PlanningMember(v.Name, v.Bound.Value))), OutputSchema = Contract(ObjectSchema(values.Select(v => (v.Name, v.Bound.Schema)))) });
                 outputs = Result(key, "set", ObjectSchema(values.Select(v => (v.Name, v.Bound.Schema)))); break;
             case "call":
                 var definition = _plan.Groups.SingleOrDefault(g => g.Id == task.Group);
@@ -285,19 +293,43 @@ public sealed partial class TaskPlanCompiler
                 bounded["type"] = "array"; bounded["items"] = itemSchema!.DeepClone(); bounded["maxItems"] = task.MaxItems;
                 var checkedKey = Key(key, "bound"); _sources[checkedKey] = _location;
                 target.Add(new() { Key = checkedKey, Type = "set", Input = Projection([new("value", items.Value), new("paths", Array([Strings([])]))]), OutputSchema = Contract(ObjectSchema([("value", bounded)])) });
-                var iteration = new Scope(scope.Workflow, scope) { Item = new(new() { Kind = "loop_item", Source = key }, itemSchema, TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null), Index = new(new() { Kind = "loop_index", Source = key }, new() { ["type"] = "integer" }) };
+                var copyLoop = _compactBindings && !cleanup && PureProjection(task);
+                var loopScope = scope; var loopTarget = target; var loopItems = Reference(checkedKey, "value");
+                if (_compactBindings && !copyLoop)
+                {
+                    var workflow = new PlanningWorkflow { Key = Key(key, "collection") };
+                    _graph.Workflows.Add(workflow); _sources[workflow.Key] = _location;
+                    loopScope = new(workflow, scope) { Target = workflow.Steps, FailurePath = scope.FailurePath || cleanup };
+                    loopTarget = workflow.Steps;
+                    workflow.Inputs.Add(new() { Name = "__items", Schema = Contract(bounded) });
+                    loopScope.Inputs.Add("__items", Input("__items", bounded));
+                    loopScope.Captures.Add(new("__items", loopItems)); loopItems = Input("__items", bounded).Value;
+                }
+                var iteration = new Scope(loopScope.Workflow, loopScope) { Item = new(new() { Kind = "loop_item", Source = key }, itemSchema, TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null), Index = new(new() { Kind = "loop_index", Source = key }, new() { ["type"] = "integer" }) };
                 var body = Child(task.Body ?? MissingScope(), iteration, key, "iteration");
-                target.Add(new() { Key = key, Purpose = task.Objective, Type = task.Parallel ? "loop.parallel" : "loop.sequential", ItemVar = "item", IndexVar = "index",
-                    Input = Object(task.Parallel ? [new("items", Reference(checkedKey, "value")), new("max_concurrency", Number(task.MaxConcurrency))] : [new("items", Reference(checkedKey, "value"))]), Steps = [body.Call] });
+                loopTarget.Add(new() { Key = key, Purpose = task.Objective, InternalRole = _compactBindings ? copyLoop ? "typed_projection" : "isolated_collection" : null, Type = task.Parallel ? "loop.parallel" : "loop.sequential", ItemVar = "item", IndexVar = "index",
+                    Input = Object(task.Parallel ? [new("items", loopItems), new("max_concurrency", Number(task.MaxConcurrency))] : [new("items", loopItems)]), Steps = [body.Call] });
                 outputs = new(StringComparer.Ordinal);
                 foreach (var output in body.Workflow.Outputs)
                 {
                     var schema = new JsonObject { ["type"] = "array", ["items"] = PlanningGraphCompiler.ToJsonSchema(output.Schema, _catalog) };
+                    if (_compactBindings) schema["maxItems"] = task.MaxItems;
                     var projection = Key(key, "collect:" + output.Name); _sources[projection] = _location;
-                    target.Add(new() { Key = projection, Type = "set", Input = Projection([new("value", Reference(key, "results")), new("paths", Array([Strings([body.Call.Key, "outputs", output.Name])])), new("each", new() { Kind = "boolean", Boolean = true })]), OutputSchema = Contract(ObjectSchema([("value", schema)])) });
+                    loopTarget.Add(new() { Key = projection, Type = "set", Input = Projection([new("value", Reference(key, "results")), new("paths", Array([Strings([body.Call.Key, "outputs", output.Name])])), new("each", new() { Kind = "boolean", Boolean = true })]), OutputSchema = Contract(ObjectSchema([("value", schema)])) });
                     outputs.Add(output.Name, Output(projection, "set", ["value"], schema));
                 }
-                outputs = Aggregate(outputs, key, target); break;
+                outputs = Aggregate(outputs, key, loopTarget);
+                if (loopScope != scope)
+                {
+                    foreach (var output in body.Workflow.Outputs)
+                    {
+                        var bound = outputs[output.Name];
+                        loopScope.Workflow.Outputs.Add(new() { Name = output.Name, Value = bound.Value, Schema = Contract(bound.Schema) });
+                    }
+                    var invoke = Call(Key(loopScope.Workflow.Key, "call"), loopScope.Workflow.Key, Object(loopScope.Captures));
+                    target.Add(invoke); outputs = WorkflowResult(invoke.Key, loopScope.Workflow);
+                }
+                break;
             default: Fail("TASK_KIND_INVALID", "Unknown semantic task kind."); return;
         }
         scope.Tasks.Add(task.Id, outputs);
@@ -318,6 +350,16 @@ public sealed partial class TaskPlanCompiler
             _sources.TryAdd(node.Key, "/tasks/" + task.Id);
             node.Dependencies = task.DependsOn.SelectMany(id => scope.Tasks[id].Values.Select(b => b.Value.Source)).OfType<string>().Concat(node.Dependencies).Distinct().ToList();
         }
+    }
+
+    private static bool CopyValue(TaskValue value) => value.Kind is "null" or "string" or "number" or "boolean" or "item" or "input" or "output" or "field" or "object" or "array" &&
+        value.Items.All(CopyValue) && value.Members.All(m => CopyValue(m.Value));
+
+    private static bool PureProjection(PlanTask task)
+    {
+        return task.Requires is null && task.Body is { Always.Count: 0 } body && body.Outputs.Count > 0 &&
+            body.Tasks.All(t => t.Kind == "value" && t.Requires is null && t.DependsOn.Count == 0 && t.Outputs.All(o => CopyValue(o.Value))) &&
+            body.Outputs.All(o => CopyValue(o.Value));
     }
 
     private static PlanningValue Projection(IEnumerable<PlanningMember> fields) => new() { Kind = "projection", Members = fields.ToList() };
@@ -373,10 +415,12 @@ public sealed partial class TaskPlanCompiler
     {
         var contracts = new JsonArray(_catalog.Capabilities.OrderBy(c => c.Id, StringComparer.Ordinal).Select(c => (JsonNode)new JsonObject
             { ["id"] = c.Id, ["version"] = c.Version, ["input"] = c.InputSchema.DeepClone(), ["output"] = c.OutputSchema.DeepClone() }).ToArray());
-        return new() { Key = key, Type = "set", Purpose = objective,
+        var node = new PlanningNode { Key = key, Type = "set", Purpose = objective,
             Input = new() { Kind = "dynamic_mapping", Members = [new("sources", sources), new("objective", Text(objective)),
                 new("binding", Text(key)), new("producer_contract", Text(PlanningGraphCompiler.Fingerprint(contracts.ToJsonString())))] },
             OutputSchema = Contract(ObjectSchema([("value", schema)])) };
+        if (_compactBindings) node.Input.Members.Add(new("infer_each", new() { Kind = "boolean", Boolean = true }));
+        return node;
     }
 
     private PlanningOperation OperationInputs(PlanTask task, PlanningCapability capability, Scope scope)

@@ -40,7 +40,7 @@ public sealed class WorkflowPlanExecutor : IStepExecutor
                     Instructions = input["policy"]?["instructions"]?.GetValue<string>() ?? "",
                     AllowedStepTypes = (input["policy"]?["allowed_step_types"] as JsonArray ?? []).Select(v => v!.GetValue<string>()).ToList(),
                     DeniedCapabilityIds = (input["policy"]?["denied_capability_ids"] as JsonArray ?? []).Select(v => v!.GetValue<string>()).ToList(),
-                    RequireExternalConfirmation = input["policy"]?["require_external_confirmation"]?.GetValue<bool>() ?? true,
+                    RequireExternalConfirmation = input["policy"]?["require_external_confirmation"]?.GetValue<bool>() ?? false,
                     MaxStepsTotal = input["limits"]?["max_steps_total"]?.GetValue<int>() ?? 300
                 }
             }
