@@ -53,3 +53,28 @@ Coverage includes both branches, nested captures, normal/cleanup-dependent expor
 The full solution passes **4,634 tests, zero failures and 13 skips** across 33 projects with `-m:1 -warnaserror`. The browser test skipped without `PLAYWRIGHT_MODULE_PATH` then passes in a separate 17-test host/browser run. The remaining twelve skips are the existing seven Windows command cases and five paid Copilot cases. No frontend source changed. Published CLI/Flow.Server Native AOT and Agent.Server trimmed encrypted recovery pass, including literal descriptions, absent legacy metadata, receipts and index rebuilding. Publication uses the existing explicit `PublishAot=true` profile for CLI/server, C# warnings as errors, and the two already audited EF Core Tasks experimental notices; no suppression was added. Initial validation-fixture mistakes and the CLI command missing the global AOT flag are retained in the check evidence. Core, Planning and Persistence Release packages, planning Native AOT and skill validation pass. [Solution results](evidence/export-glue-2026-10-06/solution-validation.json) · [Affected checks](evidence/export-glue-2026-10-06/validation-checks.json). Paid execution requires a new reviewed artifact and explicit revision/hash-bound approval with requirement acknowledgments. The requested live remains one Amazon run with ten products maximum, unchanged permissions, limits and independent execution assertions. No code-review live or cohort expansion is authorized here.
 
 The rechecked campaign upper bound before any new dispatch is **EUR 90.771022 / 150**, including **EUR 2.606753** unchanged unknown reservations. [Ledger](evidence/export-glue-2026-10-06/ledger-before.json). Historical invocations and benchmark evidence remain unchanged. PR #117 stays draft until its full execution acceptance gate passes.
+
+
+## Fresh Amazon planning and pending execution
+
+Cohort `exportglue20261006a` freezes source/harness `7adab9ee`, the existing oracles and ten-product bound. Actual Browser/Document zero-inference readiness passed. The single new run is `exportglue20261006a-amazon-1`; it has not executed.
+
+Review retained and corrected four proposal issues under the same cumulative planning budget: missing continuation/completeness handling; model-authored technical assembly/completeness; raw records passed to global interpretation; and Browser's default 200-record page exceeding the projection's 100-record bound. The last correction used `editablePaths: ["/tasks/read_manifest/inputs"]`; only the explicit producer `maxRecords: 100` binding changed. No production code, planner rules, runtime behavior or oracle changed during this live planning sequence.
+
+Revision **11**, artifact **`1557a5d6c72c4c30510b0b4e9b08050ae4b8d5c27dc0bd47545ac98d0df238e1`**, contains typed consumer views, producer-derived completeness guards, all manifest page reads, actual per-product navigation, real workbook writing and one cleanup finalizer. Its three pure record-copy loops compile into projections. It has 73 compiled steps, eight workflows and 47 `set` steps; YAML is 96,810 bytes / 2,859 lines. This is a different TaskPlan from the historical failed run and is not a matched size comparison.
+
+Planning: **seven calls/attempts, zero automatic repairs, two discovery reads, four review revisions**, 93,000 input / 26,785 output verified tokens, **EUR 1.125699**, 317,835 ms active planning latency. The initial plan used three calls; this live does not meet a one-call target. Execution inference, journal growth, request sizes, runtime steps and cleanup usage remain unmeasured. There is no completed live oracle yet.
+
+The campaign upper bound after planning is **EUR 91.896721 / 150**, including the same EUR 2.606753 historical unknown reservations. [Accounting](evidence/export-glue-2026-10-06/ledger-after-planning.json) · [Six-slot report; all execution slots remain incomplete](evidence/export-glue-2026-10-06/cohort-before-execution.json).
+
+[Review the accepted requirements beside the actual work](evidence/export-glue-2026-10-06/amazon-review.md). This new artifact requires its own explicit revision/hash-bound approval and all five requirement acknowledgments before the one authorized execution. Prior approvals remain unchanged. No historical or uncertain invocation is resumed; no code-review evaluation or cohort expansion is performed.
+
+Reproduce inspection or execute only after the explicit approval, using the frozen checkout and existing pinned configuration:
+
+```sh
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability inspect-run --campaign schema-portability-20261002 --run exportglue20261006a-amazon-1 --max-products 10 --workspace /Users/a115vc/Desktop/GnOuGo
+# Only after the user submits the matching approval and requirement acknowledgments:
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability execute --campaign schema-portability-20261002 --cohort exportglue20261006a --case amazon --run exportglue20261006a-amazon-1 --max-products 10 --workspace /Users/a115vc/Desktop/GnOuGo --review-command /path/to/explicit-user-approval.json
+```
+
+The harness refuses replay after execution starts. Public evidence includes each proposal, exact YAML, newly issued model responses and revision command. Full original schemas, requests, durable receipts and revision history remain in the encrypted campaign journal. Latest CI snapshot shows stable .NET/Python, proxy AOT and standalone checks passing; some host/package jobs are still running. [CI snapshot](evidence/export-glue-2026-10-06/ci-status.json).

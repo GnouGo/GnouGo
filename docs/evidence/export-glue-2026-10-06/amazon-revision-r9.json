@@ -1,0 +1,10 @@
+{
+  "kind": "revise",
+  "expectedRevision": 9,
+  "artifactHash": "ba5d21b8ee992a610bf0d9d11630e812005c6e2b0fe0c6d6c800aafa25090f7d",
+  "preserveRequirements": true,
+  "editablePaths": [
+    "/tasks/read_manifest/inputs"
+  ],
+  "text": "Correct only the read_manifest operation input list. Keep url, format=observation_pages, waitUntil and timeoutMs unchanged, and add the authoritative optional maxRecords input with explicit numeric value 100. Browser defaults to 200 records per page, but the three existing copy-only projections are bounded to 100 records each; freezing page boundaries at 100 ensures compatible bounds. Continue to consume all manifest pages, without truncating or filtering records. Preserve every task, objective, guard, output, loop bound, scope, cleanup, accepted requirement and unrelated binding. Return only the authorized typed patch. Do not change the downstream copy-only projections or permit partial observations."
+}
