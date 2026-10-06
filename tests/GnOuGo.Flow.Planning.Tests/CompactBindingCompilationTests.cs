@@ -54,6 +54,34 @@ public sealed class CompactBindingCompilationTests(Xunit.ITestOutputHelper outpu
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task CopyLoopEntryGuardsRemainEnforcedWithoutPerItemInvocations(bool parallel)
+    {
+        var (catalog, _) = await Setup(); var plan = Plan(false, parallel);
+        plan.Inputs.Add(new() { Name = "complete", Type = new() { Kind = "boolean" } });
+        foreach (var loop in plan.Root.Tasks) loop.Requires = new() { Kind = "input", Source = "complete" };
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog, true);
+        Assert.Empty(compiled.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        Assert.Single(document.Workflows); Assert.DoesNotContain("workflow.call", yaml); Assert.DoesNotContain("loop.", yaml);
+        foreach (var complete in new[] { true, false })
+        {
+            var store = new InMemoryWorkflowRunStore();
+            var engine = new WorkflowEngine { RunStore = store, Limits = new() { TenantId = "test", RunId = "guarded-copy" } };
+            var result = await engine.ExecuteAsync(document.Workflows["main"], new JsonObject {
+                ["records"] = Records(40, 1000), ["complete"] = complete }, PlannerFixture.Ct);
+            Assert.Equal(complete, result.Success);
+            if (complete) Assert.True(JsonNode.DeepEquals(Expected(40), result.Outputs!["rows"]));
+            else Assert.Null(result.Outputs);
+            var run = (await store.ReadAsync("test", "guarded-copy", PlannerFixture.Ct))!;
+            Assert.DoesNotContain(run.Invocations.Values, i => i.StepType is "workflow.call" or "loop.sequential" or "loop.parallel" or "llm.call");
+            if (!complete) Assert.Single(run.Invocations.Values.Where(i => i.StepType == "set"));
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task ConsecutiveBusinessLoopsDoNotCollectPriorLoopSnapshots(bool parallel)
     {
         var (catalog, _) = await Setup(); var compiled = new TaskPlanCompiler().Compile(Plan(true, parallel), catalog, true);

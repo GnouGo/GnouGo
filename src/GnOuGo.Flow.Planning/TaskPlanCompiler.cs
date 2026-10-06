@@ -357,7 +357,8 @@ public sealed partial class TaskPlanCompiler
 
     private static bool PureProjection(PlanTask task)
     {
-        return task.Requires is null && task.Body is { Always.Count: 0 } body && body.Outputs.Count > 0 &&
+        // The entry guard is emitted before the collection; only per-item work prevents fusion.
+        return task.Body is { Always.Count: 0 } body && body.Outputs.Count > 0 &&
             body.Tasks.All(t => t.Kind == "value" && t.Requires is null && t.DependsOn.Count == 0 && t.Outputs.All(o => CopyValue(o.Value))) &&
             body.Outputs.All(o => CopyValue(o.Value));
     }
