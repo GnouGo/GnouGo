@@ -45,3 +45,13 @@ Only one new Amazon E2E is included, with **ten products maximum**. Cohort `comp
 Zero-inference readiness confirms the exact configured model allowances, local Browser cleanup, actual document writing and independent XLSX reading. Campaign `schema-portability-20261002` remains at **€88.87480257548656 / €150** before dispatch, including **€2.6067527839643653** in unchanged unknown reservations. [Readiness](evidence/compact-bindings-2026-10-06/provider-readiness.json), [ledger](evidence/compact-bindings-2026-10-06/ledger-before.json).
 
 Fresh generation must pass the deterministic gates first. Its own revision/hash-bound artifact approval and explicit requirement acknowledgments are required before execution. There is no new code-review live, cohort expansion, automatic consent acknowledgment or replay of uncertain invocations. PR #117 remains draft.
+
+## First fresh proposal and guarded-copy correction
+
+Cohort `compactbindings20261006b` remains unexecuted and unapproved. Its initial proposal reached review in two calls without repairs but ignored read truncation. Two explicit implementation revisions retained completeness guards, actual product visits, extraction, document writing and cleanup; all proposals and feedback are retained. Total planning: four calls/attempts, zero automatic repairs, two review revisions, 52,644 input / 18,694 output tokens, EUR 0.731245, 250,106 ms. The campaign upper bound is EUR 89.606048, including the unchanged EUR 2.606753 unknown reservations. No execution/model call for execution occurred.
+
+Review then exposed an optimization gap: an entry requirement on a copy-only loop prevented fusion, despite the guard already being emitted before the collection. Commit `11e8e6d1` removes only that exclusion. Per-item guards, effects, inference and cleanup still prevent fusion. Two regressions fail before the correction and pass afterward: both sequential and parallel loops preserve every value with no per-item invocation; false entry requirements execute only the guard and publish no result. All sixteen related regressions pass.
+
+A read-only recompilation of the retained r6 proposal shrinks from 98,442 to 85,393 bytes and 17 to 11 workflows. Its approved/stored artifacts are not replaced (no approval was issued for this proposal). This remains compilation evidence, not execution success. [Retained cohort](evidence/compact-bindings-2026-10-06/cohort-b-before-execution.json), [regression evidence](evidence/compact-bindings-2026-10-06/guarded-copy-regression.json).
+
+The one requested live execution will use a fresh identity on the corrected frozen candidate after validation. The earlier cohort is not pooled with that candidate.

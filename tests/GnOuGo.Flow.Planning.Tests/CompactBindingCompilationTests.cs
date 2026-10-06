@@ -75,7 +75,7 @@ public sealed class CompactBindingCompilationTests(Xunit.ITestOutputHelper outpu
             else Assert.Null(result.Outputs);
             var run = (await store.ReadAsync("test", "guarded-copy", PlannerFixture.Ct))!;
             Assert.DoesNotContain(run.Invocations.Values, i => i.StepType is "workflow.call" or "loop.sequential" or "loop.parallel" or "llm.call");
-            if (!complete) Assert.Single(run.Invocations.Values.Where(i => i.StepType == "set"));
+            if (!complete) Assert.Single(run.Invocations.Values, i => i.StepType == "set");
         }
     }
 

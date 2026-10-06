@@ -50,5 +50,26 @@
       "output": "Format-10 planning persistence smoke passed; execution journal schema 9 is unchanged.\n"
     }
   ],
-  "known_notices": "Existing EF Core Tasks query-precompilation and NativeAOT experimental notices on CLI/Flow.Server/Agent.Server publication; no new suppressions."
+  "known_notices": "Existing EF Core Tasks query-precompilation and NativeAOT experimental notices on CLI/Flow.Server/Agent.Server publication; no new suppressions.",
+  "follow_up": {
+    "production": "11e8e6d1",
+    "change": "Guarded copy-loop compilation only; earlier unchanged Core/Persistence packages and published recovery remain applicable.",
+    "checks": [
+      {
+        "name": "pack-planning",
+        "exit_code": 0,
+        "log_sha256": "6d6e7ef895e409c89a9f575828b60f897e2e9ee7aeb928b595cd28d3d96aa038"
+      },
+      {
+        "name": "publish-planning",
+        "exit_code": 0,
+        "log_sha256": "6972c58a7db3c670d124b2a3bc5a20a2633f5a9a582fe9286900dd0f2e48fe5b"
+      },
+      {
+        "name": "run-planning",
+        "exit_code": 0,
+        "log_sha256": "55d680deaa12c690cbf1c5cf5875ac7ceb48b865b9160d1eb1ab40220ffaa3ff"
+      }
+    ]
+  }
 }
