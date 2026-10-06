@@ -40,6 +40,36 @@ dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=tr
 
 `SkipModelMetadataGeneration` avoids refreshing the generated deployment catalog during local validation; it does not skip tests or request validation. Published CLI/server recovery is checked using `scripts/verify-flow-v9-published.py`; the planning Native AOT executable exercises its existing smoke assertions.
 
+Frozen candidate **`e2179af7d761f1f5d083671d0b9b1073a2e2b8fe`** passes **4,589 solution tests**, zero failures and 12 existing skips across 33 projects, with `-warnaserror`. The skips are seven Windows-only cases and five separately authorized paid Copilot cases. The real browser review smoke is included by setting `PLAYWRIGHT_MODULE_PATH` to the packaged Playwright module. Affected Core/Planning/Persistence Release packages, 29 planning Native AOT checks, published CLI/server encrypted recovery and skill validation pass.
+
+Development validation caught guidance exceeding a retained discovery allowance by 11 tokens; the final wording fixes it without changing the limit. A later regression also prevents metadata-only saves from publishing unspecified edits to historical human dialogs. Earlier solution runs overlapped edits and are retained as failed development runs; the frozen final run is the acceptance result. Publishing must pass **global `-p:PublishAot=true`**, as in the existing publish script, so persistence dependencies precompile EF queries. A local-project-only CLI publish failed the index oracle despite preserving receipts; the corrected frozen publish passes the same oracle. The server uses the existing publish profile with C# warnings as errors and only its two exact pinned EF experimental notices accepted; no suppressions were added.
+
+[Measurements](evidence/consumer-compaction-and-journals-2026-10-06/deterministic-measurements.json), [solution validation](evidence/consumer-compaction-and-journals-2026-10-06/solution-validation.json) and [publish outcomes](evidence/consumer-compaction-and-journals-2026-10-06/package-checks.json) separate deterministic evidence from live acceptance.
+
 ## Live boundary
 
 Only one fresh Amazon evaluation is authorized for this correction. The campaign's pre-dispatch upper bound remains EUR 85.603676 / 150, including EUR 2.606753 of retained unknown reservations. Generation must use new identities and the unchanged prompt/oracle, followed by revision/hash-bound human approval and explicit requirement acknowledgments. No code-review evaluation, historical invocation replay or cohort expansion is included. PR #117 remains draft; deterministic success does not establish live acceptance.
+
+
+## Fresh Amazon planning and review
+
+The unchanged harness/prompt/oracle ran from a clean isolated checkout of `e2179af7`, using new session/run `consumerjournal20261006a-amazon-1`. Real local Browser/Document readiness passed with zero inference. [Frozen cohort and accounting](evidence/consumer-compaction-and-journals-2026-10-06/cohort-awaiting-approval.json) record source/harness, configuration, corpus/oracle hashes and limits.
+
+The first artifact compiled but still passed a broad links/selectors view to consent interpretation and lacked complete observation consumption. Revision 5 added manifest loops but sent the full raw collection to whole-value extraction. Revision 7 replaced that with an unnecessary interpretation call per record. All three proposals and their explicit implementation feedback are retained. One incorrectly named revision-command field was rejected by strict deserialization before any dispatch; the corrected existing `text` field was used. No source changes, limits, oracle changes or new planning mechanics were introduced during these reviews.
+
+**Revision 9** now uses direct typed foreach exports for consumer views, with no per-record inference or dynamic mapping. Initial consent/blockage and visited-product interpretation receive text/context without selectors or unrelated links. Product selection retains the observed hrefs it needs for subsequent navigation. Original manifest/page completeness flags guard data consumption; every cursor is read before interaction/navigation. A fresh snapshot follows consent. Real product visits, the actual workbook-writing operation and root cleanup remain present. Nullable fields, nested ordering and complete source data remain intact.
+
+The generated workflow is reviewable, but **has not been approved or executed**. [Exact revision/hash, requirements and execution review](evidence/consumer-compaction-and-journals-2026-10-06/amazon-review.md) are ready for explicit human acknowledgment. Necessary business views can still exceed runtime limits on actual pages; the unchanged guard will reject them. Successful compilation is not an execution-oracle result.
+
+Planning totals: **6 logical calls / 8 physical attempts, 1 repair, 3 review revisions, 2 discovery reads**; **78,900 input / 27,657 output tokens**, **EUR 1.092654**, **919,271 ms**. All new usage is verified. Campaign upper bound: **EUR 86.696331 / 150**, including the unchanged **EUR 2.606753** historical unknown reservations. Runtime interpretation, mapping, product visits, XLSX values, cleanup and live journal measurements remain unverified. No code-review case, cohort expansion or uncertain invocation replay occurred; the six-slot report remains 0/6 and incomplete.
+
+Read-only inspection, from the frozen checkout:
+
+```sh
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability inspect-run --campaign schema-portability-20261002 --workspace /path/to/workspace --run consumerjournal20261006a-amazon-1
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability report --campaign schema-portability-20261002 --workspace /path/to/workspace --cohort consumerjournal20261006a
+```
+
+Execution uses the same frozen build and `--schema-portability execute --case amazon --cohort consumerjournal20261006a --run consumerjournal20261006a-amazon-1 --review-command <explicit-approval.json>` with the same campaign/workspace options. The approval must bind revision 9, its exact artifact hash and all five explicitly acknowledged requirements. Never rerun this identity after execution starts.
+
+GitHub deterministic planner validation, stable unit tests and Agent.Server tests pass on the frozen candidate. Other platform/package jobs may still be running in the [retained CI snapshot](evidence/consumer-compaction-and-journals-2026-10-06/ci.json). PR #117 remains draft.

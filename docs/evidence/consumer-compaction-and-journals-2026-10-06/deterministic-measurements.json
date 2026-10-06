@@ -1,0 +1,43 @@
+{
+  "candidate": "e2179af7",
+  "kind": "deterministic_local_fixture",
+  "consumer_views": [
+    {
+      "variant": "typed",
+      "records": 120,
+      "broad_request_bytes": 98907,
+      "broad_estimated_tokens": 30721,
+      "consumer_request_bytes": 9857,
+      "consumer_estimated_tokens": 1838,
+      "mapping_calls": 0,
+      "exact_action_references_preserved": 120
+    },
+    {
+      "variant": "independent_extraction",
+      "records": 120,
+      "broad_request_bytes": 98914,
+      "broad_estimated_tokens": 30724,
+      "consumer_request_bytes": 9864,
+      "consumer_estimated_tokens": 1840,
+      "mapping_calls": 1,
+      "exact_action_references_preserved": 120
+    }
+  ],
+  "journal": {
+    "invocations": 70,
+    "logical_json_bytes": 85531547,
+    "stored_block_json_bytes": 409797,
+    "written_json_bytes_including_checkpoints": 636253,
+    "unique_blocks_written": 386,
+    "max_checkpoint_bytes": 6158,
+    "median_checkpoint_ms": 21.09,
+    "p95_checkpoint_ms": 27.76,
+    "cancellation_polls": 10,
+    "payload_reads_during_cancellation_polls": 0,
+    "duplicate_block_writes": 0,
+    "max_reads_per_block_per_reconstruction": 1,
+    "encryption_and_sqlite_overhead_measured": false
+  },
+  "limits_unchanged": true,
+  "live_execution": false
+}
