@@ -55,7 +55,7 @@ The full solution passes **4,634 tests, zero failures and 13 skips** across 33 p
 The rechecked campaign upper bound before any new dispatch is **EUR 90.771022 / 150**, including **EUR 2.606753** unchanged unknown reservations. [Ledger](evidence/export-glue-2026-10-06/ledger-before.json). Historical invocations and benchmark evidence remain unchanged. PR #117 stays draft until its full execution acceptance gate passes.
 
 
-## Fresh Amazon planning and pending execution
+## Fresh Amazon planning and review history
 
 Cohort `exportglue20261006a` freezes source/harness `7adab9ee`, the existing oracles and ten-product bound. Actual Browser/Document zero-inference readiness passed. The single new run is `exportglue20261006a-amazon-1`; it has not executed.
 
@@ -78,3 +78,14 @@ dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Plan
 ```
 
 The harness refuses replay after execution starts. Public evidence includes each proposal, exact YAML, newly issued model responses and revision command. Full original schemas, requests, durable receipts and revision history remain in the encrypted campaign journal. Latest CI snapshot shows stable .NET/Python, proxy AOT and standalone checks passing; some host/package jobs are still running. [CI snapshot](evidence/export-glue-2026-10-06/ci-status.json).
+
+
+## Approved execution outcome
+
+The user approved revision 11 and all five requirements; it executed once with unchanged YAML on frozen `7adab9ee`. **The live failed**, with `LLM_BUDGET_EXCEEDED` before the consent mapping reached the provider. All 52 manifest pages / 1,488 records were consumed; the whole-collection mapping still exceeded admission (97,193 estimated prompt tokens; 181,033 for the complete serialized request versus 96,000 allowed). There were no product visits or XLSX. The existing oracle reports `workflow_execution_failed` and `workbook_missing`.
+
+**Cleanup capacity is fixed in this live failure path:** 1,169 normal steps and one finalization step, with verified Browser cleanup. No unknown completion, historical replay, oracle relaxation or additional paid evaluation occurred. Execution used one paid URL-construction call, 116 input / 342 output tokens, EUR 0.009619 and 63,420 ms. Campaign upper bound is **EUR 91.906340 / 150**, including unchanged unknown reservations.
+
+The logical journal is 373.42 MB; its checkpoint is 0.359 MB and currently referenced immutable block JSON is 11.85 MB (excluding superseded blocks and encryption/database overhead). Full reconstruction remains expensive; these figures are not checkpoint-write latency or a matched before/after comparison.
+
+[Full execution report, remaining generic composition issue and CI limitation](evidence/export-glue-2026-10-06/amazon-execution.md). PR #117 remains draft with **0/6 execution gates**. The completed failed invocation is retained and will not be replayed.

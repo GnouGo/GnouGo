@@ -1,0 +1,142 @@
+[
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112441090319",
+    "name": "Publish Release ()",
+    "state": "SKIPPED"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112439091792",
+    "name": "ProxyCopilot (Native AOT)",
+    "state": "SKIPPED"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112439091506",
+    "name": "Desktop (Trimmed + Native AOT tools)",
+    "state": "SKIPPED"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112439090673",
+    "name": "Publish gnougo-flow-core to PyPI",
+    "state": "SKIPPED"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112439091975",
+    "name": "Publish .NET packages to NuGet",
+    "state": "SKIPPED"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112438995866",
+    "name": "Docker Builds / Docker Build (GnOuGo.Diff.Server)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112438995366",
+    "name": "OTLP Collector / OTLP Collector (osx-arm64)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112438995186",
+    "name": "OTLP Collector / OTLP Collector (win-x64)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112438995643",
+    "name": "Docker Builds / Docker Build (GnOuGo.KeyVault.Server)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112438995852",
+    "name": "Docker Builds / Docker Build (GnOuGo.Flow.Server)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112438995756",
+    "name": "Docker Builds / Docker Build (GnOuGo.Agent.Server)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112438995706",
+    "name": "Docker Builds / Docker Build (GnOuGo.OtlpCollector.Server)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112438995315",
+    "name": "Compute Version Tag / Compute Version Tag",
+    "state": "FAILURE"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112438995636",
+    "name": "Docker Builds / Docker Build (GnOuGo.DocIngestor.Server)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112438995145",
+    "name": "OTLP Collector / OTLP Collector (linux-x64)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942057/job/112435039142",
+    "name": "ProxyCopilot AOT (osx-arm64)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942057/job/112435038929",
+    "name": "ProxyCopilot AOT (linux-arm64)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942057/job/112435039062",
+    "name": "ProxyCopilot AOT (win-arm64)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942057/job/112435038492",
+    "name": "ProxyCopilot AOT (osx-x64)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112435041422",
+    "name": "Agent Server Tests (non-blocking) / Agent Server Tests",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942057/job/112435039080",
+    "name": "ProxyCopilot AOT (win-x64)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942057/job/112435038930",
+    "name": "ProxyCopilot AOT (linux-x64)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112435041092",
+    "name": "Stable Unit Tests / Python Unit Tests",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112435041824",
+    "name": "Server (linux-x64) / Server (linux-x64)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112435040713",
+    "name": "Stable Unit Tests / Stable .NET Unit Tests",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511942274/job/112435041011",
+    "name": "KeyVault MCP / KeyVault MCP (win-x64)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511941792/job/112435037209",
+    "name": "validate",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/GnouGo/GnouGo/actions/runs/37511941832/job/112435037682",
+    "name": "standalone",
+    "state": "SUCCESS"
+  }
+]

@@ -1,0 +1,67 @@
+using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Planning;
+using Microsoft.ML.Tokenizers;
+using GnOuGo.Flow.Persistence;
+using GnOuGo.KeyVault.Core.Services;
+
+const string tenant = "benchmark", runId = "exportglue20261006a-amazon-1";
+const string workspace = "/Users/a115vc/Desktop/GnOuGo", author = "GnOuGo.Flow.Persistence";
+var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, workspace);
+var timer = Stopwatch.StartNew();
+var head = await records.GetAsync(EncryptedWorkflowRunStore.Collection, tenant, runId, author) ?? throw new Exception("Missing run");
+var checkpointReadMs = timer.Elapsed.TotalMilliseconds;
+var h = JsonNode.Parse(head.Value)!;
+var run = await EncryptedWorkflowRunStore.CreateWorkspace(baseDirectory: workspace).ReadAsync(tenant, runId) ?? throw new Exception("Missing reconstructed run");
+var reconstructionMs = timer.Elapsed.TotalMilliseconds - checkpointReadMs;
+var logical = JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun);
+var prefix = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(new JsonArray(tenant, runId).ToJsonString()))) + "/";
+var visited = new HashSet<string>(StringComparer.Ordinal); long bytes = 0;
+await Visit(h["header"]);
+foreach (var v in h["invocations"]!.AsObject()) await Visit(v.Value);
+foreach (var v in h["events"]!.AsArray()) await Visit(v);
+var failed = run.Invocations.Values.Where(i => i.Status != "completed" && i.Status != "skipped").Select(i => new {id=i.Id,type=i.StepType,status=i.Status,observed_completion=i.ExternalCompletionObserved});
+var mappings = run.Invocations.Values.Where(i => i.StepType == "mapping.dynamic").Select(i => new {
+    id=i.Id,description=i.Description,status=i.Status,input_bytes=Encoding.UTF8.GetByteCount(i.ResolvedInput?.ToJsonString() ?? "null"),
+    source_fields=i.ResolvedInput?["sources"]?.AsObject().Select(p => new {name=p.Key,bytes=Encoding.UTF8.GetByteCount(p.Value?.ToJsonString() ?? "null")})
+});
+var tokenizer = TiktokenTokenizer.CreateForEncoding("o200k_base");
+var requestSizes = run.Invocations.Values.Where(i => i.Id.Contains("/mapping/", StringComparison.Ordinal) && i.ResolvedInput?["prompt"] is JsonValue).Select(i => {
+    var request = i.ResolvedInput!.Deserialize(PlanningJsonContext.Default.LLMRequest)!;
+    // Exact clone-only metadata changes made by the frozen campaign adapter.
+    request.ClientRequestId = runId + "-execution:" + request.ClientRequestId;
+    request.Reasoning = "medium"; request.MaxTokens = Math.Min(request.MaxTokens ?? 32768,32768);
+    request.Provider = "OpenAi"; request.Model = "gpt-5.5-2026-04-24";
+    request.UseBackgroundMode = false;
+    var json = JsonSerializer.Serialize(request,PlanningJsonContext.Default.LLMRequest);
+    return new {id=i.Id,status=i.Status,complete_request_bytes=Encoding.UTF8.GetByteCount(json),
+        complete_request_estimated_tokens=checked((int)Math.Ceiling(tokenizer.CountTokens(json)*1.25)+4096),
+        prompt_estimated_tokens=checked((int)Math.Ceiling(tokenizer.CountTokens(request.Prompt)*1.25)+4096),
+        retained_receipt=i.Output?.DeepClone(),observed_completion=i.ExternalCompletionObserved};
+}).ToArray();
+Console.WriteLine(JsonSerializer.Serialize(new {
+    run_id=runId,status=run.Status,steps_started=run.StepsStarted,finalization_steps_started=run.FinalizationStepsStarted,
+    finalization_started=run.FinalizationStarted,finalization_completed=run.FinalizationCompleted,
+    logical_json_bytes=Encoding.UTF8.GetByteCount(logical),checkpoint_json_bytes=Encoding.UTF8.GetByteCount(head.Value),
+    referenced_block_count=visited.Count,referenced_block_json_bytes=bytes,checkpoint_read_ms=checkpointReadMs,reconstruction_ms=reconstructionMs,
+    invocations=run.Invocations.Count,events=run.Events.Count,
+    invocation_types=run.Invocations.Values.GroupBy(i => i.StepType).ToDictionary(g=>g.Key,g=>g.Count()),
+    finalizers=run.Invocations.Values.Where(i=>i.IsFinalization).Select(i=>new{id=i.Id,type=i.StepType,status=i.Status,observed_completion=i.ExternalCompletionObserved,description=i.Description}),
+    mappings,request_sizes=requestSizes,non_completed=failed,
+    note="Read-only public KeyVault APIs. Referenced immutable blocks only; superseded blocks and encryption/SQLite overhead excluded. Read/reconstruction timings are inspection, not checkpoint-write latency. No execution or dispatch."
+}));
+async Task Visit(JsonNode? reference) {
+    var r=reference!.AsArray(); if(r[0]!.GetValue<int>()==0)return;
+    var hash=r[1]!.GetValue<string>(); if(!visited.Add(hash))return;
+    var record=await records.GetAsync("flow-execution-blocks-v1",tenant,prefix+hash,author) ?? throw new Exception("Missing block");
+    bytes+=Encoding.UTF8.GetByteCount(record.Value);var e=JsonNode.Parse(record.Value)!;
+    if(e["tenantId"]!.ToString()!=tenant || e["runId"]!.ToString()!=runId)throw new Exception("Wrong owner");
+    var b=e["body"]!;
+    if(Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(b.ToJsonString())))!=hash)throw new Exception("Wrong block hash");
+    if(b["kind"]!.ToString()=="object") foreach(var v in b["values"]!.AsArray()) await Visit(v![1]);
+    else if(b["kind"]!.ToString() is "array" or "chunks") foreach(var v in b["values"]!.AsArray()) await Visit(v);
+}

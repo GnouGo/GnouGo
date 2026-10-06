@@ -36,3 +36,8 @@ Planning reached review after seven calls/physical attempts, zero automatic repa
 Execution has **not started**: no live XLSX, product-visit oracle or cleanup measurement is claimed. Approval must acknowledge all five IDs above and bind this revision and hash. The campaign upper bound is EUR 91.896721 / 150, including EUR 2.606753 unchanged historical unknown reservations. No code-review run, cohort expansion or uncertain-invocation replay is included.
 
 The unchanged independent oracle checks real product visits and complete captured observations, XLSX row/column shape and observed cell values, exact output location and Browser closure. A later failure is retained; it does not authorize blind replay or a weaker oracle.
+
+
+## Subsequent execution record
+
+The user subsequently approved this exact revision/hash and all five requirements. It executed once and failed request admission before consent extraction, with successful workflow cleanup. The review above is preserved as the pre-execution record. See the [execution report](amazon-execution.md); do not replay this completed invocation.

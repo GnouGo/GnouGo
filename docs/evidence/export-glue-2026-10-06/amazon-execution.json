@@ -1,0 +1,122 @@
+{
+  "run": "exportglue20261006a-amazon-1",
+  "source": "7adab9ee1ff84557742727f91bb23098f23f5052",
+  "approved_revision": 11,
+  "approved_session_revision": 12,
+  "artifact_hash": "1557a5d6c72c4c30510b0b4e9b08050ae4b8d5c27dc0bd47545ac98d0df238e1",
+  "approval_source": "User reply: I give my approval ! in response to the concrete revision 11 / five-requirement approval request.",
+  "saved_yaml_unchanged": true,
+  "execution_attempts": 1,
+  "replayed": false,
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "LLM_BUDGET_EXCEEDED",
+      "Type": "LLM_BUDGET_EXCEEDED",
+      "Message": "Mapping inference stopped: LLM_BUDGET_EXCEEDED. [workflow 'main', step 'n_7e4e9c6d0819b314']",
+      "Retryable": false,
+      "Details": {
+        "failed_workflow": "main",
+        "failed_step_id": "n_7e4e9c6d0819b314",
+        "failed_step_type": "mapping.dynamic",
+        "execution_phase": "step"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "result": {
+    "status": "final_review",
+    "planning_ms": 317835,
+    "calls": 7,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 4,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 7,
+        "physical_attempts": 7,
+        "known_input_tokens": 93000,
+        "known_output_tokens": 26785,
+        "known_cost_eur": 1.1256988197710533,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 1,
+        "physical_attempts": 1,
+        "known_input_tokens": 116,
+        "known_output_tokens": 342,
+        "known_cost_eur": 0.009619309610435708,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 783,
+        "session_calls": 0,
+        "known_input_tokens": 11832611,
+        "known_output_tokens": 1371162,
+        "known_cost_eur": 89.2995876387136,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 91.90634042267797,
+        "unknown_attempts": 2
+      }
+    },
+    "execution_ms": 63420,
+    "total_ms": 381255
+  },
+  "mapping_telemetry": [
+    {
+      "gnougo.mapping.cache_hit": false,
+      "gnougo.mapping.model_attempts": 1,
+      "gnougo.mapping.repairs": 0,
+      "step": "n_7e4e9c6d0819b314",
+      "status": "Failed",
+      "duration_ms": 313.0727
+    }
+  ],
+  "runtime_mapping_receipts": [
+    {
+      "invocation": "/workflow/main/step/n_7e4e9c6d0819b314/mapping/0",
+      "request_id": "310524bb96838c03220e317e17bf593291aeb515a656ce30d802dd0b1654a356",
+      "status": "completed",
+      "usage": null,
+      "response": null
+    }
+  ],
+  "runtime_llm_inputs": [
+    {
+      "invocation": "/workflow/main/step/n_7e4e9c6d0819b314/mapping/0",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 97193,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_3981b1c1638bb00a",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 4201,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ],
+  "evidence_note": "Original full observations, inputs and receipts remain in the encrypted campaign and execution journals. Mapping model_attempts=1 is local admission telemetry; this mapping had zero paid provider dispatches."
+}
