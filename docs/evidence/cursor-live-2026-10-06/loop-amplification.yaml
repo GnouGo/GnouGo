@@ -1,0 +1,24 @@
+version: 1
+workflows:
+  main:
+    steps:
+      - id: observed
+        type: set
+        input: { payload: "${data.inputs.payload}" }
+      - id: first_view
+        type: loop.sequential
+        input: { items: "${data.inputs.items}" }
+        steps:
+          - id: first_record
+            type: set
+            input: { value: "${data.item}" }
+      - id: second_view
+        type: loop.sequential
+        input: { items: "${data.inputs.items}" }
+        steps:
+          - id: second_record
+            type: set
+            input: { value: "${data.item}" }
+    outputs:
+      first: "${data.steps.first_view.results}"
+      second: "${data.steps.second_view.results}"

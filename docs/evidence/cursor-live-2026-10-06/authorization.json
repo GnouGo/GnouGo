@@ -1,0 +1,22 @@
+{
+  "user_message": "I approve the next live validation",
+  "scope": "One fresh Amazon live validation; no code-review run or cohort expansion",
+  "candidate": "26cf8c63101f456f6409c8891072d2d5fdca7a01",
+  "campaign": "schema-portability-20261002",
+  "campaign_ceiling_eur": 150,
+  "cohort": "cursorlive20261006a",
+  "run": "cursorlive20261006a-amazon-1",
+  "prior_failed_run_preserved": "consumerretry20261006b-amazon-1",
+  "note": "Artifact requirements and implementation remain subject to the existing explicit revision/hash-bound review gate.",
+  "artifact_review": {
+    "revision": 8,
+    "artifact_hash": "ef62b18563a5b87fb1172a449397a0464e06aff57abe6014b7d5239e845865c4",
+    "basis": "User explicitly approved the next live validation after previously acknowledging the four business requirements. Manual review confirms the same business scope, unchanged oracle, permissions and EUR150 ceiling; no new business action is introduced. The approval command binds that authorization to the new reviewed artifact.",
+    "reviewed_requirements": [
+      "search_amazon_fr",
+      "extract_up_to_three_products",
+      "save_excel",
+      "explicit_blockers_and_cleanup"
+    ]
+  }
+}
