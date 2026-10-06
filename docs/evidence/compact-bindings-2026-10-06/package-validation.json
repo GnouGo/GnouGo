@@ -1,0 +1,54 @@
+{
+  "production": "0348550a",
+  "checks": [
+    {
+      "name": "pack-Core",
+      "exit_code": 0,
+      "seconds": 3.37,
+      "log_sha256": "61e357935f2257d929553b1444a108c488cd94410d267d02bf8d960fd4e9247b"
+    },
+    {
+      "name": "pack-Planning",
+      "exit_code": 0,
+      "seconds": 7.47,
+      "log_sha256": "98bca51bb4015d495329d987cdd743e092978d885b973c0eb9b4e67b15417feb"
+    },
+    {
+      "name": "pack-Persistence",
+      "exit_code": 0,
+      "seconds": 4.63,
+      "log_sha256": "592d898b7a8b3111316ec00bceca88c3955f47c0a328d0df05f8b0b0424ca6eb"
+    },
+    {
+      "name": "publish-planning",
+      "exit_code": 0,
+      "seconds": 43.0,
+      "log_sha256": "d792a65baf3015398e030944734cf454c760edd34d46b1707a1ce6c1d7f54479"
+    },
+    {
+      "name": "run-planning",
+      "exit_code": 0,
+      "seconds": 6.47,
+      "log_sha256": "55d680deaa12c690cbf1c5cf5875ac7ceb48b865b9160d1eb1ab40220ffaa3ff"
+    },
+    {
+      "name": "skill",
+      "exit_code": 0,
+      "seconds": 0.08,
+      "log_sha256": "db349825903d66adffea3ecf1bd8e1803043e8a71cf1a051235dabc5371f5bb0"
+    },
+    {
+      "name": "encrypted_recovery",
+      "exit_code": 0,
+      "log_sha256": "85b2f2e362831b48e857320393a02a18eb7b6d63be9af7db73f1e2b93792a4a9",
+      "output": "PASS published CLI: encrypted receipts, native EF query/index rebuild, tenant isolation, retained results and revision checks\nPASS published server: encrypted restart recovery, streamed durable human answers, tenant isolation and revision checks\nPASS no workflow content in database plaintext; evidence directory: <disposable-evidence>\n"
+    },
+    {
+      "name": "agent_planning_recovery",
+      "exit_code": 0,
+      "log_sha256": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88",
+      "output": "Format-10 planning persistence smoke passed; execution journal schema 9 is unchanged.\n"
+    }
+  ],
+  "known_notices": "Existing EF Core Tasks query-precompilation and NativeAOT experimental notices on CLI/Flow.Server/Agent.Server publication; no new suppressions."
+}

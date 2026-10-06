@@ -1,0 +1,47 @@
+# Compact bindings: validation and fresh Amazon boundary
+
+The failed cursor live is retained separately in [its report](cursor-live-2026-10-06.md). Evidence commit `5cb6b60a` preserves the approved r8 YAML and command exactly. That execution is never resumed.
+
+Implementation commits `39210589` and `0348550a` introduce approval-fingerprinted compact lowering, opt-in inference of independent runtime extraction collections, isolated business loops, and preservation of the first journal exception. New hosts omit the redundant startup confirmation; artifact approval, MCP permissions, questions and explicit cookie handling remain. The planning skill shrinks from 22,641 to 6,327 bytes. [Compilation and compatibility](compact-workflow-bindings.md).
+
+## Deterministic measurements
+
+The same two guarded sequential loops use identical inputs and independent output checks under legacy and compact compilation. There is no provider inference.
+
+| Eight-item fixture | Legacy | Compact |
+| --- | ---: | ---: |
+| Collected result bytes | 1,450,586 | 3,794 |
+| Logical snapshot bytes | 13,185,824 | 698,226 |
+| Runtime invocations | 88 | 90 |
+| YAML bytes | 14,461 | 17,691 |
+| Workflows | 3 | 5 |
+
+Isolation adds two scope calls and explicit contracts, while removing preceding-state amplification. Compact collected bytes are 1,898 for four items and 3,794 for eight. Snapshots still include captured inputs and grow with actual work; they are not pruned or buffered asynchronously.
+
+A separate copy-only fixture shrinks from 13,765 characters / three workflows to 11,737 characters / one workflow. It processes every item, duplicates, explicit nulls and nested arrays with no per-item invocation or inference, including large unrelated source fields.
+
+A read-only recompilation of historical r8 reduces steps from 223 to 195 and workflows from 18 to 17, but increases YAML from 170,243 to 189,294 bytes because isolated scopes carry contracts. Its ten explicitly authored interpretation transforms remain interpretation. This comparison does **not** claim that compilation alone simplifies that old business composition. A fresh plan must choose extraction where appropriate; no saved plan or approval was rewritten.
+
+[Measurements](evidence/compact-bindings-2026-10-06/deterministic-measurements.json) include exact counts. Reproduce the matched execution fixture with:
+
+```sh
+python3 docs/evidence/compact-bindings-2026-10-06/measure.py --root "$PWD"
+dotnet test tests/GnOuGo.Flow.Planning.Tests -m:1 -warnaserror --filter FullyQualifiedName~CompactBindingCompilationTests --logger 'console;verbosity=detailed'
+dotnet test tests/GnOuGo.Flow.Tests -m:1 -warnaserror --filter 'FullyQualifiedName~DynamicMappingCollectionTests|FullyQualifiedName~WorkflowRunTests'
+```
+
+Development validation caught a rounded JSON number in counted-loop indexing. The retained regression fails before the structural indexed-read correction and passes afterward. It also confirms that unrelated captured data need not enter the JavaScript sandbox. No numeric arithmetic policy changed.
+
+## Validation status
+
+Candidate `0348550a` passes 1,111 Core tests, the affected Release packages, the updated planning Native AOT smoke and published CLI/Flow.Server encrypted recovery. **The final solution run passes 4,601 tests, zero failures and 12 existing skips across 33 projects**, with `-m:1 -warnaserror`. Seven skips are Windows-only commands and five are separately authorized paid Copilot cases. The real browser review smoke and local product-to-XLSX fixtures are included. [Solution evidence](evidence/compact-bindings-2026-10-06/solution-validation.json). Agent.Server's published format-10 planning/mapping recovery smoke also passes; journal schema 9 is unchanged.
+
+Release packages and planning AOT use `-warnaserror`. CLI/Flow.Server/Agent.Server publication uses the existing supported profiles with C# warnings treated as errors; EF Core Tasks emits its two existing experimental-feature notices. The initial global-warning-as-error CLI attempt and an incorrectly targeted HTTP smoke against Agent.Server are retained as development command failures. The corrected HTTP smoke targets Flow.Server and passes unchanged assertions. No warning suppression or test oracle was added or weakened.
+
+## Fresh live boundary
+
+Only one new Amazon E2E is included, with **ten products maximum**. Cohort `compactbindings20261006b` freezes production/harness `0348550a`, model configuration, the explicit ten-product bound and existing execution assertions. The earlier `compactbindings20261006a` identity contains readiness only, with zero model calls.
+
+Zero-inference readiness confirms the exact configured model allowances, local Browser cleanup, actual document writing and independent XLSX reading. Campaign `schema-portability-20261002` remains at **€88.87480257548656 / €150** before dispatch, including **€2.6067527839643653** in unchanged unknown reservations. [Readiness](evidence/compact-bindings-2026-10-06/provider-readiness.json), [ledger](evidence/compact-bindings-2026-10-06/ledger-before.json).
+
+Fresh generation must pass the deterministic gates first. Its own revision/hash-bound artifact approval and explicit requirement acknowledgments are required before execution. There is no new code-review live, cohort expansion, automatic consent acknowledgment or replay of uncertain invocations. PR #117 remains draft.
