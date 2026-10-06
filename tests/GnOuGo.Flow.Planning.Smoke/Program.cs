@@ -128,12 +128,13 @@ var compactPlan = JsonSerializer.Deserialize("""
     """, PlanningJsonContext.Default.TaskPlan)!;
 var compactEngine = new WorkflowEngine();
 var compactCatalog = await new WorkflowPlanningRuntime(compactEngine, (_, _) => Task.CompletedTask).DiscoverAsync(new(), CancellationToken.None);
-var compactGraph = new TaskPlanCompiler().Compile(compactPlan, compactCatalog, compactBindings: true);
+var compactGraph = new TaskPlanCompiler().Compile(compactPlan, compactCatalog, compactBindings: true, normalExports: true);
 if (compactGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Compact typed compilation failed.");
-var compactYaml = new PlanningGraphCompiler().Compile(compactGraph.Graph!, compactCatalog);
+var compactYaml = new PlanningGraphCompiler().Compile(compactGraph.Graph!, compactCatalog, "generated", true);
 var compactDoc = new WorkflowCompiler().Compile(WorkflowParser.Parse(compactYaml));
 var compactResult = await compactEngine.ExecuteAsync(compactDoc.Workflows["main"], JsonNode.Parse("{\"rows\":[{\"label\":\"same\"},{\"label\":\"same\"}]}"), CancellationToken.None);
-if (!compactResult.Success || compactDoc.Workflows.Count != 1 || compactYaml.Contains("loop.sequential", StringComparison.Ordinal) ||
+if (!compactResult.Success || compactDoc.Workflows.Count != 1 || compactDoc.Workflows["main"].Finally.Count != 0 ||
+    compactDoc.Workflows["main"].Steps.Any(s => string.IsNullOrWhiteSpace(s.Description)) || compactYaml.Contains("loop.sequential", StringComparison.Ordinal) ||
     compactResult.Outputs?["labels"]?.ToJsonString() != "[\"same\",\"same\"]")
     throw new InvalidOperationException("Compact typed collection failed in Native AOT: " + compactResult.Error?.Message);
 Console.WriteLine("compact bindings: fused collection, zero per-item calls, exact duplicates, no inference");

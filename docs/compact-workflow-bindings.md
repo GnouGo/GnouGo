@@ -1,10 +1,22 @@
 # Compact workflow bindings
 
-New sessions and explicit revisions use `options.compilation_profile = compact-bindings-v1`. The option participates in the existing artifact fingerprint. Historical requests, graphs, YAML and approvals retain their previous compilation profile; the compiler API defaults to historical lowering unless explicitly opted in.
+New sessions and explicit revisions use `options.compilation_profile = compact-bindings-v2`. The option participates in the existing artifact fingerprint. Historical requests, graphs, YAML and approvals retain their previous compilation profile; the compiler API defaults to historical lowering unless explicitly opted in.
 
 The TaskPlan still describes business operations and data dependencies. Typed field selections and object/array assembly fuse into checked `set` expressions at final lowering. Copy-only foreach bodies compile to structural collection projections: no per-item workflow invocation, inference or journal entry. These optimizations exclude per-item business conditions, inference, effects, explicit cleanup and prior-iteration state. A loop's entry requirement still executes before its bounds check and projection; a failed entry requirement publishes nothing. Each resulting value still receives complete output-schema validation. Missing paths fail; explicit nulls, duplicates, order and nested arrays survive unchanged.
 
 Real business loops keep their child workflow and run inside an isolated captured scope. Sequential loops use the existing counted form over the captured, schema-checked collection. This prevents both preceding loops' results and the current full collection from becoming part of every legacy iteration snapshot. Existing authored loop executors and their result envelopes are unchanged.
+
+## Normal exports and finalization
+
+The v2 profile resolves exports from their actual graph dependencies. Direct validated references remain direct. Necessary checked selections and assemblies run after normal producers in normal steps. Related output properties share one checked `set` only when their scope, phase, guards and availability match. Private copy projections may be inlined into that assembly when the final schema preserves their constraints; business task identities, shared consumers and presence checks remain intact. Empty adapters are omitted when the scope already contains normal export work.
+
+Exports depending on actual `always` results remain after those producers, with the existing presence guards. Mixed dependencies wait for both. Failure-evidence preservation remains explicit and ordered before cleanup; a failed workflow publishes no successful business outputs. Normal glue uses normal execution allowance. Genuine finalization and nested preservation work still use the unchanged bounded finalization allowance.
+
+The public compiler overloads preserve their previous behavior: omission uses historical lowering; `compactBindings: true` retains v1. Saved requests with v1 or no profile reproduce their original YAML. New sessions and explicit revisions select v2 through the existing approval-fingerprinted option. No stored workflow, pending request or approval is rewritten.
+
+## Literal descriptions
+
+Fresh v2 YAML carries optional common step `description` metadata. Business steps use their TaskPlan objective; compiler-owned steps receive a static purpose, for example “Collect declared iteration outputs.” `InternalRole` remains compiler metadata. Descriptions appear in step telemetry, streaming events, `gnougo-flow.step.description` OTel attributes and encrypted invocation records. They are never interpolated, included in inference inputs or used for execution, permissions, validation or reconciliation. Even `${...}` remains literal. Absent descriptions remain absent on historical steps and journal entries. The whole YAML still participates in artifact approval hashing.
 
 ## Extraction versus interpretation
 

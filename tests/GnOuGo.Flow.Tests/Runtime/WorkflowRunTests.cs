@@ -53,20 +53,24 @@ public sealed class WorkflowRunTests
     [InlineData(true)]
     public async Task CrashAroundReceipt_NeverRepeatsUncertainEffect_AndDefersCleanup(bool receiptPersisted)
     {
+        const string description = "Custom ${metadata} remains literal";
+        var yaml = Simple.Replace("type: test.effect,", "type: test.effect, description: '" + description + "',", StringComparison.Ordinal);
         var store = new InMemoryWorkflowRunStore();
         var effect = new Effect();
         var fault = new FaultStore(store, r => r.Invocations.Values.Any(i => i.Id.EndsWith("/write") && i.Status == "completed"), receiptPersisted);
         var engine = Engine(fault, effect);
-        var failure = await Assert.ThrowsAsync<IOException>(() => engine.ExecuteAsync(Compile(Simple), null, TestContext.Current.CancellationToken));
+        var failure = await Assert.ThrowsAsync<IOException>(() => engine.ExecuteAsync(Compile(yaml), null, TestContext.Current.CancellationToken));
         Assert.Equal(receiptPersisted ? "Injected process crash after commit." : "Injected persistence crash before commit.", failure.Message);
         Assert.Equal(["written"], effect.Values);
         var saved = (await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken))!;
         Assert.False(saved.FinalizationStarted);
+        Assert.Equal(description, saved.Invocations["/workflow/main/step/write"].Description);
         var recovered = Engine(store, effect);
-        var result = await recovered.ResumeAsync("tenant", "run", saved.Revision, Compile(Simple), TestContext.Current.CancellationToken);
+        var result = await recovered.ResumeAsync("tenant", "run", saved.Revision, Compile(yaml), TestContext.Current.CancellationToken);
         if (receiptPersisted)
         {
             Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(description, (await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken))!.Invocations["/workflow/main/step/write"].Description);
             Assert.Equal(["written", "cleanup"], effect.Values);
         }
         else
@@ -76,7 +80,7 @@ public sealed class WorkflowRunTests
             saved = (await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken))!;
             var reconciled = await recovered.ReconcileAsync("tenant", "run", saved.Revision, "/workflow/main/step/write",
                 "Operator observed the external operation stopped; its result is unavailable.", TestContext.Current.CancellationToken);
-            result = await recovered.ResumeAsync("tenant", "run", reconciled.Revision, Compile(Simple), TestContext.Current.CancellationToken);
+            result = await recovered.ResumeAsync("tenant", "run", reconciled.Revision, Compile(yaml), TestContext.Current.CancellationToken);
             Assert.False(result.Success);
             Assert.Equal(["written", "cleanup"], effect.Values);
         }

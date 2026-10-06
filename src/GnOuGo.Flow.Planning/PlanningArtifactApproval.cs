@@ -13,13 +13,13 @@ public static class PlanningArtifactApproval
             PlanningClarifications.InputFindings(state).Count > 0 ||
             state.IntentVersion != 2 && (state.ApprovedHash is null || state.ApprovedHash != state.ComputeArtifactHash()))
             throw new PlanningConflictException("Approval requires a complete format-10 TaskPlan. Regenerate incompatible planning sessions; execution journals remain schema 9.");
-        var compilation = new TaskPlanCompiler().Compile(state.Plan, state.Catalog, TaskPlanCompiler.UsesCompactBindings(state.Request));
+        var compilation = new TaskPlanCompiler().Compile(state.Plan, state.Catalog, state.Request);
         if (compilation.Graph is not { } graph || compilation.Diagnostics.Count > 0 || PlanningClarifications.OutputFindings(state, graph).Count > 0 || PlanningGeneratedGraph.Validate(graph, state.Catalog, TaskPlanCompiler.UsesCompactBindings(state.Request)).Any(d => d.Required))
             throw new PlanningConflictException("The saved TaskPlan no longer compiles to an approvable artifact.");
         PlanningConfirmationGuards.Apply(graph, state.Catalog);
         if (!JsonNode.DeepEquals(JsonSerializer.SerializeToNode(graph, PlanningJsonContext.Default.PlanningGraph), JsonSerializer.SerializeToNode(state.Graph, PlanningJsonContext.Default.PlanningGraph)) ||
             PlanningExecutableValidation.Validate(graph, state.Catalog).Any(d => d.Required) ||
-            new PlanningGraphCompiler().Compile(graph, state.Catalog, state.Request.Name) != state.Yaml)
+            new PlanningGraphCompiler().Compile(graph, state.Catalog, state.Request.Name, TaskPlanCompiler.UsesNormalExports(state.Request)) != state.Yaml)
             throw new PlanningConflictException("Recompilation does not reproduce the reviewed executable artifact.");
     }
 }

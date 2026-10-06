@@ -121,6 +121,8 @@ String workflow inputs and outputs may declare `enum: [value_a, value_b]`. Value
 
 During workflow.plan semantic validation, a `WorkflowSymbolTable` is built as steps are walked. It tracks workflow inputs, scoped data variables, available step output types, and control-flow availability so expressions such as `data.steps.<id>.<field>` and loop-local `data.<item_var>.<field>` can be checked against known symbols before generated YAML is accepted.
 
+Common C# workflow steps accept optional literal `description` metadata, including custom steps, nested steps and finalizers. The engine forwards it to step telemetry and encrypted invocation records; supported OTel adapters expose `gnougo-flow.step.description`. It is not an expression or executable input: `${...}` stays literal. Descriptions never affect permissions, validation, role classification or reconciliation. Omission preserves historical serialization; changing the YAML still changes the artifact approval hash.
+
 Step outputs are resolved through `StepOutputTypeResolver`: each step starts from its executor contract and can be refined by static input, such as `set.output_schema`, `llm.call.input.structured_output`, validated protocol-declared MCP tool output schemas, local `workflow.call` targets, `template.render` mode, `human.input` form fields, and loop body output snapshots.
 
 Planner v2 can pass `PlanningArtifactBinding` values through `IPlanningRuntime.ValidateAsync`

@@ -13,6 +13,10 @@ public sealed class StepDef
     /// <summary>Step type (e.g. "sequence", "parallel", "llm.call", etc.).</summary>
     public string Type { get; set; } = "";
 
+    /// <summary>Literal human-readable metadata; never evaluated or used as authority.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; set; }
+
     /// <summary>Optional conditional guard expression (${...}).</summary>
     public string? If { get; set; }
 

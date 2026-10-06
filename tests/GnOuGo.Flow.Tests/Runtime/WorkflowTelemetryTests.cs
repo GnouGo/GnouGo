@@ -45,6 +45,56 @@ public class WorkflowTelemetryTests
         return compiled.Workflows[compiled.Entrypoint!];
     }
 
+    [Theory]
+    [InlineData("success")]
+    [InlineData("skipped")]
+    [InlineData("failure")]
+    public async Task StepDescriptionsAreLiteralMetadataInTelemetryAndJournal(string variant)
+    {
+        const string description = "Observe ${data.env.secret} — not an expression";
+        var yaml = """
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: group
+                    type: sequence
+                    description: Nested business work
+                    steps:
+                      - id: work
+                        type: set
+                        description: 'Observe ${data.env.secret} — not an expression'
+                        input: {value: exact}
+                        output_schema: {type: object, properties: {value: {type: string}}, required: [value]}
+                finally:
+                  - id: finish
+                    type: set
+                    description: Preserve cleanup
+                    input: {finished: true}
+            """;
+        var document = WorkflowParser.Parse(yaml);
+        var work = document.Workflows["main"].Steps[0].Steps![0];
+        if (variant == "skipped") work.If = "${false}";
+        if (variant == "failure") work.Input = new JsonObject { ["value"] = 42 };
+        Assert.Equal(description, work.Description); Assert.Empty(document.UnknownFields);
+        var telemetry = new RecordingTelemetry(); var store = new InMemoryWorkflowRunStore();
+        var engine = new WorkflowEngine { Telemetry = telemetry, RunStore = store, Limits = new() { TenantId = "metadata", RunId = variant } };
+        var compiled = new WorkflowCompiler().Compile(document);
+        var result = await engine.ExecuteAsync(compiled.Workflows["main"], new JsonObject(), TestContext.Current.CancellationToken);
+        Assert.Equal(variant != "failure", result.Success);
+        var info = Assert.Single(telemetry.Events.Select(e => e.Info).OfType<StepTelemetryInfo>(), i => i.StepId == "work");
+        Assert.Equal(description, info.Description);
+        Assert.DoesNotContain("description", info.Input?.ToJsonString() ?? "");
+        var run = (await store.ReadAsync("metadata", variant, TestContext.Current.CancellationToken))!;
+        Assert.Equal(description, Assert.Single(run.Invocations.Values, i => i.Id.EndsWith("/step/work", StringComparison.Ordinal)).Description);
+        Assert.Contains(run.Invocations.Values, i => i.Description == "Preserve cleanup" && i.Status == "completed");
+        var serialized = System.Text.Json.JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun);
+        var restored = System.Text.Json.JsonSerializer.Deserialize(serialized, WorkflowRunJsonContext.Default.WorkflowRun)!;
+        Assert.Equal(description, Assert.Single(restored.Invocations.Values, i => i.Id.EndsWith("/step/work", StringComparison.Ordinal)).Description);
+        var old = System.Text.Json.JsonSerializer.Serialize(new WorkflowRun(), WorkflowRunJsonContext.Default.WorkflowRun);
+        Assert.DoesNotContain("description", old);
+    }
+
     // ────── NullWorkflowTelemetry ──────
 
     [Fact]

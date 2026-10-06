@@ -76,13 +76,22 @@ public sealed partial class TaskPlanCompiler
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
     private readonly HashSet<string> _compilingGroups = new(StringComparer.Ordinal);
     private readonly Dictionary<string, PlanningWorkflow> _groups = new(StringComparer.Ordinal);
-    internal const string CompactProfile = "compact-bindings-v1";
-    internal static bool UsesCompactBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() == CompactProfile;
+    internal const string CompactProfile = "compact-bindings-v2";
+    internal static bool UsesCompactBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v1" or CompactProfile;
+    internal static bool UsesNormalExports(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() == CompactProfile;
     private bool _compactBindings;
+    private bool _normalExports;
     private string _location = "/tasks";
 
     public TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings = false)
+        => Compile(plan, catalog, compactBindings, false);
+
+    internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, PlanningRequest request)
+        => Compile(plan, catalog, UsesCompactBindings(request), UsesNormalExports(request));
+
+    internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports)
     {
+        _normalExports = normalExports;
         _compactBindings = compactBindings;
         _plan = plan; _symbols = new(plan); _catalog = catalog; _location = "/"; _graph = new(); _sources.Clear(); _groups.Clear(); _compilingGroups.Clear();
         try
@@ -92,6 +101,9 @@ public sealed partial class TaskPlanCompiler
             var main = new PlanningWorkflow(); _graph.Workflows.Add(main); _sources["main"] = "/root";
             var scope = new Scope(main, null); AddInputs(scope, plan.Inputs, "/inputs");
             CompileScope(plan.Root, scope, "main");
+            if (_normalExports)
+                foreach (var node in _graph.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally))))
+                    if (string.IsNullOrWhiteSpace(node.Purpose)) node.Purpose = TechnicalDescription(node);
             return new(_graph, [], new Dictionary<string, string>(_sources));
         }
         catch (InvalidTask error) { return new(null, [error.Diagnostic with { Code = "TASK_COMPILER_VALIDATION", Message = error.Diagnostic.Code + ": " + error.Message }], new Dictionary<string, string>(_sources)); }
@@ -169,11 +181,17 @@ public sealed partial class TaskPlanCompiler
         Unique(source.Tasks.Concat(source.Always).Select(t => t.Id));
         foreach (var task in Ordered(source.Tasks)) CompileTask(task, scope, scope.Workflow.Steps, key, false);
         foreach (var task in Ordered(source.Always)) CompileTask(task, scope, scope.Workflow.Finally, key, true);
+        if (_normalExports)
+        {
+            Unique(source.Outputs.Select(o => o.Name));
+            CompileExports(source, scope, key);
+        }
         if (scope.Workflow.Steps.Count == 0)
         {
             var empty = Key(key, "empty"); _sources[empty] = "/tasks/" + key;
             scope.Workflow.Steps.Add(new() { Key = empty, Type = "set", Input = Object([]) });
         }
+        if (_normalExports) return;
         Unique(source.Outputs.Select(o => o.Name));
         foreach (var output in source.Outputs)
         {
@@ -332,6 +350,8 @@ public sealed partial class TaskPlanCompiler
                 break;
             default: Fail("TASK_KIND_INVALID", "Unknown semantic task kind."); return;
         }
+        if (_normalExports && task.Kind is "call" or "sequence" or "foreach")
+            foreach (var call in target.Skip(start).Where(n => n.Type == "workflow.call")) call.Purpose = task.Objective;
         scope.Tasks.Add(task.Id, outputs);
         // Cleanup can observe a failed/absent producer. Guard each generated stage before resolving inputs.
         if (cleanup)

@@ -46,6 +46,8 @@ public sealed class WorkflowInvocation
     public string? ParentInvocationId { get; set; }
     public string Id { get; set; } = "";
     public string StepType { get; set; } = "";
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; set; }
     public StepRecovery Recovery { get; set; }
     public bool IsFinalization { get; set; }
     public string Status { get; set; } = "prepared";

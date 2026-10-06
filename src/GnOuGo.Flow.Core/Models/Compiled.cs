@@ -35,6 +35,8 @@ public sealed class CompiledStep
     public StepDef Source { get; set; } = null!;
     public string Id => Source.Id;
     public string Type => Source.Type;
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description => Source.Description;
 
     /// <summary>Sub-steps (for sequence, loop).</summary>
     public List<CompiledStep>? Steps { get; set; }

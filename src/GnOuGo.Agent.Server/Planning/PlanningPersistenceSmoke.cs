@@ -86,6 +86,18 @@ internal static class PlanningPersistenceSmoke
             System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(mappingScript, StringComparison.Ordinal))
             throw new InvalidOperationException("Published mapping encryption/recovery/tenant isolation failed.");
         await reopenedMappings.RemoveAsync("smoke", "mapping-smoke", CancellationToken.None);
+        var runs = (GnOuGo.Flow.Core.Runtime.IWorkflowRunStore)mappingStore;
+        var run = new GnOuGo.Flow.Core.Runtime.WorkflowRun { TenantId = "smoke", RunId = "description-" + Guid.NewGuid().ToString("N") };
+        run.Limits.TenantId = run.TenantId; run.Limits.RunId = run.RunId;
+        const string description = "Private literal ${metadata}";
+        run.Invocations["/workflow/main/step/work"] = new() { Id = "/workflow/main/step/work", StepType = "set", Description = description,
+            Status = "completed", Output = System.Text.Json.Nodes.JsonNode.Parse("{\"value\":\"exact\"}") };
+        await runs.CreateAsync(run, CancellationToken.None);
+        var recoveredRun = await ((GnOuGo.Flow.Core.Runtime.IWorkflowRunStore)reopenedMappings).ReadAsync("smoke", run.RunId, CancellationToken.None);
+        if (recoveredRun?.Invocations["/workflow/main/step/work"].Description != description ||
+            recoveredRun.Invocations["/workflow/main/step/work"].Output?["value"]?.ToString() != "exact" ||
+            System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(vault)).Contains(description, StringComparison.Ordinal))
+            throw new InvalidOperationException("Published encrypted description/receipt recovery failed.");
         Console.WriteLine("Format-10 planning persistence smoke passed; execution journal schema 9 is unchanged.");
     }
 }

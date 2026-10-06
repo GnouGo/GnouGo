@@ -59,6 +59,71 @@ public sealed partial class TaskPlanCompiler
         }
     }
 
+    // Only exports depending on this workflow's finalizers belong after them.
+    // Captured ancestors are already available inputs of the current scope.
+    private void CompileExports(TaskScope source, Scope scope, string key)
+    {
+        var finalizers = PlanningGraphCompiler.Enumerate(scope.Workflow.Finally).Select(n => n.Key).ToHashSet(StringComparer.Ordinal);
+        var normal = new List<(string Name, Bound Bound, string Location, bool Copy)>();
+        var checks = new List<PlanningNode>();
+        foreach (var output in source.Outputs)
+        {
+            var pending = new List<PlanningNode>();
+            scope.Target = pending; scope.Cleanup = false;
+            _location = (_sources.GetValueOrDefault(key) ?? "/root") + "/outputs/" + output.Name;
+            var location = _location;
+            var bound = Value(output.Value, scope);
+            var afterCleanup = PlanningGraphTopology.ReferencedStages(bound.Value)
+                .Concat(pending.SelectMany(PlanningGraphTopology.References).SelectMany(PlanningGraphTopology.ReferencedStages))
+                .Any(finalizers.Contains);
+            _sources[key + "/outputs/" + scope.Workflow.Outputs.Count] = location;
+            if (afterCleanup)
+            {
+                foreach (var node in PlanningGraphCompiler.Enumerate(pending)) GuardCleanup(node);
+                scope.Workflow.Finally.AddRange(pending);
+                if (bound.Value.Kind is "object" or "array")
+                {
+                    var export = Key(key, "export:" + output.Name); _sources[export] = location;
+                    var node = new PlanningNode { Key = export, Type = "set", Purpose = "Export results produced during finalization",
+                        Input = Object([new("value", bound.Value)]), OutputSchema = Contract(ObjectSchema([("value", bound.Schema)])) };
+                    GuardCleanup(node); scope.Workflow.Finally.Add(node);
+                    bound = Output(export, "set", ["value"], bound.Schema);
+                }
+            }
+            else if (pending.Count != 0 || bound.Value.Kind is "object" or "array")
+            {
+                checks.AddRange(pending);
+                normal.Add((output.Name, bound, location, CopyValue(output.Value)));
+                bound = Output(Key(key, "exports"), "set", [output.Name], bound.Schema);
+            }
+            scope.Workflow.Outputs.Add(new() { Name = output.Name, Value = bound.Value, Schema = Contract(bound.Schema) });
+        }
+        if (normal.Count == 0) return;
+        var grouped = Key(key, "exports");
+        // These private checks are created only for these outputs. Copy bindings
+        // retain their exact contracts as members of the assembled result.
+        var fuse = normal.All(o => o.Copy) && checks.All(n => n.Type == "set" && n.Input.Kind == "projection" && n.If is null);
+        if (fuse) foreach (var check in checks) check.InternalRole = "inline:" + grouped;
+        scope.Workflow.Steps.AddRange(checks);
+        scope.Workflow.Steps.Add(new() { Key = grouped, Type = "set", Purpose = "Export declared business results",
+            InternalRole = fuse ? "typed_assembly" : null,
+            Input = Object(normal.Select(o => new PlanningMember(o.Name, o.Bound.Value))),
+            OutputSchema = Contract(ObjectSchema(normal.Select(o => (o.Name, o.Bound.Schema)))) });
+        _sources[grouped] = normal[0].Location;
+        for (var i = 0; i < normal.Count; i++) _sources[grouped + "/input/members/" + i + "/value"] = normal[i].Location;
+    }
+
+    private static string TechnicalDescription(PlanningNode node) => node.Type switch
+    {
+        "set" when node.Input.Kind == "projection" && PlanningGraphValidation.Member(node.Input, "each")?.Boolean == true => "Collect declared iteration outputs",
+        "set" when node.Input.Kind == "projection" => "Select and validate declared values",
+        "set" => "Assemble declared values",
+        "workflow.call" => "Execute scoped workflow",
+        "switch" => "Select the declared branch",
+        "template.render" => "Format the request from declared inputs",
+        _ => "Execute " + node.Type
+    };
+
     private static void GuardCleanup(PlanningNode node)
     {
         var required = PlanningValues.And(PlanningValues.ReadGuard(node.Input), node.Expr is null ? null : PlanningValues.ReadGuard(node.Expr));

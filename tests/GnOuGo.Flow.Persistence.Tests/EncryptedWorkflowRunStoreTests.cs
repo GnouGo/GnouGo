@@ -40,11 +40,12 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
         {
             owner.Run.Invocations.AddOrUpdate("/workflow/main/step/write", new WorkflowInvocation
             {
-                Id = "/workflow/main/step/write", StepType = "mcp.call", Status = "completed", Output = new JsonObject { ["secret"] = secret }
+                Id = "/workflow/main/step/write", StepType = "mcp.call", Description = "Literal ${metadata} " + secret, Status = "completed", Output = new JsonObject { ["secret"] = secret }
             }, (_, existing) => existing);
             await owner.SaveAsync(Ct);
         }
         var restarted = Store();
+        Assert.Equal("Literal ${metadata} " + secret, (await restarted.ReadAsync("tenant", "run", Ct))!.Invocations["/workflow/main/step/write"].Description);
         Assert.Equal(secret, (await restarted.ReadAsync("tenant", "run", Ct))!.Inputs!["secret"]!.GetValue<string>());
         await using (var index = Index())
         {

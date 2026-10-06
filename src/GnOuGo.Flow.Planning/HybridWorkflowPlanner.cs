@@ -199,7 +199,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
             // saved baseline. Pending requests always retain their issued scope.
             var candidate = JsonSerializer.Deserialize(JsonSerializer.Serialize(baseline, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
             foreach (var choice in candidate.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
-            var baselineFindings = new TaskPlanCompiler().Compile(candidate, state.Catalog!, TaskPlanCompiler.UsesCompactBindings(state.Request)).Diagnostics;
+            var baselineFindings = new TaskPlanCompiler().Compile(candidate, state.Catalog!, state.Request).Diagnostics;
             state.Diagnostics = state.Diagnostics.Concat(baselineFindings.Where(d => d.Code == "TASK_TRANSFORM_CONSTRAINT")).Distinct().ToList();
             state.RevisionScope = TaskPlanRevisions.Scope(baseline, state.Diagnostics).ToList();
         }
@@ -365,7 +365,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         // Validate the recommendation by compiling it before either automatic selection or a human pause.
         var candidate = JsonSerializer.Deserialize(JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!;
         foreach (var choice in candidate.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
-        var compilation = new TaskPlanCompiler().Compile(candidate, state.Catalog!, TaskPlanCompiler.UsesCompactBindings(state.Request));
+        var compilation = new TaskPlanCompiler().Compile(candidate, state.Catalog!, state.Request);
         if (compilation.Diagnostics.Count > 0) { SemanticFailure(state, compilation.Diagnostics); return; }
         if (plan.Choices.Any(c => c.Selected is null))
         {
@@ -385,7 +385,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         findings = PlanningExecutableValidation.Validate(graph, state.Catalog!).Select(compilation.Locate).ToList();
         if (findings.Count == 0)
         {
-            var yaml = new PlanningGraphCompiler().Compile(graph, state.Catalog!, state.Request.Name);
+            var yaml = new PlanningGraphCompiler().Compile(graph, state.Catalog!, state.Request.Name, TaskPlanCompiler.UsesNormalExports(state.Request));
             findings.AddRange((await runtime.ValidateAsync(new(yaml, state.Request, state.Catalog!, PlanningGraphCompiler.CapabilityBindings(graph)), ct))
                 .Select(d => compilation.Locate(PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph))));
             if (findings.Count == 0)

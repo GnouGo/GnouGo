@@ -5,7 +5,19 @@ description: Develop or review GnOuGo workflow planning, TaskPlan compilation, s
 
 # Planning
 
-Preserve `LLM → business TaskPlan → deterministic compiler → PlanningGraph → YAML`.
+Preserve this architecture:
+
+```text
+User request
+→ existing planning loop:
+    accepted requirements + clarification when necessary
+    ↔ bounded MCP discovery and exact-contract inspection
+    → LLM business TaskPlan with selected operations
+→ deterministic compiler → PlanningGraph → YAML
+→ artifact review and approval → execution
+```
+
+Requirements, clarification and tool selection are responsibilities inside one bounded loop, not mandatory separate model calls. Clear requests with available contracts can generate a TaskPlan immediately. Accepted requirements remain the review baseline; resolved contracts determine which operations and data bindings are allowed. The removed model-authored technical outcome-proof layer does not return. Compilation validates executable contracts, not arbitrary prose completeness or execution success.
 
 ## Business intent and data
 
@@ -21,7 +33,9 @@ Preserve `LLM → business TaskPlan → deterministic compiler → PlanningGraph
 
 - MCP producers own argument/result schemas, capabilities, effects, permissions and artifact provenance. Preserve opaque results; matching names or examples do not establish typed fields or resource ownership. No tool-name, provider-name or site-specific planner rules.
 - Validate contract closure before final lowering: types, constraints, nullability, availability and authoritative provenance. Known incompatible values cannot escape through dynamic mapping. Compiler plumbing failures are compiler failures, not model repair requests.
+- Keep normal exports in the normal execution path after their producers. Direct validated references stay direct; fuse compatible checked properties without losing intermediate constraints or observable identities. Reserve `finally` for genuine preservation/cleanup and exports that depend on its results; never spend cleanup capacity transporting normal outputs.
 - Keep mapping glue compact. Fuse safe typed selections and copy-only loops; preserve real operation loops, guards, cleanup and captures. New compilation profiles belong to existing approval-fingerprinted options. Never reinterpret historical YAML.
+- Step `description` is optional literal observability metadata: business objective for business steps, concise deterministic purpose for technical steps. Keep `InternalRole` machine-readable. Never interpret descriptions or use them for execution, inference, permissions, validation or reconciliation; changing YAML metadata still invalidates artifact approval.
 - `dependsOn` uses eligible same-scope identities; data references already imply dependencies. Capture ancestors, export descendant values through each scope, and reference the enclosing task's port. Conditional branches declare matching outputs explicitly. `present(inner)` cannot reference an inaccessible descendant or be silently replaced with `present(container)`.
 - Keep fixed agent scope and host-owned bindings immutable. Save available failure evidence inside the appropriate finalizer before nested cleanup. Unknown external completion blocks both cleanup and replay.
 - Preserve declared constraints in authoritative validation. Project only provider-incompatible schema features out of a cloned model-facing schema before estimation, hashing and persistence. Preflight before dispatch; retain issued requests unchanged.

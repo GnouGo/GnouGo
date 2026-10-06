@@ -62,6 +62,7 @@ public sealed class WorkflowTelemetryAdapterTests
         {
             StepId = "plan",
             StepType = "workflow.plan",
+            Description = "Literal ${metadata}",
             CallDepth = 1
         });
 
@@ -109,6 +110,7 @@ public sealed class WorkflowTelemetryAdapterTests
 
         Assert.Contains(events, e => e.Type == "telemetry.workflow.start");
         Assert.Contains(events, e => e.Type == "telemetry.step.start" && Json(e)["step.id"]!.GetValue<string>() == "plan");
+        Assert.Contains(events, e => e.Type == "telemetry.step.start" && Json(e)["step.description"]!.GetValue<string>() == "Literal ${metadata}");
         Assert.Contains(events, e => e.Type == "telemetry.step.attribute" && Json(e)["key"]!.GetValue<string>() == "gnougo-flow.plan.mode");
         Assert.Contains(events, e => e.Type == "thinking:progress" && e.Text == "Generating workflow plan");
         Assert.Contains(events, e => e.Type == "thinking:progress" && e.Text == "Triggering workflow 'docs' with inputs {\"query\":\"hello\"}");

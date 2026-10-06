@@ -51,7 +51,7 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
             var resolved = resolve();
             var invocation = new WorkflowInvocation
             {
-                Id = id, StepType = step.Type, Recovery = recovery, IsFinalization = finalization,
+                Id = id, StepType = step.Type, Description = step.Description, Recovery = recovery, IsFinalization = finalization,
                 DataBefore = (JsonObject)data.DeepClone(), ResolvedInput = resolved.Input?.DeepClone(),
                 Status = resolved.Run ? "prepared" : "skipped",
                 CompletedAt = resolved.Run ? null : DateTimeOffset.UtcNow

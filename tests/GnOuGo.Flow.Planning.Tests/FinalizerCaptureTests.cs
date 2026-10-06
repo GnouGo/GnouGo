@@ -48,15 +48,23 @@ public sealed class FinalizerCaptureTests
     }
 
     [Theory]
-    [InlineData("success", 1)]
-    [InlineData("success", 2)]
-    [InlineData("null", 2)]
-    [InlineData("producer_failure", 1)]
-    [InlineData("producer_failure", 2)]
-    [InlineData("later_failure", 2)]
-    [InlineData("report_failure", 2)]
-    [InlineData("unknown", 2)]
-    public async Task NestedFinalizationPreservesAvailablePayloadWithoutEagerAbsentReads(string mode, int depth)
+    [InlineData("success", 1, false)]
+    [InlineData("success", 1, true)]
+    [InlineData("success", 2, false)]
+    [InlineData("success", 2, true)]
+    [InlineData("null", 2, false)]
+    [InlineData("null", 2, true)]
+    [InlineData("producer_failure", 1, false)]
+    [InlineData("producer_failure", 1, true)]
+    [InlineData("producer_failure", 2, false)]
+    [InlineData("producer_failure", 2, true)]
+    [InlineData("later_failure", 2, false)]
+    [InlineData("later_failure", 2, true)]
+    [InlineData("report_failure", 2, false)]
+    [InlineData("report_failure", 2, true)]
+    [InlineData("unknown", 2, false)]
+    [InlineData("unknown", 2, true)]
+    public async Task NestedFinalizationPreservesAvailablePayloadWithoutEagerAbsentReads(string mode, int depth, bool current)
     {
         var effects = new List<string>(); var reports = new List<JsonNode>(); var factory = new InMemoryMcpClientFactory();
         var empty = JsonNode.Parse("""{"type":"object","properties":{},"additionalProperties":false}""")!;
@@ -89,10 +97,10 @@ public sealed class FinalizerCaptureTests
         var reviewed = await PlannerFixture.RunAsync(planning);
         Assert.True(reviewed.Status == PlanningStatus.FinalReview, string.Join("; ", reviewed.Diagnostics.Select(d => d.Code + ": " + d.Message)));
         Assert.Single(planning.Calls); Assert.Equal(0, reviewed.ReplanAttempts);
-        var compiled = new TaskPlanCompiler().Compile(plan, catalog); Assert.Empty(compiled.Diagnostics);
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog, current, current); Assert.Empty(compiled.Diagnostics);
         var findings = PlanningExecutableValidation.Validate(compiled.Graph!, catalog);
         Assert.True(findings.Count == 0, string.Join('\n', findings));
-        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog);
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "generated", current);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), PlannerFixture.Ct);
         Assert.Equal(mode is "success" or "null", result.Success);

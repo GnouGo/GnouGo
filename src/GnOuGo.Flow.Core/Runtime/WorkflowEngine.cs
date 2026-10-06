@@ -432,7 +432,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                 else (shouldRun, resolvedInput) = Resolve();
                 if (!shouldRun)
                 {
-                    stepSpan = Telemetry.StepStart(parentSpan, new StepTelemetryInfo { StepId = step.Id, StepType = step.Type, CallDepth = callDepth });
+                    stepSpan = Telemetry.StepStart(parentSpan, new StepTelemetryInfo { StepId = step.Id, StepType = step.Type, Description = step.Description, CallDepth = callDepth });
                     stepResult.Status = StepStatus.Skipped;
                     Telemetry.StepEnd(stepSpan, new StepResultInfo { Status = StepStatus.Skipped, Duration = sw.Elapsed });
                     continue;
@@ -443,6 +443,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                 {
                     StepId = step.Id,
                     StepType = step.Type,
+                    Description = step.Description,
                     Input = resolvedInput?.DeepClone(),
                     CallDepth = callDepth
                 };
@@ -510,6 +511,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                 {
                     StepId = step.Id,
                     StepType = step.Type,
+                    Description = step.Description,
                     Input = resolvedInput?.DeepClone(),
                     CallDepth = callDepth
                 });
