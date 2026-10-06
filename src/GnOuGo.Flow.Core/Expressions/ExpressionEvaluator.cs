@@ -188,6 +188,12 @@ public sealed class ExpressionEvaluator
             if (node is MemberExpression member && Structural(member.Object, out var container))
             {
                 var key = member.Property is Identifier id && !member.Computed ? id.Name : (member.Property as Literal)?.Value?.ToString();
+                if (key is null && member.Computed && Structural(member.Property, out var selectedKey) && selectedKey is JsonValue scalarKey)
+                {
+                    if (scalarKey.TryGetValue<string>(out var textKey)) key = textKey;
+                    else if (int.TryParse(scalarKey.ToJsonString(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var indexKey))
+                        key = indexKey.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
                 if (key is null) return false;
                 if (container is JsonObject obj) { obj.TryGetPropertyValue(key, out value); return true; }
                 if (container is JsonArray counted && key == "length") { value = JsonValue.Create(counted.Count); return true; }

@@ -177,6 +177,17 @@ public sealed class DynamicMappingCollectionTests
         Assert.Equal(200000, source["rows"]![0]!["unrelated"]!.GetValue<string>().Length);
     }
 
+    [Fact]
+    public void CountedLoopSelectionDoesNotImportUnrelatedCapturedInputs()
+    {
+        var context = JsonNode.Parse("{\"inputs\":{\"rows\":[{\"amount\":7922816251426433759354395033.5},null]},\"index\":0}")!.AsObject();
+        context["unrelated"] = new string('x', 20000000);
+        var evaluator = new ExpressionEvaluator();
+        var result = evaluator.Evaluate("data.inputs.rows[data.index]", context);
+        Assert.Equal("7922816251426433759354395033.5", result!["amount"]!.ToJsonString());
+        context["index"] = 1; Assert.Null(evaluator.Evaluate("data.inputs.rows[data.index]", context));
+    }
+
     private static JsonArray Result(RunResult result) => result.StepResults[0].Output!["value"]!["rows"]!.AsArray();
 
     [Theory]
