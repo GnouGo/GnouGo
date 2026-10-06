@@ -1,0 +1,71 @@
+[
+  {
+    "name": "pack-Core",
+    "exit_code": 0,
+    "seconds": 2.89,
+    "log_sha256": "acbc2bb238df826bfe53b9b02f18b4d84cd2400108523a7d6c01cf72048a9016"
+  },
+  {
+    "name": "pack-Planning",
+    "exit_code": 0,
+    "seconds": 3.9,
+    "log_sha256": "92b02daa84e7917847146e49099507813be37b38fec23d3b3e56313ae9a2ce4f"
+  },
+  {
+    "name": "pack-Persistence",
+    "exit_code": 0,
+    "seconds": 1.85,
+    "log_sha256": "301494d73988bb9fc5013f7a90449a19baaf1514a28bbfe1b0d7330bec3a8b2e"
+  },
+  {
+    "name": "publish-planning",
+    "exit_code": 0,
+    "seconds": 39.75,
+    "log_sha256": "a133a1baa860f52814864fda0b8504a93e236801a20ec9fb484cb28446897357"
+  },
+  {
+    "name": "run-planning",
+    "exit_code": 0,
+    "seconds": 6.52,
+    "log_sha256": "55d680deaa12c690cbf1c5cf5875ac7ceb48b865b9160d1eb1ab40220ffaa3ff"
+  },
+  {
+    "name": "skill",
+    "exit_code": 0,
+    "seconds": 0.06,
+    "log_sha256": "db349825903d66adffea3ecf1bd8e1803043e8a71cf1a051235dabc5371f5bb0"
+  },
+  {
+    "name": "host-telemetry-and-browser",
+    "passed": 17,
+    "skipped": 0,
+    "exit_code": 0,
+    "log_sha256": "13e60fd681d57d458db0bfad930d6d57442997cb95e1fc0a1b81d7932da5af08"
+  },
+  {
+    "name": "nested-finalization-both-profiles",
+    "passed": 20,
+    "exit_code": 0
+  },
+  {
+    "name": "flow-native-encrypted-recovery",
+    "exit_code": 0,
+    "log_sha256": "fef034e640475988f431d4c5b4e719d4c8b7cc60a479c66fea61ff37436a931e",
+    "summary": "PASS published CLI: encrypted receipts, native EF query/index rebuild, tenant isolation, retained results and revision checks\nPASS published server: encrypted restart recovery, streamed durable human answers, tenant isolation and revision checks\nPASS no workflow content in database plaintext; evidence directory: /private/tmp/gnougo-glue-published/recovery-final"
+  },
+  {
+    "name": "agent-trimmed-encrypted-recovery",
+    "exit_code": 0,
+    "log_sha256": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88",
+    "summary": "Format-10 planning persistence smoke passed; execution journal schema 9 is unchanged."
+  },
+  {
+    "name": "development-check-failures",
+    "failures": [
+      "New published check initially used ordinary-step path for cleanup; corrected to the existing finalization identity.",
+      "New standalone journal fixture omitted matching Limits tenant/run identity; corrected the fixture.",
+      "CLI publish without global PublishAot=true omitted dependency EF query precompilation; clean build alone did not fix it. Repository explicit Native AOT publish profile succeeds with unchanged recovery assertions."
+    ],
+    "production_workarounds": false
+  }
+]

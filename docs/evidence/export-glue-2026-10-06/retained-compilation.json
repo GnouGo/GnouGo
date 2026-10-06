@@ -1,0 +1,26 @@
+[
+  {
+    "profile": "compact-bindings-v1",
+    "sets": 91,
+    "steps": 136,
+    "workflows": 13,
+    "yaml_bytes": 110213,
+    "yaml_lines": 3443,
+    "description_bytes": 0,
+    "finalizers": 9,
+    "plan_hash": "133f927ab620a496eb991f8e01e4f99477d21c8924e7b1f656ad59f616065074",
+    "execution": false
+  },
+  {
+    "profile": "compact-bindings-v2",
+    "sets": 87,
+    "steps": 132,
+    "workflows": 13,
+    "yaml_bytes": 121635,
+    "yaml_lines": 3507,
+    "description_bytes": 13014,
+    "finalizers": 1,
+    "plan_hash": "133f927ab620a496eb991f8e01e4f99477d21c8924e7b1f656ad59f616065074",
+    "execution": false
+  }
+]

@@ -1,0 +1,30 @@
+{
+  "comparison": "identical TaskPlan and independent execution oracle; v1 versus v2",
+  "fixtures": [
+    {
+      "structure": "sets=8->5; workflows=3->3; lines=339->305",
+      "execution": "items=8; parallel=False; steps=13->10; YAML=9107->8449; descriptions=492; invocations=31; finalization=1; journal=276384"
+    },
+    {
+      "structure": "sets=8->5; workflows=3->3; lines=339->305",
+      "execution": "items=60; parallel=False; steps=13->10; YAML=9835->9177; descriptions=492; invocations=187; finalization=1; journal=2029013"
+    },
+    {
+      "structure": "sets=8->5; workflows=3->3; lines=340->306",
+      "execution": "items=8; parallel=True; steps=13->10; YAML=9129->8471; descriptions=492; invocations=31; finalization=1; journal=269845"
+    },
+    {
+      "structure": "sets=8->5; workflows=3->3; lines=339->305",
+      "execution": "items=0; parallel=False; steps=13->10; YAML=8988->8330; descriptions=492; invocations=7; finalization=1; journal=40836"
+    },
+    {
+      "structure": "sets=8->5; workflows=3->3; lines=340->306",
+      "execution": "items=60; parallel=True; steps=13->10; YAML=9857->9199; descriptions=492; invocations=187; finalization=1; journal=2058234"
+    }
+  ],
+  "matched_eight_item_runs": [
+    " comparable invocations=55->31; normal=22->30; finalization=33->1; journal=344212->276384",
+    " comparable invocations=55->31; normal=22->30; finalization=33->1; journal=337685->269845"
+  ],
+  "journal_measure": "logical schema-9 JSON length; timestamps can change a few bytes; not physical encrypted storage"
+}
