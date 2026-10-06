@@ -59,7 +59,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             {
                 if (contentFormat is not ("observation" or "observation_pages") || url is not null || selector is not null)
                     throw new InvalidOperationException("A continuation requires an observation format and no new URL or selector.");
-                return ContinueObservation(cursor, maxCharacters, maxRecords, cancellationToken, contentFormat == "observation_pages");
+                return ContinueObservation(cursor, maxCharacters, maxRecords, cancellationToken);
             }
             var limit = maxCharacters.GetValueOrDefault(_settings.MaxContentCharacters);
             var selectorTimeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);

@@ -1,0 +1,37 @@
+{
+  "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true",
+  "exit_code": 0,
+  "passed": 4590,
+  "skipped": 12,
+  "failed": 0,
+  "skip_reasons": {
+    "Windows-only command tests": 7,
+    "opt-in paid Copilot E2E": 5
+  },
+  "local_flow_browser_document_cases": 23,
+  "warnings": 0,
+  "log_sha256": "b6b99c76011ca07efdef5096665c0fa1143a177a2fdeed61c7043db9b7f65415",
+  "release_publish": {
+    "component": "GnOuGo.Browser.Mcp",
+    "runtime": "osx-arm64",
+    "self_contained": true,
+    "warnings_as_errors": true,
+    "exit_code": 0,
+    "log_sha256": "5d703edc980c3ac6e75af056ccca7f688aaaef1b2bc48fc4ad1bb0bb7f58e4a4"
+  },
+  "published_smoke": {
+    "passed": true,
+    "transport": "published MCP stdio",
+    "pages": 15,
+    "records": 60,
+    "equivalent_formats": true,
+    "manifest_cap_reported": true,
+    "bounds_and_stale_cursors_rejected": true,
+    "cleanup_verified": true,
+    "model_calls": 0
+  },
+  "not_repeated": [
+    "Unchanged planning Native AOT and published encrypted recovery checks remain recorded in the preceding candidate report.",
+    "Browser Playwright profile does not support Native AOT."
+  ]
+}

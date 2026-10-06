@@ -34,14 +34,15 @@ public sealed partial class PlaywrightBrowserHost
         return paged ? ObservationManifest(snapshot, characters, records, ct) : ObservationPage(snapshot, 0, characters, records, ct);
     }
 
-    private BrowserContentResult ContinueObservation(string cursor, int? characters, int? records, CancellationToken ct, bool paged = false)
+    private BrowserContentResult ContinueObservation(string cursor, int? characters, int? records, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         var parts = cursor.Split(':');
         var snapshot = _observation;
-        if (paged)
+        // The issued snapshot owns the cursor layout and frozen page bounds.
+        if (snapshot is { Paged: true })
         {
-            ct.ThrowIfCancellationRequested();
-            if (parts.Length != 3 || parts[1] != "page" || snapshot is not { Paged: true } || parts[0] != snapshot.Id ||
+            if (parts.Length != 3 || parts[1] != "page" || parts[0] != snapshot.Id ||
                 GetRequiredPage().Url != snapshot.Result.Url || characters is not null || records is not null ||
                 !int.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out var index) || index < 0 || index >= snapshot.Pages.Count)
                 throw new InvalidOperationException("The observation page cursor is invalid or expired. Page limits are frozen; omit maxCharacters and maxRecords when reading it.");

@@ -6,11 +6,11 @@
 - Artifact: **`e4229b3d32b7375133feb9962e00a0bf0d517ee451d1fa15db887d445cb6ab0d`**.
 - Input: `query = "chaussure geox homme 45"`.
 - Output: `workflows/schema-portability-20261002/consumerretry20261006b-amazon-1/products.xlsx`.
-- Status: generated, statically validated and reviewed; **execution not started**. No requirement acknowledgment has been submitted.
+- Status: all four requirements explicitly acknowledged by the user; **executed once and failed on the first observation continuation**. The approval advanced the saved revision to 7 without changing this artifact. Browser cleanup completed. This run must not be replayed.
 
 [Exact YAML](amazon-r6.yaml) · [Requirements, TaskPlan and review](amazon-r6.json).
 
-## Requirements awaiting explicit acknowledgment
+## Explicitly acknowledged requirements
 
 1. `search_amazon_fr`: Amazon.fr is searched using the provided query.
 2. `extract_up_to_three_products`: At most the first three products are visited and extracted individually.
@@ -36,4 +36,6 @@ No `mapping.dynamic`, learned extraction or per-record inference appears in this
 
 Planning: **4 logical/physical calls, 0 repairs, 2 review revisions, 2 discovery reads**, 53,750 input / 19,354 output tokens, **EUR 0.758095**, 200,439 ms. Campaign upper bound **EUR 87.454426 / 150**, including unchanged EUR 2.606753 unknown reservations. Browser/Document local readiness and independent XLSX reading passed with zero inference. Rejected revisions 2 and 4 and their feedback are retained.
 
-Approval must bind this revision/hash and explicitly acknowledge all four requirement IDs. Only then will one execution start, with the terminal attached and the runtime confirmation answered within the same authority. The earlier cancelled identity is retained and will never be replayed. PR #117 remains draft; live execution oracles are not yet verified.
+The user's “I approve the four requirements !” authorized the [revision/hash-bound command](approved-r6-command.json). Runtime confirmation was submitted under the same authority. The immutable artifact was executed once; the [oracle failed](execution-oracle.json) because Browser rejected a valid manifest cursor when requested as `observation`, before product visits or workbook creation. The [retained events](execution-observations.json) establish successful Browser cleanup and verified completion of the failed MCP call. No unknown invocation was resumed.
+
+Execution used one model call, 113 input / 102 output tokens, EUR 0.003235 and 36,769 ms. Campaign upper bound is EUR 87.457661 / 150, retaining EUR 2.606753 historical unknown reservations. [Final accounting](execution-result.json). PR #117 remains draft. A producer-side cursor correction is validated separately; it does not turn this failed execution into a success or authorize its replay.

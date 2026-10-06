@@ -120,6 +120,7 @@ public sealed class BrowserObservationTests(ITestOutputHelper output)
             Assert.Equal(manifest.Pages.Count, manifest.Pages.Select(p => p.Cursor).Distinct().Count());
             var pagedRecords = new List<BrowserObservationRecord>();
             var compactSize = 0;
+            var tools = new BrowserTools(host, NullLogger<BrowserTools>.Instance);
             foreach (var descriptor in manifest.Pages)
             {
                 var chunk = await host.GetContentAsync(null, "load", null, null, "observation_pages", null, false, ct, descriptor.Cursor);
@@ -127,16 +128,37 @@ public sealed class BrowserObservationTests(ITestOutputHelper output)
                 var serialized = JsonSerializer.Serialize(chunk, BrowserMcpJsonContext.Default.BrowserContentResult);
                 Assert.InRange(serialized.Length, 1, 2400); compactSize += serialized.Length;
                 Assert.Equal(serialized, JsonSerializer.Serialize(await host.GetContentAsync(null, "load", null, null, "observation_pages", null, false, ct, descriptor.Cursor), BrowserMcpJsonContext.Default.BrowserContentResult));
+                // The cursor owns its frozen layout. A reader asking for typed
+                // observations must not reinterpret a manifest page as an offset.
+                var alternate = await tools.GetContentAsync(format: "observation", cursor: descriptor.Cursor, cancellationToken: ct);
+                Assert.True(alternate.Success, alternate.ErrorMessage);
+                Assert.Equal(serialized, JsonSerializer.Serialize(alternate, BrowserMcpJsonContext.Default.BrowserContentResult));
                 pagedRecords.AddRange(chunk.Observation.Records);
             }
             Assert.Equal(manifest.RecordCount, pagedRecords.Count); Assert.Equal(all, pagedRecords);
             await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, "observation_pages", 2400, false, ct, manifest.Pages[0].Cursor));
             await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, "observation_pages", null, false, ct, manifest.Id + ":page:999"));
+            foreach (var format in new[] { "observation", "observation_pages" })
+            {
+                await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, format, 2400, false, ct, manifest.Pages[0].Cursor));
+                await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, format, null, false, ct, manifest.Pages[0].Cursor, maxRecords: 8));
+                await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, format, null, false, ct, manifest.Id + ":0"));
+                await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(origin, "load", null, null, format, null, false, ct, manifest.Pages[0].Cursor));
+                await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, "main", format, null, false, ct, manifest.Pages[0].Cursor));
+            }
+            foreach (var format in new[] { "html", "text" })
+                await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, format, null, false, ct, manifest.Pages[0].Cursor));
             output.WriteLine($"PAGED: {manifest.Pages.Count} frozen pages; {compactSize} response characters; exact {pagedRecords.Count} records.");
             await host.ClickAsync("#change", "domcontentloaded", 1000, ct);
             await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, "observation_pages", null, false, ct, manifest.Pages[0].Cursor));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, "observation", null, false, ct, manifest.Pages[0].Cursor));
             var first = await host.GetContentAsync(null, "load", null, "main", "observation", 2400, false, ct, maxRecords: 2);
             var continuation = Assert.IsType<string>(first.Observation!.NextCursor);
+            var legacy = await host.GetContentAsync(null, "load", null, null, "observation", 2400, false, ct, continuation, maxRecords: 2);
+            var legacyAlternate = await host.GetContentAsync(null, "load", null, null, "observation_pages", 2400, false, ct, continuation, maxRecords: 2);
+            Assert.Equal(JsonSerializer.Serialize(legacy, BrowserMcpJsonContext.Default.BrowserContentResult),
+                JsonSerializer.Serialize(legacyAlternate, BrowserMcpJsonContext.Default.BrowserContentResult));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, "observation_pages", null, false, ct, first.Observation.Id + ":page:0"));
             await host.ClickAsync("#change", "domcontentloaded", 1000, ct);
             await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, "observation", null, false, ct, continuation));
             var recaptured = await host.GetContentAsync(null, "load", null, "main", "observation", null, false, ct);

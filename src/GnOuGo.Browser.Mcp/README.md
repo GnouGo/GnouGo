@@ -189,7 +189,11 @@ Example MCP configuration in `LLMOptions`:
 `browser_get_content(format: "observation_pages")` captures one immutable snapshot
 and returns `observationManifest`: its `id`, captured `recordCount`, `pages`
 (`cursor`, `recordCount`), `captureTruncated` and `manifestTruncated`. Read every
-descriptor with the same format and cursor, omitting URL, selector and limits.
+descriptor with its cursor and either `observation` or `observation_pages`,
+omitting URL, selector and limits. The issued snapshot determines the cursor
+layout and returned format; changing between the two observation formats cannot
+reinterpret a frozen page as an offset or alter its bounds. HTML/text remain
+invalid for continuation.
 Page boundaries are frozen at capture time. The existing per-response character
 and record caps apply; `Browser:MaxObservationPages` defaults to 100 and can only
 lower the hard 100-page ceiling. The manifest itself obeys the response allowance.

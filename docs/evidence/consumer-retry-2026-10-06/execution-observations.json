@@ -1,0 +1,226 @@
+{
+  "revision": 7,
+  "artifact_hash": "e4229b3d32b7375133feb9962e00a0bf0d517ee451d1fa15db887d445cb6ab0d",
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "MCP_CALL_ERROR",
+      "Type": "MCP_CALL_ERROR",
+      "Message": "mcp.call (tool) to 'GnOuGo.Browser.Mcp/browser_get_content' returned an MCP error: InvalidOperationException: The observation cursor is invalid or expired. Capture the current page again. [workflow 'w_d236f7113462696b', step 'n_046cfaef711df2d7']",
+      "Retryable": false,
+      "Details": {
+        "message": "InvalidOperationException: The observation cursor is invalid or expired. Capture the current page again.",
+        "mcp_error_code": "INVALID_INPUT",
+        "mcp_error_message": "InvalidOperationException: The observation cursor is invalid or expired. Capture the current page again.",
+        "content": {
+          "url": "",
+          "title": null,
+          "statusCode": null,
+          "selector": null,
+          "resolvedSelector": "",
+          "fallbackApplied": false,
+          "fallbackReason": null,
+          "format": "observation",
+          "content": "",
+          "truncated": false,
+          "maxCharacters": 0,
+          "success": false,
+          "error_code": "INVALID_INPUT",
+          "error_message": "InvalidOperationException: The observation cursor is invalid or expired. Capture the current page again.",
+          "ok": false
+        },
+        "correlation_id": "consumerretry20261006b-amazon-1",
+        "run_id": "consumerretry20261006b-amazon-1",
+        "trace_id": null,
+        "span_id": null,
+        "traceparent": null,
+        "server": "GnOuGo.Browser.Mcp",
+        "method": "browser_get_content",
+        "kind": "tool",
+        "status": "error",
+        "response": {
+          "url": "",
+          "title": null,
+          "statusCode": null,
+          "selector": null,
+          "resolvedSelector": "",
+          "fallbackApplied": false,
+          "fallbackReason": null,
+          "format": "observation",
+          "content": "",
+          "truncated": false,
+          "maxCharacters": 0,
+          "success": false,
+          "error_code": "INVALID_INPUT",
+          "error_message": "InvalidOperationException: The observation cursor is invalid or expired. Capture the current page again.",
+          "ok": false
+        },
+        "failed_workflow": "w_d236f7113462696b",
+        "failed_step_id": "n_046cfaef711df2d7",
+        "failed_step_type": "mcp.call",
+        "execution_phase": "step",
+        "workflow": "w_d236f7113462696b",
+        "step_id": "n_046cfaef711df2d7",
+        "step_type": "mcp.call",
+        "step_status": "Failed"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "events": [
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "url": "https://www.amazon.fr/s?k=chaussure%20geox%20homme%2045",
+        "selector": "body",
+        "format": "observation_pages",
+        "waitUntil": "domcontentloaded",
+        "maxRecords": 200,
+        "timeoutMs": 30000
+      },
+      "started": "2026-10-06T12:14:33.5598660+00:00",
+      "error": false,
+      "result": {
+        "url": "https://www.amazon.fr/s?k=chaussure+geox+homme+45",
+        "title": "Amazon.fr : chaussure geox homme 45",
+        "statusCode": 202,
+        "selector": "body",
+        "resolvedSelector": "body",
+        "fallbackApplied": false,
+        "fallbackReason": null,
+        "format": "observation_pages",
+        "content": "",
+        "truncated": false,
+        "maxCharacters": 24000,
+        "success": true,
+        "error_code": null,
+        "error_message": null,
+        "ok": true,
+        "observationManifest": {
+          "id": "88ad7523c2a148c1823ea14ef73990d3",
+          "pages": [
+            {
+              "cursor": "88ad7523c2a148c1823ea14ef73990d3:page:0",
+              "recordCount": 62
+            },
+            {
+              "cursor": "88ad7523c2a148c1823ea14ef73990d3:page:1",
+              "recordCount": 10
+            },
+            {
+              "cursor": "88ad7523c2a148c1823ea14ef73990d3:page:2",
+              "recordCount": 11
+            }
+          ],
+          "recordCount": 83,
+          "captureTruncated": false,
+          "manifestTruncated": false
+        }
+      },
+      "latency_ms": 5576
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "cursor": "88ad7523c2a148c1823ea14ef73990d3:page:0",
+        "format": "observation"
+      },
+      "started": "2026-10-06T12:14:39.4988350+00:00",
+      "error": true,
+      "result": {
+        "url": "",
+        "title": null,
+        "statusCode": null,
+        "selector": null,
+        "resolvedSelector": "",
+        "fallbackApplied": false,
+        "fallbackReason": null,
+        "format": "observation",
+        "content": "",
+        "truncated": false,
+        "maxCharacters": 0,
+        "success": false,
+        "error_code": "INVALID_INPUT",
+        "error_message": "InvalidOperationException: The observation cursor is invalid or expired. Capture the current page again.",
+        "ok": false
+      },
+      "latency_ms": 2
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "arguments": {},
+      "started": "2026-10-06T12:14:39.5850640+00:00",
+      "error": false,
+      "result": {
+        "closed": true,
+        "success": true,
+        "error_code": null,
+        "error_message": null,
+        "ok": true
+      },
+      "latency_ms": 1028
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {},
+      "started": "2026-10-06T12:14:40.6875620+00:00",
+      "error": true,
+      "result": {
+        "url": "",
+        "title": null,
+        "statusCode": null,
+        "selector": null,
+        "resolvedSelector": "",
+        "fallbackApplied": false,
+        "fallbackReason": null,
+        "format": "html",
+        "content": "",
+        "truncated": false,
+        "maxCharacters": 0,
+        "success": false,
+        "error_code": "INVALID_INPUT",
+        "error_message": "InvalidOperationException: No active page. Call browser_get_content with url first.",
+        "ok": false
+      },
+      "latency_ms": 1
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "arguments": {},
+      "started": "2026-10-06T12:14:40.6974680+00:00",
+      "error": false,
+      "result": {
+        "closed": true,
+        "success": true,
+        "error_code": null,
+        "error_message": null,
+        "ok": true
+      },
+      "latency_ms": 1001
+    }
+  ],
+  "runtime_llm_inputs": [
+    {
+      "invocation": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_3981b1c1638bb00a",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 4198,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ],
+  "mapping_telemetry": [],
+  "failures": []
+}

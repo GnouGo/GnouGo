@@ -144,7 +144,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                     Items = Field(manifest, "pages"), MaxItems = 100, Parallel = variant == "pages-parallel", MaxConcurrency = 2,
                     Requires = new() { Kind = "predicate", Predicate = "equal", Items = [ProductTransformationPlan.Ref("search", "truncated"), new() { Kind = "boolean", Boolean = false }] },
                     Body = new() { Tasks = [new() { Id = "read_page", Kind = "operation", Objective = "Read the listed snapshot page", Operation = search.Operation,
-                        Inputs = [new("format", ProductTransformationPlan.Text("observation_pages")), new("cursor", Field(new() { Kind = "item" }, "cursor"))] }],
+                        Inputs = [new("format", ProductTransformationPlan.Text("observation")), new("cursor", Field(new() { Kind = "item" }, "cursor"))] }],
                         Outputs = [new("observations", ProductTransformationPlan.Ref("read_page", "observation"))] } };
                 plan.Root.Tasks.Insert(1, pages);
                 plan.Root.Tasks.Single(t => t.Id == "urls").Inputs = [new("pages", ProductTransformationPlan.Ref("consume_pages", "observations"))];

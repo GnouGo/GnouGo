@@ -1,0 +1,134 @@
+{
+  "tenant": "benchmark",
+  "run_id": "consumerretry20261006b-amazon-1",
+  "status": "failed",
+  "schema_version": 9,
+  "logical_json_bytes": 753323,
+  "checkpoint_json_bytes": 3865,
+  "retained_block_count": 245,
+  "retained_block_json_bytes": 762086,
+  "invocations": [
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_3981b1c1638bb00a",
+      "type": "llm.call",
+      "status": "completed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_0c5ea1d196591c7e",
+      "type": "set",
+      "status": "completed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787",
+      "type": "workflow.call",
+      "status": "failed",
+      "observed_completion": false
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_e3bfb5a6fa952c5b/iteration/0/step/n_6a65b01fa6e61510/workflow/w_d236f7113462696b/step/n_f8a796307c631d41",
+      "type": "set",
+      "status": "completed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_e3b28d8b2d9f9464",
+      "type": "set",
+      "status": "completed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_4adcbb58192516ee",
+      "type": "human.input",
+      "status": "completed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_0405a3810b6cfbec",
+      "type": "set",
+      "status": "completed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_c9416a94382ccb01/case/0/step/n_b12a3e0895000645",
+      "type": "set",
+      "status": "completed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_4087da39eec72f5b",
+      "type": "set",
+      "status": "completed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_c9416a94382ccb01/case/0/step/n_20001c076ba61b2c",
+      "type": "set",
+      "status": "completed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_e3bfb5a6fa952c5b",
+      "type": "loop.sequential",
+      "status": "failed",
+      "observed_completion": false
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_eeafce00402da015",
+      "type": "set",
+      "status": "completed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/finally/step/n_74bb86b6b29fd7c5",
+      "type": "mcp.call",
+      "status": "completed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_18ee0a0e0ef8ecba",
+      "type": "template.render",
+      "status": "completed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_e3bfb5a6fa952c5b/iteration/0/step/n_6a65b01fa6e61510/workflow/w_d236f7113462696b/step/n_046cfaef711df2d7",
+      "type": "mcp.call",
+      "status": "failed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_fcdfa9eb40120a8a",
+      "type": "set",
+      "status": "completed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_ae5bc47024766af8",
+      "type": "set",
+      "status": "completed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_d567af477eb2d162",
+      "type": "mcp.call",
+      "status": "completed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_c9416a94382ccb01",
+      "type": "switch",
+      "status": "completed",
+      "observed_completion": true
+    },
+    {
+      "id": "/workflow/main/step/n_7d6ef7fcc9a24787/workflow/w_81be22d7f1c8baf9/step/n_e3bfb5a6fa952c5b/iteration/0/step/n_6a65b01fa6e61510",
+      "type": "workflow.call",
+      "status": "failed",
+      "observed_completion": false
+    }
+  ],
+  "events": 70,
+  "note": "Read-only public KeyVault APIs. Retained blocks include superseded immutable records; bytes exclude encryption/SQLite overhead. Stopped at first cursor read; this is not representative collection-workload performance."
+}
