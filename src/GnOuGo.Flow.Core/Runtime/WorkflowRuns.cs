@@ -84,6 +84,8 @@ public interface IWorkflowRunLease : IAsyncDisposable
     WorkflowRun Run { get; }
     /// <summary>Atomically persists a new revision; merges cancellation requested while the owner was active.</summary>
     Task SaveAsync(CancellationToken ct = default);
+    /// <summary>Persists run metadata/events and the specified changed invocations. Stores without incremental persistence retain full-save semantics.</summary>
+    Task SaveAsync(IReadOnlyCollection<string> changedInvocationIds, CancellationToken ct = default) => SaveAsync(ct);
     Task<bool> IsCancellationRequestedAsync(CancellationToken ct = default);
 }
 

@@ -35,7 +35,7 @@ internal sealed class PlanningPrompt(PlanningSession state)
         Business TaskPlan, discoveryRequests(1-4), or clarifications. Unsearched != absent; reserve plan/repair; closed discovery: plan:null.
         Compatible data; missing fails; defaults only contracts/accepted inputs. extract copies, never invents flags/labels/counts/nulls; interpret/operations synthesize. No scripts.
         Explicit ports (required unless false); transforms get objective+inputs. value/field/json/arithmetic=assembly/selection/encoding/JS Number; exact math:MCP. port:null=whole; default mode:interpret; keep enums.
-        Before global interpret, select fields or extract each:{input,output} to compact observations, no raw duplicates. One bounded complete item per result, sole array field, ordered/nested. Keep context/source/grouping; large pages: records/loops. Never split global reasoning/drop facts; report limitations.
+        Before global interpret, select fields/extract each:{input,output} per consumer, not a superset. Retain action references at source; pass only needed ones. Use complete bounded items (records/loops), ordered/nested; preserve facts/grouping/completeness. Never split global reasoning/truncate; report limits.
         dependsOn: same-scope; bindings order/capture. Export boundaries via owner.port; match branch names/values.
         Preserve actions/checks/constraints; discover/clarify compatible alternatives or limitations.
         Per item visit/extract result. truncated/nextCursor: consume before navigation; captureTruncated:narrow. Exhaustion!=complete; guard observed completeness. Blockers:observe/conditional authorized click/reobserve; clarify.

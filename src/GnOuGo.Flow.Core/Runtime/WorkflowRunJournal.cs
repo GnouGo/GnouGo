@@ -195,7 +195,7 @@ internal sealed class WorkflowRunJournal(IWorkflowRunLease lease) : ILLMUsageBud
     {
         if (_storageFailed) throw new WorkflowRunConflictException("Journal persistence failed. Stop execution and inspect the durable run.");
         Run.Events.Add(new(DateTimeOffset.UtcNow, kind, id));
-        try { await lease.SaveAsync(ct); }
+        try { await lease.SaveAsync(id is null ? [] : new[] { id }, ct); }
         catch { _storageFailed = true; throw; }
     }
 

@@ -98,6 +98,13 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var extractionModel = new ExtractModel(model);
             var compactModel = new CompactModel(new ConsentModel(new PagedModel(model, compact: true)));
             var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = compact ? compactModel : variant.StartsWith("pages", StringComparison.Ordinal) ? new PagedModel(model) : consentScenario ? consentModel : variant is "extract" or "observation" or "each" or "each-parallel" ? extractionModel : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
+            if (compact)
+            {
+                engine.RunStore = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(
+                    new GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore(Path.Combine(root, "execution-vault.db")),
+                    Path.Combine(root, "execution-index.db"), Path.Combine(root, "execution-owners"));
+                engine.Limits.TenantId = "local"; engine.Limits.RunId = "product-fixture";
+            }
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await runtime.DiscoverAsync(new(), ct); var reads = 0;
             foreach (var source in await runtime.Capabilities.ListSourcesAsync(ct))
@@ -232,6 +239,13 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 Assert.NotEmpty(compactModel.Requests);
                 Assert.All(compactModel.Requests, r => Assert.InRange(KeyVaultBenchmarkModel.ExecutionInputEstimate(JsonSerializer.Serialize(r, PlanningJsonContext.Default.LLMRequest)), 1, 96000));
                 output.WriteLine($"COMPACT {variant}: mapping requests={compactModel.Requests.Count}; complete request estimates=[{string.Join(',', compactModel.Requests.Select(r => KeyVaultBenchmarkModel.ExecutionInputEstimate(JsonSerializer.Serialize(r, PlanningJsonContext.Default.LLMRequest))))}]");
+            }
+            if (compact)
+            {
+                var checkpoint = await engine.RunStore!.ReadAsync("local", "product-fixture", ct);
+                Assert.Equal(WorkflowRunStatus.Completed, checkpoint!.Status);
+                Assert.True(checkpoint.FinalizationCompleted);
+                Assert.DoesNotContain(checkpoint.Invocations.Values, i => i.Recovery == StepRecovery.External && i.DispatchedAt is not null && i.CompletedAt is null);
             }
             if (variant is "each" or "each-parallel") Assert.Equal(1, extractionModel.Calls);
             var browser = await transport.GetClientAsync("browser", ct);

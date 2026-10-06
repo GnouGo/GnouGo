@@ -32,7 +32,7 @@ public static class PlanningReviewFormatter
             {
                 var id = "t" + PlanningGraphCompiler.Fingerprint(task.Id)[..12];
                 var businessResult = (task.Each is null ? "" : " · each " + task.Each.Input + " → " + task.Each.Output) +
-                    (task.ResultType is null ? "" : " → " + string.Join(", ", task.ResultType.Fields.Select(f => f.Name + ": " + f.Type.Kind)));
+                    (task.ResultType is null ? "" : " → " + string.Join(", ", task.ResultType.Fields.Select(f => f.Name + ": " + DescribeType(f.Type))));
                 var transform = task.Kind == "transform" ? ", " + (task.Mode ?? "interpret") : "";
                 var inputs = task.Kind == "transform" ? "; inputs: " + string.Join(", ", task.Inputs.Select(i => i.Name + " ← " + Describe(i.Value))) : "";
                 result.AppendLine(id + "[\"" + Label(task.Id + ": " + task.Objective + " (" + task.Kind + transform + (task.Requires is null ? "" : ", required precondition") + (scope.Always.Contains(task) ? ", always" : "") + ")" + businessResult + inputs + (task.Requires is null ? "" : "; requires " + Describe(task.Requires))) + "\"]");
@@ -42,9 +42,22 @@ public static class PlanningReviewFormatter
                 if (task.Otherwise is not null) Draw(task.Otherwise, task.Id + " otherwise");
                 for (var i = 0; i < task.Branches.Count; i++) Draw(task.Branches[i], task.Id + " branch " + i);
             }
+            if (scope.Outputs.Count > 0)
+            {
+                var exports = "e" + PlanningGraphCompiler.Fingerprint(name)[..12];
+                result.AppendLine(exports + "[\"" + Label("Exports: " + string.Join(", ", scope.Outputs.Select(o => o.Name + " ← " + Describe(o.Value)))) + "\"]");
+                if (previous is not null) result.AppendLine(previous + " --> " + exports);
+            }
             result.AppendLine("end");
         }
     }
+    private static string DescribeType(TaskType type) => (type.Kind switch
+    {
+        "array" => "array<" + (type.Items is null ? "unknown" : DescribeType(type.Items)) + ">",
+        "object" => "{" + string.Join(", ", type.Fields.Select(f => f.Name + ": " + DescribeType(f.Type))) + "}",
+        _ => type.Kind
+    }) + (type.Nullable ? "?" : "");
+
     private static string Describe(TaskValue value) => value.Kind switch
     {
         "input" => "input " + value.Source,

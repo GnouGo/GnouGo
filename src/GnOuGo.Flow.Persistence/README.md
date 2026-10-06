@@ -13,6 +13,12 @@ dotnet test tests/GnOuGo.Flow.Persistence.Tests/GnOuGo.Flow.Persistence.Tests.cs
 dotnet pack src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj -c Release
 ```
 
+New runs use private storage layout 1: a small authoritative root references immutable encrypted invocation, event and payload blocks in `flow-execution-blocks-v1`. Large JSON subtrees are shared within one tenant/run; arrays use fixed chunks so growing collections can reuse their prefixes. Hashing preserves numeric JSON tokens, nulls, property names and ordering. Blocks are written before the root is atomically replaced. Unreferenced blocks left by an interrupted write are not receipts and are not automatically deleted.
+
+The lease's optional `SaveAsync(changedInvocationIds, ct)` overload checkpoints run metadata, appended events and affected invocations. Its default implementation calls ordinary `SaveAsync`, keeping custom stores compatible. Ordinary saves still support arbitrary edits. Owner saves merge durable commands under the existing write lock; cancellation polling reads only the root. Index failures after a committed root do not invalidate completion.
+
+Public inspection/recovery still reconstructs the complete schema-9 `WorkflowRun`; it can be large. This optimization reduces physical duplication and checkpoint I/O, not the logical inspection payload. Missing/corrupt/cross-owner blocks fail closed. Existing monolithic schema-9 records keep their original layout when read or resumed; no automatic migration, rewriting of saved workflows, or uncertain-invocation replay occurs. Upgrade all hosts that may own new runs: older binaries reject the new private layout. Public planning/artifact formats and mapping cache semantics are unchanged.
+
 Schema-8 data is never migrated or deleted automatically. Regenerate and approve workflows before creating schema-9 runs.
 
 `CreateWorkspace(databasePath, indexPath, logger, ownerPath)` accepts explicit host paths; omitted paths use workspace helpers. Run `scripts/verify-flow-v9-published.py` against published CLI/server binaries to check encryption, native EF queries, index rebuilding, restart and tenant/revision boundaries.

@@ -183,6 +183,13 @@ The encrypted journal records intent before dispatch and completion receipts aft
 execution, along with control state, resolved inputs, outputs, pending human input,
 budgets and finalization progress. Recovery reuses completed receipts.
 
+New runs use a versioned private split layout in Flow.Persistence: immutable,
+tenant/run-owned blocks are written before publishing an authoritative checkpoint.
+Repeated observation subtrees are shared. Incremental owner saves and cancellation
+polling avoid full-run reads; the public schema-9 inspection/recovery result stays
+complete. Historical monolithic runs remain unchanged. See the
+[persistence contract and rollout](../src/GnOuGo.Flow.Persistence/README.md).
+
 An interrupted external effect without a receipt enters `needs_reconciliation`.
 The agent adapter may inspect the original invocation without dispatching it again.
 If its outcome remains unknown, an operator must establish that it stopped before

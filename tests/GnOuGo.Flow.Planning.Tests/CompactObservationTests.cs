@@ -46,6 +46,58 @@ public sealed class CompactObservationTests(ITestOutputHelper output)
     }
 
     [Theory]
+    [InlineData(true, "entries", "facts")]
+    [InlineData(false, "records", "observations")]
+    public async Task ConsumerViewsOmitBulkyActionReferencesWithoutLosingTheirSource(bool typed, string input, string port)
+    {
+        var plan = Plan(typed, input, port); var values = Observations(typed, input);
+        foreach (var value in values[input]!.AsArray())
+        {
+            var business = typed ? value! : JsonNode.Parse(value!["note"]!.ToString())!;
+            business["reference"] = business["reference"]!.ToString() + "/" + new string('r', 700);
+            business["actionOnly"] = new string('z', 700);
+            if (!typed) value!["note"] = business.ToJsonString();
+        }
+        if (typed) plan.Inputs[0].Type.Items!.Fields.Add(new() { Name = "actionOnly", Type = new() });
+        var original = values.ToJsonString();
+        var broad = Plan(typed, input, port);
+        if (typed) broad.Inputs[0].Type.Items!.Fields.Add(new() { Name = "actionOnly", Type = new() });
+        var broadModel = new Model(input, port);
+        var rejected = await Execute(broad, values, broadModel);
+        Assert.False(rejected.Success); Assert.Equal(ErrorCodes.LlmBudgetExceeded, rejected.Error!.Code);
+        Assert.Empty(broadModel.Interpretation);
+        var view = new PlanTask { Id = "decision_view", Kind = "foreach", Objective = "Select only the fields needed for the group comparison; retain original references separately",
+            MaxItems = 200, Items = ProductTransformationPlan.Ref("compact", port), Body = new()
+            { Outputs = [new("decision", new() { Kind = "object", Members = new[] { "label", "group" }
+                .Select(n => new TaskOutput(n, new() { Kind = "field", Port = n, Items = [new() { Kind = "item" }] })).ToList() })] } };
+        plan.Root.Tasks.Insert(1, view);
+        var diagram = WebUtility.HtmlDecode(PlanningReviewFormatter.TaskDiagram(plan));
+        Assert.Contains("Exports: decision ← {label: item.label, group: item.group}", diagram);
+        if (!typed) Assert.Contains("reference: string", diagram);
+        plan.Root.Tasks[^1].Inputs[0] = new(port, ProductTransformationPlan.Ref("decision_view", "decision"));
+        // A second business consumer needs the exact references, after the global
+        // comparison. This is ordinary wiring and must never enter its prompt.
+        plan.Root.Tasks.Add(new() { Id = "later_actions", Kind = "value", Objective = "Retain complete action arguments after comparison",
+            DependsOn = ["compare"], Outputs = [new("arguments", ProductTransformationPlan.Ref("compact", port))] });
+        plan.Root.Outputs.Add(new("arguments", ProductTransformationPlan.Ref("later_actions", "arguments")));
+        var model = new Model(input, port); var result = await Execute(plan, values, model);
+        Assert.True(result.Success, result.Error?.Message);
+        var request = Assert.Single(model.Interpretation);
+        Assert.DoesNotContain("reference", request.Prompt); Assert.DoesNotContain("actionOnly", request.Prompt);
+        Assert.Equal(120, Business(request)[port]!.AsArray().Count);
+        Assert.Equal(new[] { "middle_required", "middle_required" }, result.Outputs!["labels"]!.AsArray().Select(v => v!.ToString()));
+        var arguments = result.Outputs["arguments"]!.AsArray();
+        Assert.Equal(120, arguments.Count);
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            var source = typed ? values[input]![i]! : JsonNode.Parse(values[input]![i]!["note"]!.ToString())!;
+            Assert.Equal(source["reference"]!.ToString(), arguments[i]!["reference"]!.ToString());
+        }
+        Assert.Equal(original, values.ToJsonString()); Assert.Equal(typed ? 0 : 1, model.Mapping.Count);
+        output.WriteLine($"consumer={port}; broad_request_bytes={broadModel.RejectedBytes}; broad_input_estimate={broadModel.RejectedEstimate}; request_bytes={Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest))}; input_estimate={Model.Estimate(request)}; exact_action_records={arguments.Count}");
+    }
+
+    [Theory]
     [InlineData("empty")]
     [InlineData("incomplete")]
     [InlineData("oversized_item")]
@@ -165,7 +217,7 @@ public sealed class CompactObservationTests(ITestOutputHelper output)
             }
             if (request.StructuredOutputSchema?["properties"]?["script"] is not null)
             {
-                Mapping.Add(request); return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = "m.parse(source." + input + ".note)" } });
+                Mapping.Add(request); return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = "({label:m.parse(source." + input + ".note).label,group:m.parse(source." + input + ".note).group,reference:m.parse(source." + input + ".note).reference})" } });
             }
             Interpretation.Add(request); var data = Business(request);
             return Task.FromResult(new LLMResponse { Json = new JsonObject { ["labels"] = new JsonArray(data[port]!.AsArray()

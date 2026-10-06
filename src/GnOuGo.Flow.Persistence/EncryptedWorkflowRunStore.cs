@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace GnOuGo.Flow.Persistence;
 
 /// <summary>KeyVault is authoritative. SQLite stores no execution content and can be rebuilt at any time.</summary>
-public sealed class EncryptedWorkflowRunStore : IWorkflowRunStore, IMappingArtifactStore
+public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMappingArtifactStore
 {
     public const string Collection = "flow-execution-journal-v9";
     private const string Author = "GnOuGo.Flow.Persistence";
@@ -66,14 +66,24 @@ public sealed class EncryptedWorkflowRunStore : IWorkflowRunStore, IMappingArtif
     {
         ValidateKey(tenantId, runId);
         var record = await _records.GetAsync(Collection, tenantId, runId, Author, ct);
-        return record is null ? null : WorkflowRunStorage.Read(record.Value, tenantId, runId);
+        if (record is null) return null;
+        var head = SplitJournal.Parse(record.Value, tenantId, runId);
+        return head is null ? WorkflowRunStorage.Read(record.Value, tenantId, runId) :
+            await new SplitJournal(_records, tenantId, runId, head).ReadAsync(ct);
     }
 
     public async Task<IReadOnlyList<WorkflowRun>> ListAsync(string tenantId, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
         var records = await _records.ListAsync(Collection, tenantId, Author, ct);
-        var runs = records.Select(r => WorkflowRunStorage.Read(r.Value, tenantId, r.Key)).OrderByDescending(r => r.UpdatedAt).ToArray();
+        var loaded = new List<WorkflowRun>();
+        foreach (var record in records)
+        {
+            var head = SplitJournal.Parse(record.Value, tenantId, record.Key);
+            loaded.Add(head is null ? WorkflowRunStorage.Read(record.Value, tenantId, record.Key) :
+                await new SplitJournal(_records, tenantId, record.Key, head).ReadAsync(ct));
+        }
+        var runs = loaded.OrderByDescending(r => r.UpdatedAt).ToArray();
         foreach (var run in runs) await IndexAsync(run, ct);
         return runs;
     }
@@ -85,7 +95,9 @@ public sealed class EncryptedWorkflowRunStore : IWorkflowRunStore, IMappingArtif
         await using var write = await WriteLockAsync(run.TenantId, run.RunId, ct);
         if (await ReadAsync(run.TenantId, run.RunId, ct) is not null)
             throw new WorkflowRunConflictException("This run already exists. Inspect it and resume using its current revision.");
-        await PersistAsync(run, ct);
+        var journal = new SplitJournal(_records, run.TenantId, run.RunId, SplitJournal.NewHead(run.TenantId, run.RunId));
+        await journal.SaveAsync(run, null, ct);
+        await IndexAsync(run, CancellationToken.None);
     }
 
     public async Task<IWorkflowRunLease> AcquireAsync(string tenantId, string runId, long expectedRevision, CancellationToken ct = default)
@@ -97,8 +109,8 @@ public sealed class EncryptedWorkflowRunStore : IWorkflowRunStore, IMappingArtif
         try
         {
             await using var write = await WriteLockAsync(tenantId, runId, ct);
-            var run = await ReadRequiredAsync(tenantId, runId, expectedRevision, ct);
-            return new Lease(this, run, owner);
+            var (run, journal) = await ReadRequiredAsync(tenantId, runId, expectedRevision, ct);
+            return new Lease(this, run, owner, journal);
         }
         catch { await owner.DisposeAsync(); throw; }
     }
@@ -106,48 +118,54 @@ public sealed class EncryptedWorkflowRunStore : IWorkflowRunStore, IMappingArtif
     public async Task<WorkflowRun> CancelAsync(string tenantId, string runId, long expectedRevision, CancellationToken ct = default)
     {
         await using var write = await WriteLockAsync(tenantId, runId, ct);
-        var run = await ReadRequiredAsync(tenantId, runId, expectedRevision, ct);
+        var (run, journal) = await ReadRequiredAsync(tenantId, runId, expectedRevision, ct);
         run.CancelRequested = true;
         run.Revision++;
         run.UpdatedAt = DateTimeOffset.UtcNow;
         run.Events.Add(new(run.UpdatedAt, "cancel_requested", null));
-        await PersistAsync(run, ct);
+        await PersistAsync(run, ct, journal, []);
         return run;
     }
 
-    private async Task<WorkflowRun> ReadRequiredAsync(string tenant, string id, long revision, CancellationToken ct)
+    private async Task<(WorkflowRun Run, SplitJournal? Journal)> ReadRequiredAsync(string tenant, string id, long revision, CancellationToken ct)
     {
-        var run = await ReadAsync(tenant, id, ct) ?? throw new WorkflowRunConflictException("Run not found for this tenant.");
+        var record = await _records.GetAsync(Collection, tenant, id, Author, ct) ?? throw new WorkflowRunConflictException("Run not found for this tenant.");
+        var head = SplitJournal.Parse(record.Value, tenant, id);
+        var journal = head is null ? null : new SplitJournal(_records, tenant, id, head);
+        var run = journal is null ? WorkflowRunStorage.Read(record.Value, tenant, id) : await journal.ReadAsync(ct);
         if (run.Revision != revision) throw new WorkflowRunConflictException("The run changed. Inspect its current revision before issuing a command.");
-        return run;
+        return (run, journal);
     }
 
     public async Task<WorkflowRun> RequestInputAsync(string tenantId, string runId, long expectedRevision, HumanInputRequest request, CancellationToken ct = default)
     {
         await using var write = await WriteLockAsync(tenantId, runId, ct);
-        var run = await ReadRequiredAsync(tenantId, runId, expectedRevision, ct);
+        var (run, journal) = await ReadRequiredAsync(tenantId, runId, expectedRevision, ct);
         WorkflowRunStorage.RequestInput(run, request);
         run.Revision++; run.UpdatedAt = DateTimeOffset.UtcNow;
-        await PersistAsync(run, ct); return run;
+        await PersistAsync(run, ct, journal, [request.StepId]); return run;
     }
 
     public async Task<WorkflowRun> AnswerAsync(string tenantId, string runId, long expectedRevision, string invocationId,
         System.Text.Json.Nodes.JsonNode? response, CancellationToken ct = default)
     {
         await using var write = await WriteLockAsync(tenantId, runId, ct);
-        var run = await ReadRequiredAsync(tenantId, runId, expectedRevision, ct);
+        var (run, journal) = await ReadRequiredAsync(tenantId, runId, expectedRevision, ct);
         WorkflowRunStorage.Answer(run, invocationId, response);
         run.Revision++;
         run.UpdatedAt = DateTimeOffset.UtcNow;
-        await PersistAsync(run, ct);
+        await PersistAsync(run, ct, journal, [invocationId]);
         return run;
     }
 
-    private async Task PersistAsync(WorkflowRun run, CancellationToken ct)
+    private async Task PersistAsync(WorkflowRun run, CancellationToken ct, SplitJournal? journal = null, IReadOnlyCollection<string>? changed = null)
     {
         WorkflowRunStorage.ValidateOwnership(run, run.TenantId, run.RunId);
-        await _records.UpsertAsync(Collection, run.TenantId, run.RunId,
-            JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun), Author, ct);
+        if (journal is null)
+            await _records.UpsertAsync(Collection, run.TenantId, run.RunId,
+                JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun), Author, ct);
+        else
+            await journal.SaveAsync(run, changed, ct);
         await IndexAsync(run, CancellationToken.None);
     }
 
@@ -206,23 +224,45 @@ public sealed class EncryptedWorkflowRunStore : IWorkflowRunStore, IMappingArtif
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
     }
 
-    private sealed class Lease(EncryptedWorkflowRunStore store, WorkflowRun run, FileStream owner) : IWorkflowRunLease
+    private sealed class Lease(EncryptedWorkflowRunStore store, WorkflowRun run, FileStream owner, SplitJournal? journal) : IWorkflowRunLease
     {
         private bool _disposed;
         public WorkflowRun Run { get; } = run;
-        public async Task SaveAsync(CancellationToken ct = default)
+        public Task SaveAsync(CancellationToken ct = default) => SaveCoreAsync(null, ct);
+        public Task SaveAsync(IReadOnlyCollection<string> changedInvocationIds, CancellationToken ct = default) => SaveCoreAsync(changedInvocationIds, ct);
+        private async Task SaveCoreAsync(IReadOnlyCollection<string>? changed, CancellationToken ct)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             await using var write = await store.WriteLockAsync(Run.TenantId, Run.RunId, ct);
-            var saved = await store.ReadAsync(Run.TenantId, Run.RunId, ct)
-                ?? throw new WorkflowRunConflictException("The owned execution journal is missing.");
-            WorkflowRunStorage.MergeCommands(Run, saved);
-            Run.Revision = saved.Revision + 1;
-            Run.UpdatedAt = DateTimeOffset.UtcNow;
-            await store.PersistAsync(Run, ct);
+            if (journal is null)
+            {
+                var saved = await store.ReadAsync(Run.TenantId, Run.RunId, ct)
+                    ?? throw new WorkflowRunConflictException("The owned execution journal is missing.");
+                WorkflowRunStorage.MergeCommands(Run, saved);
+                Run.Revision = saved.Revision + 1;
+                Run.UpdatedAt = DateTimeOffset.UtcNow;
+                await store.PersistAsync(Run, ct);
+            }
+            else
+            {
+                var commands = await journal.MergeCommandsAsync(Run, ct);
+                Run.Revision = journal.Revision + 1;
+                Run.UpdatedAt = DateTimeOffset.UtcNow;
+                await journal.SaveAsync(Run, changed is null ? null : changed.Concat(commands).Distinct(StringComparer.Ordinal).ToArray(), ct);
+                await store.IndexAsync(Run, CancellationToken.None);
+            }
         }
-        public async Task<bool> IsCancellationRequestedAsync(CancellationToken ct = default) =>
-            (await store.ReadAsync(Run.TenantId, Run.RunId, ct))?.CancelRequested ?? throw new WorkflowRunConflictException("The owned execution journal is missing.");
+        public async Task<bool> IsCancellationRequestedAsync(CancellationToken ct = default)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (journal is null) return (await store.ReadAsync(Run.TenantId, Run.RunId, ct))?.CancelRequested
+                ?? throw new WorkflowRunConflictException("The owned execution journal is missing.");
+            // Do not mutate the lease's merge baseline from the monitor thread.
+            var record = await store._records.GetAsync(Collection, Run.TenantId, Run.RunId, Author, ct)
+                ?? throw new WorkflowRunConflictException("The owned execution journal is missing.");
+            return SplitJournal.Parse(record.Value, Run.TenantId, Run.RunId)?["cancelRequested"]?.GetValue<bool>()
+                ?? throw new WorkflowRunConflictException("The execution journal layout changed while owned.");
+        }
         public async ValueTask DisposeAsync() { _disposed = true; await owner.DisposeAsync(); }
     }
 }
