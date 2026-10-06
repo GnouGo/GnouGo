@@ -1,4 +1,4 @@
-# Amazon artifact awaiting explicit approval
+# Reviewed Amazon artifact and retained execution outcome
 
 - Frozen production/harness: `e2179af7d761f1f5d083671d0b9b1073a2e2b8fe`.
 - Run/session: `consumerjournal20261006a-amazon-1`.
@@ -6,7 +6,7 @@
 - Artifact hash: **`af84a2ca9690714e7c133a29cfa13843e69d62a7d9f25e782aa52dbda48839da`**.
 - Input: `query = "chaussure geox homme 45"`.
 - Destination: `workflows/schema-portability-20261002/consumerjournal20261006a-amazon-1/products.xlsx`.
-- Status: generated and statically validated; **not approved or executed**. No acknowledgments have been submitted.
+- Status: explicitly approved with all five acknowledgments; approval advanced the session to revision 10 without changing YAML. The single execution attempt was cancelled at its runtime confirmation gate after the original deadline. **No business workflow operation ran; do not replay this identity.**
 
 [Exact YAML](amazon-r9.yaml) and [requirements/TaskPlan/review](amazon-r9.json) retain the generated artifact. The requirements are unchanged from the first proposal.
 
@@ -34,4 +34,4 @@ Compaction uses typed projection: no learned mapping, no per-record interpretati
 
 Planning so far: **6 logical calls, 8 physical attempts, 1 repair, 3 review revisions**, 2 discovery reads, 78,900 input / 27,657 output tokens, **EUR 1.092654**, 919,271 ms. Earlier revisions 3, 5 and 7 are retained as rejected review artifacts. Campaign upper bound is **EUR 86.696331 / 150**, including unchanged EUR 2.606753 historical unknown reservations. No new unknown usage exists.
 
-Approval must acknowledge all five requirement IDs above and authorize this exact revision/hash. The existing approval command is submitted only after that explicit decision. Live product visits, observed XLSX cells, cleanup, actual request sizes and physical journal costs remain **unverified**. PR #117 stays draft.
+The user acknowledged all five requirement IDs above and authorized this exact revision/hash. The [approval command](approved-r9-command.json) was then submitted. The execution terminal was interrupted while waiting at its separate runtime confirmation, and the deadline expired before its answer was delivered. The unchanged [execution oracle failed](execution-oracle.json); no runtime inference was dispatched. Live product visits, observed XLSX cells, workflow cleanup, actual request sizes and workload journal costs remain **unverified**. [Outcome and harness regression](../../consumer-compaction-and-journals-2026-10-06.md#execution-outcome-and-narrow-harness-correction). PR #117 stays draft.

@@ -275,6 +275,45 @@ public sealed class BenchmarkCampaignTests
     }
 
     [Fact]
+    public async Task LiveConsoleCancellationFinishesWithoutInputAndNeverAcceptsALateApproval()
+    {
+        using var cancelled = new CancellationTokenSource();
+        using var reader = new BlockingConsoleReader();
+        using var input = TextReader.Synchronized(reader); // Console.In uses this synchronous reader.
+        using var output = new StringWriter();
+        var payload = new JsonObject { ["mode"] = "confirm", ["choices"] = new JsonArray("approve", "reject") };
+        var answer = Task.Run(() => LiveWorkflowEvaluation.ReadHumanAnswerAsync(payload, input, output, cancelled.Token), Ct);
+        try
+        {
+            await reader.Started.Task.WaitAsync(Ct);
+            cancelled.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => answer.WaitAsync(TimeSpan.FromSeconds(2), Ct));
+        }
+        finally { reader.Release.Set(); }
+        await reader.Finished.Task.WaitAsync(Ct);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => answer);
+    }
+
+    private sealed class BlockingConsoleReader : TextReader
+    {
+        internal readonly TaskCompletionSource Started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal readonly TaskCompletionSource Finished = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal readonly ManualResetEventSlim Release = new();
+        public override string ReadLine()
+        {
+            Started.TrySetResult();
+            Release.Wait();
+            Finished.TrySetResult();
+            return "{\"response\":true}";
+        }
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) Release.Dispose();
+            base.Dispose(disposing);
+        }
+    }
+
+    [Fact]
     public async Task HttpRecoveryPreservesUnknownAllowanceAndReplaysAfterReceiptWriteFailure()
     {
         var records = new Records(); var campaign = new BenchmarkCampaign(records, "recovery");

@@ -377,6 +377,13 @@ The review file uses the existing planning command contract:
 {"kind":"approve","expectedRevision":7,"artifactHash":"<exact reviewed hash>","reviewedRequirementIds":["<explicitly reviewed requirement ID>"]}
 ```
 
+Keep the execution terminal attached. Artifact approval does not remove the generated
+workflow's runtime confirmation: submit its explicit response (for a confirm form,
+`{"response":true}`) only within the reviewer's authorization. The existing execution
+deadline includes this wait. Console reads stop waiting at cancellation even when
+the underlying terminal read blocks synchronously; a late answer is never accepted.
+A timed-out execution remains a failed attempt and cannot be reset or replayed.
+
 For a targeted implementation correction before execution, the existing `--revision-command` file may include `editablePaths`:
 
 ```json

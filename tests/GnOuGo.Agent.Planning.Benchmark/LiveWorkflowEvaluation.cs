@@ -241,7 +241,11 @@ internal static class LiveWorkflowEvaluation
         while (true)
         {
             ct.ThrowIfCancellationRequested();
-            var line = await input.ReadLineAsync(ct) ?? throw new InvalidOperationException("No interaction provider is attached.");
+            // Console.In can block synchronously despite its async signature. Keep
+            // the invocation deadline effective without accepting a late answer.
+            var line = await Task.Run(() => input.ReadLineAsync(ct).AsTask(), ct).WaitAsync(ct);
+            ct.ThrowIfCancellationRequested();
+            if (line is null) throw new InvalidOperationException("No interaction provider is attached.");
             JsonNode? answer;
             try { answer = JsonNode.Parse(line); }
             catch (JsonException) { await output.WriteLineAsync("Invalid JSON. Submit an explicit response matching the displayed schema."); continue; }
