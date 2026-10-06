@@ -1,0 +1,10 @@
+{
+  "user_request": "retry Live test please",
+  "scope": "One fresh Amazon evaluation; unchanged oracles, permissions and EUR 150 ceiling. Artifact-specific requirement acknowledgment remains separate.",
+  "candidate": "716d4b5510a3759fb54283eb1e9d6476b0adcc5e",
+  "cohort": "consumerretry20261006b",
+  "run": "consumerretry20261006b-amazon-1",
+  "prior_run": "consumerjournal20261006a-amazon-1",
+  "prior_run_preserved": true,
+  "prior_run_replayed": false
+}

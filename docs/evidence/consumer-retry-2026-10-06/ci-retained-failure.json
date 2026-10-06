@@ -1,0 +1,10 @@
+{
+  "candidate": "716d4b5510a3759fb54283eb1e9d6476b0adcc5e",
+  "failed_job": "https://github.com/GnouGo/GnouGo/actions/runs/37444588607/job/112206231479",
+  "test": "CopilotTasksTests.CancellationReachesTaskOwnerAndRetainsPartialCheckpoint",
+  "error": "IOException: Directory not empty during test fixture Dispose",
+  "planner_tests_passed": 1008,
+  "persistence_tests_passed": 17,
+  "action": "Rerun failed job without code or assertion changes; original failure retained.",
+  "relevance": "Copilot fixture teardown; this retry performs Amazon only."
+}
