@@ -3,6 +3,7 @@ using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Integrations;
 using GnOuGo.Flow.Persistence;
 using GnOuGo.KeyVault.Core.Services;
@@ -15,6 +16,89 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class BrowserSnapshotReceiptTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ObservedActionChecksSurviveTransportAndEncryptedRecovery(bool compatible)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var root = Directory.CreateTempSubdirectory("action-reference-").FullName;
+        var builder = WebApplication.CreateBuilder(); builder.Configuration.Sources.Clear(); builder.Logging.ClearProviders();
+        builder.WebHost.ConfigureKestrel(o => o.Listen(System.Net.IPAddress.Loopback, 0));
+        await using var site = builder.Build(); var visits = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        site.Run(async context =>
+        {
+            visits.Enqueue(context.Request.Path);
+            context.Response.ContentType = "text/html";
+            await context.Response.WriteAsync("<html><body><a id='information' href='/information'>Accept information</a><button id='activate' onclick=\"location.href='/activated'\">Accept</button></body></html>", ct);
+        });
+        await site.StartAsync(ct);
+        try
+        {
+            await using var transport = new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>
+            {
+                ["browser"] = new() { Type = "stdio", Command = Environment.GetEnvironmentVariable("GNOU_GO_BROWSER_MCP_TEST_EXECUTABLE") ??
+                    Path.Combine(AppContext.BaseDirectory, "GnOuGo.Browser.Mcp" + (OperatingSystem.IsWindows() ? ".exe" : "")),
+                    EnvironmentVariables = new() { ["Browser__AllowedHosts__0"] = "127.0.0.1", ["Browser__KeepBrowserOpen"] = "false", ["Browser__HoldOpenMs"] = "0", ["OpenTelemetry__Enabled"] = "false" } }
+            });
+            EncryptedWorkflowRunStore Store() => new(new KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "index.db"), Path.Combine(root, "owners"));
+            var tools = await (await transport.GetClientAsync("browser", ct)).ListToolsAsync(ct);
+            var clickContract = tools.Single(t => t.Name == "browser_click").InputSchema!;
+            Assert.NotNull(clickContract["properties"]!["reference"]);
+            Assert.NotNull(clickContract["properties"]!["requestedAction"]);
+            Assert.Empty(PlanningContractValidation.ValidateInstance(new JsonObject { ["selector"] = "#known" }, clickContract));
+            var conflict = await (await transport.GetClientAsync("browser", ct)).CallToolAsync("browser_click",
+                new JsonObject { ["selector"] = "#known", ["reference"] = "untrusted", ["requestedAction"] = "activate" }, ct);
+            Assert.True(conflict.IsError); Assert.Contains("INVALID_REFERENCE", conflict.Content!.ToJsonString());
+            var engine = new WorkflowEngine { McpClientFactory = transport, RunStore = Store(), Limits = new() { TenantId = "action-tenant", RunId = "action-run" } };
+            var yaml = """
+                version: 1
+                workflows:
+                  main:
+                    inputs:
+                      url: { type: string }
+                      index: { type: integer }
+                    steps:
+                      - id: capture
+                        type: mcp.call
+                        input:
+                          server: browser
+                          method: browser_get_content
+                          request: { url: '${data.inputs.url}', format: observation_complete }
+                      - id: action
+                        type: mcp.call
+                        input:
+                          server: browser
+                          method: browser_click
+                          request:
+                            reference: '${data.steps.capture.response.observationSnapshot.pages[0].records[data.inputs.index].reference}'
+                            requestedAction: activate
+                    finally:
+                      - id: close
+                        type: mcp.call
+                        input: { server: browser, method: browser_close, request: {} }
+                """;
+            var workflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml)).Workflows["main"];
+            var result = await engine.ExecuteAsync(workflow, new JsonObject { ["url"] = site.Urls.Single() + "/", ["index"] = compatible ? 1 : 0 }, ct);
+            Assert.Equal(compatible, result.Success);
+            if (!compatible) Assert.Equal("ACTION_MISMATCH", result.Error!.Details!["mcp_error_code"]!.ToString());
+            Assert.DoesNotContain("/information", visits);
+            Assert.Equal(compatible ? 1 : 0, visits.Count(v => v == "/activated"));
+            var saved = (await Store().ReadAsync("action-tenant", "action-run", ct))!;
+            Assert.True(saved.FinalizationCompleted);
+            var receipt = Assert.Single(saved.Invocations.Values, i => i.Id.EndsWith("/step/action", StringComparison.Ordinal));
+            Assert.True(receipt.ExternalCompletionObserved); Assert.NotNull(receipt.CompletedAt);
+            Assert.Contains("requestedAction", receipt.Observation!.ToJsonString());
+            Assert.Contains("activate", receipt.Observation.ToJsonString());
+            if (!compatible) Assert.Contains("ACTION_MISMATCH", receipt.Observation.ToJsonString());
+            var recovered = (await Store().ReadAsync("action-tenant", "action-run", ct))!;
+            Assert.True(JsonNode.DeepEquals(receipt.Observation, recovered.Invocations[receipt.Id].Observation));
+            Assert.Null(await Store().ReadAsync("another-tenant", "action-run", ct));
+            Assert.True((await (await transport.GetClientAsync("browser", ct)).CallToolAsync("browser_get_content", new JsonObject(), ct)).IsError);
+        }
+        finally { await site.StopAsync(ct); Directory.Delete(root, true); }
+    }
+
     [Fact]
     public async Task ExpirationSurvivesRealTransportAndEncryptedReceiptRecovery()
     {

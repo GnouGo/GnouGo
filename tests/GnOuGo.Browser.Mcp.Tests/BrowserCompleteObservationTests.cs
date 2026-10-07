@@ -247,6 +247,6 @@ public sealed class BrowserCompleteObservationTests
                 catch (Exception ex) when (ex is HttpListenerException or ObjectDisposedException) { }
             });
         }
-        public async ValueTask DisposeAsync() { _listener.Stop(); await _serving; _listener.Close(); }
+        public async ValueTask DisposeAsync() { _listener.Close(); await _serving; }
     }
 }

@@ -141,30 +141,52 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         }
         finally
         {
-            _gate.Release();
+            await ReleaseBrowserGateAsync();
         }
     }
 
-    public async Task<BrowserActionResult> ClickAsync(
+    public Task<BrowserActionResult> ClickAsync(
         string selector,
         string waitUntil,
         int? timeoutMs,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken) => ClickTargetAsync(selector, waitUntil, timeoutMs, cancellationToken, null, null);
+
+    public async Task<BrowserActionResult> ClickTargetAsync(
+        string? selector,
+        string waitUntil,
+        int? timeoutMs,
+        CancellationToken cancellationToken, string? reference, string? requestedAction)
     {
         await _gate.WaitAsync(cancellationToken);
+        IElementHandle? observed = null;
         try
         {
-            InvalidateObservation("interaction");
-            var page = GetRequiredPage();
+            var page = reference is null ? GetRequiredPage() : null;
             var timeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
-            var locator = await ResolveLocatorAsync(page, selector, timeout);
-            var submitted = await DetermineSubmittedAsync(locator);
+            if (reference is not null && requestedAction is not ("activate" or "follow") || reference is null && requestedAction is not null)
+                throw new BrowserActionReferenceException("ACTION_MISMATCH", "Reference-based clicks require activate or follow; legacy selector calls omit requestedAction.");
+            ILocator? locator = null;
+            if (reference is null)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(selector);
+                locator = await ResolveLocatorAsync(page!, selector, timeout);
+            }
+            else
+            {
+                var target = await ResolveObservedActionAsync(selector, reference, requestedAction!, cancellationToken);
+                observed = target.Element; selector = target.Record.Selector;
+            }
+            page ??= GetRequiredPage();
+            cancellationToken.ThrowIfCancellationRequested();
+            InvalidateObservation("interaction");
+            var submitted = observed is null ? await DetermineSubmittedAsync(locator!) : await DetermineSubmittedAsync(observed);
             var beforeUrl = page.Url;
             var navigationObservation = ObserveMainFrameNavigation(page);
 
             try
             {
-                await locator.ClickAsync(new LocatorClickOptions { Timeout = timeout });
+                if (observed is null) await locator!.ClickAsync(new LocatorClickOptions { Timeout = timeout });
+                else await observed.ClickAsync(new ElementHandleClickOptions { Timeout = timeout });
                 await page.WaitForLoadStateAsync(ParseLoadState(waitUntil), new PageWaitForLoadStateOptions { Timeout = timeout });
             }
             finally
@@ -185,42 +207,64 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 Action: "click",
                 Url: page.Url,
                 Title: await page.TitleAsync(),
-                Selector: selector,
+                Selector: selector!,
                 Submitted: submitted,
                 TriggeredNavigation: triggeredNavigation,
-                NavigationType: navigationType);
+                NavigationType: navigationType) { Target = ObservedTarget(reference, requestedAction!) };
         }
         finally
         {
-            _gate.Release();
+            await ReleaseBrowserGateAsync(observed);
         }
     }
 
-    public async Task<BrowserActionResult> FillAsync(
+    public Task<BrowserActionResult> FillAsync(
         string selector,
         string value,
         bool submit,
         int? timeoutMs,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken) => FillTargetAsync(selector, value, submit, timeoutMs, cancellationToken, null);
+
+    public async Task<BrowserActionResult> FillTargetAsync(
+        string? selector,
+        string value,
+        bool submit,
+        int? timeoutMs,
+        CancellationToken cancellationToken, string? reference)
     {
         await _gate.WaitAsync(cancellationToken);
+        IElementHandle? observed = null;
         try
         {
-            InvalidateObservation("interaction");
-            var page = GetRequiredPage();
+            var page = reference is null ? GetRequiredPage() : null;
             var timeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
-            var locator = await ResolveLocatorAsync(page, selector, timeout);
+            ILocator? locator = null;
+            if (reference is null)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(selector);
+                locator = await ResolveLocatorAsync(page!, selector, timeout);
+            }
+            else
+            {
+                var target = await ResolveObservedActionAsync(selector, reference, "fill", cancellationToken);
+                observed = target.Element; selector = target.Record.Selector;
+            }
+            page ??= GetRequiredPage();
+            cancellationToken.ThrowIfCancellationRequested();
+            InvalidateObservation("interaction");
             var beforeUrl = page.Url;
             var triggeredNavigation = false;
             var navigationType = BrowserActionSemantics.NavigationTypeNone;
 
-            await locator.FillAsync(value, new LocatorFillOptions { Timeout = timeout });
+            if (observed is null) await locator!.FillAsync(value, new LocatorFillOptions { Timeout = timeout });
+            else await observed.FillAsync(value, new ElementHandleFillOptions { Timeout = timeout });
             if (submit)
             {
                 var navigationObservation = ObserveMainFrameNavigation(page);
                 try
                 {
-                    await locator.PressAsync("Enter", new LocatorPressOptions { Timeout = timeout });
+                    if (observed is null) await locator!.PressAsync("Enter", new LocatorPressOptions { Timeout = timeout });
+                    else await observed.PressAsync("Enter", new ElementHandlePressOptions { Timeout = timeout });
                     await page.WaitForLoadStateAsync(LoadState.DOMContentLoaded, new PageWaitForLoadStateOptions { Timeout = timeout });
                 }
                 finally
@@ -242,14 +286,14 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 Action: "fill",
                 Url: page.Url,
                 Title: await page.TitleAsync(),
-                Selector: selector,
+                Selector: selector!,
                 Submitted: submit,
                 TriggeredNavigation: triggeredNavigation,
-                NavigationType: navigationType);
+                NavigationType: navigationType) { Target = ObservedTarget(reference, "fill") };
         }
         finally
         {
-            _gate.Release();
+            await ReleaseBrowserGateAsync(observed);
         }
     }
 
@@ -301,31 +345,52 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         }
         finally
         {
-            _gate.Release();
+            await ReleaseBrowserGateAsync();
         }
     }
 
-    public async Task<BrowserKeyActionResult> PressAsync(
+    public Task<BrowserKeyActionResult> PressAsync(
         string selector,
         string key,
         string waitUntil,
         int? timeoutMs,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken) => PressTargetAsync(selector, key, waitUntil, timeoutMs, cancellationToken, null);
+
+    public async Task<BrowserKeyActionResult> PressTargetAsync(
+        string? selector,
+        string key,
+        string waitUntil,
+        int? timeoutMs,
+        CancellationToken cancellationToken, string? reference)
     {
         await _gate.WaitAsync(cancellationToken);
+        IElementHandle? observed = null;
         try
         {
-            InvalidateObservation("interaction");
-            var page = GetRequiredPage();
+            var page = reference is null ? GetRequiredPage() : null;
             var timeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
             var normalizedKey = NormalizeRequiredValue(key, nameof(key));
-            var locator = await ResolveLocatorAsync(page, selector, timeout);
+            ILocator? locator = null;
+            if (reference is null)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(selector);
+                locator = await ResolveLocatorAsync(page!, selector, timeout);
+            }
+            else
+            {
+                var target = await ResolveObservedActionAsync(selector, reference, "press", cancellationToken);
+                observed = target.Element; selector = target.Record.Selector;
+            }
+            page ??= GetRequiredPage();
+            cancellationToken.ThrowIfCancellationRequested();
+            InvalidateObservation("interaction");
             var beforeUrl = page.Url;
             var navigationObservation = ObserveMainFrameNavigation(page);
 
             try
             {
-                await locator.PressAsync(normalizedKey, new LocatorPressOptions { Timeout = timeout });
+                if (observed is null) await locator!.PressAsync(normalizedKey, new LocatorPressOptions { Timeout = timeout });
+                else await observed.PressAsync(normalizedKey, new ElementHandlePressOptions { Timeout = timeout });
                 await page.WaitForLoadStateAsync(ParseLoadState(waitUntil), new PageWaitForLoadStateOptions { Timeout = timeout });
             }
             finally
@@ -346,45 +411,63 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 Action: "press",
                 Url: page.Url,
                 Title: await page.TitleAsync(),
-                Selector: selector,
+                Selector: selector!,
                 Key: normalizedKey,
                 TriggeredNavigation: triggeredNavigation,
-                NavigationType: navigationType);
+                NavigationType: navigationType) { Target = ObservedTarget(reference, "press") };
         }
         finally
         {
-            _gate.Release();
+            await ReleaseBrowserGateAsync(observed);
         }
     }
 
-    public async Task<BrowserSelectResult> SelectAsync(
+    public Task<BrowserSelectResult> SelectAsync(
         string selector,
         string value,
         int? timeoutMs,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken) => SelectTargetAsync(selector, value, timeoutMs, cancellationToken, null);
+
+    public async Task<BrowserSelectResult> SelectTargetAsync(
+        string? selector,
+        string value,
+        int? timeoutMs,
+        CancellationToken cancellationToken, string? reference)
     {
         await _gate.WaitAsync(cancellationToken);
+        IElementHandle? observed = null;
         try
         {
-            InvalidateObservation("interaction");
-            var page = GetRequiredPage();
+            var page = reference is null ? GetRequiredPage() : null;
             var timeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
             var normalizedValue = NormalizeRequiredValue(value, nameof(value));
-            var locator = await ResolveLocatorAsync(page, selector, timeout);
-            var selectedValues = await locator.SelectOptionAsync(new[] { normalizedValue }, new LocatorSelectOptionOptions
+            ILocator? locator = null;
+            if (reference is null)
             {
-                Timeout = timeout
-            });
+                ArgumentException.ThrowIfNullOrWhiteSpace(selector);
+                locator = await ResolveLocatorAsync(page!, selector, timeout);
+            }
+            else
+            {
+                var target = await ResolveObservedActionAsync(selector, reference, "select", cancellationToken);
+                observed = target.Element; selector = target.Record.Selector;
+            }
+            page ??= GetRequiredPage();
+            cancellationToken.ThrowIfCancellationRequested();
+            InvalidateObservation("interaction");
+            var selectedValues = observed is null
+                ? await locator!.SelectOptionAsync(new[] { normalizedValue }, new LocatorSelectOptionOptions { Timeout = timeout })
+                : await observed.SelectOptionAsync(new[] { normalizedValue }, new ElementHandleSelectOptionOptions { Timeout = timeout });
 
             return new BrowserSelectResult(
                 Url: page.Url,
                 Title: await page.TitleAsync(),
-                Selector: selector,
-                SelectedValues: [.. selectedValues]);
+                Selector: selector!,
+                SelectedValues: [.. selectedValues]) { Target = ObservedTarget(reference, "select") };
         }
         finally
         {
-            _gate.Release();
+            await ReleaseBrowserGateAsync(observed);
         }
     }
 
@@ -430,7 +513,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         }
         finally
         {
-            _gate.Release();
+            await ReleaseBrowserGateAsync();
         }
     }
 
@@ -463,7 +546,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         }
         finally
         {
-            _gate.Release();
+            await ReleaseBrowserGateAsync();
         }
     }
 
@@ -486,7 +569,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         }
         finally
         {
-            _gate.Release();
+            await ReleaseBrowserGateAsync();
         }
     }
 
@@ -524,7 +607,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         finally
         {
             _disposed = true;
-            _gate.Release();
+            await ReleaseBrowserGateAsync();
             _gate.Dispose();
         }
     }
@@ -773,6 +856,8 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
 
     private async Task CloseSessionUnlockedAsync()
     {
+        InvalidateObservation("closure");
+        await DisposeRetiredObservationHandlesAsync();
         if (_page is not null)
         {
             await _page.CloseAsync();
@@ -934,6 +1019,8 @@ public sealed record BrowserActionResult(
     [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
 {
     public bool Ok => Success;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BrowserObservedTarget? Target { get; init; }
 }
 
 public sealed record BrowserKeyActionResult(
@@ -949,6 +1036,8 @@ public sealed record BrowserKeyActionResult(
     [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
 {
     public bool Ok => Success;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BrowserObservedTarget? Target { get; init; }
 }
 
 public sealed record BrowserSelectResult(
@@ -961,6 +1050,8 @@ public sealed record BrowserSelectResult(
     [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
 {
     public bool Ok => Success;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BrowserObservedTarget? Target { get; init; }
 }
 
 public sealed record BrowserWaitResult(

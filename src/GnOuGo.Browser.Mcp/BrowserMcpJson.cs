@@ -15,6 +15,9 @@ internal static class BrowserMcpJson
     {
         var schema = JsonNode.Parse(generated.GetRawText())!.AsObject();
         var properties = schema["properties"]!.AsObject();
+        var records = properties["observation"]!["properties"]!["records"]!;
+        records["items"]!["properties"]!["actions"]!["items"] = new JsonObject
+            { ["type"] = "string", ["enum"] = new JsonArray("activate", "follow", "fill", "select", "press") };
         properties["observationSnapshot"]!["properties"]!["pages"]!["items"]!["properties"]!["records"] =
             properties["observation"]!["properties"]!["records"]!.DeepClone();
         using var document = JsonDocument.Parse(schema.ToJsonString());

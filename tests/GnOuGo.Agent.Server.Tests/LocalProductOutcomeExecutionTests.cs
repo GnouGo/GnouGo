@@ -330,10 +330,10 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         var observe = new PlanTask { Id = "inspect", Kind = "operation", Objective = "Inspect current controls after the bounded wait", Operation = Operation("browser_get_content"), DependsOn = ["settle"],
             Inputs = [new("format", ProductTransformationPlan.Text("observation"))] };
         var decision = new PlanTask { Id = "consent", Kind = "transform", Objective = "Inspect the complete observation. Identify only an unambiguous visible cookie-acceptance control. Return accept=false when absent. Reject unrelated or ambiguous blockers and incomplete observations; do not guess a selector.",
-            Inputs = [new("page", ProductTransformationPlan.Ref("inspect"))], ResultType = ProductTransformationPlan.Obj(("accept", new() { Kind = "boolean" }), ("selector", new() { Nullable = true })) };
+            Inputs = [new("page", ProductTransformationPlan.Ref("inspect"))], ResultType = ProductTransformationPlan.Obj(("accept", new() { Kind = "boolean" }), ("reference", new() { Nullable = true })) };
         var gate = new PlanTask { Id = "consent_gate", Kind = "conditional", Objective = "Accept cookies only when that observed control is present", Condition = new() { Kind = "predicate", Predicate = "and", Items = [ProductTransformationPlan.Ref("consent", "accept"),
-                new() { Kind = "predicate", Predicate = "not_equal", Items = [ProductTransformationPlan.Ref("consent", "selector"), new() { Kind = "null" }] }] },
-            Body = new() { Tasks = [new() { Id = "accept_observed", Kind = "operation", Objective = "Click the observed cookie control", Operation = Operation("browser_click"), Inputs = [new("selector", ProductTransformationPlan.Ref("consent", "selector"))] }] }, Otherwise = new() };
+                new() { Kind = "predicate", Predicate = "not_equal", Items = [ProductTransformationPlan.Ref("consent", "reference"), new() { Kind = "null" }] }] },
+            Body = new() { Tasks = [new() { Id = "accept_observed", Kind = "operation", Objective = "Click the observed cookie control", Operation = Operation("browser_click"), Inputs = [new("reference", ProductTransformationPlan.Ref("consent", "reference")), new("requestedAction", ProductTransformationPlan.Text("activate"))] }] }, Otherwise = new() };
         var search = plan.Root.Tasks.Single(t => t.Id == "search"); search.DependsOn = ["consent_gate"];
         search.Inputs = [new("selector", ProductTransformationPlan.Text("main"))];
         search.Objective = "Read a fresh targeted search observation after any consent action";
@@ -347,7 +347,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 TaskValue Not(TaskValue value) => new() { Kind = "predicate", Predicate = "not", Items = [value] };
                 branch.Outputs = [new("ready", new() { Kind = "predicate", Predicate = "and", Items = [Not(Flag("captureTruncated")), Not(Flag("manifestTruncated"))] }),
                     new("url", ProductTransformationPlan.Ref(source, "url")), new("title", ProductTransformationPlan.Ref(source, "title")),
-                    new("observedControl", ProductTransformationPlan.Ref("consent", "selector"))];
+                    new("observedControl", ProductTransformationPlan.Ref("consent", "reference"))];
             }
             // Consume direct boolean and string ports after the merge; nullable
             // controls stay nullable and are not used as a successful empty value.
@@ -367,10 +367,10 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                     Inputs = [new("format", ProductTransformationPlan.Text("observation")), new("cursor", Field(new() { Kind = "item" }, "cursor"))] }],
                     Outputs = [new("observation", ProductTransformationPlan.Ref("decision_page", "observation"))] } };
             var extract = new PlanTask { Id = "decision_candidates", Kind = "transform", Mode = "extract", Each = new("records", "candidates"),
-                Objective = "From each observed record, extract a control's exact text, selector and group when present. Return one candidate array per record, empty for other observed kinds. Do not decide which action is authorized.",
+                Objective = "From each observed record, extract a control's exact text, observed reference and group when present. Return one candidate array per record, empty for other observed kinds. Do not decide which action is authorized.",
                 Inputs = [new("records", Field(ProductTransformationPlan.Ref("decision_page", "observation"), "records"))],
                 ResultType = ProductTransformationPlan.Obj(("candidates", new() { Kind = "array", Items = new() { Kind = "array",
-                    Items = ProductTransformationPlan.Obj(("text", new()), ("selector", new()), ("group", new())) } })) };
+                    Items = ProductTransformationPlan.Obj(("text", new()), ("reference", new()), ("group", new())) } })) };
             pages.Body.Tasks.Add(extract);
             pages.Body.Outputs = [new("candidates", ProductTransformationPlan.Ref("decision_candidates", "candidates"))];
             decision.Inputs = [new("candidates", ProductTransformationPlan.Ref("decision_pages", "candidates"))];
@@ -401,7 +401,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 throw new WorkflowRuntimeException("CONTRACT_UNSATISFIED", "The observed blocker is not authorized cookie consent.");
             Assert.InRange(controls.Length, 0, 1);
             if (controls.Length == 1) Assert.Equal("#notice", controls[0]!["group"]!.ToString());
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["accept"] = controls.Length == 1, ["selector"] = controls.SingleOrDefault()?["selector"]?.ToString() } });
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["accept"] = controls.Length == 1, ["reference"] = controls.SingleOrDefault()?["reference"]?.ToString() } });
         }
     }
 
@@ -452,9 +452,9 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             if (request.StructuredOutputSchema?["properties"]?["script"] is null) return next.CallAsync(request, ct);
             Requests.Add(request);
             var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = context["item_target"]?["items"]?["properties"]?["selector"] is not null
-                ? "[source.records].filter(r=>m.test(r.kind,'^control$')).map(r=>({text:r.text,selector:r.selector,group:r.group}))"
-                : "[source.records].filter(r=>m.test(r.kind,'^link$')).map(r=>({text:r.text,href:r.href,group:r.group}))" } });
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = context["item_target"]?["items"]?["properties"]?["reference"] is not null
+                ? "[item].filter(r=>m.test(r.kind,'^control$')).map(r=>({text:r.text,reference:r.reference,group:r.group}))"
+                : "[item].filter(r=>m.test(r.kind,'^link$')).map(r=>({text:r.text,href:r.href,group:r.group}))" } });
         }
         public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(12000);
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);

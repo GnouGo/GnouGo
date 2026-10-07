@@ -21,8 +21,18 @@ public sealed class BrowserTools
     }
 
 
+    // Existing C# entrypoints retain their selector semantics; MCP advertises the additive target form.
+    public Task<BrowserActionResult> ClickAsync(string selector, string waitUntil = "domcontentloaded", int? timeoutMs = null, CancellationToken cancellationToken = default)
+        => ClickTargetAsync(selector: selector, waitUntil: waitUntil, timeoutMs: timeoutMs, cancellationToken: cancellationToken);
+    public Task<BrowserActionResult> FillAsync(string selector, string value, bool submit = false, int? timeoutMs = null, CancellationToken cancellationToken = default)
+        => FillTargetAsync(value: value, selector: selector, submit: submit, timeoutMs: timeoutMs, cancellationToken: cancellationToken);
+    public Task<BrowserKeyActionResult> PressAsync(string selector, string key, string waitUntil = "domcontentloaded", int? timeoutMs = null, CancellationToken cancellationToken = default)
+        => PressTargetAsync(key: key, selector: selector, waitUntil: waitUntil, timeoutMs: timeoutMs, cancellationToken: cancellationToken);
+    public Task<BrowserSelectResult> SelectAsync(string selector, string value, int? timeoutMs = null, CancellationToken cancellationToken = default)
+        => SelectTargetAsync(value: value, selector: selector, timeoutMs: timeoutMs, cancellationToken: cancellationToken);
+
     [McpMeta("gnougo", JsonValue = McpEffectMetadata.Read)]
-    [McpServerTool(Name = "browser_get_content", UseStructuredContent = true, OutputSchemaType = typeof(BrowserContentResult)), Description("Reads rendered content from the current page or from a CSS selector. Prefer format=observation_complete when all observation pages are needed: returns observationSnapshot.pages with typed records from one complete generation, no continuation calls. Internally discards navigation-invalidated attempts, with at most two restarts sharing one timeout. Incomplete captures or exhausted bounds fail explicitly; narrow the selector yourself. Acquisition metadata preserves attempts and invalidation reasons. Page limits and capture limits remain enforced. Legacy cursors fail with SNAPSHOT_EXPIRED after invalidation and never switch generations. Use format=observation_pages for a bounded immutable snapshot manifest in observationManifest.pages (cursor, recordCount). Read every listed cursor with either observation format, no URL/selector or limit overrides, before navigation. Each page returns observation.records without duplicate flat content. Only a fully consumed manifest with captureTruncated=false and manifestTruncated=false establishes snapshot coverage; otherwise narrow the selector. An empty complete manifest establishes an empty snapshot. Legacy format=observation returns incremental typed visible text, links, headings and controls. A truncated observation or nextCursor is partial, never evidence of an empty or complete result set. captureTruncated requires a narrower read even when nextCursor is null. Visible dialog controls retain their DOM group; handle authorized cookie consent with an explicit conditional click on an observed control and then read again. This read never clicks consent. It preserves observed DOM grouping and resolved link URLs without interpreting business fields. Truncation is explicit: use the returned observation.nextCursor with format=observation and no URL/selector to continue the same snapshot, or narrow the selector. Navigation or interaction invalidates continuation. If url is provided, this tool first navigates to that absolute http/https URL, waits for the requested load state, then returns the content in the same call. Prefer this one-shot tool when the goal is simply to open a page and inspect or extract its content. Prefer waitUntil='domcontentloaded' or 'load' for pages with background requests; avoid 'networkidle' unless the page is known to become idle. Use format='text' for readable visible text, summaries, and plain content extraction (example: summarize an article or read a confirmation message). Use format='html' when you need DOM structure, links, href/src attributes, button labels, form fields, menu/navigation markup, or when the client must decide what element to click based on the rendered HTML (example: extract menu links from nav/header, inspect a consent banner, or build a reliable CSS selector). Script elements are stripped from returned HTML by default to keep responses compact and useful for MCP clients.")]
+    [McpServerTool(Name = "browser_get_content", UseStructuredContent = true, OutputSchemaType = typeof(BrowserContentResult)), Description("Reads rendered content from the current page or from a CSS selector. Prefer format=observation_complete when all observation pages are needed: returns observationSnapshot.pages with typed records from one complete generation, no continuation calls. Internally discards navigation-invalidated attempts, with at most two restarts sharing one timeout. Incomplete captures or exhausted bounds fail explicitly; narrow the selector yourself. Acquisition metadata preserves attempts and invalidation reasons. Page limits and capture limits remain enforced. Legacy cursors fail with SNAPSHOT_EXPIRED after invalidation and never switch generations. Use format=observation_pages for a bounded immutable snapshot manifest in observationManifest.pages (cursor, recordCount). Read every listed cursor with either observation format, no URL/selector or limit overrides, before navigation. Each page returns observation.records without duplicate flat content. Only a fully consumed manifest with captureTruncated=false and manifestTruncated=false establishes snapshot coverage; otherwise narrow the selector. An empty complete manifest establishes an empty snapshot. Legacy format=observation returns incremental typed visible text, links, headings and controls. A truncated observation or nextCursor is partial, never evidence of an empty or complete result set. captureTruncated requires a narrower read even when nextCursor is null. Visible dialog controls retain their DOM group; handle authorized cookie consent with an explicit conditional click on an observed control and then read again. This read never clicks consent. It preserves observed DOM grouping and resolved link URLs without interpreting business fields. Records provide an opaque reference and supported actions: let decisions select observed references, then pass them to action tools instead of generating selectors. A follow link cannot satisfy activate. References expire after interaction/navigation; read again before the next observed action. Truncation is explicit: use the returned observation.nextCursor with format=observation and no URL/selector to continue the same snapshot, or narrow the selector. Navigation or interaction invalidates continuation. If url is provided, this tool first navigates to that absolute http/https URL, waits for the requested load state, then returns the content in the same call. Prefer this one-shot tool when the goal is simply to open a page and inspect or extract its content. Prefer waitUntil='domcontentloaded' or 'load' for pages with background requests; avoid 'networkidle' unless the page is known to become idle. Use format='text' for readable visible text, summaries, and plain content extraction (example: summarize an article or read a confirmation message). Use format='html' when you need DOM structure, links, href/src attributes, button labels, form fields, menu/navigation markup, or when the client must decide what element to click based on the rendered HTML (example: extract menu links from nav/header, inspect a consent banner, or build a reliable CSS selector). Script elements are stripped from returned HTML by default to keep responses compact and useful for MCP clients.")]
     public async Task<BrowserContentResult> GetContentAsync(
         [RegularExpression(BrowserNavigationPolicy.HttpUrlPattern), Description("Optional absolute HTTP/HTTPS URL to open before reading content. Decode percent-encoded whole URLs and resolve relative references against their observed page URL before calling. Escape whitespace. When omitted, reads the current page.")] string? url = null,
         [Description("Navigation wait mode used when url is provided: load, domcontentloaded, or networkidle. Prefer domcontentloaded/load for dynamic shopping/search pages; networkidle can time out on pages with continuous background requests.")] string waitUntil = "load",
@@ -54,41 +64,44 @@ public sealed class BrowserTools
     }
 
     [McpMeta("gnougo", JsonValue = McpEffectMetadata.Execute)]
-    [McpServerTool(Name = "browser_click", UseStructuredContent = true, OutputSchemaType = typeof(BrowserActionResult)), Description("Clicks the first element matching a CSS selector on the current page. Use this when the client already knows a reliable selector. If the goal is to inspect menus, links, buttons, forms, or consent banners first, call browser_get_content with format='html' before clicking so the client can inspect the rendered DOM and attributes.")]
-    public async Task<BrowserActionResult> ClickAsync(
-        [Description("CSS selector to click. Prefer selectors derived from rendered HTML inspection rather than visible text alone when links, hrefs, or nested markup matter.")] string selector,
+    [McpServerTool(Name = "browser_click", UseStructuredContent = true, OutputSchemaType = typeof(BrowserActionResult)), Description("Clicks a target on the current page. Prefer reference from an observation record plus requestedAction=activate for a control or follow for a link; only the Browser resolves its selector and validates identity and action compatibility. An information link cannot satisfy control activation. References expire on navigation, interaction, replacement or closure. Acquire a fresh observation before later actions. Legacy selector calls click the first matching element; HTML remains available for legacy DOM inspection.")]
+    public async Task<BrowserActionResult> ClickTargetAsync(
         [Description("Load-state wait mode after the click: load, domcontentloaded, or networkidle.")] string waitUntil = "domcontentloaded",
+        [Description("Legacy CSS selector. Specify either selector or an observed reference, never both. Prefer reference for observed actions.")] string? selector = null,
         [Description("Optional timeout in milliseconds.")] int? timeoutMs = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("Opaque reference from a current observation record. The Browser resolves the exact observed element and rejects expired, changed or incompatible targets.")] string? reference = null,
+        [RegularExpression("^(activate|follow)$"), Description("Required with reference: activate for an observed native/ARIA control; follow for an observed link. Omit for legacy selector calls. A label alone never makes a link an activation control.")] string? requestedAction = null)
     {
         try
         {
-            return await _browserHost.ClickAsync(selector, waitUntil, timeoutMs, cancellationToken);
+            return await _browserHost.ClickTargetAsync(selector, waitUntil, timeoutMs, cancellationToken, reference, requestedAction);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "browser_click failed for selector={Selector}", selector);
-            return BrowserToolFailure.Action("click", selector, ex);
+            return BrowserToolFailure.Action("click", selector ?? "", ex, reference, requestedAction ?? "click");
         }
     }
 
     [McpMeta("gnougo", JsonValue = McpEffectMetadata.Execute)]
-    [McpServerTool(Name = "browser_fill", UseStructuredContent = true, OutputSchemaType = typeof(BrowserActionResult)), Description("Fills an input or textarea, with optional Enter submission. Use this when the client already knows a reliable selector for the target field. If the client must first identify which field corresponds to a label, placeholder, form section, or custom markup, inspect browser_get_content with format='html' first and derive a selector from the rendered DOM.")]
-    public async Task<BrowserActionResult> FillAsync(
-        [Description("CSS selector of the target input or textarea element. Example: input[name='email'], textarea[name='message'], #search-box. Prefer selectors derived from rendered HTML when forms contain multiple similar fields.")] string selector,
+    [McpServerTool(Name = "browser_fill", UseStructuredContent = true, OutputSchemaType = typeof(BrowserActionResult)), Description("Fills an input or textarea, with optional Enter submission. Prefer an observed reference supporting fill; omit selector. References identify the exact current element and expire after interaction; acquire a fresh observation for later actions. Legacy selector calls retain first-match semantics; HTML remains available for legacy DOM inspection.")]
+    public async Task<BrowserActionResult> FillTargetAsync(
         [Description("Value to type into the field. Use the exact text the client wants to enter.")] string value,
         [Description("Press Enter after filling the field. Example: submit=true for a known search box or simple form field that submits on Enter.")] bool submit = false,
+        [Description("Legacy CSS selector. Specify either selector or an observed reference, never both. Prefer reference for observed actions.")] string? selector = null,
         [Description("Optional timeout in milliseconds.")] int? timeoutMs = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("Opaque reference from a current observation record. The Browser resolves the exact observed element and rejects expired, changed or incompatible targets.")] string? reference = null)
     {
         try
         {
-            return await _browserHost.FillAsync(selector, value, submit, timeoutMs, cancellationToken);
+            return await _browserHost.FillTargetAsync(selector, value, submit, timeoutMs, cancellationToken, reference);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "browser_fill failed for selector={Selector}", selector);
-            return BrowserToolFailure.Action(submit ? "fill_submit" : "fill", selector, ex);
+            return BrowserToolFailure.Action(submit ? "fill_submit" : "fill", selector ?? "", ex, reference, "fill");
         }
     }
 
@@ -113,41 +126,43 @@ public sealed class BrowserTools
     }
 
     [McpMeta("gnougo", JsonValue = McpEffectMetadata.Execute)]
-    [McpServerTool(Name = "browser_press", UseStructuredContent = true, OutputSchemaType = typeof(BrowserKeyActionResult)), Description("Presses a keyboard key on the first element matching a CSS selector. Use this when keyboard interaction is intentional, for example Enter to submit a focused field, Tab to move focus, Escape to close a dialog, or ArrowDown to navigate a list. If the client does not yet know the right target element, inspect browser_get_content with format='html' first and derive a selector from the rendered DOM.")]
-    public async Task<BrowserKeyActionResult> PressAsync(
-        [Description("CSS selector of the target element. Prefer selectors derived from rendered HTML when focus order or element type matters.")] string selector,
+    [McpServerTool(Name = "browser_press", UseStructuredContent = true, OutputSchemaType = typeof(BrowserKeyActionResult)), Description("Presses a keyboard key. Prefer an observed reference supporting press; omit selector. Legacy selectors retain first-match semantics. Use this when keyboard interaction is intentional, for example Enter to submit a focused field, Tab to move focus, Escape to close a dialog, or ArrowDown to navigate a list. Observe the target before selecting its reference; acquire a fresh observation after any interaction.")]
+    public async Task<BrowserKeyActionResult> PressTargetAsync(
         [Description("Keyboard key to press, for example Enter, Tab, Escape, ArrowDown. Example: key='Enter' to submit a known input field.")] string key,
         [Description("Load-state wait mode after the key press: load, domcontentloaded, or networkidle.")] string waitUntil = "domcontentloaded",
+        [Description("Legacy CSS selector. Specify either selector or an observed reference, never both. Prefer reference for observed actions.")] string? selector = null,
         [Description("Optional timeout in milliseconds.")] int? timeoutMs = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("Opaque reference from a current observation record. The Browser resolves the exact observed element and rejects expired, changed or incompatible targets.")] string? reference = null)
     {
         try
         {
-            return await _browserHost.PressAsync(selector, key, waitUntil, timeoutMs, cancellationToken);
+            return await _browserHost.PressTargetAsync(selector, key, waitUntil, timeoutMs, cancellationToken, reference);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "browser_press failed for selector={Selector}, key={Key}", selector, key);
-            return BrowserToolFailure.KeyAction("press", selector, key, ex);
+            return BrowserToolFailure.KeyAction("press", selector ?? "", key, ex, reference);
         }
     }
 
     [McpMeta("gnougo", JsonValue = McpEffectMetadata.Execute)]
-    [McpServerTool(Name = "browser_select", UseStructuredContent = true, OutputSchemaType = typeof(BrowserSelectResult)), Description("Selects an option value in a <select> element. Use this only for real HTML <select> controls. If the client must first inspect available options, labels, or determine whether the control is a native <select> or a custom widget, inspect browser_get_content with format='html' first.")]
-    public async Task<BrowserSelectResult> SelectAsync(
-        [Description("CSS selector of the target select element. Example: select[name='country'] or #my-select.")] string selector,
+    [McpServerTool(Name = "browser_select", UseStructuredContent = true, OutputSchemaType = typeof(BrowserSelectResult)), Description("Selects an option value in a <select> element. Prefer an observed reference supporting select; omit selector. Use this only for real HTML <select> controls. If the client must first inspect available options, labels, or determine whether the control is a native <select> or a custom widget, inspect browser_get_content with format='html' first.")]
+    public async Task<BrowserSelectResult> SelectTargetAsync(
         [Description("Option value to select. This is the HTML option value, not the visible label. Inspect HTML first if the client only knows the label.")] string value,
         [Description("Optional timeout in milliseconds.")] int? timeoutMs = null,
-        CancellationToken cancellationToken = default)
+        [Description("Legacy CSS selector. Specify either selector or an observed reference, never both. Prefer reference for observed actions.")] string? selector = null,
+        CancellationToken cancellationToken = default,
+        [Description("Opaque reference from a current observation record. The Browser resolves the exact observed element and rejects expired, changed or incompatible targets.")] string? reference = null)
     {
         try
         {
-            return await _browserHost.SelectAsync(selector, value, timeoutMs, cancellationToken);
+            return await _browserHost.SelectTargetAsync(selector, value, timeoutMs, cancellationToken, reference);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "browser_select failed for selector={Selector}, value={Value}", selector, value);
-            return BrowserToolFailure.Select(selector, ex);
+            return BrowserToolFailure.Select(selector ?? "", ex, reference);
         }
     }
 
@@ -229,7 +244,7 @@ internal static class BrowserToolFailure
             ErrorMessage: message) { Acquisition = (exception as BrowserObservationException)?.Acquisition };
     }
 
-    public static BrowserActionResult Action(string action, string selector, Exception exception)
+    public static BrowserActionResult Action(string action, string selector, Exception exception, string? reference = null, string? requestedAction = null)
     {
         var (code, message) = Describe(exception);
         return new BrowserActionResult(
@@ -242,10 +257,10 @@ internal static class BrowserToolFailure
             NavigationType: "none",
             Success: false,
             ErrorCode: code,
-            ErrorMessage: message);
+            ErrorMessage: message) { Target = PlaywrightBrowserHost.ObservedTarget(reference, requestedAction ?? action, code) };
     }
 
-    public static BrowserKeyActionResult KeyAction(string action, string selector, string key, Exception exception)
+    public static BrowserKeyActionResult KeyAction(string action, string selector, string key, Exception exception, string? reference = null)
     {
         var (code, message) = Describe(exception);
         return new BrowserKeyActionResult(
@@ -258,10 +273,10 @@ internal static class BrowserToolFailure
             NavigationType: "none",
             Success: false,
             ErrorCode: code,
-            ErrorMessage: message);
+            ErrorMessage: message) { Target = PlaywrightBrowserHost.ObservedTarget(reference, "press", code) };
     }
 
-    public static BrowserSelectResult Select(string selector, Exception exception)
+    public static BrowserSelectResult Select(string selector, Exception exception, string? reference = null)
     {
         var (code, message) = Describe(exception);
         return new BrowserSelectResult(
@@ -271,7 +286,7 @@ internal static class BrowserToolFailure
             SelectedValues: [],
             Success: false,
             ErrorCode: code,
-            ErrorMessage: message);
+            ErrorMessage: message) { Target = PlaywrightBrowserHost.ObservedTarget(reference, "select", code) };
     }
 
     public static BrowserWaitResult Wait(string? selector, string? state, int? delayMs, Exception exception)
@@ -314,7 +329,7 @@ internal static class BrowserToolFailure
     }
 
     private static (string Code, string Message) Describe(Exception exception)
-        => (Classify(exception), exception is BrowserObservationException ? exception.Message : exception is OperationCanceledException
+        => (Classify(exception), exception is BrowserObservationException or BrowserActionReferenceException ? exception.Message : exception is OperationCanceledException
             ? "The operation was cancelled by the client."
             : $"{exception.GetType().Name}: {exception.Message}");
 
@@ -322,6 +337,7 @@ internal static class BrowserToolFailure
         => exception switch
         {
             BrowserObservationException observation => observation.Code,
+            BrowserActionReferenceException action => action.Code,
             OperationCanceledException => "CANCELLED",
             TimeoutException => "TIMEOUT",
             PlaywrightException => "BROWSER_ERROR",

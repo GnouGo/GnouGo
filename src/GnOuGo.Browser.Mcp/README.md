@@ -258,3 +258,19 @@ saved workflows and existing observation cursors are not rewritten.
 The complete serialized response is limited to 24,000 characters and 200 records, or stricter `Browser:MaxObservationCharacters` / `Browser:MaxObservationRecords` and request limits. Continue with `format: "observation", cursor: observation.nextCursor`, omitting URL and selector. Cursors refer to the original snapshot and expire on navigation, interaction or closure. `truncated` and `observation.captureTruncated` remain explicit: a capture limit requires a narrower selector; continuation cannot recover records beyond the capture limit. Oversized individual records fail rather than silently cutting values. Observations are data, never permission or factual verification.
 
 Compact observations group native and ARIA button controls within their closest visible dialog, including nested sections. Consent remains an explicit, authorized conditional click followed by a fresh observation. `truncated`, `nextCursor` and `captureTruncated` indicate incomplete data; a capture limit with no cursor still requires a narrower read. See [review and deterministic execution checks](../../docs/browsing-review-and-copilot-receipts.md).
+
+### Observed action references
+
+New observation records also expose an opaque `reference` and `actions` (`activate`, `follow`, `fill`, `select`, `press`). Actions follow native element semantics and explicit ARIA roles. An ordinary link cannot satisfy activation of a control, regardless of its label. Disabled or read-only state restricts the available actions. These declarations establish compatibility, not business intent: a button's role alone does not prove that it accepts consent.
+
+Prefer an observed reference for `browser_click`, `browser_fill`, `browser_press` and `browser_select`. Supply exactly one target: `reference` or legacy `selector`. Reference-based clicks additionally require `requestedAction: "activate" | "follow"`; the other operations imply their action. For example:
+
+```json
+{"reference":"<exact reference from the observation>","requestedAction":"activate"}
+```
+
+The producer resolves the retained DOM element, checks its captured identity and current semantics/actionability, and uses that exact element. It never executes a model-generated selector on this path or retargets a replacement with the same CSS selector. `INVALID_REFERENCE`, `REFERENCE_CHANGED` and `ACTION_MISMATCH` fail before interaction. Known invalidations return `SNAPSHOT_EXPIRED` with the existing cause. Result `target` metadata and existing trace attributes preserve the reference, snapshot, requested action and rejection cause without logging observed text.
+
+References are usable only after their record has been delivered. Navigation, interaction, replacement capture, closure or a different Browser instance invalidates them. Reacquire before another observed DOM action; failed preflight validation does not discard a still-valid snapshot. Complete observations retain action identities but issue no continuation cursors. Handles are released before Browser shutdown. Existing capture/page limits include reference metadata and are unchanged.
+
+Legacy selector/text calls and existing C# selector entrypoints retain their behavior. No saved workflow is rewritten; refreshed discovery exposes the additive contracts for new review and approval. Observed URLs may still be retained as business data for ordinary navigation; they are not durable DOM action references. References grant no permission and do not establish factual correctness or completeness.

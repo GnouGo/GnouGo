@@ -22,14 +22,15 @@ public sealed partial class DynamicMappingExecutor
         var examples = new JsonArray();
         var payload = new JsonObject
         {
-            ["objective"] = objective.DeepClone(), ["item_input"] = input,
-            ["shared"] = new JsonObject(sources.Where(p => p.Key != input).Select(p => new KeyValuePair<string, JsonNode?>(p.Key, p.Value?.DeepClone()))),
+            ["objective"] = objective.DeepClone(),
+            ["context"] = new JsonObject(sources.Where(p => p.Key != input).Select(p => new KeyValuePair<string, JsonNode?>(p.Key, p.Value?.DeepClone()))),
             ["item_target"] = itemTarget.DeepClone(), ["complete_target"] = target.DeepClone(),
             ["source_count"] = items.Count, ["omitted_count"] = items.Count, ["examples"] = examples,
             ["previous_script"] = previous, ["failure"] = failure, ["failing_index"] = failedIndex
         };
         const string collectionInstruction = "\nIndependent-item extraction. Return the result for ONE item, against item_target. " +
-            "At execution source[item_input] is that original item; other source fields are shared read-only inputs. " +
+            "Use item for the current original element (for example item.records), and context for the other approved read-only inputs. " +
+            "Do not wrap item in the business input name. The host binds these variables exactly as examples[].item and context below. " +
             "Examples are incomplete observations of the collection, never evidence that omitted items are empty or absent. " +
             "The host applies this same expression to EVERY original item, preserving order and nesting, with no filtering or aggregation.\n";
         bool Fits()

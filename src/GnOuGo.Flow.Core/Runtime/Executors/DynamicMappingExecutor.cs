@@ -81,7 +81,7 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
             ["producer"] = input["producer_contract"]!.DeepClone(), ["target"] = target.DeepClone(),
             ["profile"] = JintSandbox.MappingProfileVersion, ["sources"] = new JsonObject(sources.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, Shape(p.Value, true))))
         };
-        if (each is not null) { fingerprintData["each"] = each.DeepClone(); fingerprintData["collection_profile"] = 1; }
+        if (each is not null) { fingerprintData["each"] = each.DeepClone(); fingerprintData["collection_profile"] = 2; }
         var key = Hash(fingerprintData, ct);
         var contentHash = Hash(sources, ct);
         var sandbox = new JintSandbox(Math.Min(ctx.Limits.MaxExpressionStatements, 10000), Math.Min(ctx.Limits.ExpressionTimeoutSeconds * 1000, 5000),
@@ -158,7 +158,7 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
             {
                 Provider = provider, Model = model ?? throw new WorkflowRuntimeException(ErrorCodes.LlmNetwork, "No runtime model configured."), MaxTokens = 8192,
                 ClientRequestId = Hash(JsonValue.Create(ctx.Limits.TenantId + ":" + ctx.Engine.MappingExecutionId + ":" + invocationId + ":mapping:" + attempt + ":" + key)),
-                Prompt = each is not null ? "" : Instructions + "\n" + new JsonObject { ["objective"] = input["objective"]!.DeepClone(), ["source"] = sources.DeepClone(),
+                Prompt = each is not null ? "" : Instructions + "\nThe variable source has the supplied object/array structure. Example: m.text(source.note, 'Label: (.*)', 1).\n" + new JsonObject { ["objective"] = input["objective"]!.DeepClone(), ["source"] = sources.DeepClone(),
                     ["target"] = target.DeepClone(), ["previous_script"] = previous, ["failure"] = failure }.ToJsonString(),
                 StructuredOutputSchema = JsonNode.Parse("""{"type":"object","properties":{"script":{"type":"string"}},"required":["script"],"additionalProperties":false}"""),
                 StructuredOutputStrict = true
@@ -213,7 +213,7 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
         Produce one JavaScript expression that extracts observed data into the target shape. Return {script: expression}.
         Map only the current observed source format. Do not build parsers for hypothetical formats;
         cache invalidation handles source-format changes. Prefer the smallest expression for this observation, including during repair.
-        The variable source has the supplied object/array structure; scalar leaves are opaque observed-value tokens.
+        Scalar leaves in the supplied variables are opaque observed-value tokens.
         Return those tokens, object/array constructions, or supported extraction results. Returning a literal scalar is rejected.
         Available helpers: m.select(value, [[property,...],...], eachBoolean) selects the first PRESENT path (null stays null);
         m.optional(observedContainer, [property,...]) permits a host-owned target default ONLY when that path is absent; explicit null remains null.
@@ -224,7 +224,7 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
         Tokens are not JS scalars: never compare them with literals or use their truthiness. Filter text with m.test(token, '^literal$'),
         test presence with m.has, and return the original observed token. Empty collections are valid only when the observation supports them.
         Patterns must be quoted JavaScript strings, never /regex/ literals. They use the .NET nonbacktracking subset.
-        Example: m.text(source.note, 'Label: (.*)', 1). Escape regex backslashes inside the JavaScript string and JSON response.
+        Escape regex backslashes inside the JavaScript string and JSON response.
         Array map/filter/slice/flatMap and expression-only arrow callbacks are allowed.
         No statements, assignments, arbitrary calls, JS constructors, global objects, invented business values or literal fallbacks.
         Literal keys, paths, regex patterns and control arguments are allowed. Defaults are applied by the host only when declared.

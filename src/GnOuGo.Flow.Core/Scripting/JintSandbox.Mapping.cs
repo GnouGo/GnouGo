@@ -58,8 +58,15 @@ public sealed partial class JintSandbox
                 itemIndex = (int)args[0].AsNumber();
                 origins.Clear(); containers.Clear(); absent.Clear();
                 var current = new JsObject(engine); containers.Add(current);
+                var context = new JsObject(engine); containers.Add(context);
                 foreach (var field in source!.AsObject())
-                    current.CreateDataProperty(field.Key, Import(field.Key == collectionInput ? items[itemIndex] : field.Value));
+                {
+                    var value = Import(field.Key == collectionInput ? items[itemIndex] : field.Value);
+                    current.CreateDataProperty(field.Key, value);
+                    if (field.Key == collectionInput) engine.SetValue("item", value);
+                    else context.CreateDataProperty(field.Key, value);
+                }
+                engine.SetValue("context", context);
                 return current;
             }));
             engine.SetValue("__mappingSave", new ClrFunction(engine, "__mappingSave", (_, args) =>
@@ -249,7 +256,7 @@ public sealed partial class JintSandbox
     public static void ValidateMapping(string expression, bool learned)
     {
         if (expression.Length > 65536) throw Unsatisfied("Mapping script exceeds its size limit.");
-        try { Check(new Acornima.Parser().ParseExpression(expression), new(StringComparer.Ordinal) { "source", "m", "Object", "Array" }, 0); }
+        try { Check(new Acornima.Parser().ParseExpression(expression), new(StringComparer.Ordinal) { "source", "item", "context", "m", "Object", "Array" }, 0); }
         catch (Acornima.ParseErrorException ex) { throw Unsatisfied("Mapping JavaScript is invalid.", ex); }
         static bool Control(Node node, int depth = 0) => depth < 64 && (node is UnaryExpression { Operator: Acornima.Operator.LogicalNot } negate && Control(negate.Argument, depth + 1) ||
             node is Literal or UnaryExpression { Operator: Acornima.Operator.TypeOf } or BinaryExpression ||

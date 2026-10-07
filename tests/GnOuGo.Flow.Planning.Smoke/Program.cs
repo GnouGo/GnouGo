@@ -109,7 +109,7 @@ Console.WriteLine("restricted mappings: observed HTML extraction, exact decimals
 var eachDeclaration = new TaskPlan { Root = new() { Tasks = [new() { Id = "extract", Kind = "transform", Mode = "extract", Each = new("pages", "rows") }] } };
 if (JsonSerializer.Deserialize(JsonSerializer.Serialize(eachDeclaration, PlanningJsonContext.Default.TaskPlan), PlanningJsonContext.Default.TaskPlan)!.Root.Tasks[0].Each != new TaskExtractionEach("pages", "rows"))
     throw new InvalidOperationException("Independent extraction declaration did not survive Native AOT serialization.");
-var eachValues = new GnOuGo.Flow.Core.Scripting.JintSandbox().ExecuteMappingItems("m.text(source.pages,'<h1>([^<]+)</h1>')",
+var eachValues = new GnOuGo.Flow.Core.Scripting.JintSandbox().ExecuteMappingItems("m.text(item,'<h1>([^<]+)</h1>')",
     JsonNode.Parse("{\"pages\":[\"<h1>first</h1>\",\"<h1>second</h1>\"]}")!.AsObject(), "pages", new JsonObject { ["type"] = "string" });
 if (eachValues.ToJsonString() != "[\"first\",\"second\"]") throw new InvalidOperationException("Independent extraction failed in Native AOT.");
 var repeatedPages = new JsonObject { ["pages"] = new JsonArray(Enumerable.Range(0, 80)

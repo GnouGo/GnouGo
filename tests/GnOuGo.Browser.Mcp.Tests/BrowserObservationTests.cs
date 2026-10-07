@@ -137,7 +137,20 @@ public sealed class BrowserObservationTests(ITestOutputHelper output)
                 Assert.Equal(serialized, JsonSerializer.Serialize(alternate, BrowserMcpJsonContext.Default.BrowserContentResult));
                 pagedRecords.AddRange(chunk.Observation.Records);
             }
-            Assert.Equal(manifest.RecordCount, pagedRecords.Count); Assert.Equal(all, pagedRecords);
+            void SameObservations(IEnumerable<BrowserObservationRecord> currentRecords, string snapshotId)
+            {
+                var currentArray = currentRecords.ToArray();
+                Assert.Equal(all.Count, currentArray.Length);
+                foreach (var (original, current) in all.Zip(currentArray))
+                {
+                    Assert.Equal(original with { Reference = null, Actions = null }, current with { Reference = null, Actions = null });
+                    Assert.Equal(original.Actions, current.Actions);
+                    Assert.NotEqual(original.Reference, current.Reference);
+                    Assert.StartsWith(snapshotId + ":record:", current.Reference);
+                }
+            }
+            Assert.Equal(manifest.RecordCount, pagedRecords.Count);
+            SameObservations(pagedRecords, manifest.Id);
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, "observation_pages", 2400, false, ct, manifest.Pages[0].Cursor));
             await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, "observation_pages", null, false, ct, manifest.Id + ":page:999"));
@@ -152,7 +165,7 @@ public sealed class BrowserObservationTests(ITestOutputHelper output)
             foreach (var format in new[] { "html", "text" })
                 await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetContentAsync(null, "load", null, null, format, null, false, ct, manifest.Pages[0].Cursor));
             var complete = await host.GetContentAsync(null, "load", null, "main", "observation_complete", 2400, false, ct, maxRecords: 8);
-            Assert.Equal(all, complete.ObservationSnapshot!.Pages.SelectMany(p => p.Records));
+            SameObservations(complete.ObservationSnapshot!.Pages.SelectMany(p => p.Records), complete.ObservationSnapshot.Id);
             Assert.Equal(all.Count, complete.ObservationSnapshot.RecordCount);
             Assert.All(complete.ObservationSnapshot.Pages, p => Assert.Null(p.NextCursor));
             Assert.InRange(JsonSerializer.Serialize(complete, BrowserMcpJsonContext.Default.BrowserContentResult).Length, 1, 2400 * 100);

@@ -42,6 +42,10 @@ Compiled collection selection uses exact physical export paths and the existing 
 
 ## Persistence and recovery
 
+Independent extraction uses `item` for the current original element and `context` for the other approved inputs. For an element containing records, use `item.records`; its business input name does not become part of the script path. Both generation examples and repair examples use this shape. The aliases reuse the same imported observed tokens, so defaults, missing-versus-null handling and origin checks are unchanged. No alias exposes the full collection. The historical `source` wrapper and callbacks with local parameters named `item` or `context` remain supported.
+
+Collection cache profile 2 isolates new mappings from profile-1 entries. Issued inference requests and completion receipts retain their original contents and are reused during recovery; a profile change never grants another attempt or redispatches unknown completion. The allowance remains one generation plus one repair for the entire invocation.
+
 `IMappingArtifactStore` is a narrow Core contract implemented by the existing encrypted workflow-run store. The engine reuses that implementation when its run store provides it. Identity includes tenant, approved binding/objective, producer contracts, target schema, profile version and source shape. JSON shapes include keys, nested types, nullability and array-element shapes. Raw text/HTML and scripts interpreting embedded strings use conservative content hashes. No observations are stored in the cache.
 
 Every cache hit reruns sandbox and target validation. Incompatible or invalid entries cannot authorize data access or artifact ownership. Only validated scripts are cached. Without trusted tenant identity and persistent storage, reuse is local to that execution.

@@ -14,6 +14,56 @@ public sealed class DynamicMappingCollectionTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData("unrelatedRows")]
+    [InlineData("item")]
+    [InlineData("context")]
+    [InlineData("observations-é")]
+    public async Task CanonicalItemDoesNotDependOnBusinessInputName(string inputName)
+    {
+        var doc = Document(); var step = doc.Workflows["main"].Steps[0];
+        step.Input!["sources"] = new JsonObject { [inputName] = "${data.inputs.items}", ["approved"] = new JsonObject { ["label"] = "shared" } };
+        step.Input["each"]!["input"] = inputName;
+        var model = new Model("item.label"); var store = new Store();
+        var data = JsonNode.Parse("[{\"label\":\"first\"},{\"label\":\"second\"},{\"label\":\"first\"}]")!.AsArray();
+        var result = await Run(model, store, data, doc);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(new[] { "first", "second", "first" }, Result(result).Select(v => v!.GetValue<string>()));
+        var prompt = Assert.Single(model.Requests).Prompt;
+        Assert.Contains("Use item for the current original element", prompt);
+        Assert.Contains("\"context\":{\"approved\":{\"label\":\"shared\"}}", prompt);
+        Assert.DoesNotContain("source[item_input]", prompt);
+        Assert.DoesNotContain("source.note", prompt);
+        Assert.True((await Run(model, store, data, doc)).Success); Assert.Single(model.Requests);
+    }
+
+    [Fact]
+    public void CanonicalAliasesPreserveOriginsAndLegacyCallbackNames()
+    {
+        var sources = JsonNode.Parse("{\"records\":[{\"values\":[1,null,1]}, {\"values\":[]}],\"label\":\"shared\"}")!.AsObject();
+        var target = JsonNode.Parse("{\"type\":\"object\",\"properties\":{\"values\":{\"type\":\"array\",\"items\":{}},\"label\":{\"type\":\"string\"}},\"required\":[\"values\",\"label\"],\"additionalProperties\":false}")!.AsObject();
+        var sandbox = new JintSandbox();
+        const string expression = "({values:item.values.map(item=>item).map(context=>context),label:context.label})";
+        JintSandbox.ValidateMapping(expression);
+        var result = sandbox.ExecuteMappingItems(expression, sources, "records", target, Ct);
+        var legacy = sandbox.ExecuteMappingItems("({values:source.records.values,label:source.label})", sources, "records", target, Ct);
+        Assert.True(JsonNode.DeepEquals(legacy, result));
+        Assert.Throws<WorkflowRuntimeException>(() => sandbox.ExecuteMappingItems("context.records", sources, "records", target, Ct));
+        Assert.Throws<WorkflowRuntimeException>(() => sandbox.ExecuteMappingItems("({values:item.values,label:'invented'})", sources, "records", target, Ct));
+    }
+
+    [Fact]
+    public async Task CanonicalRepairUsesFailingItemAndSharesTheAllowance()
+    {
+        var model = new Model("m.text(item,'Name: (.+)')", "m.text(item,'(?:Name|Title): (.+)')");
+        var result = await Run(model, new Store(), JsonNode.Parse("[\"Name: first\",\"Title: middle\",\"Name: last\"]")!.AsArray());
+        Assert.True(result.Success, result.Error?.Message); Assert.Equal(2, model.Requests.Count);
+        Assert.DoesNotContain("Title: middle", model.Requests[0].Prompt);
+        Assert.Contains("Title: middle", model.Requests[1].Prompt);
+        Assert.Contains("\"failing_index\":1", model.Requests[1].Prompt);
+        Assert.Equal(new[] { "first", "middle", "last" }, Result(result).Select(v => v!.GetValue<string>()));
+    }
+
+    [Theory]
     [InlineData("source.records.label", "[{\"label\":\"x\"},{\"label\":\"y\"}]")]
     [InlineData("m.text(source.records,'Name: (.+)')", "[\"Name: x\",\"Name: y\"]")]
     [InlineData("m.text(source.records,'<h1>([^<]+)</h1>')", "[\"<h1>x</h1>\",\"<h1>y</h1>\"]")]

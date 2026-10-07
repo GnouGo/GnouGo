@@ -7,7 +7,13 @@ using Microsoft.Playwright;
 
 namespace GnOuGo.Browser.Mcp;
 
-public sealed record BrowserObservationRecord(string Kind, string Tag, string Selector, string Group, string Text, string? Href, string? Role);
+public sealed record BrowserObservationRecord(string Kind, string Tag, string Selector, string Group, string Text, string? Href, string? Role)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Reference { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? Actions { get; init; }
+}
 public sealed record BrowserObservation(string Id, IReadOnlyList<BrowserObservationRecord> Records, string? NextCursor, bool CaptureTruncated);
 public sealed record BrowserObservationPage(string Cursor, int RecordCount);
 public sealed record BrowserObservationManifest(string Id, [property: Description("Frozen page descriptors, at most 100 or the stricter host/response allowance. ManifestTruncated identifies an incomplete list.")] IReadOnlyList<BrowserObservationPage> Pages,
@@ -50,7 +56,7 @@ public sealed partial class PlaywrightBrowserHost
     {
         lock (_observationLock)
         {
-            if (_observation is { } snapshot) RememberInvalidation(snapshot.Stamp, reason);
+            if (_observation is { } snapshot) { RememberInvalidation(snapshot.Stamp, reason); _retiredObservationHandles.Add(snapshot.Handle); }
             if (_capturingObservation is { } capture) RememberInvalidation(capture, reason);
             _observation = null;
             _capturingObservation = null;
@@ -90,10 +96,18 @@ public sealed partial class PlaywrightBrowserHost
             throw Expired(stamp.Invalidation ?? new(stamp.Id, stamp.Generation, "generation_changed", DateTimeOffset.UtcNow));
         }
     }
-    private sealed record ObservationSnapshot(ObservationStamp Stamp, BrowserContentResult Result, BrowserObservationCapture Capture, bool Paged = false)
+    private sealed record ObservationSnapshot(ObservationStamp Stamp, BrowserContentResult Result, BrowserObservationCapture Capture, IJSHandle Handle, bool Paged = false)
     {
         internal string Id => Stamp.Id;
         internal List<BrowserContentResult> Pages { get; } = [];
+        internal HashSet<string> DeliveredReferences { get; } = new(StringComparer.Ordinal);
+        internal bool Complete { get; set; }
+        internal BrowserContentResult Deliver(BrowserContentResult result)
+        {
+            foreach (var record in result.Observation?.Records ?? [])
+                if (record.Reference is { } reference) DeliveredReferences.Add(reference);
+            return result;
+        }
     }
 
     private async Task<BrowserContentResult> CaptureObservationAsync(IPage page, ILocator locator, ContentLocatorResolution resolution,
@@ -101,11 +115,13 @@ public sealed partial class PlaywrightBrowserHost
     {
         ct.ThrowIfCancellationRequested();
         var stamp = existingStamp ?? BeginObservation();
+        IJSHandle? handle = null;
         try
         {
             if (ObservationCheckpoint is { } capturing) await capturing(page, "capture", ct).WaitAsync(ct);
             EnsureCurrent(stamp);
-            var json = await locator.EvaluateAsync<string>(ObservationScript).WaitAsync(ct);
+            handle = await locator.EvaluateHandleAsync(ObservationScript, stamp.Id).WaitAsync(ct);
+            var json = await handle.EvaluateAsync<string>("capture => capture.json").WaitAsync(ct);
             EnsureCurrent(stamp);
             var capture = JsonSerializer.Deserialize(json, BrowserMcpJsonContext.Default.BrowserObservationCapture)
                 ?? throw new InvalidOperationException("The browser returned an invalid observation.");
@@ -113,13 +129,14 @@ public sealed partial class PlaywrightBrowserHost
             EnsureCurrent(stamp);
             var result = new BrowserContentResult(page.Url, title, status, selector,
                 resolution.ResolvedSelector, resolution.FallbackApplied, resolution.FallbackReason, paged ? "observation_pages" : "observation", "", false, 0);
-            var snapshot = new ObservationSnapshot(stamp, result, capture, paged);
+            var snapshot = new ObservationSnapshot(stamp, result, capture, handle, paged);
             var response = paged ? ObservationManifest(snapshot, characters, records, ct) : ObservationPage(snapshot, 0, characters, records, ct);
             lock (_observationLock)
             {
                 EnsureCurrent(stamp);
                 _observation = snapshot;
-                return response;
+                handle = null; // Ownership moves to the current snapshot.
+                return snapshot.Deliver(response);
             }
         }
         catch (PlaywrightException)
@@ -129,7 +146,11 @@ public sealed partial class PlaywrightBrowserHost
         }
         finally
         {
-            lock (_observationLock) if (_capturingObservation == stamp) _capturingObservation = null;
+            lock (_observationLock)
+            {
+                if (_capturingObservation == stamp) _capturingObservation = null;
+                if (handle is not null) _retiredObservationHandles.Add(handle);
+            }
         }
     }
 
@@ -163,6 +184,7 @@ public sealed partial class PlaywrightBrowserHost
             for (attempt = 1; attempt <= 3; attempt++)
             {
                 var stamp = BeginObservation();
+                var published = false;
                 try
                 {
                     await page.WaitForLoadStateAsync(ParseLoadState(waitUntil), new PageWaitForLoadStateOptions { Timeout = Remaining() }).WaitAsync(token);
@@ -194,8 +216,10 @@ public sealed partial class PlaywrightBrowserHost
                     lock (_observationLock)
                     {
                         EnsureCurrent(stamp);
-                        // Complete acquisitions issue no external cursors.
-                        _observation = null;
+                        // Retain action identity, but complete acquisitions issue no cursors.
+                        snapshot.Complete = true;
+                        foreach (var pageResult in snapshot.Pages) snapshot.Deliver(pageResult);
+                        published = true;
                         Activity.Current?.SetTag("browser.snapshot.attempts", attempt);
                         Activity.Current?.SetTag("browser.snapshot.id", snapshot.Id);
                         Activity.Current?.SetTag("browser.snapshot.pages", pages.Length);
@@ -220,7 +244,11 @@ public sealed partial class PlaywrightBrowserHost
                     lock (_observationLock)
                     {
                         if (_capturingObservation == stamp) _capturingObservation = null;
-                        if (_observation?.Stamp == stamp) _observation = null;
+                        if (!published && _observation?.Stamp == stamp)
+                        {
+                            _retiredObservationHandles.Add(_observation.Handle);
+                            _observation = null;
+                        }
                     }
                 }
             }
@@ -252,7 +280,7 @@ public sealed partial class PlaywrightBrowserHost
         {
             if (_expiredObservations.TryGetValue(parts[0], out var expired)) throw Expired(expired);
             var snapshot = _observation;
-            if (snapshot is null || parts[0] != snapshot.Id || paged != snapshot.Paged)
+            if (snapshot is null || snapshot.Complete || parts[0] != snapshot.Id || paged != snapshot.Paged)
                 throw new InvalidOperationException("The observation cursor is unknown in this Browser session.");
             if (GetRequiredPage().Url != snapshot.Result.Url)
             {
@@ -263,10 +291,10 @@ public sealed partial class PlaywrightBrowserHost
             {
                 if (characters is not null || records is not null || index >= snapshot.Pages.Count)
                     throw new InvalidOperationException("The observation page cursor is invalid. Page limits are frozen; omit maxCharacters and maxRecords.");
-                return snapshot.Pages[index];
+                return snapshot.Deliver(snapshot.Pages[index]);
             }
             if (index >= snapshot.Capture.Records.Count) throw new InvalidOperationException("The observation offset is out of range.");
-            return ObservationPage(snapshot, index, characters, records, ct);
+            return snapshot.Deliver(ObservationPage(snapshot, index, characters, records, ct));
         }
     }
 
@@ -340,9 +368,9 @@ public sealed partial class PlaywrightBrowserHost
 
     // Browser-owned deterministic observation, never a model-generated page script.
     // A capture has finite traversal/storage limits; incomplete captures remain explicitly incomplete.
-    internal const string ObservationScript = """
-        root => {
-          const records = [], owned = 'a[href],button,[role="button"],h1,h2,h3,h4,h5,h6,input,select,textarea';
+    internal static readonly string ObservationScript = """
+        (root, snapshotId) => {
+          const records = [], elements = [], states = [], actionState = __ACTION_STATE__, owned = 'a[href],button,[role="button"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[contenteditable="true"],h1,h2,h3,h4,h5,h6,input,select,textarea';
           let visited = 0, size = 0, truncated = false;
           const text = s => (s || '').replace(/\s+/g, ' ').trim();
           const selector = e => {
@@ -356,7 +384,7 @@ public sealed partial class PlaywrightBrowserHost
             }
             return parts.join(' > ');
           };
-          if (root.closest('script,style,noscript,template,svg,[hidden],[aria-hidden="true"]') || getComputedStyle(root).display === 'none' || getComputedStyle(root).visibility === 'hidden') return JSON.stringify({records, truncated});
+          if (root.closest('script,style,noscript,template,svg,[hidden],[aria-hidden="true"]') || getComputedStyle(root).display === 'none' || getComputedStyle(root).visibility === 'hidden') return {json: JSON.stringify({records, truncated}), elements, states};
           const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
             acceptNode: e => {
               if (++visited > 20000) { truncated = true; return NodeFilter.FILTER_REJECT; }
@@ -369,22 +397,23 @@ public sealed partial class PlaywrightBrowserHost
           while (element && !truncated) {
             const tag = element.tagName.toLowerCase(), owner = element.closest(owned);
             if (!owner || owner === element) {
-              const kind = element.matches('a[href]') ? 'link' : /^h[1-6]$/.test(tag) ? 'heading' : element.matches('button,[role="button"],input,select,textarea') ? 'control' : 'text';
+              const kind = element.matches('button,[role="button"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],input,select,textarea,[contenteditable="true"]') ? 'control' : element.matches('a[href]') ? 'link' : /^h[1-6]$/.test(tag) ? 'heading' : 'text';
               const label = element.getAttribute('aria-label');
               const content = kind === 'control' ? text(label || (element.matches('button,[role="button"]') ? element.innerText : element.getAttribute('placeholder'))) :
                 kind === 'text' ? text([...element.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ')) : text(element.innerText);
               const href = kind === 'link' ? element.href : null;
               if (content || href || kind === 'control') {
                 const group = element.closest('dialog,[role="dialog"],[role="alertdialog"],[aria-modal="true"]') || element.closest('article,li,section,tr,nav,header,main,form') || root;
-                const record = { kind, tag, selector: selector(element), group: selector(group), text: content, href, role: element.getAttribute('role') };
+                const state = actionState(element);
+                const record = { kind, tag, selector: selector(element), group: selector(group), text: content, href, role: element.getAttribute('role'), reference: snapshotId + ':record:' + records.length, actions: state.actions };
                 const length = JSON.stringify(record).length;
                 if (records.length >= 10000 || size + length > 2000000) { truncated = true; break; }
-                records.push(record); size += length;
+                records.push(record); elements.push(element); states.push(state.signature); size += length;
               }
             }
             element = walker.nextNode();
           }
-          return JSON.stringify({records, truncated});
+          return {json: JSON.stringify({records, truncated}), elements, states};
         }
-        """;
+        """.Replace("__ACTION_STATE__", ObservedActionStateScript, StringComparison.Ordinal);
 }
