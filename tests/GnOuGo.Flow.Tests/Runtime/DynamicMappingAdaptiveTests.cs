@@ -118,8 +118,13 @@ public sealed partial class DynamicMappingCollectionTests
         var doc = AdaptiveDocument(); doc.Workflows["main"].Steps[0].Input!["sources"]!["context"] = new string('x', 20000);
         run = await AdaptiveRun(AdaptiveEngine(model), new JsonArray("valid"), doc);
         Assert.False(run.Success); Assert.Empty(model.Requests); Assert.Contains("context and target", run.Error!.Message);
-        var exception = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => AdaptiveRun(new() { LLMClient = model }, new JsonArray("valid")));
-        Assert.Equal(ErrorCodes.LlmBudgetUnverifiable, exception.Code); Assert.Empty(model.Requests);
+        var calls = 0; var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("fixture", new() { Tools = [new() { Name = "effect", InputSchema = new JsonObject { ["type"] = "object" } }],
+            ToolHandlers = new() { ["effect"] = _ => { calls++; return new(); } } });
+        doc = AdaptiveDocument();
+        doc.Workflows["main"].Steps.Insert(0, new() { Id = "earlier", Type = "mcp.call", Input = new JsonObject { ["server"] = "fixture", ["method"] = "effect" } });
+        var exception = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => AdaptiveRun(new() { LLMClient = model, McpClientFactory = factory }, new JsonArray("valid"), doc));
+        Assert.Equal(ErrorCodes.LlmBudgetUnverifiable, exception.Code); Assert.Empty(model.Requests); Assert.Equal(0, calls);
     }
 
     [Fact]
@@ -240,6 +245,18 @@ public sealed partial class DynamicMappingCollectionTests
         Assert.Contains("\"label\":\"observed\"", model.Requests[1].Prompt);
         Assert.Contains("\"previous_script\":null", model.Requests[1].Prompt);
         Assert.Contains("assigned unresolved item", model.Requests[1].Prompt);
+    }
+
+    [Fact]
+    public async Task AdaptiveCancellationDoesNotStartSpecializationsOrPublishResults()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var model = new Model("item.label", "item.name") { OnCall = cancellation.Cancel };
+        var cache = new Store(); var engine = AdaptiveEngine(model, cache);
+        var result = await engine.ExecuteAsync(new WorkflowCompiler().Compile(AdaptiveDocument()).Workflows["main"],
+            JsonNode.Parse("{\"items\":[{\"label\":\"a\"},{\"name\":\"b\"}]}"), cancellation.Token);
+        Assert.False(result.Success); Assert.Single(model.Requests); Assert.Empty(cache.Values);
+        Assert.DoesNotContain(result.StepResults, s => s.StepId == "consumer");
     }
 
     private sealed class AdaptiveFaultStore(IWorkflowRunStore inner) : IWorkflowRunStore

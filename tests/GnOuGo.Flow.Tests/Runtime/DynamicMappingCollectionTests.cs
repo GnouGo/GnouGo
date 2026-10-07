@@ -317,12 +317,13 @@ public sealed partial class DynamicMappingCollectionTests
         public List<LLMRequest> Requests { get; } = [];
         public int? Allowance { get; set; } = 12000;
         public bool Unknown;
+        public Action? OnCall;
         public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult(Allowance);
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>([]);
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
-            Requests.Add(request);
+            Requests.Add(request); OnCall?.Invoke();
             if (Unknown) throw new LLMClientException(LLMClientFailureKind.Timeout, "Unknown completion", true);
             return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = scripts[Math.Min(Requests.Count - 1, scripts.Length - 1)] },
                 Usage = new JsonObject { ["input_tokens"] = 20, ["output_tokens"] = 10, ["total_tokens"] = 30 } });
