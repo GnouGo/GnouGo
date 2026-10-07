@@ -81,6 +81,7 @@ public sealed partial class TaskPlanCompiler
         var findings = IdentityDiagnostics(_plan).ToList();
         var symbols = _symbols;
         var artifacts = new TaskArtifactBindings(_plan, _catalog, symbols);
+        var branchContracts = new Dictionary<(string Task, string Port), List<(string Path, JsonObject Schema)>>();
         var groups = new Dictionary<string, Scope>(StringComparer.Ordinal);
         var activeGroups = new HashSet<string>(StringComparer.Ordinal);
         var invalidChoices = _plan.Choices.Where(c => symbols.InvalidIds.Contains(c.Id)).Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
@@ -100,7 +101,43 @@ public sealed partial class TaskPlanCompiler
         Inputs(root, _plan.Inputs, "/inputs");
         InspectScope(_plan.Root, root, "/root");
         foreach (var group in _plan.Groups) GroupScope(group.Id);
-        return findings.Distinct().OrderBy(d => d.Location, StringComparer.Ordinal).ThenBy(d => d.Code, StringComparer.Ordinal).ToArray();
+        return findings.Select(ConditionalContext).Distinct().OrderBy(d => d.Location, StringComparer.Ordinal).ThenBy(d => d.Code, StringComparer.Ordinal).ToArray();
+
+        // Diagnostic context only: keep locations, codes and repair authority intact.
+        PlanningDiagnostic ConditionalContext(PlanningDiagnostic finding)
+        {
+            if (finding.Code is not ("TASK_CONDITION_TYPE" or "TASK_INPUT_TYPE" or "TASK_GROUP_INPUT_TYPE" or "TASK_FIELD_TYPE" or "TASK_FIELD_UNKNOWN") ||
+                !symbols.Values.TryGetValue(finding.Location, out var site)) return finding;
+            var visited = new HashSet<(string, string?)>();
+            var branches = new List<(string Path, JsonObject Schema)>();
+            Visit(site.Value);
+            if (branches.Count == 0) return finding;
+            return finding with { Message = finding.Message + " Conditional export contracts: " +
+                string.Join("; ", branches.DistinctBy(b => b.Path).Select(b => b.Path + " = " + Interface(b.Schema))) +
+                ". Project an explicit common consumer-facing interface in both alternatives; preserve nullable values and guard them explicitly. Interface restructuring requires an explicit revision when outside issued repair slots." };
+
+            void Visit(TaskValue value)
+            {
+                foreach (var reference in Values(value).Where(v => v.Kind == "output" && v.Source is not null))
+                {
+                    if (!visited.Add((reference.Source!, reference.Port)) || !symbols.Tasks.TryGetValue(reference.Source!, out var producer)) continue;
+                    if (reference.Port is null && producer.Task.Kind == "conditional")
+                        branches.AddRange(branchContracts.Where(b => b.Key.Task == reference.Source).SelectMany(b => b.Value));
+                    else if (branchContracts.TryGetValue((reference.Source!, reference.Port ?? ""), out var contracts)) branches.AddRange(contracts);
+                    else
+                    {
+                        var exports = producer.Task.Kind == "value" ? producer.Task.Outputs :
+                            producer.Task.Kind == "sequence" ? producer.Task.Body?.Outputs : null;
+                        if (exports is not null)
+                            foreach (var output in exports.Where(o => reference.Port is null || o.Name == reference.Port)) Visit(output.Value);
+                    }
+                }
+            }
+            static string Interface(JsonObject schema) => (schema["type"]?.ToJsonString() ?? "opaque/union") +
+                (schema["properties"] is JsonObject properties ? " {" + string.Join(", ", properties.Select(p =>
+                    p.Key + ":" + (p.Value?["type"]?.ToJsonString() ?? "opaque/union") +
+                    (schema["required"] is JsonArray required && required.Any(r => r?.ToString() == p.Key) ? " required" : " optional"))) + "}" : "");
+        }
 
         void Check(string location, Action action)
         {
@@ -398,8 +435,15 @@ public sealed partial class TaskPlanCompiler
                     foreach (var name in noNames.Except(yesNames)) findings.Add(new("TASK_BRANCH_OUTPUTS", path + "/body/outputs/" + name, "Declare the matching business output explicitly in this alternative."));
                     declared.AddRange(yesNames.Union(noNames));
                     if (yes is not null && no is not null)
+                    {
+                        var alternatives = Exports(no);
                         foreach (var (name, value) in Exports(yes))
-                            if (Exports(no).TryGetValue(name, out var alternative)) ports[name] = value with { Schema = JsonNode.DeepEquals(value.Schema, alternative.Schema) ? value.Schema : new() { ["anyOf"] = new JsonArray(value.Schema.DeepClone(), alternative.Schema.DeepClone()) }, TypeLocation = null };
+                            if (alternatives.TryGetValue(name, out var alternative))
+                            {
+                                branchContracts[(task.Id, name)] = [(path + "/body/outputs/" + name, value.Schema), (path + "/otherwise/outputs/" + name, alternative.Schema)];
+                                ports[name] = value with { Schema = JsonNode.DeepEquals(value.Schema, alternative.Schema) ? value.Schema : new() { ["anyOf"] = new JsonArray(value.Schema.DeepClone(), alternative.Schema.DeepClone()) }, TypeLocation = null };
+                            }
+                    }
                     break;
                 case "parallel":
                     Check(path + "/branches", () => { if (task.Branches.Count < 2) Fail("TASK_PARALLEL_INVALID", "Parallel tasks need at least two branches."); });

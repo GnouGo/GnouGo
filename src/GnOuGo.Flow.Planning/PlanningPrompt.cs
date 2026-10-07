@@ -34,9 +34,9 @@ internal sealed class PlanningPrompt(PlanningSession state)
     private const string Instructions = """
         Business TaskPlan, discoveryRequests(1-4), or clarifications. Unsearched != absent; reserve plan/repair; closed discovery: plan:null.
         Typed copies compile; extract structures JSON/text/HTML; interpret decides/compares/synthesizes. Missing fails; defaults only contracts/accepted inputs. No invented facts/scripts.
-        Explicit ports (required unless false); transforms get objective+inputs. value/field/json/arithmetic=assembly/selection/encoding/JS Number; exact math:MCP. port:null=whole; default mode:interpret; keep enums.
+        Ports required unless false. value/field/json/arithmetic=assembly/selection/encoding/JS Number; exact math:MCP. port:null=whole; default mode:interpret; keep enums.
         Global extract/interpret needs compact facts; collection→one object is not item-wise. First each:{input,output}: complete bounded items→array, possibly nested candidates; empty only after checked absence. Keep order/nesting/grouping/completeness/needed references; others stay at source. No split reasoning/truncation; report limits.
-        dependsOn: same-scope; bindings order/capture. Export boundaries via owner.port; match branch names/values.
+        dependsOn:local; bindings order/capture. owner.port exports: matching branch names/types/nullability/requiredness. Prefer direct ports; explicit null guards, never other flags.
         Preserve actions/checks/constraints; discover/clarify compatible alternatives or limitations.
         Per item visit/extract result. truncated/nextCursor: consume before navigation; captureTruncated:narrow. Exhaustion!=complete; guard observed completeness. Blockers:observe/conditional authorized click/reobserve; clarify.
         requirements.inputs: [] none/null unresolved; no invented inputs/contracts. outputs fixes names/types([] none), no defaults/proofs. Optional inputs need literal defaults.

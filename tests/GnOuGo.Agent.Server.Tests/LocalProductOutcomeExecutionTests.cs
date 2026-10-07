@@ -162,7 +162,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                     pages.Body.Outputs = [new("observations", ProductTransformationPlan.Ref("compact_records", "candidates"))];
                 }
             }
-            if (consentScenario) AddConsentSteps(plan, catalog, independentDecision);
+            if (consentScenario) AddConsentSteps(plan, catalog, independentDecision, variant.StartsWith("pages-compact-decision-complete", StringComparison.Ordinal));
             if (variant == "pages-compact-consent" || independentDecision) plan.Root.Tasks.Single(t => t.Id == "search").Inputs.Add(new("format", ProductTransformationPlan.Text("observation_pages")));
             if (variant.StartsWith("pages-compact-decision-complete", StringComparison.Ordinal))
             {
@@ -320,7 +320,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         finally { await site.StopAsync(ct); Directory.Delete(root, true); }
     }
 
-    private static void AddConsentSteps(TaskPlan plan, PlanningCatalog catalog, bool independent = false)
+    private static void AddConsentSteps(TaskPlan plan, PlanningCatalog catalog, bool independent = false, bool complete = false)
     {
         string Operation(string method) { var contract = catalog.Capabilities.Single(c => c.Method == method); return contract.Operation?.Id ?? contract.Id; }
         var open = new PlanTask { Id = "open", Kind = "operation", Objective = "Open the requested page and observe visible blockers", Operation = Operation("browser_get_content"),
@@ -330,12 +330,30 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         var observe = new PlanTask { Id = "inspect", Kind = "operation", Objective = "Inspect current controls after the bounded wait", Operation = Operation("browser_get_content"), DependsOn = ["settle"],
             Inputs = [new("format", ProductTransformationPlan.Text("observation"))] };
         var decision = new PlanTask { Id = "consent", Kind = "transform", Objective = "Inspect the complete observation. Identify only an unambiguous visible cookie-acceptance control. Return accept=false when absent. Reject unrelated or ambiguous blockers and incomplete observations; do not guess a selector.",
-            Inputs = [new("page", ProductTransformationPlan.Ref("inspect"))], ResultType = ProductTransformationPlan.Obj(("accept", new() { Kind = "boolean" }), ("selector", new())) };
-        var gate = new PlanTask { Id = "consent_gate", Kind = "conditional", Objective = "Accept cookies only when that observed control is present", Condition = ProductTransformationPlan.Ref("consent", "accept"),
+            Inputs = [new("page", ProductTransformationPlan.Ref("inspect"))], ResultType = ProductTransformationPlan.Obj(("accept", new() { Kind = "boolean" }), ("selector", new() { Nullable = true })) };
+        var gate = new PlanTask { Id = "consent_gate", Kind = "conditional", Objective = "Accept cookies only when that observed control is present", Condition = new() { Kind = "predicate", Predicate = "and", Items = [ProductTransformationPlan.Ref("consent", "accept"),
+                new() { Kind = "predicate", Predicate = "not_equal", Items = [ProductTransformationPlan.Ref("consent", "selector"), new() { Kind = "null" }] }] },
             Body = new() { Tasks = [new() { Id = "accept_observed", Kind = "operation", Objective = "Click the observed cookie control", Operation = Operation("browser_click"), Inputs = [new("selector", ProductTransformationPlan.Ref("consent", "selector"))] }] }, Otherwise = new() };
         var search = plan.Root.Tasks.Single(t => t.Id == "search"); search.DependsOn = ["consent_gate"];
         search.Inputs = [new("selector", ProductTransformationPlan.Text("main"))];
         search.Objective = "Read a fresh targeted search observation after any consent action";
+        if (complete)
+        {
+            gate.Body!.Tasks.Add(new() { Id = "observe_after_accept", Kind = "operation", Objective = "Acquire complete observations after the interaction",
+                Operation = open.Operation, DependsOn = ["accept_observed"], Inputs = [new("format", ProductTransformationPlan.Text("observation_complete"))] });
+            foreach (var (branch, source) in new[] { (gate.Body!, "observe_after_accept"), (gate.Otherwise!, "inspect") })
+            {
+                TaskValue Flag(string name) => new() { Kind = "field", Port = name, Items = [ProductTransformationPlan.Ref(source, "observationSnapshot")] };
+                TaskValue Not(TaskValue value) => new() { Kind = "predicate", Predicate = "not", Items = [value] };
+                branch.Outputs = [new("ready", new() { Kind = "predicate", Predicate = "and", Items = [Not(Flag("captureTruncated")), Not(Flag("manifestTruncated"))] }),
+                    new("url", ProductTransformationPlan.Ref(source, "url")), new("title", ProductTransformationPlan.Ref(source, "title")),
+                    new("observedControl", ProductTransformationPlan.Ref("consent", "selector"))];
+            }
+            // Consume direct boolean and string ports after the merge; nullable
+            // controls stay nullable and are not used as a successful empty value.
+            search.Requires = new() { Kind = "predicate", Predicate = "and", Items = [ProductTransformationPlan.Ref("consent_gate", "ready"),
+                new() { Kind = "predicate", Predicate = "not_equal", Items = [ProductTransformationPlan.Ref("consent_gate", "url"), ProductTransformationPlan.Text("")] }] };
+        }
         plan.Root.Tasks.InsertRange(0, [open, wait, observe, decision, gate]);
         if (independent)
         {
@@ -383,7 +401,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 throw new WorkflowRuntimeException("CONTRACT_UNSATISFIED", "The observed blocker is not authorized cookie consent.");
             Assert.InRange(controls.Length, 0, 1);
             if (controls.Length == 1) Assert.Equal("#notice", controls[0]!["group"]!.ToString());
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["accept"] = controls.Length == 1, ["selector"] = controls.SingleOrDefault()?["selector"]?.ToString() ?? "" } });
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["accept"] = controls.Length == 1, ["selector"] = controls.SingleOrDefault()?["selector"]?.ToString() } });
         }
     }
 

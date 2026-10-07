@@ -1,0 +1,457 @@
+{
+  "origin": "snapshotlive20261007a-amazon-1 revision 12; structural reduction with renamed operations and no live data",
+  "plan": {
+    "inputs": [
+      {
+        "name": "branch",
+        "type": {
+          "kind": "boolean"
+        }
+      },
+      {
+        "name": "first",
+        "type": {
+          "kind": "object",
+          "fields": [
+            {
+              "name": "ready",
+              "type": {
+                "kind": "boolean"
+              }
+            },
+            {
+              "name": "blocked",
+              "type": {
+                "kind": "boolean"
+              }
+            },
+            {
+              "name": "selector",
+              "type": {
+                "kind": "string",
+                "nullable": true
+              }
+            },
+            {
+              "name": "secondary",
+              "type": {
+                "kind": "string",
+                "nullable": true
+              }
+            },
+            {
+              "name": "address",
+              "type": {
+                "kind": "string"
+              }
+            },
+            {
+              "name": "label",
+              "type": {
+                "kind": "string"
+              }
+            },
+            {
+              "name": "extra",
+              "type": {
+                "kind": "boolean"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "second",
+        "type": {
+          "kind": "object",
+          "fields": [
+            {
+              "name": "ready",
+              "type": {
+                "kind": "boolean"
+              }
+            },
+            {
+              "name": "blocked",
+              "type": {
+                "kind": "boolean"
+              }
+            },
+            {
+              "name": "selector",
+              "type": {
+                "kind": "string",
+                "nullable": true
+              }
+            },
+            {
+              "name": "secondary",
+              "type": {
+                "kind": "string",
+                "nullable": true
+              }
+            },
+            {
+              "name": "address",
+              "type": {
+                "kind": "string"
+              }
+            },
+            {
+              "name": "label",
+              "type": {
+                "kind": "string"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "root": {
+      "tasks": [
+        {
+          "id": "container",
+          "kind": "sequence",
+          "objective": "Expose the selected observations",
+          "body": {
+            "tasks": [
+              {
+                "id": "choose",
+                "kind": "conditional",
+                "objective": "Select branch-specific observations",
+                "condition": {
+                  "kind": "input",
+                  "source": "branch"
+                },
+                "body": {
+                  "outputs": [
+                    {
+                      "name": "ready",
+                      "value": {
+                        "kind": "field",
+                        "port": "ready",
+                        "items": [
+                          {
+                            "kind": "input",
+                            "source": "first"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "blocked",
+                      "value": {
+                        "kind": "field",
+                        "port": "blocked",
+                        "items": [
+                          {
+                            "kind": "input",
+                            "source": "first"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "selector",
+                      "value": {
+                        "kind": "field",
+                        "port": "selector",
+                        "items": [
+                          {
+                            "kind": "input",
+                            "source": "first"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "secondary",
+                      "value": {
+                        "kind": "field",
+                        "port": "secondary",
+                        "items": [
+                          {
+                            "kind": "input",
+                            "source": "first"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "address",
+                      "value": {
+                        "kind": "field",
+                        "port": "address",
+                        "items": [
+                          {
+                            "kind": "input",
+                            "source": "first"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "label",
+                      "value": {
+                        "kind": "field",
+                        "port": "label",
+                        "items": [
+                          {
+                            "kind": "input",
+                            "source": "first"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "otherwise": {
+                  "outputs": [
+                    {
+                      "name": "ready",
+                      "value": {
+                        "kind": "field",
+                        "port": "ready",
+                        "items": [
+                          {
+                            "kind": "input",
+                            "source": "second"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "blocked",
+                      "value": {
+                        "kind": "field",
+                        "port": "blocked",
+                        "items": [
+                          {
+                            "kind": "input",
+                            "source": "second"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "selector",
+                      "value": {
+                        "kind": "field",
+                        "port": "selector",
+                        "items": [
+                          {
+                            "kind": "input",
+                            "source": "second"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "secondary",
+                      "value": {
+                        "kind": "field",
+                        "port": "secondary",
+                        "items": [
+                          {
+                            "kind": "input",
+                            "source": "second"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "address",
+                      "value": {
+                        "kind": "field",
+                        "port": "address",
+                        "items": [
+                          {
+                            "kind": "input",
+                            "source": "second"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "label",
+                      "value": {
+                        "kind": "field",
+                        "port": "label",
+                        "items": [
+                          {
+                            "kind": "input",
+                            "source": "second"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "outputs": [
+              {
+                "name": "ready",
+                "value": {
+                  "kind": "output",
+                  "source": "choose",
+                  "port": "ready"
+                }
+              },
+              {
+                "name": "blocked",
+                "value": {
+                  "kind": "output",
+                  "source": "choose",
+                  "port": "blocked"
+                }
+              },
+              {
+                "name": "selector",
+                "value": {
+                  "kind": "output",
+                  "source": "choose",
+                  "port": "selector"
+                }
+              },
+              {
+                "name": "secondary",
+                "value": {
+                  "kind": "output",
+                  "source": "choose",
+                  "port": "secondary"
+                }
+              },
+              {
+                "name": "address",
+                "value": {
+                  "kind": "output",
+                  "source": "choose",
+                  "port": "address"
+                }
+              },
+              {
+                "name": "label",
+                "value": {
+                  "kind": "output",
+                  "source": "choose",
+                  "port": "label"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "guard",
+          "kind": "conditional",
+          "objective": "Only use explicitly non-null observed selectors",
+          "condition": {
+            "kind": "predicate",
+            "predicate": "not_equal",
+            "items": [
+              {
+                "kind": "output",
+                "source": "container",
+                "port": "selector"
+              },
+              {
+                "kind": "null"
+              }
+            ]
+          },
+          "body": {
+            "tasks": [
+              {
+                "id": "consume",
+                "kind": "operation",
+                "objective": "Use the observed selector",
+                "operation": "dispatch",
+                "inputs": [
+                  {
+                    "name": "selector",
+                    "value": {
+                      "kind": "output",
+                      "source": "container",
+                      "port": "selector"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "otherwise": {}
+        },
+        {
+          "id": "check",
+          "kind": "value",
+          "objective": "Require the observed boolean",
+          "requires": {
+            "kind": "output",
+            "source": "container",
+            "port": "ready"
+          },
+          "outputs": [
+            {
+              "name": "label",
+              "value": {
+                "kind": "output",
+                "source": "container",
+                "port": "label"
+              }
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "ready",
+          "value": {
+            "kind": "output",
+            "source": "container",
+            "port": "ready"
+          }
+        },
+        {
+          "name": "blocked",
+          "value": {
+            "kind": "output",
+            "source": "container",
+            "port": "blocked"
+          }
+        },
+        {
+          "name": "selector",
+          "value": {
+            "kind": "output",
+            "source": "container",
+            "port": "selector"
+          }
+        },
+        {
+          "name": "secondary",
+          "value": {
+            "kind": "output",
+            "source": "container",
+            "port": "secondary"
+          }
+        },
+        {
+          "name": "address",
+          "value": {
+            "kind": "output",
+            "source": "container",
+            "port": "address"
+          }
+        },
+        {
+          "name": "label",
+          "value": {
+            "kind": "output",
+            "source": "container",
+            "port": "label"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -129,7 +129,7 @@ internal static class PlanningSchemas
         definitions["task"] = Tasks(state, definitions, admitted);
         if (scopeGuidance)
         {
-            definitions["scope"]!["properties"]!["outputs"]!["description"] = "Explicit business exports. Consumers outside this scope use enclosingTask.export; conditional alternatives declare matching names and explicit values.";
+            definitions["scope"]!["properties"]!["outputs"]!["description"] = "Explicit business exports via enclosingTask.export. Conditional alternatives project the same consumer-facing ports, types, nullability and requiredness from their own values. Prefer direct ports over differently shaped whole results. Nullable ports need explicit null guards on the consuming path; a separate boolean does not prove non-null.";
             definitions["scope"]!["properties"]!["always"]!["description"] = "Failure-path work. Preserve available payloads here before nested cleanup; hidden descendants and absent results remain inaccessible.";
             foreach (var task in definitions["task"]!["anyOf"]!.AsArray())
                 task!["properties"]!["dependsOn"]!["description"] = "Eligible same-scope tasks only. Business bindings already establish data dependencies; available ancestor values use captures without cross-scope dependsOn.";
