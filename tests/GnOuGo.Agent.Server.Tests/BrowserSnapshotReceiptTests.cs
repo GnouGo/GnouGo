@@ -80,7 +80,7 @@ public sealed class BrowserSnapshotReceiptTests
                 """;
             var workflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml)).Workflows["main"];
             var result = await engine.ExecuteAsync(workflow, new JsonObject { ["url"] = site.Urls.Single() + "/", ["index"] = compatible ? 1 : 0 }, ct);
-            Assert.Equal(compatible, result.Success);
+            Assert.True(compatible == result.Success, $"Expected success={compatible}; actual={result.Success}; {result.Error?.Code}: {result.Error?.Message}");
             if (!compatible) Assert.Equal("ACTION_MISMATCH", result.Error!.Details!["mcp_error_code"]!.ToString());
             Assert.DoesNotContain("/information", visits);
             Assert.Equal(compatible ? 1 : 0, visits.Count(v => v == "/activated"));
