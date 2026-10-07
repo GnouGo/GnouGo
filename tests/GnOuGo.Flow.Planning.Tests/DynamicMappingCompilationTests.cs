@@ -24,7 +24,9 @@ public sealed class DynamicMappingCompilationTests
         Assert.Contains("adaptive_each: true", yaml);
         Assert.DoesNotContain("adaptive_each", new PlanningGraphCompiler().Compile(historical.Graph!, catalog));
         Assert.DoesNotContain("adaptive_each", JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan));
-        var session = new PlanningSession { Plan = plan, Graph = current.Graph, Request = request };
+        var session = new PlanningSession { Plan = plan, Graph = current.Graph, Request = request, Catalog = catalog };
+        Assert.DoesNotContain("two-attempt allowance", PlanningSchemas.FullProposal(session, compact: false).ToJsonString());
+        Assert.Contains("two-attempt allowance", PlanningSchemas.FullProposal(new() { Catalog = catalog }, compact: false).ToJsonString());
         Assert.Contains(PlanningReviewFormatter.Operations(session), v => v.Description.Contains("per-item inference", StringComparison.Ordinal));
     }
 

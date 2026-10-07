@@ -1301,7 +1301,7 @@ Before each selected workflow runs, `workflow.route` emits a `gnougo-flow.step.t
 
 ### Checked mapping and runtime extraction
 
-Typed bindings compile to checked `set` expressions at final lowering. Insufficiently typed observations use the compiler-owned `mapping.dynamic` step with a restricted source-grounded Jint expression, immutable target schema, at most two model attempts and validated tenant cache. Business plans contain neither scripts nor mapping executors.
+Typed bindings compile to checked `set` expressions at final lowering. Insufficiently typed observations use the compiler-owned `mapping.dynamic` step with a restricted source-grounded Jint expression, immutable target schema and validated tenant cache. Historical bindings retain at most two model attempts. Fresh adaptive independent bindings specialize only unresolved items under an explicitly configured finite cumulative runtime budget; all items and the complete result still validate before publication. Business plans contain neither scripts nor mapping executors.
 
 `value.project` and its public C# executor are retired. See [runtime mappings and migration](../../docs/runtime-mappings.md) for checked `set` examples, approval, default ownership, sandbox restrictions and encrypted recovery. Saved artifacts are never rewritten automatically.
 

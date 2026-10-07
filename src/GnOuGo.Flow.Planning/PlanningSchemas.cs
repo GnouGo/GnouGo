@@ -298,7 +298,10 @@ internal static class PlanningSchemas
                     ("output", Described(Ref("id"), "Exact name of the sole array result field.")))), ("inputs", NonEmptyArray(Ref("output"))),
                 ("resultType", Object(("kind", Enum("object")), ("fields", Array(Object(("name", Ref("goal")),
                     ("type", Object(("kind", Enum("array")), ("items", Ref("resultType"))))), 1, 1))))),
-                "Independent extraction: each names one collection input and the sole array result field. Produce exactly one result per item in order; nested arrays stay nested. No global comparison, filtering or implicit flattening. Shared inputs are read-only. Mapping examples are bounded; all items are checked under one shared two-attempt allowance."),
+                "Independent extraction: each names one collection input and the sole array result field. Produce exactly one result per item in order; nested arrays stay nested. No global comparison, filtering or implicit flattening. Shared inputs are read-only. Mapping examples are bounded; " +
+                (state.Request.Options["mapping_profile"]?.ToString() == TaskPlanCompiler.AdaptiveMappingProfile
+                    ? "all items are checked under the configured shared runtime budget; unresolved items may require specialization."
+                    : "all items are checked under one shared two-attempt allowance.")),
             Described(Task("transform", ("mode", Enum("extract", "interpret")), ("inputs", NonEmptyArray(Ref("output"))),
                 ("resultType", Object(("kind", Enum("object")), ("fields", NonEmptyArray(Ref("resultField")))))),
                 "Extract observed data or interpret it explicitly. Copies use value/field/object bindings. Declare result fields; no invented defaults."),
