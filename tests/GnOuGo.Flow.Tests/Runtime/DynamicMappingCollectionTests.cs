@@ -9,7 +9,7 @@ using Xunit;
 
 namespace GnOuGo.Flow.Tests.Runtime;
 
-public sealed class DynamicMappingCollectionTests
+public sealed partial class DynamicMappingCollectionTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 

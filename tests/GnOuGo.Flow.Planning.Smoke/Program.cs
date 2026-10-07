@@ -476,6 +476,54 @@ if (targetedPlan.Root.Tasks[0].Inputs.Single().Value.Text != "explicit revision"
     throw new InvalidOperationException("Targeted revision lost its serialized authority or changed the retained baseline");
 Console.WriteLine("targeted revision: passed; optional authority round trip, typed patches and unchanged baseline; no inference");
 
+var adaptiveModel = new AdaptiveSmokeModel();
+var adaptiveStore = new InMemoryWorkflowRunStore();
+var adaptiveEngine = new WorkflowEngine { LLMClient = adaptiveModel, LlmDefaults = new() { Model = "deterministic" },
+    RunStore = adaptiveStore, Limits = new() { TenantId = "smoke", RunId = "adaptive" }, LLMUsageBudget = new(new() { MaxCalls = 3 }) };
+var adaptiveDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
+version: 1
+workflows:
+  main:
+    steps:
+      - id: map
+        type: mapping.dynamic
+        input:
+          sources: {records: '${data.inputs.items}'}
+          objective: Extract each observed label.
+          binding: smoke
+          producer_contract: smoke-v1
+          adaptive_each: true
+          each: {input: records, output: rows}
+        output_schema:
+          type: object
+          properties:
+            value:
+              type: object
+              properties: {rows: {type: array, items: {type: string}}}
+              required: [rows]
+              additionalProperties: false
+          required: [value]
+          additionalProperties: false
+"""));
+var adaptiveResult = await adaptiveEngine.ExecuteAsync(adaptiveDocument.Workflows["main"],
+    JsonNode.Parse("""{"items":[{"label":"a"},{"name":"b"},{"title":"c"}]}"""), CancellationToken.None);
+if (!adaptiveResult.Success || adaptiveModel.Calls != 3 || adaptiveResult.StepResults[0].Output?["value"]?["rows"]?.ToJsonString() != "[\"a\",\"b\",\"c\"]")
+    throw new InvalidOperationException("Native adaptive specialization failed: " + adaptiveResult.Error?.Message);
+var adaptiveSaved = (await adaptiveStore.ReadAsync("smoke", "adaptive", CancellationToken.None))!;
+if (!(await new WorkflowEngine { RunStore = adaptiveStore }.ResumeAsync("smoke", "adaptive", adaptiveSaved.Revision, adaptiveDocument.Workflows["main"], CancellationToken.None)).Success || adaptiveModel.Calls != 3)
+    throw new InvalidOperationException("Native adaptive receipt recovery repeated inference.");
+Console.WriteLine("adaptive mappings: three source-grounded specializations, shared budget, ordered values and durable replay");
+
+sealed class AdaptiveSmokeModel : ILLMClient, ILLMCapabilityResolver
+{
+    internal int Calls;
+    public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct) => Task.FromResult(new LLMResponse
+    { Json = new JsonObject { ["script"] = "item." + new[] { "label", "name", "title" }[Calls++] }, Usage = JsonNode.Parse("""{"input_tokens":20,"output_tokens":10,"total_tokens":30}""")!.AsObject() });
+    public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(12000);
+    public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
+    public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>([]);
+}
+
 sealed class ClarificationRuntime : IPlanningRuntime
 {
     private readonly WorkflowPlanningRuntime _inner = new(new(), (_, _) => Task.CompletedTask);

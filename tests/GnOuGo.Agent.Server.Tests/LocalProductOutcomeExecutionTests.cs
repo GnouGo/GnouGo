@@ -102,7 +102,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var consentModel = new ConsentModel(model);
             var extractionModel = new ExtractModel(model);
             var compactModel = new CompactModel(new ConsentModel(new PagedModel(model, compact: true)));
-            var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = compact ? compactModel : variant.StartsWith("pages", StringComparison.Ordinal) ? new PagedModel(model) : consentScenario ? consentModel : variant is "extract" or "observation" or "each" or "each-parallel" ? extractionModel : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
+            var engine = new WorkflowEngine { LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(2) }), McpClientFactory = transport, LLMClient = compact ? compactModel : variant.StartsWith("pages", StringComparison.Ordinal) ? new PagedModel(model) : consentScenario ? consentModel : variant is "extract" or "observation" or "each" or "each-parallel" ? extractionModel : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
             if (compact)
             {
                 engine.RunStore = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(

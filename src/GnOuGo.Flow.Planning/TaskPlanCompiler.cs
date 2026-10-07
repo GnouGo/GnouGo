@@ -79,6 +79,8 @@ public sealed partial class TaskPlanCompiler
     internal const string CompactProfile = "compact-bindings-v2";
     internal static bool UsesCompactBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v1" or CompactProfile;
     internal static bool UsesNormalExports(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() == CompactProfile;
+    internal const string AdaptiveMappingProfile = "adaptive-each-v1";
+    private bool _adaptiveMappings;
     private bool _compactBindings;
     private bool _normalExports;
     private string _location = "/tasks";
@@ -87,10 +89,11 @@ public sealed partial class TaskPlanCompiler
         => Compile(plan, catalog, compactBindings, false);
 
     internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, PlanningRequest request)
-        => Compile(plan, catalog, UsesCompactBindings(request), UsesNormalExports(request));
+        => Compile(plan, catalog, UsesCompactBindings(request), UsesNormalExports(request), request.Options["mapping_profile"]?.ToString() == AdaptiveMappingProfile);
 
-    internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports)
+    internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports, bool adaptiveMappings = false)
     {
+        _adaptiveMappings = adaptiveMappings;
         _normalExports = normalExports;
         _compactBindings = compactBindings;
         _plan = plan; _symbols = new(plan); _catalog = catalog; _location = "/"; _graph = new(); _sources.Clear(); _groups.Clear(); _compilingGroups.Clear();
@@ -440,6 +443,7 @@ public sealed partial class TaskPlanCompiler
             Input = new() { Kind = "dynamic_mapping", Members = [new("sources", sources), new("objective", Text(objective)),
                 new("binding", Text(key)), new("producer_contract", Text(PlanningGraphCompiler.Fingerprint(contracts.ToJsonString())))] },
             OutputSchema = Contract(ObjectSchema([("value", schema)])) };
+        if (_adaptiveMappings) node.Input.Members.Add(new("adaptive_each", new() { Kind = "boolean", Boolean = true }));
         if (_compactBindings) node.Input.Members.Add(new("infer_each", new() { Kind = "boolean", Boolean = true }));
         return node;
     }

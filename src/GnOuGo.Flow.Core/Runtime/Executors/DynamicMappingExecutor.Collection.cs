@@ -12,7 +12,7 @@ public sealed partial class DynamicMappingExecutor
 {
     private static async Task PackCollectionRequestAsync(StepExecutionContext ctx, ILLMClient client, LLMRequest request,
         JsonObject sources, JsonArray items, string input, JsonObject target, JsonObject itemTarget, JsonNode objective,
-        string? previous, string? failure, int? failedIndex, CancellationToken ct)
+        string? previous, string? failure, int? failedIndex, CancellationToken ct, IReadOnlyList<int>? adaptiveIndices = null)
     {
         var allowance = (ctx.Engine.LLMCapabilities ?? client as ILLMCapabilityResolver) is { } resolver
             ? await resolver.InputTokenAllowanceAsync(request.Provider, request.Model, request.MaxTokens!.Value, ct) : null;
@@ -44,7 +44,7 @@ public sealed partial class DynamicMappingExecutor
         var shapes = new HashSet<string>(StringComparer.Ordinal);
         var required = new List<int>();
         if (failedIndex is >= 0 && failedIndex < items.Count) required.Add(failedIndex.Value);
-        for (var i = 0; i < items.Count; i++)
+        foreach (var i in adaptiveIndices ?? Enumerable.Range(0, items.Count).ToArray())
         {
             ct.ThrowIfCancellationRequested();
             if (shapes.Add(Hash(Shape(items[i])))) required.Add(i);
@@ -61,8 +61,13 @@ public sealed partial class DynamicMappingExecutor
             if (mandatory) throw new WorkflowRuntimeException("CONTRACT_UNSATISFIED",
                 "A required complete mapping example exceeds the safe request allowance.", details: new JsonObject { ["source_index"] = index });
         }
-        foreach (var index in required) Add(index, true);
-        Add(0, false); Add(items.Count - 1, false);
+        foreach (var index in required) Add(index, adaptiveIndices is null || index == failedIndex);
+        Add(adaptiveIndices?[0] ?? 0, false); Add(adaptiveIndices?[^1] ?? items.Count - 1, false);
+        // An oversized representative does not make its entire shape unusable.
+        if (adaptiveIndices is not null && examples.Count == 0)
+            foreach (var index in adaptiveIndices)
+            { Add(index, false); if (examples.Count != 0) break; }
+        if (examples.Count == 0) throw JintSandbox.Unsatisfied("No complete initial mapping example fits the safe request allowance.");
         _ = Fits();
         ctx.SetTelemetryAttribute("gnougo.mapping.sample_items", examples.Count);
         ctx.SetTelemetryAttribute("gnougo.mapping.omitted_items", items.Count - examples.Count);

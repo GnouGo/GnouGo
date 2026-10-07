@@ -14,9 +14,11 @@ public static class PlanningReviewFormatter
                     "; contract effect: " + contract.EffectKind + ". " + (contract.ArtifactContract?.Locations is { Count: > 0 } ? "Declared resource locations checked; dynamic relationships still require execution evidence. " : "Resource lifecycle is not established by this contract; review cleanup and retained artifacts. ") + "Execution has not been observed; review the business requirements separately.", []);
             }).Concat(PlanningGraphCompiler.Enumerate(state.Graph!.Workflows.SelectMany(w => w.Steps.Concat(w.Finally)))
                 .Where(n => n.Input.Kind == "dynamic_mapping").Select(n => new PlanningValidationResult("mapping:" + n.Key, "declared",
-                    n.Purpose + " — runtime extraction, at most two model attempts per invocation; cache hits still validate the complete result. " +
+                    n.Purpose + (PlanningGraphValidation.Member(n.Input, "adaptive_each")?.Boolean == true
+                        ? " — adaptive independent extraction; unresolved items may require specialized or per-item inference within the configured shared runtime and campaign budgets. Execution requires a finite runtime budget; every item and the complete result are validated. "
+                        : " — runtime extraction, at most two model attempts per invocation; cache hits still validate the complete result. ") +
                     (PlanningGraphValidation.Member(n.Input, "infer_each")?.Boolean == true ? "Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. " : "") +
-                    (PlanningGraphValidation.Member(n.Input, "each") is null ? "" : "Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and the two attempts are shared. ") + "No execution evidence yet.", [])));
+                    (PlanningGraphValidation.Member(n.Input, "each") is null ? "" : "Independent items preserve order and nesting; bounded examples generate one mapping, all items are validated, and inference allowances are shared. ") + "No execution evidence yet.", [])));
 
     public static string TaskDiagram(TaskPlan? plan)
     {
@@ -98,7 +100,7 @@ public static class PlanningReviewFormatter
                 foreach (var node in nodes)
                 {
                     var id = prefix + "n" + PlanningGraphCompiler.Fingerprint(node.Key)[..12];
-                    var label = node.Key + ": " + (node.Input.Kind == "dynamic_mapping" ? "runtime extraction · max 2 model attempts" : node.Type) + (node.If is null ? "" : " (conditional)");
+                    var label = node.Key + ": " + (node.Input.Kind == "dynamic_mapping" ? (PlanningGraphValidation.Member(node.Input, "adaptive_each")?.Boolean == true ? "adaptive extraction · shared runtime budget" : "runtime extraction · max 2 model attempts") : node.Type) + (node.If is null ? "" : " (conditional)");
                     if (node.Type == "agent.run")
                     {
                         var calls = PlanningGraphValidation.Member(PlanningGraphValidation.Member(node.Input, "budget") ?? new(), "max_model_calls")?.Number;

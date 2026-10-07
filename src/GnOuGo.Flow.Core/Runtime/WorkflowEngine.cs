@@ -99,6 +99,24 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
 
     private async Task<RunResult> ExecuteCoreAsync(CompiledWorkflow workflow, JsonNode? inputs, CancellationToken ct)
     {
+        // Before any external work, including an earlier step or workflow, require the
+        // explicitly configured cumulative budget disclosed by adaptive artifacts.
+        if (LLMUsageBudget is null)
+            foreach (var current in workflow.Document.Workflows.Values.Append(workflow).Distinct())
+                RequireMappingBudget(current.Steps.Concat(current.Finally));
+
+        static void RequireMappingBudget(IEnumerable<CompiledStep> steps)
+        {
+            foreach (var step in steps)
+            {
+                if (step.Type == "mapping.dynamic" && step.Source.Input?["adaptive_each"] is { } flag &&
+                    !(flag is JsonValue literal && literal.TryGetValue<bool>(out var value) && !value))
+                    throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetUnverifiable,
+                        "Adaptive mapping requires an explicit finite cumulative runtime budget before execution.",
+                        details: new JsonObject { ["dispatch_status"] = "not_started" });
+                RequireMappingBudget((step.Steps ?? []).Concat(step.Default ?? []).Concat((step.Branches ?? []).SelectMany(b => b)).Concat((step.Cases ?? []).SelectMany(c => c.Steps)));
+            }
+        }
         MappingMemory.Clear(); MappingAttempts.Clear(); MappingExecutionId = Limits.RunId ?? Guid.NewGuid().ToString("N");
         _totalStepsExecuted = Journal?.Run.StepsStarted ?? 0;
         CompiledDocument = workflow.Document;

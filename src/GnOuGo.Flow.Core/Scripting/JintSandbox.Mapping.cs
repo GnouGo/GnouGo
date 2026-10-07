@@ -1,4 +1,5 @@
 using System.Net;
+using System.Diagnostics;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Acornima.Ast;
@@ -25,17 +26,52 @@ public sealed partial class JintSandbox
     public JsonArray ExecuteMappingItems(string expression, JsonObject sources, string input, JsonObject itemTarget, CancellationToken ct = default)
         => (JsonArray)ExecuteMappingCore(expression, sources, ct, itemTarget, input)!;
 
-    private JsonNode? ExecuteMappingCore(string expression, JsonNode? source, CancellationToken ct, JsonObject? target, string? collectionInput)
+    // This state belongs to one logical mapping, including cached candidates and specializations.
+    // Jint resets constraints at every Evaluate; this constraint deliberately retains cumulative work.
+    internal sealed class MappingAllowance(int statements, TimeSpan timeout, long memory) : Constraint
+    {
+        private int _statements;
+        private readonly Stopwatch _elapsed = new();
+        private long _allocationStart;
+        private long _allocated;
+        internal long ImportedBytes;
+        internal void Start() { _allocationStart = GC.GetAllocatedBytesForCurrentThread(); _elapsed.Start(); }
+        internal void Stop() { _elapsed.Stop(); _allocated += GC.GetAllocatedBytesForCurrentThread() - _allocationStart; }
+        public override void Reset() { }
+        public override void Check()
+        {
+            if (++_statements > statements || _elapsed.Elapsed > timeout ||
+                _allocated + GC.GetAllocatedBytesForCurrentThread() - _allocationStart > memory || ImportedBytes > memory)
+                throw ResourceLimit();
+        }
+    }
+
+    internal MappingAllowance CreateMappingAllowance() => new(_maxStatements, _timeout, _memoryLimit);
+
+    internal void ExecuteMappingItems(string expression, JsonObject sources, string input, JsonObject itemTarget,
+        IReadOnlyList<int> indices, MappingAllowance allowance, Action<int, JsonNode?> success,
+        Action<int, WorkflowRuntimeException> failure, CancellationToken ct)
+        => ExecuteMappingCore(expression, sources, ct, itemTarget, input, indices, allowance, success, failure);
+
+    private static WorkflowRuntimeException ResourceLimit() => new("CONTRACT_UNSATISFIED",
+        "The mapping exhausted its cumulative sandbox allowance.", details: new JsonObject { ["mapping_resource_limit"] = true });
+
+    private JsonNode? ExecuteMappingCore(string expression, JsonNode? source, CancellationToken ct, JsonObject? target, string? collectionInput,
+        IReadOnlyList<int>? indices = null, MappingAllowance? allowance = null,
+        Action<int, JsonNode?>? success = null, Action<int, WorkflowRuntimeException>? failure = null)
     {
         ValidateMapping(expression, learned: false);
         ct.ThrowIfCancellationRequested();
-        var engine = new Engine(options => options.MaxStatements(_maxStatements).TimeoutInterval(_timeout)
-            .LimitMemory(_memoryLimit).CancellationToken(ct).Strict());
+        var engine = new Engine(options =>
+        {
+            options.MaxStatements(_maxStatements).TimeoutInterval(_timeout).LimitMemory(_memoryLimit).CancellationToken(ct).Strict();
+            if (allowance is not null) options.Constraint(allowance);
+        });
         var origins = new Dictionary<ObjectInstance, JsonNode?>();
         var containers = new HashSet<ObjectInstance>();
         var absent = new HashSet<ObjectInstance>();
         var patterns = new Dictionary<string, Regex>(StringComparer.Ordinal);
-        long importedBytes = 0;
+        long importedBytes = allowance?.ImportedBytes ?? 0;
         var helpers = new JsObject(engine);
         foreach (var name in MappingHelpers)
         {
@@ -55,19 +91,7 @@ public sealed partial class JintSandbox
             // is entered once, so time, statements and allocation limits never reset.
             engine.SetValue("__mappingLoad", new ClrFunction(engine, "__mappingLoad", (_, args) =>
             {
-                itemIndex = (int)args[0].AsNumber();
-                origins.Clear(); containers.Clear(); absent.Clear();
-                var current = new JsObject(engine); containers.Add(current);
-                var context = new JsObject(engine); containers.Add(context);
-                foreach (var field in source!.AsObject())
-                {
-                    var value = Import(field.Key == collectionInput ? items[itemIndex] : field.Value);
-                    current.CreateDataProperty(field.Key, value);
-                    if (field.Key == collectionInput) engine.SetValue("item", value);
-                    else context.CreateDataProperty(field.Key, value);
-                }
-                engine.SetValue("context", context);
-                return current;
+                return Load((int)args[0].AsNumber());
             }));
             engine.SetValue("__mappingSave", new ClrFunction(engine, "__mappingSave", (_, args) =>
             {
@@ -79,23 +103,72 @@ public sealed partial class JintSandbox
                 results.Add(value); return JsValue.Undefined;
             }));
         }
+        JsValue Load(int index)
+        {
+            itemIndex = index;
+            origins.Clear(); containers.Clear(); absent.Clear();
+            var current = new JsObject(engine); containers.Add(current);
+            var context = new JsObject(engine); containers.Add(context);
+            foreach (var field in source!.AsObject())
+            {
+                var value = Import(field.Key == collectionInput ? items![itemIndex] : field.Value);
+                current.CreateDataProperty(field.Key, value);
+                if (field.Key == collectionInput) engine.SetValue("item", value);
+                else context.CreateDataProperty(field.Key, value);
+            }
+            engine.SetValue("context", context);
+            return current;
+        }
         try
         {
+            if (indices is not null)
+            {
+                allowance!.Start();
+                try
+                {
+                    foreach (var index in indices)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        allowance.Check();
+                        try
+                        {
+                            engine.SetValue("source", Load(index));
+                            var value = Export(engine.Evaluate(expression), 0, target);
+                            var findings = JsonSchemaContractValidator.ValidateInstance(value, target!);
+                            if (findings.Count != 0) throw Unsatisfied("The mapped item does not satisfy its target: " + string.Join("; ", findings));
+                            importedBytes += value is null ? 4 : System.Text.Encoding.UTF8.GetByteCount(value.ToJsonString());
+                            if (importedBytes > _memoryLimit) throw ResourceLimit();
+                            success!(index, value);
+                        }
+                        catch (WorkflowRuntimeException ex) when (ex.Code == "CONTRACT_UNSATISFIED" && ex.Details?["mapping_resource_limit"]?.GetValue<bool>() != true)
+                        { failure!(index, ex); }
+                        catch (Jint.Runtime.JavaScriptException ex)
+                        { failure!(index, Unsatisfied("The mapping could not select the required observed value.", ex)); }
+                        catch (System.Text.Json.JsonException ex)
+                        { failure!(index, Unsatisfied("The observed value is not valid JSON.", ex)); }
+                        allowance.ImportedBytes = importedBytes;
+                        allowance.Check();
+                    }
+                    return null;
+                }
+                finally { allowance.ImportedBytes = importedBytes; allowance.Stop(); }
+            }
             if (items is null) return Export(engine.Evaluate(expression), 0, target);
             engine.Evaluate("(()=>{for(let i=0;i<" + items.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) +
                 ";i++){source=__mappingLoad(i);__mappingSave(" + expression + ");}})()");
             return results;
         }
         catch (WorkflowRuntimeException ex) when (itemIndex >= 0)
-        { throw new WorkflowRuntimeException(ex.Code, ex.Message, inner: ex, details: new JsonObject { ["source_index"] = itemIndex }); }
+        { throw new WorkflowRuntimeException(ex.Code, ex.Message, inner: ex, details: WithIndex(ex.Details, itemIndex)); }
         catch (Exception ex) when (ex is not OperationCanceledException and not WorkflowRuntimeException and not OutOfMemoryException)
         { ct.ThrowIfCancellationRequested(); throw new WorkflowRuntimeException("CONTRACT_UNSATISFIED", "The mapping could not be executed within its restricted profile.", inner: ex,
-            details: itemIndex < 0 ? null : new JsonObject { ["source_index"] = itemIndex }); }
+            details: allowance is null ? (itemIndex < 0 ? null : new JsonObject { ["source_index"] = itemIndex }) : new JsonObject { ["mapping_resource_limit"] = true, ["source_index"] = itemIndex }); }
 
         JsValue Import(JsonNode? value, int depth = 0)
         {
             ct.ThrowIfCancellationRequested();
             importedBytes += 128 + (value is JsonValue text && text.TryGetValue<string>(out var content) ? (long)content.Length * 4 : 0);
+            if (allowance is not null && (depth > 64 || importedBytes > _memoryLimit)) throw ResourceLimit();
             if (depth > 64 || importedBytes > _memoryLimit) throw Unsatisfied("Observed data exceeds the mapping sandbox's nesting or memory allowance.");
             if (value is JsonArray array) { var imported = Array(array.Select(v => Import(v, depth + 1))); containers.Add(imported.AsObject()); return imported; }
             var result = new JsObject(engine);
@@ -175,8 +248,13 @@ public sealed partial class JintSandbox
             if (!patterns.TryGetValue(text, out var pattern))
             {
                 // Reuse compilation within this evaluation; repeated items still share every sandbox limit.
-                pattern = new Regex(text, RegexOptions.CultureInvariant | RegexOptions.Singleline | RegexOptions.NonBacktracking,
-                    TimeSpan.FromMilliseconds(Math.Min(1000, _timeout.TotalMilliseconds)));
+                try
+                {
+                    pattern = new Regex(text, RegexOptions.CultureInvariant | RegexOptions.Singleline | RegexOptions.NonBacktracking,
+                        TimeSpan.FromMilliseconds(Math.Min(1000, _timeout.TotalMilliseconds)));
+                }
+                catch (Exception ex) when (allowance is not null && ex is ArgumentException or NotSupportedException)
+                { throw Unsatisfied("The mapping program contains an unsupported extraction pattern.", ex); }
                 patterns.Add(text, pattern);
             }
             return pattern;
@@ -249,6 +327,11 @@ public sealed partial class JintSandbox
                 default: throw Unsatisfied("Unsupported extraction helper.");
             }
         }
+    }
+
+    private static JsonObject WithIndex(JsonNode? details, int index)
+    {
+        var result = details?.DeepClone().AsObject() ?? new JsonObject(); result["source_index"] = index; return result;
     }
 
     public static void ValidateMapping(string expression) => ValidateMapping(expression, learned: true);

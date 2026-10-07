@@ -48,7 +48,10 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         var state = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         if (!state.RequiresPlanningRevision) state.IntentVersion = 2;
         if (state.Revision == 0 && state.PendingCall is null && state.Plan is null)
+        {
             state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
+            state.Request.Options["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile;
+        }
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         if (PlanningBudgetOptions.Parse(state.Request.Options)?.MaxElapsed is { } maximum)
         {

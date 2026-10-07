@@ -52,6 +52,7 @@ internal static class PlanningClarifications
                 PlanningJsonTransport.TaskPlanPart(JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements))!.ToJsonString();
         if (!preserveRequirements) state.Requirements = null;
         state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
+        state.Request.Options["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile;
         state.IntentVersion = 2; state.OutcomeVersion = null; state.OutcomeBindings = null;
         state.EditablePaths = editablePaths?.Order(StringComparer.Ordinal).ToList();
         if (editablePaths is null) state.Plan = null;

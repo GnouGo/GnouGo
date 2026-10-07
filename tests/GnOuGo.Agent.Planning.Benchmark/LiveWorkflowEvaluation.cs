@@ -59,6 +59,9 @@ internal static class LiveWorkflowEvaluation
         var mappingTelemetry = new MappingLiveEvaluation.MappingTelemetry();
         var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = phase == "execute" ? measured : model,
             Telemetry = mappingTelemetry,
+            // The existing execution deadline also bounds cumulative runtime inference.
+            // Monetary admission remains in the shared encrypted campaign client.
+            LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(30) }),
             RunStore = EncryptedWorkflowRunStore.CreateWorkspace(baseDirectory: root),
             Limits = new() { TenantId = "benchmark", RunId = label, AgentId = campaign.Id + "-" + scenario, AgentName = "Live evaluation " + scenario, MaxMappingInputTokens = 96000 },
             HumanInputProvider = human, LlmDefaults = new() { Model = model.Model, Provider = model.Provider } };

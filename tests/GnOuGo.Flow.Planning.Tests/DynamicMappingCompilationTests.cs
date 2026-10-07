@@ -10,6 +10,24 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class DynamicMappingCompilationTests
 {
+    [Fact]
+    public async Task AdaptiveProfileIsCompilerOwnedReviewedAndFingerprintRelevant()
+    {
+        var plan = EachPlan();
+        var catalog = await new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask).DiscoverAsync(new() { Policy = new() { RequireExternalConfirmation = false } }, PlannerFixture.Ct);
+        var request = new PlanningRequest { Options = new() { ["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile } };
+        var compiler = new TaskPlanCompiler();
+        var historical = compiler.Compile(plan, catalog);
+        var current = compiler.Compile(plan, catalog, request);
+        Assert.Empty(current.Diagnostics); Assert.Empty(PlanningExecutableValidation.Validate(current.Graph!, catalog));
+        var yaml = new PlanningGraphCompiler().Compile(current.Graph!, catalog);
+        Assert.Contains("adaptive_each: true", yaml);
+        Assert.DoesNotContain("adaptive_each", new PlanningGraphCompiler().Compile(historical.Graph!, catalog));
+        Assert.DoesNotContain("adaptive_each", JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan));
+        var session = new PlanningSession { Plan = plan, Graph = current.Graph, Request = request };
+        Assert.Contains(PlanningReviewFormatter.Operations(session), v => v.Description.Contains("per-item inference", StringComparison.Ordinal));
+    }
+
     [Theory]
     [InlineData("multiple_fields")]
     [InlineData("scalar_field")]
@@ -35,16 +53,18 @@ public sealed class DynamicMappingCompilationTests
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task IndependentExtractionKeepsBusinessDeclarationAndTypedInputsNeedNoInference(bool typed)
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    public async Task IndependentExtractionKeepsBusinessDeclarationAndTypedInputsNeedNoInference(bool typed, bool adaptive)
     {
         var plan = EachPlan();
         if (typed) plan.Inputs[0].Type.Items = new() { Kind = "string" };
-        var model = new EachModel(); var engine = new WorkflowEngine { LLMClient = model, LlmDefaults = new() { Model = "fixture" } };
+        var model = new EachModel(); var engine = new WorkflowEngine { LLMUsageBudget = new(new() { MaxCalls = 2 }), LLMClient = model, LlmDefaults = new() { Model = "fixture" } };
         var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
         var catalog = await runtime.DiscoverAsync(new() { Policy = new() { RequireExternalConfirmation = false } }, PlannerFixture.Ct);
-        var compiled = new TaskPlanCompiler().Compile(plan, catalog);
+        var compiled = adaptive ? new TaskPlanCompiler().Compile(plan, catalog, new PlanningRequest { Options = new() { ["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile } }) : new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Empty(compiled.Diagnostics); Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
         var serialized = JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan);
         Assert.DoesNotContain("mapping.dynamic", serialized); Assert.DoesNotContain("script", serialized);

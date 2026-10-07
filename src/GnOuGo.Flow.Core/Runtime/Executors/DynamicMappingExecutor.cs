@@ -15,7 +15,7 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
 {
     public string StepType => "mapping.dynamic";
     public StepRecovery Recovery => StepRecovery.Composite;
-    public StepContract Contract => new(JsonNode.Parse("""{"type":"object","properties":{"sources":{"type":"object"},"objective":{"type":"string","minLength":1},"binding":{"type":"string","minLength":1},"producer_contract":{"type":"string","minLength":1},"infer_each":{"type":"boolean"},"each":{"type":"object","properties":{"input":{"type":"string","minLength":1},"output":{"type":"string","minLength":1}},"required":["input","output"],"additionalProperties":false}},"required":["sources","objective","binding","producer_contract"],"additionalProperties":false}""")!.AsObject(),
+    public StepContract Contract => new(JsonNode.Parse("""{"type":"object","properties":{"sources":{"type":"object"},"objective":{"type":"string","minLength":1},"binding":{"type":"string","minLength":1},"producer_contract":{"type":"string","minLength":1},"adaptive_each":{"type":"boolean"},"infer_each":{"type":"boolean"},"each":{"type":"object","properties":{"input":{"type":"string","minLength":1},"output":{"type":"string","minLength":1}},"required":["input","output"],"additionalProperties":false}},"required":["sources","objective","binding","producer_contract"],"additionalProperties":false}""")!.AsObject(),
         JsonNode.Parse("""{"type":"object","properties":{"value":{}},"required":["value"],"additionalProperties":false}""")!.AsObject(), InputRequired: true);
 
     public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
@@ -40,19 +40,21 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
                 each = new() { ["input"] = collections[0], ["output"] = target["type"]?.ToString() == "array" ? "" : resultCollections[0] };
             }
         }
+        var adaptive = each is not null && input["adaptive_each"]?.GetValue<bool>() == true;
         var eachInput = each?["input"]?.GetValue<string>();
         var eachOutput = each?["output"]?.GetValue<string>();
         JsonArray? collection = null;
         JsonObject? itemTarget = null;
         if (each is not null)
         {
-            for (var attempt = 0; attempt < 2; attempt++)
-            {
-                var pending = ctx.Engine.Journal?.Run.Invocations.GetValueOrDefault(invocationId + "/mapping/" + attempt);
-                if (pending is { DispatchedAt: not null, CompletedAt: null }) throw WorkflowRunJournal.Uncertain(pending.Id);
-                if (ctx.Engine.Journal is null && ctx.Engine.MappingAttempts.TryGetValue(invocationId + ":mapping:" + attempt, out var local) && local["response"] is null)
-                    throw WorkflowRunJournal.Uncertain(invocationId + ":mapping:" + attempt);
-            }
+            if (adaptive && ctx.LLMUsageBudget is null)
+                throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetUnverifiable, "Adaptive mapping requires an explicit cumulative runtime budget.");
+            if (ctx.Engine.Journal is { } owner)
+                foreach (var pending in owner.Run.Invocations.Values.Where(v => v.Id.StartsWith(invocationId + "/mapping/", StringComparison.Ordinal)))
+                    if (pending is { DispatchedAt: not null, CompletedAt: null }) throw WorkflowRunJournal.Uncertain(pending.Id);
+            if (ctx.Engine.Journal is null)
+                foreach (var pending in ctx.Engine.MappingAttempts.Where(v => v.Key.StartsWith(invocationId + ":mapping:", StringComparison.Ordinal)))
+                    if (pending.Value["response"] is null) throw WorkflowRunJournal.Uncertain(pending.Key);
             var resultArray = eachOutput == "" && input["infer_each"]?.GetValue<bool>() == true ? target :
                 target["type"]?.ToString() == "object" && target["properties"] is JsonObject { Count: 1 } fields ? fields[eachOutput!] as JsonObject : null;
             if (sources[eachInput!] is not JsonArray values || resultArray?["type"]?.ToString() != "array" || resultArray["items"] is not JsonObject item)
@@ -81,11 +83,16 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
             ["producer"] = input["producer_contract"]!.DeepClone(), ["target"] = target.DeepClone(),
             ["profile"] = JintSandbox.MappingProfileVersion, ["sources"] = new JsonObject(sources.Select(p => new KeyValuePair<string, JsonNode?>(p.Key, Shape(p.Value, true))))
         };
-        if (each is not null) { fingerprintData["each"] = each.DeepClone(); fingerprintData["collection_profile"] = 2; }
+        if (each is not null) { fingerprintData["each"] = each.DeepClone(); fingerprintData["collection_profile"] = adaptive ? 3 : 2; }
         var key = Hash(fingerprintData, ct);
         var contentHash = Hash(sources, ct);
         var sandbox = new JintSandbox(Math.Min(ctx.Limits.MaxExpressionStatements, 10000), Math.Min(ctx.Limits.ExpressionTimeoutSeconds * 1000, 5000),
             Math.Min(ctx.Limits.ExpressionMemoryLimitBytes, 50000000));
+        var client = ctx.Engine.LLMClient;
+        string? previous = null; string? failure = null; int? failedIndex = null;
+        if (adaptive)
+            return await ExecuteAdaptiveAsync(ctx, sources, collection!, eachInput!, eachOutput!, target, itemTarget!,
+                fingerprintData, sandbox, Model, ct);
         var cached = persistent is null ? ctx.Engine.MappingMemory.GetValueOrDefault(key) : await persistent.ReadAsync(tenant!, key, ct);
         ctx.SetTelemetryAttribute("gnougo.mapping.cache_hit", false);
         if (cached is not null && cached.Key == key && cached.ProfileVersion == JintSandbox.MappingProfileVersion &&
@@ -103,8 +110,6 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
                 if (persistent is not null) await persistent.RemoveAsync(tenant!, key, ct);
             }
         }
-        var client = ctx.Engine.LLMClient ?? throw new WorkflowRuntimeException(ErrorCodes.LlmNetwork, "Dynamic mapping requires an approved runtime model client.");
-        string? previous = null; string? failure = null; int? failedIndex = null;
         for (var attempt = 0; attempt < 2; attempt++)
         {
             ct.ThrowIfCancellationRequested();
@@ -148,11 +153,14 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
             if (collection is not null) ctx.SetTelemetryAttribute("gnougo.mapping.processed_items", collection.Count);
             return new() { ["value"] = value };
         }
-        async Task<JsonObject> Model(int attempt)
+        async Task<JsonObject> Model(int attempt, IReadOnlyList<int>? adaptiveIndices = null, string? adaptivePrevious = null, string? adaptiveFailure = null, int? adaptiveFailedIndex = null)
         {
             if (ctx.Engine.Journal is null && ctx.Engine.MappingAttempts.TryGetValue(invocationId + ":mapping:" + attempt, out var savedResponse))
                 return savedResponse["response"] is JsonObject completedResponse ? CheckReceipt(completedResponse.DeepClone().AsObject())
                     : throw WorkflowRunJournal.Uncertain(invocationId + ":mapping:" + attempt);
+            if (ctx.Engine.Journal?.Run.Invocations.GetValueOrDefault(invocationId + "/mapping/" + attempt) is
+                { CompletedAt: not null, Output: JsonObject durableReceipt }) return CheckReceipt(durableReceipt.DeepClone().AsObject());
+            var inferenceClient = client ?? throw new WorkflowRuntimeException(ErrorCodes.LlmNetwork, "Dynamic mapping requires an approved runtime model client.");
             var (provider, model) = ctx.Engine.ResolveLlmTarget(null, null);
             var request = new LLMRequest
             {
@@ -168,15 +176,16 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
             else if (each is not null)
             {
                 request.RequireOutputTokenLimit = true; request.DisableTransportRetries = true;
-                await PackCollectionRequestAsync(ctx, client, request, sources, collection!, eachInput!, target, itemTarget!,
-                    input["objective"]!, previous, failure, failedIndex, ct);
+                await PackCollectionRequestAsync(ctx, inferenceClient, request, sources, collection!, eachInput!, target, itemTarget!,
+                    input["objective"]!, adaptive ? adaptivePrevious : previous, adaptive ? adaptiveFailure : failure,
+                    adaptive ? adaptiveFailedIndex : failedIndex, ct, adaptiveIndices);
             }
             async Task<JsonNode?> Dispatch(string? id)
             {
                 JsonObject receipt;
                 try
                 {
-                    var completion = await ctx.CallLLMAsync(client, request, "mapping.dynamic", ct);
+                    var completion = await ctx.CallLLMAsync(inferenceClient, request, "mapping.dynamic", ct);
                     receipt = new() { ["json"] = completion.Json?.DeepClone(), ["text"] = completion.Text,
                         ["usage"] = completion.Usage?.DeepClone() };
                 }
