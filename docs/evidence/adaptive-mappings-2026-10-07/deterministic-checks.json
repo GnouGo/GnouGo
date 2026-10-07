@@ -1,0 +1,68 @@
+{
+  "baseline": "49e9db9635fefb2990c959dc77fec0b68acdd1d9",
+  "mapping_tests": 95,
+  "planner_tests": 1062,
+  "retained_scale": {
+    "pages": 53,
+    "records": 1504,
+    "request_ceiling": 96000,
+    "generic_calls": 1,
+    "full_output_asserted": true
+  },
+  "logs": [
+    {
+      "name": "adaptive-mapping-safety.log",
+      "sha256": "e370d59237f0ec48b03a5228b90c736ee6957e4303743aa39abd3d17b680c77f"
+    },
+    {
+      "name": "adaptive-planning-suite.log",
+      "sha256": "3fd1a1519c6265d568e162b93af0c2e46898f64a40119c99777254e2276c0508"
+    },
+    {
+      "name": "adaptive-frozen-solution.log",
+      "sha256": "b497a82a32c85cd4fd45e417669f7003cd35d1ae379cf0a6e6c1eb38e1ab727c"
+    },
+    {
+      "name": "adaptive-frozen-aot.log",
+      "sha256": "2193fce423750036d68afde15170e9d6bb172e727643c2d34fa3f1bf5803303f"
+    },
+    {
+      "name": "adaptive-frozen-aot-run.log",
+      "sha256": "34087abf2b7a27b8c74708bb55dd7e44a79f01604c1844f1c2b6363f05e5801e"
+    },
+    {
+      "name": "adaptive-candidate-packages.log",
+      "sha256": "46e83532b9c706d8c09f0eb994f99398f5fb7387536e8bbabd4abe0fd3f84d78"
+    },
+    {
+      "name": "adaptive-published-server.log",
+      "sha256": "14ab1e0972c5f74fd35b86b840152bef07ac6ebf820bec14b4e9617f13fc64f8"
+    },
+    {
+      "name": "adaptive-encrypted-smoke.log",
+      "sha256": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88"
+    },
+    {
+      "name": "adaptive-execution-readiness.log",
+      "sha256": "954d90e69e2f232d68c019d28cffc5d68c26073421c5528e4432367944961827"
+    }
+  ],
+  "candidate": "05d1321634d94742f10e56896dcb2eb3a9e5271b",
+  "solution": {
+    "suites": 33,
+    "passed": 4771,
+    "failed": 0,
+    "skipped": 12,
+    "sha256": "b497a82a32c85cd4fd45e417669f7003cd35d1ae379cf0a6e6c1eb38e1ab727c"
+  },
+  "release_packages": [
+    "GnOuGo.Flow.Core",
+    "GnOuGo.Flow.Planning",
+    "GnOuGo.Flow.Integrations",
+    "GnOuGo.Flow.Persistence"
+  ],
+  "native_aot": "Published planning smoke passed, including adaptive specialization and committed receipt replay",
+  "encrypted_recovery": "Published trimmed/self-contained Server smoke passed",
+  "browser_document": "27 local execution fixture variants; workbook cells independently checked; final solution also ran UI browser approval test",
+  "skill_validation": "passed"
+}

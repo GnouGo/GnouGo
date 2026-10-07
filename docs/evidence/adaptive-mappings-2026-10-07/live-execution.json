@@ -1,0 +1,205 @@
+{
+  "run": "adaptive20261007a-amazon-1",
+  "candidate": "05d1321634d94742f10e56896dcb2eb3a9e5271b",
+  "revision_reviewed": 4,
+  "artifact_hash": "934120a41f51db1aa5ba4d80282e59539f5d9392e56b7b14b5e0c595a6cb39f3",
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "LLM_BUDGET_EXCEEDED",
+      "Type": "LLM_BUDGET_EXCEEDED",
+      "Message": "Execution request exceeds the campaign input or output allowance. [workflow 'main', step 'n_d2b9262f9f7b58e6']",
+      "Retryable": false,
+      "Details": {
+        "dispatch_status": "not_started",
+        "failed_workflow": "main",
+        "failed_step_id": "n_d2b9262f9f7b58e6",
+        "failed_step_type": "llm.call",
+        "execution_phase": "step"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "result": {
+    "status": "final_review",
+    "planning_ms": 514243,
+    "calls": 3,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 1,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 3,
+        "physical_attempts": 4,
+        "known_input_tokens": 37079,
+        "known_output_tokens": 11839,
+        "known_cost_eur": 0.4796920756056438,
+        "unknown_attempts": 1,
+        "reserved_input_tokens": 96000,
+        "reserved_output_tokens": 32768,
+        "reserved_cost_eur": 1.2982873369420533
+      },
+      "execution": {
+        "logical_calls": 2,
+        "physical_attempts": 2,
+        "known_input_tokens": 26540,
+        "known_output_tokens": 775,
+        "known_cost_eur": 0.1383884994231964,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 823,
+        "session_calls": 0,
+        "known_input_tokens": 12309315,
+        "known_output_tokens": 1522810,
+        "known_cost_eur": 95.4518282989319,
+        "reserved_input_tokens": 288000,
+        "reserved_output_tokens": 98304,
+        "reserved_cost_eur": 3.9050401209064187,
+        "cost_upper_bound_eur": 99.35686841983832,
+        "unknown_attempts": 3
+      }
+    },
+    "execution_ms": 37056,
+    "total_ms": 551299
+  },
+  "snapshot": {
+    "pages": 52,
+    "records": 1474,
+    "captureTruncated": false,
+    "manifestTruncated": false,
+    "serialized_utf8_bytes": 1083151
+  },
+  "mapping_telemetry": [
+    {
+      "gnougo.mapping.source_items": 52,
+      "gnougo.mapping.model_attempts": 1,
+      "gnougo.mapping.specializations": 0,
+      "gnougo.mapping.cache_hits": 0,
+      "gnougo.mapping.cache_hit": false,
+      "gnougo.mapping.failure_groups": 9,
+      "gnougo.mapping.sample_items": 3,
+      "gnougo.mapping.omitted_items": 49,
+      "gnougo.mapping.request_bytes": 63412,
+      "gnougo.mapping.processed_items": 52,
+      "gnougo.mapping.validated_items": 52,
+      "step": "n_db0ee77336c5bd99",
+      "status": "Succeeded",
+      "duration_ms": 15385.6702
+    }
+  ],
+  "runtime_mapping_receipts": [
+    {
+      "invocation": "/workflow/main/step/n_db0ee77336c5bd99/mapping/0",
+      "request_id": "a591f59a3c28ba8837e76cd8ca03840c6c5c8107d028d0afb81958a73c6e5240",
+      "status": "completed",
+      "usage": {
+        "input_tokens": 26417,
+        "output_tokens": 628,
+        "total_tokens": 27045,
+        "benchmark_cost_eur": 0.133929363741237,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "response": {
+        "script": "({pageId:item.id,exactTexts:item.records.filter(r=>!m.test(r.kind,\"^(link|control)$\")).map(r=>r.text),controls:item.records.filter(r=>m.test(r.kind,\"^control$\")).map(r=>({text:r.text,reference:r.reference,actions:r.actions})),links:item.records.filter(r=>m.test(r.kind,\"^link$\")).map(r=>({text:r.text,href:r.href,reference:r.reference,actions:r.actions}))})"
+      }
+    }
+  ],
+  "runtime_llm_inputs": [
+    {
+      "invocation": "/workflow/main/step/n_d2b9262f9f7b58e6",
+      "status": "failed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 393504,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_db0ee77336c5bd99/mapping/0",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 37079,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_3981b1c1638bb00a",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 4200,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ],
+  "events": [
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "started": "2026-10-07T17:37:56.7240620+00:00",
+      "latency_ms": 7074,
+      "error": false,
+      "result_summary": {
+        "success": true,
+        "error_code": null,
+        "error_message": null
+      }
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "started": "2026-10-07T17:38:20.8337630+00:00",
+      "latency_ms": 1055,
+      "error": false,
+      "result_summary": {
+        "success": true,
+        "closed": true,
+        "error_code": null,
+        "error_message": null
+      }
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "started": "2026-10-07T17:38:22.2166040+00:00",
+      "latency_ms": 1,
+      "error": true,
+      "result_summary": {
+        "success": false,
+        "error_code": "INVALID_INPUT",
+        "error_message": "InvalidOperationException: No active page. Call browser_get_content with url first."
+      }
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "started": "2026-10-07T17:38:22.2333300+00:00",
+      "latency_ms": 1002,
+      "error": false,
+      "result_summary": {
+        "success": true,
+        "closed": true,
+        "error_code": null,
+        "error_message": null
+      }
+    }
+  ]
+}

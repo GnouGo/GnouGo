@@ -1,0 +1,48 @@
+{
+  "status": "final_review",
+  "planning_ms": 451573,
+  "calls": 2,
+  "repairs": 0,
+  "discovery_reads": 2,
+  "review_revisions": 0,
+  "diagnostics": [],
+  "execution_success": false,
+  "execution_oracle": false,
+  "execution_status": "not_started",
+  "accounting": {
+    "planning": {
+      "logical_calls": 2,
+      "physical_attempts": 3,
+      "known_input_tokens": 18965,
+      "known_output_tokens": 6380,
+      "known_cost_eur": 0.2539932558345905,
+      "unknown_attempts": 1,
+      "reserved_input_tokens": 96000,
+      "reserved_output_tokens": 32768,
+      "reserved_cost_eur": 1.2982873369420533
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 820,
+      "session_calls": 0,
+      "known_input_tokens": 12264661,
+      "known_output_tokens": 1516576,
+      "known_cost_eur": 95.08774097973766,
+      "reserved_input_tokens": 288000,
+      "reserved_output_tokens": 98304,
+      "reserved_cost_eur": 3.9050401209064187,
+      "cost_upper_bound_eur": 98.99278110064407,
+      "unknown_attempts": 3
+    }
+  }
+}
