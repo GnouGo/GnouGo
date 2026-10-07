@@ -29,3 +29,5 @@ dotnet test tests/GnOuGo.Agent.Server.Tests -m:1 -warnaserror \
 ```
 
 Use the updated harness for future runs. Read-only inspection remains available when currency readiness fails. A new live evaluation still requires separate authorization, fresh identities, concrete artifact review and the existing campaign budget gate. This deterministic correction does not establish live execution success.
+
+See the [validation report](evidence/durable-inference-admission-2026-10-07/results.md) for counts, the retained Browser test failure and published checks.

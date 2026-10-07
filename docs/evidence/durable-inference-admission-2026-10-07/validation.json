@@ -1,0 +1,414 @@
+{
+  "candidate": "fcc75db8e7fe37dbaed58d3cbfe807c52f4995e7",
+  "focused": {
+    "passed": 71,
+    "failed": 0,
+    "new_admission_cases": 19
+  },
+  "solution": {
+    "exit_code": 1,
+    "passed": 4727,
+    "failed": 1,
+    "skipped": 12,
+    "suites": 33,
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -p:SkipClientBuild=true",
+    "suite_results": [
+      {
+        "suite": "GnOuGo.DocIngestor.Tests",
+        "failed": 0,
+        "passed": 89,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Diff.Tests",
+        "failed": 0,
+        "passed": 52,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.KeyVault.Core.Tests",
+        "failed": 0,
+        "passed": 12,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Tests",
+        "failed": 0,
+        "passed": 1120,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Integrations.Tests",
+        "failed": 0,
+        "passed": 97,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.AI.Core.Tests",
+        "failed": 0,
+        "passed": 225,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.AI.Local.Tests",
+        "failed": 0,
+        "passed": 14,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Agent.Mcp.Tests",
+        "failed": 0,
+        "passed": 103,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Cmd.Mcp.Tests",
+        "failed": 0,
+        "passed": 93,
+        "skipped": 7
+      },
+      {
+        "suite": "GnOuGo.Browser.Mcp.Tests",
+        "failed": 1,
+        "passed": 87,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Agent.Server.Tests",
+        "failed": 0,
+        "passed": 701,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Document.Mcp.Tests",
+        "failed": 0,
+        "passed": 64,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.KeyVault.Mcp.Tests",
+        "failed": 0,
+        "passed": 9,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Files.Server.Tests",
+        "failed": 0,
+        "passed": 10,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.DocIngestor.Mcp.Tests",
+        "failed": 0,
+        "passed": 7,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.OtlpCollector.Server.Tests",
+        "failed": 0,
+        "passed": 7,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.GithubCopilot.Mcp.Tests",
+        "failed": 0,
+        "passed": 240,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.GithubCopilot.Core.Tests",
+        "failed": 0,
+        "passed": 173,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.GithubCopilot.E2E.Tests",
+        "failed": 0,
+        "passed": 7,
+        "skipped": 5
+      },
+      {
+        "suite": "GnOuGo.Observability.Core.Tests",
+        "failed": 0,
+        "passed": 3,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Git.Mcp.Tests",
+        "failed": 0,
+        "passed": 83,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Workspace.Tests",
+        "failed": 0,
+        "passed": 30,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Mcp.Core.Tests",
+        "failed": 0,
+        "passed": 49,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Mermaid.Tests",
+        "failed": 0,
+        "passed": 12,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Assets.Bears.Tests",
+        "failed": 0,
+        "passed": 91,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Assets.Animation.Tests",
+        "failed": 0,
+        "passed": 42,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Assets.Animation.Server.Tests",
+        "failed": 0,
+        "passed": 13,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Assets.Bears.Server.Tests",
+        "failed": 0,
+        "passed": 28,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Planning.Tests",
+        "failed": 0,
+        "passed": 1059,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.ProxyCopilot.Server.Tests",
+        "failed": 0,
+        "passed": 177,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Auth.Core.Tests",
+        "failed": 0,
+        "passed": 8,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Persistence.Tests",
+        "failed": 0,
+        "passed": 17,
+        "skipped": 0
+      },
+      {
+        "suite": "GnOuGo.Flow.Copilot.Tests",
+        "failed": 0,
+        "passed": 5,
+        "skipped": 0
+      }
+    ]
+  },
+  "retained_failure": {
+    "test": "BrowserActionReferenceTests.ObservedLinkCannotSatisfyControlActivation(follow, true)",
+    "failure": "Expected success, actual false after 30 seconds; original assertion provides no runtime cause. Browser code unchanged in this correction.",
+    "isolated_rerun": {
+      "passed": 2,
+      "failed": 0
+    },
+    "browser_suite_rerun": {
+      "passed": 88,
+      "failed": 0
+    },
+    "root_cause_confirmed": false
+  },
+  "release_flow_core_package": "passed",
+  "native_aot_osx_arm64": "passed",
+  "server_self_contained_trimmed_osx_arm64": "passed",
+  "published_encrypted_recovery": "passed",
+  "paid_calls": 0,
+  "live_runs": 0,
+  "historical_invocations_modified": false,
+  "log_sha256": {
+    "solution": "e6bbbd66988e21b79700497951c625e1c757464afaaa965443b361339813a235",
+    "focused3": "d36c10b07c6e57d79daf046e06bee15501d4d0459fb638551e8a6d6f955f6352",
+    "pack": "581867595194dfe5518260d0260faf4c8797dbf1bef80e46146e20adcc502dbe",
+    "aot-publish": "4c342ae950176f2b1ae57eb0383d2b78cef16722419c7d7e584367ef4683528e",
+    "aot-smoke": "55d680deaa12c690cbf1c5cf5875ac7ceb48b865b9160d1eb1ab40220ffaa3ff",
+    "server-publish": "38c5b9fec16a132774ab73ae6aced5650262d72e591114bce7a087f428ea4c98",
+    "persistence-smoke": "d7cc8ec7a3dff2ab353e25932595d885ee30f565a6de92f436e3354a2c1d3b88",
+    "browser-rerun": "f29c0a4424516b98b79665493b638035bf735bf7b6535281da38edc8bd79af01",
+    "browser-suite-rerun": "3fe3fa7696b96e8725f33361dde998e14b27f5d111214ca3a604e64f1e9e50af"
+  },
+  "ci": {
+    "recorded_at_utc": "2026-10-07T12:38:26.254249+00:00",
+    "head": "fcc75db8",
+    "checks": [
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794566127",
+        "name": "Docker Builds / Docker Build (GnOuGo.DocIngestor.Server)",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794659760",
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-x64)",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794659911",
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (osx-arm64)",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794660008",
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (linux-arm64)",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794660004",
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (linux-x64)",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794659973",
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (win-x64)",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794659826",
+        "name": "Desktop (Trimmed + Native AOT tools) / Desktop Build (win-arm64)",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794660989",
+        "name": "Publish gnougo-flow-core to PyPI",
+        "state": "SKIPPED"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794661300",
+        "name": "ProxyCopilot (Native AOT)",
+        "state": "SKIPPED"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794661504",
+        "name": "Publish .NET packages to NuGet",
+        "state": "SKIPPED"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794565796",
+        "name": "OTLP Collector / OTLP Collector (osx-arm64)",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794566213",
+        "name": "Docker Builds / Docker Build (GnOuGo.Agent.Server)",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794566243",
+        "name": "OTLP Collector / OTLP Collector (linux-x64)",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794565923",
+        "name": "OTLP Collector / OTLP Collector (win-x64)",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794565911",
+        "name": "Compute Version Tag / Compute Version Tag",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794566132",
+        "name": "Docker Builds / Docker Build (GnOuGo.Diff.Server)",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794566121",
+        "name": "Docker Builds / Docker Build (GnOuGo.OtlpCollector.Server)",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794566079",
+        "name": "Docker Builds / Docker Build (GnOuGo.Flow.Server)",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112794566228",
+        "name": "Docker Builds / Docker Build (GnOuGo.KeyVault.Server)",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112790468232",
+        "name": "KeyVault MCP / KeyVault MCP (win-x64)",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620854653/job/112790464776",
+        "name": "ProxyCopilot AOT (osx-arm64)",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620854606/job/112790464767",
+        "name": "standalone",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620854653/job/112790464700",
+        "name": "ProxyCopilot AOT (osx-x64)",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112790467676",
+        "name": "Server (linux-x64) / Server (linux-x64)",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620854653/job/112790464822",
+        "name": "ProxyCopilot AOT (win-arm64)",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620854653/job/112790464795",
+        "name": "ProxyCopilot AOT (win-x64)",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620854653/job/112790464411",
+        "name": "ProxyCopilot AOT (linux-arm64)",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620854653/job/112790464785",
+        "name": "ProxyCopilot AOT (linux-x64)",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620854726/job/112790464957",
+        "name": "validate",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112790468003",
+        "name": "Agent Server Tests (non-blocking) / Agent Server Tests",
+        "state": "IN_PROGRESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112790468159",
+        "name": "Stable Unit Tests / Stable .NET Unit Tests",
+        "state": "SUCCESS"
+      },
+      {
+        "link": "https://github.com/GnouGo/GnouGo/actions/runs/37620855192/job/112790468258",
+        "name": "Stable Unit Tests / Python Unit Tests",
+        "state": "SUCCESS"
+      }
+    ],
+    "note": "Point-in-time status; pending checks do not establish acceptance."
+  }
+}
