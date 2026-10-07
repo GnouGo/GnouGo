@@ -8,6 +8,8 @@ using GnOuGo.Agent.Mcp;
 using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Expressions;
+using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Integrations;
 using GnOuGo.Flow.Planning;
 using GnOuGo.KeyVault.Core;
@@ -32,16 +34,21 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     private readonly LLMOptions _options;
     private readonly HttpClient _http;
     private readonly ILLMClient _client;
-    private readonly EcbExchangeRateProvider _rates;
-    private readonly ModelMetadataUsageCostEstimator _estimator;
+    private readonly IExchangeRateProvider _rates;
+    private readonly IModelUsageCostEstimator _estimator;
+    private readonly TimeProvider _time;
+    private static readonly TimeSpan MaxQuoteAge = new EcbExchangeRateProviderOptions().MaxQuoteAge;
     private readonly SemaphoreSlim _dispatchGate = new(1, 1);
     private static readonly Lazy<TiktokenTokenizer> ExecutionTokenizer = new(() => TiktokenTokenizer.CreateForEncoding("o200k_base"));
-    private KeyVaultBenchmarkModel(BenchmarkCampaign campaign, LLMOptions options)
+    internal KeyVaultBenchmarkModel(BenchmarkCampaign campaign, LLMOptions options,
+        ILLMClient? client = null, IExchangeRateProvider? rates = null,
+        IModelUsageCostEstimator? estimator = null, TimeProvider? time = null)
     {
         _campaign = campaign; _options = options;
         _http = LLMHttpClientFactory.Create(options.DangerousAcceptAnyServerCertificate, TimeSpan.FromMinutes(10));
-        _client = new RoutingLLMClientAdapter(new RoutingLLMClient(options, RoutingLLMClient.CreateDefaultProviders(_http)));
-        _rates = new(_http); _estimator = new(options);
+        _client = client ?? new RoutingLLMClientAdapter(new RoutingLLMClient(options, RoutingLLMClient.CreateDefaultProviders(_http)));
+        _time = time ?? TimeProvider.System;
+        _rates = rates ?? new EcbExchangeRateProvider(_http, timeProvider: _time); _estimator = estimator ?? new ModelMetadataUsageCostEstimator(options);
     }
     internal string Model => _options.DefaultModel;
     internal string Provider => _options.DefaultProvider;
@@ -54,13 +61,105 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         var metadata = new RoutingLLMClient(_options, []).ResolveDeclaredMetadata(Provider, Model);
         var planning = await InputTokenAllowanceAsync(Provider, Model, 32768, ct);
         var mapping = await InputTokenAllowanceAsync(Provider, Model, 8192, ct);
+        JsonObject accounting;
+        try
+        {
+            var price = AdmissionPrice(96000, 32768);
+            var quote = await FreshQuoteAsync(price.Currency, ct);
+            accounting = new() { ["ready"] = true, ["quote"] = quote.DeepClone(),
+                ["reservation_estimate_eur"] = ConvertCost(price, quote, beforeDispatch: true) };
+        }
+        catch (WorkflowRuntimeException ex) when (ex.Code == ErrorCodes.LlmBudgetUnverifiable)
+        { accounting = new() { ["ready"] = false, ["error"] = ex.Code, ["details"] = ex.Details?.DeepClone() }; }
+        var limitsReady = planning is > 0 && mapping is > 0;
         return new JsonObject { ["provider"] = Provider, ["model"] = Model, ["configuration_hash"] = ConfigurationFingerprint,
             ["metadata_sources"] = MetadataSources.DeepClone(), ["declared_metadata_hash"] = metadata is null ? null : PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(metadata)),
             ["max_input_tokens"] = metadata?.MaxInputTokens, ["context_window_tokens"] = metadata?.ContextWindowTokens,
             ["max_output_tokens"] = metadata?.MaxOutputTokens, ["planning_input_allowance"] = planning is null ? null : Math.Min(96000, planning.Value),
             ["mapping_input_allowance"] = mapping is null ? null : Math.Min(96000, mapping.Value), ["model_calls"] = 0,
-            ["ready"] = planning is > 0 && mapping is > 0,
-            ["limitation"] = planning is > 0 && mapping is > 0 ? null : "Exact deployment limits (MaxInputTokens, ContextWindowTokens and MaxOutputTokens) are required; no nearby-model or campaign-limit fallback is permitted." };
+            ["accounting"] = accounting, ["ready"] = limitsReady && accounting["ready"]!.GetValue<bool>(),
+            ["limitation"] = !limitsReady ? "Exact deployment limits (MaxInputTokens, ContextWindowTokens and MaxOutputTokens) are required; no nearby-model or campaign-limit fallback is permitted."
+                : accounting["ready"]!.GetValue<bool>() ? null : "Verified pricing and a fresh currency quote are required before external work." };
+    }
+
+    internal static void RequireReady(JsonObject readiness)
+    {
+        if (readiness["ready"]?.GetValue<bool>() == true) return;
+        throw BenchmarkCampaign.AdmissionFailure(readiness["accounting"]?["details"]?["reason"]?.ToString() ?? "deployment_allowance_unavailable");
+    }
+
+    private ModelUsageCostEstimate AdmissionPrice(long input, long output)
+    {
+        var price = _estimator.EstimateCostWithCurrency(Model, input, output, Provider);
+        if (price is null || price.Amount < 0 || string.IsNullOrEmpty(price.Currency) || price.Currency.Length != 3 || price.Currency.Any(c => c is < 'A' or > 'Z'))
+            throw BenchmarkCampaign.AdmissionFailure("model_price_unavailable");
+        return price;
+    }
+
+    private bool ValidQuote(JsonObject quote, string currency, bool fresh)
+    {
+        try
+        {
+            var date = quote["as_of_utc"]!.GetValue<DateTimeOffset>();
+            return quote["source_currency"]?.ToString() == currency && quote["target_currency"]?.ToString() == "EUR"
+                && quote["rate"]!.GetValue<decimal>() > 0 && !string.IsNullOrWhiteSpace(quote["source"]?.ToString())
+                && date != default && date <= _time.GetUtcNow() && (!fresh || _time.GetUtcNow() - date <= MaxQuoteAge);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or FormatException or NullReferenceException) { return false; }
+    }
+
+    private async Task<JsonObject> FreshQuoteAsync(string currency, CancellationToken ct)
+    {
+        const string collection = "planning-evaluation-exchange-rates";
+        var key = currency + "-EUR";
+        var cached = await _campaign.LoadAsync(collection, key, ct);
+        if (cached is not null && ValidQuote(cached, currency, fresh: true)) return cached;
+        CurrencyExchangeQuote? quote;
+        try { quote = await _rates.GetQuoteAsync(currency, "EUR", ct); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or OperationCanceledException)
+        { throw BenchmarkCampaign.AdmissionFailure("currency_quote_unavailable"); }
+        if (quote is null) throw BenchmarkCampaign.AdmissionFailure("currency_quote_unavailable");
+        var result = new JsonObject { ["source_currency"] = quote.SourceCurrency, ["target_currency"] = quote.TargetCurrency,
+            ["rate"] = quote.Rate, ["as_of_utc"] = quote.AsOfUtc, ["source"] = quote.Source };
+        if (!ValidQuote(result, currency, fresh: true)) throw BenchmarkCampaign.AdmissionFailure("currency_quote_invalid_or_stale");
+        await _campaign.SaveAsync(collection, key, result, ct);
+        return result;
+    }
+
+    private static decimal ConvertCost(ModelUsageCostEstimate price, JsonObject quote, bool beforeDispatch)
+    {
+        try { return checked(price.Amount * quote["rate"]!.GetValue<decimal>()); }
+        catch (OverflowException) when (beforeDispatch) { throw BenchmarkCampaign.AdmissionFailure("currency_conversion_overflow"); }
+    }
+
+    private async Task<BenchmarkHttpJournal> PrepareAdmissionAsync(string requestId, long input, long output, int? sessionLimit, CancellationToken ct)
+    {
+        var existing = await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
+        if (existing is not null)
+        {
+            // Never reconstruct an historical admission from today's quote or relax unknown completion.
+            if (existing["exchange_quote"] is not JsonObject saved ||
+                !ValidQuote(saved, saved["source_currency"]?.ToString() ?? "", fresh: false))
+                throw new InvalidOperationException("The issued request has no verified exchange quote; retain it for explicit recovery.");
+            return new(_campaign, requestId, existing["input_ceiling"]!.GetValue<long>(), existing["output_ceiling"]!.GetValue<long>(),
+                existing["cost_ceiling_eur"]!.GetValue<decimal>(), sessionLimit);
+        }
+        var price = AdmissionPrice(input, output);
+        var quote = await FreshQuoteAsync(price.Currency, ct);
+        var journal = new BenchmarkHttpJournal(_campaign, requestId, input, output, ConvertCost(price, quote, true), sessionLimit);
+        await journal.PrepareAsync(ct, quote);
+        return journal;
+    }
+
+    private async Task<decimal> CompletedCostAsync(string requestId, long input, long output)
+    {
+        var record = await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, requestId, CancellationToken.None);
+        var quote = record?["exchange_quote"] as JsonObject;
+        var price = _estimator.EstimateCostWithCurrency(Model, input, output, Provider);
+        if (price is null || price.Amount < 0 || quote is null || !ValidQuote(quote, price.Currency, fresh: false))
+            throw new InvalidOperationException("The completed request cannot be settled using its admitted pricing currency and quote.");
+        return ConvertCost(price, quote, false);
     }
     internal static void ApplyUserMetadata(LLMOptions options, IReadOnlyDictionary<string, LLMModelMetadata>? overrides, string provider, string? model)
     {
@@ -156,11 +255,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             var json = JsonSerializer.Serialize(dispatched, PlanningJsonContext.Default.LLMRequest);
             var input = Math.Max(96_000, Encoding.UTF8.GetByteCount(json));
             var output = dispatched.MaxTokens ?? 32_768;
-            var ceiling = _estimator.EstimateCostWithCurrency(Model, input, output, Provider)
-                ?? throw new InvalidOperationException("No model price metadata.");
-            var quote = await _rates.GetQuoteAsync(ceiling.Currency, "EUR", token) ?? throw new InvalidOperationException("No currency quote.");
-            journal = new(_campaign, request.ClientRequestId!, input, output, ceiling.Amount * quote.Rate, sessionAttemptLimit: execution ? null : 8);
-            await journal.PrepareAsync(token);
+            journal = await PrepareAdmissionAsync(request.ClientRequestId!, input, output, execution ? null : 8, token);
         }, async token =>
         {
             using var context = new LLMHttpRetryContext(request.ClientRequestId!, journal!).Activate();
@@ -172,10 +267,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 throw new InvalidOperationException("Provider usage is missing; the reservation remains conservative.");
             }
             var input = ReadTokens("input_tokens", "prompt_tokens"); var output = ReadTokens("output_tokens", "completion_tokens");
-            var estimate = _estimator.EstimateCostWithCurrency(Model, input, output, Provider) ?? throw new InvalidOperationException("No model price metadata.");
-            var quote = await _rates.GetQuoteAsync(estimate.Currency, "EUR", CancellationToken.None) ?? throw new InvalidOperationException("No currency quote.");
             response.Usage = await journal!.CompleteAsync(new() { ["input_tokens"] = input, ["output_tokens"] = output,
-                ["total_tokens"] = checked(input + output), ["benchmark_cost_eur"] = estimate.Amount * quote.Rate }, CancellationToken.None);
+                ["total_tokens"] = checked(input + output), ["benchmark_cost_eur"] = await CompletedCostAsync(request.ClientRequestId!, input, output) }, CancellationToken.None);
             return response;
         }, ct, allowHttpRecovery: true);
     }
@@ -184,6 +277,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     {
         var record = await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, ct);
         if (record?["usage"] is JsonObject known) return known.DeepClone().AsObject();
+        if (record is null && (await _campaign.LoadAsync("planning-evaluation-failures", id, ct))?["dispatch_status"]?.ToString() == "not_started")
+            return BenchmarkHttpJournal.UndispatchedUsage();
         if (record?["transport"]?["Attempts"] is not JsonArray attempts) return null;
         if (attempts.Count == 0) return BenchmarkHttpJournal.UndispatchedUsage();
         var pending = attempts.Count(a => a!["Status"] is null || a["Status"]!.GetValue<int>() is >= 200 and < 300);
@@ -211,12 +306,10 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             if (ExecutionInputEstimate(body) > 96000) throw new InvalidOperationException("Execution request exceeds the campaign input allowance.");
             var id = run + "-copilot:" + PlanningGraphCompiler.Fingerprint(sdkId);
             var request = new LLMRequest { ClientRequestId = id, Provider = Provider, Model = Model, Prompt = body, MaxTokens = output };
-            var price = _estimator.EstimateCostWithCurrency(Model, input, output.Value, Provider) ?? throw new InvalidOperationException("No model price metadata.");
-            var quote = await _rates.GetQuoteAsync(price.Currency, "EUR", ct) ?? throw new InvalidOperationException("No currency quote.");
-            var journal = new BenchmarkHttpJournal(_campaign, id, input, output.Value, price.Amount * quote.Rate, sessionAttemptLimit: null);
-            var response = await _campaign.CallAsync(request, token => journal.PrepareAsync(token), async token =>
+            BenchmarkHttpJournal? journal = null;
+            var response = await _campaign.CallAsync(request, async token => journal = await PrepareAdmissionAsync(id, input, output.Value, null, token), async token =>
             {
-                var state = await journal.LoadAsync(token) ?? new();
+                var state = await journal!.LoadAsync(token) ?? new();
                 if (state.Attempts.Count != 0) throw new InvalidOperationException("Unknown SDK inference cannot be dispatched again.");
                 state.Fingerprint = PlanningGraphCompiler.Fingerprint(body); state.Attempts.Add(new() { Id = id });
                 await journal.SaveAsync(state, token);
@@ -239,8 +332,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 if (result.IsSuccessStatusCode && (usage?["input_tokens"] ?? usage?["prompt_tokens"])?.GetValue<long>() is { } usedInput &&
                     (usage?["output_tokens"] ?? usage?["completion_tokens"])?.GetValue<long>() is { } usedOutput)
                 {
-                    var actual = _estimator.EstimateCostWithCurrency(Model, usedInput, usedOutput, Provider) ?? throw new InvalidOperationException("No model price metadata.");
-                    measured = await journal.CompleteAsync(new() { ["input_tokens"] = usedInput, ["output_tokens"] = usedOutput, ["benchmark_cost_eur"] = actual.Amount * quote.Rate }, CancellationToken.None);
+                    measured = await journal.CompleteAsync(new() { ["input_tokens"] = usedInput, ["output_tokens"] = usedOutput,
+                        ["benchmark_cost_eur"] = await CompletedCostAsync(id, usedInput, usedOutput) }, CancellationToken.None);
                 }
                 return new LLMResponse { Text = text, Json = new JsonObject { ["status"] = (int)result.StatusCode, ["content_type"] = contentType }, Usage = measured };
             }, ct);
@@ -283,13 +376,13 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     {
         // This record is encrypted like the campaign journal. Public reports use
         // only its type, reason and counts, never the retained request contents.
-        var reason = failure.Message switch
+        var reason = (failure as WorkflowRuntimeException)?.Details?["reason"]?.ToString() ?? (failure.Message switch
         {
             "Execution request exceeds the campaign input allowance." => "input_allowance",
             "The campaign or session cannot cover another HTTP attempt." => "spending_or_attempt_allowance",
             "No currency quote." => "currency_quote_unavailable",
             _ => "admission_or_transport_failure"
-        };
+        });
         return _campaign.SaveAsync("planning-evaluation-execution-admissions", run + ":" + PlanningGraphCompiler.Fingerprint(body + reason),
             new() { ["reason"] = reason, ["exception_type"] = failure.GetType().Name,
                 ["json_bytes"] = Encoding.UTF8.GetByteCount(body), ["body"] = body }, CancellationToken.None);

@@ -3,6 +3,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Expressions;
+using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Planning;
 using GnOuGo.KeyVault.Core.Services;
 
@@ -19,6 +21,9 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         => await records.GetAsync(collection, "benchmark", Id + ":" + key, Author, ct) is { } record ? JsonNode.Parse(record.Value)!.AsObject() : null;
     internal Task SaveAsync(string collection, string key, JsonObject value, CancellationToken ct = default)
         => records.UpsertAsync(collection, "benchmark", Id + ":" + key, value.ToJsonString(), Author, ct);
+    internal static WorkflowRuntimeException AdmissionFailure(string reason) => new(ErrorCodes.LlmBudgetUnverifiable,
+        "Inference admission could not verify " + reason + "; no provider attempt was started.", retryable: false,
+        details: new JsonObject { ["dispatch_status"] = "not_started", ["reason"] = reason });
     internal async Task PinAsync(JsonObject configuration, CancellationToken ct)
     {
         var saved = await LoadAsync("planning-evaluation-configuration", "configuration", ct);
@@ -248,6 +253,12 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         if (await LoadAsync("planning-evaluation-closures", key, ct) is not null) throw new InvalidOperationException("This request is permanently retained as inconclusive and cannot be dispatched again.");
         if (await LoadAsync("planning-evaluation-receipts", key, ct) is { } receipt)
             return JsonSerializer.Deserialize(receipt, PlanningJsonContext.Default.LLMResponse)!;
+        var requestHash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        if (await LoadAsync("planning-evaluation-failures", key, ct) is { } denied && denied["dispatch_status"]?.ToString() == "not_started")
+        {
+            if (denied["request_hash"]?.ToString() != requestHash) throw new InvalidOperationException("The rejected request identity changed.");
+            throw AdmissionFailure(denied["reason"]!.ToString());
+        }
         var reserved = await LoadAsync("planning-evaluation-requests", key, ct);
         if (reserved is not null && !JsonNode.DeepEquals(reserved, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)))
             throw new InvalidOperationException("The reserved request changed.");
@@ -271,12 +282,23 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
         catch (Exception ex)
         {
             StopReason ??= stage == "preflight" ? "preflight_failed" : "uncertain_dispatch";
+            var admission = ex is WorkflowRuntimeException { Code: ErrorCodes.LlmBudgetUnverifiable, Details: JsonObject d }
+                && d["dispatch_status"]?.ToString() == "not_started";
+            // A prior attempt or an issued legacy request cannot acquire a new zero-dispatch classification.
+            var verified = admission && stage == "preflight" && reserved is null &&
+                ((await LoadAsync(BenchmarkHttpJournal.Collection, key, CancellationToken.None))?["transport"]?["Attempts"]?.AsArray().Count ?? 0) == 0;
             var failure = ex as LLMClientException;
             var details = new JsonObject { ["stage"] = stage, ["exception_type"] = ex.GetType().Name, ["kind"] = failure?.Kind.ToString(),
                 ["status_code"] = failure?.StatusCode, ["safe_provider_code"] = failure?.SafeProviderCode, ["retryable"] = failure?.Retryable,
                 ["attempt_count"] = failure?.AttemptCount, ["retry_exhausted"] = failure?.RetryExhausted, ["retry_after_ms"] = failure?.RetryAfterMilliseconds };
             if (stage == "preflight") details["reason"] = ex.Message switch
             { "No currency quote." => "currency_quote_unavailable", "No model price metadata." => "model_price_unavailable", _ => "preflight_failed" };
+            if (verified)
+            {
+                details["reason"] = ((WorkflowRuntimeException)ex).Details!["reason"]!.DeepClone();
+                details["dispatch_status"] = "not_started";
+                details["request_hash"] = requestHash;
+            }
             // A durable reservation already prevents redispatch. Failure evidence must not
             // replace the original exception if storage is itself unavailable.
             try
@@ -288,7 +310,8 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
                 if (history.Count > 0) details["previous_failures"] = history;
                 await SaveAsync("planning-evaluation-failures", key, details, CancellationToken.None);
             }
-            catch { }
+            catch when (!verified) { }
+            if (admission && !verified) throw new InvalidOperationException("Prior dispatch cannot be excluded; retain the request for reconciliation.", ex);
             throw;
         }
     }

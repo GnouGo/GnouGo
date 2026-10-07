@@ -40,6 +40,8 @@ internal static class MappingLiveEvaluation
     }
     internal static async Task RunAsync(string[] args, BenchmarkCampaign campaign, KeyVaultBenchmarkModel provider, string root)
     {
+        var readiness = await provider.ReadinessAsync(CancellationToken.None);
+        KeyVaultBenchmarkModel.RequireReady(readiness);
         var label = SchemaPortabilityCampaign.Option(args, "--run") ?? throw new ArgumentException("Supply a fresh --run.");
         if (label.Length > 80 || !label.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) throw new ArgumentException("Invalid run identity.");
         var variant = SchemaPortabilityCampaign.Option(args, "--variant") ?? "scalar";
@@ -70,7 +72,7 @@ internal static class MappingLiveEvaluation
                 evidence = new JsonObject { ["source_sha"] = revision, ["harness_sha"] = revision, ["model"] = provider.Model,
                     ["provider_policy_hash"] = provider.ConfigurationFingerprint, ["catalog_hash"] = catalogHash,
                     ["profile"] = GnOuGo.Flow.Core.Scripting.JintSandbox.MappingProfileVersion, ["model_attempts_per_mapping"] = 2,
-                    ["readiness"] = await provider.ReadinessAsync(CancellationToken.None), ["accounting_before"] = await campaign.InspectAsync(),
+                    ["readiness"] = readiness, ["accounting_before"] = await campaign.InspectAsync(),
                     ["planning_calls"] = 0, ["repairs"] = 0, ["artifacts"] = new JsonObject(), ["runs"] = new JsonArray(),
                     ["corpus_hash"] = PlanningGraphCompiler.Fingerprint(string.Join('\n', Samples().Select(s => s.ToString()))) };
                 foreach (var kind in new[] { "scalar", "extended", "each" })
@@ -95,8 +97,7 @@ internal static class MappingLiveEvaluation
             }
             var command = JsonSerializer.Deserialize(await File.ReadAllTextAsync(review), PlanningJsonContext.Default.PlanningCommand) ?? throw new ArgumentException("Supply an explicit approval command.");
             var approved = await LiveWorkflowEvaluation.ApproveAsync(retained, command, runtime, CancellationToken.None);
-            var readiness = await provider.ReadinessAsync(CancellationToken.None);
-            if (readiness["ready"]?.GetValue<bool>() != true) throw new InvalidOperationException("Exact deployment allowances remain unavailable; no inference dispatched.");
+            KeyVaultBenchmarkModel.RequireReady(await provider.ReadinessAsync(CancellationToken.None));
             retained["session"] = JsonSerializer.SerializeToNode(approved, PlanningJsonContext.Default.PlanningSession);
             retained["execution_started"] = DateTimeOffset.UtcNow.ToString("O");
             await campaign.SaveAsync(Collection, label, evidence);

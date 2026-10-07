@@ -26,7 +26,7 @@ internal static class LiveExecutionReadiness
             ["provider_hash"] = model.ConfigurationFingerprint, ["readiness"] = await model.ReadinessAsync(CancellationToken.None),
             ["accounting_before"] = await campaign.InspectAsync(), ["events"] = new JsonArray(), ["passed"] = false };
         await campaign.SaveAsync(collection, label, state);
-        if (state["readiness"]?["ready"]?.GetValue<bool>() != true) throw new InvalidOperationException("Exact deployment allowances are required before paid probes.");
+        KeyVaultBenchmarkModel.RequireReady(state["readiness"]!.AsObject());
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, label);
         var settings = LiveWorkflowEvaluation.Configuration(model.McpServers, "code", proxy.Endpoint);
         var human = new LiveWorkflowEvaluation.ConsoleHuman(campaign, label);

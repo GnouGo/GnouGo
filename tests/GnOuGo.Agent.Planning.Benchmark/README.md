@@ -458,7 +458,11 @@ separates deterministic adapter execution from live-provider results.
 
 ### Bounded mapping cohort
 
-First inspect exact deployment metadata without inference. The harness loads host metadata and persisted Agent user overrides with Server precedence; it keeps the campaign provider/model pinned. Output contains allowances and fingerprints, never credentials. Missing limits stop dependent paid dispatch; campaign ceilings are not deployment metadata.
+First inspect exact deployment metadata and accounting readiness without inference. The harness loads host metadata and persisted Agent user overrides with Server precedence; it keeps the campaign provider/model pinned. Output contains allowances, pricing readiness, the validated exchange quote and fingerprints, never credentials. Missing limits, pricing or a fresh quote stop before MCP execution; campaign ceilings are not deployment metadata.
+
+Validated quotes (currency pair, rate, authority and timestamp) are cached in encrypted campaign records under the existing seven-day freshness policy. Each newly admitted request stores its quote atomically with its HTTP journal before any attempt. Settlement and receipt recovery reuse that admitted quote without fetching another rate. A stale quote cannot admit a new request; a completed request keeps the conversion used for its reservation. No fallback rate or freshness extension is permitted.
+
+A verified pricing/quote refusal before dispatch returns `LLM_BUDGET_UNVERIFIABLE` with `dispatch_status: not_started` and a precise reason. The campaign durably binds that refusal to the original request hash, and Flow records it through the existing completion path so failure cleanup can run. Reusing the same identity replays the refusal, not inference. Changed identities or historical unknown dispatches cannot acquire a new zero-dispatch classification. Failed receipt writes and unverified post-dispatch errors continue to block cleanup and replay. Inspection of retained runs does not depend on exchange-rate availability.
 
 ```bash
 dotnet run --project tests/GnOuGo.Agent.Planning.Benchmark -- --schema-portability provider-readiness --campaign schema-portability-20261002 --workspace /path/to/GnOuGo

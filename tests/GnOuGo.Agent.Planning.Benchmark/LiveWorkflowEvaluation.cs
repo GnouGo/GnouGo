@@ -21,9 +21,6 @@ internal static class LiveWorkflowEvaluation
 
     internal static async Task RunAsync(string[] args, string phase, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, string root)
     {
-        var readiness = await model.ReadinessAsync(CancellationToken.None);
-        Console.WriteLine(readiness.ToJsonString());
-        if (readiness["ready"]?.GetValue<bool>() != true) throw new InvalidOperationException("Exact deployment allowances are required before live planning or execution.");
         var scenario = SchemaPortabilityCampaign.Option(args, "--case") ?? "amazon";
         if (scenario is not ("amazon" or "code")) throw new ArgumentException("Choose amazon or code.");
         var label = SchemaPortabilityCampaign.Option(args, "--run") ?? (phase == "readiness" ? "readiness-" : "diagnostic-") + scenario + "-1";
@@ -33,6 +30,9 @@ internal static class LiveWorkflowEvaluation
         var key = "run:" + label;
         var retained = await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, key);
         if (phase == "inspect-run") { Console.WriteLine(retained?.ToJsonString() ?? "No run."); return; }
+        var readiness = await model.ReadinessAsync(CancellationToken.None);
+        Console.WriteLine(readiness.ToJsonString());
+        KeyVaultBenchmarkModel.RequireReady(readiness);
         var productLimit = int.Parse(SchemaPortabilityCampaign.Option(args, "--max-products") ?? "3", System.Globalization.CultureInfo.InvariantCulture);
         if (productLimit is < 1 or > 10) throw new ArgumentException("--max-products must be between 1 and 10.");
         if (phase is "execute" or "revise" && (retained?["max_products"]?.GetValue<int>() ?? 3) != productLimit)

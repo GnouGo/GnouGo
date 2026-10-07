@@ -135,7 +135,7 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
         static JsonObject CheckReceipt(JsonObject receipt)
         {
             if (receipt["error"] is JsonValue error) throw new WorkflowRuntimeException(error.GetValue<string>(),
-                "Mapping inference stopped: " + error.GetValue<string>() + ".");
+                "Mapping inference stopped: " + error.GetValue<string>() + ".", details: receipt["details"]?.DeepClone() as JsonObject);
             return receipt;
         }
         JsonObject Evaluate(string script)
@@ -182,8 +182,9 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
                 }
                 catch (LLMClientException ex) when (ex.IsRequestRejected)
                 { receipt = new() { ["error"] = "MODEL_REQUEST_REJECTED", ["kind"] = ex.Kind.ToString() }; }
-                catch (WorkflowRuntimeException ex) when (ex.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable)
-                { receipt = new() { ["error"] = ex.Code }; }
+                catch (WorkflowRuntimeException ex) when ((ex.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable)
+                    && ex.Details?["dispatch_status"]?.ToString() == "not_started")
+                { receipt = new() { ["error"] = ex.Code, ["details"] = ex.Details.DeepClone() }; }
                 if (id is not null) await ctx.Engine.Journal!.ObserveAsync(id, receipt, CancellationToken.None);
                 return receipt;
             }

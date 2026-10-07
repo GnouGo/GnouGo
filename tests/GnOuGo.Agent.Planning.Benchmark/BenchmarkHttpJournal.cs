@@ -13,15 +13,17 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         ["transport_attempts"] = 0, ["uncertain_attempts"] = 0, ["reserved_input_tokens"] = 0L,
         ["reserved_output_tokens"] = 0L, ["reserved_cost_eur"] = 0m, ["benchmark_usage_bounded"] = true
     };
-    internal async Task PrepareAsync(CancellationToken ct)
+    internal async Task PrepareAsync(CancellationToken ct, JsonObject? exchangeQuote = null)
     {
-        if (await LoadAsync(ct) is null) await SaveAsync(new(), ct);
+        if (await LoadAsync(ct) is null) await SaveAsync(new(), ct, exchangeQuote);
     }
     public async Task<LLMHttpRetryState?> LoadAsync(CancellationToken ct)
         => (await campaign.LoadAsync(Collection, requestId, ct))?["transport"] is { } state
             ? JsonSerializer.Deserialize(state, LLMHttpRetryJsonContext.Default.LLMHttpRetryState) : null;
 
-    public async Task SaveAsync(LLMHttpRetryState state, CancellationToken ct)
+    public Task SaveAsync(LLMHttpRetryState state, CancellationToken ct) => SaveAsync(state, ct, null);
+
+    private async Task SaveAsync(LLMHttpRetryState state, CancellationToken ct, JsonObject? exchangeQuote)
     {
         var existing = await campaign.LoadAsync(Collection, requestId, ct);
         if (sessionAttemptLimit is <= 0 || existing is not null &&
@@ -32,6 +34,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
             ["input_ceiling"] = inputCeiling, ["output_ceiling"] = outputCeiling, ["cost_ceiling_eur"] = costCeiling, ["session_attempt_limit"] = sessionAttemptLimit
         };
         if (inputCeiling <= 0 || outputCeiling <= 0 || costCeiling < 0) throw new InvalidOperationException("Conservative attempt limits are required.");
+        if (existing is null && exchangeQuote is not null) record["exchange_quote"] = exchangeQuote.DeepClone();
         record["transport"] = JsonSerializer.SerializeToNode(state, LLMHttpRetryJsonContext.Default.LLMHttpRetryState);
         var oldCount = existing?["transport"]?["Attempts"]?.AsArray().Count ?? 0;
         if (state.Attempts.Count > oldCount)
