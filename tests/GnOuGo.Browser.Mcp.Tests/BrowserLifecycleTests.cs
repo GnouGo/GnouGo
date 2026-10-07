@@ -140,22 +140,44 @@ public sealed class BrowserLifecycleTests
     [InlineData("timeout")]
     [InlineData("cancel")]
     [InlineData("close")]
+    [InlineData("already_closed")]
     [InlineData("dispose")]
     public async Task IncompleteDocumentsNeverBecomeSuccessfulOnTermination(string termination)
     {
         await using var site = await Site.CreateAsync(LoadState.DOMContentLoaded);
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(Ct);
         var entered = Signal();
-        using var observation = new NavigationObservation(site.Page) { ReadinessCheckpoint = () => { entered.TrySetResult(); return Task.CompletedTask; } };
+        var continueRead = Signal();
+        using var observation = new NavigationObservation(site.Page)
+        {
+            ReadinessCheckpoint = async () =>
+            {
+                entered.TrySetResult();
+                if (termination == "close") await continueRead.Task.WaitAsync(Ct);
+            }
+        };
         observation.Start();
         await site.Page.Locator("#go").ClickAsync();
         await site.ResourceRequested.Task.WaitAsync(Ct);
+        if (termination == "already_closed") await site.Page.CloseAsync();
         var waiting = observation.WaitForLoadStateAsync(LoadState.DOMContentLoaded, termination == "timeout" ? 100 : 5_000, cancellation.Token);
-        await entered.Task.WaitAsync(Ct);
+        if (termination != "already_closed") await entered.Task.WaitAsync(Ct);
         switch (termination)
         {
             case "cancel": await cancellation.CancelAsync(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting); break;
-            case "close": await site.Page.CloseAsync(); await Assert.ThrowsAsync<PlaywrightException>(() => waiting); break;
+            case "close":
+                await site.Page.CloseAsync(); continueRead.TrySetResult();
+                var closedDuringRead = await Assert.ThrowsAnyAsync<PlaywrightException>(() => waiting);
+                // The SDK's precise closed-target exception is internal to its assembly.
+                Assert.Equal("Microsoft.Playwright.TargetClosedException", closedDuringRead.GetType().FullName);
+                Assert.Equal("BROWSER_ERROR", BrowserToolFailure.Action("click", "#go", closedDuringRead).ErrorCode);
+                Assert.True(site.Page.IsClosed);
+                break;
+            case "already_closed":
+                var closedBeforeRead = await Assert.ThrowsAsync<PlaywrightException>(() => waiting);
+                Assert.Equal("BROWSER_ERROR", BrowserToolFailure.Action("click", "#go", closedBeforeRead).ErrorCode);
+                Assert.True(site.Page.IsClosed);
+                break;
             case "dispose": observation.Dispose(); await Assert.ThrowsAsync<ObjectDisposedException>(() => waiting); break;
             default: await Assert.ThrowsAsync<TimeoutException>(() => waiting); break;
         }

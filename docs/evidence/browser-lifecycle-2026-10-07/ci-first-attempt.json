@@ -1,0 +1,10 @@
+{
+  "source": "94a5b61acbfb0603175f889809561ca36b532668",
+  "job": "https://github.com/GnouGo/GnouGo/actions/runs/37633283965",
+  "passed": 108,
+  "failed": 1,
+  "test": "BrowserLifecycleTests.IncompleteDocumentsNeverBecomeSuccessfulOnTermination(close)",
+  "cause": "The new test allowed closure either before or during the readiness read, but asserted only the former exact exception type. Linux delivered TargetClosedException during the read. The original follow case passed.",
+  "correction": "Control closure timing explicitly and assert both exact failure types plus the same structured BROWSER_ERROR, closed page and single interaction. No production change, relaxed assertion or timeout increase.",
+  "local_compile_followup": "The SDK closed-target exception is internal. The test asserts its exact full type name through the public PlaywrightException base, plus the structured error contract."
+}

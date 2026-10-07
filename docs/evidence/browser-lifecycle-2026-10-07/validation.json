@@ -1,10 +1,10 @@
 {
   "checks": {
     "browser": {
-      "sha256": "92972acd711d275608ce156ec64157447f793db816c6bc1ddb5a801329de3693",
-      "passed": 109,
+      "passed": 110,
       "failed": 0,
-      "skipped": 0
+      "skipped": 0,
+      "sha256": "5d4cbe5dd30661abc36aa1dde125b9a12d75c705c1373c58acf6a582c384c83e"
     },
     "reproduction_after": {
       "sha256": "89a8bfc59544474b24c8aeda8e26f8645932613cee7c08ee8f198ba709211fc4",
@@ -18,9 +18,14 @@
       "self_contained": true,
       "native_aot": false,
       "exit_code": 0
+    },
+    "published_receipts": {
+      "passed": 4,
+      "failed": 0,
+      "sha256": "2540938d3ffa5734e1298406c7dc89ad0bd96deb055ad0e30d6f1bca940223c9"
     }
   },
   "full_solution": "running",
-  "ci": "not_dispatched",
+  "ci": "first attempt retained; closure-ordering follow-up pending",
   "live": "not_started"
 }
