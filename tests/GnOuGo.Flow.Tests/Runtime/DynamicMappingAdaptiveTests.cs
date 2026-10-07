@@ -230,6 +230,18 @@ public sealed partial class DynamicMappingCollectionTests
         Assert.True(result.Success, result.Error?.Message); Assert.Equal(2, model.Requests.Count);
     }
 
+    [Fact]
+    public async Task AdaptiveRequiredItemTakesPriorityOverOptionalPreviousProgram()
+    {
+        var model = new Model("'" + new string('x', 15000) + "'", "item.label");
+        var result = await AdaptiveRun(AdaptiveEngine(model), JsonNode.Parse("[{\"label\":\"observed\"}]")!.AsArray());
+        Assert.True(result.Success, result.Error?.Message); Assert.Equal(2, model.Requests.Count);
+        Assert.Contains("\"failing_index\":0", model.Requests[1].Prompt);
+        Assert.Contains("\"label\":\"observed\"", model.Requests[1].Prompt);
+        Assert.Contains("\"previous_script\":null", model.Requests[1].Prompt);
+        Assert.Contains("assigned unresolved item", model.Requests[1].Prompt);
+    }
+
     private sealed class AdaptiveFaultStore(IWorkflowRunStore inner) : IWorkflowRunStore
     {
         private bool _fired;

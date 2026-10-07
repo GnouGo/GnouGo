@@ -26,13 +26,16 @@ public sealed partial class DynamicMappingExecutor
             ["context"] = new JsonObject(sources.Where(p => p.Key != input).Select(p => new KeyValuePair<string, JsonNode?>(p.Key, p.Value?.DeepClone()))),
             ["item_target"] = itemTarget.DeepClone(), ["complete_target"] = target.DeepClone(),
             ["source_count"] = items.Count, ["omitted_count"] = items.Count, ["examples"] = examples,
-            ["previous_script"] = previous, ["failure"] = failure, ["failing_index"] = failedIndex
+            ["previous_script"] = adaptiveIndices is null ? previous : null, ["failure"] = failure, ["failing_index"] = failedIndex
         };
-        const string collectionInstruction = "\nIndependent-item extraction. Return the result for ONE item, against item_target. " +
+        if (adaptiveIndices is not null) payload["assigned_count"] = adaptiveIndices.Count;
+        var collectionInstruction = "\nIndependent-item extraction. Return the result for ONE item, against item_target. " +
             "Use item for the current original element (for example item.records), and context for the other approved read-only inputs. " +
             "Do not wrap item in the business input name. The host binds these variables exactly as examples[].item and context below. " +
             "Examples are incomplete observations of the collection, never evidence that omitted items are empty or absent. " +
-            "The host applies this same expression to EVERY original item, preserving order and nesting, with no filtering or aggregation.\n";
+            (adaptiveIndices is null
+                ? "The host applies this same expression to EVERY original item, preserving order and nesting, with no filtering or aggregation.\n"
+                : "The host validates this expression against EVERY assigned unresolved item. Previously validated results stay unchanged. The complete result retains every original item in order and nesting, with no filtering or aggregation.\n");
         bool Fits()
         {
             request.Prompt = Instructions + collectionInstruction + payload.ToJsonString();
@@ -60,6 +63,12 @@ public sealed partial class DynamicMappingExecutor
             payload["omitted_count"] = items.Count - examples.Count;
             if (mandatory) throw new WorkflowRuntimeException("CONTRACT_UNSATISFIED",
                 "A required complete mapping example exceeds the safe request allowance.", details: new JsonObject { ["source_index"] = index });
+        }
+        if (adaptiveIndices is not null && failedIndex is { } requiredIndex) Add(requiredIndex, true);
+        if (adaptiveIndices is not null && previous is not null)
+        {
+            payload["previous_script"] = previous;
+            if (!Fits()) payload["previous_script"] = null;
         }
         foreach (var index in required) Add(index, adaptiveIndices is null || index == failedIndex);
         Add(adaptiveIndices?[0] ?? 0, false); Add(adaptiveIndices?[^1] ?? items.Count - 1, false);

@@ -135,7 +135,7 @@ public sealed partial class JintSandbox
                             engine.SetValue("source", Load(index));
                             var value = Export(engine.Evaluate(expression), 0, target);
                             var findings = JsonSchemaContractValidator.ValidateInstance(value, target!);
-                            if (findings.Count != 0) throw Unsatisfied("The mapped item does not satisfy its target: " + string.Join("; ", findings));
+                            if (findings.Count != 0) throw Unsatisfied("The mapped item does not satisfy its target: " + findings[0]);
                             importedBytes += value is null ? 4 : System.Text.Encoding.UTF8.GetByteCount(value.ToJsonString());
                             if (importedBytes > _memoryLimit) throw ResourceLimit();
                             success!(index, value);
