@@ -61,7 +61,7 @@ public sealed class BrowserObservationTests(ITestOutputHelper output)
             Assert.Equal("Fresh observation", Assert.Single(fresh.Observation!.Records).Text);
             await host.CloseAsync(ct);
         }
-        finally { navigate.TrySetResult(); site.Stop(); await serve; }
+        finally { navigate.TrySetResult(); site.Close(); await serve; }
     }
 
     [Fact]
@@ -208,6 +208,6 @@ public sealed class BrowserObservationTests(ITestOutputHelper output)
             Assert.True(last.Truncated); Assert.Null(last.Observation!.NextCursor);
             await host.CloseAsync(ct);
         }
-        finally { site.Stop(); await serve; }
+        finally { site.Close(); await serve; }
     }
 }
