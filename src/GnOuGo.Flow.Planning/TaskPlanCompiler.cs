@@ -668,6 +668,7 @@ public sealed partial class TaskPlanCompiler
             case "arithmetic": return Arithmetic(value, scope);
             case "predicate": return Predicate(value, scope);
             case "json": return EncodeJson(value, scope);
+            case "flatten": return Flatten(value, scope);
             case "field": return SelectField(value, scope, consume);
             default: Fail("TASK_VALUE_INVALID", "Values allow literals, business references, declared fields, JSON encoding, typed arithmetic and predicates only."); break;
         }
@@ -740,6 +741,23 @@ public sealed partial class TaskPlanCompiler
         var computation = new PlanningValue { Kind = "arithmetic", Text = value.Text, Items = operands.Select(o => o.Value).ToList() };
         try { return new(computation, PlanningValues.ComputationContract(computation, operand => operands.First(o => ReferenceEquals(o.Value, operand)).Schema)); }
         catch (InvalidOperationException ex) { Fail("TASK_ARITHMETIC_INVALID", ex.Message); throw; }
+    }
+
+    private Bound Flatten(TaskValue value, Scope scope)
+    {
+        if (value.Source is not null || value.Port is not null || value.Text is not null || value.Predicate is not null ||
+            value.Number is not null || value.Boolean is not null || value.Members.Count != 0 || value.Items.Count != 1)
+            Fail("TASK_FLATTEN_INVALID", "Flatten requires exactly one typed array-of-arrays operand and no other fields.");
+        var source = Value(value.Items[0], scope);
+        var computation = new PlanningValue { Kind = "flatten", Items = [source.Value] };
+        JsonObject schema;
+        try { schema = PlanningValues.ComputationContract(computation, _ => source.Schema); }
+        catch (InvalidOperationException ex) { Fail("TASK_FLATTEN_INVALID", ex.Message); throw; }
+        // Validate the original collection before removing a boundary, including
+        // constraints that cannot be transferred to the concatenated result.
+        var checkedSource = Consume(source with { SelectionSource = source, SelectionPath = [] }, scope);
+        computation.Items = [checkedSource.Value];
+        return new(computation, schema);
     }
 
     private Bound Predicate(TaskValue value, Scope scope)

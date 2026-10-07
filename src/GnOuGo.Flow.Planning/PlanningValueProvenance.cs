@@ -24,6 +24,8 @@ internal static class PlanningValueProvenance
             {
                 var loop = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).FirstOrDefault(n => n.Key == value.Source && n.Type is "loop.sequential" or "loop.parallel");
                 var items = loop is null ? null : PlanningGraphValidation.Member(loop.Input, "items");
+                if (items is { Kind: "flatten", Items.Count: 1 } && items.Items[0] is { Kind: "array" } groups && groups.Items.All(v => v.Kind == "array"))
+                    items = new() { Kind = "array", Items = groups.Items.SelectMany(v => v.Items).ToList() };
                 return items is { Kind: "array", Items.Count: > 0 } && items.Items.All(item => Select(item, value.Path) is { } selected && Proves(workflow, selected, graph, source, visited));
             }
             if (value.Kind == "input")
@@ -103,6 +105,8 @@ internal static class PlanningValueProvenance
         var remaining = path.ToArray();
         for (var i = 0; i < remaining.Length && source is not null; i++)
         {
+            if (source is { Kind: "flatten", Items.Count: 1 } && source.Items[0] is { Kind: "array" } groups && groups.Items.All(v => v.Kind == "array"))
+                source = new() { Kind = "array", Items = groups.Items.SelectMany(v => v.Items).ToList() };
             if (source.Kind is "output" or "input" or "loop_item") return new() { Kind = source.Kind, Source = source.Source, ResultChannel = source.ResultChannel, Path = source.Path.Concat(remaining.Skip(i)).ToList() };
             if (source.Kind == "object") source = PlanningGraphValidation.Member(source, remaining[i]);
             else if (source.Kind == "array" && int.TryParse(remaining[i], out var index) && index >= 0 && index < source.Items.Count) source = source.Items[index];

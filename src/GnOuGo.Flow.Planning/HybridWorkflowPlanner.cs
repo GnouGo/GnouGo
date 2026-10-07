@@ -414,7 +414,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         state.Diagnostics = findings.ToList(); state.Graph = null;
         state.RevisionScope = TaskPlanRevisions.Scope(state.Plan!, findings).ToList();
         Invalidate(state);
-        var structural = PlanningStructuralRepair.Slots(state, PlanningSchemas.FullProposal(state, compact: false)["$defs"]!.AsObject());
+        var structural = PlanningStructuralRepair.Slots(state, PlanningSchemas.FullProposal(state, compact: false, flatten: false)["$defs"]!.AsObject());
         state.RevisionScope.RemoveAll(p => findings.Any(d => d.Code == "TASK_KIND_INVALID" && d.Location == p) &&
             !structural.Any(s => s.Kind == "task" && p == s.Location + "/kind"));
         var unsupported = findings.Where(d => d.Code == "TASK_ARTIFACT_PREREQUISITE_MISSING").Any(d =>

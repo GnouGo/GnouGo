@@ -307,7 +307,7 @@ public static class PlanningGraphValidation
 
             void CheckValue(PlanningValue value, string location)
             {
-                if (value.Kind is "predicate" or "arithmetic" or "json")
+                if (value.Kind is "predicate" or "arithmetic" or "json" or "flatten")
                     try { _ = ValueSchema(value, new(StringComparer.Ordinal)); }
                     catch (InvalidOperationException ex) { errors.Add(new("COMPUTATION_CONTRACT_INVALID", location, ex.Message)); }
                 if (value.Kind == "workflow" && !graph.Workflows.Any(w => w.Key == value.Source))
@@ -336,7 +336,7 @@ public static class PlanningGraphValidation
             JsonObject? ValueSchema(PlanningValue value, HashSet<string> visiting)
             {
                 if (value.Kind is "projection" or "dynamic_mapping") return null; // Checked only as a complete set input, below.
-                if (value.Kind is "predicate" or "arithmetic" or "json") return PlanningValues.ComputationContract(value, operand => ValueSchema(operand, visiting));
+                if (value.Kind is "predicate" or "arithmetic" or "json" or "flatten") return PlanningValues.ComputationContract(value, operand => ValueSchema(operand, visiting));
                 if (value.Kind == "present")
                 {
                     if (value.Source is null || !byKey.ContainsKey(value.Source) || value.Path.Count != 0 || value.ResultChannel is not null ||

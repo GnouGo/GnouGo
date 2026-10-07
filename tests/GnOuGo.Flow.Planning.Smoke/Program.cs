@@ -139,6 +139,20 @@ if (!compactResult.Success || compactDoc.Workflows.Count != 1 || compactDoc.Work
     throw new InvalidOperationException("Compact typed collection failed in Native AOT: " + compactResult.Error?.Message);
 Console.WriteLine("compact bindings: fused collection, zero per-item calls, exact duplicates, no inference");
 
+var flattenPlan = JsonSerializer.Deserialize("""
+    {"inputs":[{"name":"batches","type":{"kind":"array","items":{"kind":"array","items":{"kind":"string","nullable":true}}}}],
+     "root":{"tasks":[{"id":"join","kind":"value","objective":"Join candidate groups once",
+       "outputs":[{"name":"rows","value":{"kind":"flatten","items":[{"kind":"input","source":"batches"}]}}]}],
+       "outputs":[{"name":"rows","value":{"kind":"output","source":"join","port":"rows"}}]}}
+    """, PlanningJsonContext.Default.TaskPlan)!;
+var flattenGraph = new TaskPlanCompiler().Compile(flattenPlan, compactCatalog, compactBindings: true, normalExports: true);
+if (flattenGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Flatten compilation failed.");
+var flattenDoc = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(flattenGraph.Graph!, compactCatalog)));
+var flattenResult = await compactEngine.ExecuteAsync(flattenDoc.Workflows["main"], JsonNode.Parse("{\"batches\":[[],[\"same\",null],[\"same\"]]}"), CancellationToken.None);
+if (!flattenResult.Success || flattenResult.Outputs?["rows"]?.ToJsonString() != "[\"same\",null,\"same\"]")
+    throw new InvalidOperationException("Flatten execution failed in Native AOT: " + flattenResult.Error?.Message);
+Console.WriteLine("flatten: one typed level, empty candidates, null elements and duplicates, zero inference");
+
 // Additive host failure contracts must survive source-generated Native AOT serialization.
 var taskFailure = new AgentTaskResult("failed", null, [], [], new(0, 0, 0))
 { Failure = new() { Code = "AGENT_ISOLATION_REQUIRED", Message = "Mandatory host isolation is not configured." } };

@@ -293,13 +293,13 @@ public sealed partial class PlanningGraphCompiler
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
-            case "projection" when allowReferences && PlanningGraphValidation.Member(value, "value") is { Kind: "json" or "predicate" or "arithmetic" or "present" } computed &&
+            case "projection" when allowReferences && PlanningGraphValidation.Member(value, "value") is { Kind: "json" or "predicate" or "arithmetic" or "flatten" or "present" } computed &&
                 PlanningGraphValidation.Member(value, "each")?.Boolean != true && PlanningGraphValidation.Member(value, "paths") is { Kind: "array", Items.Count: 1 } paths &&
                 paths.Items[0] is { Kind: "array", Items.Count: 0 }:
                 // Keep the envelope visible to final contract validation. The
                 // expression computes only its value; set checks the whole result.
                 return new JsonObject { ["value"] = LowerValue(computed, scope, allowReferences, depth + 1) };
-            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "arithmetic" or "json" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
+            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "arithmetic" or "json" or "flatten" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
@@ -341,6 +341,12 @@ public sealed partial class PlanningGraphCompiler
             var script = "({value:m.select(source," + selections.ToJsonString() + "," + (each ? "true" : "false") + ")})";
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
             expression = "checkedMapping(" + JsonValue.Create(script)!.ToJsonString() + "," + sourceExpression + ")";
+        }
+        else if (value.Kind == "flatten")
+        {
+            var script = FlattenExpression("source");
+            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
+            expression = "checkedMapping(" + Quote(script) + "," + ExpressionBody(value.Items.Single()) + ")";
         }
         else if (value.Kind == "arithmetic")
         {

@@ -55,6 +55,16 @@ internal static class PlanningValues
                 throw new InvalidOperationException("JSON encoding requires exactly one established value.");
             return new() { ["type"] = "string" };
         }
+        if (value.Kind == "flatten")
+        {
+            if (value.Text is not null || value.Items.Count != 1 || resolve(value.Items[0]) is not { } source ||
+                PlanningContractShapes.IterationItems(source) is not { } arrays ||
+                PlanningContractShapes.IterationItems(arrays) is not { } element || (PlanningContractShapes.IsOpaque(element) || !Established(element)))
+                throw new InvalidOperationException("Flatten requires one established nonnullable array of nonnullable typed arrays.");
+            // Outer/per-group constraints remain on the checked source. They do
+            // not imply uniqueness or cardinality constraints on concatenation.
+            return new() { ["type"] = "array", ["items"] = element.DeepClone() };
+        }
         if (value.Kind == "arithmetic")
         {
             _ = ArithmeticOperator(value.Text);

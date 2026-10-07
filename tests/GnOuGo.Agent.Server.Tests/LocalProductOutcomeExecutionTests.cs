@@ -31,6 +31,8 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
     [InlineData("pages-compact-decision-consent")]
     [InlineData("pages-compact-decision-complete")]
     [InlineData("pages-compact-decision-complete-consent")]
+    [InlineData("pages-compact-decision-complete-flat")]
+    [InlineData("pages-compact-decision-complete-flat-consent")]
     [InlineData("pages-compact-scoped")]
     [InlineData("extract")]
     [InlineData("each")]
@@ -58,6 +60,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         builder.WebHost.ConfigureKestrel(o => o.Listen(System.Net.IPAddress.Loopback, 0)); builder.Logging.ClearProviders();
         await using var site = builder.Build();
         var visits = new List<string>();
+        var flattened = variant.Contains("-flat", StringComparison.Ordinal);
         var compact = variant.StartsWith("pages-compact", StringComparison.Ordinal);
         var independentDecision = variant.StartsWith("pages-compact-decision", StringComparison.Ordinal);
         var consentScenario = independentDecision || variant is "pages-compact-consent" or "required-consent" or "required-incomplete-observation" or "consent" or "no-consent" or "delayed-consent" or "unrelated-modal" or "incomplete-observation";
@@ -75,7 +78,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 variant == "changed" ? "<h1>Second</h1><p>Updated</p><price>12.00</price>" : "<h1>東京 lamp</h1><p>Line one\nLine two</p><price>25.00</price>";
             if (path == "/search" && variant.StartsWith("pages", StringComparison.Ordinal)) body = "<p>Catalogue</p><p>Observed introduction</p>" + body + "<p>Footer</p><p>End</p>";
             if (path == "/search" && compact) body = string.Concat(Enumerable.Range(0, 120).Select(i => "<p>irrelevant-observation-" + i + new string('x', 600) + "</p>")) + body;
-            var banner = path == "/search" && variant is "pages-compact-consent" or "pages-compact-decision-consent" or "pages-compact-decision-complete-consent" or "required-consent" or "consent" or "delayed-consent" or "unrelated-modal";
+            var banner = path == "/search" && variant is "pages-compact-consent" or "pages-compact-decision-consent" or "pages-compact-decision-complete-consent" or "pages-compact-decision-complete-flat-consent" or "required-consent" or "consent" or "delayed-consent" or "unrelated-modal";
             var dialog = "<section role='dialog' aria-modal='true' id='notice'><p>" + (variant == "unrelated-modal" ? "Account verification" : "Cookie preferences") +
                 "</p><div><span role='button' tabindex='0' id='accept' onclick=\"document.cookie='fixtureConsent=accepted;path=/';document.querySelector('main').hidden=false;document.getElementById('notice').remove()\">" +
                 (variant == "unrelated-modal" ? "Continue" : "Accept cookies") + "</span></div></section>";
@@ -101,7 +104,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var model = new ProductTransformationFixture(variant) { ReadMethod = "browser_get_content", WriteMethod = "document_write", CloseMethod = "browser_close" };
             var consentModel = new ConsentModel(model);
             var extractionModel = new ExtractModel(model);
-            var compactModel = new CompactModel(new ConsentModel(new PagedModel(model, compact: true)));
+            var compactModel = new CompactModel(new ConsentModel(new PagedModel(model, compact: true, flattened: flattened), flattened: flattened));
             var engine = new WorkflowEngine { LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(2) }), McpClientFactory = transport, LLMClient = compact ? compactModel : variant.StartsWith("pages", StringComparison.Ordinal) ? new PagedModel(model) : consentScenario ? consentModel : variant is "extract" or "observation" or "each" or "each-parallel" ? extractionModel : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
             if (compact)
             {
@@ -181,6 +184,15 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                     loop.Requires = new() { Kind = "predicate", Predicate = "and", Items = [Not(Field(snapshot, "captureTruncated")), Not(Field(snapshot, "manifestTruncated"))] };
                     loop.Body!.Tasks.RemoveAt(0);
                     loop.Body.Tasks.Single().Inputs = [new("records", Field(new() { Kind = "item" }, "records"))];
+                }
+            }
+            if (flattened)
+            {
+                TaskValue Flatten(TaskValue value) => new() { Kind = "flatten", Items = [value] };
+                foreach (var consumer in new[] { "consent", "urls" })
+                {
+                    var task = plan.Root.Tasks.Single(t => t.Id == consumer);
+                    var input = task.Inputs[0]; task.Inputs[0] = new(input.Name, Flatten(Flatten(input.Value)));
                 }
             }
             if (variant.StartsWith("required-", StringComparison.Ordinal))
@@ -301,7 +313,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 }
                 return;
             }
-            if (consentScenario) Assert.All(consentReceipts, accepted => Assert.Equal(variant is not ("no-consent" or "pages-compact-decision" or "pages-compact-decision-complete"), accepted));
+            if (consentScenario) Assert.All(consentReceipts, accepted => Assert.Equal(variant is not ("no-consent" or "pages-compact-decision" or "pages-compact-decision-complete" or "pages-compact-decision-complete-flat"), accepted));
             Assert.Equal(file, result.Outputs!["file"]!.ToString());
             using var workbook = SpreadsheetDocument.Open(file, false);
             var rows = Assert.Single(workbook.WorkbookPart!.WorksheetParts).Worksheet!.Descendants<Row>().Select(r => r.Elements<Cell>().Select(c => c.InnerText).ToArray()).ToArray();
@@ -378,7 +390,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         }
     }
 
-    private sealed class ConsentModel(ILLMClient next) : ILLMClient
+    private sealed class ConsentModel(ILLMClient next, bool flattened = false) : ILLMClient
     {
         public int Calls { get; private set; }
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
@@ -389,11 +401,12 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var data = JsonNode.Parse(request.Prompt[start..])!; var page = data["page"];
             if (page is not null && (page["truncated"]!.GetValue<bool>() || page["observation"]?["nextCursor"] is not null || page["observation"]!["captureTruncated"]!.GetValue<bool>()))
                 throw new WorkflowRuntimeException("CONTRACT_UNSATISFIED", "The observation is incomplete; narrow or continue it before deciding.");
-            var controls = page is null ? data["candidates"]!.AsArray().SelectMany(p => p!.AsArray()).SelectMany(r => r!.AsArray()).ToArray()
+            var controls = page is null ? (flattened ? data["candidates"]!.AsArray().ToArray() : data["candidates"]!.AsArray().SelectMany(p => p!.AsArray()).SelectMany(r => r!.AsArray()).ToArray())
                 : page["observation"]!["records"]!.AsArray().Where(r => r!["kind"]!.ToString() == "control").ToArray();
             if (page is null)
             {
-                Assert.True(data["candidates"]!.AsArray().Count > 3);
+                if (flattened) Assert.All(data["candidates"]!.AsArray(), c => Assert.Equal(new[] { "text", "reference", "group" }, c!.AsObject().Select(p => p.Key)));
+                else Assert.True(data["candidates"]!.AsArray().Count > 3);
                 Assert.DoesNotContain("irrelevant-observation", request.Prompt);
                 Assert.InRange(KeyVaultBenchmarkModel.ExecutionInputEstimate(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)), 1, 12000);
             }
@@ -420,14 +433,14 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => actual.ValidateAsync(request, ct);
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => actual.ValidateCatalogAsync(catalog, ct);
     }
-    private sealed class PagedModel(ILLMClient next, bool compact = false) : ILLMClient
+    private sealed class PagedModel(ILLMClient next, bool compact = false, bool flattened = false) : ILLMClient
     {
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
             if (request.StructuredOutputSchema?["properties"]?["urls"] is null) return next.CallAsync(request, ct);
             var start = request.Prompt.IndexOf('{', request.Prompt.LastIndexOf("Business data", StringComparison.Ordinal));
             var pages = JsonNode.Parse(request.Prompt[start..])!["pages"]!.AsArray();
-            Assert.True(pages.Count > 3);
+            if (flattened) Assert.Equal(2, pages.Count); else Assert.True(pages.Count > 3);
             if (!compact)
             {
                 Assert.All(pages, p => Assert.False(p!["captureTruncated"]!.GetValue<bool>()));
@@ -436,10 +449,11 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             else
             {
                 Assert.DoesNotContain("irrelevant-observation", request.Prompt);
-                Assert.True(pages.Sum(p => p!.AsArray().Count) > 120);
+                if (flattened) Assert.All(pages, p => Assert.Equal(new[] { "text", "href", "group" }, p!.AsObject().Select(f => f.Key)));
+                else Assert.True(pages.Sum(p => p!.AsArray().Count) > 120);
                 Assert.InRange(KeyVaultBenchmarkModel.ExecutionInputEstimate(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)), 1, 12000);
             }
-            var records = compact ? pages.SelectMany(p => p!.AsArray()).SelectMany(r => r!.AsArray()) : pages.SelectMany(p => p!["records"]!.AsArray()).Where(r => r!["kind"]!.ToString() == "link");
+            var records = flattened ? pages : compact ? pages.SelectMany(p => p!.AsArray()).SelectMany(r => r!.AsArray()) : pages.SelectMany(p => p!["records"]!.AsArray()).Where(r => r!["kind"]!.ToString() == "link");
             return Task.FromResult(new LLMResponse { Json = new JsonObject { ["urls"] = new JsonArray(records.Select(r => r!["href"]!.DeepClone()).ToArray()) } });
         }
     }

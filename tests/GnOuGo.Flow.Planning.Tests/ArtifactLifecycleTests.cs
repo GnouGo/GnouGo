@@ -57,6 +57,17 @@ public sealed class ArtifactLifecycleTests
         Assert.Empty(PlanningArtifactBindings.LifecycleFindings(graph, catalog));
     }
 
+    [Fact]
+    public void ExplicitFlattenDoesNotHideReturnedResourcesFromCleanupValidation()
+    {
+        var (graph, catalog) = Fixture("file", "scratch/a", "directory", "scratch");
+        var output = graph.Workflows[0].Outputs[0];
+        output.Value = new() { Kind = "flatten", Items = [new() { Kind = "array", Items = [new() { Kind = "array", Items = [output.Value] }] }] };
+        Assert.Contains(PlanningArtifactBindings.LifecycleFindings(graph, catalog), d => d.Code == "ARTIFACT_OUTPUT_RELEASED");
+        // A checked flattened string collection still does not establish ownership.
+        Assert.False(PlanningArtifactBindings.Proves(graph.Workflows[0], output.Value, "file", catalog, graph, []));
+    }
+
     private static (PlanningGraph, PlanningCatalog) Fixture(string kind, string created, string releaseKind, string released)
     {
         var space = kind == "handle" ? "opaque-pool" : "file:///workspace/";

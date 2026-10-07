@@ -70,6 +70,7 @@ public static class PlanningReviewFormatter
         "object" => "{" + string.Join(", ", value.Members.Select(m => m.Name + ": " + Describe(m.Value))) + "}",
         "array" => "[" + string.Join(", ", value.Items.Select(Describe)) + "]",
         "json" => "json(" + string.Join(", ", value.Items.Select(Describe)) + ")",
+        "flatten" => "flatten one level(" + string.Join(", ", value.Items.Select(Describe)) + ")",
         "boolean" => value.Boolean == true ? "true" : "false",
         "null" => "null", "string" => "\"" + value.Text + "\"",
         "predicate" => value.Predicate + "(" + string.Join(", ", value.Items.Select(Describe)) + ")",

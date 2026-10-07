@@ -53,7 +53,7 @@ public sealed class PlanningSchema
     public string? SchemaPointer { get; set; }
 }
 
-/// <summary>Literal, reference, object, array, workflow, or compiler-owned predicate/JSON encoding. Historical expressions remain readable.</summary>
+/// <summary>Literal, reference, object, array, workflow, or compiler-owned computation, including one-level flattening. Historical expressions remain readable.</summary>
 public sealed class PlanningValue
 {
     public string Kind { get; set; } = "null";

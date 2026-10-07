@@ -31,9 +31,9 @@ internal static class PlanningSchemas
         alternatives.Any(a => a?["type"]?.ToString() == "null");
 
     internal static JsonObject Proposal(PlanningSession state, IReadOnlySet<string>? admitted = null) => PlanningRepairPatch.Active(state)
-        ? PlanningRepairPatch.Schema(state, FullProposal(state, compact: false)) : FullProposal(state, admitted: admitted);
+        ? PlanningRepairPatch.Schema(state, FullProposal(state, compact: false, flatten: false)) : FullProposal(state, admitted: admitted);
 
-    internal static JsonObject FullProposal(PlanningSession state, bool compact = true, bool clarifications = true, IReadOnlySet<string>? admitted = null, bool scopeGuidance = true)
+    internal static JsonObject FullProposal(PlanningSession state, bool compact = true, bool clarifications = true, IReadOnlySet<string>? admitted = null, bool scopeGuidance = true, bool flatten = true)
     {
         var actions = new List<JsonNode?>();
         if (PlanningDiscoveryContext.CanDiscover(state))
@@ -83,7 +83,7 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
                 Object(("kind", Enum("object")), ("members", Array(Ref("output")))),
                 Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
-                Described(Object(("kind", Enum("json")), ("items", Array(Ref("value"), 1, 1))), "Serialize one business value as JSON text; no inference."),
+                Described(Object(("kind", Enum(flatten ? ["json", "flatten"] : ["json"])), ("items", Array(Ref("value"), 1, 1))), flatten ? "json encodes one value; flatten concatenates one typed array-of-arrays level in order." : "Serialize one business value as JSON text; no inference."),
                 Described(Object(("kind", Enum("field")), ("items", Array(Ref("value"), 1, 1)), ("port", Ref("goal"))), "Select one literal declared field from a typed object/item; nest for nested fields."),
                 Object(("kind", Enum("input")), ("source", String())),
                 Object(("kind", Enum("choice", "present")), ("source", Ref("id"))),

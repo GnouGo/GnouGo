@@ -88,7 +88,7 @@ internal static class PlanningRepairContext
     internal static JsonObject Build(PlanningSession state)
     {
         var selection = Select(state); var symbols = selection.Symbols;
-        var slots = PlanningRepairPatch.Slots(state, PlanningSchemas.FullProposal(state, compact: false)["$defs"]!.AsObject());
+        var slots = PlanningRepairPatch.Slots(state, PlanningSchemas.FullProposal(state, compact: false, flatten: false)["$defs"]!.AsObject());
         var taskNodes = new JsonArray(); var scopeNodes = new JsonArray();
         var inputs = new HashSet<string>(StringComparer.Ordinal); var choices = new HashSet<string>(StringComparer.Ordinal);
         void Referenced(TaskValue value)

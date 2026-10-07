@@ -32,6 +32,11 @@ internal sealed class TaskArtifactBindings(TaskPlan plan, PlanningCatalog catalo
         {
             switch (value.Kind)
             {
+                case "flatten":
+                    // Every output item retains its original two-level element origin.
+                    // Unknown lengths cannot establish a fixed indexed artifact.
+                    return value.Items.Count == 1 && path.Count > 0 && path[0] is null &&
+                        Trace(value.Items[0], scope, new string?[] { null, null }.Concat(path.Skip(1)).ToArray(), kind);
                 case "field":
                     return value.Items.Count == 1 && value.Port is not null && Trace(value.Items[0], scope, new[] { value.Port }.Concat(path).ToArray(), kind);
                 case "object":

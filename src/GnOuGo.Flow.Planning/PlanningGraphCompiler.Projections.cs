@@ -34,6 +34,7 @@ public sealed partial class PlanningGraphCompiler
             "output" => "(" + expressions[value.Source!] + ")" + string.Concat(value.Path.Select(Segment)),
             "object" => "({" + string.Join(",", value.Members.Select(m => Quote(m.Name) + ":" + Resolve(m.Value))) + "})",
             "array" => "[" + string.Join(",", value.Items.Select(Resolve)) + "]",
+            "flatten" => FlattenExpression(Resolve(value.Items.Single())),
             "null" or "string" or "number" or "boolean" => LowerValue(value, scope, allowReferences: false)?.ToJsonString() ?? "null",
             "projection" => "({value:m.select(" + Resolve(PlanningGraphValidation.Member(value, "value")!) + "," +
                 PlanningGraphValidation.Literal(PlanningGraphValidation.Member(value, "paths")!)!.ToJsonString() + ",false)})",
@@ -76,6 +77,7 @@ public sealed partial class PlanningGraphCompiler
             }
             if (value.Kind == "object") return "({" + string.Join(",", value.Members.Select(m => Quote(m.Name) + ":" + Resolve(m.Value))) + "})";
             if (value.Kind == "array") return "[" + string.Join(",", value.Items.Select(Resolve)) + "]";
+            if (value.Kind == "flatten") return FlattenExpression(Resolve(value.Items.Single()));
             var name = "v" + sources.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
             sources.Add(new(name, value)); return "source." + name;
         }
@@ -83,6 +85,9 @@ public sealed partial class PlanningGraphCompiler
         var sourceExpression = ToExpression(new() { Kind = "object", Members = sources }, scope)[2..^1];
         return "${checkedMapping(" + Quote(script) + "," + sourceExpression + ")}";
     }
+
+    private static string FlattenExpression(string source)
+        => "(" + source + ").flatMap(item=>m.select(item,[[]],true))";
 
     private static string Quote(string value) => JsonValue.Create(value)!.ToJsonString();
 }

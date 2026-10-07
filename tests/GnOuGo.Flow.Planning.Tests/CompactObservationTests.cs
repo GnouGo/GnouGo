@@ -12,7 +12,7 @@ using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
-public sealed class CompactObservationTests(ITestOutputHelper output)
+public sealed partial class CompactObservationTests(ITestOutputHelper output)
 {
     [Theory]
     [InlineData("bundles", "facts", false)]
@@ -249,11 +249,11 @@ public sealed class CompactObservationTests(ITestOutputHelper output)
         item["irrelevant"] = new string('x', 1500); return (JsonNode)item;
     }).ToArray()) };
 
-    private static async Task<GnOuGo.Flow.Core.Models.RunResult> Execute(TaskPlan plan, JsonObject values, Model model)
+    private static async Task<GnOuGo.Flow.Core.Models.RunResult> Execute(TaskPlan plan, JsonObject values, Model model, bool adaptive = false)
     {
-        var engine = new WorkflowEngine { LLMClient = model, LlmDefaults = new() { Model = "deterministic" }, Limits = new() { MaxMappingInputTokens = model.Limit } };
+        var engine = new WorkflowEngine { LLMUsageBudget = adaptive ? new(new() { MaxCalls = 2 }) : null, LLMClient = model, LlmDefaults = new() { Model = "deterministic" }, Limits = new() { MaxMappingInputTokens = model.Limit } };
         var catalog = await new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask).DiscoverAsync(new() { Policy = new() { RequireExternalConfirmation = false } }, PlannerFixture.Ct);
-        var compiled = new TaskPlanCompiler().Compile(plan, catalog);
+        var compiled = adaptive ? new TaskPlanCompiler().Compile(plan, catalog, new PlanningRequest { Options = new() { ["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile, ["compilation_profile"] = TaskPlanCompiler.CompactProfile } }) : new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Empty(compiled.Diagnostics); Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
         var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog);
         var doc = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
@@ -261,7 +261,7 @@ public sealed class CompactObservationTests(ITestOutputHelper output)
     }
 
     private static JsonNode Business(LLMRequest request) => JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf("Business data (JSON):", StringComparison.Ordinal) + "Business data (JSON):".Length)..])!;
-    private sealed class Model(string input, string port, bool nested = false, int limit = 12000) : ILLMClient, ILLMCapabilityResolver
+    private sealed class Model(string input, string port, bool nested = false, int limit = 12000, bool flatten = false) : ILLMClient, ILLMCapabilityResolver
     {
         internal int Limit => limit;
         internal readonly List<LLMRequest> Mapping = [], Interpretation = [];
@@ -281,7 +281,7 @@ public sealed class CompactObservationTests(ITestOutputHelper output)
                     : "({label:m.parse(source." + input + ".note).label,group:m.parse(source." + input + ".note).group,reference:m.parse(source." + input + ".note).reference})" } });
             }
             Interpretation.Add(request); var data = Business(request);
-            var facts = nested ? data[port]!.AsArray().SelectMany(page => page!.AsArray()) : data[port]!.AsArray();
+            var facts = nested && !flatten ? data[port]!.AsArray().SelectMany(page => page!.AsArray()) : data[port]!.AsArray();
             return Task.FromResult(new LLMResponse { Json = new JsonObject { ["labels"] = new JsonArray(facts
                 .Where(r => r!["group"]?.ToString() == data["group"]!.ToString()).Select(r => r!["label"]!.DeepClone()).ToArray()) } });
         }
