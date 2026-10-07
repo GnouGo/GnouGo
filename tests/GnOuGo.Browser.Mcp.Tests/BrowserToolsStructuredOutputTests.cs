@@ -59,6 +59,14 @@ public sealed class BrowserToolsStructuredOutputTests
 
         Assert.NotEmpty(tools);
         Assert.All(tools, tool => Assert.NotNull(tool.ProtocolTool.OutputSchema));
+        var contentTool = tools.Single(t => t.ProtocolTool.Name == "browser_get_content");
+        var published = BrowserMcpJson.ContentSchema(contentTool.ProtocolTool.OutputSchema!.Value);
+        var properties = published.GetProperty("properties");
+        var records = properties.GetProperty("observationSnapshot").GetProperty("properties").GetProperty("pages")
+            .GetProperty("items").GetProperty("properties").GetProperty("records");
+        Assert.Equal("array", records.GetProperty("type").GetString());
+        Assert.Equal(properties.GetProperty("observation").GetProperty("properties").GetProperty("records").GetRawText(), records.GetRawText());
+        Assert.Equal("string", records.GetProperty("items").GetProperty("properties").GetProperty("text").GetProperty("type").GetString());
         var url = tools.Single(t => t.ProtocolTool.Name == "browser_get_content").ProtocolTool.InputSchema.GetProperty("properties").GetProperty("url");
         Assert.True(url.TryGetProperty("pattern", out var pattern), "The producer must publish its absolute HTTP URL requirement.");
         Assert.Matches(pattern.GetString()!, "https://example.invalid/items/7");

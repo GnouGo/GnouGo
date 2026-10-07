@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.ComponentModel;
 using Microsoft.Playwright;
@@ -10,49 +12,262 @@ public sealed record BrowserObservation(string Id, IReadOnlyList<BrowserObservat
 public sealed record BrowserObservationPage(string Cursor, int RecordCount);
 public sealed record BrowserObservationManifest(string Id, [property: Description("Frozen page descriptors, at most 100 or the stricter host/response allowance. ManifestTruncated identifies an incomplete list.")] IReadOnlyList<BrowserObservationPage> Pages,
     int RecordCount, bool CaptureTruncated, bool ManifestTruncated);
+public sealed record BrowserObservationSnapshot(string Id, IReadOnlyList<BrowserObservation> Pages, int RecordCount,
+    bool CaptureTruncated, bool ManifestTruncated);
+public sealed record BrowserSnapshotInvalidation(string SnapshotId, long Generation, string Reason, DateTimeOffset AtUtc);
+public sealed record BrowserSnapshotAcquisition(int Attempts, IReadOnlyList<BrowserSnapshotInvalidation> Invalidations);
+internal sealed class BrowserObservationException(string code, string message, BrowserSnapshotAcquisition acquisition) : InvalidOperationException(message)
+{
+    internal string Code { get; } = code;
+    internal BrowserSnapshotAcquisition Acquisition { get; } = acquisition;
+}
 internal sealed record BrowserObservationCapture(List<BrowserObservationRecord> Records, bool Truncated);
 
 public sealed partial class PlaywrightBrowserHost
 {
+    // Internal deterministic fault injection at acquisition boundaries; never exposed through MCP.
+    internal Func<IPage, string, CancellationToken, Task>? ObservationCheckpoint { get; init; }
+    private readonly object _observationLock = new();
+    private readonly Dictionary<string, BrowserSnapshotInvalidation> _expiredObservations = new(StringComparer.Ordinal);
+    private long _observationGeneration;
+    private ObservationStamp? _capturingObservation;
     private ObservationSnapshot? _observation;
-    private sealed record ObservationSnapshot(string Id, BrowserContentResult Result, BrowserObservationCapture Capture, bool Paged = false)
+    private sealed record ObservationStamp(string Id, long Generation)
     {
+        internal BrowserSnapshotInvalidation? Invalidation { get; set; }
+    }
+
+    private ObservationStamp BeginObservation()
+    {
+        lock (_observationLock)
+        {
+            InvalidateObservation("replacement");
+            return _capturingObservation = new(Guid.NewGuid().ToString("N"), _observationGeneration);
+        }
+    }
+
+    private void InvalidateObservation(string reason)
+    {
+        lock (_observationLock)
+        {
+            if (_observation is { } snapshot) RememberInvalidation(snapshot.Stamp, reason);
+            if (_capturingObservation is { } capture) RememberInvalidation(capture, reason);
+            _observation = null;
+            _capturingObservation = null;
+            _observationGeneration++;
+        }
+    }
+
+    private void RememberInvalidation(ObservationStamp stamp, string reason)
+    {
+        var invalidation = new BrowserSnapshotInvalidation(stamp.Id, stamp.Generation, reason, DateTimeOffset.UtcNow);
+        stamp.Invalidation ??= invalidation;
+        if (!_expiredObservations.TryAdd(stamp.Id, stamp.Invalidation)) return;
+        // Retain reasons, never expired payloads. Unknown/evicted identities stay invalid.
+        if (_expiredObservations.Count > 64) _expiredObservations.Remove(_expiredObservations.Keys.First());
+        _logger.LogInformation("Browser snapshot {SnapshotId}, generation {Generation}, invalidated: {Reason}", stamp.Id, stamp.Generation, reason);
+        TraceInvalidation(invalidation);
+    }
+
+    private static void TraceInvalidation(BrowserSnapshotInvalidation invalidation) => Activity.Current?.AddEvent(new ActivityEvent(
+        "browser.snapshot.invalidated", invalidation.AtUtc, new ActivityTagsCollection
+        {
+            ["browser.snapshot.id"] = invalidation.SnapshotId, ["browser.snapshot.generation"] = invalidation.Generation,
+            ["browser.snapshot.reason"] = invalidation.Reason
+        }));
+
+    private BrowserObservationException Expired(BrowserSnapshotInvalidation invalidation)
+    {
+        TraceInvalidation(invalidation);
+        return new("SNAPSHOT_EXPIRED", "The observation snapshot expired: " + invalidation.Reason + ". Discard all its pages and acquire a fresh complete snapshot.", new(1, [invalidation]));
+    }
+
+    private void EnsureCurrent(ObservationStamp stamp)
+    {
+        lock (_observationLock)
+        {
+            if (stamp.Generation == _observationGeneration) return;
+            throw Expired(stamp.Invalidation ?? new(stamp.Id, stamp.Generation, "generation_changed", DateTimeOffset.UtcNow));
+        }
+    }
+    private sealed record ObservationSnapshot(ObservationStamp Stamp, BrowserContentResult Result, BrowserObservationCapture Capture, bool Paged = false)
+    {
+        internal string Id => Stamp.Id;
         internal List<BrowserContentResult> Pages { get; } = [];
     }
 
     private async Task<BrowserContentResult> CaptureObservationAsync(IPage page, ILocator locator, ContentLocatorResolution resolution,
-        string? selector, int? status, int? characters, int? records, CancellationToken ct, bool paged = false)
+        string? selector, int? status, int? characters, int? records, CancellationToken ct, bool paged = false, ObservationStamp? existingStamp = null)
     {
         ct.ThrowIfCancellationRequested();
-        var json = await locator.EvaluateAsync<string>(ObservationScript).WaitAsync(ct);
-        var capture = JsonSerializer.Deserialize(json, BrowserMcpJsonContext.Default.BrowserObservationCapture)
-            ?? throw new InvalidOperationException("The browser returned an invalid observation.");
-        var result = new BrowserContentResult(page.Url, await page.TitleAsync().WaitAsync(ct), status, selector,
-            resolution.ResolvedSelector, resolution.FallbackApplied, resolution.FallbackReason, paged ? "observation_pages" : "observation", "", false, 0);
-        var snapshot = new ObservationSnapshot(Guid.NewGuid().ToString("N"), result, capture, paged);
-        _observation = snapshot;
-        return paged ? ObservationManifest(snapshot, characters, records, ct) : ObservationPage(snapshot, 0, characters, records, ct);
+        var stamp = existingStamp ?? BeginObservation();
+        try
+        {
+            if (ObservationCheckpoint is { } capturing) await capturing(page, "capture", ct).WaitAsync(ct);
+            EnsureCurrent(stamp);
+            var json = await locator.EvaluateAsync<string>(ObservationScript).WaitAsync(ct);
+            EnsureCurrent(stamp);
+            var capture = JsonSerializer.Deserialize(json, BrowserMcpJsonContext.Default.BrowserObservationCapture)
+                ?? throw new InvalidOperationException("The browser returned an invalid observation.");
+            var title = await page.TitleAsync().WaitAsync(ct);
+            EnsureCurrent(stamp);
+            var result = new BrowserContentResult(page.Url, title, status, selector,
+                resolution.ResolvedSelector, resolution.FallbackApplied, resolution.FallbackReason, paged ? "observation_pages" : "observation", "", false, 0);
+            var snapshot = new ObservationSnapshot(stamp, result, capture, paged);
+            var response = paged ? ObservationManifest(snapshot, characters, records, ct) : ObservationPage(snapshot, 0, characters, records, ct);
+            lock (_observationLock)
+            {
+                EnsureCurrent(stamp);
+                _observation = snapshot;
+                return response;
+            }
+        }
+        catch (PlaywrightException)
+        {
+            EnsureCurrent(stamp);
+            throw;
+        }
+        finally
+        {
+            lock (_observationLock) if (_capturingObservation == stamp) _capturingObservation = null;
+        }
+    }
+
+    private async Task<BrowserContentResult> AcquireCompleteObservationAsync(string? url, string waitUntil, int? timeoutMs,
+        string? selector, int? characters, int? records, CancellationToken ct)
+    {
+        var invalidations = new List<BrowserSnapshotInvalidation>();
+        var attempt = 0;
+        if (ObservationLimit(characters) < 1024 || Math.Min(records ?? 200, _settings.MaxObservationRecords) < 1 || _settings.MaxObservationPages < 1)
+            throw new BrowserObservationException("INVALID_INPUT", "Observation limits require at least 1024 characters, one record and one page.", new(0, []));
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var timeout = NormalizeTimeout(timeoutMs, url is null ? _settings.DefaultTimeoutMs : _settings.NavigationTimeoutMs);
+        deadline.CancelAfter(TimeSpan.FromMilliseconds(timeout));
+        var timer = Stopwatch.StartNew();
+        float Remaining() => Math.Max(1, timeout - (float)timer.Elapsed.TotalMilliseconds);
+        var token = deadline.Token;
+        try
+        {
+            IPage page;
+            if (url is null) page = GetRequiredPage();
+            else
+            {
+                var target = BrowserNavigationPolicy.ValidateNavigationTarget(url, _settings);
+                InvalidateObservation("navigation");
+                page = await EnsurePageAsync().WaitAsync(token);
+                await page.GotoAsync(target.ToString(), new PageGotoOptions
+                    { WaitUntil = ParseWaitUntil(waitUntil), Timeout = Remaining() }).WaitAsync(token);
+            }
+            // No re-navigation, actions or inference in recovery. All generations
+            // share this deadline, and nothing escapes before the final check.
+            for (attempt = 1; attempt <= 3; attempt++)
+            {
+                var stamp = BeginObservation();
+                try
+                {
+                    await page.WaitForLoadStateAsync(ParseLoadState(waitUntil), new PageWaitForLoadStateOptions { Timeout = Remaining() }).WaitAsync(token);
+                    EnsureCurrent(stamp);
+                    BrowserNavigationPolicy.ValidateNavigationTarget(page.Url, _settings);
+                    // Complete acquisition must not silently broaden a requested selector.
+                    var requested = string.IsNullOrWhiteSpace(selector) ? "body" : selector.Trim();
+                    var locator = await ResolveLocatorAsync(page, requested, Remaining()).WaitAsync(token);
+                    EnsureCurrent(stamp);
+                    var resolution = new ContentLocatorResolution(locator, requested, false, null);
+                    var manifestResult = await CaptureObservationAsync(page, locator, resolution, selector, null, characters, records, token, true, stamp);
+                    var manifest = manifestResult.ObservationManifest!;
+                    if (manifest.CaptureTruncated || manifest.ManifestTruncated)
+                        throw new BrowserObservationException("OBSERVATION_INCOMPLETE", "A complete snapshot exceeds capture or page bounds. Narrow the requested observation explicitly.", new(attempt, invalidations.ToArray()));
+                    ObservationSnapshot snapshot;
+                    lock (_observationLock) { EnsureCurrent(stamp); snapshot = _observation!; }
+                    var pages = snapshot.Pages.Select(p => p.Observation! with { NextCursor = null }).ToArray();
+                    var result = manifestResult with
+                    {
+                        Format = "observation_complete", ObservationManifest = null, Truncated = false,
+                        ObservationSnapshot = new(snapshot.Id, pages, manifest.RecordCount, false, false),
+                        Acquisition = new(attempt, invalidations.ToArray())
+                    };
+                    var aggregateLimit = checked(ObservationLimit(characters) * Math.Min(_settings.MaxObservationPages, 100));
+                    if (JsonSerializer.Serialize(result, BrowserMcpJsonContext.Default.BrowserContentResult).Length > aggregateLimit)
+                        throw new BrowserObservationException("OBSERVATION_INCOMPLETE", "The complete snapshot exceeds the aggregate page allowance. Narrow the requested observation explicitly.", result.Acquisition);
+                    if (ObservationCheckpoint is { } publishing) await publishing(page, "publish", token).WaitAsync(token);
+                    token.ThrowIfCancellationRequested();
+                    lock (_observationLock)
+                    {
+                        EnsureCurrent(stamp);
+                        // Complete acquisitions issue no external cursors.
+                        _observation = null;
+                        Activity.Current?.SetTag("browser.snapshot.attempts", attempt);
+                        Activity.Current?.SetTag("browser.snapshot.id", snapshot.Id);
+                        Activity.Current?.SetTag("browser.snapshot.pages", pages.Length);
+                        return result;
+                    }
+                }
+                catch (PlaywrightException) when (stamp.Invalidation is not null)
+                {
+                    var failure = Expired(stamp.Invalidation);
+                    invalidations.AddRange(failure.Acquisition.Invalidations);
+                    if (stamp.Invalidation.Reason != "navigation" || attempt == 3)
+                        throw new BrowserObservationException(failure.Code, failure.Message, new(attempt, invalidations.ToArray()));
+                }
+                catch (BrowserObservationException ex) when (ex.Code == "SNAPSHOT_EXPIRED")
+                {
+                    invalidations.AddRange(ex.Acquisition.Invalidations);
+                    if (ex.Acquisition.Invalidations.Any(i => i.Reason != "navigation") || attempt == 3)
+                        throw new BrowserObservationException(ex.Code, ex.Message, new(attempt, invalidations.ToArray()));
+                }
+                finally
+                {
+                    lock (_observationLock)
+                    {
+                        if (_capturingObservation == stamp) _capturingObservation = null;
+                        if (_observation?.Stamp == stamp) _observation = null;
+                    }
+                }
+            }
+            throw new InvalidOperationException("Snapshot acquisition exhausted its attempts.");
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested && deadline.IsCancellationRequested)
+        {
+            throw new BrowserObservationException("TIMEOUT", "Complete snapshot acquisition exceeded its shared timeout.", new(attempt, invalidations.ToArray()));
+        }
+        catch (TimeoutException)
+        {
+            throw new BrowserObservationException("TIMEOUT", "Complete snapshot acquisition exceeded its shared timeout.", new(attempt, invalidations.ToArray()));
+        }
+        catch (InvalidOperationException ex) when (ex is not BrowserObservationException)
+        {
+            throw new BrowserObservationException("INVALID_INPUT", ex.Message, new(attempt, invalidations.ToArray()));
+        }
     }
 
     private BrowserContentResult ContinueObservation(string cursor, int? characters, int? records, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         var parts = cursor.Split(':');
-        var snapshot = _observation;
-        // The issued snapshot owns the cursor layout and frozen page bounds.
-        if (snapshot is { Paged: true })
+        var paged = parts.Length == 3 && parts[1] == "page";
+        if ((!paged && parts.Length != 2) || !Guid.TryParseExact(parts[0], "N", out _) ||
+            !int.TryParse(parts[^1], NumberStyles.None, CultureInfo.InvariantCulture, out var index) || index < 0)
+            throw new InvalidOperationException("The observation cursor is malformed.");
+        lock (_observationLock)
         {
-            if (parts.Length != 3 || parts[1] != "page" || parts[0] != snapshot.Id ||
-                GetRequiredPage().Url != snapshot.Result.Url || characters is not null || records is not null ||
-                !int.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out var index) || index < 0 || index >= snapshot.Pages.Count)
-                throw new InvalidOperationException("The observation page cursor is invalid or expired. Page limits are frozen; omit maxCharacters and maxRecords when reading it.");
-            return snapshot.Pages[index];
+            if (_expiredObservations.TryGetValue(parts[0], out var expired)) throw Expired(expired);
+            var snapshot = _observation;
+            if (snapshot is null || parts[0] != snapshot.Id || paged != snapshot.Paged)
+                throw new InvalidOperationException("The observation cursor is unknown in this Browser session.");
+            if (GetRequiredPage().Url != snapshot.Result.Url)
+            {
+                InvalidateObservation("navigation");
+                throw Expired(_expiredObservations[snapshot.Id]);
+            }
+            if (paged)
+            {
+                if (characters is not null || records is not null || index >= snapshot.Pages.Count)
+                    throw new InvalidOperationException("The observation page cursor is invalid. Page limits are frozen; omit maxCharacters and maxRecords.");
+                return snapshot.Pages[index];
+            }
+            if (index >= snapshot.Capture.Records.Count) throw new InvalidOperationException("The observation offset is out of range.");
+            return ObservationPage(snapshot, index, characters, records, ct);
         }
-        if (parts.Length != 2 || snapshot is null || parts[0] != snapshot.Id || GetRequiredPage().Url != snapshot.Result.Url ||
-            snapshot.Paged ||
-            !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var offset) || offset < 0 || offset >= snapshot.Capture.Records.Count)
-            throw new InvalidOperationException("The observation cursor is invalid or expired. Capture the current page again.");
-        return ObservationPage(snapshot, offset, characters, records, ct);
     }
 
     private BrowserContentResult ObservationManifest(ObservationSnapshot snapshot, int? characters, int? records, CancellationToken ct)

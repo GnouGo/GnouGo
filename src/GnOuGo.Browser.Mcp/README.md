@@ -186,6 +186,45 @@ Example MCP configuration in `LLMOptions`:
 
 ### Compact observations
 
+Use `browser_get_content(format: "observation_complete")` when every page is
+needed before interpreting or acting. `observationSnapshot` contains `id`, ordered
+`pages` (each with typed `records` and the same `id`), `recordCount`,
+`captureTruncated: false` and `manifestTruncated: false`. The pages have no
+continuation cursors. Flat `content` stays empty. Process these pages with ordinary
+collection bindings; keep extraction and interpretation outside Browser.
+
+The producer buffers the full acquisition and checks its document generation
+before publishing. Navigation, including same-URL reloads, discards the entire
+attempt. It makes at most three acquisition attempts (two restarts), all sharing
+the requested timeout and cancellation. Only verified navigation invalidation is
+retried. The initial supplied URL is navigated once; no clicks, cookie decisions,
+mappings or business actions are replayed. Each retry resolves the original
+selector against the current permitted document without selector fallback.
+The result has the observed current URL/title; HTTP status is omitted (`null`)
+because an initial navigation response does not certify a later document.
+
+Existing capture bounds remain 10,000 records / 2,000,000 record characters and
+bounded DOM traversal. Page limits remain at most 24,000 serialized characters,
+200 records and 100 pages, or stricter request/host settings. In complete mode,
+`maxCharacters` is the per-page limit; the whole result is also bounded by that
+limit times the host page cap. `OBSERVATION_INCOMPLETE` means capture, page or
+aggregate coverage could not be completed within those bounds: explicitly narrow
+the observation. Oversized records also fail. No partial result is published.
+A complete snapshot is one coherent observation, not a guarantee that the live
+page will remain unchanged after the call returns.
+
+Legacy cursors remain strict. Known expired snapshot identities return
+`SNAPSHOT_EXPIRED`; malformed and unknown identities return `INVALID_INPUT`.
+`acquisition` metadata retains attempt counts and bounded invalidation records
+(snapshot ID, generation, reason and UTC timestamp). Reasons distinguish
+`navigation`, `interaction`, `closure` and `replacement`. The host retains only
+64 recent invalidation identities, without old payloads; older unknown cursors
+still fail. Expiration events appear in existing traces/logs, and structured MCP
+results/errors retain the causes in workflow receipts and encrypted journals.
+Telemetry contains identities/reasons, not observed text or credential-bearing
+URLs. Existing paged/legacy formats retain their data shape and pagination.
+
+
 `browser_get_content(format: "observation_pages")` captures one immutable snapshot
 and returns `observationManifest`: its `id`, captured `recordCount`, `pages`
 (`cursor`, `recordCount`), `captureTruncated` and `manifestTruncated`. Read every

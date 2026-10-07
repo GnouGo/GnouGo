@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace GnOuGo.Browser.Mcp;
@@ -6,6 +7,19 @@ namespace GnOuGo.Browser.Mcp;
 internal static class BrowserMcpJson
 {
     public static JsonSerializerOptions SerializerOptions { get; } = CreateSerializerOptions();
+
+    // Publish the same authoritative record contract at both consumer-visible
+    // paths. The SDK otherwise emits a collection $ref with an empty items sibling;
+    // a selected subtree must remain usable without its former document root.
+    public static JsonElement ContentSchema(JsonElement generated)
+    {
+        var schema = JsonNode.Parse(generated.GetRawText())!.AsObject();
+        var properties = schema["properties"]!.AsObject();
+        properties["observationSnapshot"]!["properties"]!["pages"]!["items"]!["properties"]!["records"] =
+            properties["observation"]!["properties"]!["records"]!.DeepClone();
+        using var document = JsonDocument.Parse(schema.ToJsonString());
+        return document.RootElement.Clone();
+    }
 
     private static JsonSerializerOptions CreateSerializerOptions()
     {

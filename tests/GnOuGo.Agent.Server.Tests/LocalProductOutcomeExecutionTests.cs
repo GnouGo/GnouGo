@@ -29,6 +29,8 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
     [InlineData("pages-compact-consent")]
     [InlineData("pages-compact-decision")]
     [InlineData("pages-compact-decision-consent")]
+    [InlineData("pages-compact-decision-complete")]
+    [InlineData("pages-compact-decision-complete-consent")]
     [InlineData("pages-compact-scoped")]
     [InlineData("extract")]
     [InlineData("each")]
@@ -73,7 +75,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 variant == "changed" ? "<h1>Second</h1><p>Updated</p><price>12.00</price>" : "<h1>東京 lamp</h1><p>Line one\nLine two</p><price>25.00</price>";
             if (path == "/search" && variant.StartsWith("pages", StringComparison.Ordinal)) body = "<p>Catalogue</p><p>Observed introduction</p>" + body + "<p>Footer</p><p>End</p>";
             if (path == "/search" && compact) body = string.Concat(Enumerable.Range(0, 120).Select(i => "<p>irrelevant-observation-" + i + new string('x', 600) + "</p>")) + body;
-            var banner = path == "/search" && variant is "pages-compact-consent" or "pages-compact-decision-consent" or "required-consent" or "consent" or "delayed-consent" or "unrelated-modal";
+            var banner = path == "/search" && variant is "pages-compact-consent" or "pages-compact-decision-consent" or "pages-compact-decision-complete-consent" or "required-consent" or "consent" or "delayed-consent" or "unrelated-modal";
             var dialog = "<section role='dialog' aria-modal='true' id='notice'><p>" + (variant == "unrelated-modal" ? "Account verification" : "Cookie preferences") +
                 "</p><div><span role='button' tabindex='0' id='accept' onclick=\"document.cookie='fixtureConsent=accepted;path=/';document.querySelector('main').hidden=false;document.getElementById('notice').remove()\">" +
                 (variant == "unrelated-modal" ? "Continue" : "Accept cookies") + "</span></div></section>";
@@ -162,6 +164,25 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             }
             if (consentScenario) AddConsentSteps(plan, catalog, independentDecision);
             if (variant == "pages-compact-consent" || independentDecision) plan.Root.Tasks.Single(t => t.Id == "search").Inputs.Add(new("format", ProductTransformationPlan.Text("observation_pages")));
+            if (variant.StartsWith("pages-compact-decision-complete", StringComparison.Ordinal))
+            {
+                // Producer-owned atomic acquisition; the existing extraction loop now
+                // consumes delivered pages without a cursor call per page.
+                TaskValue Field(TaskValue value, string name) => new() { Kind = "field", Port = name, Items = [value] };
+                TaskValue Not(TaskValue value) => new() { Kind = "predicate", Predicate = "not", Items = [value] };
+                foreach (var (captureId, loopId) in new[] { ("search", "consume_pages"), ("inspect", "decision_pages") })
+                {
+                    var capture = plan.Root.Tasks.Single(t => t.Id == captureId);
+                    capture.Inputs.RemoveAll(i => i.Name == "format");
+                    capture.Inputs.Add(new("format", ProductTransformationPlan.Text("observation_complete")));
+                    var snapshot = ProductTransformationPlan.Ref(captureId, "observationSnapshot");
+                    var loop = plan.Root.Tasks.Single(t => t.Id == loopId);
+                    loop.Items = Field(snapshot, "pages");
+                    loop.Requires = new() { Kind = "predicate", Predicate = "and", Items = [Not(Field(snapshot, "captureTruncated")), Not(Field(snapshot, "manifestTruncated"))] };
+                    loop.Body!.Tasks.RemoveAt(0);
+                    loop.Body.Tasks.Single().Inputs = [new("records", Field(new() { Kind = "item" }, "records"))];
+                }
+            }
             if (variant.StartsWith("required-", StringComparison.Ordinal))
             {
                 TaskValue Field(TaskValue value, string name) => new() { Kind = "field", Port = name, Items = [value] };
@@ -280,7 +301,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 }
                 return;
             }
-            if (consentScenario) Assert.All(consentReceipts, accepted => Assert.Equal(variant is not ("no-consent" or "pages-compact-decision"), accepted));
+            if (consentScenario) Assert.All(consentReceipts, accepted => Assert.Equal(variant is not ("no-consent" or "pages-compact-decision" or "pages-compact-decision-complete"), accepted));
             Assert.Equal(file, result.Outputs!["file"]!.ToString());
             using var workbook = SpreadsheetDocument.Open(file, false);
             var rows = Assert.Single(workbook.WorkbookPart!.WorksheetParts).Worksheet!.Descendants<Row>().Select(r => r.Elements<Cell>().Select(c => c.InnerText).ToArray()).ToArray();

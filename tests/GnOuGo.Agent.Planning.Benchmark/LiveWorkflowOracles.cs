@@ -98,7 +98,22 @@ internal static class LiveWorkflowOracles
         {
             var result = read["result"]!.AsObject();
             var url = result["url"]?.ToString();
-            if (result["observationManifest"] is JsonObject manifest)
+            if (result["observationSnapshot"] is JsonObject snapshot)
+            {
+                if (result["truncated"]?.GetValue<bool>() != false || snapshot["captureTruncated"]?.GetValue<bool>() != false ||
+                    snapshot["manifestTruncated"]?.GetValue<bool>() != false || snapshot["id"]?.ToString() is not { Length: > 0 } id ||
+                    snapshot["pages"] is not JsonArray pages || pages.Count > 100) continue;
+                var records = new List<JsonNode?>(); var valid = true;
+                foreach (var page in pages)
+                {
+                    if (page?["id"]?.ToString() != id || page["captureTruncated"]?.GetValue<bool>() != false || page["nextCursor"] is not null ||
+                        page["records"] is not JsonArray values || values.Count is < 1 or > 200) { valid = false; break; }
+                    records.AddRange(values);
+                }
+                if (valid && records.Count == snapshot["recordCount"]?.GetValue<int>())
+                    yield return new JsonObject { ["url"] = url, ["content"] = string.Join("\n", records.Select(r => r?["text"]?.ToString() ?? "")) };
+            }
+            else if (result["observationManifest"] is JsonObject manifest)
             {
                 if (manifest["captureTruncated"]?.GetValue<bool>() != false || manifest["manifestTruncated"]?.GetValue<bool>() != false ||
                     manifest["pages"] is not JsonArray pages || pages.Count > 100 || manifest["id"]?.ToString() is not { Length: > 0 } id) continue;

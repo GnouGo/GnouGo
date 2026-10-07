@@ -22,17 +22,17 @@ public sealed class BrowserTools
 
 
     [McpMeta("gnougo", JsonValue = McpEffectMetadata.Read)]
-    [McpServerTool(Name = "browser_get_content", UseStructuredContent = true, OutputSchemaType = typeof(BrowserContentResult)), Description("Reads rendered content from the current page or from a CSS selector. Use format=observation_pages for a bounded immutable snapshot manifest in observationManifest.pages (cursor, recordCount). Read every listed cursor with either observation format, no URL/selector or limit overrides, before navigation. Each page returns observation.records without duplicate flat content. Only a fully consumed manifest with captureTruncated=false and manifestTruncated=false establishes snapshot coverage; otherwise narrow the selector. An empty complete manifest establishes an empty snapshot. Legacy format=observation returns incremental typed visible text, links, headings and controls. A truncated observation or nextCursor is partial, never evidence of an empty or complete result set. captureTruncated requires a narrower read even when nextCursor is null. Visible dialog controls retain their DOM group; handle authorized cookie consent with an explicit conditional click on an observed control and then read again. This read never clicks consent. It preserves observed DOM grouping and resolved link URLs without interpreting business fields. Truncation is explicit: use the returned observation.nextCursor with format=observation and no URL/selector to continue the same snapshot, or narrow the selector. Navigation or interaction invalidates continuation. If url is provided, this tool first navigates to that absolute http/https URL, waits for the requested load state, then returns the content in the same call. Prefer this one-shot tool when the goal is simply to open a page and inspect or extract its content. Prefer waitUntil='domcontentloaded' or 'load' for pages with background requests; avoid 'networkidle' unless the page is known to become idle. Use format='text' for readable visible text, summaries, and plain content extraction (example: summarize an article or read a confirmation message). Use format='html' when you need DOM structure, links, href/src attributes, button labels, form fields, menu/navigation markup, or when the client must decide what element to click based on the rendered HTML (example: extract menu links from nav/header, inspect a consent banner, or build a reliable CSS selector). Script elements are stripped from returned HTML by default to keep responses compact and useful for MCP clients.")]
+    [McpServerTool(Name = "browser_get_content", UseStructuredContent = true, OutputSchemaType = typeof(BrowserContentResult)), Description("Reads rendered content from the current page or from a CSS selector. Prefer format=observation_complete when all observation pages are needed: returns observationSnapshot.pages with typed records from one complete generation, no continuation calls. Internally discards navigation-invalidated attempts, with at most two restarts sharing one timeout. Incomplete captures or exhausted bounds fail explicitly; narrow the selector yourself. Acquisition metadata preserves attempts and invalidation reasons. Page limits and capture limits remain enforced. Legacy cursors fail with SNAPSHOT_EXPIRED after invalidation and never switch generations. Use format=observation_pages for a bounded immutable snapshot manifest in observationManifest.pages (cursor, recordCount). Read every listed cursor with either observation format, no URL/selector or limit overrides, before navigation. Each page returns observation.records without duplicate flat content. Only a fully consumed manifest with captureTruncated=false and manifestTruncated=false establishes snapshot coverage; otherwise narrow the selector. An empty complete manifest establishes an empty snapshot. Legacy format=observation returns incremental typed visible text, links, headings and controls. A truncated observation or nextCursor is partial, never evidence of an empty or complete result set. captureTruncated requires a narrower read even when nextCursor is null. Visible dialog controls retain their DOM group; handle authorized cookie consent with an explicit conditional click on an observed control and then read again. This read never clicks consent. It preserves observed DOM grouping and resolved link URLs without interpreting business fields. Truncation is explicit: use the returned observation.nextCursor with format=observation and no URL/selector to continue the same snapshot, or narrow the selector. Navigation or interaction invalidates continuation. If url is provided, this tool first navigates to that absolute http/https URL, waits for the requested load state, then returns the content in the same call. Prefer this one-shot tool when the goal is simply to open a page and inspect or extract its content. Prefer waitUntil='domcontentloaded' or 'load' for pages with background requests; avoid 'networkidle' unless the page is known to become idle. Use format='text' for readable visible text, summaries, and plain content extraction (example: summarize an article or read a confirmation message). Use format='html' when you need DOM structure, links, href/src attributes, button labels, form fields, menu/navigation markup, or when the client must decide what element to click based on the rendered HTML (example: extract menu links from nav/header, inspect a consent banner, or build a reliable CSS selector). Script elements are stripped from returned HTML by default to keep responses compact and useful for MCP clients.")]
     public async Task<BrowserContentResult> GetContentAsync(
         [RegularExpression(BrowserNavigationPolicy.HttpUrlPattern), Description("Optional absolute HTTP/HTTPS URL to open before reading content. Decode percent-encoded whole URLs and resolve relative references against their observed page URL before calling. Escape whitespace. When omitted, reads the current page.")] string? url = null,
         [Description("Navigation wait mode used when url is provided: load, domcontentloaded, or networkidle. Prefer domcontentloaded/load for dynamic shopping/search pages; networkidle can time out on pages with continuous background requests.")] string waitUntil = "load",
-        [Description("Optional navigation timeout in milliseconds used when url is provided.")] int? timeoutMs = null,
+        [Description("Optional navigation timeout in milliseconds. For observation_complete, one shared deadline covers navigation, capture and at most two restarts.")] int? timeoutMs = null,
         [Description("Optional CSS selector. Defaults to the body element. Prefer scoping to nav/header/menu/form containers when inspecting links or interactive elements. Example: selector='nav' with format='html' for menu links.")] string? selector = null,
-        [RegularExpression("^(text|html|observation|observation_pages)$"), Description("Return format: observation_pages (bounded page manifest, then compact records via cursors), observation (legacy incremental records), text or html. Example text => article summary, success message, visible page copy. Example html => nav/header links, href/src attributes, forms, buttons, tables, selectors, and any task where the client must inspect the rendered html markup before acting.")] string format = "html",
-        [Description("Maximum characters returned. Observation mode limits the complete serialized result to at most the host allowance (default 24000). HTML/text retain existing behavior.")] int? maxCharacters = null,
+        [RegularExpression("^(text|html|observation|observation_pages|observation_complete)$"), Description("Return format: observation_complete (complete bounded pages in one acquisition), observation_pages (bounded page manifest, then compact records via cursors), observation (legacy incremental records), text or html. Example text => article summary, success message, visible page copy. Example html => nav/header links, href/src attributes, forms, buttons, tables, selectors, and any task where the client must inspect the rendered html markup before acting.")] string format = "html",
+        [Description("Maximum characters returned. Observation mode limits each serialized page to the host allowance (default 24000); observation_complete additionally bounds its whole result by page allowance times the host page cap. HTML/text retain existing behavior.")] int? maxCharacters = null,
         [Description("Include <script> elements and inline script content in HTML responses. Defaults to false because scripts are usually noisy and very large.")] bool includeScriptContent = false,
         [Description("Opaque cursor from observation.nextCursor or observationManifest.pages. Either observation format reads its original layout. Omit URL/selector and frozen paged limits. Navigation or interaction invalidates it.")] string? cursor = null,
-        [Range(1, 200), Description("Maximum observation records per response, capped by host policy; default 200.")] int? maxRecords = null,
+        [Range(1, 200), Description("Maximum observation records per page, capped by host policy; default 200.")] int? maxRecords = null,
         CancellationToken cancellationToken = default)
     {
         try
@@ -43,9 +43,8 @@ public sealed class BrowserTools
         {
             var correlation = BrowserToolCorrelation.Current;
             _logger.LogError(
-                ex,
-                "browser_get_content failed for url={Url}, correlationId={CorrelationId}, runId={RunId}, traceparent={TraceParent}",
-                url,
+                "browser_get_content failed: {ErrorType}, correlationId={CorrelationId}, runId={RunId}, traceparent={TraceParent}",
+                ex is BrowserObservationException observation ? observation.Code : ex.GetType().Name,
                 correlation.CorrelationId,
                 correlation.RunId,
                 correlation.TraceParent);
@@ -227,7 +226,7 @@ internal static class BrowserToolFailure
             MaxCharacters: 0,
             Success: false,
             ErrorCode: code,
-            ErrorMessage: message);
+            ErrorMessage: message) { Acquisition = (exception as BrowserObservationException)?.Acquisition };
     }
 
     public static BrowserActionResult Action(string action, string selector, Exception exception)
@@ -315,13 +314,14 @@ internal static class BrowserToolFailure
     }
 
     private static (string Code, string Message) Describe(Exception exception)
-        => (Classify(exception), exception is OperationCanceledException
+        => (Classify(exception), exception is BrowserObservationException ? exception.Message : exception is OperationCanceledException
             ? "The operation was cancelled by the client."
             : $"{exception.GetType().Name}: {exception.Message}");
 
     private static string Classify(Exception exception)
         => exception switch
         {
+            BrowserObservationException observation => observation.Code,
             OperationCanceledException => "CANCELLED",
             TimeoutException => "TIMEOUT",
             PlaywrightException => "BROWSER_ERROR",
