@@ -27,7 +27,16 @@ PLAYWRIGHT_MODULE_PATH="$PWD/src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/.playwrigh
 dotnet publish src/GnOuGo.Browser.Mcp -c Release -r osx-arm64 --self-contained true -warnaserror -p:PublishAot=false -p:PublishTrimmed=false -p:PublishSingleFile=false
 ```
 
-Browser supports managed self-contained publishing, not Native AOT. No frontend implementation or persistence format changed. Validation and fresh live results are recorded separately below once completed.
+Browser supports managed self-contained publishing, not Native AOT. No frontend implementation or persistence format changed.
+
+Validation on candidate `45473fdafe19da1e770c48c05759df1b516faabf`:
+
+- Full solution: **4,668 passed, 12 skipped, zero failures**, across 33 test projects with `-warnaserror`. The skips retain their existing platform/environment guards. Client rebuilding and model-metadata regeneration were skipped; neither changed.
+- Browser: **67 passed**, including the new deterministic navigation/expiration cases.
+- Browser managed self-contained Release publish (`osx-arm64`): successful. Actual published-process acquisition, document writing and encrypted-receipt regressions: **3 passed**.
+- Configured Browser/Document readiness: local page acquisition, independent XLSX read and Browser cleanup passed with **zero inference**.
+
+[Validation counters and limitations](evidence/browser-snapshot-recovery-2026-10-07/validation.json). These results establish deterministic/local behavior, not live Amazon acceptance.
 
 ## Live boundary
 
