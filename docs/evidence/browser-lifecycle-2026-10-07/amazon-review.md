@@ -1,0 +1,20 @@
+# Concrete Amazon artifact review
+
+Run `lifecycle20261007a-amazon-1`, frozen production/harness `603e7926154d3f55b8f812497a03bffa1bce5993`, revision **4**, artifact **8213fa3b5db1d54acddc78d052d901b88bde08de0ece32523cf41b46df3ebfeb**.
+
+The user authorized this next live validation. This manual review applies that authorization to this new artifact only, for one execution under the existing EUR 150 ceiling. The six acknowledgments below were checked against actual operations, branch outputs, bindings and finalization; they were not populated automatically. Historical approvals and uncertain executions are untouched.
+
+| Requirement | Reviewed implementation |
+| --- | --- |
+| `search_amazon_fr` | `buildSearchUrl` explicitly interprets the sole public `query` into the search URL; `openSearchPage` performs real navigation with complete acquisition. Initial pages are independently compacted before consent/CAPTCHA interpretation. `maybeAcceptCookies` guards the nullable observed reference; `clickCookieConsent` requests `activate` and Browser validates the current exact element. A fresh complete observation follows interaction. |
+| `limit_products` | Every active search observation page is compacted independently. `selectFirstTenProducts` consumes compact candidate facts and original completeness metadata, selects at most ten observed products in order, and passes those candidates to a sequential foreach with `maxItems: 10`. |
+| `visit_each_product` | Each iteration calls `openProductPage` with its selected observed URL, acquires a complete snapshot, processes all its pages, then interprets the compact observed name/description/price facts. The loop exports `product`; final assembly consumes that explicit collected port. |
+| `explicit_missing_data` | CAPTCHA and absent/inaccessible information are explicit interpretation outputs; product fields remain nullable and statuses/missing-fields are separate. Extraction copies observed facts rather than manufacturing status labels or indices. Complete acquisition must succeed; its original truncation metadata remains visible to interpretation. The independent execution oracle can still reject missing or unsupported workbook values. |
+| `write_excel` | `buildWorkbookContent` explicitly interprets compact rows into TSV. `writeProductsWorkbook` invokes the real document writer at `workflows/schema-portability-20261002/lifecycle20261007a-amazon-1/products.xlsx`. Public `productsFile` comes from its returned `filePath`, not a literal standing in for a write. |
+| `close_browser` | Root `closeBrowserAlways` invokes Browser closure on success and verified failure. Unknown completion still blocks cleanup and replay. |
+
+The three independent extracts use explicit `each: { input: pages, output: pageFacts }`; runtime exposes canonical `item`. Every original page is processed under the shared one-generation/one-repair allowance. Global decisions consume compact facts, not raw snapshots. The conditional alternatives publish identical snapshot/URL/completeness contracts. Snapshot completeness is producer-owned; model statements cannot establish it.
+
+Interpretation remains visible and paid for URL construction, decisions, product interpretation and TSV formatting. Approval does not prove those decisions correct: the unchanged oracle independently checks actual visits and workbook cells against captured pages. No timeout, permission, budget, model, mapping behavior or oracle was changed. YAML: 80,602 bytes, 2,191 lines.
+
+Revision 2 compiled but review rejected raw-snapshot interpretation and non-observed extraction labels/counts. One explicit revision preserves every accepted requirement and business operation while using the existing extraction/interpretation composition. Planning totals before execution: three logical calls, four physical attempts, two discovery reads, zero automatic repairs, 36,732 input tokens, 12,421 output tokens, EUR 0.493646; 469.179 seconds. Both proposals and revision feedback remain retained.

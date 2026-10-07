@@ -1,0 +1,165 @@
+{
+  "status": "final_review",
+  "revision": 2,
+  "artifact_hash": "2de5079a4a67ce244c3f3519e4098c38cd0ef64c9d6e13988fbef3bc00e4b8af",
+  "requirements": {
+    "summary": "Créer un workflow qui accepte une seule entrée publique nommée query, recherche cette requête sur Amazon.fr, traite au maximum les 10 premiers produits, visite chaque page produit, extrait le nom, la description et le prix lorsque disponibles, puis sauvegarde ces données dans un fichier Excel à workflows/schema-portability-20261002/lifecycle20261007a-amazon-1/products.xlsx. Le navigateur doit être fermé même en cas d’échec; CAPTCHA et données absentes doivent rester explicites et ne jamais être inventés.",
+    "outcomes": [
+      {
+        "id": "search_amazon_fr",
+        "description": "Utiliser Amazon.fr pour rechercher l’article correspondant à l’entrée query."
+      },
+      {
+        "id": "limit_products",
+        "description": "Considérer au maximum les 10 premiers produits observés dans les résultats de recherche."
+      },
+      {
+        "id": "visit_each_product",
+        "description": "Naviguer sur la page de chaque produit retenu et tenter d’extraire nom, description et prix."
+      },
+      {
+        "id": "explicit_missing_data",
+        "description": "Si CAPTCHA, prix, description, nom ou autres données nécessaires sont absents ou inaccessibles, inscrire explicitement l’état correspondant sans inventer de valeur."
+      },
+      {
+        "id": "write_excel",
+        "description": "Créer le classeur Excel products.xlsx au chemin workflows/schema-portability-20261002/lifecycle20261007a-amazon-1/products.xlsx avec les données extraites."
+      },
+      {
+        "id": "close_browser",
+        "description": "Fermer le navigateur dans tous les cas, y compris en cas d’échec."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "outputs": [
+      {
+        "name": "productsFile",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ]
+  },
+  "review": [
+    {
+      "id": "static",
+      "outcome": "passed",
+      "description": "Business bindings, contracts and control flow validated. External execution has not been observed.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_a6c6bb062d4b898156a9a47a",
+      "outcome": "declared",
+      "description": "Ouvrir Amazon.fr directement sur la page de résultats correspondant à query et capturer une observation structurée bornée de la page. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_6cdc956b5576d30ff12004bf",
+      "outcome": "declared",
+      "description": "Créer le fichier Excel products.xlsx au chemin relatif demandé dans l’espace de travail, à partir du TSV préparé. — operation: cap_37c513d225bb1b870053c5d3 (GnOuGo.Document.Mcp/document_write); contract effect: write. Declared resource locations checked; dynamic relationships still require execution evidence. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_a6ce291176e2a61016b9e35b",
+      "outcome": "declared",
+      "description": "Fermer le navigateur et son contexte même si une étape précédente a échoué. — operation: cap_bdb7ba9ab04b18783883fa86 (GnOuGo.Browser.Mcp/browser_close); contract effect: lifecycle. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_44af0d5d7d64cf751395a554",
+      "outcome": "declared",
+      "description": "Activer le bouton de consentement cookies observé sur Amazon.fr afin de dégager la page de résultats avant extraction. — operation: cap_dd05fbf36e155a64318f3588 (GnOuGo.Browser.Mcp/browser_click); contract effect: execute. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_5959ab95a00ffd52a9963338",
+      "outcome": "declared",
+      "description": "Réobserver la page de recherche Amazon.fr après l’action de consentement, avec des références fraîches et une capture structurée bornée. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_38f2d5dbecba3a03b7365712",
+      "outcome": "declared",
+      "description": "Naviguer vers la page produit observée pour l’article courant et capturer le contenu structuré de la page. — operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "mapping:task_92a86d306a78dfc00ae96457",
+      "outcome": "declared",
+      "description": "Extraire, dans l’ordre observé, au maximum les 10 premiers liens de pages produit Amazon.fr depuis la page de résultats active. Détecter explicitement CAPTCHA, absence de résultats, capture tronquée ou données inaccessibles; ne jamais inventer de produit ni d’URL. — runtime extraction, at most two model attempts per invocation; cache hits still validate the complete result. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. No execution evidence yet.",
+      "diagnostics": []
+    },
+    {
+      "id": "mapping:task_f68f52d6c09502f7ba6b5a99",
+      "outcome": "declared",
+      "description": "Extraire depuis la page produit courante le nom, la description et le prix disponibles. Si CAPTCHA, prix, nom ou description sont absents ou inaccessibles, inscrire explicitement cet état; ne jamais inventer de valeur. — runtime extraction, at most two model attempts per invocation; cache hits still validate the complete result. Unambiguous source/target collections use one result per item; ambiguous collections require explicit selection. No execution evidence yet.",
+      "diagnostics": []
+    }
+  ],
+  "diagnostics": [],
+  "result": {
+    "status": "final_review",
+    "planning_ms": 394255,
+    "calls": 2,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 0,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 2,
+        "physical_attempts": 3,
+        "known_input_tokens": 18923,
+        "known_output_tokens": 6266,
+        "known_cost_eur": 0.2507720294613542,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 815,
+        "session_calls": 0,
+        "known_input_tokens": 12227765,
+        "known_output_tokens": 1503906,
+        "known_cost_eur": 94.58673822882808,
+        "reserved_input_tokens": 192000,
+        "reserved_output_tokens": 65536,
+        "reserved_cost_eur": 2.606752783964365,
+        "cost_upper_bound_eur": 97.19349101279245,
+        "unknown_attempts": 2
+      }
+    }
+  }
+}
