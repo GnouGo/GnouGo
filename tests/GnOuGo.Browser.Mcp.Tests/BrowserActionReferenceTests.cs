@@ -21,7 +21,8 @@ public sealed class BrowserActionReferenceTests
         var records = await fixture.Capture(); var link = records.Single(r => r.Selector == "#info");
         Assert.Contains("follow", link.Actions!); Assert.DoesNotContain("activate", link.Actions!);
         var result = await fixture.Tools.ClickTargetAsync(reference: link.Reference, requestedAction: action, cancellationToken: Ct);
-        Assert.Equal(succeeds, result.Success); Assert.Equal(link.Reference, result.Target!.Reference);
+        Assert.True(succeeds == result.Success, $"Expected success={succeeds}; actual={result.Success}; {result.ErrorCode}: {result.ErrorMessage}");
+        Assert.Equal(link.Reference, result.Target!.Reference);
         Assert.Equal(action, result.Target.RequestedAction);
         if (!succeeds)
         {
@@ -33,6 +34,37 @@ public sealed class BrowserActionReferenceTests
             Assert.Equal(new[] { "accept" }, await fixture.Page.EvaluateAsync<string[]>("window.actions"));
         }
         else { Assert.Equal("#info", result.Selector); Assert.Contains("/help", fixture.Visits); }
+    }
+
+    [Theory]
+    [InlineData("selector")]
+    [InlineData("text")]
+    [InlineData("fill_submit")]
+    [InlineData("press")]
+    public async Task NavigatingActionsWaitWithoutRepeatingInteraction(string action)
+    {
+        await using var fixture = new Fixture();
+        var records = await fixture.Capture();
+        var field = records.Single(r => r.Selector == "#query");
+        if (action == "press")
+        {
+            var result = await fixture.Tools.PressTargetAsync("Enter", reference: field.Reference, cancellationToken: Ct);
+            Assert.True(result.Success, result.ErrorCode + ": " + result.ErrorMessage);
+            Assert.True(result.TriggeredNavigation);
+        }
+        else
+        {
+            var result = action switch
+            {
+                "selector" => await fixture.Tools.ClickTargetAsync(selector: "#info", cancellationToken: Ct),
+                "text" => await fixture.Tools.ClickTextAsync("Accept choice information", cancellationToken: Ct),
+                _ => await fixture.Tools.FillTargetAsync("observed query", submit: true, reference: field.Reference, cancellationToken: Ct)
+            };
+            Assert.True(result.Success, result.ErrorCode + ": " + result.ErrorMessage);
+            Assert.True(result.TriggeredNavigation);
+        }
+        Assert.Equal(1, fixture.Visits.Count(p => p == (action is "selector" or "text" ? "/help" : "/submitted")));
+        Assert.Equal("complete", await fixture.Page!.EvaluateAsync<string>("document.readyState"));
     }
 
     [Theory]
@@ -152,6 +184,7 @@ public sealed class BrowserActionReferenceTests
                             <div id="editable" contenteditable="true" oninput="actions.push(this.textContent)">Editable</div>
                             <select id="select" onchange="actions.push(this.value)"><option value="one">One</option><option value="two">Two</option></select>
                             <button id="disabled" disabled>Disabled</button><input id="readonly" readonly>
+                            <form action="/submitted"><input id="query" name="query"><button>Submit query</button></form>
                             </body></html>
                             """), Ct);
                         request.Response.Close();

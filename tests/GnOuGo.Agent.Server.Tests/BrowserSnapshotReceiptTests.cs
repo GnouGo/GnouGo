@@ -17,9 +17,10 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class BrowserSnapshotReceiptTests
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ObservedActionChecksSurviveTransportAndEncryptedRecovery(bool compatible)
+    [InlineData(false, "activate")]
+    [InlineData(true, "activate")]
+    [InlineData(true, "follow")]
+    public async Task ObservedActionChecksSurviveTransportAndEncryptedRecovery(bool compatible, string action)
     {
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("action-reference-").FullName;
@@ -58,6 +59,7 @@ public sealed class BrowserSnapshotReceiptTests
                     inputs:
                       url: { type: string }
                       index: { type: integer }
+                      action: { type: string }
                     steps:
                       - id: capture
                         type: mcp.call
@@ -72,27 +74,32 @@ public sealed class BrowserSnapshotReceiptTests
                           method: browser_click
                           request:
                             reference: '${data.steps.capture.response.observationSnapshot.pages[0].records[data.inputs.index].reference}'
-                            requestedAction: activate
+                            requestedAction: '${data.inputs.action}'
                     finally:
                       - id: close
                         type: mcp.call
                         input: { server: browser, method: browser_close, request: {} }
                 """;
             var workflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml)).Workflows["main"];
-            var result = await engine.ExecuteAsync(workflow, new JsonObject { ["url"] = site.Urls.Single() + "/", ["index"] = compatible ? 1 : 0 }, ct);
+            var result = await engine.ExecuteAsync(workflow, new JsonObject { ["url"] = site.Urls.Single() + "/", ["index"] = compatible && action == "activate" ? 1 : 0, ["action"] = action }, ct);
             Assert.True(compatible == result.Success, $"Expected success={compatible}; actual={result.Success}; {result.Error?.Code}: {result.Error?.Message}");
             if (!compatible) Assert.Equal("ACTION_MISMATCH", result.Error!.Details!["mcp_error_code"]!.ToString());
-            Assert.DoesNotContain("/information", visits);
-            Assert.Equal(compatible ? 1 : 0, visits.Count(v => v == "/activated"));
+            Assert.Equal(action == "follow" ? 1 : 0, visits.Count(v => v == "/information"));
+            Assert.Equal(compatible && action == "activate" ? 1 : 0, visits.Count(v => v == "/activated"));
             var saved = (await Store().ReadAsync("action-tenant", "action-run", ct))!;
             Assert.True(saved.FinalizationCompleted);
             var receipt = Assert.Single(saved.Invocations.Values, i => i.Id.EndsWith("/step/action", StringComparison.Ordinal));
             Assert.True(receipt.ExternalCompletionObserved); Assert.NotNull(receipt.CompletedAt);
             Assert.Contains("requestedAction", receipt.Observation!.ToJsonString());
-            Assert.Contains("activate", receipt.Observation.ToJsonString());
+            Assert.Contains(action, receipt.Observation.ToJsonString());
             if (!compatible) Assert.Contains("ACTION_MISMATCH", receipt.Observation.ToJsonString());
             var recovered = (await Store().ReadAsync("action-tenant", "action-run", ct))!;
             Assert.True(JsonNode.DeepEquals(receipt.Observation, recovered.Invocations[receipt.Id].Observation));
+            var visitsBeforeRecovery = visits.ToArray();
+            var restarted = new WorkflowEngine { McpClientFactory = transport, RunStore = Store() };
+            var replayed = await restarted.ResumeAsync("action-tenant", "action-run", recovered.Revision, workflow, ct);
+            Assert.Equal(result.Success, replayed.Success);
+            Assert.Equal(visitsBeforeRecovery, visits.ToArray());
             Assert.Null(await Store().ReadAsync("another-tenant", "action-run", ct));
             Assert.True((await (await transport.GetClientAsync("browser", ct)).CallToolAsync("browser_get_content", new JsonObject(), ct)).IsError);
         }

@@ -1,0 +1,43 @@
+{
+  "baseline": "e9934813128d71136ea6b42d93d5edf508cbd0d7",
+  "playwright_version": "1.62.0",
+  "ci_failure": "https://github.com/GnouGo/GnouGo/actions/runs/37622663527/job/112796536606",
+  "test": "BrowserActionReferenceTests.ObservedLinkCannotSatisfyControlActivation(follow, true)",
+  "reproductions": [
+    {
+      "failed_attempt_index": 17,
+      "error_code": "TIMEOUT",
+      "timeout_ms": 30000,
+      "wait_log": [
+        "NetworkIdle event fired"
+      ]
+    },
+    {
+      "failed_attempt_index": 14,
+      "error_code": "TIMEOUT",
+      "timeout_ms": 30000,
+      "wait_log": [
+        "Load event fired",
+        "NetworkIdle event fired"
+      ],
+      "page_path": "/help",
+      "document_ready_state": "complete",
+      "observed_events": [
+        "main_frame_navigation:/help",
+        "domcontentloaded",
+        "load"
+      ],
+      "subsequent_wait_succeeded_without_another_click": true
+    }
+  ],
+  "method": "Temporary probe reused the original compiled local fixture and production BrowserTools. No site, model or live campaign was involved.",
+  "diagnosis": "The requested DOMContentLoaded notification can arrive between the SDK load-state check and its subscription. Navigation itself completed.",
+  "after": {
+    "same_probe_attempts": 80,
+    "passed": 80,
+    "failed": 0,
+    "timeout_ms": 30000
+  },
+  "public_contract_changes": false,
+  "paid_calls": 0
+}

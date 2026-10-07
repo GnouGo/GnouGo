@@ -1,0 +1,26 @@
+{
+  "checks": {
+    "browser": {
+      "sha256": "92972acd711d275608ce156ec64157447f793db816c6bc1ddb5a801329de3693",
+      "passed": 109,
+      "failed": 0,
+      "skipped": 0
+    },
+    "reproduction_after": {
+      "sha256": "89a8bfc59544474b24c8aeda8e26f8645932613cee7c08ee8f198ba709211fc4",
+      "passed": 80,
+      "failed": 0,
+      "timeout_ms": 30000
+    },
+    "published_browser": {
+      "sha256": "8da899c3ad87208dbb9016b50db19968b9f9df039c50fc450ace981369c15f7a",
+      "rid": "osx-arm64",
+      "self_contained": true,
+      "native_aot": false,
+      "exit_code": 0
+    }
+  },
+  "full_solution": "running",
+  "ci": "not_dispatched",
+  "live": "not_started"
+}

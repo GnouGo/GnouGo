@@ -187,7 +187,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             {
                 if (observed is null) await locator!.ClickAsync(new LocatorClickOptions { Timeout = timeout });
                 else await observed.ClickAsync(new ElementHandleClickOptions { Timeout = timeout });
-                await page.WaitForLoadStateAsync(ParseLoadState(waitUntil), new PageWaitForLoadStateOptions { Timeout = timeout });
+                await navigationObservation.WaitForLoadStateAsync(ParseLoadState(waitUntil), timeout, cancellationToken);
             }
             finally
             {
@@ -265,7 +265,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 {
                     if (observed is null) await locator!.PressAsync("Enter", new LocatorPressOptions { Timeout = timeout });
                     else await observed.PressAsync("Enter", new ElementHandlePressOptions { Timeout = timeout });
-                    await page.WaitForLoadStateAsync(LoadState.DOMContentLoaded, new PageWaitForLoadStateOptions { Timeout = timeout });
+                    await navigationObservation.WaitForLoadStateAsync(LoadState.DOMContentLoaded, timeout, cancellationToken);
                 }
                 finally
                 {
@@ -318,7 +318,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             try
             {
                 await locator.ClickAsync(new LocatorClickOptions { Timeout = timeout });
-                await page.WaitForLoadStateAsync(ParseLoadState(waitUntil), new PageWaitForLoadStateOptions { Timeout = timeout });
+                await navigationObservation.WaitForLoadStateAsync(ParseLoadState(waitUntil), timeout, cancellationToken);
             }
             finally
             {
@@ -391,7 +391,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             {
                 if (observed is null) await locator!.PressAsync(normalizedKey, new LocatorPressOptions { Timeout = timeout });
                 else await observed.PressAsync(normalizedKey, new ElementHandlePressOptions { Timeout = timeout });
-                await page.WaitForLoadStateAsync(ParseLoadState(waitUntil), new PageWaitForLoadStateOptions { Timeout = timeout });
+                await navigationObservation.WaitForLoadStateAsync(ParseLoadState(waitUntil), timeout, cancellationToken);
             }
             finally
             {
@@ -1093,14 +1093,25 @@ public sealed record BrowserCloseResult(
 internal sealed class NavigationObservation : IDisposable
 {
     private readonly IPage _page;
+    private readonly object _sync = new();
+    private TaskCompletionSource _changed = NewSignal();
     private bool _started;
+    private bool _triggered;
+    private bool _domReady;
+    private bool _loadReady;
+    private bool _closed;
+    private long _version;
+    private long _navigationVersion;
+
+    // Deterministic test checkpoint in the former check/subscribe race window.
+    internal Func<Task>? ReadinessCheckpoint { get; init; }
 
     public NavigationObservation(IPage page)
     {
         _page = page;
     }
 
-    public bool Triggered { get; private set; }
+    public bool Triggered { get { lock (_sync) return _triggered; } }
 
     public void Start()
     {
@@ -1108,7 +1119,76 @@ internal sealed class NavigationObservation : IDisposable
             return;
 
         _page.FrameNavigated += OnFrameNavigated;
+        _page.DOMContentLoaded += OnDomContentLoaded;
+        _page.Load += OnLoad;
+        _page.Close += OnClosed;
+        _page.Crash += OnClosed;
         _started = true;
+    }
+
+    public async Task WaitForLoadStateAsync(LoadState state, float timeoutMs, CancellationToken cancellationToken)
+    {
+        if (state == LoadState.NetworkIdle)
+        {
+            // Network quiescence remains Playwright-owned; DOM readiness is not a substitute.
+            await _page.WaitForLoadStateAsync(state, new() { Timeout = timeoutMs }).WaitAsync(cancellationToken);
+            return;
+        }
+
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromMilliseconds(timeoutMs));
+        try
+        {
+            while (true)
+            {
+                Task changed;
+                long version;
+                long navigationVersion;
+                bool observed;
+                lock (_sync)
+                {
+                    if (!_started) throw new ObjectDisposedException(nameof(NavigationObservation));
+                    if (_closed || _page.IsClosed) throw new PlaywrightException("The page closed or crashed while waiting for lifecycle readiness.");
+                    changed = _changed.Task;
+                    version = _version;
+                    navigationVersion = _navigationVersion;
+                    observed = state == LoadState.Load ? _loadReady : _domReady;
+                }
+
+                if (ReadinessCheckpoint is { } checkpoint) await checkpoint().WaitAsync(deadline.Token);
+                // Subscribe before checking. Events wake this loop even if they arrive while
+                // evaluating; navigation invalidates the result before it can be accepted.
+                // Timing also covers an already-loaded document and same-document navigation.
+                // "interactive" alone precedes DOMContentLoaded and is not sufficient.
+                bool ready;
+                try { ready = await _page.EvaluateAsync<bool>("""
+                    ([load, observed]) => {
+                        const entry = performance.getEntriesByType('navigation')[0];
+                        return load
+                            ? document.readyState === 'complete' && (observed || entry?.loadEventStart > 0)
+                            : document.readyState === 'complete' ||
+                                (document.readyState === 'interactive' && (observed || entry?.domContentLoadedEventStart > 0));
+                    }
+                    """, new[] { state == LoadState.Load, observed }).WaitAsync(deadline.Token); }
+                catch (PlaywrightException) when (NavigationChanged(navigationVersion))
+                {
+                    // Only a verified navigation can invalidate an in-flight readiness read.
+                    // Recheck its new document; never repeat the interaction.
+                    continue;
+                }
+                lock (_sync)
+                {
+                    if (!_started) throw new ObjectDisposedException(nameof(NavigationObservation));
+                    if (_closed || _page.IsClosed) throw new PlaywrightException("The page closed or crashed while waiting for lifecycle readiness.");
+                    if (ready && version == _version) return;
+                }
+                await changed.WaitAsync(deadline.Token);
+            }
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException($"Timeout {timeoutMs}ms exceeded while waiting for {state}.");
+        }
     }
 
     public void Dispose()
@@ -1117,12 +1197,44 @@ internal sealed class NavigationObservation : IDisposable
             return;
 
         _page.FrameNavigated -= OnFrameNavigated;
-        _started = false;
+        _page.DOMContentLoaded -= OnDomContentLoaded;
+        _page.Load -= OnLoad;
+        _page.Close -= OnClosed;
+        _page.Crash -= OnClosed;
+        lock (_sync) { _started = false; SignalChanged(); }
     }
 
     private void OnFrameNavigated(object? sender, IFrame frame)
     {
-        if (frame == _page.MainFrame)
-            Triggered = true;
+        if (frame != _page.MainFrame) return;
+        lock (_sync)
+        {
+            _triggered = true;
+            _navigationVersion++;
+            _domReady = _loadReady = false;
+            SignalChanged();
+        }
     }
+
+    private void OnDomContentLoaded(object? sender, IPage page)
+    { lock (_sync) { _domReady = true; SignalChanged(); } }
+
+    private void OnLoad(object? sender, IPage page)
+    { lock (_sync) { _domReady = _loadReady = true; SignalChanged(); } }
+
+    private void OnClosed(object? sender, IPage page)
+    { lock (_sync) { _closed = true; SignalChanged(); } }
+
+    private void SignalChanged()
+    {
+        _version++;
+        var previous = _changed;
+        _changed = NewSignal();
+        previous.TrySetResult();
+    }
+
+    private static TaskCompletionSource NewSignal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    private bool NavigationChanged(long version)
+    { lock (_sync) return _started && !_closed && _navigationVersion != version; }
 }
