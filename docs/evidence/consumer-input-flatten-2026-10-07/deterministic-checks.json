@@ -1,0 +1,54 @@
+{
+  "baseline_sha": "93d1ffa87300f85f2236e0f40b37ef60a0bf951b",
+  "candidate_sha": "ad9e151422b485f6f181ffdd3e41669fd90f5b97",
+  "consumer_views": [
+    {
+      "pages": "52",
+      "records": "1474",
+      "processed": "52",
+      "mapping_calls": "1",
+      "global_calls": "1",
+      "serialized_global_bytes": "846",
+      "estimate": "431"
+    },
+    {
+      "pages": "52",
+      "records": "1474",
+      "processed": "52",
+      "mapping_calls": "1",
+      "global_calls": "1",
+      "serialized_global_bytes": "2113",
+      "estimate": "813"
+    },
+    {
+      "pages": "53",
+      "records": "1504",
+      "processed": "53",
+      "mapping_calls": "1",
+      "global_calls": "1",
+      "serialized_global_bytes": "2110",
+      "estimate": "812"
+    }
+  ],
+  "historical_yaml_sha256": {
+    "0": "f513063eb84a5c3271332812d5d1f422f8168bb5d96a3004fdf89024f29e9adf",
+    "1": "087df2e339e040aef41ae2b54f7c42c378d83da941f2508556c2890519f224cf",
+    "2": "1bf4f54fb6f5eab9b3c905f26c377463343ca826eb37822076d1f2fb5b2870b7"
+  },
+  "focused_final": 26,
+  "local_browser_document": 29,
+  "release_packages": [
+    "Core",
+    "Planning"
+  ],
+  "native_aot": "passed",
+  "published_encrypted_recovery": "passed",
+  "skill_validation": "passed",
+  "paid_dispatch_so_far": 0,
+  "full_solution": {
+    "suites": 33,
+    "passed": 4801,
+    "failed": 0,
+    "skipped": 12
+  }
+}
