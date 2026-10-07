@@ -16,7 +16,7 @@ Existing type diagnostics now include the traceable conditional branch/export pa
 
 The first broader planner run caught a request-size regression from longer guidance (24,043 estimated tokens against a 24,000 limit). Wording was shortened; neither the ceiling nor the retained discovery test was changed. The separately observed schema-validation CPU issue is outside this correction.
 
-Focused validation: **1,059 planner tests passed**, **four targeted local Browser/Document cases passed**, and the **Release planning package**, **Native AOT planning smoke** and **skill validation** passed. Full-solution results and live evidence follow after collection.
+Focused validation: **1,059 planner tests passed**, **four targeted local Browser/Document cases passed**, and the **Release planning package**, **Native AOT planning smoke** and **skill validation** passed. The full solution completed across 33 assemblies with **4,679 passed, one failed, twelve existing skips**. The failure was an `HttpListener` address-in-use error during disposal of the unchanged Browser fixture; its entire **67-test suite passed unchanged on rerun**. All 680 host tests passed. The original failure remains recorded; this is not reported as a clean first-pass solution run. See [validation counts](evidence/conditional-interfaces-2026-10-07/validation.json).
 
 Validation commands:
 
@@ -37,4 +37,12 @@ The model-metadata and frontend build flags avoid unrelated generation; no UI ch
 
 ## Live validation
 
-One new Amazon run is authorized after deterministic gates, with ten products maximum and the existing €150 campaign ceiling. The historical rejected workflow and uncertain invocations remain untouched. New generation and execution results, concrete artifact review, accounting and unchanged execution-oracle evidence are recorded separately below when available. No code-review evaluation or cohort expansion is included; PR #117 remains draft.
+One fresh Amazon run executed on frozen candidate `ee24b879`, with ten products maximum and the existing €150 campaign ceiling. Planning reached review without conditional type errors after six calls, one automatic repair and three explicit review revisions. The concrete revision-9 artifact was reviewed and approved under the user's authorization for this validation.
+
+**Execution failed.** Initial extraction/interpretation selected an observed footer “Cookies” information link as consent. After navigation to that information page, mapping generation and its single repair used the wrong source path and failed with `CONTRACT_UNSATISFIED`. No product was visited and no XLSX was written. Both complete Browser acquisitions succeeded without invalidation; workflow cleanup succeeded and the independent check found no active page. Source grounding and type validation did not establish that the observed link was the correct business action.
+
+Planning consumed 88,877 input / 37,342 output tokens and €1.388451 in 480,739 ms. Execution consumed 46,688 input / 6,017 output tokens and €0.367335 in 108,545 ms. Campaign upper bound: **€96.083184 / €150**, including **€2.606753** of unchanged historical unknown reservations. There is no new unknown usage. The six-slot report remains **0/6**, with one failed execution and five unstarted slots.
+
+See [concrete review](evidence/conditional-interfaces-2026-10-07/amazon-review.md), [live report and reproduction commands](evidence/conditional-interfaces-2026-10-07/amazon-result.md), [sanitized execution evidence](evidence/conditional-interfaces-2026-10-07/amazon-execution.json) and [frozen manifest/accounting](evidence/conditional-interfaces-2026-10-07/cohort-report.json). A read-only synthetic replay reproduces the invalid mapping path without inference; it does not modify runtime or the saved workflow. All non-skipped CI checks passed for the implementation commit; evidence-only delivery has its own checks.
+
+The historical rejected workflow and uncertain invocations remain untouched. No code-review evaluation, cohort expansion or second execution is included. PR #117 remains draft; conditional typing regressions passing does not establish live execution acceptance.

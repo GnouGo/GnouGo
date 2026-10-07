@@ -1,0 +1,340 @@
+{
+  "run": "typedbranch20261007a-amazon-1",
+  "approved_revision": 9,
+  "approved_artifact_hash": "2a39b345f7b5715c9b124a688f3854992244d1ffa2df81ee50bed7cb32d1ad92",
+  "stored_revision_after_approval": 10,
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "CONTRACT_UNSATISFIED",
+      "Type": "CONTRACT_UNSATISFIED",
+      "Message": "The required mapping could not be established after two bounded attempts: The mapping could not be executed within its restricted profile. [workflow 'w_d11cb89580a89810', step 'n_39f02d1807ce6fea']",
+      "Retryable": false,
+      "Details": {
+        "consumer_binding": "task_d74f616ce04afbbb39e980b8",
+        "mapping_attempts": 2,
+        "source_index": 0,
+        "failed_workflow": "w_d11cb89580a89810",
+        "failed_step_id": "n_39f02d1807ce6fea",
+        "failed_step_type": "mapping.dynamic",
+        "execution_phase": "step",
+        "workflow": "w_d11cb89580a89810",
+        "step_id": "n_39f02d1807ce6fea",
+        "step_type": "mapping.dynamic",
+        "step_status": "Failed"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "selected_observed_record": {
+    "kind": "link",
+    "tag": "a",
+    "selector": "#navFooter > div:nth-of-type(5) > ul:nth-of-type(1) > li:nth-of-type(3) > a:nth-of-type(1)",
+    "group": "#navFooter > div:nth-of-type(5) > ul:nth-of-type(1) > li:nth-of-type(3)",
+    "text": "Cookies",
+    "role": null,
+    "href_without_query": "https://www.amazon.fr/gp/help/customer/display.html"
+  },
+  "events": [
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "url": "https://www.amazon.fr/",
+        "format": "observation_complete",
+        "waitUntil": "domcontentloaded",
+        "maxRecords": 200,
+        "timeoutMs": 30000
+      },
+      "started": "2026-10-07T08:24:19.6023330+00:00",
+      "error": false,
+      "latency_ms": 5316,
+      "origin": "workflow",
+      "result": {
+        "format": "observation_complete",
+        "truncated": false,
+        "success": true,
+        "error_code": null,
+        "acquisition": {
+          "attempts": 1,
+          "invalidations": []
+        },
+        "url_without_query": "https://www.amazon.fr/",
+        "snapshot": {
+          "id": "a2520de56a0c4f57a7267c89ef3cefc8",
+          "recordCount": 144,
+          "captureTruncated": false,
+          "manifestTruncated": false
+        },
+        "page_record_counts": [
+          74,
+          66,
+          4
+        ],
+        "page_snapshot_ids": [
+          "a2520de56a0c4f57a7267c89ef3cefc8",
+          "a2520de56a0c4f57a7267c89ef3cefc8",
+          "a2520de56a0c4f57a7267c89ef3cefc8"
+        ]
+      }
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_click",
+      "arguments": {
+        "selector": "#navFooter > div:nth-of-type(5) > ul:nth-of-type(1) > li:nth-of-type(3) > a:nth-of-type(1)",
+        "waitUntil": "domcontentloaded",
+        "timeoutMs": 15000
+      },
+      "started": "2026-10-07T08:25:18.2486560+00:00",
+      "error": false,
+      "latency_ms": 1389,
+      "origin": "workflow",
+      "result": {
+        "action": "click",
+        "title": "Cookies - Service client Amazon",
+        "selector": "#navFooter > div:nth-of-type(5) > ul:nth-of-type(1) > li:nth-of-type(3) > a:nth-of-type(1)",
+        "submitted": false,
+        "triggeredNavigation": true,
+        "navigationType": "navigate",
+        "success": true,
+        "error_code": null,
+        "error_message": null,
+        "ok": true,
+        "url_without_query": "https://www.amazon.fr/gp/help/customer/display.html"
+      }
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "format": "observation_complete",
+        "waitUntil": "domcontentloaded",
+        "maxRecords": 200,
+        "timeoutMs": 30000
+      },
+      "started": "2026-10-07T08:25:19.6924840+00:00",
+      "error": false,
+      "latency_ms": 48,
+      "origin": "workflow",
+      "result": {
+        "format": "observation_complete",
+        "truncated": false,
+        "success": true,
+        "error_code": null,
+        "acquisition": {
+          "attempts": 1,
+          "invalidations": []
+        },
+        "url_without_query": "https://www.amazon.fr/gp/help/customer/display.html",
+        "snapshot": {
+          "id": "ce3fc8d14ddf46a488160e6e08277726",
+          "recordCount": 208,
+          "captureTruncated": false,
+          "manifestTruncated": false
+        },
+        "page_record_counts": [
+          82,
+          58,
+          65,
+          3
+        ],
+        "page_snapshot_ids": [
+          "ce3fc8d14ddf46a488160e6e08277726",
+          "ce3fc8d14ddf46a488160e6e08277726",
+          "ce3fc8d14ddf46a488160e6e08277726",
+          "ce3fc8d14ddf46a488160e6e08277726"
+        ]
+      }
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "arguments": {},
+      "started": "2026-10-07T08:26:05.7847590+00:00",
+      "error": false,
+      "latency_ms": 1063,
+      "origin": "workflow",
+      "result": {
+        "closed": true,
+        "success": true,
+        "error_code": null,
+        "error_message": null,
+        "ok": true
+      }
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {},
+      "started": "2026-10-07T08:26:06.9409690+00:00",
+      "error": true,
+      "latency_ms": 1,
+      "origin": "independent_cleanup_oracle",
+      "result": {
+        "title": null,
+        "statusCode": null,
+        "selector": null,
+        "resolvedSelector": "",
+        "fallbackApplied": false,
+        "fallbackReason": null,
+        "format": "html",
+        "content": "",
+        "truncated": false,
+        "maxCharacters": 0,
+        "success": false,
+        "error_code": "INVALID_INPUT",
+        "error_message": "InvalidOperationException: No active page. Call browser_get_content with url first.",
+        "ok": false,
+        "url_without_query": ""
+      }
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "arguments": {},
+      "started": "2026-10-07T08:26:06.9568860+00:00",
+      "error": false,
+      "latency_ms": 1002,
+      "origin": "independent_cleanup_oracle",
+      "result": {
+        "closed": true,
+        "success": true,
+        "error_code": null,
+        "error_message": null,
+        "ok": true
+      }
+    }
+  ],
+  "mapping_telemetry": [
+    {
+      "gnougo.mapping.source_items": 3,
+      "gnougo.mapping.cache_hit": false,
+      "gnougo.mapping.model_attempts": 1,
+      "gnougo.mapping.repairs": 0,
+      "gnougo.mapping.sample_items": 2,
+      "gnougo.mapping.omitted_items": 1,
+      "gnougo.mapping.request_bytes": 29983,
+      "gnougo.mapping.processed_items": 3,
+      "step": "n_48c975143e49f95d",
+      "status": "Succeeded",
+      "duration_ms": 43345.5982
+    },
+    {
+      "gnougo.mapping.source_items": 4,
+      "gnougo.mapping.cache_hit": false,
+      "gnougo.mapping.model_attempts": 2,
+      "gnougo.mapping.repairs": 1,
+      "gnougo.mapping.sample_items": 3,
+      "gnougo.mapping.omitted_items": 1,
+      "gnougo.mapping.request_bytes": 52825,
+      "step": "n_39f02d1807ce6fea",
+      "status": "Failed",
+      "duration_ms": 45861.7423
+    }
+  ],
+  "runtime_mapping_receipts": [
+    {
+      "invocation": "/workflow/main/step/n_48c975143e49f95d/mapping/0",
+      "request_id": "95b6ec8b139db6ae4f901b866e6905019d335fa582e3a5f17233c475535186bf",
+      "status": "completed",
+      "usage": {
+        "input_tokens": 10370,
+        "output_tokens": 2795,
+        "total_tokens": 13165,
+        "benchmark_cost_eur": 0.12041884816753927,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "response": {
+        "script": "({observedSearchControls:source.initialPages.records.filter(r=>m.test(r.selector,'^(#nav-assist-search|#searchDropdownBox|#twotabsearchtextbox|#nav-search-submit-button)$')).map(r=>({selector:r.selector,text:r.text,role:r.role,group:r.group})),observedConsentControls:source.initialPages.records.filter(r=>m.test(r.text,'^(Vos informations personnelles|Cookies|Annonces basées sur vos centres d’intérêt)$')).map(r=>({selector:r.selector,text:r.text,role:r.role,group:r.group})),captchaOrBlockerIndicators:source.initialPages.records.filter(r=>m.test(r.text,'[Cc][Aa][Pp][Tt][Cc][Hh][Aa]|[Rr]obot|[Bb]loqu|[Bb]locked|[Ss]orry|[Dd]ésolé|Désolé')).map(r=>r.text)})"
+      }
+    },
+    {
+      "invocation": "/workflow/main/step/n_aca4fd1d6f9b20ce/case/0/step/n_ef5ee85e1273c558/workflow/w_42373776a0d2b0a5/step/n_0036813d2b53bd39/case/0/step/n_34b28ca4ad224f46/workflow/w_d11cb89580a89810/step/n_39f02d1807ce6fea/mapping/0",
+      "request_id": "c086b5c4c0d58af5adb37019f37ff801afe568d112242a7f8e52aff52a10fea1",
+      "status": "completed",
+      "usage": {
+        "input_tokens": 17712,
+        "output_tokens": 1720,
+        "total_tokens": 19432,
+        "benchmark_cost_eur": 0.12437660839471115,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "response": {
+        "script": "({observedSearchControls:source.records.filter(r=>m.test(r.kind,'^control$')&&m.test(r.selector,'search')).map(r=>({selector:r.selector,text:r.text,role:r.role,group:r.group})),observedConsentControls:source.records.filter(r=>m.test(r.kind,'^control$')&&m.test(r.text,'(?i)(cookie|consent|accepter|refuser|préférences)')).map(r=>({selector:r.selector,text:r.text,role:r.role,group:r.group})),captchaOrBlockerIndicators:source.records.filter(r=>m.test(r.text,'(?i)(captcha|robot|bloqu|accès refusé|automated|blocked)')).map(r=>r.text)})"
+      }
+    },
+    {
+      "invocation": "/workflow/main/step/n_aca4fd1d6f9b20ce/case/0/step/n_ef5ee85e1273c558/workflow/w_42373776a0d2b0a5/step/n_0036813d2b53bd39/case/0/step/n_34b28ca4ad224f46/workflow/w_d11cb89580a89810/step/n_39f02d1807ce6fea/mapping/1",
+      "request_id": "c91abbe70b93adb914b96d05035ff472608f0e9fc189e126f604eee86970178c",
+      "status": "completed",
+      "usage": {
+        "input_tokens": 17946,
+        "output_tokens": 1247,
+        "total_tokens": 19193,
+        "benchmark_cost_eur": 0.11282278817996273,
+        "transport_attempts": 1,
+        "uncertain_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "benchmark_usage_bounded": true
+      },
+      "response": {
+        "script": "({observedSearchControls:source.records.filter(r=>m.test(r.kind,'^control$')).filter(r=>m.test(r.selector,'search')).map(r=>({selector:r.selector,text:r.text,role:r.role,group:r.group})),observedConsentControls:source.records.filter(r=>m.test(r.kind,'^control$')).filter(r=>m.test(r.text,'[Cc]ookie|[Cc]onsent|[Aa]ccepter|[Rr]efuser|[Pp]références')).map(r=>({selector:r.selector,text:r.text,role:r.role,group:r.group})),captchaOrBlockerIndicators:source.records.filter(r=>m.test(r.text,'[Cc][Aa][Pp][Tt][Cc][Hh][Aa]|[Rr]obot|[Bb]loqu|[Aa]ccès refusé|[Aa]utomated|[Bb]locked')).map(r=>r.text)})"
+      }
+    }
+  ],
+  "runtime_request_inspection_estimates": [
+    {
+      "invocation": "/workflow/main/step/n_38ab80d7780fdd5b",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 4841,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_aca4fd1d6f9b20ce/case/0/step/n_ef5ee85e1273c558/workflow/w_42373776a0d2b0a5/step/n_0036813d2b53bd39/case/0/step/n_34b28ca4ad224f46/workflow/w_d11cb89580a89810/step/n_39f02d1807ce6fea/mapping/1",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 26490,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_48c975143e49f95d/mapping/0",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 17020,
+      "model_calls": 0,
+      "inspection_only": true
+    },
+    {
+      "invocation": "/workflow/main/step/n_aca4fd1d6f9b20ce/case/0/step/n_ef5ee85e1273c558/workflow/w_42373776a0d2b0a5/step/n_0036813d2b53bd39/case/0/step/n_34b28ca4ad224f46/workflow/w_d11cb89580a89810/step/n_39f02d1807ce6fea/mapping/0",
+      "status": "completed",
+      "observed_completion": true,
+      "estimated_prompt_tokens": 26198,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ],
+  "redactions": "Full page records omitted; public URL queries omitted. Original requests, responses and receipts retained encrypted."
+}
