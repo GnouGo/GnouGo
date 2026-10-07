@@ -1,0 +1,131 @@
+{
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "RUN_NEEDS_RECONCILIATION",
+      "Type": "RUN_NEEDS_RECONCILIATION",
+      "Message": "An external invocation has no verified completion receipt. Reconcile it before resuming or running cleanup. [workflow 'w_b6165589a2f33487', step 'n_9529731b5242cb37']",
+      "Retryable": false,
+      "Details": {
+        "invocation_id": "/workflow/main/step/n_3cdefa0c23d0dac9/case/0/step/n_6abbba3e3ef5988a/workflow/w_b6165589a2f33487/step/n_9529731b5242cb37/mapping/0",
+        "failed_workflow": "w_b6165589a2f33487",
+        "failed_step_id": "n_9529731b5242cb37",
+        "failed_step_type": "mapping.dynamic",
+        "execution_phase": "step",
+        "workflow": "w_b6165589a2f33487",
+        "step_id": "n_9529731b5242cb37",
+        "step_type": "mapping.dynamic",
+        "step_status": "Failed",
+        "cleanup_blocked": true,
+        "unresolved_invocation_ids": [
+          "/workflow/main/step/n_3cdefa0c23d0dac9/case/0/step/n_6abbba3e3ef5988a/workflow/w_b6165589a2f33487/step/n_9529731b5242cb37/mapping/0"
+        ]
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "browser_not_closed_by_workflow",
+      "workbook_missing"
+    ]
+  },
+  "failure": null,
+  "failures": [
+    {
+      "stage": "preflight",
+      "exception_type": "InvalidOperationException",
+      "kind": null,
+      "status_code": null,
+      "safe_provider_code": null,
+      "retryable": null,
+      "attempt_count": null,
+      "retry_exhausted": null,
+      "retry_after_ms": null,
+      "reason": "currency_quote_unavailable"
+    }
+  ],
+  "mapping_telemetry": [
+    {
+      "gnougo.mapping.source_items": 3,
+      "gnougo.mapping.cache_hit": false,
+      "gnougo.mapping.model_attempts": 1,
+      "gnougo.mapping.repairs": 0,
+      "gnougo.mapping.sample_items": 3,
+      "gnougo.mapping.omitted_items": 0,
+      "gnougo.mapping.request_bytes": 61217,
+      "step": "n_9529731b5242cb37",
+      "status": "Failed",
+      "duration_ms": 79316.085
+    }
+  ],
+  "runtime_mapping_receipts": [
+    {
+      "invocation": "/workflow/main/step/n_3cdefa0c23d0dac9/case/0/step/n_6abbba3e3ef5988a/workflow/w_b6165589a2f33487/step/n_9529731b5242cb37/mapping/0",
+      "request_id": "406970ea0e121d126ce7ac86a38c1c57adc5c3ef3b7e045759775d22546d13ef",
+      "status": "needs_reconciliation",
+      "usage": null,
+      "response": null
+    }
+  ],
+  "runtime_llm_inputs": [
+    {
+      "invocation": "/workflow/main/step/n_3cdefa0c23d0dac9/case/0/step/n_6abbba3e3ef5988a/workflow/w_b6165589a2f33487/step/n_9529731b5242cb37/mapping/0",
+      "status": "needs_reconciliation",
+      "observed_completion": false,
+      "estimated_prompt_tokens": 30923,
+      "model_calls": 0,
+      "inspection_only": true
+    }
+  ],
+  "events": [
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "started": "2026-10-07T10:39:17.5538990+00:00",
+      "latency_ms": 5272,
+      "snapshot": {
+        "id": "6a854214b5ee47588e9dfeb805546689",
+        "pages": 3,
+        "records": 131,
+        "captureTruncated": false,
+        "manifestTruncated": false,
+        "recordCount": 131,
+        "acquisition": {
+          "attempts": 1,
+          "invalidations": []
+        },
+        "format": "observation_complete"
+      },
+      "supported_action_counts": {
+        "follow": 97,
+        "press": 105,
+        "activate": 6,
+        "select": 1,
+        "fill": 1
+      }
+    },
+    {
+      "tool": "browser_get_content",
+      "error": false,
+      "started": "2026-10-07T10:40:43.0254210+00:00",
+      "latency_ms": 82,
+      "purpose": "oracle cleanup inspection",
+      "active_page_present": true
+    },
+    {
+      "tool": "browser_close",
+      "error": false,
+      "started": "2026-10-07T10:40:43.1184170+00:00",
+      "latency_ms": 1039,
+      "purpose": "oracle defensive close after checking workflow cleanup",
+      "closed": true
+    }
+  ],
+  "runtime_provider_dispatches": 0,
+  "action_reference_interactions": 0,
+  "historical_invocations_replayed": false,
+  "observations_omitted": "Complete observations and issued requests remain encrypted; only structural acquisition/action counts are published."
+}

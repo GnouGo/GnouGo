@@ -16,7 +16,7 @@ The [previous failed live](evidence/conditional-interfaces-2026-10-07/amazon-res
 - Browser tests cover native/ARIA controls, link activation rejection, explicit following, disabled/read-only elements, exact identity, changed semantics, expired/cross-instance references, conflicting targets and undelivered pages.
 - Host tests discover the actual MCP schemas, exercise reference actions through real transport, persist structured errors in encrypted receipts, and verify unchanged recovery and tenant isolation.
 - Local Flow/Browser/Document fixtures use deterministic extraction/decision adapters, real page interactions and independently inspected XLSX values. They are deterministic integration evidence, not live-provider acceptance.
-- The local complete-observation fixture closes its listener once before awaiting its serving task, removing the demonstrated disposal race without suppressing errors or dropping assertions.
+- The local observation fixtures close their listeners before awaiting their serving tasks, removing the demonstrated disposal race without suppressing errors or dropping assertions.
 
 Run the affected checks with `dotnet test GnOuGo.Agent.sln -m:1 -warnaserror`. The validation host additionally skips optional remote metadata generation and frontend rebuilding (`-p:SkipModelMetadataGeneration=true -p:SkipClientBuild=true`); neither frontend nor generated model metadata changed. Release package, planning Native AOT, Browser self-contained and published encrypted-receipt checks are recorded with the final evidence.
 
@@ -25,3 +25,5 @@ See [runtime mapping](runtime-mappings.md), [Browser contracts](../src/GnOuGo.Br
 ## Live acceptance
 
 Only one fresh Amazon evaluation, at most ten products, is authorized for this correction. It requires a clean frozen candidate, current campaign admission, and concrete requirement/artifact review before one execution. Historical invocations and unknown reservations remain untouched. Final measurements and any incomplete stages are retained separately; this correction alone cannot establish the six-run PR acceptance gate.
+
+The [fresh execution report](evidence/canonical-items-and-actions-2026-10-07/amazon-result.md) records the completed deterministic gates and the failed single live attempt. Home acquisition succeeded; currency-quote admission failed before mapping provider dispatch, leaving an unresolved Flow invocation. No live mapping/action or XLSX success is claimed.

@@ -1,0 +1,21 @@
+# Concrete artifact review
+
+Run `canonical20261007b-amazon-1`, frozen candidate/harness `789fda4e04021a114ff3fbb04b9fb4465854e012`, revision **8**, artifact **587be0412c9edb42b9fe1aa518cabfcfe994146979f7b5d45db28d045c065e30**.
+
+The user explicitly authorized this next live validation. This review applies that authorization to this new artifact only. No prior approval is reused, no historical invocation is resumed, and execution is limited to one attempt under the existing EUR 150 campaign ceiling. The five acknowledgments below were checked against the actual tasks, branch interfaces, inputs, loop body and finalizer; they were not populated automatically.
+
+| Accepted requirement | Reviewed implementation |
+| --- | --- |
+| `search_amazon_fr` | `open_amazon_home` opens the requested site. Complete home observations are independently compacted before deciding on an observed fill-compatible field. `fill_search_box` passes the actual public `query`, current opaque reference and `submit=true`. The cookie branch uses `requestedAction=activate` with its own nullable-reference guard and reacquires observations after interaction. Other blockers remain explicit. |
+| `list_first_products` | Fresh complete search acquisition precedes independent page extraction. `select_first_ten_products` receives compact observed candidate facts and retains original order and exact observed URLs. The sequential visit loop has maximum 10. No raw snapshot enters global interpretation. |
+| `extract_product_details` | Each selected navigable product has a real `open_product_page` operation. Its complete snapshot pages feed independent extraction, then compact interpretation of name/description/price with explicit nullable fields and status. Missing links, incomplete acquisition and absent data have explicit failure/status paths; they cannot satisfy the independent visit/completeness oracle by themselves. |
+| `save_excel` | `make_xlsx_tsv` is an explicit interpretation step; `write_products_xlsx` actually invokes the document writer at the fixed run-specific `products.xlsx` location. Public `xlsx_path` comes from the writer's returned `filePath`. `assemble_final_products` consumes the collected `product` export, not a whole execution envelope. |
+| `close_browser` | Root `close_browser_always` invokes Browser closure unconditionally, including verified failure. Existing reconciliation rules continue to prohibit cleanup after unknown completion. |
+
+All four independent extracts declare `each: { input: pages, output: page_facts }`. Runtime supplies canonical `item` and approved shared `context`; the TaskPlan contains neither mapping scripts nor executor names. Every page is processed, with one generation plus one repair per invocation. Extract result fields are observations, not invented indices or coverage claims. Completeness checks refer to original `captureTruncated` and `manifestTruncated` flags; `observation_complete` itself fails when complete acquisition cannot be established.
+
+Conditional branches publish matching named ports. Reference-based actions have explicit null guards; after cookie activation and search submission the workflow acquires a fresh snapshot. Browser resolves the exact retained element and checks current action compatibility. These checks do not prove consent semantics, correct classification, complete source-grounded business selection, or successful execution; the unchanged independent oracle must still evaluate visits, observed workbook cells and cleanup.
+
+Explicit interpretation remains visible for decisions, final row assembly and TSV formatting. It remains paid, bounded inference. No permission, context/token allowance, mapping attempt budget or oracle is changed. The YAML is 228,152 bytes / 6,256 lines; no further compiler refactor was included in this focused correction.
+
+The stopped proposals at revisions 2, 4 and 6 are retained. Revision 8 changes exactly `/root/tasks/5/body/tasks/0/outputs/0/value/port` from revision 6, selecting the existing loop export `product`; all requirements and other work remain byte-equivalent at the logical JSON level. Planning reached review after five calls, two discovery reads, zero automatic repairs and three explicit implementation revisions. This is not one-call live planning.
