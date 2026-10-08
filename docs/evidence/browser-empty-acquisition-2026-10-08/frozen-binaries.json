@@ -1,0 +1,40 @@
+{
+  "source": "e04173619b3a3444586cc185fb3e7f64cb4dd820",
+  "files": [
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+      "sha256": "1f9030344d3de5c740c2ed58a49adb2e3b73705712800e45a9ed0ee12ba2db41",
+      "bytes": 452608
+    },
+    {
+      "path": "src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll",
+      "sha256": "01deee8949960333e44f8b04a3ae8169b8fc7033ba418a2038342f03415202e8",
+      "bytes": 407040
+    },
+    {
+      "path": "src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll",
+      "sha256": "f2e15bf7dca632839e437ec2f5bc43513bebe77cbcb4e4b53a7b8dbba968b299",
+      "bytes": 163328
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll",
+      "sha256": "f87510b579d9ddafd5aa8bfc87b7455fe346249740a735cd9a607726ac782798",
+      "bytes": 2061824
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll",
+      "sha256": "6ee8ac7969187e935730e00a653e1fe6895c13eb437133460ed2f3cb0f2c25f9",
+      "bytes": 893952
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs",
+      "sha256": "e2d6ddf002b75cfd5ddc5be10852c118e7b9d2a3c3d3875c03a0770de054f62a",
+      "bytes": 13205
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs",
+      "sha256": "be0407b5ccb33768f13c093d51c6a142a7094c69012085fd108d1c4670f5af5e",
+      "bytes": 26103
+    }
+  ]
+}

@@ -1,0 +1,260 @@
+{
+  "revision": 4,
+  "artifact_hash": "c243211195ab1f815c0464005fbc45c4c11abd922a54f9b7330466059ef4f028",
+  "status": "final_review",
+  "requirements": {
+    "summary": "Automatiser une recherche Amazon.fr pour une entr\u00e9e publique nomm\u00e9e query, collecter au maximum les 10 premiers produits, visiter chaque page produit, extraire nom, description et prix sans invention, puis sauvegarder les r\u00e9sultats dans un classeur Excel au chemin demand\u00e9 et fermer le navigateur m\u00eame en cas d\u2019\u00e9chec.",
+    "outcomes": [
+      {
+        "id": "search_amazon_fr",
+        "description": "Utiliser Amazon.fr pour rechercher l\u2019article fourni par l\u2019entr\u00e9e query."
+      },
+      {
+        "id": "collect_up_to_10_products",
+        "description": "Lister les produits trouv\u00e9s et traiter au maximum les 10 premiers r\u00e9sultats produits."
+      },
+      {
+        "id": "visit_each_product",
+        "description": "Naviguer sur la page de chaque produit s\u00e9lectionn\u00e9 pour extraire les donn\u00e9es disponibles."
+      },
+      {
+        "id": "explicit_missing_data",
+        "description": "Si CAPTCHA, prix, description ou autres donn\u00e9es sont absents ou inaccessibles, le consigner explicitement sans inventer de valeur."
+      },
+      {
+        "id": "save_excel",
+        "description": "Cr\u00e9er et sauvegarder le classeur Excel \u00e0 workflows/schema-portability-20261002/emptyacquire20261008a-amazon-1/products.xlsx."
+      },
+      {
+        "id": "close_browser_always",
+        "description": "Fermer le navigateur m\u00eame en cas d\u2019\u00e9chec."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default": null
+      }
+    ],
+    "outputs": [
+      {
+        "name": "productsWorkbook",
+        "type": {
+          "kind": "object",
+          "nullable": false,
+          "items": null,
+          "fields": [
+            {
+              "name": "path",
+              "type": {
+                "kind": "string",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "products",
+              "type": {
+                "kind": "array",
+                "nullable": false,
+                "items": {
+                  "kind": "object",
+                  "nullable": false,
+                  "items": null,
+                  "fields": [
+                    {
+                      "name": "originalIndex",
+                      "type": {
+                        "kind": "integer",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "name",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "description",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "price",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "status",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "name": "url",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true,
+                        "items": null,
+                        "fields": []
+                      },
+                      "required": true,
+                      "default": null
+                    }
+                  ]
+                },
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            }
+          ]
+        },
+        "required": true,
+        "default": null
+      }
+    ]
+  },
+  "diagnostics": [],
+  "result": {
+    "status": "final_review",
+    "planning_ms": 401478,
+    "calls": 3,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 1,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 3,
+        "physical_attempts": 4,
+        "known_input_tokens": 29245,
+        "known_output_tokens": 6540,
+        "known_cost_eur": 0.30386458425769813,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 904,
+        "session_calls": 0,
+        "known_input_tokens": 13401400,
+        "known_output_tokens": 1803963,
+        "known_cost_eur": 107.78212823681459,
+        "reserved_input_tokens": 384000,
+        "reserved_output_tokens": 131072,
+        "reserved_cost_eur": 5.203327457848472,
+        "cost_upper_bound_eur": 112.98545569466306,
+        "unknown_attempts": 4
+      }
+    }
+  },
+  "review": [
+    {
+      "id": "static",
+      "outcome": "passed",
+      "description": "Business bindings, contracts and control flow validated. External execution has not been observed.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_59194497abc3429edc49d432",
+      "outcome": "declared",
+      "description": "Ouvrir Amazon.fr et observer la page d\u2019accueil sans interaction implicite. \u2014 operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_71a065205b09d4672f60d45d",
+      "outcome": "declared",
+      "description": "R\u00e9observer la page Amazon.fr apr\u00e8s l\u2019\u00e9ventuel consentement afin d\u2019obtenir des r\u00e9f\u00e9rences fra\u00eeches avant de rechercher. \u2014 operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_c780d9a5ad48ef1a588601df",
+      "outcome": "declared",
+      "description": "Saisir l\u2019entr\u00e9e publique query dans le champ de recherche observ\u00e9 et soumettre la recherche. \u2014 operation: cap_416310ac4ff2808dc91e3a14 (GnOuGo.Browser.Mcp/browser_fill); contract effect: execute. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_37a37b1bba0130f43a63cff2",
+      "outcome": "declared",
+      "description": "Observer compl\u00e8tement la page de r\u00e9sultats Amazon.fr apr\u00e8s la recherche; ne consid\u00e9rer la page compl\u00e8te que si la capture n\u2019est pas tronqu\u00e9e. \u2014 operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_6cdc956b5576d30ff12004bf",
+      "outcome": "declared",
+      "description": "Sauvegarder le classeur Excel demand\u00e9 au chemin relatif fix\u00e9, avec les donn\u00e9es collect\u00e9es ou les statuts explicites d\u2019absence/blocage. \u2014 operation: cap_37c513d225bb1b870053c5d3 (GnOuGo.Document.Mcp/document_write); contract effect: write. Declared resource locations checked; dynamic relationships still require execution evidence. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_a6ce291176e2a61016b9e35b",
+      "outcome": "declared",
+      "description": "Fermer le navigateur m\u00eame en cas d\u2019\u00e9chec de toute \u00e9tape pr\u00e9c\u00e9dente. \u2014 operation: cap_bdb7ba9ab04b18783883fa86 (GnOuGo.Browser.Mcp/browser_close); contract effect: lifecycle. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_77c70bfd43494cda158aa76a",
+      "outcome": "declared",
+      "description": "Cliquer sur le contr\u00f4le de consentement cookies observ\u00e9, avec action activate. \u2014 operation: cap_dd05fbf36e155a64318f3588 (GnOuGo.Browser.Mcp/browser_click); contract effect: execute. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    },
+    {
+      "id": "operation:task_4f17fca7c3fa74988df3642d",
+      "outcome": "declared",
+      "description": "Ouvrir la page du produit courant \u00e0 partir de son URL observ\u00e9e. Si l\u2019URL est absente, cette \u00e9tape est bloqu\u00e9e pour cet item et l\u2019absence sera consign\u00e9e. \u2014 operation: cap_490d9e16075cbdca5954ec27 (GnOuGo.Browser.Mcp/browser_get_content); contract effect: read. Resource lifecycle is not established by this contract; review cleanup and retained artifacts. Execution has not been observed; review the business requirements separately.",
+      "diagnostics": []
+    }
+  ]
+}
