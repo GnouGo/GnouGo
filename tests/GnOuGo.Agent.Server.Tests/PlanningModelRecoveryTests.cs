@@ -117,6 +117,7 @@ public sealed class PlanningModelRecoveryTests
     [InlineData(null)]
     [InlineData("legacy")]
     [InlineData("legacy_running")]
+    [InlineData("retired_guard")]
     [InlineData("missing_receipt")]
     [InlineData("stale_identity")]
     [InlineData("changed_schema")]
@@ -124,8 +125,9 @@ public sealed class PlanningModelRecoveryTests
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = await SeedAsync(fixture);
-        var legacy = invalid is "legacy" or "legacy_running";
+        var legacy = invalid is "legacy" or "legacy_running" or "retired_guard";
         if (legacy) state.IntentVersion = 1;
+        if (invalid == "retired_guard") { state.IntentVersion = 2; state.Diagnostics.Add(new("TASK_CONDITIONAL_REQUIREMENT", "/tasks/route/condition", "Retained proof repair")); }
         if (invalid == "legacy_running") state.Status = PlanningStatus.Generating;
         var request = state.PendingCall!.Request;
         request.ClientRequestId = null;
@@ -140,7 +142,7 @@ public sealed class PlanningModelRecoveryTests
                 JsonSerializer.Serialize(new LLMResponse { Json = new JsonObject { ["answer"] = "retained" } }, PlanningJsonContext.Default.LLMResponse), EfPlanningSessionStore.Author, Ct);
         if (invalid == "changed_schema") request.StructuredOutputSchema!["properties"]!["answer"]!["type"] = "number";
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-        if (invalid is not (null or "legacy" or "legacy_running"))
+        if (invalid is not (null or "legacy" or "legacy_running" or "retired_guard"))
         {
             await Assert.ThrowsAsync<PlanningConflictException>(() => PlanningModelRecovery.ResumeAsync(state, fixture.Records,
                 invalid == "stale_identity" ? "other-request" : request.ClientRequestId, Ct));

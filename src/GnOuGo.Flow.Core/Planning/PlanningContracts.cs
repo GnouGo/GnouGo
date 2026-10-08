@@ -101,7 +101,8 @@ public sealed class PlanningSession
 
     [JsonIgnore]
     public bool RequiresPlanningRevision => IntentVersion != 2 &&
-        (IntentVersion is not null || OutcomeVersion is not null || Requirements is not null || Plan is not null || PendingCall is not null || ModelCalls > 0);
+        (IntentVersion is not null || OutcomeVersion is not null || Requirements is not null || Plan is not null || PendingCall is not null || ModelCalls > 0) ||
+        Diagnostics.Any(d => d.Code == "TASK_CONDITIONAL_REQUIREMENT");
 
     public int SchemaVersion { get; set; } = 10;
     public PlanningRequest Request { get; set; } = new();

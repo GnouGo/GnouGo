@@ -83,9 +83,9 @@ public sealed partial class TaskPlanCompiler
             inputs.Add(new(input.Name, bound.Value)); contracts.Add((input.Name, bound.Schema));
         }
         var values = Object(inputs);
-        // Explicit new collection views get one checked consumer object. Existing
-        // plans retain their exact lowering, including historical opaque inputs.
-        if (task.Inputs.Any(i => ContainsConsumerBinding(i.Value)))
+        // Explicit assembled views get one closed, checked consumer object.
+        // Historical profiles retain their original lowering.
+        if (_fusedBindings && task.Inputs.Any(i => i.Value.Kind is "object" or "array") || task.Inputs.Any(i => ContainsConsumerBinding(i.Value)))
         {
             var view = Key(key, "consumer-inputs"); _sources[view] = "/tasks/" + task.Id + "/inputs";
             target.Add(new() { Key = view, Type = "set", Purpose = "Validate the declared decision inputs",

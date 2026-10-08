@@ -106,12 +106,12 @@ var guardPlan = JsonSerializer.Deserialize("""
 var guardCatalog = new PlanningCatalog { AllowedStepTypes = ["mcp.call", "set", "workflow.call", "switch"],
     Capabilities = [new() { Id = "guarded-action", Version = "1", StepType = "mcp.call", Kind = "tool", Server = "smoke", Method = "perform",
         InputSchema = new() { ["type"] = "object" }, OutputSchema = new() { ["type"] = "object" } }] };
-if (!new TaskPlanCompiler().Compile(guardPlan, guardCatalog).Diagnostics.Any(d => d.Code == "TASK_CONDITIONAL_REQUIREMENT"))
-    throw new InvalidOperationException("Missing conditional authorization guard was accepted.");
+if (new TaskPlanCompiler().Compile(guardPlan, guardCatalog).Diagnostics.Count != 0)
+    throw new InvalidOperationException("Local runtime authorization was rejected by conditional proof logic.");
 guardPlan.Root.Tasks[0].Condition = new() { Kind = "input", Source = "authorized" };
 if (new TaskPlanCompiler().Compile(guardPlan, guardCatalog).Diagnostics.Count != 0)
     throw new InvalidOperationException("Explicit conditional authorization guard was rejected.");
-Console.WriteLine("conditional entries: missing authorization rejected, explicit guard accepted, runtime requires preserved");
+Console.WriteLine("conditional entries: runtime requires preserved without automatic guard proof");
 
 var mapped = new GnOuGo.Flow.Core.Scripting.JintSandbox().ExecuteMapping(
     "({name:m.decode(m.text(source.html,'<h1>([^<]+)</h1>')),amount:source.amount})",
@@ -165,7 +165,7 @@ var indexedPlan = new TaskPlan { Inputs = compactPlan.Inputs, Root = new()
 var indexedRequest = new PlanningRequest(); indexedRequest.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
 var indexedGraph = new TaskPlanCompiler().Compile(indexedPlan, compactCatalog, indexedRequest);
 if (indexedGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Indexed projection compilation failed.");
-var indexedYaml = new PlanningGraphCompiler().Compile(indexedGraph.Graph!, compactCatalog, "generated", true);
+var indexedYaml = new PlanningGraphCompiler().Compile(indexedGraph.Graph!, compactCatalog, "generated", true, true);
 var indexedDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(indexedYaml));
 var indexedResult = await compactEngine.ExecuteAsync(indexedDocument.Workflows["main"], new JsonObject
     { ["rows"] = new JsonArray(Enumerable.Range(0, 1602).Select(_ => (JsonNode)new JsonObject { ["label"] = "same" }).ToArray()) }, CancellationToken.None);

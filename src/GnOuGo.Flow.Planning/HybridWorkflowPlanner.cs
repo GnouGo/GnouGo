@@ -116,7 +116,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
                 case "revise":
                     if (state.PendingCall is not null) throw new PlanningConflictException("Reconcile the pending model request before revising.");
                     ArgumentException.ThrowIfNullOrWhiteSpace(command.Text);
-                    if (command.PreserveRequirements == true && (state.RequiresPlanningRevision || state.Requirements is null ||
+                    if (command.PreserveRequirements == true && (state.IntentVersion != 2 || state.Requirements is null ||
                         command.ArtifactHash != state.ComputeArtifactHash()))
                         throw new PlanningConflictException("A correction must retain current accepted requirements and identify the exact artifact, when present.");
                     if (command.EditablePaths is not null) TaskPlanRevisions.ValidateEditablePaths(state, command.EditablePaths);
@@ -388,7 +388,7 @@ public sealed class HybridWorkflowPlanner(TimeProvider? timeProvider = null) : I
         findings = PlanningExecutableValidation.Validate(graph, state.Catalog!).Select(compilation.Locate).ToList();
         if (findings.Count == 0)
         {
-            var yaml = new PlanningGraphCompiler().Compile(graph, state.Catalog!, state.Request.Name, TaskPlanCompiler.UsesNormalExports(state.Request));
+            var yaml = new PlanningGraphCompiler().Compile(graph, state.Catalog!, state.Request.Name, TaskPlanCompiler.UsesNormalExports(state.Request), TaskPlanCompiler.UsesFusedBindings(state.Request));
             findings.AddRange((await runtime.ValidateAsync(new(yaml, state.Request, state.Catalog!, PlanningGraphCompiler.CapabilityBindings(graph)), ct))
                 .Select(d => compilation.Locate(PlanningExecutableValidation.MapRuntimeDiagnostic(d, graph))));
             if (findings.Count == 0)

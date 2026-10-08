@@ -102,8 +102,6 @@ public sealed partial class TaskPlanCompiler
         Inputs(root, _plan.Inputs, "/inputs");
         InspectScope(_plan.Root, root, "/root");
         foreach (var group in _plan.Groups) GroupScope(group.Id);
-        if (!findings.Any(d => d.Code is "TASK_IDENTITY_INVALID" or "TASK_DEPENDENCY_CYCLE" or "TASK_GROUP_CYCLE"))
-            findings.AddRange(ConditionalRequirements(contracts, findings.Select(d => d.Location).ToHashSet(StringComparer.Ordinal)));
         return findings.Select(ConditionalContext).Distinct().OrderBy(d => d.Location, StringComparer.Ordinal).ThenBy(d => d.Code, StringComparer.Ordinal).ToArray();
 
         // Diagnostic context only: keep locations, codes and repair authority intact.

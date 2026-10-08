@@ -73,8 +73,6 @@ internal static class PlanningRepairPatch
         var exportRepair = TaskPlanRevisions.Exports(plan, explicitRevision ? [] : state.RevisionScope);
         var sources = TaskPlanCompiler.RepairSources(plan, state.Catalog!);
         var structuralSlots = structural && !explicitRevision ? PlanningStructuralRepair.Slots(state, definitions) : [];
-        var guardRepairs = state.Diagnostics.Any(d => d.Code == "TASK_CONDITIONAL_REQUIREMENT") && !explicitRevision
-            ? TaskPlanCompiler.ConditionalRepairs(plan, state.Catalog!) : new Dictionary<string, TaskValue?>();
         foreach (var path in state.RevisionScope.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
             if (path.EndsWith("/kind", StringComparison.Ordinal) && structuralSlots.Any(s => s.Kind == "task" && path == s.Location + "/kind")) continue;
@@ -86,11 +84,6 @@ internal static class PlanningRepairPatch
                 schema = path.Split('/') is ["", "tasks", _, "inputs"]
                     ? PlanningSchemas.Array(PlanningSchemas.Ref("output")) : PlanningSchemas.Ref("value");
                 actions.Add("replace");
-            }
-            else if (guardRepairs.TryGetValue(path, out var guard))
-            {
-                if (guard is null) throw new WorkflowRuntimeException("REVISION_REQUIRED", "The conditional entry requires an explicit revision.", details: new JsonObject { ["location"] = path });
-                actions.Add("replace"); schema = Exact(guard, definitions);
             }
             else if (exportRepair.Additions.TryGetValue(path, out var export))
             {

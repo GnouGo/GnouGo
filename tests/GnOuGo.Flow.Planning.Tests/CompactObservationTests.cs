@@ -253,9 +253,11 @@ public sealed partial class CompactObservationTests(ITestOutputHelper output)
     {
         var engine = new WorkflowEngine { LLMUsageBudget = adaptive ? new(new() { MaxCalls = 2 }) : null, LLMClient = model, LlmDefaults = new() { Model = "deterministic" }, Limits = new() { MaxMappingInputTokens = model.Limit } };
         var catalog = await new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask).DiscoverAsync(new() { Policy = new() { RequireExternalConfirmation = false } }, PlannerFixture.Ct);
-        var compiled = adaptive ? new TaskPlanCompiler().Compile(plan, catalog, new PlanningRequest { Options = new() { ["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile, ["compilation_profile"] = TaskPlanCompiler.CompactProfile } }) : new TaskPlanCompiler().Compile(plan, catalog);
+        var request = new PlanningRequest { Options = new() { ["compilation_profile"] = TaskPlanCompiler.CompactProfile } };
+        if (adaptive) request.Options["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile;
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog, request);
         Assert.Empty(compiled.Diagnostics); Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
-        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog);
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "generated", true, true);
         var doc = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         return await engine.ExecuteAsync(doc.Workflows[doc.Entrypoint!], values, PlannerFixture.Ct);
     }

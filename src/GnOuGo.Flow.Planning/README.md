@@ -2,9 +2,9 @@
 
 A separately publishable package depending only on Flow.Core.
 
-Conditional preflight checks `requires` whose values are available at branch entry. Enclosing true/false paths, explicit aliases and authoritative contracts must establish those predicates; a similarly named availability flag is insufficient. `TASK_CONDITIONAL_REQUIREMENT` identifies the controlling condition, operation and missing requirement, distinguishing a known contradiction from an unproved implication. This conservative check is not a general theorem prover or proof of business completeness. Checks on newly produced results remain fail-fast runtime assertions, and all runtime guards and producer permission/action checks remain in force.
+Explicit `requires` remains a local fail-fast runtime assertion, including inside conditional paths. The compiler validates types, scope, availability and contracts; it no longer attempts conditional implication proofs or automatic guard strengthening. Branch conditions govern optional routing. Automatic repairs cannot remove or alter `requires`; explicit targeted revisions remain available. Retained guard-proof repairs require revision after accounting for any completed original receipt; unknown completion remains stopped.
 
-An isolated optional action permits an exact diagnostic-derived condition repair with the original condition and `requires` preserved. Shared operations, inference, active alternatives, finalization and contradictory corrections require explicit revision. Existing repair envelopes fingerprint these new slots without changing historical slots or issued requests. Valid-plan lowering, TaskPlan/PlanningGraph formats, saved YAML and approvals are unchanged.
+Fresh `compact-bindings-v4` compilation fuses consecutive pure sets, projections, assemblies and assertions. Checks run in their original order before publication. Effects, branches, retries, failure-preservation references and identity-sensitive uses remain boundaries. Historical profiles retain their original lowering. See [compact compilation](../../docs/compact-workflow-bindings.md).
 
 `Requirements → progressive discovery → LLM TaskPlan → deterministic compilation → PlanningGraph → YAML → validation → scoped TaskPlan repair → approval`
 

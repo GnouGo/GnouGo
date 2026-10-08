@@ -11,6 +11,7 @@ public sealed partial class CompactObservationTests
 {
     [Theory]
     [InlineData("bundles", "candidates", 52, 1474, false)]
+    [InlineData("observations", "decisionRows", 6, 263, false)]
     [InlineData("sources", "matches", 53, 1504, false)]
     [InlineData("bundles", "candidates", 52, 1474, true)]
     public async Task ExplicitNarrowContractAndFlattenKeepAllSourcesAndBoundTheGlobalRequest(string input, string port, int pageCount, int recordCount, bool absent)

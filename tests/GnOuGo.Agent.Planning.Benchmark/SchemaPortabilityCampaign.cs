@@ -72,6 +72,41 @@ internal static class SchemaPortabilityCampaign
             var saved = await campaign.LoadAsync(Collection, "run:" + label) ?? throw new ArgumentException("No run.");
             var session = saved["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
             var catalog = session.Catalog ?? throw new InvalidOperationException("No retained contracts.");
+            if (args.Contains("--compare-bindings", StringComparer.Ordinal))
+            {
+                var measurements = new JsonArray();
+                foreach (var profile in new[] { "compact-bindings-v3", TaskPlanCompiler.CompactProfile })
+                {
+                    var request = JsonSerializer.SerializeToNode(session.Request, PlanningJsonContext.Default.PlanningRequest)!.Deserialize(PlanningJsonContext.Default.PlanningRequest)!;
+                    request.Options["compilation_profile"] = profile;
+                    var compiled = new TaskPlanCompiler().Compile(session.Plan!, catalog, request);
+                    if (compiled.Diagnostics.Count != 0 || compiled.Graph is null) throw new InvalidOperationException(string.Join("; ", compiled.Diagnostics.Select(d => d.Message)));
+                    PlanningConfirmationGuards.Apply(compiled.Graph, catalog);
+                    var graphFindings = PlanningExecutableValidation.Validate(compiled.Graph, catalog);
+                    if (graphFindings.Count > 0) throw new InvalidOperationException(profile + ": " + string.Join("; ", graphFindings.Select(d => compiled.Locate(d).Message + " at " + compiled.Locate(d).Location)));
+                    var yaml = new PlanningGraphCompiler().Compile(compiled.Graph, catalog, request.Name, true, TaskPlanCompiler.UsesFusedBindings(request));
+                    var document = GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(yaml);
+                    var types = new Dictionary<string, int>(StringComparer.Ordinal); var pairs = new JsonArray();
+                    void Count(List<GnOuGo.Flow.Core.Models.StepDef> steps, string path)
+                    {
+                        for (var i = 0; i < steps.Count; i++)
+                        {
+                            var step = steps[i]; types[step.Type] = types.GetValueOrDefault(step.Type) + 1;
+                            if (i > 0 && steps[i - 1].Type == "set" && step.Type == "set")
+                                pairs.Add((JsonNode)new JsonObject { ["scope"] = path, ["before"] = steps[i - 1].Id, ["after"] = step.Id });
+                            Count(step.Steps ?? [], path + "/" + step.Id); Count(step.Default ?? [], path + "/" + step.Id + "/default");
+                            foreach (var branch in step.Branches ?? []) Count(branch.Steps, path + "/" + step.Id + "/branch");
+                            foreach (var branch in step.Cases ?? []) Count(branch.Steps, path + "/" + step.Id + "/case");
+                        }
+                    }
+                    foreach (var (name, workflow) in document.Workflows) { Count(workflow.Steps, name); Count(workflow.Finally, name + "/finally"); }
+                    measurements.Add((JsonNode)new JsonObject { ["profile"] = profile, ["steps"] = types.Values.Sum(), ["sets"] = types.GetValueOrDefault("set"),
+                        ["workflows"] = document.Workflows.Count, ["yaml_bytes"] = System.Text.Encoding.UTF8.GetByteCount(yaml), ["yaml_lines"] = yaml.Count(c => c == '\n'),
+                        ["yaml_hash"] = PlanningGraphCompiler.Fingerprint(yaml), ["matches_saved_yaml"] = yaml == session.Yaml, ["adjacent_set_pairs"] = pairs });
+                }
+                Console.WriteLine(new JsonObject { ["run"] = label, ["measurements"] = measurements, ["model_calls"] = 0, ["saved_session_modified"] = false }.ToJsonString());
+                return;
+            }
             var compilation = new TaskPlanCompiler().Compile(session.Plan ?? throw new InvalidOperationException("No retained plan."), catalog);
             var diagnostics = compilation.Diagnostics.ToList();
             if (compilation.Graph is { } graph) diagnostics.AddRange(PlanningGraphValidation.Validate(graph, catalog));

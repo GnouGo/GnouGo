@@ -327,7 +327,14 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 Assert.Equal(WorkflowRunStatus.Completed, checkpoint!.Status);
                 Assert.True(checkpoint.FinalizationCompleted);
                 Assert.DoesNotContain(checkpoint.Invocations.Values, i => i.Recovery == StepRecovery.External && i.DispatchedAt is not null && i.CompletedAt is null);
-                if (indexed) Assert.Equal("set", Assert.Single(checkpoint.Invocations.Values, i => i.Description == "Attach observation positions").StepType);
+                if (indexed)
+                {
+                    var origin = Assert.Single(session.Graph!.Workflows[0].Steps, n => n.Purpose == "Attach observation positions").Key;
+                    var indexing = Assert.Single(WorkflowParser.Parse(session.Yaml!).Workflows[doc.Entrypoint!].Steps,
+                        s => s.Input?.ToJsonString().Contains(origin, StringComparison.Ordinal) == true);
+                    Assert.Equal("set", indexing.Type);
+                    Assert.Equal("set", Assert.Single(checkpoint.Invocations.Values, i => i.Id.EndsWith("/step/" + indexing.Id, StringComparison.Ordinal)).StepType);
+                }
             }
             if (variant is "each" or "each-parallel") Assert.Equal(1, extractionModel.Calls);
             var browser = await transport.GetClientAsync("browser", ct);

@@ -13,7 +13,7 @@ namespace GnOuGo.Flow.Core.Expressions;
 /// Evaluates expressions using the Jint JavaScript engine.
 /// Context shape: { inputs: {...}, steps: {...}, env: {...} }
 /// </summary>
-public sealed class ExpressionEvaluator
+public sealed partial class ExpressionEvaluator
 {
     private const int DefaultMaxStatements = 100_000;
     private const int DefaultTimeoutSeconds = 15;
@@ -24,9 +24,12 @@ public sealed class ExpressionEvaluator
     private readonly TimeSpan _timeout;
     private readonly int _memoryLimitBytes;
 
+    private static bool Truthy(JsonNode? value) => value is JsonValue scalar ?
+        scalar.TryGetValue<bool>(out var boolean) ? boolean : scalar.TryGetValue<string>(out var text) ? text.Length > 0 : GetNumber(scalar) != 0 : value is not null;
+
     // Only this closed compiler recipe bypasses JS import. Learned programs still
     // use Jint; selection cannot compute values or grant new artifact provenance.
-    private bool TrySelectMapping(string script, JsonNode? source, out JsonNode? result)
+    private bool TrySelectMapping(string script, JsonNode? source, out JsonNode? result, JintSandbox.MappingAllowance? allowance = null)
     {
         result = null;
         if (script.Length > 65536) return false;
@@ -56,6 +59,7 @@ public sealed class ExpressionEvaluator
         long bytes = 0; var count = 0;
         void Check()
         {
+            allowance?.Check();
             if (++count > Math.Min(_maxStatements, 10000) || watch.Elapsed > TimeSpan.FromMilliseconds(Math.Min(_timeout.TotalMilliseconds, 5000)))
                 throw JintSandbox.Unsatisfied("Collection selection exceeded its execution allowance.");
         }
@@ -158,30 +162,41 @@ public sealed class ExpressionEvaluator
     /// The context is exposed as the variable "data".
     /// Top-level keys of the context (inputs, steps, env, error, step) are also available directly.
     /// </summary>
-    public JsonNode? Evaluate(string expression, JsonNode? context)
+    public JsonNode? Evaluate(string expression, JsonNode? context) => EvaluateCore(expression, context);
+
+    private JsonNode? EvaluateCore(string expression, JsonNode? context,
+        Dictionary<string, JsonNode?>? locals = null, JintSandbox.MappingAllowance? allowance = null)
     {
         // Preserve exact JSON scalar values when wiring data; do not round decimals through JS doubles.
         var syntax = new Acornima.Parser().ParseExpression(expression);
+        if (syntax is CallExpression { Callee: Identifier { Name: JintSandbox.MappingFunction }, Arguments.Count: 3 } compiled &&
+            compiled.Arguments[0] is Literal { Value: string program } && compiled.Arguments[1] is Identifier { Name: "data" })
+        {
+            if (allowance is not null) throw new WorkflowRuntimeException(ErrorCodes.EvalError, "Compiled binding groups cannot nest.");
+            var contracts = JsonNode.Parse(expression[compiled.Arguments[2].Start..compiled.Arguments[2].End]) as JsonObject
+                ?? throw new WorkflowRuntimeException(ErrorCodes.EvalError, "Compiled bindings require literal contracts.");
+            return EvaluateCompiledBindings(program, context, contracts);
+        }
         if (syntax is CallExpression { Callee: Identifier { Name: JintSandbox.MappingFunction }, Arguments.Count: 2 } mapping &&
             mapping.Arguments[0] is Literal { Value: string script })
         {
             if (!Structural(mapping.Arguments[1], out var source))
                 throw new WorkflowRuntimeException(ErrorCodes.EvalError, "checkedMapping requires a direct structured source binding.");
-            if (TrySelectMapping(script, source, out var selected)) return selected;
-            return new JintSandbox(Math.Min(_maxStatements, 10000), (int)Math.Min(_timeout.TotalMilliseconds, 5000), Math.Min(_memoryLimitBytes, 50000000))
-                .ExecuteMapping(script, source);
+            if (TrySelectMapping(script, source, out var selected, allowance)) return selected;
+            return Mapping(script, source);
         }
         if (Structural(syntax, out var direct)) return direct is null ? null : JsonNode.Parse(direct.ToJsonString());
 
         bool Structural(Node node, out JsonNode? value)
         {
             value = null;
+            allowance?.Check();
+            if (node is Identifier local && locals?.TryGetValue(local.Name, out value) == true) return true;
             if (node is CallExpression { Callee: Identifier { Name: JintSandbox.MappingFunction }, Arguments.Count: 2 } nested &&
                 nested.Arguments[0] is Literal { Value: string nestedScript } && Structural(nested.Arguments[1], out var nestedSource))
             {
-                if (TrySelectMapping(nestedScript, nestedSource, out value)) return true;
-                value = new JintSandbox(Math.Min(_maxStatements, 10000), (int)Math.Min(_timeout.TotalMilliseconds, 5000), Math.Min(_memoryLimitBytes, 50000000))
-                    .ExecuteMapping(nestedScript, nestedSource); return true;
+                if (TrySelectMapping(nestedScript, nestedSource, out value, allowance)) return true;
+                value = Mapping(nestedScript, nestedSource); return true;
             }
             if (node is Identifier { Name: "data" }) { value = context; return true; }
             if (node is Literal literal)
@@ -190,6 +205,22 @@ public sealed class ExpressionEvaluator
                 if (literal.Value is bool boolean) { value = JsonValue.Create(boolean); return true; }
                 if (literal.Value is null) return true;
                 if (literal.Value is double) { value = JsonNode.Parse(expression[node.Start..node.End]); return true; }
+            }
+            if (allowance is not null && node is UnaryExpression { Operator: Acornima.Operator.LogicalNot } negate && Structural(negate.Argument, out var operand))
+            { value = JsonValue.Create(!Truthy(operand)); return true; }
+            if (allowance is not null && node is BinaryExpression binary && Structural(binary.Left, out var left))
+            {
+                if (binary.Operator == Acornima.Operator.LogicalAnd && !Truthy(left) || binary.Operator == Acornima.Operator.LogicalOr && Truthy(left))
+                { value = left; return true; }
+                if (Structural(binary.Right, out var right))
+                {
+                    if (binary.Operator is Acornima.Operator.LogicalAnd or Acornima.Operator.LogicalOr) { value = right; return true; }
+                    if (binary.Operator is Acornima.Operator.StrictEquality or Acornima.Operator.StrictInequality)
+                    {
+                        var equal = left is JsonObject or JsonArray || right is JsonObject or JsonArray ? ReferenceEquals(left, right) : JsonNode.DeepEquals(left, right);
+                        value = JsonValue.Create(binary.Operator == Acornima.Operator.StrictEquality ? equal : !equal); return true;
+                    }
+                }
             }
             if (node is MemberExpression member && Structural(member.Object, out var container))
             {
@@ -228,9 +259,18 @@ public sealed class ExpressionEvaluator
             }
             return false;
         }
+        JsonNode? Mapping(string script, JsonNode? source)
+        {
+            var sandbox = new JintSandbox(Math.Min(_maxStatements, 10000), (int)Math.Min(_timeout.TotalMilliseconds, 5000), Math.Min(_memoryLimitBytes, 50000000));
+            if (allowance is null) return sandbox.ExecuteMapping(script, source);
+            allowance.Stop();
+            try { return sandbox.ExecuteMappingValue(script, source, new JsonObject(), null, allowance, default); }
+            finally { allowance.Start(); }
+        }
         var engine = new Engine(options =>
         {
             options.MaxStatements(_maxStatements);
+            if (allowance is not null) options.Constraint(allowance);
             options.TimeoutInterval(_timeout);
             options.LimitMemory(_memoryLimitBytes);
             options.Strict(false);
@@ -254,6 +294,8 @@ public sealed class ExpressionEvaluator
             engine.SetValue("data", JsValue.Null);
         }
 
+        if (locals is not null)
+            foreach (var (name, value) in locals) engine.SetValue(name, JintSandbox.JsonToJsValue(engine, value));
         JintUrlInterop.Install(engine);
 
         // Register built-in + custom functions

@@ -26,7 +26,7 @@ public sealed partial class PlanningGraphCompiler
     public string Compile(PlanningGraph graph, PlanningCatalog catalog, string name = "generated")
         => Compile(graph, catalog, name, false);
 
-    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions)
+    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings = false)
     {
         ArgumentNullException.ThrowIfNull(graph);
         var diagnostics = PlanningExecutableValidation.Validate(graph, catalog);
@@ -47,6 +47,7 @@ public sealed partial class PlanningGraphCompiler
             if (allNodes.Length > 300) throw new InvalidOperationException("A workflow exceeds the 300-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
             var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions);
+            if (fuseBindings) PrepareFusion(workflow, scope);
             var lowered = new JsonObject();
             if (workflow.Inputs.Count > 0)
             {
@@ -120,7 +121,18 @@ public sealed partial class PlanningGraphCompiler
     }
 
     private static JsonArray LowerSteps(List<PlanningNode> nodes, LoweringScope scope)
-        => new(nodes.Where(n => n.InternalRole?.StartsWith("inline:", StringComparison.Ordinal) != true).Select(n => (JsonNode)LowerNode(n, scope)).ToArray());
+    {
+        var result = new JsonArray();
+        foreach (var node in nodes.Where(n => n.InternalRole?.StartsWith("inline:", StringComparison.Ordinal) != true))
+        {
+            if (scope.FusedOutputs.TryGetValue(node.Key, out var group))
+            {
+                if (group[0] == node.Key) result.Add((JsonNode)LowerFused(group, scope));
+            }
+            else result.Add((JsonNode)LowerNode(node, scope));
+        }
+        return result;
+    }
 
     private static JsonObject LowerNode(PlanningNode node, LoweringScope scope)
     {
@@ -335,7 +347,7 @@ public sealed partial class PlanningGraphCompiler
                 selections = new JsonArray(selections.AsArray().Select(p => (JsonNode)new JsonArray(
                     PhysicalPath("sequence", p!.AsArray().Select(s => s!.GetValue<string>()).ToArray(), scope)
                         .Select(s => (JsonNode?)JsonValue.Create(s)).ToArray())).ToArray());
-                sourceExpression = "data.steps." + scope.NodeIds[source.Source] + ".results";
+                sourceExpression = OutputAddress(source.Source, scope) + ".results";
             }
             else sourceExpression = ExpressionBody(source);
             var script = "({value:m.select(source," + selections.ToJsonString() + "," + (each ? "true" : "false") + ")})";
@@ -415,7 +427,7 @@ public sealed partial class PlanningGraphCompiler
                 throw new InvalidOperationException("This producer does not support the structured result channel.");
             if (value.ResultChannel == "envelope" && type != "mcp.call") throw new InvalidOperationException("This producer does not expose an MCP result envelope.");
             var envelope = value.ResultChannel == "envelope" ? "" : value.ResultChannel == "structured" ? ".json" : type switch { "workflow.call" => ".outputs", "mcp.call" => ".response", _ => "" };
-            expression = "data.steps." + node + envelope + ResultPath(type, value.Path, scope);
+            expression = OutputAddress(value.Source, scope) + envelope + ResultPath(type, value.Path, scope);
             var projection = ProjectResult(scope.Nodes[value.Source], value.Path, "source", scope);
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(projection, learned: false);
             if (projection != "source") expression = "checkedMapping(" + JsonValue.Create(projection)!.ToJsonString() + "," + expression + ")";
@@ -641,7 +653,12 @@ public sealed partial class PlanningGraphCompiler
 
     private static Dictionary<string, (string Item, string Index)> LoopVariables(IEnumerable<PlanningNode> nodes) => nodes.Where(n => n.Type is "loop.sequential" or "loop.parallel").ToDictionary(n => n.Key, n => (n.ItemVar ?? "item", n.IndexVar ?? "i"), StringComparer.Ordinal);
 
-    private sealed record LoweringScope(PlanningCatalog Catalog, Dictionary<string, string> NodeIds, Dictionary<string, string> WorkflowIds, HashSet<string> Inputs, Dictionary<string, string> NodeTypes, Dictionary<string, (string Item, string Index)> LoopVariables, Dictionary<string, PlanningNode> Nodes, Dictionary<string, PlanningWorkflow> Workflows, bool Descriptions);
+    private sealed record LoweringScope(PlanningCatalog Catalog, Dictionary<string, string> NodeIds, Dictionary<string, string> WorkflowIds, HashSet<string> Inputs, Dictionary<string, string> NodeTypes, Dictionary<string, (string Item, string Index)> LoopVariables, Dictionary<string, PlanningNode> Nodes, Dictionary<string, PlanningWorkflow> Workflows, bool Descriptions)
+    {
+        internal Dictionary<string, string[]> FusedOutputs { get; init; } = new(StringComparer.Ordinal);
+        internal HashSet<string> FusedExports { get; init; } = new(StringComparer.Ordinal);
+        internal HashSet<string> LocalOutputs { get; init; } = new(StringComparer.Ordinal);
+    }
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.CultureInvariant)]
     private static partial Regex Identifier();
     [GeneratedRegex(@"\{\{[^{}]+\}\}", RegexOptions.CultureInvariant)]

@@ -1,6 +1,18 @@
+# Compact bindings v4: checked deterministic sequences
+
+Fresh sessions and explicit revisions select `compact-bindings-v4` through the existing approval-fingerprinted option. Omitted, v1, v2 and v3 profiles keep their lowering. Public compiler overloads remain compatible; no saved YAML, receipt, journal or approval is rewritten.
+
+Within one execution phase and scope, consecutive pure sets/projections/assemblies/assertions lower to one `set`. Its compiler-owned `checkedMapping` expression uses a closed constant/return JavaScript sequence and literal intermediate schemas. Each intermediate is checked before evaluating the next value; only externally consumed results are published. The existing expression evaluator preserves exact JSON wiring and shares the existing statement/time/memory allowance across the sequence. Learned mapping scripts cannot access this compiler recipe; `mapping.dynamic` is unchanged.
+
+Fusion stops at effects, inference, branches, retries, error handlers and identity-sensitive references. Values needed by failure preservation keep independent receipts. Normal exports stay on the normal path; real cleanup remains in finalization. Intermediate failures retain their original error code and compiler node location. Compilation does not prove that a branch implies an operation's `requires`: the unchanged runtime assertion is authoritative.
+
+Interpretation inputs use explicit closed views from bindings and extraction `resultType`, not inferred field relevance. Keep full observations and action arguments separately. Extract every independent item, flatten only the declared level, and send only the immediate decision view and explicit shared context to global interpretation. Admission measures the complete provider request; oversized necessary inputs remain errors.
+
+The historical profiles below remain documented for stored artifacts.
+
 # Compact workflow bindings
 
-New sessions and explicit revisions use `options.compilation_profile = compact-bindings-v3`. The option participates in the existing artifact fingerprint. Historical requests, graphs, YAML and approvals retain their previous compilation profile; the compiler API defaults to historical lowering unless explicitly opted in.
+The previous v3 release selected `options.compilation_profile = compact-bindings-v3` for fresh sessions and explicit revisions. The option participates in the existing artifact fingerprint. Historical requests, graphs, YAML and approvals retain their previous compilation profile; the compiler API defaults to historical lowering unless explicitly opted in.
 
 The TaskPlan still describes business operations and data dependencies. Typed field selections and object/array assembly fuse into checked `set` expressions at final lowering. Copy-only foreach bodies compile to structural collection projections: no per-item workflow invocation, inference or journal entry. These optimizations exclude per-item business conditions, inference, effects, explicit cleanup and prior-iteration state. A loop's entry requirement still executes before its bounds check and projection; a failed entry requirement publishes nothing. Each resulting value still receives complete output-schema validation. Missing paths fail; explicit nulls, duplicates, order and nested arrays survive unchanged.
 
@@ -22,7 +34,7 @@ The v2 profile resolves exports from their actual graph dependencies. Direct val
 
 Exports depending on actual `always` results remain after those producers, with the existing presence guards. Mixed dependencies wait for both. Failure-evidence preservation remains explicit and ordered before cleanup; a failed workflow publishes no successful business outputs. Normal glue uses normal execution allowance. Genuine finalization and nested preservation work still use the unchanged bounded finalization allowance.
 
-The public compiler overloads preserve their previous behavior: omission uses historical lowering; `compactBindings: true` retains v1. Saved requests with v1, v2 or no profile reproduce their original YAML. New sessions and explicit revisions select v3 through the existing approval-fingerprinted option, including v2's normal exports and descriptions. No stored workflow, pending request or approval is rewritten.
+The public compiler overloads preserve their previous behavior: omission uses historical lowering; `compactBindings: true` retains v1. Saved requests with v1, v2 or no profile reproduce their original YAML. Stored v3 requests include v2's normal exports and descriptions; fresh requests now select v4 as described above. No stored workflow, pending request or approval is rewritten.
 
 ## Literal descriptions
 
