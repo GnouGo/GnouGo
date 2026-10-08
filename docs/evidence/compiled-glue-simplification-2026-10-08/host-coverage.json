@@ -1,0 +1,2741 @@
+{
+  "candidate": "8fc8fd0c",
+  "other_host_cases": {
+    "total": 677,
+    "passed": 676,
+    "skipped": 1,
+    "failed": 0,
+    "seconds": 244.809,
+    "xml_sha256": "6caaddf72096c3e2dc6cb339be44a4decd1ebfaef92c3010e310d871a47b3da0"
+  },
+  "local_product_cases": {
+    "total": 33,
+    "passed": 33,
+    "evidence": "local-fixture-coverage.json"
+  },
+  "combined_host": {
+    "total": 710,
+    "passed": 709,
+    "skipped": 1,
+    "failed": 0,
+    "missing": 0
+  },
+  "combined_solution_isolated_coverage": {
+    "passed": 4936,
+    "skipped": 13,
+    "failed": 0,
+    "projects": 33
+  },
+  "uninterrupted_solution_passed": false,
+  "limitation": "Uninterrupted parallel and serial suites stalled in telemetry; isolated coverage does not establish that lifecycle defect is fixed. Initial two indexing assertion failures were corrected and rerun without production changes.",
+  "other_case_results": [
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostMcpIsolationTests.DirectEndpoints_KeepToolCatalogsRequestLocalDuringConcurrentDiscovery",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedConditionalCleanupTests.RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedComposedOutputPlanningTests.RecordedBusinessPlanCompilesOfflineWithoutResumingHistoricalRequests",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmAdd_DiscardAfterMetadataReviewDoesNotPersistConfigurationOrOverride",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmEdit_PersistsInteractiveWizardSpansUnderCurrentChatTrace",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpEdit_UpdatesSecretAndPreservesExistingAuth",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_EmbeddingList_ReturnsDeterministicMarkdownWithoutCallingLlm",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpAdd_SavesSecretThroughDirectKeyVaultStore",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmDefault_UpdatesRuntimeDefaultAndPersistsSelectedModel",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ListModelsEndpoint_ReturnsConfiguredProviderModels",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ShouldUseInjectedModelCatalog_ReturnsTrue_WhenRuntimeProviderHasMatchingAuth",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpList_ReturnsDeterministicMarkdownWithoutCallingLlm",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_Status_ReturnsCombinedStatusWithoutCallingLlm",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpEdit_PersistsInteractiveWizardSpansUnderCurrentChatTrace",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmAdd_WhenFirstProviderIsCreated_SetsItAsDefault",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmAdd_ValidationUsesSanitizedParametersAndSmallOutputAllowance(selection: \\\"Background \u2014 Responses API\\\", stored: \\\"Responses\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmAdd_ValidationUsesSanitizedParametersAndSmallOutputAllowance(selection: \\\"Chat Completions \u2014 foreground\\\", stored: \\\"ChatCompletions\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmAdd_PromptsForMetadata_WhenSelectedModelIsUnknown",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmModels_RendersConciseDiscoveryError",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.McpEdit_SelectedAgentPermissionsPreserveIdentityAndRequireConfirmation(action: \\\"Keep current\\\", cancel: False, deleted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.McpEdit_SelectedAgentPermissionsPreserveIdentityAndRequireConfirmation(action: \\\"Remove persistent approval\\\", cancel: False, deleted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.McpEdit_SelectedAgentPermissionsPreserveIdentityAndRequireConfirmation(action: \\\"Allow All including sandbox bypass\\\", cancel: False, deleted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.McpEdit_SelectedAgentPermissionsPreserveIdentityAndRequireConfirmation(action: \\\"Allow All including sandbox bypass\\\", cancel: True, deleted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.McpEdit_SelectedAgentPermissionsPreserveIdentityAndRequireConfirmation(action: \\\"Allow All including sandbox bypass\\\", cancel: False, deleted: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ShouldUseInjectedModelCatalog_ReturnsFalse_WhenMatchingRuntimeOpenAiHasNoAuthButWizardDoes",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_EmbeddingHelp_ReturnsDeterministicMarkdownWithoutCallingLlm",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmModels_EmitsLoadingEventBeforeFinalAnswer",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ShouldUseInjectedModelCatalog_ReturnsTrue_WhenRuntimeProviderDoesNotExist",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.McpCopilotPermissions_ListsAndRevokesTenantScopedPersistentGrants",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpEdit_RotatesApiKey",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpEdit_BundledCopilotCanDeleteOneOverrideToInheritDefault",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpEdit_StdioDoesNotPromptForHttpAuthentication",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpUnknownCommand_ReturnsHelpWithoutCallingLlm",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmAdd_CanConfigureClaudeProvider",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_Status_PersistsDirectCommandSpansUnderCurrentChatTrace",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ShouldUseInjectedModelCatalog_ReturnsFalse_WhenRuntimeUsesApiKeyButWizardUsesOidc",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpEdit_SwitchesOidcToApiKeyAndClearsOidcFields",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmHelp_ReturnsDeterministicMarkdownWithoutCallingLlm",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpEdit_BundledCopilotRejectsInvalidValuesWithoutPartialWrites",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpRemove_DeletesSecretAndRemovesServerFromFutureRuntimeCatalogs",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmRemove_DeletesSecretWithoutKeyVaultMcpCrud",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpEdit_BundledGitMcpEditsOnlyGitTokenSecret",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpEdit_BundledCopilotRendersAndPersistsValidatedRuntimeDefaults",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_WizardHelp_IncludesGlobalHelpAndAgentCommands",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmAdd_PersistsInteractiveWizardSpansUnderCurrentChatTrace",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmDefault_PersistsDefaultLlmViaMountedAgentMcp",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmAdd_WhenOverwritingExistingProviderAndDefaultIsStale_RepairsDefaultSelection",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpEdit_RemovesAuthenticationAndClearsCredentials",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpAdd_PersistsInteractiveWizardSpansUnderCurrentChatTrace",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmModels_PersistsModelCatalogDiscoverySpansUnderCurrentChatTrace",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmModels_ReturnsAvailableModelsWithoutCallingLlm",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmAdd_UsesInteractiveModelSelectionWhenDiscoverySucceeds",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpEdit_SwitchesApiKeyToOidcAndClearsApiKey",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmAdd_CanConfigureOidcWithPrivateKeyPem",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_McpList_IncludesListableBundledMcpServers",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmList_ReturnsDeterministicMarkdownWithoutCallingLlm",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureProvidersServiceTests.ExecuteAsync_LlmAdd_OverwritingDefaultOpenAiApiKeyWithOidcUpdatesRuntimeAndSecret",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowExecutionTenantTests.Resolve_UsesStableDefault_WhenNoTenantIsConfigured",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowExecutionTenantTests.Resolve_UsesConfiguredTenant",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CachedLlmModelCatalogTests.ListModelsAsync_InvalidatesCache_WhenProviderConfigurationChanges",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CachedLlmModelCatalogTests.ListModelsAsync_ReusesCachedEntry_ForSameProviderConfiguration",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CachedLlmModelCatalogTests.ListModelsAsync_UsesSeparateCacheEntries_PerProvider",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmTraceCaptureTests.BreakdownUsesLogicalBytesWithoutPretendingToBeReportedUsage",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmTraceCaptureTests.CaptureFailureDoesNotChangeInferenceOrDispatchAgain",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmTraceCaptureTests.SizeLimitsAndDisabledCaptureAreExplicit",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmTraceCaptureTests.RejectionPreservesSafeMetadataAndJournalBackedStatusWithoutProviderBody",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmTraceCaptureTests.ParallelCallsKeepTheirSuppliedRuntimeStagesAndIndependentContent",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmTraceCaptureTests.CaptureIsEncryptedTenantBoundAndNeverExportsContentOrRawReasoning",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmTraceCaptureTests.HistoricalJournalReadsAreOwnedReadOnlyAndExcludeRawProviderData(workflow: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmTraceCaptureTests.HistoricalJournalReadsAreOwnedReadOnlyAndExcludeRawProviderData(workflow: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmTraceCaptureTests.PipelineCountsLogicalCallsNotParentsAndShowsUnknownUsage",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmTraceCaptureTests.RetentionDeletesOnlyExpiredDiagnosticRecordsForTheCurrentTenant",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmTraceCaptureTests.FailedCallsRemainInspectableWithoutInventedUsage(cancel: False, status: \\\"uncertain\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmTraceCaptureTests.FailedCallsRemainInspectableWithoutInventedUsage(cancel: True, status: \\\"cancelled\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmTraceCaptureTests.JournalBackedCaptureReusesReservationAndReceiptWithoutDuplicatingContent",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmTraceCaptureTests.PipelineExpansionPassesExactOwnershipAndRendersRetainedValuesLazily",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SecureWorkflowRuntimeFactoryTests.CreateAsync_PreservesConfiguredToolsAndTheirDeclaredEffects(server: \\\"github\\\", read: \\\"pull_request_read\\\", write: \\\"pull_request_review_write\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SecureWorkflowRuntimeFactoryTests.CreateAsync_PreservesConfiguredToolsAndTheirDeclaredEffects(server: \\\"configured-service\\\", read: \\\"inspect\\\", write: \\\"update\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SecureWorkflowRuntimeFactoryTests.CreateAsync_CapturesCurrentOverridesWithoutMutatingAnExistingWorkflowSession",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SecureWorkflowRuntimeFactoryTests.RemovedVirtualToolsFailNormalCatalogRevalidation",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.OtlpJsonTests.OtlpJson_SpanRecordToDto_ParsesNestedObjectsAndEvents",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.OtlpJsonTests.ActivityTelemetryMapper_ToSpanRow_SerializesNestedAttributesAndEvents",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RetainedRunnerReadinessTests.OriginalReceiptsRetainTwoFailuresAndTheIndependentLocationMismatch",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostDocsIngestorMcpTests.Build_StartsMountedDocsIngestorMcpEndpoint_AndListsToolsOverHttp",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.AgentDatabaseWorkflowCallResolverTests.WorkflowCall_DatatabaseAlias_IsAcceptedForBackwardTypoTolerance",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.AgentDatabaseWorkflowCallResolverTests.WorkflowCall_Database_LoadsWorkflowByAgentName",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedArtifactPlanningTests.CorrectedArtifactBindingsCompileOfflineAndChangesInvalidateApproval",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedArtifactPlanningTests.RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.SuccessfulExecutionStillRequiresRequestedWorkAndRuntimeConfirmation(mutation: \\\"nominal\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.SuccessfulExecutionStillRequiresRequestedWorkAndRuntimeConfirmation(mutation: \\\"unrelated_cleanup\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.SuccessfulExecutionStillRequiresRequestedWorkAndRuntimeConfirmation(mutation: \\\"planning_confirmation\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.IncomparableCohortsRemainInconclusive(mutation: \\\"missing\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.IncomparableCohortsRemainInconclusive(mutation: \\\"duplicate\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.IncomparableCohortsRemainInconclusive(mutation: \\\"manifest\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.IncomparableCohortsRemainInconclusive(mutation: \\\"model\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.IncomparableCohortsRemainInconclusive(mutation: \\\"source\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.IncomparableCohortsRemainInconclusive(mutation: \\\"usage_bounded\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.GenerationOrApprovalCannotSubstituteForCorrectExecution(mutation: \\\"execution_correct\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.GenerationOrApprovalCannotSubstituteForCorrectExecution(mutation: \\\"nominal_success\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.GenerationOrApprovalCannotSubstituteForCorrectExecution(mutation: \\\"repairs\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.GenerationOrApprovalCannotSubstituteForCorrectExecution(mutation: \\\"logical_planning_calls\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.GenerationOrApprovalCannotSubstituteForCorrectExecution(mutation: \\\"unsafe\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.RealCaseUsesShippedStdioCommandAndReadsActualSeed",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.CompleteComparableExecutionCohortsPass",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests.FilesystemOracleRequiresActualFilesAndProtectsSeedData",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.NestedWorkflowAnimationExecutionTests.RetainedGeneratedWorkflowPreparesSceneWithoutBusinessInputs",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.NestedWorkflowAnimationExecutionTests.RealEngineDrivesNestedMovementWaitingReturnsAndTerminalState(container: \\\"sequence\\\", fail: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.NestedWorkflowAnimationExecutionTests.RealEngineDrivesNestedMovementWaitingReturnsAndTerminalState(container: \\\"loop.sequential\\\", fail: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.NestedWorkflowAnimationExecutionTests.RealEngineDrivesNestedMovementWaitingReturnsAndTerminalState(container: \\\"loop.parallel\\\", fail: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.NestedWorkflowAnimationExecutionTests.RealEngineDrivesNestedMovementWaitingReturnsAndTerminalState(container: \\\"parallel\\\", fail: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.NestedWorkflowAnimationExecutionTests.RealEngineDrivesNestedMovementWaitingReturnsAndTerminalState(container: \\\"sequence\\\", fail: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.StoredProtocolOverridesBaseAndRejectsInvalidValues(json: \\\"\\\\\\\"Responses\\\\\\\"\\\", expected: \\\"Responses\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.StoredProtocolOverridesBaseAndRejectsInvalidValues(json: \\\"\\\\\\\"ChatCompletions\\\\\\\"\\\", expected: \\\"ChatCompletions\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.StoredProtocolOverridesBaseAndRejectsInvalidValues(json: \\\"\\\\\\\"Auto\\\\\\\"\\\", expected: \\\"Auto\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.StoredProtocolOverridesBaseAndRejectsInvalidValues(json: \\\"null\\\", expected: null)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.StoredProtocolOverridesBaseAndRejectsInvalidValues(json: \\\"1\\\", expected: null)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.StoredProtocolOverridesBaseAndRejectsInvalidValues(json: \\\"\\\\\\\"fallback\\\\\\\"\\\", expected: null)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.BuildEffectiveOptionsAsync_LoadsLegacySecretNamesAndLegacyJsonFields",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.BuildEffectiveOptionsAsync_LoadsTrustedSecretsAndKeepsKeyVaultMcpAvailable",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.BuildEffectiveOptionsAsync_AppliesBundledMcpFieldOverrideToEnvironment",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.BuildEffectiveOptionsAsync_PropagatesOnlyKeyVaultLocationToDirectReaderMcp(configuredDatabasePath: \\\"custom/keyvault.db\\\", expectedDatabasePath: \\\"custom/keyvault.db\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.BuildEffectiveOptionsAsync_PropagatesOnlyKeyVaultLocationToDirectReaderMcp(configuredDatabasePath: null, expectedDatabasePath: \\\".GnOuGo/data/gnougo-keyvault.db\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.KeyVaultRetryPolicyIsValidatedAndOverridesBaseOptions(policy: \\\"{\\\\\\\"maxAttempts\\\\\\\":3,\\\\\\\"maxUncertainRetries\\\\\\\":0,\\\\\\\"attemptT\\\"\u00b7\u00b7\u00b7, valid: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.KeyVaultRetryPolicyIsValidatedAndOverridesBaseOptions(policy: \\\"{\\\\\\\"attemptTimeoutMilliseconds\\\\\\\":0}\\\", valid: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.KeyVaultRetryPolicyIsValidatedAndOverridesBaseOptions(policy: \\\"{\\\\\\\"maxUncertainRetries\\\\\\\":-1}\\\", valid: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.KeyVaultRetryPolicyIsValidatedAndOverridesBaseOptions(policy: \\\"{\\\\\\\"maxAttempts\\\\\\\":21}\\\", valid: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.KeyVaultRetryPolicyIsValidatedAndOverridesBaseOptions(policy: \\\"{\\\\\\\"attemptTimeoutMilliseconds\\\\\\\":\\\\\\\"invalid\\\\\\\"}\\\", valid: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.KeyVaultRetryPolicyIsValidatedAndOverridesBaseOptions(policy: \\\"{\\\\\\\"honorRetryAfter\\\\\\\":false}\\\", valid: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.KeyVaultRetryPolicyIsValidatedAndOverridesBaseOptions(policy: \\\"{\\\\\\\"maxAttempts\\\\\\\":2,\\\\\\\"MaxAttempts\\\\\\\":3}\\\", valid: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultRuntimeConfigStoreTests.KeyVaultRetryPolicyIsValidatedAndOverridesBaseOptions(policy: \\\"null\\\", valid: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedReviewFieldExecutionTests.RecordedWorkflowExecutesTypedRecordBindingsWithMockedExternalEffects(mode: \\\"nominal\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedReviewFieldExecutionTests.RecordedWorkflowExecutesTypedRecordBindingsWithMockedExternalEffects(mode: \\\"empty\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedReviewFieldExecutionTests.RecordedWorkflowExecutesTypedRecordBindingsWithMockedExternalEffects(mode: \\\"missing\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedReviewFieldExecutionTests.RecordedWorkflowExecutesTypedRecordBindingsWithMockedExternalEffects(mode: \\\"null\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedReviewFieldExecutionTests.RecordedWorkflowExecutesTypedRecordBindingsWithMockedExternalEffects(mode: \\\"wrong_type\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedReviewFieldExecutionTests.RecordedWorkflowExecutesTypedRecordBindingsWithMockedExternalEffects(mode: \\\"invalid_enum\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedReviewFieldExecutionTests.RecordedWorkflowExecutesTypedRecordBindingsWithMockedExternalEffects(mode: \\\"failed_comment\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedReviewFieldExecutionTests.RecordedWorkflowExecutesTypedRecordBindingsWithMockedExternalEffects(mode: \\\"cancelled\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedReviewFieldExecutionTests.RecordedWorkflowExecutesTypedRecordBindingsWithMockedExternalEffects(mode: \\\"absent_producer\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedReviewFieldExecutionTests.RecordedWorkflowExecutesTypedRecordBindingsWithMockedExternalEffects(mode: \\\"refused\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowMermaidMarkdownFormatterTests.AppendDiagrams_ValidWorkflowYaml_AppendsMainDiagramFence",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowMermaidMarkdownFormatterTests.AppendDiagrams_WhenLocalWorkflowDetailsEnabled_AppendsLocalSubWorkflowFence",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowMermaidMarkdownFormatterTests.AppendDiagrams_LocalWorkflowCall_ByDefaultOmitsLocalSubWorkflowFence",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowMermaidMarkdownFormatterTests.AppendDiagrams_InvalidWorkflowYaml_ReturnsOriginalMarkdown",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowMermaidMarkdownFormatterTests.AppendDiagrams_HidesEmitStepsByDefault",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningDiscoveryInspectionTests.RepairProducerContractsAreNotPresentedAsFullOperationContracts",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningDiscoveryInspectionTests.ReportDistinguishesShownRetainedDeniedConflictingAndUnavailableTools",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningDiscoveryInspectionTests.TenantOwnershipAndMissingSnapshotsDoNotTriggerFallbackDiscovery",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningDiscoveryInspectionTests.DesignerDisplaysIssuedHistoryAndCopiesOnlySanitizedMetadataWithoutDispatch",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningDiscoveryInspectionTests.ClipboardRejectsPathAndCredentialShapedToolNames",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedArtifactPrerequisiteTests.ExplicitRevisedProposalDiscoversPrerequisiteReachesReviewAndRecompilesForApproval",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedArtifactPrerequisiteTests.RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedArtifactPrerequisiteTests.RealRetainedContractsForwardExactComparisonEvidenceWithMockedEffectsOnly",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.AgentUserConfigHydrationTests.Build_LoadsPersistedDefaultLlmFromMountedAgentMcp_AfterStartup",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveCorrectionRetainsRequirementsWithoutApprovingOrResettingBudgets(variant: \\\"valid\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveCorrectionRetainsRequirementsWithoutApprovingOrResettingBudgets(variant: \\\"stale_revision\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveCorrectionRetainsRequirementsWithoutApprovingOrResettingBudgets(variant: \\\"stale_artifact\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveCorrectionRetainsRequirementsWithoutApprovingOrResettingBudgets(variant: \\\"already_started\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveCorrectionRetainsRequirementsWithoutApprovingOrResettingBudgets(variant: \\\"tenant\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveCorrectionRetainsRequirementsWithoutApprovingOrResettingBudgets(variant: \\\"session\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveCorrectionRetainsRequirementsWithoutApprovingOrResettingBudgets(variant: \\\"intent_change\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveApprovalUsesExplicitCommandAndNeverReplaysStartedExecution(variant: \\\"valid\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveApprovalUsesExplicitCommandAndNeverReplaysStartedExecution(variant: \\\"missing\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveApprovalUsesExplicitCommandAndNeverReplaysStartedExecution(variant: \\\"duplicate\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveApprovalUsesExplicitCommandAndNeverReplaysStartedExecution(variant: \\\"unknown\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveApprovalUsesExplicitCommandAndNeverReplaysStartedExecution(variant: \\\"stale_revision\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveApprovalUsesExplicitCommandAndNeverReplaysStartedExecution(variant: \\\"stale_artifact\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveApprovalUsesExplicitCommandAndNeverReplaysStartedExecution(variant: \\\"not_approval\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests.LiveApprovalUsesExplicitCommandAndNeverReplaysStartedExecution(variant: \\\"already_started\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTraceFileExporterTests.ExportAsync_WhenTwoTracesFinishInSameSecond_KeepsSeparateFiles",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTraceFileExporterTests.ExportAsync_WhenDisabled_DoesNotCreateTraceDirectory",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTraceFileExporterTests.BeginCapture_AfterSmartFlowRootStarts_CapturesRootWhenItStops",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTraceFileExporterTests.ExportAsync_WritesCompleteTraceAsLlmReadableJson",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTraceFileExporterTests.RecoveredChildFailure_DoesNotTurnSuccessfulRootIntoFailure",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTraceFileExporterTests.Capture_IgnoresHighVolumeUnrelatedProcessActivities",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlainTextContentTests.Render_PreservesMultilineLargeTextAndEncodesMarkup",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlainTextContentTests.PreserveForSubmission_NormalizesLineEndingsWithoutTrimmingOrTruncating",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultConfigNamingTests.ResolveWriteSecretKey_ReusesSingleCanonicalCaseVariantForEveryKind",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultConfigNamingTests.ResolveExistingSecretKey_RejectsDuplicateLegacyAliasesEvenWithCanonicalForEveryKind",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultConfigNamingTests.ResolveWriteSecretKey_UsesExactCanonicalVariantToRepairExistingAmbiguity",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultConfigNamingTests.ResolveExistingSecretKey_RejectsSamePriorityCaseAliasesForEveryKind",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultConfigNamingTests.SaveConfigSecretAsync_ReusesSoleCanonicalCaseVariantForEveryKind",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultConfigNamingTests.DeleteConfigSecretsAsync_RemovesEveryEquivalentAliasForEveryKind",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultConfigNamingTests.SaveConfigSecretAsync_ConsolidatesCanonicalCaseAndLegacyAliasesForEveryKind",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.KeyVaultConfigNamingTests.ResolveExistingSecretKey_PrefersOneCanonicalKeyAndIgnoresLegacyAliasForEveryKind",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SharedWorkspaceExecutionTests.LocalLifecycleSliceUsesExactApprovedPathAndRealCleanup(mode: \\\"success\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SharedWorkspaceExecutionTests.LocalLifecycleSliceUsesExactApprovedPathAndRealCleanup(mode: \\\"partial\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SharedWorkspaceExecutionTests.LocalLifecycleSliceUsesExactApprovedPathAndRealCleanup(mode: \\\"refused\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SharedWorkspaceExecutionTests.LocalLifecycleSliceUsesExactApprovedPathAndRealCleanup(mode: \\\"cancelled\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SharedWorkspaceExecutionTests.LocalLifecycleSliceUsesExactApprovedPathAndRealCleanup(mode: \\\"missing\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SharedWorkspaceExecutionTests.LocalLifecycleSliceUsesExactApprovedPathAndRealCleanup(mode: \\\"isolation\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SharedWorkspaceExecutionTests.LocalLifecycleSliceUsesExactApprovedPathAndRealCleanup(mode: \\\"budget\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SharedWorkspaceExecutionTests.LocalLifecycleSliceUsesExactApprovedPathAndRealCleanup(mode: \\\"verification\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedCloneExecutionTests.RecordedWorkflowUsesOneLocalCloneAndRealCleanup(mode: \\\"lifecycle_success\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedCloneExecutionTests.RecordedWorkflowUsesOneLocalCloneAndRealCleanup(mode: \\\"full_review_success\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedCloneExecutionTests.RecordedWorkflowUsesOneLocalCloneAndRealCleanup(mode: \\\"partial\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedCloneExecutionTests.RecordedWorkflowUsesOneLocalCloneAndRealCleanup(mode: \\\"cancelled\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedCloneExecutionTests.RecordedWorkflowUsesOneLocalCloneAndRealCleanup(mode: \\\"absent\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedCloneExecutionTests.RecordedWorkflowUsesOneLocalCloneAndRealCleanup(mode: \\\"refused\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedCloneExecutionTests.RecordedWorkflowUsesOneLocalCloneAndRealCleanup(mode: \\\"human_refused\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedCloneExecutionTests.RecordedWorkflowUsesOneLocalCloneAndRealCleanup(mode: \\\"later_failure\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedCloneExecutionTests.RecordedWorkflowUsesOneLocalCloneAndRealCleanup(mode: \\\"original\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostKeyVaultMcpTests.Build_StartsMountedKeyVaultMcpEndpoint_AndListsToolsOverHttp",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission",
+      "result": "Skip"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsFalse_ForSuppressedCollectorCategories(category: \\\"OtlpTenantCollector\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsFalse_ForSuppressedCollectorCategories(category: \\\"OtlpTenantCollector.Services.TelemetryBatchWriter\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsFalse_ForSuppressedCollectorCategories(category: \\\"OtlpTenantCollector.Services.EfTelemetryStore\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsFalse_ForSuppressedCollectorCategories(category: \\\"OtlpTenantCollector.Web.OtlpHttpReceiverMarker\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsFalse_ForSuppressedCollectorCategories(category: \\\"Microsoft.EntityFrameworkCore\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsFalse_ForSuppressedCollectorCategories(category: \\\"Microsoft.EntityFrameworkCore.Database.Command\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsFalse_ForSuppressedCollectorCategories(category: \\\"Microsoft.EntityFrameworkCore.Infrastructure\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsFalse_ForSuppressedCollectorCategories(category: \\\"Microsoft.EntityFrameworkCore.Query\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsFalse_ForSuppressedCollectorCategories(category: \\\"Microsoft.AspNetCore.Hosting.Diagnostics\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsFalse_ForSuppressedCollectorCategories(category: \\\"Microsoft.AspNetCore.Routing.EndpointMiddleware\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsFalse_ForSuppressedCollectorCategories(category: \\\"Grpc.AspNetCore.Server\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsFalse_ForSuppressedCollectorCategories(category: \\\"Grpc.AspNetCore.Server.ServerCallHandler\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsFalse_ForSuppressedCollectorCategories(category: \\\"System.Net.Http.HttpClient\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsFalse_ForSuppressedCollectorCategories(category: \\\"System.Net.Http.HttpClient.OtlpTraceExporter\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsTrue_ForApplicationCategories(category: \\\"GnOuGo.Agent.Server.SmartFlow.SmartFlowService\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsTrue_ForApplicationCategories(category: \\\"GnOuGo.Agent.Server.Telemetry.TraceDebugService\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsTrue_ForApplicationCategories(category: \\\"GnOuGo.AI.Core.LLMClient\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsTrue_ForApplicationCategories(category: \\\"GnOuGo.Flow.Core.Runtime.WorkflowRuntime\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsTrue_ForApplicationCategories(category: \\\"GnOuGo.KeyVault.Core.Services.KeyVaultService\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsTrue_ForApplicationCategories(category: \\\"Microsoft.AspNetCore.Mvc\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsTrue_ForApplicationCategories(category: \\\"MyCustomLogger\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsTrue_ForNullOrWhitespace(category: null)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsTrue_ForNullOrWhitespace(category: \\\"\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedCollectorLogCategoryFilterTests.ShouldCapture_ReturnsTrue_ForNullOrWhitespace(category: \\\"   \\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CopilotAttachmentPlanningTests.RetainedStringContractAcceptsTheInvocationThatTheOldParserRejects",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CopilotAttachmentPlanningTests.RealContractsRejectContextObjectsAndAcceptExplicitPromptBindings(renamed: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CopilotAttachmentPlanningTests.RealContractsRejectContextObjectsAndAcceptExplicitPromptBindings(renamed: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedEnumPlanningTests.RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedEnumPlanningTests.NewIssuedSchemaRejectsInventedLiteralsAndSyntheticRegenerationReachesReview",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveProducerEffectTests.RealDiscoveryTransportsEffectsWithoutLosingArtifactMetadata(component: \\\"Git\\\", operation: \\\"git_clone\\\", effect: \\\"write\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveProducerEffectTests.RealDiscoveryTransportsEffectsWithoutLosingArtifactMetadata(component: \\\"Git\\\", operation: \\\"git_compare_refs\\\", effect: \\\"read\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveProducerEffectTests.RealDiscoveryTransportsEffectsWithoutLosingArtifactMetadata(component: \\\"Cmd\\\", operation: \\\"cmd_run\\\", effect: \\\"execute\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveProducerEffectTests.RealDiscoveryTransportsEffectsWithoutLosingArtifactMetadata(component: \\\"GithubCopilot\\\", operation: \\\"copilot_interactive_one_shot\\\", effect: \\\"execute\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveProducerEffectTests.RealDiscoveryTransportsEffectsWithoutLosingArtifactMetadata(component: \\\"GithubCopilot\\\", operation: \\\"copilot_review\\\", effect: \\\"read\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.MarkdownContentTests.MermaidFence_RendersAsPreElementUsedByClientEnhancer",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.SavedResponseResumeValidatesOriginalAuthorityAndRestoresUsage(invalid: null)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.SavedResponseResumeValidatesOriginalAuthorityAndRestoresUsage(invalid: \\\"legacy\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.SavedResponseResumeValidatesOriginalAuthorityAndRestoresUsage(invalid: \\\"legacy_running\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.SavedResponseResumeValidatesOriginalAuthorityAndRestoresUsage(invalid: \\\"retired_guard\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.SavedResponseResumeValidatesOriginalAuthorityAndRestoresUsage(invalid: \\\"missing_receipt\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.SavedResponseResumeValidatesOriginalAuthorityAndRestoresUsage(invalid: \\\"stale_identity\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.SavedResponseResumeValidatesOriginalAuthorityAndRestoresUsage(invalid: \\\"changed_schema\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.RecoveryCannotReplenishAnExhaustedBudget(exhausted: \\\"calls\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.RecoveryCannotReplenishAnExhaustedBudget(exhausted: \\\"repairs\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.RecoveryCannotReplenishAnExhaustedBudget(exhausted: \\\"tokens\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.RecoveryCannotReplenishAnExhaustedBudget(exhausted: \\\"cost\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.HostRetryRequiresCurrentRevisionAndTenantOwnedSession",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.RestartBetweenUsageCorrectionAndSessionCheckpointDoesNotChargeTwice",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.ExplicitRetryRetainsOldDispatchAndChargesNewIdentity",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.RejectedRequestCannotReserveOrRetryAfterRecovery",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests.LateReceiptReplaysWithoutNewReservationOrEstimatedCharge",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkMetadataTests.PersistedMetadataWinsWithoutChangingPinsOrOtherDeployments",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkMetadataTests.MismatchedPinsFailBeforeApplyingOverrides(provider: \\\"changed-provider\\\", model: \\\"exact-snapshot\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkMetadataTests.MismatchedPinsFailBeforeApplyingOverrides(provider: \\\"deployment\\\", model: \\\"changed-model\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.DevelopmentBuild_SkipsPlaywrightDownloadWithoutDisablingAppHostOrPublishedBrowserInstall",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.AgentDockerfile_CopiesSharedTargetsAndCompleteProjectGraphBeforeRestore",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.BundledStdioMcpTools_UseExpectedPublishMode(folder: \\\"src\\\", project: \\\"GnOuGo.Agent.Desktop\\\", fileName: \\\"GnOuGo.Agent.Desktop.csproj\\\", desktopUsesAotForSafeTools: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.BundledStdioMcpTools_UseExpectedPublishMode(folder: \\\"src\\\", project: \\\"GnOuGo.Agent.Server\\\", fileName: \\\"GnOuGo.Agent.Server.csproj\\\", desktopUsesAotForSafeTools: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.DesktopTrimmedWorkflow_ValidatesPlaywrightNodeDriver",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.AgentDockerfile_AllowsRestoreDuringPublishForGeneratedOtlpProtos",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.DesktopTrimmedWorkflow_ValidatesDocIngestorMcpNativeAotPublishForMatrixRid",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.VersionWorkflow_UsesValidFallbackWhenPullRequestNumberIsUnavailable",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.VersionWorkflow_CreatesReleaseTagAndChangelogOnlyForExplicitReleaseMarker",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.DevelopmentBuild_StagesAllBundledMcpAppHostsAndAvoidsDotnetRunConfiguration",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.BuildAndRuntimeConfig_UseGithubCopilotMcpAfterRename",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.DesktopTrimmedWorkflow_ValidatesDocumentMcpNativeAotPublish",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.DesktopTrimmedWorkflow_ValidatesCmdMcpNativeAotPublish",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.MainWorkflow_PassesPackagePublishingSecrets",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.PackageManagerTemplates_UsePublicPackageNames",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.DesktopTrimmedWorkflow_PackagesPublicGnougoReleaseArchives",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.DesktopTrimmedWorkflow_ConfiguresLinuxArm64NativeAotObjCopy",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.ReleaseWorkflow_PublishesArchivesAndChecksums",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.OtlpCollectorDockerfile_BuildsClientAppAndPublishesGeneratedWwwroot",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.BrowserMcpBundlePublish_DisablesTrimAndSingleFile(folder: \\\"src\\\", project: \\\"GnOuGo.Agent.Desktop\\\", fileName: \\\"GnOuGo.Agent.Desktop.csproj\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.BrowserMcpBundlePublish_DisablesTrimAndSingleFile(folder: \\\"src\\\", project: \\\"GnOuGo.Agent.Server\\\", fileName: \\\"GnOuGo.Agent.Server.csproj\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedCatalogOwnedBindingTests.RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedCatalogOwnedBindingTests.SyntheticOmissionInNewSessionReachesReviewWithCatalogRunnerAndOriginalContracts",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SmartFlowServiceTests.ExecuteAsync_WhenOutputsIncludeGeneratedYaml_AppendsMermaidDiagramsToAnswer",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SmartFlowServiceTests.ExecuteAsync_RoutedAgentMissingInput_RequestsHumanInputAndResumes",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SmartFlowServiceTests.ExecuteAsync_WhenPersistedAgentRequiresNewContracts_CreatesUnapprovedRevision",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SmartFlowServiceTests.ExecuteAsync_WhenRoutedAgentRequiresNewContracts_CreatesUnapprovedRevision",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SmartFlowServiceTests.ExecuteAsync_WhenPersistedDefaultAgentCannotBeLoaded_ReturnsErrorWithoutDynamicFallback",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SmartFlowServiceTests.WorkflowInputComposer_TryBuildInputs_ParsesNestedAndComplexValues",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SmartFlowServiceTests.ExecuteAsync_PersistsWorkflowSpansUnderSameTraceAsChatMessage",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SmartFlowServiceTests.GetActiveWorkflowInputSchemaAsync_ReturnsEmbeddedPromptSchema_WhenNoAgentIsSelected",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SmartFlowServiceTests.ExecuteAsync_WithHostBudget_AccountsPersistedAgentLlmCalls",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SmartFlowServiceTests.ExecuteAsync_RoutedRawResponse_ReformatsAsLosslessMarkdown",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SmartFlowServiceTests.ExecuteAsync_AfterCompletion_ExportsAssociatedTrace",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SmartFlowServiceTests.ExecuteAsync_UsesPersistedDefaultAgentWorkflow_WhenNoAgentNameIsProvided",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SmartFlowServiceTests.ExecuteAsync_Help_ReturnsCommandOverviewWithoutCallingLlm",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SmartFlowServiceTests.ExecuteAsync_PrefersPersistedDefaultAgentOverRequestedAgentName",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedReviewFieldPlanningTests.RetainedResponsesReproduceReferenceFailureRejectedRepairAndAllFiveTypeErrors",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedReviewFieldPlanningTests.ExplicitFieldBindingsReachReviewWithActualContractsAndNoAdditionalInferencePhase",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostTests.ChatConversationsApi_ReturnsExistingMcpStoreConversationsWithoutLlm",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostTests.Build_WhenDesktopHostedInDevelopment_UsesBundledStdIoMcpServersWithDevelopmentTimeouts",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostTests.StartAsync_WhenOpenTelemetryUsesEmbeddedCollector_ExportsPlainLogsToCollectorStorage",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostTests.StartAsync_WhenDesktopHostedFromPublishLikeContentRoot_ServesBlazorFrameworkAndNegotiationEndpoint",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostTests.Build_WhenDesktopHosted_RegistersEmbeddedCollectorServices",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostTests.StartAsync_LoadsRuntimeProvidersAndMcpServersFromKeyVaultStore",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostTests.ResolveDatabasePath_WhenUsingAgentDefaultTelemetryPath_UsesDefaultWorkingDirectoryGnOuGoDataDirectory",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostTests.Build_WhenDesktopHosted_LoadsBundledDesktopStdIoMcpServersFromDesktopConfig",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostTests.RuntimeFactory_UsesMcpServerSavedAfterFactoryResolution",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostTests.StartAsync_WhenDesktopHosted_ReturnsHomePageSuccessfully",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostTests.Build_WhenServerRunsOutsideDevelopment_LoadsBundledStdIoMcpServersFromBaseConfig",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostTests.StartAsync_ExposesApplicationVersionEndpoint",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostTests.RuntimeFactory_ExposesOnlyConfiguredServersWithoutPublicationAdapter",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledCopilotMcpConfigurationTests.Configuration_RegistersOnlyApprovedCopilotRuntimeDefaults(fileName: \\\"appsettings.json\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BundledCopilotMcpConfigurationTests.Configuration_RegistersOnlyApprovedCopilotRuntimeDefaults(fileName: \\\"appsettings.Desktop.json\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LocalConfigureProvidersTests.LlmDefaultLocal_SelectsInstalledModelWithoutCallingLlm",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LocalConfigureProvidersTests.LlmList_IncludesBuiltInLocalCatalogAndInstallState",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedNullOnlyPlanningTests.RecordedBusinessPlanCompilesOfflineWithoutResumingHistoricalRequests",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.DatabaseAgentWorkflowCandidateProviderTests.GetCandidatesAsync_ParsesSkillMetadataAndAppliesTagFilters",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedOperationOutputTests.RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowPlanningBudgetSettingsTests.Validate_RejectsInvalidLimit(amount: 0, currency: \\\"EUR\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowPlanningBudgetSettingsTests.Validate_RejectsInvalidLimit(amount: 50, currency: \\\"EU\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowPlanningBudgetSettingsTests.Validate_RejectsInvalidLimit(amount: 50, currency: \\\"EU1\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowPlanningBudgetSettingsTests.Defaults_AreFiftyEuros",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowPlanningBudgetSettingsTests.WebHost_UsesNormalConfigurationOverridesAndRegistersExchangeProvider",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowPlanningBudgetSettingsTests.Validate_NormalizesOverridesAndBuildsStaticQuote",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LocalModelsServiceTests.Install_ActivatesLocalWhenOpenAiPlaceholderHasNoAuthentication",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LocalModelsServiceTests.Remove_ForceUnsetsLocalDefaultAndRemovesModel",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LocalModelsServiceTests.Install_PreservesUsableOllamaDefault",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LocalModelsServiceTests.Remove_RejectsActiveModelWithoutForce",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.Planning.AgentPlanningPolicyTests.HostPolicyOmitsRedundantConfirmationButAllowsExplicitOptIn",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BusinessTaskPlanExecutionTests.FourBusinessTasksGenerateOnceAndWriteAnIndependentlyVerifiedWorkbook(operation: \\\"alpha\\\", field: \\\"title\\\", parallel: False, variant: \\\"multiple\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BusinessTaskPlanExecutionTests.FourBusinessTasksGenerateOnceAndWriteAnIndependentlyVerifiedWorkbook(operation: \\\"omega\\\", field: \\\"label\\\", parallel: True, variant: \\\"multiple\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BusinessTaskPlanExecutionTests.FourBusinessTasksGenerateOnceAndWriteAnIndependentlyVerifiedWorkbook(operation: \\\"alpha\\\", field: \\\"title\\\", parallel: False, variant: \\\"empty\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BusinessTaskPlanExecutionTests.FourBusinessTasksGenerateOnceAndWriteAnIndependentlyVerifiedWorkbook(operation: \\\"omega\\\", field: \\\"label\\\", parallel: True, variant: \\\"empty\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BusinessTaskPlanExecutionTests.FourBusinessTasksGenerateOnceAndWriteAnIndependentlyVerifiedWorkbook(operation: \\\"alpha\\\", field: \\\"title\\\", parallel: False, variant: \\\"missing\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BusinessTaskPlanExecutionTests.FourBusinessTasksGenerateOnceAndWriteAnIndependentlyVerifiedWorkbook(operation: \\\"omega\\\", field: \\\"label\\\", parallel: True, variant: \\\"denied\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostAgentMcpTests.Build_StartsMountedAgentMcpEndpoint_AndPublishesStableRuntimeUrl",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostAgentMcpTests.Build_StartsMountedAgentMcpEndpoint_AgentUserConfigClientCanReadSnapshot",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.GnOuGoAgentWebHostAgentMcpTests.Build_StartsMountedAgentMcpEndpoint_AndListsToolsOverHttp_WhenOptInEnabled",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningHistoryTests.RecoveryListingExcludesIncompatibleRecordsWithoutChangingThem",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningHistoryTests.CommandsCannotUseUnavailableDisplayMetadata(command: \\\"approve\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningHistoryTests.CommandsCannotUseUnavailableDisplayMetadata(command: \\\"save\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningHistoryTests.CommandsCannotUseUnavailableDisplayMetadata(command: \\\"retry_model\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningHistoryTests.StorageOutagesAndCancellationAreNotMisreportedAsIncompatibleRecords",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningHistoryTests.UnreadableHistoryIsIsolatedAndUntrustedMetadataIsNotDisplayed(defect: \\\"malformed\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningHistoryTests.UnreadableHistoryIsIsolatedAndUntrustedMetadataIsNotDisplayed(defect: \\\"unsupported_schema\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningHistoryTests.UnreadableHistoryIsIsolatedAndUntrustedMetadataIsNotDisplayed(defect: \\\"unknown_operation\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningHistoryTests.UnreadableHistoryIsIsolatedAndUntrustedMetadataIsNotDisplayed(defect: \\\"foreign_owner\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningHistoryTests.UnreadableHistoryIsIsolatedAndUntrustedMetadataIsNotDisplayed(defect: \\\"wrong_identity\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningHistoryTests.UnreadableHistoryIsIsolatedAndUntrustedMetadataIsNotDisplayed(defect: \\\"ambiguous_header\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningHistoryTests.UnavailableChatCannotSupplyExecutableYaml",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningHistoryTests.StartupRecoversHealthySessionAndNeverDispatchesForIncompatibleHistory",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.MappingProbeTests.CompiledFixturesAreReviewableWithoutPlanningInference(variant: \\\"scalar\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.MappingProbeTests.CompiledFixturesAreReviewableWithoutPlanningInference(variant: \\\"extended\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.MappingProbeTests.CompiledFixturesAreReviewableWithoutPlanningInference(variant: \\\"each\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.MappingProbeTests.MeasuredWrapperPreservesCapabilitiesAndUnknownAllowanceStopsBeforeDispatch(known: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.MappingProbeTests.MeasuredWrapperPreservesCapabilitiesAndUnknownAllowanceStopsBeforeDispatch(known: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.MappingProbeTests.LargeProbeChecksEveryOriginalValueAndWarmReuse",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(variant: \\\"nominal\\\", query: \\\"chaussure geox homme 45\\\", compact: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(variant: \\\"changed\\\", query: \\\"baskets \u00e9t\u00e9 homme 42\\\", compact: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(variant: \\\"empty\\\", query: \\\"chaussure geox homme 45\\\", compact: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(variant: \\\"missing\\\", query: \\\"chaussure geox homme 45\\\", compact: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(variant: \\\"denied\\\", query: \\\"chaussure geox homme 45\\\", compact: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(variant: \\\"invalid\\\", query: \\\"chaussure geox homme 45\\\", compact: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(variant: \\\"cancelled\\\", query: \\\"chaussure geox homme 45\\\", compact: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(variant: \\\"write_failed\\\", query: \\\"chaussure geox homme 45\\\", compact: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(variant: \\\"nominal\\\", query: \\\"chaussure geox homme 45\\\", compact: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(variant: \\\"changed\\\", query: \\\"baskets \u00e9t\u00e9 homme 42\\\", compact: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(variant: \\\"empty\\\", query: \\\"chaussure geox homme 45\\\", compact: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(variant: \\\"missing\\\", query: \\\"chaussure geox homme 45\\\", compact: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(variant: \\\"denied\\\", query: \\\"chaussure geox homme 45\\\", compact: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(variant: \\\"invalid\\\", query: \\\"chaussure geox homme 45\\\", compact: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(variant: \\\"cancelled\\\", query: \\\"chaussure geox homme 45\\\", compact: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.CapturedOrSyntheticPlanBindsProductQueriesAndWritesActualXlsx(variant: \\\"write_failed\\\", query: \\\"chaussure geox homme 45\\\", compact: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.ExactPromptOutputExhaustionRetainsAllThreeResponsesWithoutAnotherCall",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests.SyntheticCompactPlanHasSerializationHeadroomWithoutDroppingBusinessBehavior",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.AgentInterruptionUiTests.RunInspectionShowsSafeBudgetCauseAndCannotDispatchOrLeakAnotherTenant(otherTenant: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.AgentInterruptionUiTests.RunInspectionShowsSafeBudgetCauseAndCannotDispatchOrLeakAnotherTenant(otherTenant: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.AgentInterruptionUiTests.RetainedReceiptPreservesBudgetRefusalWithoutInventingCessationEvidence",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StructuredOutputWireTests.ActualProviderPayloadKeepsProjectedDefinitionsAndDoesNotMutateContracts(background: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.StructuredOutputWireTests.ActualProviderPayloadKeepsProjectedDefinitionsAndDoesNotMutateContracts(background: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.ExhaustedRecoveryCommandsDoNotWriteAnotherRevision(command: \\\"configure_generation\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.ExhaustedRecoveryCommandsDoNotWriteAnotherRevision(command: \\\"revise\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.WorkflowSessionInspectionIsReadOnlyAndKeepsOriginsAndTenantsSeparate",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.EveryPhaseRestoresRequirementsDiscoveryAndCumulativeAccounting(phase: \\\"requirements\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.EveryPhaseRestoresRequirementsDiscoveryAndCumulativeAccounting(phase: \\\"discovery\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.EveryPhaseRestoresRequirementsDiscoveryAndCumulativeAccounting(phase: \\\"tasks\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.EveryPhaseRestoresRequirementsDiscoveryAndCumulativeAccounting(phase: \\\"validation\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.EveryPhaseRestoresRequirementsDiscoveryAndCumulativeAccounting(phase: \\\"review\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.EveryPhaseRestoresRequirementsDiscoveryAndCumulativeAccounting(phase: \\\"replanning\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.SaveRequiresApprovalAndReconcilesCommittedWriteAfterRestart",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.DesignerDefaultAndOverrideApplyOnlyToNewSessions(configured: null, configuredOutput: null, expected: 24000, expectedOutput: 32768)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.DesignerDefaultAndOverrideApplyOnlyToNewSessions(configured: 12000, configuredOutput: 8192, expected: 12000, expectedOutput: 8192)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.EncryptedSessionRestartRetainsAuthorityBudgetsAndTenantIsolation(status: \\\"generating\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.EncryptedSessionRestartRetainsAuthorityBudgetsAndTenantIsolation(status: \\\"clarification\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningSessionLifecycleTests.EncryptedSessionRestartRetainsAuthorityBudgetsAndTenantIsolation(status: \\\"final_review\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.ChatRadioFieldsRequireAnExplicitDefaultOrSelection(suppliedDefault: null, expected: \\\"\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.ChatRadioFieldsRequireAnExplicitDefaultOrSelection(suppliedDefault: \\\"covered\\\", expected: \\\"covered\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.RecommendationRequiresExplicitSubmitAndBusinessTextIsEncoded",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.BusinessRequirementsAreReviewedWithoutTechnicalProofAnnotations",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.RequirementReviewIsExplicitAccessibleAndClearedForAnotherArtifact",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.StoppedPlanningShowsRevisionScopeAndDiscoveryLimitations",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.CancellationDoesNotSelectTheRecommendation",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.HistoricalChecksRemainReadableAndSeparateFromExecutionApproval",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.CustomLiteralChoiceUsesRevisionAnswerRatherThanUncheckedSelection",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.TextOnlyQuestionIsAccessibleAndRevisionClearsStaleAnswers",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.EarlyQuestionSubmitsRecommendationOrCustomTextOnlyExplicitly(custom: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.EarlyQuestionSubmitsRecommendationOrCustomTextOnlyExplicitly(custom: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlannerChoiceUiTests.BusyAndCancellationCannotSubmitAnswers",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TraceDebugServiceTests.GetSnapshotAsync_IncludesLogsForResolvedTrace",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TraceDebugServiceTests.GetSnapshotAsync_PreservesStoredSpanPayloads_ForDebugSidebar",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TraceDebugServiceTests.PlanningLocalLookupWorksWithoutExportAndExcludesForeignAndUnrelatedSpans",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TraceDebugServiceTests.PlanningLookupIsExactTenantScopedAndPreservesTraceIdentitiesAfterRestart(workflow: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TraceDebugServiceTests.PlanningLookupIsExactTenantScopedAndPreservesTraceIdentitiesAfterRestart(workflow: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TraceDebugServiceTests.GetSnapshotAsync_DeduplicatesSpansBySpanId_WhenDualWritePathProducesDuplicates",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TraceDebugServiceTests.StreamSnapshotsAsync_EmitsInitialAndCollectorFlushSnapshots",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TraceDebugServiceTests.LiteralStepDescriptionReachesPersistedTraceAttributes",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TraceDebugServiceTests.GetSnapshotAsync_RemainsAvailable_WhenOpenTelemetryIsDisabled",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TraceDebugServiceTests.GetSnapshotAsync_ReturnsLocalTrace_WhenOpenTelemetryExportIsDisabled",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TraceDebugServiceTests.GetSnapshotAsync_MergesLocalTracesForSameCorrelation_WhenRootTraceIdIsAlreadyKnown",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TraceDebugServiceTests.GetSnapshotAsync_FallsBackToEmbeddedCollectorStorage_WhenLocalTraceIsMissing",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TraceDebugServiceTests.DesignerActivityIsCapturedAtStartAndPersistedWhenExportIsDisabled",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TraceDebugServiceTests.GetSnapshotAsync_MergesAllRelatedTraces_WhenCorrelationIdMatchesMultipleStoredTraces",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TraceDebugServiceTests.ConcurrentTraceEvictionDoesNotExposePartiallyCopiedEntries",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.AgentStreamingTelemetry_PreservesWorkflowHierarchyAndUniqueStepOccurrences",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.CompositeWorkflowTelemetry_ForwardsInternalSpansToBothPipelines",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.WorkflowEngine_LocalCallTraversesChildAnimationLaneAndReturnsToParent",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.AnimationBridge_PreStartFailureDoesNotLeavePreparedSceneStatic",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.AnimationBridge_EmitsPreparedSceneAndLiveEventsWithoutWorkflowSource",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.AgentStreamingTelemetry_McpElicitationEmitsVisibleRequestAndResumeAnimationEvents",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.ChatPage_KeepsThinkingOutOfHistoryAndOwnsAnimationPerAssistantResponse",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.ChatPage_RendersWorkflowExceptionsInsideTheirAssistantResponse",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.AnimationPayload_UsesSingleLineSourceGeneratedJson",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.AgentAnimationClient_QueuesTelemetryAndFollowsInsideScrollableMessagePanel",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.ChatPage_SnapshotsMutableCollectionsBeforeAwaitingAnimationInterop",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.AgentStreamingTelemetry_EmitsLiveStepAndSpanEvents",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.AskHuman_RenderingDoesNotBlockAnimationInteropOrRepeatContextFormatting",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.ChatPage_ShowsTypingDotsUntilTheFinalResponseStarts",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowTelemetryAdapterTests.CompositeTelemetry_RoutedChildKeepsLiveAnimationMovingAfterRootStart",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SidebarConversationGroupingTests.Group_UsesEnglishRelativeDatesAndOrdersNewestFirst",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.SidebarConversationGroupingTests.Group_PutsSessionsWithoutATimestampInOlder",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.DesignerDecisionAndAnswerRoundTripThroughEncryptedEfIndex",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.EarlyClarificationSurvivesEncryptedRestartAndHttpAnswer(action: \\\"recommendation\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.EarlyClarificationSurvivesEncryptedRestartAndHttpAnswer(action: \\\"custom\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.EarlyClarificationSurvivesEncryptedRestartAndHttpAnswer(action: \\\"cancel\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.LiveClarificationAnswerIsAcknowledgedBeforeContinuationDispatch",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.RestartRecoversDecisionAndCancellationWithoutReplayingWorkflow(answer: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.RestartRecoversDecisionAndCancellationWithoutReplayingWorkflow(answer: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.LiveAnswerIsAcknowledgedOnlyAfterOwnerCheckpointAndCannotCrossConversations",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.ScopedBusinessClarificationRecoversInOriginatingChat(accept: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.ScopedBusinessClarificationRecoversInOriginatingChat(accept: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedRepairPatchTests.ThreeExplicitEditsReachReviewWithLessContextAndNoAdditionalModelTurn(index: 5)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedRepairPatchTests.ThreeExplicitEditsReachReviewWithLessContextAndNoAdditionalModelTurn(index: 6)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedRepairPatchTests.RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowFailureFormatterTests.Format_DoesNotSendMalformedCapabilityMatchingToIntentClarification",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowFailureFormatterTests.Format_ExplainsStructuredInferenceContractPhase",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowFailureFormatterTests.Format_DistinguishesTerminalDecisionGapAfterBehavioralRelaxationWasPreserved",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowFailureFormatterTests.Format_ListsUnavailableOperationsAndDiscoveryFailures",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowFailureFormatterTests.Format_RedactsSensitiveLookingDiagnosticLines",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowFailureFormatterTests.Format_DiscoveryFailureUsesCatalogRecoveryGuidanceOnly",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowFailureFormatterTests.Format_ExplainsCannotPlanSafelyWithoutExposingAnswers",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowFailureFormatterTests.Format_ExplainsPerOperationMatchingIssuesWithBoundedCandidates",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowFailureFormatterTests.Format_UnwrapsFinalPipelineCapabilityDiagnostics",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowFailureFormatterTests.Format_UnwrapsRepairStallConstraintViolation",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowFailureFormatterTests.Format_ExplainsMainAssemblyRepairStallWithoutRawCandidates",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowFailureFormatterTests.Format_ExplainsInventoryModelContractFailureWithoutRequestingIntentClarification",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowFailureFormatterTests.Format_ExplainsIncompleteCapabilityInventory",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowFailureFormatterTests.Format_RendersOnlySanitizedLlmRecoveryDiagnostics",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowFailureFormatterTests.Format_ExplainsCoverageReviewContractFailureWithGroundingIds",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.WorkflowFailureFormatterTests.Format_RedactsSensitiveIncompleteReasonValues",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.FreshQuotesSurviveRestartButExpiredQuotesNeverAuthorizeNewRequests",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.SettlementUsesAdmittedQuoteAndCommittedReceiptReplaysWithoutNetwork",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.VerifiedFailurePersistsAndCleansUpWithoutRetry(stepType: \\\"mapping.dynamic\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.VerifiedFailurePersistsAndCleansUpWithoutRetry(stepType: \\\"llm.call\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.CancellationDuringQuoteResolutionIsNotDisguisedAsAccountingRefusal",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.HistoricalUnknownAdmissionIsNotReclassifiedOrRepriced",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.FailedFlowReceiptPublicationRemainsUncertainAfterRestart",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.TypedNonDispatchIsDurableAndCannotRedispatchOrChangeItsIdentity",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.ReadinessStopsBeforeProviderOrExternalWork(defect: \\\"missing-price\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.ReadinessStopsBeforeProviderOrExternalWork(defect: \\\"missing-quote\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.ReadinessStopsBeforeProviderOrExternalWork(defect: \\\"stale\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.ReadinessStopsBeforeProviderOrExternalWork(defect: \\\"future\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.ReadinessStopsBeforeProviderOrExternalWork(defect: \\\"invalid-rate\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.ReadinessStopsBeforeProviderOrExternalWork(defect: \\\"wrong-currency\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.ReadinessStopsBeforeProviderOrExternalWork(defect: \\\"network\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.UnverifiedOrUndurableCompletionStillBlocksCleanupAndReplay(defect: \\\"transport\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.UnverifiedOrUndurableCompletionStillBlocksCleanupAndReplay(defect: \\\"post-dispatch-budget\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.UnverifiedOrUndurableCompletionStillBlocksCleanupAndReplay(defect: \\\"failed-preflight-record\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.UnverifiedOrUndurableCompletionStillBlocksCleanupAndReplay(defect: \\\"failed-completion-record\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.FlowLlmCapabilityResolverTests.InjectedResolverNeverUsesDiscoveryAndSeesEditsImmediately",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.FlowLlmCapabilityResolverTests.ProviderAliasesAndNamespacedModelsUseTheSameMetadataAsDispatch(type: \\\"openai\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.FlowLlmCapabilityResolverTests.ProviderAliasesAndNamespacedModelsUseTheSameMetadataAsDispatch(type: \\\"copilot\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.HumanInputContextMarkdownFormatterTests.Format_JsonContext_PrettyPrintsOnce",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.HumanInputContextMarkdownFormatterTests.Format_MarkdownSummaryWithListsAndColons_RemainsMarkdown",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.HumanInputContextMarkdownFormatterTests.Format_WorkflowYaml_UsesCodeFenceWithoutGeneratingMermaid",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningOwnershipTests.ReleasedLeaseCanBeRecoveredButDifferentTenantsDoNotContend",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningOwnershipTests.CompetingCoordinatorsLeaveAnActiveRequestRunningAndDispatchOnlyOnce",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningOwnershipTests.CancellationFromAnotherCoordinatorPreservesLateReceiptAndAccounting",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ReportFinalizationExecutionTests.ExistingScopesPreserveObservedEvidenceBeforeRelease(prefix: \\\"alpha\\\", field: \\\"instruction\\\", variant: \\\"success\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ReportFinalizationExecutionTests.ExistingScopesPreserveObservedEvidenceBeforeRelease(prefix: \\\"omega\\\", field: \\\"request\\\", variant: \\\"verified_failure\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ReportFinalizationExecutionTests.ExistingScopesPreserveObservedEvidenceBeforeRelease(prefix: \\\"alpha\\\", field: \\\"request\\\", variant: \\\"preserve_failure\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ReportFinalizationExecutionTests.ExistingScopesPreserveObservedEvidenceBeforeRelease(prefix: \\\"omega\\\", field: \\\"instruction\\\", variant: \\\"unknown\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ReportFinalizationExecutionTests.ExistingScopesPreserveObservedEvidenceBeforeRelease(prefix: \\\"alpha\\\", field: \\\"instruction\\\", variant: \\\"denied\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.OnlyUncertainDispatchOffersRetainedUsageRetry(code: \\\"MODEL_REQUEST_REJECTED\\\", canRetry: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.OnlyUncertainDispatchOffersRetainedUsageRetry(code: \\\"MODEL_DISPATCH_UNVERIFIABLE\\\", canRetry: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.PrerequisiteCauseAndUnappliedRepairSurvivePersistenceAndDesignerRendering",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.RetiredUnapprovedSessionOffersExplicitRevisionWithoutApprovalOrRetry(status: \\\"final_review\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.RetiredUnapprovedSessionOffersExplicitRevisionWithoutApprovalOrRetry(status: \\\"stopped\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.SelectorKeepsTracesSeparateAndSessionSwitchClearsPreviousTelemetry",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.IncompatibleHistoryRemainsVisibleWithoutBlockingHealthySessions(workflow: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.IncompatibleHistoryRemainsVisibleWithoutBlockingHealthySessions(workflow: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.ListShowsBothOriginsAndOpensSelectedSessionTraces",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.CallBudgetStopShowsTheCeilingAndDisablesIneffectiveRecovery",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.WorkflowDetailsStayReadOnlyAndNavigationClosesTraces(status: \\\"final_review\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.WorkflowDetailsStayReadOnlyAndNavigationClosesTraces(status: \\\"stopped\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.DesignerSeparatesActiveSavedUnknownAndRejectedRequests(kind: \\\"active\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.DesignerSeparatesActiveSavedUnknownAndRejectedRequests(kind: \\\"receipt_available\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.DesignerSeparatesActiveSavedUnknownAndRejectedRequests(kind: \\\"completion_unknown\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.DesignerSeparatesActiveSavedUnknownAndRejectedRequests(kind: \\\"provider_rejection\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.InputBudgetStopOffersExplicitSettingsContinuation(code: \\\"MODEL_INPUT_LIMIT\\\", inputStop: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.InputBudgetStopOffersExplicitSettingsContinuation(code: \\\"MODEL_OUTPUT_LIMIT\\\", inputStop: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedWorkflowResourcesTests.ConfigureAgentsWorkflow_DoesNotHardcodeAgentCreationProviderOrModel",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedWorkflowResourcesTests.EmbeddedWorkflowYaml_ParsesAndCompiles(resourceSuffix: \\\"configure-agents-agent.yaml\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.EmbeddedWorkflowResourcesTests.EmbeddedWorkflowYaml_ParsesAndCompiles(resourceSuffix: \\\"main-routing-agent.yaml\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TenantApiSerializationTests.OtlpApiJsonContext_SerializesTelemetryLogResponses_WithCamelCaseAndWithoutNullServiceName",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.TenantApiSerializationTests.TelemetryApiMapper_ToLogResponse_ParsesNestedJson_AndCanOmitServiceName",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedCheckedContractPlanningTests.RecordedBusinessPlanCompilesOfflineWithoutResumingHistoricalRequests",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmRuntimeOptionsStoreTests.ReplaceRuntimeOptions_PreservesPublishedTransientMcpEndpoints",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmRuntimeOptionsStoreTests.UpdateProvider_WhenTransientMountedMcpServersExist_KeepsEverythingInMemoryOnly",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmRuntimeOptionsStoreTests.UpdateProvider_SwitchingOpenAiFromOidcToApiKeyClearsOidcFields",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmRuntimeOptionsStoreTests.UpdateProvider_SwitchingOpenAiFromApiKeyToOidcClearsApiKey",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmRuntimeOptionsStoreTests.RemoveMcpServer_RemovesNamedServerCaseInsensitivelyAndPreservesTransientEndpoints",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmRuntimeOptionsStoreTests.ReplaceRuntimeOptions_OverwritesTheLiveSnapshot",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmRuntimeOptionsStoreTests.Constructor_PreservesConfiguredMcpTimeouts",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmRuntimeOptionsStoreTests.UpdateProvider_InitializesProviderTypeFromKeyForApiKeyAuth",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedClonePlanningTests.ActualProducerContractAddsAConstraintGuardWithoutInventingFiniteDomains",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedClonePlanningTests.RetainedResponsesWereAcceptedDespiteUnconstrainedCloneAndUnrelatedCleanup",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedClonePlanningTests.ExplicitSharedLocationReachesReviewAndChangedContractInvalidatesApproval",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.MountedMcpEndpointCatalogTests.ConfigureSessionOptions_FailsClosedForUnknownGroup",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.MountedMcpEndpointCatalogTests.ConfigureSessionOptions_SetsExactIdentityAndRequestLocalToolCollection",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.MountedMcpEndpointCatalogTests.ConfigureSessionOptions_FailsClosedWithoutEndpointMetadata",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.MountedMcpEndpointCatalogTests.SelectTools_ReturnsOnlyToolsMarkedForTheRequestedServer",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTransportBoundaryTests.HostAdaptersPreserveOutputLimitsCompletionStatusAndDisabledRetries(dynamic: False, status: 200)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTransportBoundaryTests.HostAdaptersPreserveOutputLimitsCompletionStatusAndDisabledRetries(dynamic: True, status: 200)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTransportBoundaryTests.HostAdaptersPreserveOutputLimitsCompletionStatusAndDisabledRetries(dynamic: False, status: 400)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTransportBoundaryTests.HostAdaptersPreserveOutputLimitsCompletionStatusAndDisabledRetries(dynamic: True, status: 400)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTransportBoundaryTests.HostAdaptersPreserveOutputLimitsCompletionStatusAndDisabledRetries(dynamic: False, status: 500)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningTransportBoundaryTests.HostAdaptersPreserveOutputLimitsCompletionStatusAndDisabledRetries(dynamic: True, status: 500)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureAgentsServiceTests.ExecuteAsync_AgentList_ReturnsDeterministicMarkdownWithoutCallingLlm",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureAgentsServiceTests.ExecuteAsync_DefaultPlanner_OpensTypedDesignerWithoutDispatchingModels(command: \\\"/gnougo add\\\", expectedLink: \\\"/planning\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureAgentsServiceTests.ExecuteAsync_DefaultPlanner_OpensTypedDesignerWithoutDispatchingModels(command: \\\"  /GnOuGo add  \\\", expectedLink: \\\"/planning\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureAgentsServiceTests.ExecuteAsync_DefaultPlanner_OpensTypedDesignerWithoutDispatchingModels(command: \\\"/gnougo reprompt reviewer\\\", expectedLink: \\\"/planning?agent=reviewer\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureAgentsServiceTests.ExecuteAsync_DefaultPlanner_OpensTypedDesignerWithoutDispatchingModels(command: \\\"/gnougo reprompt review&approve\\\", expectedLink: \\\"/planning?agent=review%26approve\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureAgentsServiceTests.ExecuteAsync_AgentRemove_RevokesPersistentCopilotGrantsForStableAgentId",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureAgentsServiceTests.ExecuteAsync_AgentSelect_PersistsDefaultAgentViaMountedAgentMcp",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureAgentsServiceTests.ExecuteAsync_AgentSelect_WhenAgentDoesNotExist_ReturnsNotFoundMessage",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureAgentsServiceTests.ExecuteAsync_AgentSelect_WhenAgentExists_EmitsAnswerAndAgentSelected",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureAgentsServiceTests.ExecuteAsync_AgentEdit_WhenNameChangesAndIsAvailable_RenamesAgent",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ConfigureAgentsServiceTests.ExecuteAsync_AgentEdit_WhenRenamedNameAlreadyExists_StopsBeforeSave",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedContractAwareRepairTests.RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedContractAwareRepairTests.CorrectedRecordedPlanCompilesOfflineWithoutRedispatchingItsOldRequest",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BrowserSnapshotReceiptTests.ExpirationSurvivesRealTransportAndEncryptedReceiptRecovery",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BrowserSnapshotReceiptTests.EmptyAcquisitionCommitsFailureAndCleanupWithoutInferenceWritingOrReplay",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BrowserSnapshotReceiptTests.ObservedActionChecksSurviveTransportAndEncryptedRecovery(compatible: False, action: \\\"activate\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BrowserSnapshotReceiptTests.ObservedActionChecksSurviveTransportAndEncryptedRecovery(compatible: True, action: \\\"activate\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BrowserSnapshotReceiptTests.ObservedActionChecksSurviveTransportAndEncryptedRecovery(compatible: True, action: \\\"follow\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CopilotListPlanningTests.TypedListsCompileAndExecuteWithOriginalOrRenamedContracts(interactive: False, renamed: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CopilotListPlanningTests.TypedListsCompileAndExecuteWithOriginalOrRenamedContracts(interactive: False, renamed: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CopilotListPlanningTests.TypedListsCompileAndExecuteWithOriginalOrRenamedContracts(interactive: True, renamed: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CopilotListPlanningTests.TypedListsCompileAndExecuteWithOriginalOrRenamedContracts(interactive: True, renamed: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CopilotListPlanningTests.RetainedStringContractAcceptsTheObjectThatFailedBeforeCopilotStarted",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.FlatTruncationDoesNotBecomeEvidenceAndEmptyCompleteSnapshotsRemainEmpty",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.OnlyFullyConsumedMatchingSnapshotsProvideWorkbookEvidence(variant: \\\"complete\\\", accepted: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.OnlyFullyConsumedMatchingSnapshotsProvideWorkbookEvidence(variant: \\\"missing\\\", accepted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.OnlyFullyConsumedMatchingSnapshotsProvideWorkbookEvidence(variant: \\\"capture_truncated\\\", accepted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.OnlyFullyConsumedMatchingSnapshotsProvideWorkbookEvidence(variant: \\\"manifest_truncated\\\", accepted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.OnlyFullyConsumedMatchingSnapshotsProvideWorkbookEvidence(variant: \\\"mixed_snapshot\\\", accepted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.OnlyFullyConsumedMatchingSnapshotsProvideWorkbookEvidence(variant: \\\"wrong_count\\\", accepted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.OnlyFullyConsumedMatchingSnapshotsProvideWorkbookEvidence(variant: \\\"wrong_url\\\", accepted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.OnlyFullyConsumedMatchingSnapshotsProvideWorkbookEvidence(variant: \\\"wrong_next\\\", accepted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.CompleteAcquisitionRequiresAllPagesFromOneGeneration(variant: \\\"complete\\\", accepted: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.CompleteAcquisitionRequiresAllPagesFromOneGeneration(variant: \\\"empty\\\", accepted: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.CompleteAcquisitionRequiresAllPagesFromOneGeneration(variant: \\\"missing\\\", accepted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.CompleteAcquisitionRequiresAllPagesFromOneGeneration(variant: \\\"capture\\\", accepted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.CompleteAcquisitionRequiresAllPagesFromOneGeneration(variant: \\\"manifest\\\", accepted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.CompleteAcquisitionRequiresAllPagesFromOneGeneration(variant: \\\"mixed\\\", accepted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.CompleteAcquisitionRequiresAllPagesFromOneGeneration(variant: \\\"continuation\\\", accepted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LiveObservationOracleTests.CompleteAcquisitionRequiresAllPagesFromOneGeneration(variant: \\\"page_truncated\\\", accepted: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmProtocolWiringTests.RuntimeSelectionDispatchesCorrectProtocolAndPreservesOtherSettings(protocol: Auto, path: \\\"/v1/responses\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmProtocolWiringTests.RuntimeSelectionDispatchesCorrectProtocolAndPreservesOtherSettings(protocol: Responses, path: \\\"/v1/responses\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LlmProtocolWiringTests.RuntimeSelectionDispatchesCorrectProtocolAndPreservesOtherSettings(protocol: ChatCompletions, path: \\\"/v1/chat/completions\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.IndentedJsonFormatterTests.TryFormat_ValidObjectOrArray_ProducesIndentedJson(input: \\\"{\\\\\\\"status\\\\\\\":\\\\\\\"ready\\\\\\\",\\\\\\\"count\\\\\\\":2}\\\", expected: \\\"{\\\\n  \\\\\\\"status\\\\\\\": \\\\\\\"ready\\\\\\\",\\\\n  \\\\\\\"count\\\\\\\": 2\\\\n}\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.IndentedJsonFormatterTests.TryFormat_ValidObjectOrArray_ProducesIndentedJson(input: \\\"[1,{\\\\\\\"enabled\\\\\\\":true}]\\\", expected: \\\"[\\\\n  1,\\\\n  {\\\\n    \\\\\\\"enabled\\\\\\\": true\\\\n  }\\\\n]\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.IndentedJsonFormatterTests.TryFormat_NonJsonOrMalformedJson_ReturnsFalse(input: \\\"not json\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.IndentedJsonFormatterTests.TryFormat_NonJsonOrMalformedJson_ReturnsFalse(input: \\\"{\\\\\\\"status\\\\\\\":\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.IndentedJsonFormatterTests.TryFormat_NonJsonOrMalformedJson_ReturnsFalse(input: \\\"[1,\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedDiscoveryBudgetTests.NewlyIssuedSeventhRequestRejectsTheOriginalDiscoveryResponseWithoutAnotherTurn",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedDiscoveryBudgetTests.SixHistoricalResponsesKeepTheirOriginalNullPlanStopAndAccounting",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedDiscoveryBudgetTests.SevenDisplacementResponsesRetainTheirNullPlanStopAndOriginalRequests",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedDiscoveryBudgetTests.EightPreviouslyIssuedDiscoveryResponsesRecoverWithoutChangingTheirSchemasOrAccounting",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RealProductContractsTests.ActualProducerContractsDiscoverWithoutInvokingCapabilities",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LocalFallbackValidationTests.ValidateLocalFallback_RejectsAmbiguousProviderKeys",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LocalFallbackValidationTests.ValidateLocalFallback_RejectsIncompleteConfiguration",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LocalFallbackValidationTests.ValidateLocalFallback_AcceptsConfiguredNonLocalProvider",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.LocalFallbackValidationTests.ValidateLocalFallback_RejectsMissingAndSelfReferencingProviders",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedWorkspaceContractTests.CurrentCmdContractRejectsInventedNestedParametersBeforeGraphEmission",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedWorkspaceContractTests.RetiredResponsesRequireRevisionAndRetainOriginalRequestsAndAccounting",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.RecordedWorkspaceContractTests.ExplicitRevisionUsesCurrentProducerContractsAndOneApprovedWorkspace",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CircularLoggingPreventionTests.CollectorLoggerProvider_DoesNotEnqueue_SuppressedCategoryLogs(categoryName: \\\"OtlpTenantCollector.Services.TelemetryBatchWriter\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CircularLoggingPreventionTests.CollectorLoggerProvider_DoesNotEnqueue_SuppressedCategoryLogs(categoryName: \\\"OtlpTenantCollector.Services.EfTelemetryStore\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CircularLoggingPreventionTests.CollectorLoggerProvider_DoesNotEnqueue_SuppressedCategoryLogs(categoryName: \\\"Microsoft.EntityFrameworkCore.Database.Command\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CircularLoggingPreventionTests.CollectorLoggerProvider_DoesNotEnqueue_SuppressedCategoryLogs(categoryName: \\\"Grpc.AspNetCore.Server.ServerCallHandler\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CircularLoggingPreventionTests.CollectorLoggerProvider_DoesNotEnqueue_SuppressedCategoryLogs(categoryName: \\\"System.Net.Http.HttpClient.OtlpTraceExporter\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CircularLoggingPreventionTests.CollectorLoggerProvider_DoesNotEnqueue_SuppressedCategoryLogs(categoryName: \\\"GnOuGo.Agent.Server.Telemetry.CollectorLoggerProvi\\\"\u00b7\u00b7\u00b7)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CircularLoggingPreventionTests.CollectorLoggerProvider_DoesNotEnqueue_WhenNoActivity",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CircularLoggingPreventionTests.CollectorLoggerProvider_DoesEnqueue_ApplicationCategoryLogs",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningPersistenceTests.PersistedReceiptCompletesAnInterruptedIndexCommitWithoutRedispatch",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningPersistenceTests.TargetedRevisionAuthorityAndBaselineRemainEncryptedAndTenantOwned",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningPersistenceTests.ModelReceipt_ReplaysWithoutDispatchOrDoubleCounting",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningPersistenceTests.DiagnosticSixteenDispatchBudgetPersistsAndReplaysWithoutAnotherDispatch",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningPersistenceTests.UnknownRequestReceipt_IsNotSilentlyDispatchedAgain(statusCode: null)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningPersistenceTests.UnknownRequestReceipt_IsNotSilentlyDispatchedAgain(statusCode: 500)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningPersistenceTests.UnknownRequestReceipt_IsNotSilentlyDispatchedAgain(statusCode: 503)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.PlanningPersistenceTests.ConcurrentReservationsCannotExceedTheSharedCallBudget",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ChatTraceSidebarTests.SwitchingToLogs_ThenClosingDuringRefresh_DoesNotThrowAndClosesPanel",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ChatTraceSidebarTests.Logs_RenderDuplicateTelemetryRows_WithoutDuplicateBlazorKeys",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.ChatTraceSidebarTests.Logs_RenderDetailsLazily_AndKeepParentActionsClickable",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CollectorLoggerProviderTests.Log_PersistsApplicationLog_WithoutActivity_WhenOpenTelemetryIsEnabled",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CollectorLoggerProviderTests.Log_PersistsWorkflowLog_WithCurrentTraceAndSpanIds",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.CollectorLoggerProviderTests.Log_SerializesScopesAndException_WithNestedValues_WithoutNullProperties",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.CheckpointsRetainReservedSchemaAndBudgetRefusalDoesNotReserveDispatch",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.LiveAdapterRejectsToolsBeforeDispatch",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.HttpRecoveryPreservesUnknownAllowanceAndReplaysAfterReceiptWriteFailure",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.ConservativeAdmissionRejectsCostAndCallExhaustionWithoutChangingLedger",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.LiveConsoleCancellationFinishesWithoutInputAndNeverAcceptsALateApproval",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.ExplicitBudgetExtensionPreservesReservationsConfigurationAndIsolationAcrossRestart",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.UncertainDispatchBlocksFurtherRequestsWithoutResend",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.ExhaustedRunClosureRetainsUncertaintyAndCostWithoutAllowingRedispatch",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.HttpExhaustionAndCancellationCannotDispatchOnRestart",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.ExecutionHasItsOwnAttemptPolicyAndStillSharesTheSpendingCeiling",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.FailedPreflightRetainsEvidenceWithoutInventingDispatch",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.OnlyVerifiedSchemaRejectionsCanCloseWithoutInventingCompletion(status: 400, canClose: True)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.OnlyVerifiedSchemaRejectionsCanCloseWithoutInventingCompletion(status: 200, canClose: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.OnlyVerifiedSchemaRejectionsCanCloseWithoutInventingCompletion(status: null, canClose: False)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.NewCampaignIgnoresOldUncertaintyAndReplaysOwnReceiptsWithoutDispatch",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.OfflineReplayWithoutReceiptFailsWithoutReservingOrWriting",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.ExecutionInputLimitCountsTokensInsteadOfJsonBytes",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.LiveReportsRejectMissingManifestsAndRetainInterruptedRuns",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.CompletedReceiptSurvivesCancellationAndPinnedConfigurationCannotDrift",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.LiveHumanInputRejectsWrongWrappersWithoutAbortingOrChoosingAnAnswer(choice: \\\"Allow once\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.LiveHumanInputRejectsWrongWrappersWithoutAbortingOrChoosingAnAnswer(choice: \\\"Refuse\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.ExecutionInferenceUsesBoundedVisibleInputAndPinnedReasoning(path: \\\"/v1/responses\\\", field: \\\"max_output_tokens\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.ExecutionInferenceUsesBoundedVisibleInputAndPinnedReasoning(path: \\\"/v1/chat/completions\\\", field: \\\"max_completion_tokens\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.InconclusiveClosureRequiresSavedFailedRunAndExhaustedAllowance",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.OfflineReplayKeepsOriginalSchemaAndNeverWritesCampaignRecords",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.CampaignAdmissionFailureAllowsDurableCleanupWithoutInference",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.AdmissionAuditRequiresImmutableClosedZeroDispatchEvidenceAndNeverWrites(defect: null)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.AdmissionAuditRequiresImmutableClosedZeroDispatchEvidenceAndNeverWrites(defect: \\\"missing_closure\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.AdmissionAuditRequiresImmutableClosedZeroDispatchEvidenceAndNeverWrites(defect: \\\"changed_run\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.AdmissionAuditRequiresImmutableClosedZeroDispatchEvidenceAndNeverWrites(defect: \\\"changed_request\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.AdmissionAuditRequiresImmutableClosedZeroDispatchEvidenceAndNeverWrites(defect: \\\"attempted\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.AdmissionAuditRequiresImmutableClosedZeroDispatchEvidenceAndNeverWrites(defect: \\\"receipt\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.AdmissionAuditRequiresImmutableClosedZeroDispatchEvidenceAndNeverWrites(defect: \\\"failure\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.AdmissionAuditRequiresImmutableClosedZeroDispatchEvidenceAndNeverWrites(defect: \\\"wrapped\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.LiveCohortKeepsExecutionAccountingSeparateAndCountsMissingRuns",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.PreparedJournalResumesBeforeFirstSendAndOriginalSchemaCannotChange",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.DurableMappingIdentitiesRemainStableAndBelongToExecutionAccounting",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.ExplicitTransportExhaustionRetainsAllEvidenceAndReservations(defect: null)",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.ExplicitTransportExhaustionRetainsAllEvidenceAndReservations(defect: \\\"remaining_attempts\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.ExplicitTransportExhaustionRetainsAllEvidenceAndReservations(defect: \\\"missing_policy\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.ExplicitTransportExhaustionRetainsAllEvidenceAndReservations(defect: \\\"receipt\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.ExplicitTransportExhaustionRetainsAllEvidenceAndReservations(defect: \\\"verified_usage\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.ExplicitTransportExhaustionRetainsAllEvidenceAndReservations(defect: \\\"completed_http\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.ExplicitTransportExhaustionRetainsAllEvidenceAndReservations(defect: \\\"wrong_identity\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.ExplicitTransportExhaustionRetainsAllEvidenceAndReservations(defect: \\\"missing_failure\\\")",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.OrdinaryRuntimeInferenceUsesTheSameCampaignInputAllowanceAsTheProxy",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.LiveAdapterUsesSynchronousRecoveryWithoutChangingReservedRequest",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.UncertainFailureRetainsSafeMetadataWithoutInventingAReceipt",
+      "result": "Pass"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests.RecoveryPreservesChangedFailureEvidenceWithoutDuplicatingIdenticalFailures",
+      "result": "Pass"
+    }
+  ]
+}

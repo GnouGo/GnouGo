@@ -1,0 +1,53 @@
+{
+  "production_candidate": "8fc8fd0c",
+  "initial_focused_run": {
+    "total": 54,
+    "passed": 52,
+    "failed": 2,
+    "local_passed_variants": [
+      "changed",
+      "consent",
+      "delayed-consent",
+      "denied",
+      "each",
+      "each-parallel",
+      "empty",
+      "extract",
+      "incomplete-observation",
+      "limit",
+      "missing",
+      "navigation",
+      "no-consent",
+      "nominal",
+      "observation",
+      "pages",
+      "pages-compact",
+      "pages-compact-consent",
+      "pages-compact-decision",
+      "pages-compact-decision-complete",
+      "pages-compact-decision-complete-consent",
+      "pages-compact-decision-complete-flat",
+      "pages-compact-decision-complete-flat-consent",
+      "pages-compact-decision-complete-flat-lookup",
+      "pages-compact-decision-complete-flat-lookup-consent",
+      "pages-compact-decision-consent",
+      "pages-compact-scoped",
+      "pages-parallel",
+      "required-consent",
+      "required-incomplete-observation",
+      "unrelated-modal"
+    ],
+    "log_sha256": "7aac2d5b581bb968daefe333935be47a83394c9d27ef5166e911cb490d9ac02b"
+  },
+  "corrected_index_assertions": {
+    "passed_variants": [
+      "pages-compact-decision-complete-flat-lookup-indexed",
+      "pages-compact-decision-complete-flat-lookup-indexed-consent"
+    ],
+    "failed": 0,
+    "log_sha256": "6eef17a3602a328e944c17145513ca20ba76fddafa841a3dbcd553fda688c38b"
+  },
+  "local_cases": 33,
+  "missing_cases": [],
+  "note": "The second commit changes only fixture receipt-location assertions; production code is identical. Independent visits, values, XLSX cells, denial and cleanup assertions remain intact. Source variants identify long names truncated by xUnit; the two indexing variants match the successful two-case rerun."
+}

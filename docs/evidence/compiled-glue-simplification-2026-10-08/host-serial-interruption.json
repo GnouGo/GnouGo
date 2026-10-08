@@ -1,0 +1,15 @@
+{
+  "candidate": "8fc8fd0c",
+  "status": "interrupted",
+  "reason": "Synchronous telemetry-queue wait from Activity.Stop, matching the retained baseline boundary.",
+  "frames": [
+    "System.Private.CoreLib!System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(class System.Threading.Tasks.Task,value class System.Threading.Tasks.ConfigureAwaitOptions)",
+    "GnOuGo.Agent.Server!GnOuGo.Agent.Server.Telemetry.CollectorTracePersistence.Persist(class System.Diagnostics.Activity)",
+    "GnOuGo.Agent.Server!GnOuGo.Agent.Server.SmartFlow.AgentOTelTelemetry.<.ctor>b__15_4(class System.Diagnostics.Activity)",
+    "System.Diagnostics.DiagnosticSource!System.Diagnostics.Activity.Stop()",
+    "GnOuGo.Flow.Core!GnOuGo.Flow.Core.Runtime.StepExecutionContext.CallLLMAsync(class GnOuGo.Flow.Core.Runtime.ILLMClient,class GnOuGo.Flow.Core.Runtime.LLMRequest,class System.String,value class System.Threading.CancellationToken)"
+  ],
+  "raw_stack_sha256": "6ce37a745163652267a8c04c9525a5814d4c2603b9b915403bc9e83b1e7663e1",
+  "test_changes": "none; same assertions and original timeouts",
+  "action": "Stop only this deterministic host process; verify other host classes in a fresh process. Local product cases retain focused validation evidence."
+}

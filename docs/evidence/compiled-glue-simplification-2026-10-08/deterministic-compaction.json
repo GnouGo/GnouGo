@@ -1,0 +1,43 @@
+{
+  "candidate": "8fc8fd0c",
+  "provider_calls": 0,
+  "deterministic_adapter_results": [
+    {
+      "pages": 52,
+      "records": 1474,
+      "processed": 52,
+      "mapping_calls": 1,
+      "global_calls": 1,
+      "serialized_global_bytes": 846,
+      "estimate": 431
+    },
+    {
+      "pages": 6,
+      "records": 263,
+      "processed": 6,
+      "mapping_calls": 1,
+      "global_calls": 1,
+      "serialized_global_bytes": 2113,
+      "estimate": 813
+    },
+    {
+      "pages": 52,
+      "records": 1474,
+      "processed": 52,
+      "mapping_calls": 1,
+      "global_calls": 1,
+      "serialized_global_bytes": 2113,
+      "estimate": 813
+    },
+    {
+      "pages": 53,
+      "records": 1504,
+      "processed": 53,
+      "mapping_calls": 1,
+      "global_calls": 1,
+      "serialized_global_bytes": 2110,
+      "estimate": 812
+    }
+  ],
+  "raw_composition_rejected_before_inference": true
+}
