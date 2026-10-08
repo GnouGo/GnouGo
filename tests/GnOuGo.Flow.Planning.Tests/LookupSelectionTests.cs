@@ -17,10 +17,11 @@ public sealed class LookupSelectionTests(ITestOutputHelper output)
     private static TaskType Array(TaskType item) => LookupCompilationTests.ArrayOf(item);
 
     [Theory]
-    [InlineData("key", false, false)]
-    [InlineData("identity", true, false)]
-    [InlineData("entry", false, true)]
-    public async Task EveryCandidateReachesDecisionWhileOriginalActionDataStaysOutsideInference(string key, bool invalidSelection, bool oversized)
+    [InlineData("key", false, false, 54, 1578)]
+    [InlineData("identity", true, false, 54, 1578)]
+    [InlineData("entry", false, true, 54, 1578)]
+    [InlineData("another", false, false, 58, 1602)]
+    public async Task EveryCandidateReachesDecisionWhileOriginalActionDataStaysOutsideInference(string key, bool invalidSelection, bool oversized, int pageCount, int recordCount)
     {
         var recordType = ProductTransformationPlan.Obj((key, new()), ("kind", new()), ("label", new()),
             ("destination", new()), ("token", new()), ("verbs", Array(new())));
@@ -49,10 +50,10 @@ public sealed class LookupSelectionTests(ITestOutputHelper output)
             ], Outputs = [new("records", Ref("resolve_actions", "records"))] }
         };
         var pages = new JsonArray(); var all = new List<JsonObject>(); var candidates = new List<JsonObject>();
-        for (var page = 0; page < 54; page++)
+        for (var page = 0; page < pageCount; page++)
         {
             var records = new JsonArray();
-            for (var i = 0; i < 1578 / 54 + (page < 1578 % 54 ? 1 : 0); i++)
+            for (var i = 0; i < recordCount / pageCount + (page < recordCount % pageCount ? 1 : 0); i++)
             {
                 var index = all.Count; var candidate = index % 10 == 0 && index / 10 < 147;
                 var record = new JsonObject { [key] = "record-" + index, ["kind"] = candidate ? "candidate" : "note",
@@ -63,7 +64,7 @@ public sealed class LookupSelectionTests(ITestOutputHelper output)
             }
             pages.Add(new JsonObject { ["records"] = records });
         }
-        Assert.Equal(1578, all.Count); Assert.Equal(147, candidates.Count);
+        Assert.Equal(recordCount, all.Count); Assert.Equal(147, candidates.Count);
         var chosen = new[] { candidates[^1], candidates[0], candidates[^1], candidates[70] };
         var ids = chosen.Select(r => r[key]!.ToString()).ToList();
         // An existing source record that was never offered is not selectable.
@@ -91,7 +92,7 @@ public sealed class LookupSelectionTests(ITestOutputHelper output)
             Assert.True(result.Success, result.Error?.Message);
             Assert.True(JsonNode.DeepEquals(new JsonArray(chosen.Select(c => c.DeepClone()).ToArray()), result.Outputs!["records"]));
         }
-        output.WriteLine($"pages=54; records=1578; candidates={offered.Count}; mapping_calls={model.Mapping.Count}; selected={ids.Count}; global_bytes_with_framing={bytes}; estimated_input={Estimate(request)}; yaml_bytes={Encoding.UTF8.GetByteCount(yaml)}");
+        output.WriteLine($"pages={pageCount}; records={recordCount}; candidates={offered.Count}; mapping_calls={model.Mapping.Count}; selected={ids.Count}; global_bytes_with_framing={bytes}; estimated_input={Estimate(request)}; yaml_bytes={Encoding.UTF8.GetByteCount(yaml)}");
         values["complete"] = false;
         var stoppedModel = new SelectionModel(key, ids); engine.LLMClient = stoppedModel;
         var stopped = await LookupCompilationTests.Execute(yaml, values, engine);

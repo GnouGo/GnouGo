@@ -76,23 +76,26 @@ public sealed partial class TaskPlanCompiler
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
     private readonly HashSet<string> _compilingGroups = new(StringComparer.Ordinal);
     private readonly Dictionary<string, PlanningWorkflow> _groups = new(StringComparer.Ordinal);
-    internal const string CompactProfile = "compact-bindings-v2";
-    internal static bool UsesCompactBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v1" or CompactProfile;
-    internal static bool UsesNormalExports(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() == CompactProfile;
+    internal const string CompactProfile = "compact-bindings-v3";
+    internal static bool UsesCompactBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v1" or "compact-bindings-v2" or CompactProfile;
+    internal static bool UsesNormalExports(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v2" or CompactProfile;
     internal const string AdaptiveMappingProfile = "adaptive-each-v1";
     private bool _adaptiveMappings;
     private bool _compactBindings;
     private bool _normalExports;
+    private bool _indexedProjections;
     private string _location = "/tasks";
 
     public TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings = false)
         => Compile(plan, catalog, compactBindings, false);
 
     internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, PlanningRequest request)
-        => Compile(plan, catalog, UsesCompactBindings(request), UsesNormalExports(request), request.Options["mapping_profile"]?.ToString() == AdaptiveMappingProfile);
+        => Compile(plan, catalog, UsesCompactBindings(request), UsesNormalExports(request), request.Options["mapping_profile"]?.ToString() == AdaptiveMappingProfile,
+            request.Options["compilation_profile"]?.ToString() == CompactProfile);
 
-    internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports, bool adaptiveMappings = false)
+    internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports, bool adaptiveMappings = false, bool indexedProjections = false)
     {
+        _indexedProjections = indexedProjections;
         _adaptiveMappings = adaptiveMappings;
         _normalExports = normalExports;
         _compactBindings = compactBindings;
@@ -328,7 +331,7 @@ public sealed partial class TaskPlanCompiler
                 }
                 var iteration = new Scope(loopScope.Workflow, loopScope) { Item = new(new() { Kind = "loop_item", Source = key }, itemSchema, TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null), Index = new(new() { Kind = "loop_index", Source = key }, new() { ["type"] = "integer" }) };
                 var body = Child(task.Body ?? MissingScope(), iteration, key, "iteration");
-                loopTarget.Add(new() { Key = key, Purpose = task.Objective, InternalRole = _compactBindings ? copyLoop ? "typed_projection" : "isolated_collection" : null, Type = task.Parallel ? "loop.parallel" : "loop.sequential", ItemVar = "item", IndexVar = "index",
+                loopTarget.Add(new() { Key = key, Purpose = task.Objective, InternalRole = _compactBindings ? copyLoop ? _indexedProjections ? "typed_index_projection" : "typed_projection" : "isolated_collection" : null, Type = task.Parallel ? "loop.parallel" : "loop.sequential", ItemVar = "item", IndexVar = "index",
                     Input = Object(task.Parallel ? [new("items", loopItems), new("max_concurrency", Number(task.MaxConcurrency))] : [new("items", loopItems)]), Steps = [body.Call] });
                 outputs = new(StringComparer.Ordinal);
                 foreach (var output in body.Workflow.Outputs)
@@ -375,10 +378,10 @@ public sealed partial class TaskPlanCompiler
         }
     }
 
-    private static bool CopyValue(TaskValue value) => value.Kind is "null" or "string" or "number" or "boolean" or "item" or "input" or "output" or "field" or "object" or "array" &&
+    private bool CopyValue(TaskValue value) => (value.Kind is "null" or "string" or "number" or "boolean" or "item" or "input" or "output" or "field" or "object" or "array" || _indexedProjections && value.Kind == "index") &&
         value.Items.All(CopyValue) && value.Members.All(m => CopyValue(m.Value));
 
-    private static bool PureProjection(PlanTask task)
+    private bool PureProjection(PlanTask task)
     {
         // The entry guard is emitted before the collection; only per-item work prevents fusion.
         return task.Body is { Always.Count: 0 } body && body.Outputs.Count > 0 &&

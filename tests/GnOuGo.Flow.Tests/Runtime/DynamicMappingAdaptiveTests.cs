@@ -70,14 +70,16 @@ public sealed partial class DynamicMappingCollectionTests
         else { Assert.Equal(ErrorCodes.LlmBudgetExceeded, run.Error!.Code); Assert.Empty(store.Values); Assert.DoesNotContain(run.StepResults, s => s.StepId == "consumer"); }
     }
 
-    [Fact]
-    public async Task AdaptiveRetainedScalePacksOptionalShapesAndProcessesEveryPage()
+    [Theory]
+    [InlineData(53, 1504)]
+    [InlineData(58, 1602)]
+    public async Task AdaptiveRetainedScalePacksOptionalShapesAndProcessesEveryPage(int pageCount, int recordCount)
     {
         var pages = new JsonArray(); var expected = new JsonArray(); var record = 0;
-        for (var page = 0; page < 53; page++)
+        for (var page = 0; page < pageCount; page++)
         {
             var records = new JsonArray(); var labels = new JsonArray();
-            for (var j = 0; j < (page == 52 ? 48 : 28); j++, record++)
+            for (var j = 0; j < (page == pageCount - 1 ? recordCount - (pageCount - 1) * 28 : 28); j++, record++)
             {
                 var label = "observed-" + record;
                 records.Add(new JsonObject { ["label"] = label, ["reference"] = new string('r', 500) + record,
@@ -85,7 +87,7 @@ public sealed partial class DynamicMappingCollectionTests
             }
             pages.Add(new JsonObject { ["records"] = records, ["page_shape_" + page] = page }); expected.Add(labels);
         }
-        Assert.Equal(1504, record);
+        Assert.Equal(recordCount, record);
         var doc = AdaptiveDocument(); doc.Workflows["main"].Steps[0].OutputSchema!["properties"]!["value"]!["properties"]!["rows"]!["items"] = JsonNode.Parse("{\"type\":\"array\",\"items\":{\"type\":\"string\"}}");
         var model = new Model("item.records.map(r=>r.label)") { Allowance = 96000 };
         var engine = AdaptiveEngine(model); engine.Limits = new() { TenantId = "tenant", MaxMappingInputTokens = 96000 };
@@ -93,8 +95,20 @@ public sealed partial class DynamicMappingCollectionTests
         Assert.True(run.Success, run.Error?.Message); Assert.True(JsonNode.DeepEquals(expected, Result(run)));
         var request = Assert.Single(model.Requests);
         Assert.True(Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)) + 4096 <= 96000);
-        Assert.DoesNotContain("observed-1503", request.Prompt); // Omitted pages still execute, including the final record.
+        Assert.DoesNotContain("observed-750", request.Prompt); // Unsampled middle pages still execute; expected checks every record.
         Assert.Contains("observed-0", request.Prompt);
+    }
+
+    [Fact]
+    public async Task OversizedFlatCollectionStillStopsBeforeInferenceOrPublication()
+    {
+        var model = new Model("item.label"); var store = new Store(); var engine = AdaptiveEngine(model, store);
+        var records = new JsonArray(Enumerable.Range(0, 1602).Select(i => (JsonNode)new JsonObject { ["label"] = "observed-" + i }).ToArray());
+        Assert.Equal(1000, engine.Limits.MaxLoopIterations);
+        var result = await AdaptiveRun(engine, records);
+        Assert.False(result.Success); Assert.Equal(ErrorCodes.LoopLimit, result.Error!.Code);
+        Assert.Empty(model.Requests); Assert.Empty(store.Values); Assert.Null(result.Outputs);
+        Assert.DoesNotContain(result.StepResults, s => s.StepId == "consumer");
     }
 
     [Fact]

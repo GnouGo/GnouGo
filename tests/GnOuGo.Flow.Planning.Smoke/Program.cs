@@ -139,6 +139,25 @@ if (!compactResult.Success || compactDoc.Workflows.Count != 1 || compactDoc.Work
     throw new InvalidOperationException("Compact typed collection failed in Native AOT: " + compactResult.Error?.Message);
 Console.WriteLine("compact bindings: fused collection, zero per-item calls, exact duplicates, no inference");
 
+var indexedPlan = new TaskPlan { Inputs = compactPlan.Inputs, Root = new()
+{
+    Tasks = [new() { Id = "positions", Kind = "foreach", Objective = "Retain original positions", MaxItems = 2000,
+        Items = new() { Kind = "input", Source = "rows" }, Body = new() { Outputs = [new("rows", new() { Kind = "object",
+            Members = [new("position", new() { Kind = "index" }), new("original", new() { Kind = "item" })] })] } }],
+    Outputs = [new("rows", new() { Kind = "output", Source = "positions", Port = "rows" })]
+} };
+var indexedRequest = new PlanningRequest(); indexedRequest.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
+var indexedGraph = new TaskPlanCompiler().Compile(indexedPlan, compactCatalog, indexedRequest);
+if (indexedGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Indexed projection compilation failed.");
+var indexedYaml = new PlanningGraphCompiler().Compile(indexedGraph.Graph!, compactCatalog, "generated", true);
+var indexedDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(indexedYaml));
+var indexedResult = await compactEngine.ExecuteAsync(indexedDocument.Workflows["main"], new JsonObject
+    { ["rows"] = new JsonArray(Enumerable.Range(0, 1602).Select(_ => (JsonNode)new JsonObject { ["label"] = "same" }).ToArray()) }, CancellationToken.None);
+if (!indexedResult.Success || indexedYaml.Contains("loop.", StringComparison.Ordinal) || indexedResult.Outputs?["rows"] is not JsonArray indexedRows ||
+    !indexedRows.Select(r => r!["position"]!.GetValue<int>()).SequenceEqual(Enumerable.Range(0, 1602)) || indexedRows.Any(r => r!["original"]!["label"]!.ToString() != "same"))
+    throw new InvalidOperationException("Indexed projection lost positions or original values in Native AOT: " + indexedResult.Error?.Message);
+Console.WriteLine("indexed projections: 1602 original positions and records, unchanged expression limits, zero per-record workflow calls");
+
 var lookupPlan = JsonSerializer.Deserialize("""
     {"inputs":[{"name":"rows","type":{"kind":"array","items":{"kind":"object","fields":[{"name":"label"}]}}}],
      "root":{"tasks":[{"id":"resolve","kind":"value","objective":"Reconnect selected original records",

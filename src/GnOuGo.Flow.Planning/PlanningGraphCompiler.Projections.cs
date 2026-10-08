@@ -13,12 +13,15 @@ public sealed partial class PlanningGraphCompiler
         var call = loop.Steps.Single();
         var body = scope.Workflows[PlanningGraphValidation.Member(call.Input, "ref")!.Source!];
         var args = PlanningGraphValidation.Member(call.Input, "args")!;
+        var indexed = loop.InternalRole == "typed_index_projection";
         var captures = new List<PlanningMember>();
         var inputs = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var arg in args.Members)
         {
             if (arg.Value.Kind == "loop_item" && arg.Value.Source == loop.Key)
                 inputs[arg.Name] = "item" + string.Concat(arg.Value.Path.Select(Segment));
+            else if (indexed && arg.Value.Kind == "loop_index" && arg.Value.Source == loop.Key)
+                inputs[arg.Name] = "index";
             else
             {
                 captures.Add(arg);
@@ -28,10 +31,24 @@ public sealed partial class PlanningGraphCompiler
         const string collection = "__collection";
         captures.Add(new(collection, PlanningGraphValidation.Member(loop.Input, "items")!));
         var expressions = new Dictionary<string, string>(StringComparer.Ordinal);
+        var definitions = new Dictionary<string, PlanningValue>(StringComparer.Ordinal);
+        string ResolveOutput(PlanningValue value)
+        {
+            // Drop only sole-property wrappers: discarding siblings could skip
+            // missing-value checks or an independently constrained value.
+            if (indexed && definitions.TryGetValue(value.Source!, out var definition))
+            {
+                var remaining = value.Path;
+                while (remaining.Count > 0 && definition.Kind == "object" && definition.Members.Count == 1 && definition.Members[0].Name == remaining[0])
+                { definition = definition.Members[0].Value; remaining = remaining.Skip(1).ToList(); }
+                if (remaining.Count == 0) return Resolve(definition);
+            }
+            return "(" + expressions[value.Source!] + ")" + string.Concat(value.Path.Select(Segment));
+        }
         string Resolve(PlanningValue value) => value.Kind switch
         {
             "input" => inputs[value.Source!] + string.Concat(value.Path.Select(Segment)),
-            "output" => "(" + expressions[value.Source!] + ")" + string.Concat(value.Path.Select(Segment)),
+            "output" => ResolveOutput(value),
             "object" => "({" + string.Join(",", value.Members.Select(m => Quote(m.Name) + ":" + Resolve(m.Value))) + "})",
             "array" => "[" + string.Join(",", value.Items.Select(Resolve)) + "]",
             "flatten" => FlattenExpression(Resolve(value.Items.Single())),
@@ -46,10 +63,11 @@ public sealed partial class PlanningGraphCompiler
             if (node.Type != "set" || node.Input.Kind == "dynamic_mapping")
                 throw new InvalidOperationException("A compiled copy loop contains executable work.");
             expressions.Add(node.Key, Resolve(node.Input));
+            definitions.Add(node.Key, node.Input);
         }
         var outputs = "({" + string.Join(",", body.Outputs.Select(o => Quote(o.Name) + ":" + Resolve(o.Value))) + "})";
         var callId = scope.NodeIds[call.Key];
-        var script = "({results:source." + collection + ".map(item=>({" + Quote(callId) + ":{outputs:" + outputs + "}})),count:source." + collection + ".length})";
+        var script = "({results:source." + collection + ".map(" + (indexed ? "(item,index)" : "item") + "=>({" + Quote(callId) + ":{outputs:" + outputs + "}})),count:source." + collection + ".length})";
         JintSandbox.ValidateMapping(script, learned: false);
         var source = ToExpression(new() { Kind = "object", Members = captures }, scope)[2..^1];
         var properties = new JsonObject(body.Outputs.Select(o => new KeyValuePair<string, JsonNode?>(o.Name, ToJsonSchema(o.Schema, scope.Catalog))));

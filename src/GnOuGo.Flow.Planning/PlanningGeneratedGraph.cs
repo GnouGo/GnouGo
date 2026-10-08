@@ -19,7 +19,7 @@ internal static class PlanningGeneratedGraph
             {
                 var location = "/workflows/" + graph.Workflows.IndexOf(workflow) + "/stages/" + node.Key;
                 if (string.IsNullOrWhiteSpace(node.Key) || node.Key.StartsWith("__planning_", StringComparison.Ordinal) || node.InternalRole is not null && (!compactBindings ||
-                    node.InternalRole is not ("typed_projection" or "typed_assembly" or "isolated_collection") && !node.InternalRole.StartsWith("inline:", StringComparison.Ordinal)))
+                    node.InternalRole is not ("typed_projection" or "typed_index_projection" or "typed_assembly" or "isolated_collection") && !node.InternalRole.StartsWith("inline:", StringComparison.Ordinal)))
                     yield return new("RESERVED_IDENTITY", location, "Stage identities and roles cannot impersonate host controls.");
                 if (node.Type is "mcp.call" or "agent.run" && !catalog.Capabilities.Any(c => c.Id == node.CapabilityId && c.StepType == node.Type))
                     yield return new("CAPABILITY_UNKNOWN", location, "Resolve an authorized contract before using this stage.");

@@ -46,8 +46,9 @@ public sealed class ExpressionEvaluator
                 Supported(call.Arguments[0], names) && call.Arguments[1] is ArrayExpression paths &&
                 paths.Elements.All(p => p is ArrayExpression path && path.Elements.All(v => v is StringLiteral)) && call.Arguments[2] is BooleanLiteral,
             CallExpression { Arguments.Count: 1, Callee: MemberExpression { Computed: false, Property: Identifier { Name: "map" } } member } call =>
-                Supported(member.Object, names) && call.Arguments[0] is ArrowFunctionExpression { Params.Count: 1, Async: false } arrow &&
-                arrow.Params[0] is Identifier parameter && Supported(arrow.Body, new HashSet<string>(names, StringComparer.Ordinal) { parameter.Name }),
+                Supported(member.Object, names) && call.Arguments[0] is ArrowFunctionExpression { Params.Count: 1 or 2, Async: false } arrow &&
+                arrow.Params.All(p => p is Identifier) && arrow.Params.Cast<Identifier>().Select(p => p.Name).Distinct(StringComparer.Ordinal).Count() == arrow.Params.Count &&
+                Supported(arrow.Body, new HashSet<string>(names.Concat(arrow.Params.Cast<Identifier>().Select(p => p.Name)), StringComparer.Ordinal)),
             _ => false
         };
         if (!Supported(syntax, new(StringComparer.Ordinal) { "source" })) return false;
@@ -111,7 +112,12 @@ public sealed class ExpressionEvaluator
                     var arrow = (ArrowFunctionExpression)call.Arguments[0]; var parameter = ((Identifier)arrow.Params[0]).Name;
                     var local = new Dictionary<string, JsonNode?>(bindings, StringComparer.Ordinal);
                     var result = new JsonArray();
-                    foreach (var item in collection) { local[parameter] = item; result.Add(Copy(EvaluateSelection(arrow.Body, local))); }
+                    for (var index = 0; index < collection.Count; index++)
+                    {
+                        local[parameter] = collection[index];
+                        if (arrow.Params.Count == 2) local[((Identifier)arrow.Params[1]).Name] = JsonValue.Create(index);
+                        result.Add(Copy(EvaluateSelection(arrow.Body, local)));
+                    }
                     return result;
                 default: throw JintSandbox.Unsatisfied("Unsupported structural selection.");
             }

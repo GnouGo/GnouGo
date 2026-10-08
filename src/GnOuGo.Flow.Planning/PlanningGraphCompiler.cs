@@ -91,7 +91,7 @@ public sealed partial class PlanningGraphCompiler
             else if (value is JsonArray array) foreach (var child in array) Visit(child);
         }
         Visit(workflows["main"]);
-        if (graph.Workflows.Any(w => Enumerate(w.Steps).Any(n => n.InternalRole == "typed_projection")))
+        if (graph.Workflows.Any(w => Enumerate(w.Steps).Any(n => n.InternalRole is "typed_projection" or "typed_index_projection")))
             foreach (var unused in workflows.Select(p => p.Key).Where(n => !reachable.Contains(n)).ToArray()) workflows.Remove(unused);
         root["workflows"] = workflows;
         var main = (JsonObject)workflows["main"]!;
@@ -126,7 +126,7 @@ public sealed partial class PlanningGraphCompiler
     {
         if (!scope.Catalog.AllowedStepTypes.Contains(node.Type, StringComparer.Ordinal))
             throw new InvalidOperationException("A node uses a step type outside the locked policy.");
-        if (node.InternalRole == "typed_projection" && node.Type is "loop.sequential" or "loop.parallel")
+        if (node.InternalRole is "typed_projection" or "typed_index_projection" && node.Type is "loop.sequential" or "loop.parallel")
         {
             var projection = LowerCopyLoop(node, scope);
             if (scope.Descriptions && !string.IsNullOrWhiteSpace(node.Purpose)) projection["description"] = node.Purpose;

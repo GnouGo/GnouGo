@@ -191,7 +191,7 @@ A task may declare `requires` as a boolean TaskValue. Omission preserves histori
 
 `present` can inspect preceding tasks in the same or a lexically enclosing scope. Nested finalizers capture availability independently and retain an absent payload as omission inside compiler-owned switch envelopes. They never eagerly evaluate an unavailable result. Report observed evidence in `always` and put release operations in its nested `always`, so preservation failure still permits cleanup. Unknown completion continues to block both. Required conditions cannot be weakened by scoped repairs; use an explicit revision and fresh approval.
 
-New compilation uses approval-fingerprinted `compact-bindings-v2` options for fused typed copies, normal-path exports, literal descriptions, isolated business loops and unambiguous runtime extraction. See [profile and compatibility](../../docs/compact-workflow-bindings.md).
+New compilation uses approval-fingerprinted `compact-bindings-v3` options for fused typed copies with original indices, normal-path exports, literal descriptions, isolated business loops and unambiguous runtime extraction. Historical profiles retain their lowering. Declared collection bounds never enlarge effective host limits. See [profile and compatibility](../../docs/compact-workflow-bindings.md).
 
 ### Explicit consumer views and flatten
 

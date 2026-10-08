@@ -35,6 +35,8 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
     [InlineData("pages-compact-decision-complete-flat-consent")]
     [InlineData("pages-compact-decision-complete-flat-lookup")]
     [InlineData("pages-compact-decision-complete-flat-lookup-consent")]
+    [InlineData("pages-compact-decision-complete-flat-lookup-indexed")]
+    [InlineData("pages-compact-decision-complete-flat-lookup-indexed-consent")]
     [InlineData("pages-compact-scoped")]
     [InlineData("extract")]
     [InlineData("each")]
@@ -64,6 +66,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         var visits = new List<string>();
         var flattened = variant.Contains("-flat", StringComparison.Ordinal);
         var lookup = variant.Contains("-lookup", StringComparison.Ordinal);
+        var indexed = variant.Contains("-indexed", StringComparison.Ordinal);
         var compact = variant.StartsWith("pages-compact", StringComparison.Ordinal);
         var independentDecision = variant.StartsWith("pages-compact-decision", StringComparison.Ordinal);
         var consentScenario = independentDecision || variant is "pages-compact-consent" or "required-consent" or "required-incomplete-observation" or "consent" or "no-consent" or "delayed-consent" or "unrelated-modal" or "incomplete-observation";
@@ -81,7 +84,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 variant == "changed" ? "<h1>Second</h1><p>Updated</p><price>12.00</price>" : "<h1>東京 lamp</h1><p>Line one\nLine two</p><price>25.00</price>";
             if (path == "/search" && variant.StartsWith("pages", StringComparison.Ordinal)) body = "<p>Catalogue</p><p>Observed introduction</p>" + body + "<p>Footer</p><p>End</p>";
             if (path == "/search" && compact) body = string.Concat(Enumerable.Range(0, 120).Select(i => "<p>irrelevant-observation-" + i + new string('x', 600) + "</p>")) + body;
-            var banner = path == "/search" && variant is "pages-compact-consent" or "pages-compact-decision-consent" or "pages-compact-decision-complete-consent" or "pages-compact-decision-complete-flat-consent" or "pages-compact-decision-complete-flat-lookup-consent" or "required-consent" or "consent" or "delayed-consent" or "unrelated-modal";
+            var banner = path == "/search" && variant is "pages-compact-consent" or "pages-compact-decision-consent" or "pages-compact-decision-complete-consent" or "pages-compact-decision-complete-flat-consent" or "pages-compact-decision-complete-flat-lookup-consent" or "pages-compact-decision-complete-flat-lookup-indexed-consent" or "required-consent" or "consent" or "delayed-consent" or "unrelated-modal";
             var dialog = "<section role='dialog' aria-modal='true' id='notice'><p>" + (variant == "unrelated-modal" ? "Account verification" : "Cookie preferences") +
                 "</p><div><span role='button' tabindex='0' id='accept' onclick=\"document.cookie='fixtureConsent=accepted;path=/';document.querySelector('main').hidden=false;document.getElementById('notice').remove()\">" +
                 (variant == "unrelated-modal" ? "Continue" : "Accept cookies") + "</span></div></section>";
@@ -221,6 +224,17 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 var resolve = new PlanTask { Id = "action_records", Kind = "value", Objective = "Recover original action arguments",
                     Outputs = [new("records", Lookup(Flatten(ProductTransformationPlan.Ref("original_records", "records")), ProductTransformationPlan.Ref("verified_identities", "ids"), "reference"))] };
                 plan.Root.Tasks.InsertRange(plan.Root.Tasks.IndexOf(select) + 1, [originalPages, offered, ids, resolve]);
+                if (indexed)
+                {
+                    var attach = new PlanTask { Id = "original_indices", Kind = "foreach", MaxItems = 2000,
+                        Objective = "Attach observation positions", Items = Flatten(ProductTransformationPlan.Ref("original_records", "records")),
+                        Body = new() { Outputs = [new("rows", new() { Kind = "object", Members = [new("position", new() { Kind = "index" }), new("original", new() { Kind = "item" })] })] } };
+                    var retain = new PlanTask { Id = "indexed_originals", Kind = "foreach", MaxItems = 2000,
+                        Objective = "Retain exact indexed observations", Items = ProductTransformationPlan.Ref("original_indices", "rows"),
+                        Body = new() { Outputs = [new("rows", Field(new() { Kind = "item" }, "original"))] } };
+                    plan.Root.Tasks.InsertRange(plan.Root.Tasks.IndexOf(resolve), [attach, retain]);
+                    resolve.Outputs[0].Value.Items[0] = ProductTransformationPlan.Ref("indexed_originals", "rows");
+                }
                 var products = plan.Root.Tasks.Single(t => t.Id == "products"); products.Items = ProductTransformationPlan.Ref("action_records", "records");
                 var visit = products.Body!.Tasks.Single(t => t.Id == "page"); var url = Field(new() { Kind = "item" }, "href");
                 visit.Requires = new() { Kind = "predicate", Predicate = "not_equal", Items = [url, new() { Kind = "null" }] };
@@ -313,6 +327,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 Assert.Equal(WorkflowRunStatus.Completed, checkpoint!.Status);
                 Assert.True(checkpoint.FinalizationCompleted);
                 Assert.DoesNotContain(checkpoint.Invocations.Values, i => i.Recovery == StepRecovery.External && i.DispatchedAt is not null && i.CompletedAt is null);
+                if (indexed) Assert.Equal("set", Assert.Single(checkpoint.Invocations.Values, i => i.Description == "Attach observation positions").StepType);
             }
             if (variant is "each" or "each-parallel") Assert.Equal(1, extractionModel.Calls);
             var browser = await transport.GetClientAsync("browser", ct);
@@ -344,7 +359,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 }
                 return;
             }
-            if (consentScenario) Assert.All(consentReceipts, accepted => Assert.Equal(variant is not ("no-consent" or "pages-compact-decision" or "pages-compact-decision-complete" or "pages-compact-decision-complete-flat" or "pages-compact-decision-complete-flat-lookup"), accepted));
+            if (consentScenario) Assert.All(consentReceipts, accepted => Assert.Equal(variant is not ("no-consent" or "pages-compact-decision" or "pages-compact-decision-complete" or "pages-compact-decision-complete-flat" or "pages-compact-decision-complete-flat-lookup" or "pages-compact-decision-complete-flat-lookup-indexed"), accepted));
             Assert.Equal(file, result.Outputs!["file"]!.ToString());
             using var workbook = SpreadsheetDocument.Open(file, false);
             var rows = Assert.Single(workbook.WorkbookPart!.WorksheetParts).Worksheet!.Descendants<Row>().Select(r => r.Elements<Cell>().Select(c => c.InnerText).ToArray()).ToArray();
