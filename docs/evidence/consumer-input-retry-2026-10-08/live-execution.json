@@ -1,0 +1,242 @@
+{
+  "run": "consumerretry20261008b-amazon-1",
+  "source": "bb6b6bb4f52e69f4c26eb49c5ca16ffd26d58a3d",
+  "reviewed_revision": 6,
+  "approved_revision": 7,
+  "artifact_hash": "74dcc283cc848642f5ade605b69f613818c1aba5e546c682d7255c73f92f226a",
+  "execution_started": "2026-10-08T06:31:31.1686580+00:00",
+  "result": {
+    "status": "final_review",
+    "planning_ms": 450181,
+    "calls": 4,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 2,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "completed",
+    "accounting": {
+      "planning": {
+        "logical_calls": 4,
+        "physical_attempts": 5,
+        "known_input_tokens": 57009,
+        "known_output_tokens": 15206,
+        "known_cost_eur": 0.6577557902209602,
+        "unknown_attempts": 1,
+        "reserved_input_tokens": 96000,
+        "reserved_output_tokens": 32768,
+        "reserved_cost_eur": 1.2982873369420533
+      },
+      "execution": {
+        "logical_calls": 4,
+        "physical_attempts": 4,
+        "known_input_tokens": 54305,
+        "known_output_tokens": 5839,
+        "known_cost_eur": 0.3963927588960866,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 839,
+        "session_calls": 0,
+        "known_input_tokens": 12529317,
+        "known_output_tokens": 1570345,
+        "known_cost_eur": 97.69342915082649,
+        "reserved_input_tokens": 384000,
+        "reserved_output_tokens": 131072,
+        "reserved_cost_eur": 5.203327457848472,
+        "cost_upper_bound_eur": 102.89675660867495,
+        "unknown_attempts": 4
+      }
+    },
+    "execution_ms": 135911,
+    "total_ms": 586092
+  },
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "LLM_BUDGET_EXCEEDED",
+      "Type": "LLM_BUDGET_EXCEEDED",
+      "Message": "Execution request exceeds the campaign input or output allowance. [workflow 'main', step 'n_24c9b99b2d63be68']",
+      "Retryable": false,
+      "Details": {
+        "dispatch_status": "not_started",
+        "failed_workflow": "main",
+        "failed_step_id": "n_24c9b99b2d63be68",
+        "failed_step_type": "llm.call",
+        "execution_phase": "step"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "events": [
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {
+        "format": "observation_complete",
+        "waitUntil": "domcontentloaded",
+        "timeoutMs": 30000,
+        "maxRecords": 200
+      },
+      "started": "2026-10-08T06:31:40.2221890+00:00",
+      "error": false,
+      "result": {
+        "statusCode": null,
+        "selector": null,
+        "resolvedSelector": "body",
+        "fallbackApplied": false,
+        "fallbackReason": null,
+        "format": "observation_complete",
+        "content": "",
+        "truncated": false,
+        "maxCharacters": 24000,
+        "success": true,
+        "error_code": null,
+        "error_message": null,
+        "ok": true,
+        "observationSnapshot": {
+          "id": "f9c73b92710d4353a12ae177d292a7f0",
+          "recordCount": 1578,
+          "captureTruncated": false,
+          "manifestTruncated": false,
+          "pageCount": 54,
+          "page_record_counts": [
+            59,
+            14,
+            25,
+            29,
+            29,
+            30,
+            31,
+            28,
+            28,
+            27,
+            29,
+            22,
+            19,
+            20,
+            23,
+            18,
+            20,
+            30,
+            29,
+            28,
+            28,
+            27,
+            29,
+            30,
+            28,
+            29,
+            29,
+            29,
+            28,
+            31,
+            31,
+            28,
+            30,
+            34,
+            29,
+            34,
+            27,
+            26,
+            30,
+            29,
+            28,
+            28,
+            22,
+            18,
+            19,
+            24,
+            32,
+            49,
+            43,
+            45,
+            42,
+            46,
+            56,
+            2
+          ]
+        },
+        "acquisition": {
+          "attempts": 2,
+          "invalidations": [
+            {
+              "snapshotId": "e25d578b29474f7aa27dda337c4ed379",
+              "generation": 4,
+              "reason": "navigation",
+              "atUtc": "2026-10-08T06:31:44.938738+00:00"
+            }
+          ]
+        }
+      },
+      "latency_ms": 8123,
+      "sanitization": "Page contents, page URLs/title and navigation URL omitted; exact original remains encrypted."
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "arguments": {},
+      "started": "2026-10-08T06:33:43.5103220+00:00",
+      "error": false,
+      "result": {
+        "closed": true,
+        "success": true,
+        "error_code": null,
+        "error_message": null,
+        "ok": true
+      },
+      "latency_ms": 1036
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_get_content",
+      "arguments": {},
+      "started": "2026-10-08T06:33:46.0405470+00:00",
+      "error": true,
+      "result": {
+        "url": "",
+        "title": null,
+        "statusCode": null,
+        "selector": null,
+        "resolvedSelector": "",
+        "fallbackApplied": false,
+        "fallbackReason": null,
+        "format": "html",
+        "content": "",
+        "truncated": false,
+        "maxCharacters": 0,
+        "success": false,
+        "error_code": "INVALID_INPUT",
+        "error_message": "InvalidOperationException: No active page. Call browser_get_content with url first.",
+        "ok": false
+      },
+      "latency_ms": 1
+    },
+    {
+      "server": "GnOuGo.Browser.Mcp",
+      "tool": "browser_close",
+      "arguments": {},
+      "started": "2026-10-08T06:33:46.0658910+00:00",
+      "error": false,
+      "result": {
+        "closed": true,
+        "success": true,
+        "error_code": null,
+        "error_message": null,
+        "ok": true
+      },
+      "latency_ms": 1003
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+# Concrete retry artifact review
+
+Fresh run `consumerretry20261008b-amazon-1`, candidate `bb6b6bb4f52e69f4c26eb49c5ca16ffd26d58a3d`, revision **6**, artifact **74dcc283cc848642f5ade605b69f613818c1aba5e546c682d7255c73f92f226a**.
+
+The user's request to retry E2E authorizes this single fresh validation. This manual review binds that authorization to the concrete revision and hash. All five requirement IDs below were checked individually against the actual TaskPlan, rather than acknowledged automatically from compilation. Historical runs and approvals are untouched.
+
+| Accepted requirement | Reviewed implementation |
+| --- | --- |
+| `search_amazon_fr` | Explicit URL interpretation consumes only the accepted query. `open_amazon_search` performs complete Browser acquisition. Every page supplies independent observed consent/blocker candidates, flattened one level before the decision. Consent is optional and requires a non-null observed reference plus no detected block. The action is literal `activate`; Browser validates identity and action compatibility. After interaction, acquisition obtains a fresh complete snapshot; matching branch ports preserve selected pages and original completeness metadata. |
+| `limit_10_products` | Every selected snapshot page is independently extracted. Global selection receives only the flattened candidate view and metadata. The sequential product loop has `maxItems: 10`, concurrency one; no sampling/truncation of global decisions. |
+| `extract_observed_fields` | Each selected URL is actually visited and completely observed. Each page is extracted, then one-level flattened before product interpretation. Extraction copies actual producer record kinds, not invented business classifications. Product interpretation receives only rank/URL from the search candidate; name, description and price must come from visited-page observations. Missing fields and blockers stay explicit. |
+| `save_xlsx` | Formatting consumes the declared collected `product` port. The real Document writer creates the fixed authorized products.xlsx path. Public filePath comes from that operation; rowCount/completeness come from visible formatting interpretation. |
+| `always_close_browser` | Root finalization invokes Browser closure after success or verified failure. Unknown completion still prohibits cleanup and replay. |
+
+The three independent extract bindings disclose adaptive inference under the unchanged shared runtime/campaign budget; every original page must validate. Full observations remain separately available. Declared narrow views omit raw snapshots and duplicate sourceRecordText. Browser references/URLs remain exact observed values. The independent oracle still requires real product visits, page-supported XLSX values, correct destination and workflow cleanup. Schema/grounding checks do not establish semantic relevance or execution success. A blocked or missing-data workbook does not satisfy the nominal oracle.
+
+Two explicit review revisions corrected the original raw-interpretation composition, optional consent handling, invented extraction classification enums, consent guard, product fallback exposure and loop-output binding. Accepted requirements remain unchanged. Planning used four logical calls/five physical attempts, two discovery reads, zero automatic repairs. One unknown physical planning attempt retains its EUR 1.298287 reservation. No source, permission, timeout, token or oracle change was made. All 29 non-skipped CI checks passed before execution, with four skips.

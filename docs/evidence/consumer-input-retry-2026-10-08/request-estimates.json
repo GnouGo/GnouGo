@@ -1,0 +1,42 @@
+[
+  {
+    "invocation": "/workflow/main/step/n_24c9b99b2d63be68",
+    "status": "failed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 99456,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_3981b1c1638bb00a",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 4191,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_90966676a9466584",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 4480,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_5a01848fcc913a84/mapping/0",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 31735,
+    "model_calls": 0,
+    "inspection_only": true
+  },
+  {
+    "invocation": "/workflow/main/step/n_0b2ad3ad78eb3a8d/mapping/0",
+    "status": "completed",
+    "observed_completion": true,
+    "estimated_prompt_tokens": 43661,
+    "model_calls": 0,
+    "inspection_only": true
+  }
+]
