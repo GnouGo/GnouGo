@@ -1,0 +1,97 @@
+[
+  {
+    "check": "pack-core",
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Core",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true"
+    ],
+    "exit_code": 0,
+    "seconds": 5.748
+  },
+  {
+    "check": "pack-planning",
+    "command": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Planning",
+      "-c",
+      "Release",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true"
+    ],
+    "exit_code": 0,
+    "seconds": 7.035
+  },
+  {
+    "check": "aot",
+    "command": [
+      "dotnet",
+      "publish",
+      "tests/GnOuGo.Flow.Planning.Smoke",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true",
+      "-o",
+      "/private/tmp/indexed-projection-aot"
+    ],
+    "exit_code": 0,
+    "seconds": 45.961
+  },
+  {
+    "check": "aot-execution",
+    "command": [
+      "/private/tmp/indexed-projection-aot/GnOuGo.Flow.Planning.Smoke"
+    ],
+    "exit_code": 0,
+    "seconds": 7.17
+  },
+  {
+    "check": "cli-publish",
+    "command": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.Flow.Cli",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-m:1",
+      "-p:PublishAot=true",
+      "-p:PublishTrimmed=true",
+      "-p:PublishSingleFile=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "-o",
+      "/private/tmp/indexed-projection-cli"
+    ],
+    "exit_code": 0,
+    "seconds": 62.747
+  },
+  {
+    "check": "encrypted-recovery",
+    "command": [
+      "python3",
+      "scripts/verify-flow-v9-published.py",
+      "--cli",
+      "/private/tmp/indexed-projection-cli/GnOuGo.Flow.Cli",
+      "--data-directory",
+      "/private/tmp/indexed-projection-recovery"
+    ],
+    "exit_code": 0,
+    "seconds": 2.127
+  }
+]

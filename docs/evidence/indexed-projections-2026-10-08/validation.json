@@ -1,0 +1,33 @@
+{
+  "candidate": "9fda5053a14b0e77ade7bbf9c5c6a9beedc92487",
+  "focused": {
+    "flow": 1164,
+    "planning": 1132,
+    "local_browser_document_execution": 33,
+    "measurement_subset": 18
+  },
+  "solution": {
+    "command": "env Kestrel__Endpoints__Grpc__Url=http://127.0.0.1:0 dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+    "passed": 4873,
+    "skipped": 13,
+    "failed": 0,
+    "exit_code": 0,
+    "checkout": "isolated, exact frozen candidate",
+    "endpoint_note": "Test-process endpoint isolation avoids the pre-existing host service on port 4317; production defaults are unchanged."
+  },
+  "initial_broad_failure": {
+    "kind": "dependency_download",
+    "component": "GitHub.Copilot.SDK pinned CLI 1.0.88 checksum",
+    "diagnostic": "MSB3923 GitHub network timeout",
+    "source_changed": false,
+    "limits_or_timeouts_changed": false,
+    "retained_test_passes": 4166,
+    "retained_test_skips": 12,
+    "resolution": "Download subsequently succeeded. The unchanged full command passed on the same frozen candidate."
+  },
+  "skill_validation": "passed",
+  "review_counterexample": "passed; static retained-guard evaluation only, zero provider calls or external actions",
+  "release_checks": "release-validation.json",
+  "live_execution": "not started; artifact failed review; eight planning calls consumed without resetting the allowance",
+  "historical_artifacts_modified": false
+}

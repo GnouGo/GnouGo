@@ -1,0 +1,23 @@
+{
+  "run": "indexprojection20261008a-amazon-1",
+  "revision": 12,
+  "artifact_hash": "480e3f7f361eeba27e1951e245a96e46ca4ee68b936fb27273e9766e7ee48d31",
+  "approved": false,
+  "execution_started": false,
+  "reason": "Consent-absent path enters the branch and fails a mandatory click requirement. Do not execute this artifact.",
+  "counterexample": {
+    "blocked": false,
+    "observationComplete": true,
+    "consentReference": null,
+    "consentAction": null
+  },
+  "outer_condition": true,
+  "click_requires": false,
+  "provider_calls_for_counterexample": 0,
+  "external_actions_for_counterexample": 0,
+  "planning_calls": 8,
+  "planning_call_ceiling": 8,
+  "automatic_repairs": 2,
+  "explicit_revisions": 3,
+  "unchanged_unknown_reservations_eur": "5.2033274578484720979030515354"
+}
