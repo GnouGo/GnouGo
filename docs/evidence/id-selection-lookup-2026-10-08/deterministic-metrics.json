@@ -1,0 +1,35 @@
+{
+  "source": "3fc9c51dec5176066772802798e560ef61d5a046",
+  "final_correction_source": "c54463fae2f9a4d7827b7aa627e27a3c9243b8c7",
+  "fixture": {
+    "pages": 54,
+    "records": 1578,
+    "offered_candidates": 147,
+    "selected_ids": 4,
+    "repeated_selection_preserved": true,
+    "complete_request_bytes_with_framing": 17318,
+    "input_token_estimate": 2603,
+    "yaml_bytes": 21661,
+    "mapping_generation_calls": 1,
+    "lookup_inference_calls": 0,
+    "lookup_bindings": 2,
+    "all_candidates_offered": true,
+    "original_arguments_exact": true,
+    "necessary_oversized_request_rejected": true
+  },
+  "focused_tests": 28,
+  "final_planner_tests": 1118,
+  "runtime_tests": 1138,
+  "local_execution_fixtures": 31,
+  "local_new_variants": 2,
+  "skill_validation": "passed",
+  "historical_evidence_unchanged": true,
+  "solution_passed": 4831,
+  "solution_skipped": 13,
+  "production_code_delta": {
+    "added": 181,
+    "removed": 25,
+    "net": 156,
+    "excludes_readme": true
+  }
+}
