@@ -1,0 +1,33 @@
+[
+  {
+    "kind": "revise",
+    "preserveRequirements": true,
+    "expectedRevision": 2,
+    "artifactHash": null,
+    "text": "Concrete artifact review: the current proposal omits both the real workbook-write operation and Browser cleanup, and fails the accepted required string output products_file. Preserve every accepted requirement and both public outputs. Explicitly revise the plan structure to include the real resolved document-writing operation at the already accepted fixed path and its actual returned file path, plus root Browser closure on success/verified failure. Inspect missing exact contracts if needed; a literal path is not a substitute for writing.\nThe current interpretation tasks pass whole observationSnapshot objects, which repeats the demonstrated oversized-input failure. Replace raw global inputs with explicit consumer-specific extraction over every complete snapshot page (mode extract, each); emit only observed candidate facts actually needed by each immediate decision. Candidate arrays may be empty after checking each page. Use the existing one-level typed flatten binding over the collected candidate arrays, then give global interpretation only this narrow view and original completeness metadata. Preserve complete original observations and exact action references separately. Do not copy every record, selector, URL or page envelope into a decision that does not need them. Do not truncate/sample global decisions or omit later pages. Extraction must copy observed facts, not synthesize classifications, status strings or defaults. Keep decision/synthesis as explicit interpretation. Retain actual per-product navigation, max ten products, observed field extraction, nullable guards, matching explicit typed conditional interfaces, and exact source-grounded values. Keep operation ordering, output validation, permissions and limits; no invented selectors or completeness. Collect already typed product outputs directly rather than using interpretation merely to copy them."
+  },
+  {
+    "kind": "revise",
+    "preserveRequirements": true,
+    "expectedRevision": 4,
+    "artifactHash": null,
+    "text": "Revision 4 is not executable. First resolve the missing exact contracts for the real workbook writer and browser closure through discovery: inspect document_write from source_0002e1b8daaf46eef1b331cc and browser_close from source_258c29d9064381a5dd37bf0c. Do not return another plan omitting them. The accepted requirements and products_file output remain mandatory.\nCorrect each declarations: input must be exactly the bound name snapshot_pages; output must equal the sole resultType field. Model the complete collected result as {candidateArrays: array<array<Candidate>>}; each is {input:snapshot_pages,output:candidateArrays}. Every page produces one candidate array, including [] after checked absence; flatten that field one level before interpretation. Use this consistent shape for all independent extractions.\nThe initial view must retain observed control candidates AND observed CAPTCHA/block text; the product view must retain observed name, description AND price candidates, not only names. Keep only needed observed fields, not all page records, and preserve exact references only where action selection needs them. Branches must export matching typed ports. Add real writing of the collected products to the accepted products.xlsx path, expose its actual file path as products_file, and root always closure. Never substitute literals for missing work. Preserve actual visits, output types, cleanup and every accepted requirement."
+  },
+  {
+    "kind": "revise",
+    "preserveRequirements": true,
+    "expectedRevision": 8,
+    "artifactHash": null,
+    "text": "Concrete scope correction; retain the current business operations and extraction contracts. First inspect browser_close, existing index identity cap_bdb7ba9ab04b18783883fa86, source source_258c29d9064381a5dd37bf0c; closure is still absent despite the accepted cleanup_browser requirement.\nIn collect_products.otherwise.outputs, products must reference search_or_missing_input.products, its immediate child; not the nested results_blocked_incomplete_or_visit.\nMove build_products_tsv and write_products_xlsx from collect_products.otherwise.tasks to root.tasks AFTER collect_products, preserving both objectives and the real writer. build_products_tsv dependsOn collect_products and consumes collect_products.products. Root.outputs.products references collect_products.products. Root.outputs.products_file references the real writer's filePath output with any required success/non-null checks from its contract, not a literal.\nAdd the inspected browser_close operation to root.always so success and verified failure both close the browser. Keep all per-product visits, extraction, one-level flatten, limits and requirements. Do not refer across scopes, drop objectives, or omit either accepted root output. Both branches must expose compatible explicitly typed results. Do not change unrelated tasks merely to satisfy validation."
+  },
+  {
+    "kind": "revise",
+    "preserveRequirements": true,
+    "expectedRevision": 10,
+    "artifactHash": "6884806ad1e4c7515e441a04335c25950955f650c520f0aebcd64756c4f187ce",
+    "editablePaths": [
+      "/tasks/interpret_product_detail/inputs"
+    ],
+    "text": "Targeted final review correction: remove only the fallback_candidate input from interpret_product_detail. Name, description and price must be supported by the visited product page's observed candidates; search-list names/prices cannot fill missing product-page observations. Keep fact_candidates, product_url_observed, capture_truncated and manifest_truncated exactly unchanged. All other tasks, scopes, declarations, operations, extraction, flatten, writer, cleanup and exports are immutable. Missing product-page fields stay explicit; the exact independent execution oracle is unchanged."
+  }
+]
