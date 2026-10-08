@@ -147,7 +147,7 @@ var lookupPlan = JsonSerializer.Deserialize("""
        "outputs":[{"name":"rows","value":{"kind":"output","source":"resolve","port":"rows"}}]}}
     """, PlanningJsonContext.Default.TaskPlan)!;
 var lookupGraph = new TaskPlanCompiler().Compile(lookupPlan, compactCatalog, compactBindings: true, normalExports: true);
-if (lookupGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Lookup compilation failed.");
+if (lookupGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Lookup compilation failed: " + string.Join("; ", lookupGraph.Diagnostics.Select(d => d.Code + ": " + d.Message)));
 var lookupDoc = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(lookupGraph.Graph!, compactCatalog)));
 var lookupResult = await compactEngine.ExecuteAsync(lookupDoc.Workflows["main"], JsonNode.Parse("""{"rows":[{"label":"first"},{"label":"second"}]}"""), CancellationToken.None);
 if (!lookupResult.Success || lookupResult.Outputs?["rows"]?.ToJsonString() != """[{"label":"second"},{"label":"first"},{"label":"second"}]""")

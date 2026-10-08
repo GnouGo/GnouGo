@@ -1,7 +1,5 @@
 using System.Net;
 using System.Diagnostics;
-using System.Globalization;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Acornima.Ast;
@@ -113,8 +111,8 @@ public sealed partial class JintSandbox
             {
                 var observed = Observed(identity);
                 if (observed is JsonValue value && value.TryGetValue<string>(out var text) && !string.IsNullOrWhiteSpace(text)) return (text, null);
-                if (observed?.GetValueKind() == JsonValueKind.Number && double.TryParse(observed.ToJsonString(), NumberStyles.Float,
-                    CultureInfo.InvariantCulture, out var number) && double.IsFinite(number) && Math.Truncate(number) == number && Math.Abs(number) <= 9007199254740991d)
+                if (JsonSchemaInstanceValidator.TryReadNumber(observed, out var number) && Math.Truncate(number) == number && Math.Abs(number) <= 9007199254740991d &&
+                    JsonSchemaInstanceValidator.IsMultiple(observed!, JsonValue.Create(1)!))
                     return (null, number);
                 throw Unsatisfied("Lookup identities require nonblank strings or safe integers without coercion.");
             }

@@ -102,6 +102,18 @@ internal static class PlanningValues
 
     private static bool IdentityType(JsonObject schema, out string? kind)
     {
+        if ((schema["anyOf"] ?? schema["oneOf"]) is JsonArray alternatives)
+        {
+            var kinds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var alternative in alternatives)
+            {
+                if (alternative?["type"]?.ToString() == "null") continue;
+                if (alternative is not JsonObject option || !IdentityType(option, out var resolved)) { kind = null; return false; }
+                kinds.Add(resolved!);
+            }
+            kind = kinds.Count == 1 ? kinds.Single() : null;
+            return kind is not null;
+        }
         var types = schema["type"] is JsonArray union ? union.Select(t => t?.ToString()).Where(t => t != "null").ToArray() : [schema["type"]?.ToString()];
         kind = types.Length == 1 ? types[0] : null;
         // Nullable/missing identities are rejected by the checked lookup, never

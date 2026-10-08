@@ -128,6 +128,28 @@ public sealed class LookupCompilationTests
     }
 
     [Fact]
+    public async Task LiteralIdentityUnionPreservesOrderAndRepetitions()
+    {
+        var plan = Plan();
+        plan.Root.Tasks[0].Outputs[0].Value.Items[1] = new() { Kind = "array", Items = [
+            new() { Kind = "string", Text = "b" }, new() { Kind = "string", Text = "a" }, new() { Kind = "string", Text = "b" }] };
+        var engine = new WorkflowEngine(); var yaml = await Compile(plan, engine);
+        var result = await Execute(yaml, JsonNode.Parse("""{"records":[{"key":"a","payload":"one"},{"key":"b","payload":null}],"selected":[]}""")!.AsObject(), engine);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(new[] { "b", "a", "b" }, result.Outputs!["rows"]!.AsArray().Select(r => r!["key"]!.GetValue<string>()));
+    }
+
+    [Theory]
+    [InlineData("9007199254740991.1")]
+    [InlineData("1e-100")]
+    public void NumericIdentityValidationNeverRoundsFractionsIntoIntegers(string number)
+    {
+        var source = JsonNode.Parse("{\"rows\":[{\"key\":" + number + "}],\"ids\":[]}");
+        Assert.Equal("CONTRACT_UNSATISFIED", Assert.Throws<WorkflowRuntimeException>(() => new JintSandbox()
+            .ExecuteMapping("m.lookup(source.rows,source.ids,'key')", source, PlannerFixture.Ct)).Code);
+    }
+
+    [Fact]
     public void HelperCannotBeUsedByLearnedMappingsAndNeverCoercesKeys()
     {
         const string script = "m.lookup(source.rows,source.ids,'key')";
