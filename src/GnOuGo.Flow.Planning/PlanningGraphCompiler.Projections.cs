@@ -35,6 +35,7 @@ public sealed partial class PlanningGraphCompiler
             "object" => "({" + string.Join(",", value.Members.Select(m => Quote(m.Name) + ":" + Resolve(m.Value))) + "})",
             "array" => "[" + string.Join(",", value.Items.Select(Resolve)) + "]",
             "flatten" => FlattenExpression(Resolve(value.Items.Single())),
+            "lookup" => LookupExpression(Resolve(value.Items[0]), Resolve(value.Items[1]), value.Text!),
             "null" or "string" or "number" or "boolean" => LowerValue(value, scope, allowReferences: false)?.ToJsonString() ?? "null",
             "projection" => "({value:m.select(" + Resolve(PlanningGraphValidation.Member(value, "value")!) + "," +
                 PlanningGraphValidation.Literal(PlanningGraphValidation.Member(value, "paths")!)!.ToJsonString() + ",false)})",
@@ -78,6 +79,7 @@ public sealed partial class PlanningGraphCompiler
             if (value.Kind == "object") return "({" + string.Join(",", value.Members.Select(m => Quote(m.Name) + ":" + Resolve(m.Value))) + "})";
             if (value.Kind == "array") return "[" + string.Join(",", value.Items.Select(Resolve)) + "]";
             if (value.Kind == "flatten") return FlattenExpression(Resolve(value.Items.Single()));
+            if (value.Kind == "lookup") return LookupExpression(Resolve(value.Items[0]), Resolve(value.Items[1]), value.Text!);
             var name = "v" + sources.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
             sources.Add(new(name, value)); return "source." + name;
         }
@@ -88,6 +90,9 @@ public sealed partial class PlanningGraphCompiler
 
     private static string FlattenExpression(string source)
         => "(" + source + ").flatMap(item=>m.select(item,[[]],true))";
+
+    private static string LookupExpression(string records, string selected, string field)
+        => "m.lookup(" + records + "," + selected + "," + Quote(field) + ")";
 
     private static string Quote(string value) => JsonValue.Create(value)!.ToJsonString();
 }

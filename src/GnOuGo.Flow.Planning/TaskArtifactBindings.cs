@@ -32,6 +32,12 @@ internal sealed class TaskArtifactBindings(TaskPlan plan, PlanningCatalog catalo
         {
             switch (value.Kind)
             {
+                case "lookup":
+                    // Any selected position can originate from any source record.
+                    // Selected IDs establish no artifact authority.
+                    return value.Items.Count == 2 && path.Count > 0 &&
+                        (path[0] is null || int.TryParse(path[0], out var selectedIndex) && selectedIndex >= 0) &&
+                        Trace(value.Items[0], scope, new string?[] { null }.Concat(path.Skip(1)).ToArray(), kind);
                 case "flatten":
                     // Every output item retains its original two-level element origin.
                     // Unknown lengths cannot establish a fixed indexed artifact.

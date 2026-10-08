@@ -31,9 +31,9 @@ internal static class PlanningSchemas
         alternatives.Any(a => a?["type"]?.ToString() == "null");
 
     internal static JsonObject Proposal(PlanningSession state, IReadOnlySet<string>? admitted = null) => PlanningRepairPatch.Active(state)
-        ? PlanningRepairPatch.Schema(state, FullProposal(state, compact: false, flatten: false)) : FullProposal(state, admitted: admitted);
+        ? PlanningRepairPatch.Schema(state, FullProposal(state, compact: false, flatten: false, lookup: false)) : FullProposal(state, admitted: admitted);
 
-    internal static JsonObject FullProposal(PlanningSession state, bool compact = true, bool clarifications = true, IReadOnlySet<string>? admitted = null, bool scopeGuidance = true, bool flatten = true)
+    internal static JsonObject FullProposal(PlanningSession state, bool compact = true, bool clarifications = true, IReadOnlySet<string>? admitted = null, bool scopeGuidance = true, bool flatten = true, bool lookup = true)
     {
         var actions = new List<JsonNode?>();
         if (PlanningDiscoveryContext.CanDiscover(state))
@@ -126,6 +126,9 @@ internal static class PlanningSchemas
                 foreach (var value in definitions["value"]!["anyOf"]!.AsArray().OfType<JsonObject>()) value.Remove("description");
             }
         }
+        if (lookup)
+            definitions["value"]!["anyOf"]!.AsArray().Add((JsonNode)Described(Object(("kind", Enum("lookup")), ("port", Ref("goal")),
+                ("items", Array(Ref("value"), 2, 2))), "items=[records,IDs]; port=key. Preserve order/repeats; reject missing/ambiguous IDs."));
         definitions["task"] = Tasks(state, definitions, admitted);
         if (scopeGuidance)
         {

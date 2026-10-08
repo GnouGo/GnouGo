@@ -299,7 +299,7 @@ public sealed partial class PlanningGraphCompiler
                 // Keep the envelope visible to final contract validation. The
                 // expression computes only its value; set checks the whole result.
                 return new JsonObject { ["value"] = LowerValue(computed, scope, allowReferences, depth + 1) };
-            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "arithmetic" or "json" or "flatten" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
+            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "arithmetic" or "json" or "flatten" or "lookup" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
@@ -347,6 +347,12 @@ public sealed partial class PlanningGraphCompiler
             var script = FlattenExpression("source");
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
             expression = "checkedMapping(" + Quote(script) + "," + ExpressionBody(value.Items.Single()) + ")";
+        }
+        else if (value.Kind == "lookup")
+        {
+            var script = LookupExpression("source.records", "source.selected", value.Text!);
+            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
+            expression = "checkedMapping(" + Quote(script) + ",({records:" + ExpressionBody(value.Items[0]) + ",selected:" + ExpressionBody(value.Items[1]) + "}))";
         }
         else if (value.Kind == "arithmetic")
         {

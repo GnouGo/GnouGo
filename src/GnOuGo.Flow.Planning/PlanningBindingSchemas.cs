@@ -70,6 +70,7 @@ internal static class PlanningBindingSchemas
                 if (kinds.Length == 0 || kinds.Any(k => k is "null" or "string" or "number" or "boolean" or "array" or "object")) continue;
                 if (workspace && kinds.Any(k => k is not ("output" or "field"))) continue;
                 if (kinds.Contains("arithmetic") && !types.Any(t => t is "number" or "integer")) continue;
+                if (kinds.Contains("lookup") && !types.Contains("array")) continue;
                 if (kinds.Contains("flatten"))
                 {
                     var allowedKinds = kinds.Where(k => k == "flatten" ? types.Contains("array") : k != "json" || types.Contains("string")).ToArray();

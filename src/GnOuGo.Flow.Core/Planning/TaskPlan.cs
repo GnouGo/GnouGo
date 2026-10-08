@@ -84,7 +84,8 @@ public sealed record TaskOutput(string Name, TaskValue Value);
 
 /// <summary>Closed semantic values. An output reference names a task and business port;
 /// a field value selects its literal Port from the single typed object in Items.
-/// Flatten concatenates one typed array-of-arrays operand in Items by one level.</summary>
+/// Flatten concatenates one typed array-of-arrays operand in Items by one level.
+/// Lookup reconnects Items=[records, selected IDs] through the literal identity field Port.</summary>
 public sealed class TaskValue
 {
     public string Kind { get; set; } = "null";

@@ -1,5 +1,7 @@
 using System.Net;
 using System.Diagnostics;
+using System.Globalization;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Acornima.Ast;
@@ -78,6 +80,45 @@ public sealed partial class JintSandbox
             var method = name;
             helpers.Set(name, new ClrFunction(engine, name, (_, args) => Invoke(method, args)));
         }
+        // Compiler-owned reconnection only. Learned expressions cannot call this
+        // helper, and returned values retain their original observation tokens.
+        MappingAllowance? lookupAllowance = null;
+        helpers.Set("lookup", new ClrFunction(engine, "lookup", (_, args) =>
+        {
+            if (args.Length != 3 || !args[0].IsArray() || !args[1].IsArray() || !args[2].IsString())
+                throw Unsatisfied("Lookup requires records, selected identities and a literal identity field.");
+            var field = args[2].AsString();
+            if (string.IsNullOrWhiteSpace(field) || field is "__proto__" or "prototype" or "constructor")
+                throw Unsatisfied("Lookup requires an ordinary identity field.");
+            if (lookupAllowance is null) { lookupAllowance = CreateMappingAllowance(); lookupAllowance.Start(); }
+            var records = new Dictionary<(string? Text, double? Number), JsValue>();
+            foreach (var record in args[0].AsArray())
+            {
+                Check();
+                if (!record.IsObject() || record.IsArray() || !Own(record, field, out var identity))
+                    throw Unsatisfied("Lookup source is missing its declared identity field.");
+                if (!records.TryAdd(Key(identity), record)) throw Unsatisfied("Lookup source identities are ambiguous.");
+            }
+            var selected = new List<JsValue>();
+            foreach (var identity in args[1].AsArray())
+            {
+                Check();
+                if (!records.TryGetValue(Key(identity), out var record)) throw Unsatisfied("A selected identity is absent from the lookup source.");
+                selected.Add(record); // Preserve repeated selections and their order.
+            }
+            return Array(selected);
+
+            void Check() { ct.ThrowIfCancellationRequested(); lookupAllowance.Check(); }
+            (string?, double?) Key(JsValue identity)
+            {
+                var observed = Observed(identity);
+                if (observed is JsonValue value && value.TryGetValue<string>(out var text) && !string.IsNullOrWhiteSpace(text)) return (text, null);
+                if (observed?.GetValueKind() == JsonValueKind.Number && double.TryParse(observed.ToJsonString(), NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out var number) && double.IsFinite(number) && Math.Truncate(number) == number && Math.Abs(number) <= 9007199254740991d)
+                    return (null, number);
+                throw Unsatisfied("Lookup identities require nonblank strings or safe integers without coercion.");
+            }
+        }));
         var items = collectionInput is null ? null : (source as JsonObject)?[collectionInput] as JsonArray
             ?? (collectionInput is null ? null : throw Unsatisfied("Independent extraction requires an observed array."));
         var results = new JsonArray();
@@ -380,7 +421,7 @@ public sealed partial class JintSandbox
                         else throw Unsatisfied("Mapping callbacks require plain local parameters.");
                     Check(arrow.Body, scope, depth + 1); return;
                 case CallExpression { Callee: MemberExpression { Computed: false, Property: Identifier method } call } invocation:
-                    var permitted = call.Object is Identifier { Name: "m" } ? MappingHelpers.Contains(method.Name) :
+                    var permitted = call.Object is Identifier { Name: "m" } ? MappingHelpers.Contains(method.Name) || !learned && method.Name == "lookup" :
                         call.Object is Identifier { Name: "Object" } ? method.Name is "entries" or "fromEntries" :
                         call.Object is Identifier { Name: "Array" } ? method.Name == "isArray" : method.Name is "map" or "filter" or "slice" or "flatMap";
                     if (!permitted)

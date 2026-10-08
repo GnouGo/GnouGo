@@ -61,6 +61,7 @@ internal static class PlanningArtifactBindings
 
         bool Returned(PlanningWorkflow workflow, PlanningValue value, PlanningNode producer, string pointer) =>
             value.Kind == "object" ? value.Members.Any(m => Returned(workflow, m.Value, producer, pointer)) :
+            value.Kind == "lookup" && value.Items.Count == 2 ? Returned(workflow, value.Items[0], producer, pointer) :
             value.Kind is "array" or "flatten" ? value.Items.Any(v => Returned(workflow, v, producer, pointer)) :
             PlanningValueProvenance.Proves(workflow, value, graph, (node, reference) => ReferenceEquals(node, producer) && reference.Path.SequenceEqual(TaskArtifactBindings.Decode(pointer)));
 

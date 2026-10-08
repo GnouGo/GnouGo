@@ -154,3 +154,9 @@ Paid collection stopped at **€35.45389 of €50**, leaving **€14.54611**. Th
 For rollout, rebuild/restart Agent.Server and the affected runtime components, refresh discovery after changed producer contracts, and generate/review a fresh artifact. Preserve saved YAML and journals. Existing `value.project` workflows require explicit revision and fresh approval. Do not resume a historical uncertain invocation solely because receipt handling has been corrected.
 
 Mapping profile 4 rejects direct comparison or truthiness of observed tokens: use `m.test(token, pattern)` for text predicates and `m.has` for presence. These control predicates cannot be returned as fabricated business values. The existing bounded attempts and source-grounding checks remain unchanged. [Regression and execution work](compact-observations-and-execution.md).
+
+### Reconnect selected identities outside inference
+
+An extraction result's declared `resultType` controls its decision view; neither compiler nor runtime heuristically decides relevance. Keep action-only URLs, references and other arguments in retained original observations. Global interpretation selects identities from the complete view. Deterministic `lookup` bindings verify that selections were offered and recover the exact original records before actions. Repeated selected IDs intentionally repeat records, with no deduplication. Unknown or ambiguous identities fail atomically.
+
+Use an existing producer key or attach the original collection index before extraction. Indices stay bound to that immutable capture; never use content hashes or renumber after filtering. Lookup is compiler-owned reconnection, unavailable to learned mapping scripts. It grants no permissions, artifact ownership or immunity from producer-side stale-reference checks. There is no change to adaptive mapping, cache profiles, inference admission or cumulative limits.

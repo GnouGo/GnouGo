@@ -85,7 +85,7 @@ public sealed partial class TaskPlanCompiler
         var values = Object(inputs);
         // Explicit new collection views get one checked consumer object. Existing
         // plans retain their exact lowering, including historical opaque inputs.
-        if (task.Inputs.Any(i => ContainsFlatten(i.Value)))
+        if (task.Inputs.Any(i => ContainsConsumerBinding(i.Value)))
         {
             var view = Key(key, "consumer-inputs"); _sources[view] = "/tasks/" + task.Id + "/inputs";
             target.Add(new() { Key = view, Type = "set", Purpose = "Validate the declared decision inputs",
@@ -112,8 +112,8 @@ public sealed partial class TaskPlanCompiler
         return StructuredResult(key, schema);
     }
 
-    private static bool ContainsFlatten(TaskValue value) => value.Kind == "flatten" ||
-        value.Items.Any(ContainsFlatten) || value.Members.Any(m => ContainsFlatten(m.Value));
+    private static bool ContainsConsumerBinding(TaskValue value) => value.Kind is "flatten" or "lookup" ||
+        value.Items.Any(ContainsConsumerBinding) || value.Members.Any(m => ContainsConsumerBinding(m.Value));
 
     private static PlanningValue Text(string text) => new() { Kind = "string", Text = text };
     private static Dictionary<string, Bound> StructuredResult(string key, JsonObject schema, string? typeLocation = null)

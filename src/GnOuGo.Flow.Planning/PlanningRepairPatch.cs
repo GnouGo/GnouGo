@@ -271,7 +271,7 @@ internal static class PlanningRepairPatch
 
     private static JsonObject PermissionDescriptors(PlanningSession state, bool scopedDependencies, int version)
     {
-        var definitions = PlanningSchemas.FullProposal(state, compact: false, clarifications: false, scopeGuidance: scopedDependencies, flatten: false)["$defs"]!.AsObject();
+        var definitions = PlanningSchemas.FullProposal(state, compact: false, clarifications: false, scopeGuidance: scopedDependencies, flatten: false, lookup: false)["$defs"]!.AsObject();
         var slots = Slots(state, definitions, scopedDependencies: scopedDependencies, version: version);
         return new() { ["definitions"] = definitions.DeepClone(), ["slots"] = new JsonArray(slots.Select(s => (JsonNode)new JsonObject
         { ["id"] = s.Id, ["location"] = s.Location, ["kind"] = s.Kind, ["schema"] = s.ValueSchema.DeepClone(),
@@ -313,7 +313,7 @@ internal static class PlanningRepairPatch
     {
         var scopedDependencies = Verify(state, request);
         var version = RequestContext(request)["repair"]!["version"]!.GetValue<int>();
-        var definitions = PlanningSchemas.FullProposal(state, compact: false, scopeGuidance: scopedDependencies, flatten: false)["$defs"]!.AsObject();
+        var definitions = PlanningSchemas.FullProposal(state, compact: false, scopeGuidance: scopedDependencies, flatten: false, lookup: false)["$defs"]!.AsObject();
         var slots = Slots(state, definitions, scopedDependencies: scopedDependencies, version: version).ToDictionary(s => s.Id, StringComparer.Ordinal);
         // Recovery and direct callers both enforce the exact issued response schema.
         var response = new JsonObject { ["discoveryRequests"] = null, ["patch"] = JsonSerializer.SerializeToNode(patch, RepairJsonContext.Default.RepairPatch) };

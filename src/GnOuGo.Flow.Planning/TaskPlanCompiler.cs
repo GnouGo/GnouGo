@@ -669,6 +669,7 @@ public sealed partial class TaskPlanCompiler
             case "predicate": return Predicate(value, scope);
             case "json": return EncodeJson(value, scope);
             case "flatten": return Flatten(value, scope);
+            case "lookup": return Lookup(value, scope);
             case "field": return SelectField(value, scope, consume);
             default: Fail("TASK_VALUE_INVALID", "Values allow literals, business references, declared fields, JSON encoding, typed arithmetic and predicates only."); break;
         }
@@ -757,6 +758,21 @@ public sealed partial class TaskPlanCompiler
         // constraints that cannot be transferred to the concatenated result.
         var checkedSource = Consume(source with { SelectionSource = source, SelectionPath = [] }, scope);
         computation.Items = [checkedSource.Value];
+        return new(computation, schema);
+    }
+
+    private Bound Lookup(TaskValue value, Scope scope)
+    {
+        if (value.Items.Count != 2 || string.IsNullOrWhiteSpace(value.Port) || value.Source is not null || value.Text is not null ||
+            value.Number is not null || value.Boolean is not null || value.Predicate is not null || value.Members.Count != 0)
+            Fail("TASK_LOOKUP_INVALID", "Lookup requires records and selected identities in items, and one literal identity field in port.");
+        var records = Value(value.Items[0], scope); var selected = Value(value.Items[1], scope);
+        var computation = new PlanningValue { Kind = "lookup", Text = value.Port, Items = [records.Value, selected.Value] };
+        JsonObject schema;
+        try { schema = PlanningValues.ComputationContract(computation, operand => ReferenceEquals(operand, records.Value) ? records.Schema : selected.Schema); }
+        catch (InvalidOperationException ex) { Fail("TASK_LOOKUP_INVALID", ex.Message); throw; }
+        computation.Items = [Consume(records with { SelectionSource = records, SelectionPath = [] }, scope).Value,
+            Consume(selected with { SelectionSource = selected, SelectionPath = [] }, scope).Value];
         return new(computation, schema);
     }
 

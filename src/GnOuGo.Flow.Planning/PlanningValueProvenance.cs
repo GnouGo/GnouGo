@@ -26,7 +26,7 @@ internal static class PlanningValueProvenance
                 var items = loop is null ? null : PlanningGraphValidation.Member(loop.Input, "items");
                 if (items is { Kind: "flatten", Items.Count: 1 } && items.Items[0] is { Kind: "array" } groups && groups.Items.All(v => v.Kind == "array"))
                     items = new() { Kind = "array", Items = groups.Items.SelectMany(v => v.Items).ToList() };
-                return items is { Kind: "array", Items.Count: > 0 } && items.Items.All(item => Select(item, value.Path) is { } selected && Proves(workflow, selected, graph, source, visited));
+                return items is not null && ProvesItems(workflow, items, value.Path, graph, source, visited);
             }
             if (value.Kind == "input")
             {
@@ -96,6 +96,47 @@ internal static class PlanningValueProvenance
                 return target is not null && selected is not null && Proves(target, selected, graph, source, visited);
             }
             return false;
+        }
+        finally { visited.Remove(key); }
+    }
+
+    // A selected identity is not evidence. Every possible source record must
+    // establish the requested lineage, including through captured collections.
+    private static bool ProvesItems(PlanningWorkflow workflow, PlanningValue items, IReadOnlyList<string> path, PlanningGraph graph,
+        Func<PlanningNode, PlanningValue, bool> source, HashSet<string> visited)
+    {
+        var key = "items:" + workflow.Key + ":" + PlanningBindingIdentity.Id(items) + ":" + string.Join('/', path);
+        if (!visited.Add(key)) return false;
+        try
+        {
+            if (items.Kind == "array") return items.Items.Count > 0 && items.Items.All(item =>
+                Select(item, path) is { } selected && Proves(workflow, selected, graph, source, visited));
+            if (items is { Kind: "lookup", Items.Count: 2 }) return ProvesItems(workflow, items.Items[0], path, graph, source, visited);
+            if (items is { Kind: "input", Source: not null })
+            {
+                var callers = graph.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally))
+                    .Where(n => n.Type == "workflow.call" && PlanningGraphValidation.Member(n.Input, "ref")?.Source == workflow.Key)
+                    .Select(n => (Workflow: w, Node: n))).ToArray();
+                return callers.Length > 0 && callers.All(c => Select(PlanningGraphValidation.Member(c.Node.Input, "args"), new[] { items.Source }.Concat(items.Path)) is { } argument &&
+                    ProvesItems(c.Workflow, argument, path, graph, source, visited));
+            }
+            if (items.Kind != "output" || items.ResultChannel == "structured") return false;
+            var producer = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).FirstOrDefault(n => n.Key == items.Source);
+            if (producer is null || producer.OnError.Any(h => h.Action == "continue")) return false;
+            if (producer.Type == "set")
+            {
+                if (producer.Input.Kind != "projection") return Select(producer.Input, items.Path) is { } selected && ProvesItems(workflow, selected, path, graph, source, visited);
+                if (items.Path.FirstOrDefault() != "value" || PlanningGraphValidation.Member(producer.Input, "each")?.Boolean == true) return false;
+                var input = PlanningGraphValidation.Member(producer.Input, "value");
+                var paths = PlanningGraphValidation.Member(producer.Input, "paths");
+                return paths is { Kind: "array", Items.Count: > 0 } && paths.Items.All(p =>
+                    p.Kind == "array" && p.Items.All(v => v.Kind == "string" && v.Text is not null) &&
+                    Select(input, p.Items.Select(v => v.Text!).Concat(items.Path.Skip(1))) is { } selected && ProvesItems(workflow, selected, path, graph, source, visited));
+            }
+            if (producer.Type != "workflow.call" || items.Path.Count == 0) return false;
+            var target = graph.Workflows.FirstOrDefault(w => w.Key == PlanningGraphValidation.Member(producer.Input, "ref")?.Source);
+            return target is not null && Select(target.Outputs.FirstOrDefault(o => o.Name == items.Path[0])?.Value, items.Path.Skip(1)) is { } output &&
+                ProvesItems(target, output, path, graph, source, visited);
         }
         finally { visited.Remove(key); }
     }

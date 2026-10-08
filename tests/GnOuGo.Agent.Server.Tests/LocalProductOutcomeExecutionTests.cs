@@ -33,6 +33,8 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
     [InlineData("pages-compact-decision-complete-consent")]
     [InlineData("pages-compact-decision-complete-flat")]
     [InlineData("pages-compact-decision-complete-flat-consent")]
+    [InlineData("pages-compact-decision-complete-flat-lookup")]
+    [InlineData("pages-compact-decision-complete-flat-lookup-consent")]
     [InlineData("pages-compact-scoped")]
     [InlineData("extract")]
     [InlineData("each")]
@@ -61,6 +63,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         await using var site = builder.Build();
         var visits = new List<string>();
         var flattened = variant.Contains("-flat", StringComparison.Ordinal);
+        var lookup = variant.Contains("-lookup", StringComparison.Ordinal);
         var compact = variant.StartsWith("pages-compact", StringComparison.Ordinal);
         var independentDecision = variant.StartsWith("pages-compact-decision", StringComparison.Ordinal);
         var consentScenario = independentDecision || variant is "pages-compact-consent" or "required-consent" or "required-incomplete-observation" or "consent" or "no-consent" or "delayed-consent" or "unrelated-modal" or "incomplete-observation";
@@ -78,7 +81,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 variant == "changed" ? "<h1>Second</h1><p>Updated</p><price>12.00</price>" : "<h1>東京 lamp</h1><p>Line one\nLine two</p><price>25.00</price>";
             if (path == "/search" && variant.StartsWith("pages", StringComparison.Ordinal)) body = "<p>Catalogue</p><p>Observed introduction</p>" + body + "<p>Footer</p><p>End</p>";
             if (path == "/search" && compact) body = string.Concat(Enumerable.Range(0, 120).Select(i => "<p>irrelevant-observation-" + i + new string('x', 600) + "</p>")) + body;
-            var banner = path == "/search" && variant is "pages-compact-consent" or "pages-compact-decision-consent" or "pages-compact-decision-complete-consent" or "pages-compact-decision-complete-flat-consent" or "required-consent" or "consent" or "delayed-consent" or "unrelated-modal";
+            var banner = path == "/search" && variant is "pages-compact-consent" or "pages-compact-decision-consent" or "pages-compact-decision-complete-consent" or "pages-compact-decision-complete-flat-consent" or "pages-compact-decision-complete-flat-lookup-consent" or "required-consent" or "consent" or "delayed-consent" or "unrelated-modal";
             var dialog = "<section role='dialog' aria-modal='true' id='notice'><p>" + (variant == "unrelated-modal" ? "Account verification" : "Cookie preferences") +
                 "</p><div><span role='button' tabindex='0' id='accept' onclick=\"document.cookie='fixtureConsent=accepted;path=/';document.querySelector('main').hidden=false;document.getElementById('notice').remove()\">" +
                 (variant == "unrelated-modal" ? "Continue" : "Accept cookies") + "</span></div></section>";
@@ -104,7 +107,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             var model = new ProductTransformationFixture(variant) { ReadMethod = "browser_get_content", WriteMethod = "document_write", CloseMethod = "browser_close" };
             var consentModel = new ConsentModel(model);
             var extractionModel = new ExtractModel(model);
-            var compactModel = new CompactModel(new ConsentModel(new PagedModel(model, compact: true, flattened: flattened), flattened: flattened));
+            var compactModel = new CompactModel(new ConsentModel(new PagedModel(model, compact: true, flattened: flattened, lookup: lookup), flattened: flattened));
             var engine = new WorkflowEngine { LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(2) }), McpClientFactory = transport, LLMClient = compact ? compactModel : variant.StartsWith("pages", StringComparison.Ordinal) ? new PagedModel(model) : consentScenario ? consentModel : variant is "extract" or "observation" or "each" or "each-parallel" ? extractionModel : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
             if (compact)
             {
@@ -194,6 +197,34 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                     var task = plan.Root.Tasks.Single(t => t.Id == consumer);
                     var input = task.Inputs[0]; task.Inputs[0] = new(input.Name, Flatten(Flatten(input.Value)));
                 }
+            }
+            if (lookup)
+            {
+                TaskValue Field(TaskValue value, string name) => new() { Kind = "field", Port = name, Items = [value] };
+                TaskValue Flatten(TaskValue value) => new() { Kind = "flatten", Items = [value] };
+                TaskValue Lookup(TaskValue records, TaskValue ids, string field) => new() { Kind = "lookup", Port = field, Items = [records, ids] };
+                var pages = plan.Root.Tasks.Single(t => t.Id == "consume_pages");
+                var extraction = pages.Body!.Tasks.Single();
+                extraction.Objective = "Retain only observed candidate identity and text for the immediate decision; action arguments remain in the original records.";
+                extraction.ResultType = ProductTransformationPlan.Obj(("candidates", new() { Kind = "array", Items = new() { Kind = "array",
+                    Items = ProductTransformationPlan.Obj(("candidateId", new()), ("text", new())) } }));
+                var select = plan.Root.Tasks.Single(t => t.Id == "urls");
+                select.Objective = "Select observed candidate IDs in page order, without returning action arguments.";
+                select.ResultType = ProductTransformationPlan.Obj(("ids", new() { Kind = "array", Items = new() }));
+                var originalPages = new PlanTask { Id = "original_records", Kind = "foreach", MaxItems = 100,
+                    Objective = "Retain original observed records separately", Items = pages.Items,
+                    Body = new() { Outputs = [new("records", Field(new() { Kind = "item" }, "records"))] } };
+                var offered = new PlanTask { Id = "offered_selection", Kind = "value", Objective = "Verify every selected identity was offered",
+                    Outputs = [new("records", Lookup(select.Inputs[0].Value, ProductTransformationPlan.Ref("urls", "ids"), "candidateId"))] };
+                var ids = new PlanTask { Id = "verified_identities", Kind = "foreach", MaxItems = 3, Objective = "Retain verified selected identities",
+                    Items = ProductTransformationPlan.Ref("offered_selection", "records"), Body = new() { Outputs = [new("ids", Field(new() { Kind = "item" }, "candidateId"))] } };
+                var resolve = new PlanTask { Id = "action_records", Kind = "value", Objective = "Recover original action arguments",
+                    Outputs = [new("records", Lookup(Flatten(ProductTransformationPlan.Ref("original_records", "records")), ProductTransformationPlan.Ref("verified_identities", "ids"), "reference"))] };
+                plan.Root.Tasks.InsertRange(plan.Root.Tasks.IndexOf(select) + 1, [originalPages, offered, ids, resolve]);
+                var products = plan.Root.Tasks.Single(t => t.Id == "products"); products.Items = ProductTransformationPlan.Ref("action_records", "records");
+                var visit = products.Body!.Tasks.Single(t => t.Id == "page"); var url = Field(new() { Kind = "item" }, "href");
+                visit.Requires = new() { Kind = "predicate", Predicate = "not_equal", Items = [url, new() { Kind = "null" }] };
+                visit.Inputs = [new("url", url)];
             }
             if (variant.StartsWith("required-", StringComparison.Ordinal))
             {
@@ -313,7 +344,7 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 }
                 return;
             }
-            if (consentScenario) Assert.All(consentReceipts, accepted => Assert.Equal(variant is not ("no-consent" or "pages-compact-decision" or "pages-compact-decision-complete" or "pages-compact-decision-complete-flat"), accepted));
+            if (consentScenario) Assert.All(consentReceipts, accepted => Assert.Equal(variant is not ("no-consent" or "pages-compact-decision" or "pages-compact-decision-complete" or "pages-compact-decision-complete-flat" or "pages-compact-decision-complete-flat-lookup"), accepted));
             Assert.Equal(file, result.Outputs!["file"]!.ToString());
             using var workbook = SpreadsheetDocument.Open(file, false);
             var rows = Assert.Single(workbook.WorkbookPart!.WorksheetParts).Worksheet!.Descendants<Row>().Select(r => r.Elements<Cell>().Select(c => c.InnerText).ToArray()).ToArray();
@@ -433,11 +464,11 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => actual.ValidateAsync(request, ct);
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => actual.ValidateCatalogAsync(catalog, ct);
     }
-    private sealed class PagedModel(ILLMClient next, bool compact = false, bool flattened = false) : ILLMClient
+    private sealed class PagedModel(ILLMClient next, bool compact = false, bool flattened = false, bool lookup = false) : ILLMClient
     {
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
-            if (request.StructuredOutputSchema?["properties"]?["urls"] is null) return next.CallAsync(request, ct);
+            if (request.StructuredOutputSchema?["properties"]?[lookup ? "ids" : "urls"] is null) return next.CallAsync(request, ct);
             var start = request.Prompt.IndexOf('{', request.Prompt.LastIndexOf("Business data", StringComparison.Ordinal));
             var pages = JsonNode.Parse(request.Prompt[start..])!["pages"]!.AsArray();
             if (flattened) Assert.Equal(2, pages.Count); else Assert.True(pages.Count > 3);
@@ -449,12 +480,12 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             else
             {
                 Assert.DoesNotContain("irrelevant-observation", request.Prompt);
-                if (flattened) Assert.All(pages, p => Assert.Equal(new[] { "text", "href", "group" }, p!.AsObject().Select(f => f.Key)));
+                if (flattened) Assert.All(pages, p => Assert.Equal(lookup ? new[] { "candidateId", "text" } : new[] { "text", "href", "group" }, p!.AsObject().Select(f => f.Key)));
                 else Assert.True(pages.Sum(p => p!.AsArray().Count) > 120);
                 Assert.InRange(KeyVaultBenchmarkModel.ExecutionInputEstimate(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)), 1, 12000);
             }
             var records = flattened ? pages : compact ? pages.SelectMany(p => p!.AsArray()).SelectMany(r => r!.AsArray()) : pages.SelectMany(p => p!["records"]!.AsArray()).Where(r => r!["kind"]!.ToString() == "link");
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["urls"] = new JsonArray(records.Select(r => r!["href"]!.DeepClone()).ToArray()) } });
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { [lookup ? "ids" : "urls"] = new JsonArray(records.Select(r => r![lookup ? "candidateId" : "href"]!.DeepClone()).ToArray()) } });
         }
     }
 
@@ -466,7 +497,9 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
             if (request.StructuredOutputSchema?["properties"]?["script"] is null) return next.CallAsync(request, ct);
             Requests.Add(request);
             var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
-            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = context["item_target"]?["items"]?["properties"]?["reference"] is not null
+            return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = context["item_target"]?["items"]?["properties"]?["candidateId"] is not null
+                ? "[item].filter(r=>m.test(r.kind,'^link$')).map(r=>({candidateId:r.reference,text:r.text}))"
+                : context["item_target"]?["items"]?["properties"]?["reference"] is not null
                 ? "[item].filter(r=>m.test(r.kind,'^control$')).map(r=>({text:r.text,reference:r.reference,group:r.group}))"
                 : "[item].filter(r=>m.test(r.kind,'^link$')).map(r=>({text:r.text,href:r.href,group:r.group}))" } });
         }

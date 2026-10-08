@@ -65,6 +65,20 @@ internal static class PlanningValues
             // not imply uniqueness or cardinality constraints on concatenation.
             return new() { ["type"] = "array", ["items"] = element.DeepClone() };
         }
+        if (value.Kind == "lookup")
+        {
+            if (string.IsNullOrWhiteSpace(value.Text) || value.Text is "__proto__" or "prototype" or "constructor" || value.Items.Count != 2 ||
+                resolve(value.Items[0]) is not { } source || PlanningContractShapes.IterationItems(source) is not { } record ||
+                record["type"]?.ToString() != "object" || PlanningContractShapes.IsOpaque(record) ||
+                record["properties"]?[value.Text] is not JsonObject key ||
+                resolve(value.Items[1]) is not { } selected || !IdentityType(key, out var kind) ||
+                !(selected["const"] is JsonArray { Count: 0 } || PlanningContractShapes.IterationItems(selected) is { } identity &&
+                    IdentityType(identity, out var selectedKind) && kind == selectedKind))
+                throw new InvalidOperationException("Lookup requires typed records, a literal declared identity field and compatible string or integer selections.");
+            // The source is checked before selecting. Its cardinality/uniqueness
+            // does not constrain the selected list, which may repeat identities.
+            return new() { ["type"] = "array", ["items"] = record.DeepClone() };
+        }
         if (value.Kind == "arithmetic")
         {
             _ = ArithmeticOperator(value.Text);
@@ -84,6 +98,16 @@ internal static class PlanningValues
                 throw new InvalidOperationException("Ordering predicates require numeric operands.");
         }
         return new() { ["type"] = "boolean" };
+    }
+
+    private static bool IdentityType(JsonObject schema, out string? kind)
+    {
+        var types = schema["type"] is JsonArray union ? union.Select(t => t?.ToString()).Where(t => t != "null").ToArray() : [schema["type"]?.ToString()];
+        kind = types.Length == 1 ? types[0] : null;
+        // Nullable/missing identities are rejected by the checked lookup, never
+        // converted to a default. Unknown schemas cannot establish an identity.
+        if (kind == "number") kind = "integer"; // Checked execution rejects fractions and unsafe integers.
+        return kind is "string" or "integer";
     }
     internal static string LiteralLocation(PlanningValue value, string root, string pointer)
     {

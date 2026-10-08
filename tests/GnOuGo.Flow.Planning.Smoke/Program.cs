@@ -139,6 +139,22 @@ if (!compactResult.Success || compactDoc.Workflows.Count != 1 || compactDoc.Work
     throw new InvalidOperationException("Compact typed collection failed in Native AOT: " + compactResult.Error?.Message);
 Console.WriteLine("compact bindings: fused collection, zero per-item calls, exact duplicates, no inference");
 
+var lookupPlan = JsonSerializer.Deserialize("""
+    {"inputs":[{"name":"rows","type":{"kind":"array","items":{"kind":"object","fields":[{"name":"label"}]}}}],
+     "root":{"tasks":[{"id":"resolve","kind":"value","objective":"Reconnect selected original records",
+       "outputs":[{"name":"rows","value":{"kind":"lookup","port":"label","items":[{"kind":"input","source":"rows"},
+         {"kind":"array","items":[{"kind":"string","text":"second"},{"kind":"string","text":"first"},{"kind":"string","text":"second"}]}]}}]}],
+       "outputs":[{"name":"rows","value":{"kind":"output","source":"resolve","port":"rows"}}]}}
+    """, PlanningJsonContext.Default.TaskPlan)!;
+var lookupGraph = new TaskPlanCompiler().Compile(lookupPlan, compactCatalog, compactBindings: true, normalExports: true);
+if (lookupGraph.Diagnostics.Count != 0) throw new InvalidOperationException("Lookup compilation failed.");
+var lookupDoc = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(lookupGraph.Graph!, compactCatalog)));
+var lookupResult = await compactEngine.ExecuteAsync(lookupDoc.Workflows["main"], JsonNode.Parse("""{"rows":[{"label":"first"},{"label":"second"}]}"""), CancellationToken.None);
+if (!lookupResult.Success || lookupResult.Outputs?["rows"]?.ToJsonString() != """[{"label":"second"},{"label":"first"},{"label":"second"}]""")
+    throw new InvalidOperationException("Lookup lost original records or repeated selections: " + lookupResult.Error?.Message);
+Console.WriteLine("lookup: typed binding, original records, selected order/repeats, zero inference");
+
+
 var flattenPlan = JsonSerializer.Deserialize("""
     {"inputs":[{"name":"batches","type":{"kind":"array","items":{"kind":"array","items":{"kind":"string","nullable":true}}}}],
      "root":{"tasks":[{"id":"join","kind":"value","objective":"Join candidate groups once",

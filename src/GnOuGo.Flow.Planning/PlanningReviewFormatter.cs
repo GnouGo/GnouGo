@@ -71,6 +71,7 @@ public static class PlanningReviewFormatter
         "array" => "[" + string.Join(", ", value.Items.Select(Describe)) + "]",
         "json" => "json(" + string.Join(", ", value.Items.Select(Describe)) + ")",
         "flatten" => "flatten one level(" + string.Join(", ", value.Items.Select(Describe)) + ")",
+        "lookup" => "lookup by " + value.Port + "(" + string.Join(", ", value.Items.Select(Describe)) + "; retain order and repeats)",
         "boolean" => value.Boolean == true ? "true" : "false",
         "null" => "null", "string" => "\"" + value.Text + "\"",
         "predicate" => value.Predicate + "(" + string.Join(", ", value.Items.Select(Describe)) + ")",
