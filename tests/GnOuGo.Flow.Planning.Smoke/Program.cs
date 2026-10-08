@@ -97,6 +97,22 @@ foreach (var complete in new[] { true, false })
 }
 Console.WriteLine("required conditions: true/false and guarded ancestor payloads survive Native AOT serialization and execution");
 
+var guardPlan = JsonSerializer.Deserialize("""
+    {"inputs":[{"name":"authorized","type":{"kind":"boolean"}}],"root":{"tasks":[
+      {"id":"route","kind":"conditional","objective":"Use only an authorized action","condition":{"kind":"boolean","boolean":true},
+       "body":{"tasks":[{"id":"perform","objective":"Perform authorized work","operation":"guarded-action","requires":{"kind":"input","source":"authorized"}}]},
+       "otherwise":{}}]}}
+    """, PlanningJsonContext.Default.TaskPlan)!;
+var guardCatalog = new PlanningCatalog { AllowedStepTypes = ["mcp.call", "set", "workflow.call", "switch"],
+    Capabilities = [new() { Id = "guarded-action", Version = "1", StepType = "mcp.call", Kind = "tool", Server = "smoke", Method = "perform",
+        InputSchema = new() { ["type"] = "object" }, OutputSchema = new() { ["type"] = "object" } }] };
+if (!new TaskPlanCompiler().Compile(guardPlan, guardCatalog).Diagnostics.Any(d => d.Code == "TASK_CONDITIONAL_REQUIREMENT"))
+    throw new InvalidOperationException("Missing conditional authorization guard was accepted.");
+guardPlan.Root.Tasks[0].Condition = new() { Kind = "input", Source = "authorized" };
+if (new TaskPlanCompiler().Compile(guardPlan, guardCatalog).Diagnostics.Count != 0)
+    throw new InvalidOperationException("Explicit conditional authorization guard was rejected.");
+Console.WriteLine("conditional entries: missing authorization rejected, explicit guard accepted, runtime requires preserved");
+
 var mapped = new GnOuGo.Flow.Core.Scripting.JintSandbox().ExecuteMapping(
     "({name:m.decode(m.text(source.html,'<h1>([^<]+)</h1>')),amount:source.amount})",
     JsonNode.Parse("{\"html\":\"<h1>A &amp; B</h1>\",\"amount\":7922816251426433759354395033.5}"), CancellationToken.None);

@@ -60,6 +60,12 @@ internal static class PlanningRepairContext
             if (site.Task.Requires is { } requires) References(requires);
             foreach (var dependency in site.Task.DependsOn) Producer(dependency, null);
         }
+        foreach (var finding in state.Diagnostics.Where(d => d.Code == "TASK_CONDITIONAL_REQUIREMENT"))
+            if (finding.Rule is { } path && symbols.Values.TryGetValue(path, out var required))
+            {
+                Scope(required.Scope); References(required.Value);
+                if (path.Split('/') is ["", "tasks", var id, "requires"]) tasks.Add(id);
+            }
         // Producer constraints can affect other consumers. Include their contracts
         // without authorizing them or recursively retaining unrelated work.
         var changed = state.RevisionScope.Where(p => p.Contains("/resultType", StringComparison.Ordinal)).Select(p => p.Split('/')[2]).ToHashSet(StringComparer.Ordinal);

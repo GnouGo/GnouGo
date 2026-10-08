@@ -100,6 +100,7 @@ public sealed partial class TaskPlanCompiler
         _normalExports = normalExports;
         _compactBindings = compactBindings;
         _plan = plan; _symbols = new(plan); _catalog = catalog; _location = "/"; _graph = new(); _sources.Clear(); _groups.Clear(); _compilingGroups.Clear();
+        _guardRepairs.Clear();
         try
         {
             var findings = Preflight();

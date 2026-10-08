@@ -2,6 +2,10 @@
 
 A separately publishable package depending only on Flow.Core.
 
+Conditional preflight checks `requires` whose values are available at branch entry. Enclosing true/false paths, explicit aliases and authoritative contracts must establish those predicates; a similarly named availability flag is insufficient. `TASK_CONDITIONAL_REQUIREMENT` identifies the controlling condition, operation and missing requirement, distinguishing a known contradiction from an unproved implication. This conservative check is not a general theorem prover or proof of business completeness. Checks on newly produced results remain fail-fast runtime assertions, and all runtime guards and producer permission/action checks remain in force.
+
+An isolated optional action permits an exact diagnostic-derived condition repair with the original condition and `requires` preserved. Shared operations, inference, active alternatives, finalization and contradictory corrections require explicit revision. Existing repair envelopes fingerprint these new slots without changing historical slots or issued requests. Valid-plan lowering, TaskPlan/PlanningGraph formats, saved YAML and approvals are unchanged.
+
 `Requirements → progressive discovery → LLM TaskPlan → deterministic compilation → PlanningGraph → YAML → validation → scoped TaskPlan repair → approval`
 
 Requirements are host-owned until explicit user revision. New sessions declare the caller input interface in `requirements.inputs`; null is unresolved during discovery, and a plan requires an explicit array, including empty for no caller inputs. Once accepted, names, types, requiredness and defaults must match the plan. Subsequent responses omit accepted requirements. Historical responses remain unchanged in storage. Unfinished sessions with a retired intent profile require explicit revision before dispatch.

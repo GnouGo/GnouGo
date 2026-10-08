@@ -129,6 +129,14 @@ internal static class TaskPlanRevisions
     internal static IEnumerable<PlanTask> Tasks(TaskPlan plan) => Tasks(plan.Root).Concat(plan.Groups.SelectMany(g => Tasks(g.Body)));
     internal static IEnumerable<PlanningDiagnostic> UnrepairableRequirements(PlanningSession state)
     {
+        if (state.Diagnostics.Any(d => d.Code == "TASK_CONDITIONAL_REQUIREMENT"))
+        {
+            var guards = TaskPlanCompiler.ConditionalRepairs(state.Plan!, state.Catalog!);
+            foreach (var finding in state.Diagnostics.Where(d => d.Code == "TASK_CONDITIONAL_REQUIREMENT"))
+                if (guards.GetValueOrDefault(finding.Location) is null)
+                    yield return finding with { Code = "REVISION_REQUIRED", Message = finding.Message +
+                        " Changing this entry also affects other work, an alternative or finalization, or cannot safely establish the guard. Explicitly revise the condition; requires and unrelated work remain immutable." };
+        }
         var symbols = new TaskPlanSymbols(state.Plan!);
         var catalog = PlanningStructuralRepair.Catalog(state);
         var exports = Exports(state.Plan!, state.RevisionScope);
@@ -225,9 +233,16 @@ internal static class TaskPlanRevisions
         var removals = new HashSet<string>(StringComparer.Ordinal);
         var resultSlots = ProducerConstraintSlots(previous);
         var permittedValues = new HashSet<string>(StringComparer.Ordinal);
+        var guardRepairs = catalog is not null && scope.Any(p => p.EndsWith("/condition", StringComparison.Ordinal))
+            ? TaskPlanCompiler.ConditionalRepairs(previous, catalog) : new Dictionary<string, TaskValue?>();
         foreach (var path in scope)
         {
             if (editablePaths?.Contains(path) == true) { permittedValues.Add(path); continue; }
+            if (guardRepairs.TryGetValue(path, out var guard))
+            {
+                if (guard is not null && revised.Values.TryGetValue(path, out var corrected) && Same(guard, corrected.Value)) permittedValues.Add(path);
+                continue;
+            }
             if (symbols.Values.ContainsKey(path) && path.Split('/') is ["", "tasks", var consumer, "inputs", var argument] &&
                 symbols.Tasks.TryGetValue(consumer, out var originalTask) && revised.Tasks.TryGetValue(consumer, out var revisedTask) &&
                 revisedTask.Task.Kind == "operation" && originalTask.Task.Operation == revisedTask.Task.Operation &&
