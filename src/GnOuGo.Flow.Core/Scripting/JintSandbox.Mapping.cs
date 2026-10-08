@@ -35,18 +35,40 @@ public sealed partial class JintSandbox
         private long _allocationStart;
         private long _allocated;
         internal long ImportedBytes;
+        internal long OutputBytes;
+        internal int NestingDepth;
+        internal string? ExhaustedResource;
+        private long Allocated => _allocated + (_elapsed.IsRunning ? GC.GetAllocatedBytesForCurrentThread() - _allocationStart : 0);
         internal void Start() { _allocationStart = GC.GetAllocatedBytesForCurrentThread(); _elapsed.Start(); }
         internal void Stop() { _elapsed.Stop(); _allocated += GC.GetAllocatedBytesForCurrentThread() - _allocationStart; }
         public override void Reset() { }
+        internal JsonObject Snapshot() => new()
+        {
+            ["statements"] = _statements, ["statement_limit"] = statements,
+            ["elapsed_ms"] = _elapsed.Elapsed.TotalMilliseconds, ["time_limit_ms"] = timeout.TotalMilliseconds,
+            ["allocated_bytes"] = Allocated, ["materialized_bytes"] = ImportedBytes,
+            ["output_bytes"] = OutputBytes, ["memory_limit_bytes"] = memory,
+            ["nesting_depth"] = NestingDepth, ["nesting_limit"] = 64
+        };
+        internal WorkflowRuntimeException Exhausted(string resource, Exception? inner = null)
+        {
+            ExhaustedResource = resource;
+            return new("CONTRACT_UNSATISFIED", "The mapping exhausted its cumulative sandbox allowance (" + resource + ").", inner: inner,
+                details: new JsonObject { ["mapping_resource_limit"] = true, ["exhausted_resource"] = resource, ["sandbox"] = Snapshot() });
+        }
         public override void Check()
         {
-            if (++_statements > statements || _elapsed.Elapsed > timeout ||
-                _allocated + GC.GetAllocatedBytesForCurrentThread() - _allocationStart > memory || ImportedBytes > memory)
-                throw ResourceLimit();
+            if (++_statements > statements) throw Exhausted("statements");
+            if (_elapsed.Elapsed > timeout) throw Exhausted("time");
+            if (Allocated > memory) throw Exhausted("allocated_memory");
+            if (ImportedBytes > memory) throw Exhausted("materialized_memory");
         }
     }
 
     internal MappingAllowance CreateMappingAllowance() => new(_maxStatements, _timeout, _memoryLimit);
+
+    internal JsonNode? ExecuteMappingValue(string expression, JsonNode? sources, JsonObject target, string? input,
+        MappingAllowance allowance, CancellationToken ct) => ExecuteMappingCore(expression, sources, ct, target, input, allowance: allowance);
 
     internal void ExecuteMappingItems(string expression, JsonObject sources, string input, JsonObject itemTarget,
         IReadOnlyList<int> indices, MappingAllowance allowance, Action<int, JsonNode?> success,
@@ -72,6 +94,13 @@ public sealed partial class JintSandbox
         var absent = new HashSet<ObjectInstance>();
         var patterns = new Dictionary<string, Regex>(StringComparer.Ordinal);
         long importedBytes = allowance?.ImportedBytes ?? 0;
+        void ChargeOutput(JsonNode? value)
+        {
+            var bytes = value is null ? 4 : System.Text.Encoding.UTF8.GetByteCount(value.ToJsonString());
+            importedBytes += bytes;
+            if (allowance is not null) { allowance.OutputBytes += bytes; allowance.ImportedBytes = importedBytes; }
+            if (importedBytes > _memoryLimit) throw allowance?.Exhausted("materialized_memory") ?? ResourceLimit();
+        }
         var helpers = new JsObject(engine);
         foreach (var name in MappingHelpers)
         {
@@ -137,8 +166,7 @@ public sealed partial class JintSandbox
                 var value = Export(args[0], 0, target);
                 var errors = JsonSchemaContractValidator.ValidateInstance(value, target!);
                 if (errors.Count > 0) throw Unsatisfied("The mapped item does not satisfy its target: " + string.Join("; ", errors));
-                importedBytes += value is null ? 4 : System.Text.Encoding.UTF8.GetByteCount(value.ToJsonString());
-                if (importedBytes > _memoryLimit) throw Unsatisfied("The assembled mapping result exceeds its memory allowance.");
+                ChargeOutput(value);
                 results.Add(value); return JsValue.Undefined;
             }));
         }
@@ -165,6 +193,8 @@ public sealed partial class JintSandbox
                 allowance!.Start();
                 try
                 {
+                    // Parse once for the entire candidate, not again for each source item.
+                    var prepared = Engine.PrepareScript("(" + expression + ")");
                     foreach (var index in indices)
                     {
                         ct.ThrowIfCancellationRequested();
@@ -172,14 +202,13 @@ public sealed partial class JintSandbox
                         try
                         {
                             engine.SetValue("source", Load(index));
-                            var value = Export(engine.Evaluate(expression), 0, target);
+                            var value = Export(engine.Evaluate(prepared), 0, target);
                             var findings = JsonSchemaContractValidator.ValidateInstance(value, target!);
                             if (findings.Count != 0) throw Unsatisfied("The mapped item does not satisfy its target: " + findings[0]);
-                            importedBytes += value is null ? 4 : System.Text.Encoding.UTF8.GetByteCount(value.ToJsonString());
-                            if (importedBytes > _memoryLimit) throw ResourceLimit();
+                            ChargeOutput(value);
                             success!(index, value);
                         }
-                        catch (WorkflowRuntimeException ex) when (ex.Code == "CONTRACT_UNSATISFIED" && ex.Details?["mapping_resource_limit"]?.GetValue<bool>() != true)
+                        catch (WorkflowRuntimeException ex) when (ex.Code == "CONTRACT_UNSATISFIED" && !IsInvalidProgram(ex) && ex.Details?["mapping_resource_limit"]?.GetValue<bool>() != true)
                         { failure!(index, ex); }
                         catch (Jint.Runtime.JavaScriptException ex)
                         { failure!(index, Unsatisfied("The mapping could not select the required observed value.", ex)); }
@@ -192,22 +221,39 @@ public sealed partial class JintSandbox
                 }
                 finally { allowance.ImportedBytes = importedBytes; allowance.Stop(); }
             }
-            if (items is null) return Export(engine.Evaluate(expression), 0, target);
-            engine.Evaluate("(()=>{for(let i=0;i<" + items.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) +
-                ";i++){source=__mappingLoad(i);__mappingSave(" + expression + ");}})()");
-            return results;
+            allowance?.Start();
+            try
+            {
+                if (items is null) { var value = Export(engine.Evaluate(expression), 0, target); ChargeOutput(value); return value; }
+                engine.Evaluate("(()=>{for(let i=0;i<" + items.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                    ";i++){source=__mappingLoad(i);__mappingSave(" + expression + ");}})()");
+                return results;
+            }
+            finally { if (allowance is not null) { allowance.ImportedBytes = importedBytes; allowance.Stop(); } }
         }
         catch (WorkflowRuntimeException ex) when (itemIndex >= 0)
         { throw new WorkflowRuntimeException(ex.Code, ex.Message, inner: ex, details: WithIndex(ex.Details, itemIndex)); }
+        catch (Exception ex) when (ex is Jint.Runtime.StatementsCountOverflowException or Jint.Runtime.MemoryLimitExceededException or TimeoutException or RegexMatchTimeoutException or Jint.Runtime.ExecutionCanceledException)
+        {
+            ct.ThrowIfCancellationRequested();
+            var resource = ex is Jint.Runtime.StatementsCountOverflowException ? "statements" : ex is Jint.Runtime.MemoryLimitExceededException ? "allocated_memory" : "time";
+            var error = (allowance ?? CreateMappingAllowance()).Exhausted(resource, ex);
+            throw new WorkflowRuntimeException(error.Code, error.Message, inner: ex, details: WithIndex(error.Details, itemIndex));
+        }
         catch (Exception ex) when (ex is not OperationCanceledException and not WorkflowRuntimeException and not OutOfMemoryException)
-        { ct.ThrowIfCancellationRequested(); throw new WorkflowRuntimeException("CONTRACT_UNSATISFIED", "The mapping could not be executed within its restricted profile.", inner: ex,
-            details: allowance is null ? (itemIndex < 0 ? null : new JsonObject { ["source_index"] = itemIndex }) : new JsonObject { ["mapping_resource_limit"] = true, ["source_index"] = itemIndex }); }
+        { ct.ThrowIfCancellationRequested(); throw Unsatisfied("The mapping could not select the required observed value.", ex); }
 
         JsValue Import(JsonNode? value, int depth = 0)
         {
             ct.ThrowIfCancellationRequested();
             importedBytes += 128 + (value is JsonValue text && text.TryGetValue<string>(out var content) ? (long)content.Length * 4 : 0);
-            if (allowance is not null && (depth > 64 || importedBytes > _memoryLimit)) throw ResourceLimit();
+            if (allowance is not null)
+            {
+                allowance.ImportedBytes = importedBytes;
+                allowance.NestingDepth = Math.Max(allowance.NestingDepth, depth);
+                if (depth > 64) throw allowance.Exhausted("nesting");
+                if (importedBytes > _memoryLimit) throw allowance.Exhausted("materialized_memory");
+            }
             if (depth > 64 || importedBytes > _memoryLimit) throw Unsatisfied("Observed data exceeds the mapping sandbox's nesting or memory allowance.");
             if (value is JsonArray array) { var imported = Array(array.Select(v => Import(v, depth + 1))); containers.Add(imported.AsObject()); return imported; }
             var result = new JsObject(engine);
@@ -225,6 +271,11 @@ public sealed partial class JintSandbox
         JsonNode? Export(JsValue value, int depth, JsonObject? contract, string path = "$")
         {
             ct.ThrowIfCancellationRequested();
+            if (allowance is not null)
+            {
+                allowance.NestingDepth = Math.Max(allowance.NestingDepth, depth);
+                if (depth > 64) throw allowance.Exhausted("nesting");
+            }
             if (depth > 64) throw Unsatisfied("Mapping result nesting exceeded its limit.");
             if (value.IsObject() && absent.Contains(value.AsObject()))
             {
@@ -248,10 +299,16 @@ public sealed partial class JintSandbox
                         path + "/" + field.Key.ToString().Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal)));
                 return obj;
             }
-            throw Unsatisfied("Mapping result " + path + " contains a missing or invented scalar. Return observed data; defaults belong to the target contract.");
+            var message = "Mapping result " + path + " contains a missing or invented scalar. Return observed data; defaults belong to the target contract.";
+            throw value.IsUndefined() ? Unsatisfied(message) : InvalidProgram(message);
         }
-        JsonNode? Observed(JsValue value) => value.IsObject() && origins.TryGetValue(value.AsObject(), out var data)
-            ? data : throw Unsatisfied("Extraction helpers require an observed scalar, not a literal or computed replacement.");
+        JsonNode? Observed(JsValue value)
+        {
+            if (value.IsObject() && origins.TryGetValue(value.AsObject(), out var data)) return data;
+            const string message = "Extraction helpers require an observed scalar, not a literal or computed replacement.";
+            throw value.IsUndefined() || value.IsObject() && containers.Contains(value.AsObject())
+                ? Unsatisfied(message) : InvalidProgram(message);
+        }
         string Text(JsValue value) => Observed(value) is JsonValue scalar && scalar.TryGetValue<string>(out var text)
             ? text : throw Unsatisfied("Text extraction requires an observed string.");
         bool Own(JsValue value, string key, out JsValue found)
@@ -377,9 +434,11 @@ public sealed partial class JintSandbox
 
     public static void ValidateMapping(string expression, bool learned)
     {
-        if (expression.Length > 65536) throw Unsatisfied("Mapping script exceeds its size limit.");
+        if (expression.Length > 65536) throw InvalidProgram("Mapping script exceeds its size limit.");
+        var checkedPatterns = new HashSet<string>(StringComparer.Ordinal);
         try { Check(new Acornima.Parser().ParseExpression(expression), new(StringComparer.Ordinal) { "source", "item", "context", "m", "Object", "Array" }, 0); }
-        catch (Acornima.ParseErrorException ex) { throw Unsatisfied("Mapping JavaScript is invalid.", ex); }
+        catch (Acornima.ParseErrorException ex) { throw InvalidProgram("Mapping JavaScript is invalid.", ex); }
+        catch (WorkflowRuntimeException ex) when (!IsInvalidProgram(ex)) { throw InvalidProgram(ex.Message, ex); }
         static bool Control(Node node, int depth = 0) => depth < 64 && (node is UnaryExpression { Operator: Acornima.Operator.LogicalNot } negate && Control(negate.Argument, depth + 1) ||
             node is Literal or UnaryExpression { Operator: Acornima.Operator.TypeOf } or BinaryExpression ||
             node is CallExpression { Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier { Name: "has" or "test" or "scalar" } } } ||
@@ -424,6 +483,7 @@ public sealed partial class JintSandbox
                         call.Object is Identifier { Name: "Array" } ? method.Name == "isArray" : method.Name is "map" or "filter" or "slice" or "flatMap";
                     if (!permitted)
                         throw Unsatisfied("Mapping calls are limited to data extraction helpers and bounded array operations.");
+                    if (call.Object is Identifier { Name: "m" }) Signature(method.Name, invocation);
                     if (learned && method.Name == "filter" && invocation.Arguments.FirstOrDefault() is ArrowFunctionExpression filter && !Control(filter.Body))
                         throw Unsatisfied("Array filters require explicit observation predicates, such as m.test(value, patternString).");
                     Check(call, bound, depth + 1);
@@ -445,7 +505,50 @@ public sealed partial class JintSandbox
                 default: throw Unsatisfied("Mapping JavaScript contains an unsupported operation.");
             }
         }
+
+        void Signature(string name, CallExpression call)
+        {
+            var args = call.Arguments;
+            var validCount = name switch
+            {
+                "select" or "lookup" => args.Count == 3,
+                "optional" or "resolveUri" or "has" or "test" => args.Count == 2,
+                "text" or "texts" => args.Count is 2 or 3,
+                _ => args.Count == 1
+            };
+            void Require(bool valid, string contract)
+            {
+                if (!valid) throw InvalidProgram("Invalid mapping helper " + name + ": " + contract + ".", helper: name);
+            }
+            Require(validCount, "incorrect argument count");
+            if (name is not ("has" or "scalar")) Require(args[0] is not Literal, "first argument must come from observed data");
+            if (name == "resolveUri") Require(args[1] is not Literal, "base URI must come from observed data");
+            static bool Path(Node node) => node is ArrayExpression path && path.Elements.All(p => p is Literal { Value: string });
+            if (name == "select")
+            {
+                Require(args[1] is ArrayExpression paths && paths.Elements.Count > 0 && paths.Elements.All(p => p is not null && Path(p)), "paths must be literal property arrays");
+                Require(args[2] is Literal { Value: bool }, "third argument must be a literal per-item boolean");
+            }
+            if (name == "optional") Require(Path(args[1]), "path must be a literal property array");
+            if (name is "has" or "lookup") Require(args[name == "has" ? 1 : 2] is Literal { Value: string }, "property must be a literal string");
+            if (name is "test" or "text" or "texts")
+            {
+                Require(args[1] is Literal { Value: string patternText } && patternText.Length <= 2048, "patterns must be bounded quoted JavaScript strings");
+                var pattern = (string)((Literal)args[1]).Value!;
+                if (checkedPatterns.Add(pattern))
+                {
+                    try { _ = new Regex(pattern, RegexOptions.CultureInvariant | RegexOptions.Singleline | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1)); }
+                    catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
+                    { throw InvalidProgram("The mapping program contains an unsupported extraction pattern.", ex, name); }
+                }
+                if (args.Count == 3) Require(args[2] is Literal { Value: double group } && group >= 0 && group <= 100 && Math.Truncate(group) == group,
+                    "capture group must be a literal integer from 0 to 100");
+            }
+        }
     }
 
+    internal static bool IsInvalidProgram(WorkflowRuntimeException error) => error.Details?["mapping_failure_kind"]?.ToString() == "program";
+    internal static WorkflowRuntimeException InvalidProgram(string message, Exception? inner = null, string? helper = null)
+        => new("CONTRACT_UNSATISFIED", message, inner: inner, details: new JsonObject { ["mapping_failure_kind"] = "program", ["helper"] = helper });
     internal static WorkflowRuntimeException Unsatisfied(string message, Exception? inner = null) => new("CONTRACT_UNSATISFIED", message, inner: inner);
 }

@@ -1,0 +1,173 @@
+{
+  "inference_calls": 0,
+  "external_actions": 0,
+  "retained_run_modified": false,
+  "source_run": "lookupselection20261008a-amazon-1",
+  "script_receipts_sha256": "2e68fa94bd8cf791d58e0fe68b018e88f95fc7790bdee6b9d356749ae02aba2f",
+  "attempts": [
+    {
+      "attempt": "0",
+      "message": "Mapping JavaScript contains an unsupported operation.",
+      "details": null,
+      "sandbox": {
+        "statements": 0,
+        "statement_limit": 10000,
+        "elapsed_ms": 0,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 0,
+        "materialized_bytes": 0,
+        "output_bytes": 0,
+        "memory_limit_bytes": 50000000
+      }
+    },
+    {
+      "attempt": "1",
+      "passed": 1,
+      "failed": 43,
+      "sandbox": {
+        "statements": 855,
+        "statement_limit": 10000,
+        "elapsed_ms": 68.5975,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 14606200,
+        "materialized_bytes": 4842414,
+        "output_bytes": 0,
+        "memory_limit_bytes": 50000000
+      }
+    },
+    {
+      "attempt": "2",
+      "passed": 0,
+      "failed": 2,
+      "sandbox": {
+        "statements": 917,
+        "statement_limit": 10000,
+        "elapsed_ms": 89.3121,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 19206704,
+        "materialized_bytes": 5091526,
+        "output_bytes": 0,
+        "memory_limit_bytes": 50000000
+      }
+    },
+    {
+      "attempt": "3",
+      "passed": 2,
+      "failed": 0,
+      "sandbox": {
+        "statements": 995,
+        "statement_limit": 10000,
+        "elapsed_ms": 101.7953,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 25406880,
+        "materialized_bytes": 5347653,
+        "output_bytes": 0,
+        "memory_limit_bytes": 50000000
+      }
+    },
+    {
+      "attempt": "4",
+      "passed": 0,
+      "failed": 1,
+      "sandbox": {
+        "statements": 1018,
+        "statement_limit": 10000,
+        "elapsed_ms": 106.3588,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 28539680,
+        "materialized_bytes": 5454629,
+        "output_bytes": 0,
+        "memory_limit_bytes": 50000000
+      }
+    },
+    {
+      "attempt": "5",
+      "passed": 1,
+      "failed": 0,
+      "sandbox": {
+        "statements": 1061,
+        "statement_limit": 10000,
+        "elapsed_ms": 110.6122,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 31704312,
+        "materialized_bytes": 5562298,
+        "output_bytes": 0,
+        "memory_limit_bytes": 50000000
+      }
+    },
+    {
+      "attempt": "6",
+      "passed": 43,
+      "failed": 0,
+      "sandbox": {
+        "statements": 3357,
+        "statement_limit": 10000,
+        "elapsed_ms": 139.4825,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 44846136,
+        "materialized_bytes": 10279542,
+        "output_bytes": 0,
+        "memory_limit_bytes": 50000000
+      }
+    },
+    {
+      "attempt": "7",
+      "passed": 0,
+      "failed": 1,
+      "sandbox": {
+        "statements": 3385,
+        "statement_limit": 10000,
+        "elapsed_ms": 147.1962,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 47130376,
+        "materialized_bytes": 10376030,
+        "output_bytes": 0,
+        "memory_limit_bytes": 50000000
+      }
+    },
+    {
+      "attempt": "8",
+      "passed": 1,
+      "failed": 0,
+      "sandbox": {
+        "statements": 3453,
+        "statement_limit": 10000,
+        "elapsed_ms": 150.7306,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 49738880,
+        "materialized_bytes": 10475538,
+        "output_bytes": 0,
+        "memory_limit_bytes": 50000000
+      }
+    },
+    {
+      "attempt": "9",
+      "message": "The mapping exhausted its cumulative sandbox allowance (allocated_memory).",
+      "details": {
+        "mapping_resource_limit": true,
+        "exhausted_resource": "allocated_memory",
+        "sandbox": {
+          "statements": 3457,
+          "statement_limit": 10000,
+          "elapsed_ms": 151.3188,
+          "time_limit_ms": 5000,
+          "allocated_bytes": 50166464,
+          "materialized_bytes": 10475538,
+          "output_bytes": 0,
+          "memory_limit_bytes": 50000000
+        },
+        "source_index": 47
+      },
+      "sandbox": {
+        "statements": 3457,
+        "statement_limit": 10000,
+        "elapsed_ms": 151.3904,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 50172024,
+        "materialized_bytes": 10579262,
+        "output_bytes": 0,
+        "memory_limit_bytes": 50000000
+      }
+    }
+  ]
+}

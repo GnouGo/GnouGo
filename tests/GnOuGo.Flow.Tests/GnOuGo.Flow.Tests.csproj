@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
+    <EmbeddedResource Include="../../docs/evidence/id-selection-lookup-2026-10-08/runtime-mapping-responses.json" LogicalName="MappingRetainedPrograms" />
   </ItemGroup>
 
   <ItemGroup>

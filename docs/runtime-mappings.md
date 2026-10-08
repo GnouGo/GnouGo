@@ -56,7 +56,13 @@ The complete assembled result must satisfy collection-wide constraints. There is
 
 Existing encrypted invocation controls pin initial cache assignments and each specialization's original indices before dispatch. Existing child invocation records retain requests and receipts. Recovery recomputes deterministic results using those same assignments, replays committed inference, and restores cumulative accounting. Changed cache contents cannot alter a partially completed invocation. Unknown completion remains stopped for reconciliation. No approved YAML or historical artifact is mutated.
 
-Telemetry distinguishes original/processed/sample/omitted counts, failure groups, cache hits, model attempts and specializations. These counts describe extraction work, not semantic correctness; independent execution oracles remain required.
+Before item execution, the runtime checks expression syntax, supported operations and helper signatures, including literal paths and bounded patterns. Invalid programs receive a global program repair over their existing assignment; they never create shape specializations. A late program defect discards that candidate's apparent successes. Specialization requires a valid program with successful items and data-specific failures. A program that succeeds nowhere is repaired over the whole assignment. Static defects have no failing data index; repairs include a complete fitting example, while data failures require the actual failing item.
+
+Each candidate is prepared once and evaluated against all assigned original items. Previously validated groups remain private. Extra fields violate closed target contracts; they are not silently removed. Every item and the assembled result must pass before publishing or caching. Selection, ranking and external actions remain explicit business steps outside mapping.
+
+Telemetry distinguishes original/processed/sample/omitted counts, failure groups, cache hits, model attempts, program repairs and specializations. `gnougo.mapping.sandbox.*` reports cumulative statements, active milliseconds, allocated bytes, materialized bytes (import plus output), output bytes and maximum nesting, with their applicable limits. These are separate measurements, not additive memory quotas. Resource failures retain `exhausted_resource` and the counter snapshot in the durable error receipt. Inference waiting does not count as active sandbox time. Existing limits remain unchanged and are shared across cached candidates, repairs and specializations. These counts describe extraction work, not semantic correctness; independent execution oracles remain required.
+
+New private adaptive assignment records carry `adaptation_profile: 2`. Pending older assignments require explicit revision rather than reinterpretation under the new failure classification. Completed receipts, original issued requests, historical artifacts and uncertain invocations remain unchanged.
 
 ## Persistence and recovery
 

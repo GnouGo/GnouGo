@@ -65,6 +65,11 @@ public sealed partial class DynamicMappingExecutor
                 "A required complete mapping example exceeds the safe request allowance.", details: new JsonObject { ["source_index"] = index });
         }
         if (adaptiveIndices is not null && failedIndex is { } requiredIndex) Add(requiredIndex, true);
+        // Invalid syntax/signatures have no failing data item. Still reserve one
+        // complete fitting example before adding optional previous-program text.
+        if (adaptiveIndices is not null && failedIndex is null && previous is not null)
+            foreach (var index in adaptiveIndices)
+            { Add(index, false); if (examples.Count != 0) break; }
         if (adaptiveIndices is not null && previous is not null)
         {
             payload["previous_script"] = previous;

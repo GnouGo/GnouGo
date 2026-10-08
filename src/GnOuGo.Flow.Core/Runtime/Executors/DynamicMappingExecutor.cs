@@ -93,49 +93,55 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
         if (adaptive)
             return await ExecuteAdaptiveAsync(ctx, sources, collection!, eachInput!, eachOutput!, target, itemTarget!,
                 fingerprintData, sandbox, Model, ct);
-        var cached = persistent is null ? ctx.Engine.MappingMemory.GetValueOrDefault(key) : await persistent.ReadAsync(tenant!, key, ct);
-        ctx.SetTelemetryAttribute("gnougo.mapping.cache_hit", false);
-        if (cached is not null && cached.Key == key && cached.ProfileVersion == JintSandbox.MappingProfileVersion &&
-            (cached.ContentHash is null || cached.ContentHash == contentHash))
+        var allowance = sandbox.CreateMappingAllowance();
+        try
         {
-            try
+            var cached = persistent is null ? ctx.Engine.MappingMemory.GetValueOrDefault(key) : await persistent.ReadAsync(tenant!, key, ct);
+            ctx.SetTelemetryAttribute("gnougo.mapping.cache_hit", false);
+            if (cached is not null && cached.Key == key && cached.ProfileVersion == JintSandbox.MappingProfileVersion &&
+                (cached.ContentHash is null || cached.ContentHash == contentHash))
             {
-                var result = Evaluate(cached.Script);
-                ctx.SetTelemetryAttribute("gnougo.mapping.cache_hit", true);
-                return result;
+                try
+                {
+                    var result = Evaluate(cached.Script);
+                    ctx.SetTelemetryAttribute("gnougo.mapping.cache_hit", true);
+                    return result;
+                }
+                catch (WorkflowRuntimeException ex) when (ex.Code == "CONTRACT_UNSATISFIED" && ex.Details?["mapping_resource_limit"]?.GetValue<bool>() != true)
+                {
+                    ctx.Engine.MappingMemory.TryRemove(key, out _);
+                    if (persistent is not null) await persistent.RemoveAsync(tenant!, key, ct);
+                }
             }
-            catch (WorkflowRuntimeException ex) when (ex.Code == "CONTRACT_UNSATISFIED")
+            for (var attempt = 0; attempt < 2; attempt++)
             {
-                ctx.Engine.MappingMemory.TryRemove(key, out _);
-                if (persistent is not null) await persistent.RemoveAsync(tenant!, key, ct);
-            }
-        }
-        for (var attempt = 0; attempt < 2; attempt++)
-        {
-            ct.ThrowIfCancellationRequested();
-            ctx.SetTelemetryAttribute("gnougo.mapping.model_attempts", attempt + 1);
-            ctx.SetTelemetryAttribute("gnougo.mapping.repairs", attempt);
-            var response = await Model(attempt);
-            string? script = null;
-            try
-            {
-                JsonObject? payload;
-                try { payload = response["json"] as JsonObject ?? JsonNode.Parse(response["text"]?.GetValue<string>() ?? "null") as JsonObject; }
-                catch (JsonException) { throw JintSandbox.Unsatisfied("The model returned malformed mapping JSON."); }
-                script = payload?["script"] is JsonValue leaf && leaf.TryGetValue<string>(out var text) ? text : null;
-                if (string.IsNullOrWhiteSpace(script)) throw JintSandbox.Unsatisfied("The model did not return a mapping expression.");
-                var result = Evaluate(script);
-                var artifact = new MappingArtifact(key, script, InterpretsText(new Acornima.Parser().ParseExpression(script)) ? contentHash : null, JintSandbox.MappingProfileVersion);
-                if (persistent is not null) await persistent.WriteAsync(tenant!, artifact, ct);
-                else ctx.Engine.MappingMemory[key] = artifact;
+                ct.ThrowIfCancellationRequested();
+                ctx.SetTelemetryAttribute("gnougo.mapping.model_attempts", attempt + 1);
                 ctx.SetTelemetryAttribute("gnougo.mapping.repairs", attempt);
-                return result;
+                var response = await Model(attempt);
+                string? script = null;
+                try
+                {
+                    JsonObject? payload;
+                    try { payload = response["json"] as JsonObject ?? JsonNode.Parse(response["text"]?.GetValue<string>() ?? "null") as JsonObject; }
+                    catch (JsonException) { throw JintSandbox.Unsatisfied("The model returned malformed mapping JSON."); }
+                    script = payload?["script"] is JsonValue leaf && leaf.TryGetValue<string>(out var text) ? text : null;
+                    if (string.IsNullOrWhiteSpace(script)) throw JintSandbox.Unsatisfied("The model did not return a mapping expression.");
+                    var result = Evaluate(script);
+                    var artifact = new MappingArtifact(key, script, InterpretsText(new Acornima.Parser().ParseExpression(script)) ? contentHash : null, JintSandbox.MappingProfileVersion);
+                    if (persistent is not null) await persistent.WriteAsync(tenant!, artifact, ct);
+                    else ctx.Engine.MappingMemory[key] = artifact;
+                    ctx.SetTelemetryAttribute("gnougo.mapping.repairs", attempt);
+                    return result;
+                }
+                catch (WorkflowRuntimeException ex) when (ex.Code == "CONTRACT_UNSATISFIED" && ex.Details?["mapping_resource_limit"]?.GetValue<bool>() != true)
+                { previous = script; failure = ex.Message; failedIndex = ex.Details?["source_index"]?.GetValue<int>(); }
             }
-            catch (WorkflowRuntimeException ex) when (ex.Code == "CONTRACT_UNSATISFIED")
-            { previous = script; failure = ex.Message; failedIndex = ex.Details?["source_index"]?.GetValue<int>(); }
+            throw new WorkflowRuntimeException("CONTRACT_UNSATISFIED", "The required mapping could not be established after two bounded attempts: " + failure,
+                details: new JsonObject { ["consumer_binding"] = input["binding"]!.DeepClone(), ["mapping_attempts"] = 2, ["source_index"] = failedIndex });
+
         }
-        throw new WorkflowRuntimeException("CONTRACT_UNSATISFIED", "The required mapping could not be established after two bounded attempts: " + failure,
-            details: new JsonObject { ["consumer_binding"] = input["binding"]!.DeepClone(), ["mapping_attempts"] = 2, ["source_index"] = failedIndex });
+        finally { ObserveSandbox(ctx, allowance); }
 
         static JsonObject CheckReceipt(JsonObject receipt)
         {
@@ -146,7 +152,7 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
         JsonObject Evaluate(string script)
         {
             JintSandbox.ValidateMapping(script);
-            JsonNode? value = each is null ? sandbox.ExecuteMapping(script, sources, ct, target) : sandbox.ExecuteMappingItems(script, sources, eachInput!, itemTarget!, ct);
+            JsonNode? value = sandbox.ExecuteMappingValue(script, sources, each is null ? target : itemTarget!, eachInput, allowance, ct);
             if (each is not null && eachOutput != "") value = new JsonObject { [eachOutput!] = value };
             var findings = JsonSchemaContractValidator.ValidateInstance(value, target);
             if (findings.Count > 0) throw JintSandbox.Unsatisfied("The mapped result does not satisfy its target: " + string.Join("; ", findings));

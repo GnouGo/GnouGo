@@ -1,0 +1,197 @@
+{
+  "inference_calls": 0,
+  "external_actions": 0,
+  "retained_run_modified": false,
+  "source_run": "lookupselection20261008a-amazon-1",
+  "script_receipts_sha256": "2e68fa94bd8cf791d58e0fe68b018e88f95fc7790bdee6b9d356749ae02aba2f",
+  "attempts": [
+    {
+      "attempt": "0",
+      "message": "Mapping JavaScript contains an unsupported operation.",
+      "details": {
+        "mapping_failure_kind": "program",
+        "helper": null
+      },
+      "sandbox": {
+        "statements": 0,
+        "statement_limit": 10000,
+        "elapsed_ms": 0,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 0,
+        "materialized_bytes": 0,
+        "output_bytes": 0,
+        "memory_limit_bytes": 50000000,
+        "nesting_depth": 0,
+        "nesting_limit": 64
+      }
+    },
+    {
+      "attempt": "1",
+      "message": "Invalid mapping helper select: incorrect argument count.",
+      "details": {
+        "mapping_failure_kind": "program",
+        "helper": "select"
+      },
+      "sandbox": {
+        "statements": 0,
+        "statement_limit": 10000,
+        "elapsed_ms": 0,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 0,
+        "materialized_bytes": 0,
+        "output_bytes": 0,
+        "memory_limit_bytes": 50000000,
+        "nesting_depth": 0,
+        "nesting_limit": 64
+      }
+    },
+    {
+      "attempt": "2",
+      "message": "Invalid mapping helper select: incorrect argument count.",
+      "details": {
+        "mapping_failure_kind": "program",
+        "helper": "select"
+      },
+      "sandbox": {
+        "statements": 0,
+        "statement_limit": 10000,
+        "elapsed_ms": 0,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 0,
+        "materialized_bytes": 0,
+        "output_bytes": 0,
+        "memory_limit_bytes": 50000000,
+        "nesting_depth": 0,
+        "nesting_limit": 64
+      }
+    },
+    {
+      "attempt": "3",
+      "passed": 2,
+      "failed": 0,
+      "sandbox": {
+        "statements": 78,
+        "statement_limit": 10000,
+        "elapsed_ms": 51.2732,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 6329352,
+        "materialized_bytes": 256127,
+        "output_bytes": 943,
+        "memory_limit_bytes": 50000000,
+        "nesting_depth": 4,
+        "nesting_limit": 64
+      }
+    },
+    {
+      "attempt": "4",
+      "message": "Invalid mapping helper select: incorrect argument count.",
+      "details": {
+        "mapping_failure_kind": "program",
+        "helper": "select"
+      },
+      "sandbox": {
+        "statements": 78,
+        "statement_limit": 10000,
+        "elapsed_ms": 51.2732,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 6329352,
+        "materialized_bytes": 256127,
+        "output_bytes": 943,
+        "memory_limit_bytes": 50000000,
+        "nesting_depth": 4,
+        "nesting_limit": 64
+      }
+    },
+    {
+      "attempt": "5",
+      "passed": 1,
+      "failed": 0,
+      "sandbox": {
+        "statements": 121,
+        "statement_limit": 10000,
+        "elapsed_ms": 75.1734,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 9539440,
+        "materialized_bytes": 363796,
+        "output_bytes": 1636,
+        "memory_limit_bytes": 50000000,
+        "nesting_depth": 4,
+        "nesting_limit": 64
+      }
+    },
+    {
+      "attempt": "6",
+      "passed": 43,
+      "failed": 0,
+      "sandbox": {
+        "statements": 2417,
+        "statement_limit": 10000,
+        "elapsed_ms": 98.5429,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 23760608,
+        "materialized_bytes": 5081040,
+        "output_bytes": 28124,
+        "memory_limit_bytes": 50000000,
+        "nesting_depth": 4,
+        "nesting_limit": 64
+      }
+    },
+    {
+      "attempt": "7",
+      "message": "Invalid mapping helper select: incorrect argument count.",
+      "details": {
+        "mapping_failure_kind": "program",
+        "helper": "select"
+      },
+      "sandbox": {
+        "statements": 2417,
+        "statement_limit": 10000,
+        "elapsed_ms": 98.5429,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 23760608,
+        "materialized_bytes": 5081040,
+        "output_bytes": 28124,
+        "memory_limit_bytes": 50000000,
+        "nesting_depth": 4,
+        "nesting_limit": 64
+      }
+    },
+    {
+      "attempt": "8",
+      "passed": 1,
+      "failed": 0,
+      "sandbox": {
+        "statements": 2485,
+        "statement_limit": 10000,
+        "elapsed_ms": 108.1749,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 26403960,
+        "materialized_bytes": 5180548,
+        "output_bytes": 30340,
+        "memory_limit_bytes": 50000000,
+        "nesting_depth": 4,
+        "nesting_limit": 64
+      }
+    },
+    {
+      "attempt": "9",
+      "message": "Invalid mapping helper select: incorrect argument count.",
+      "details": {
+        "mapping_failure_kind": "program",
+        "helper": "select"
+      },
+      "sandbox": {
+        "statements": 2485,
+        "statement_limit": 10000,
+        "elapsed_ms": 108.1749,
+        "time_limit_ms": 5000,
+        "allocated_bytes": 26403960,
+        "materialized_bytes": 5180548,
+        "output_bytes": 30340,
+        "memory_limit_bytes": 50000000,
+        "nesting_depth": 4,
+        "nesting_limit": 64
+      }
+    }
+  ]
+}
