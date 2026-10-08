@@ -1,0 +1,202 @@
+[
+  {
+    "revision": 2,
+    "status": "stopped",
+    "diagnostics": [
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/build_blocked_workbook_tsv/inputs/landingState",
+        "message": "TASK_REFERENCE_UNKNOWN: Business reference 'extract_landing_state' is unavailable in this scope. Consumer scope: /tasks/run_workflow/otherwise; phase: tasks. Unknown task identity 'extract_landing_state'.",
+        "required": true,
+        "validationStage": "contract:TASK_REFERENCE_UNKNOWN",
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/run_workflow/condition",
+        "message": "TASK_REFERENCE_UNKNOWN: Business reference 'extract_landing_state' is unavailable in this scope. Consumer scope: /root; phase: tasks. Unknown task identity 'extract_landing_state'.",
+        "required": true,
+        "validationStage": "contract:TASK_REFERENCE_UNKNOWN",
+        "rule": null
+      },
+      {
+        "code": "TASK_DEPENDENCY_UNKNOWN",
+        "location": "/tasks/run_workflow/dependsOn",
+        "message": "Dependencies extract_landing_state must name preceding tasks in scope /root. Ancestor values may be captured without cross-scope dependsOn entries. Consumer scope: /root; phase: tasks. Unknown task identity 'extract_landing_state'.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/submit_search/inputs/reference",
+        "message": "TASK_REFERENCE_UNKNOWN: Business reference 'extract_landing_state' is unavailable in this scope. Consumer scope: /tasks/run_workflow/body; phase: tasks. Unknown task identity 'extract_landing_state'.",
+        "required": true,
+        "validationStage": "contract:TASK_REFERENCE_UNKNOWN",
+        "rule": null
+      },
+      {
+        "code": "REVISION_REQUIRED",
+        "location": "/tasks/build_blocked_workbook_tsv/inputs/landingState",
+        "message": "Business reference 'extract_landing_state' is unavailable in this scope. Consumer scope: /tasks/run_workflow/otherwise; phase: tasks. Unknown task identity 'extract_landing_state'. No compatible port of the referenced producer is available. Explicitly revise the dependency; a constant or unrelated producer cannot replace missing work.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_REQUIRED",
+        "location": "/tasks/run_workflow/condition",
+        "message": "Business reference 'extract_landing_state' is unavailable in this scope. Consumer scope: /root; phase: tasks. Unknown task identity 'extract_landing_state'. No compatible port of the referenced producer is available. Explicitly revise the dependency; a constant or unrelated producer cannot replace missing work.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "REVISION_REQUIRED",
+        "location": "/tasks/submit_search/inputs/reference",
+        "message": "Business reference 'extract_landing_state' is unavailable in this scope. Consumer scope: /tasks/run_workflow/body; phase: tasks. Unknown task identity 'extract_landing_state'. No compatible port of the referenced producer is available. Explicitly revise the dependency; a constant or unrelated producer cannot replace missing work.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "command": {
+      "mode": null,
+      "kind": "revise",
+      "expectedRevision": 2,
+      "artifactHash": null,
+      "text": "Review correction preserving all accepted requirements and public inputs/outputs. The proposal is not executable: extract_landing_state does not exist, so root guards, submit_search and blocked reporting reference missing work. Restore the actual initial navigation, complete observation, explicit handling of an observed blocking consent control if present, fresh observation and the declared typed landing interface BEFORE its consumers. Keep cleanup.\nThe pure adaptation boundary must also be honored: extract cannot synthesize hasCaptchaOrBlock/captureComplete/status/counters/nulls. Bind completeness from original producer metadata and use explicit interpret for decisions/classification. Extract only source-grounded observed facts under a minimal closed resultType. Independent page/record collections must use extract each, with observed IDs and facts only; flatten one level deterministically for a global decision. Keep full sources separately. Avoid passing the entire observationSnapshot object into a global extract or interpret.\nKeep action data outside LLM selection. Return selected candidate IDs from interpretation, validate them against the offered compact candidates and reconnect to retained observed records with the existing typed lookup binding, never an interpret transform that regenerates URLs. Suitable observed reference IDs can identify candidates; otherwise attach original indices deterministically before extraction. Retain exact URLs/references and use producer action semantics.\nPreserve actual per-product visits, complete product observations, observed field extraction, explicit missing-data reporting, real document_write and Browser cleanup. Use only observed references for interactions; no guessed site selectors. Selector body is acceptable for complete observation, never claim completeness after truncation. Write fields faithfully; reference actual document_write output for workbookPath. Return a complete valid business TaskPlan; no scripts, new inputs or reduced requirements.",
+      "preserveRequirements": true,
+      "selections": null,
+      "generation": null
+    }
+  },
+  {
+    "revision": 5,
+    "status": "clarification",
+    "diagnostics": [
+      {
+        "code": "TASK_LOOKUP_INVALID",
+        "location": "/tasks/lookup_initial_consent_control/outputs/consentControl",
+        "message": "Lookup requires typed records, a literal declared identity field and compatible string or integer selections.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_LOOKUP_INVALID",
+        "location": "/tasks/lookup_search_control/outputs/searchControl",
+        "message": "Lookup requires typed records, a literal declared identity field and compatible string or integer selections.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "command": {
+      "mode": null,
+      "kind": "revise",
+      "expectedRevision": 5,
+      "artifactHash": null,
+      "text": "Explicit global implementation revision, preserving accepted requirements, not a request to expand scoped repair authority. No new host binding is needed: lookup already exists in generation. Its second operand MUST be a nonnullable ARRAY of IDs, and its result is an ARRAY of original records. The two invalid lookups supplied a nullable scalar. Have decisions return zero-or-one ID arrays for controls, reconnect with lookup, and use an explicit existing foreach for actual actions. Both branches must expose matching typed outputs. Never treat a lookup array as a scalar record.\nOther review defects still require correction before execution. None of the extract transforms declares each. A pages array to an object with several arrays is GLOBAL extraction, not independent processing. For each page or record, use each:{input:<boundCollection>,output:<soleArrayResultField>} and a resultType with ONE array field whose items describe that page/item result; use array-valued items for zero-or-more candidates, then explicit one-level flatten. Process every original element; keep producer completeness checks separate and deterministic. Product-page extraction must also avoid a global raw-snapshot request.\nThe declared views are still broad and ask for invented originalIndex, classification and nullable placeholders. Prefer existing typed projection first. To establish short stable identities, deterministically flatten the typed observed page.records collections, then a pure value foreach binds {id:index, record:item} before any extraction or filtering. The typed index binding supplies identity; mapping must never count or manufacture it. Retain this authoritative indexed collection. Declare extraction targets only for actually observed minimal decision facts (e.g. id and observed text/tag); optional fields stay optional and absent rather than invented null. Decision inputs must exclude reference/URL/action payloads unless required for that decision. Interpret returns IDs only, lookup validates against offered candidates then reconnects to original indexed records, and actions read exact original record.reference or record.href. No LLM reconstruction of action arguments. Keep action compatibility explicit. Retain observed URLs separately.\nPreserve initial navigation, explicit observed consent when needed, fresh complete capture, query submission, complete search observations, real sequential product visits, observed product details, explicit interpret-only missing-data classification, actual XLSX writing and final Browser close. Completeness and record limits are checked from Browser metadata, never LLM truthiness. Keep all tasks/scopes/exports valid, with no opaque union interface or inaccessible inner IDs. Do not delete writing or cleanup to fix bindings. Do not request technical clarification that existing deterministic bindings already resolve.",
+      "preserveRequirements": true,
+      "selections": null,
+      "generation": null
+    }
+  },
+  {
+    "revision": 9,
+    "status": "stopped",
+    "diagnostics": [
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/initial_records_flat/outputs/records",
+        "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+        "required": true,
+        "validationStage": "contract:TASK_FIELD_TYPE",
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/lookup_selected_initial_consent_records/outputs/selectedConsentRecords",
+        "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+        "required": true,
+        "validationStage": "contract:TASK_FIELD_TYPE",
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/lookup_selected_product_records/outputs/selectedProductRecords",
+        "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+        "required": true,
+        "validationStage": "contract:TASK_FIELD_TYPE",
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/lookup_selected_search_records/outputs/selectedSearchRecords",
+        "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+        "required": true,
+        "validationStage": "contract:TASK_FIELD_TYPE",
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/product_records_flat/outputs/records",
+        "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+        "required": true,
+        "validationStage": "contract:TASK_FIELD_TYPE",
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/ready_records_flat/outputs/records",
+        "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+        "required": true,
+        "validationStage": "contract:TASK_FIELD_TYPE",
+        "rule": null
+      },
+      {
+        "code": "CONTRACT_UNSATISFIED",
+        "location": "/tasks/result_records_flat/outputs/records",
+        "message": "TASK_FIELD_TYPE: Field selection requires an authoritative object contract; opaque values cannot supply fields.",
+        "required": true,
+        "validationStage": "contract:TASK_FIELD_TYPE",
+        "rule": null
+      }
+    ],
+    "command": {
+      "mode": null,
+      "kind": "revise",
+      "expectedRevision": 9,
+      "artifactHash": null,
+      "text": "Preserve all accepted requirements and business work; explicitly revise implementation only. The remaining seven diagnostics are precise misuse of field on ARRAYS. field selects one property from one object, not a map across an array. Fix initial_records_flat, ready_records_flat, result_records_flat and product_records_flat by adding an explicit pure foreach over the observed pages in the corresponding scope; its body exports field(item,records) as a named output. That foreach output port is array<array<record>>. Apply one-level flatten to that named output port. Do not apply field(records) directly to pages.\nThe three lookup_selected_*_records tasks likewise must not field(id) over lookup_selected_*_facts arrays. Pass the SAME nonnullable selected-ID array returned by interpretation to both lookups, with dependsOn on the first lookup so offered-candidate validation must succeed before authoritative reconnection. The first lookup validates offered IDs; the second resolves against retained indexed records. No scalar coercion or guessed values.\nRetain actual operation loops, source ordering, duplicates, observed action references, explicit completeness guards and exact types. Use an explicit producer-compatible bound within existing host limits for pure record projections; these collections may contain thousands of records, whereas the product-action loop remains at most ten. This does not authorize increasing host limits or truncation.\nCheck the newly typed action inputs: record.reference and record.href may be nullable, so use explicit non-null guards on exactly those fields before click/fill/navigation. A separate state boolean does not refine them. Missing controls/URLs remain explicit errors/limitations, never guessed strings. Keep both conditional interfaces identical.\nNarrow extract each decision results to id, observed text/tag and genuinely required observed facts; avoid duplicating the same full text again in a facts array. Keep all original records/action fields separately. Dynamic extraction stays pure; interpret stays global only over complete compact results. Preserve all product visits, actual file write and Browser finalizer. Return the complete corrected TaskPlan; do not delete work or weaken requirements.",
+      "preserveRequirements": true,
+      "selections": null,
+      "generation": null
+    }
+  },
+  {
+    "revision": 11,
+    "status": "stopped",
+    "diagnostics": [
+      {
+        "code": "REQUIREMENTS_OUTPUTS_CHANGED",
+        "location": "/outputs/products",
+        "message": "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "command": {
+      "mode": null,
+      "kind": "revise",
+      "expectedRevision": 11,
+      "artifactHash": null,
+      "text": "Keep the now-valid typed projections, explicit per-record extraction, ID-only decisions, lookups, genuine action loops, document writes and cleanup unchanged. Correct the remaining public output mismatch without changing accepted requirements: requirements.products.items.originalIndex is OPTIONAL but NONNULLABLE integer. build_products_workbook_tsv and build_unready_workbook_tsv currently declare it nullable. Make all product-record schemas compatible with the accepted exact fields and enum; originalIndex may be omitted when there is no product, never null or invented. For blocked/empty cases the public products list can be empty while TSV truthfully explains the limitation. Both branch exports must have compatible product types; preserve the actual document_write path output.\nAlso correct the demonstrated collection bounds before review: initial_records_indexed, ready_records_indexed, result_records_indexed and product_records_indexed currently have maxItems:100 but observed complete records can be in the thousands. Set their explicitly approved task bound to 10000, within the UNCHANGED existing host limit. This is a bound on processing observations, not permission to truncate or select more products. The page-list projections remain maxItems:100 (producer maximum), action consent/search loops at most one, and visit_product_pages stays maxItems:10. Every original record must be processed. No increase to sandbox, model, host, campaign, token or time ceilings.\nCheck extraction contracts do not require an absent actions array for ordinary text records; only output observed values. Such fields may be optional; never invent empty placeholders or inferred classifications inside extract. When a decision needs action compatibility, only observed action metadata is allowed. Global decisions stay over compact complete views, with authoritative action fields kept separately. Preserve all previous work and scopes. This is the last allowed planning call; return one complete corrected TaskPlan without requests for new authority, added inputs or dropped business work.",
+      "preserveRequirements": true,
+      "selections": null,
+      "generation": null
+    }
+  }
+]

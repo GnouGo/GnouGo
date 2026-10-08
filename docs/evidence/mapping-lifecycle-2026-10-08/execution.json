@@ -1,0 +1,29 @@
+{
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "LOOP_LIMIT",
+      "Type": "LOOP_LIMIT",
+      "Message": "Loop iteration limit reached (1000) [workflow 'w_e64bef49eb1ad807', step 'n_9418992133cc93b3']",
+      "Retryable": false,
+      "Details": {
+        "failed_workflow": "w_e64bef49eb1ad807",
+        "failed_step_id": "n_9418992133cc93b3",
+        "failed_step_type": "loop.sequential",
+        "execution_phase": "step",
+        "workflow": "w_e64bef49eb1ad807",
+        "step_id": "n_9418992133cc93b3",
+        "step_type": "loop.sequential",
+        "step_status": "Failed"
+      }
+    }
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  }
+}
