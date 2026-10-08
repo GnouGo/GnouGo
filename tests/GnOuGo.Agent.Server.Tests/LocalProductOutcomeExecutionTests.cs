@@ -329,8 +329,8 @@ public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
                 Assert.DoesNotContain(checkpoint.Invocations.Values, i => i.Recovery == StepRecovery.External && i.DispatchedAt is not null && i.CompletedAt is null);
                 if (indexed)
                 {
-                    var origin = Assert.Single(session.Graph!.Workflows[0].Steps, n => n.Purpose == "Attach observation positions").Key;
-                    var indexing = Assert.Single(WorkflowParser.Parse(session.Yaml!).Workflows[doc.Entrypoint!].Steps,
+                    var origin = Assert.Single(session.Graph!.Workflows.SelectMany(w => w.Steps), n => n.Purpose == "Attach observation positions").Key;
+                    var indexing = Assert.Single(WorkflowParser.Parse(session.Yaml!).Workflows.Values.SelectMany(w => w.Steps),
                         s => s.Input?.ToJsonString().Contains(origin, StringComparison.Ordinal) == true);
                     Assert.Equal("set", indexing.Type);
                     Assert.Equal("set", Assert.Single(checkpoint.Invocations.Values, i => i.Id.EndsWith("/step/" + indexing.Id, StringComparison.Ordinal)).StepType);
