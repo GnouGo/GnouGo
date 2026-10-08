@@ -62,6 +62,11 @@ public sealed class BrowserToolsStructuredOutputTests
         var contentTool = tools.Single(t => t.ProtocolTool.Name == "browser_get_content");
         var published = BrowserMcpJson.ContentSchema(contentTool.ProtocolTool.OutputSchema!.Value);
         var properties = published.GetProperty("properties");
+        var acquisition = properties.GetProperty("acquisition").GetProperty("properties");
+        Assert.True(acquisition.TryGetProperty("navigation", out _));
+        Assert.True(acquisition.TryGetProperty("lastResponse", out _));
+        Assert.True(acquisition.TryGetProperty("recoveries", out var recoveries));
+        Assert.Equal("array", recoveries.GetProperty("type").EnumerateArray().First().GetString());
         var records = properties.GetProperty("observationSnapshot").GetProperty("properties").GetProperty("pages")
             .GetProperty("items").GetProperty("properties").GetProperty("records");
         Assert.Equal("array", records.GetProperty("type").GetString());

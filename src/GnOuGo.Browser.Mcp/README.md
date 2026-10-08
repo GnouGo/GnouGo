@@ -196,12 +196,34 @@ collection bindings; keep extraction and interpretation outside Browser.
 The producer buffers the full acquisition and checks its document generation
 before publishing. Navigation, including same-URL reloads, discards the entire
 attempt. It makes at most three acquisition attempts (two restarts), all sharing
-the requested timeout and cancellation. Only verified navigation invalidation is
-retried. The initial supplied URL is navigated once; no clicks, cookie decisions,
-mappings or business actions are replayed. Each retry resolves the original
+the original timeout and cancellation. Every attempt resolves the original
 selector against the current permitted document without selector fallback.
-The result has the observed current URL/title; HTTP status is omitted (`null`)
-because an initial navigation response does not certify a later document.
+
+An explicit URL acquisition can reload **once** when its captured document has
+zero records, an empty title and no meaningful body content. This requires the
+current document's verified successful GET response (excluding 204/205), with no
+intervening unsafe navigation. The discarded snapshot is invalidated completely;
+reload consumes an acquisition attempt and resets no allowance. Reads of the
+current page, submitted documents, HTTP errors and unknown navigation methods
+never trigger this recovery. Clicks, fills, submissions and business actions are
+never replayed. Empty selected regions in populated documents and non-text content
+remain valid observations; emptiness is not inferred from missing business fields.
+
+If the document remains unusable, or reload is ineligible, `OBSERVATION_EMPTY`
+returns a structured MCP error without a usable snapshot. This does not establish
+CAPTCHA, missing products or successful zero-result search. Normal failure handling
+and cleanup apply after the error receipt is durable; downstream interpretation
+and normal output writing must not run. Historical receipts are not reclassified.
+
+Optional `acquisition.navigation` identifies the current observed document and its
+verified HTTP status; status stays unknown when no matching response was observed.
+`lastResponse` retains the latest main-navigation HTTP response, including responses
+that never committed a document (for example 204). They are not interchangeable.
+`recoveries` records the discarded snapshot/generation, `empty_document` reason,
+`reloadRequested` flag and the navigation evidence at that time. A requested reload
+is not a claim that it completed. The top-level URL/title/status describe the final
+observed document, including on failure when available. Old acquisition records
+without these optional fields remain readable; refresh discovery for the additions.
 
 Existing capture bounds remain 10,000 records / 2,000,000 record characters and
 bounded DOM traversal. Page limits remain at most 24,000 serialized characters,
@@ -217,7 +239,7 @@ Legacy cursors remain strict. Known expired snapshot identities return
 `SNAPSHOT_EXPIRED`; malformed and unknown identities return `INVALID_INPUT`.
 `acquisition` metadata retains attempt counts and bounded invalidation records
 (snapshot ID, generation, reason and UTC timestamp). Reasons distinguish
-`navigation`, `interaction`, `closure` and `replacement`. The host retains only
+`navigation`, `interaction`, `closure`, `replacement` and `empty_document`. The host retains only
 64 recent invalidation identities, without old payloads; older unknown cursors
 still fail. Expiration events appear in existing traces/logs, and structured MCP
 results/errors retain the causes in workflow receipts and encrypted journals.

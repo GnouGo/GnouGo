@@ -16,6 +16,102 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class BrowserSnapshotReceiptTests
 {
+    [Fact]
+    public async Task EmptyAcquisitionCommitsFailureAndCleanupWithoutInferenceWritingOrReplay()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var root = Directory.CreateTempSubdirectory("empty-snapshot-receipt-").FullName;
+        var builder = WebApplication.CreateBuilder(); builder.Configuration.Sources.Clear(); builder.Logging.ClearProviders();
+        builder.WebHost.ConfigureKestrel(o => o.Listen(System.Net.IPAddress.Loopback, 0));
+        await using var site = builder.Build();
+        var visits = 0;
+        site.MapGet("/", async context =>
+        {
+            Interlocked.Increment(ref visits);
+            context.Response.ContentType = "text/html";
+            await context.Response.WriteAsync("<html><head><title></title></head><body></body></html>", ct);
+        });
+        await site.StartAsync(ct);
+        try
+        {
+            McpServerOptions Server(string name, Dictionary<string, string?> environment) => new()
+            {
+                Type = "stdio", Command = Environment.GetEnvironmentVariable("GNOU_GO_" + name.ToUpperInvariant() + "_MCP_TEST_EXECUTABLE") ??
+                    Path.Combine(AppContext.BaseDirectory, "GnOuGo." + name + ".Mcp" + (OperatingSystem.IsWindows() ? ".exe" : "")),
+                EnvironmentVariables = environment
+            };
+            await using var transport = new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>
+            {
+                ["browser"] = Server("Browser", new() { ["Browser__AllowedHosts__0"] = "127.0.0.1", ["Browser__KeepBrowserOpen"] = "false", ["Browser__HoldOpenMs"] = "0", ["OpenTelemetry__Enabled"] = "false" }),
+                ["document"] = Server("Document", new() { ["Document__DefaultWorkingDirectory"] = root, ["OpenTelemetry__Enabled"] = "false" })
+            });
+            EncryptedWorkflowRunStore Store() => new(new KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "index.db"), Path.Combine(root, "owners"));
+            var model = new UnexpectedModel();
+            var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = model, RunStore = Store(), Limits = new() { TenantId = "empty-tenant", RunId = "empty-run" } };
+            var yaml = """
+                version: 1
+                workflows:
+                  main:
+                    inputs:
+                      url: { type: string }
+                    steps:
+                      - id: capture
+                        type: mcp.call
+                        input:
+                          server: browser
+                          method: browser_get_content
+                          request: { url: '${data.inputs.url}', format: observation_complete }
+                      - id: interpret
+                        type: llm.call
+                        input: { model: deterministic, prompt: 'Interpret observed items' }
+                      - id: publish
+                        type: mcp.call
+                        input:
+                          server: document
+                          method: document_write
+                          request: { filePath: result.xlsx, content: 'Unsupported row' }
+                    finally:
+                      - id: close
+                        type: mcp.call
+                        input: { server: browser, method: browser_close, request: {} }
+                """;
+            var workflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml)).Workflows["main"];
+            var result = await engine.ExecuteAsync(workflow, new JsonObject { ["url"] = site.Urls.Single() + "/" }, ct);
+            Assert.False(result.Success);
+            Assert.Equal("MCP_CALL_ERROR", result.Error!.Code);
+            Assert.Equal("OBSERVATION_EMPTY", result.Error.Details!["mcp_error_code"]!.ToString());
+            Assert.Equal(2, visits); Assert.Equal(0, model.Calls); Assert.False(File.Exists(Path.Combine(root, "result.xlsx")));
+            var saved = (await Store().ReadAsync("empty-tenant", "empty-run", ct))!;
+            Assert.Equal(WorkflowRunStatus.Failed, saved.Status); Assert.True(saved.FinalizationCompleted);
+            Assert.DoesNotContain(saved.Invocations.Values, i => i.Id.EndsWith("/step/interpret", StringComparison.Ordinal) || i.Id.EndsWith("/step/publish", StringComparison.Ordinal));
+            var receipt = Assert.Single(saved.Invocations.Values, i => i.Id.EndsWith("/step/capture", StringComparison.Ordinal));
+            Assert.True(receipt.ExternalCompletionObserved); Assert.NotNull(receipt.CompletedAt);
+            var evidence = receipt.Observation!.ToJsonString();
+            Assert.Contains("OBSERVATION_EMPTY", evidence); Assert.Contains("empty_document", evidence); Assert.Contains("statusCode", evidence); Assert.Contains("recoveries", evidence);
+            var close = Assert.Single(saved.Invocations.Values, i => i.Id.EndsWith("/step/close", StringComparison.Ordinal));
+            Assert.True(close.ExternalCompletionObserved); Assert.NotNull(close.CompletedAt);
+            var recovered = (await Store().ReadAsync("empty-tenant", "empty-run", ct))!;
+            Assert.True(JsonNode.DeepEquals(receipt.Observation, recovered.Invocations[receipt.Id].Observation));
+            var restarted = new WorkflowEngine { McpClientFactory = transport, LLMClient = model, RunStore = Store() };
+            var replay = await restarted.ResumeAsync("empty-tenant", "empty-run", recovered.Revision, workflow, ct);
+            Assert.False(replay.Success); Assert.Equal(result.Error.Code, replay.Error!.Code);
+            Assert.Equal(2, visits); Assert.Equal(0, model.Calls); Assert.False(File.Exists(Path.Combine(root, "result.xlsx")));
+            Assert.Null(await Store().ReadAsync("other-tenant", "empty-run", ct));
+            Assert.True((await (await transport.GetClientAsync("browser", ct)).CallToolAsync("browser_get_content", new JsonObject(), ct)).IsError);
+        }
+        finally { await site.StopAsync(ct); Directory.Delete(root, true); }
+    }
+
+    private sealed class UnexpectedModel : ILLMClient
+    {
+        public int Calls { get; private set; }
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            Calls++;
+            throw new InvalidOperationException("Unusable acquisition must stop before inference.");
+        }
+    }
+
     [Theory]
     [InlineData(false, "activate")]
     [InlineData(true, "activate")]

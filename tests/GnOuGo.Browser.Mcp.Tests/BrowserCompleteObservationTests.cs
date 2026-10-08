@@ -34,7 +34,9 @@ public sealed class BrowserCompleteObservationTests
         };
         var result = await host.GetContentAsync(site.Origin, "load", 5000, "main", "observation_complete", 2400, false, ct, maxRecords: 2);
         Assert.True(result.Success); Assert.False(result.Truncated); Assert.Empty(result.Content);
-        Assert.Null(result.ObservationManifest); Assert.Null(result.Observation); Assert.Null(result.StatusCode);
+        Assert.Null(result.ObservationManifest); Assert.Null(result.Observation); Assert.Equal(200, result.StatusCode);
+        Assert.Equal(result.Url, result.Acquisition!.Navigation!.Url);
+        Assert.Equal("GET", result.Acquisition.Navigation.Method);
         var acquisition = Assert.IsType<BrowserSnapshotAcquisition>(result.Acquisition);
         Assert.Equal(2, acquisition.Attempts);
         var discarded = Assert.Single(acquisition.Invalidations);

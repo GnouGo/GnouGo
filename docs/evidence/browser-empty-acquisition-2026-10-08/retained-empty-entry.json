@@ -1,0 +1,33 @@
+{
+  "metadata": {
+    "url": "https://www.amazon.fr/",
+    "title": "",
+    "statusCode": null,
+    "success": true,
+    "truncated": false,
+    "acquisition": {
+      "attempts": 1,
+      "invalidations": []
+    }
+  },
+  "snapshot_metadata": {
+    "id": "3b70b0a5ea0443aba793929dd873ae9f",
+    "recordCount": 0,
+    "captureTruncated": false,
+    "manifestTruncated": false
+  },
+  "record_count": 0,
+  "records": [],
+  "cleanup": [
+    {
+      "closed": true,
+      "success": true,
+      "error_code": null
+    },
+    {
+      "closed": true,
+      "success": true,
+      "error_code": null
+    }
+  ]
+}

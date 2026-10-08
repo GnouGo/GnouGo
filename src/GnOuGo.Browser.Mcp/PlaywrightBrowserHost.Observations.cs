@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.ComponentModel;
+using System.Text.Json.Serialization;
 using Microsoft.Playwright;
 
 namespace GnOuGo.Browser.Mcp;
@@ -21,13 +22,24 @@ public sealed record BrowserObservationManifest(string Id, [property: Descriptio
 public sealed record BrowserObservationSnapshot(string Id, IReadOnlyList<BrowserObservation> Pages, int RecordCount,
     bool CaptureTruncated, bool ManifestTruncated);
 public sealed record BrowserSnapshotInvalidation(string SnapshotId, long Generation, string Reason, DateTimeOffset AtUtc);
-public sealed record BrowserSnapshotAcquisition(int Attempts, IReadOnlyList<BrowserSnapshotInvalidation> Invalidations);
+public sealed record BrowserSnapshotNavigation(long Generation, string Url, string? Title, string? Method, int? StatusCode);
+public sealed record BrowserNavigationResponse(string Url, string Method, int StatusCode);
+public sealed record BrowserSnapshotRecovery(string SnapshotId, long Generation, string Reason, bool ReloadRequested, BrowserSnapshotNavigation Navigation);
+public sealed record BrowserSnapshotAcquisition(int Attempts, IReadOnlyList<BrowserSnapshotInvalidation> Invalidations)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BrowserSnapshotNavigation? Navigation { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BrowserNavigationResponse? LastResponse { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<BrowserSnapshotRecovery>? Recoveries { get; init; }
+}
 internal sealed class BrowserObservationException(string code, string message, BrowserSnapshotAcquisition acquisition) : InvalidOperationException(message)
 {
     internal string Code { get; } = code;
     internal BrowserSnapshotAcquisition Acquisition { get; } = acquisition;
 }
-internal sealed record BrowserObservationCapture(List<BrowserObservationRecord> Records, bool Truncated);
+internal sealed record BrowserObservationCapture(List<BrowserObservationRecord> Records, bool Truncated, bool DocumentEmpty = false);
 
 public sealed partial class PlaywrightBrowserHost
 {
@@ -159,6 +171,57 @@ public sealed partial class PlaywrightBrowserHost
     {
         var invalidations = new List<BrowserSnapshotInvalidation>();
         var attempt = 0;
+        var recoveries = new List<BrowserSnapshotRecovery>();
+        IPage? page = null;
+        IRequest? pendingRequest = null, committedRequest = null;
+        int? pendingStatus = null;
+        BrowserSnapshotNavigation? navigation = null;
+        BrowserNavigationResponse? lastResponse = null;
+        var unsafeNavigation = false;
+        var reloaded = false;
+        IResponse? initialResponse = null;
+        // Subscribe before navigating. A response belongs only to the request that
+        // committed the current main document, never to a later same-URL reload.
+        void Requested(object? sender, IRequest request)
+        {
+            if (!request.IsNavigationRequest || request.Frame != page!.MainFrame) return;
+            lock (_observationLock)
+            {
+                pendingRequest = request; pendingStatus = null;
+                unsafeNavigation |= request.Method != "GET";
+            }
+        }
+        void Responded(object? sender, IResponse response)
+        {
+            if (!response.Request.IsNavigationRequest || response.Request.Frame != page!.MainFrame) return;
+            lock (_observationLock)
+            {
+                lastResponse = new(response.Url, response.Request.Method, response.Status);
+                if (response.Request == pendingRequest) pendingStatus = response.Status;
+                if (response.Request == committedRequest && navigation is not null)
+                    navigation = navigation with { StatusCode = response.Status };
+            }
+        }
+        void Navigated(object? sender, IFrame frame)
+        {
+            if (frame != page!.MainFrame) return;
+            lock (_observationLock)
+            {
+                committedRequest = pendingRequest?.Url == frame.Url ? pendingRequest : null;
+                navigation = new(_observationGeneration, frame.Url, null, committedRequest?.Method,
+                    committedRequest is null ? null : pendingStatus);
+                pendingRequest = null; pendingStatus = null;
+            }
+        }
+        BrowserSnapshotAcquisition Acquisition()
+        {
+            lock (_observationLock)
+                return new(attempt, invalidations.ToArray())
+                {
+                    Navigation = navigation, LastResponse = lastResponse,
+                    Recoveries = recoveries.Count == 0 ? null : recoveries.ToArray()
+                };
+        }
         if (ObservationLimit(characters) < 1024 || Math.Min(records ?? 200, _settings.MaxObservationRecords) < 1 || _settings.MaxObservationPages < 1)
             throw new BrowserObservationException("INVALID_INPUT", "Observation limits require at least 1024 characters, one record and one page.", new(0, []));
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -169,25 +232,27 @@ public sealed partial class PlaywrightBrowserHost
         var token = deadline.Token;
         try
         {
-            IPage page;
-            if (url is null) page = GetRequiredPage();
-            else
+            var target = url is null ? null : BrowserNavigationPolicy.ValidateNavigationTarget(url, _settings);
+            page = target is null ? GetRequiredPage() : await EnsurePageAsync().WaitAsync(token);
+            page.Request += Requested;
+            page.Response += Responded;
+            page.FrameNavigated += Navigated;
+            using var readiness = ObserveMainFrameNavigation(page);
+            if (target is not null)
             {
-                var target = BrowserNavigationPolicy.ValidateNavigationTarget(url, _settings);
                 InvalidateObservation("navigation");
-                page = await EnsurePageAsync().WaitAsync(token);
-                await page.GotoAsync(target.ToString(), new PageGotoOptions
+                initialResponse = await page.GotoAsync(target.ToString(), new PageGotoOptions
                     { WaitUntil = ParseWaitUntil(waitUntil), Timeout = Remaining() }).WaitAsync(token);
             }
-            // No re-navigation, actions or inference in recovery. All generations
-            // share this deadline, and nothing escapes before the final check.
+            // Navigation invalidation and one eligible empty-document reload share
+            // the original deadline and three captures. No interaction is replayed.
             for (attempt = 1; attempt <= 3; attempt++)
             {
                 var stamp = BeginObservation();
                 var published = false;
                 try
                 {
-                    await page.WaitForLoadStateAsync(ParseLoadState(waitUntil), new PageWaitForLoadStateOptions { Timeout = Remaining() }).WaitAsync(token);
+                    await readiness.WaitForLoadStateAsync(ParseLoadState(waitUntil), Remaining(), token);
                     EnsureCurrent(stamp);
                     BrowserNavigationPolicy.ValidateNavigationTarget(page.Url, _settings);
                     // Complete acquisition must not silently broaden a requested selector.
@@ -196,17 +261,52 @@ public sealed partial class PlaywrightBrowserHost
                     EnsureCurrent(stamp);
                     var resolution = new ContentLocatorResolution(locator, requested, false, null);
                     var manifestResult = await CaptureObservationAsync(page, locator, resolution, selector, null, characters, records, token, true, stamp);
+                    lock (_observationLock)
+                    {
+                        EnsureCurrent(stamp);
+                        navigation = navigation is not null && navigation.Url == manifestResult.Url
+                            ? navigation with { Title = manifestResult.Title }
+                            : new(stamp.Generation, manifestResult.Url, manifestResult.Title, null, null);
+                        manifestResult = manifestResult with { StatusCode = navigation.StatusCode };
+                    }
                     var manifest = manifestResult.ObservationManifest!;
                     if (manifest.CaptureTruncated || manifest.ManifestTruncated)
-                        throw new BrowserObservationException("OBSERVATION_INCOMPLETE", "A complete snapshot exceeds capture or page bounds. Narrow the requested observation explicitly.", new(attempt, invalidations.ToArray()));
+                        throw new BrowserObservationException("OBSERVATION_INCOMPLETE", "A complete snapshot exceeds capture or page bounds. Narrow the requested observation explicitly.", Acquisition());
                     ObservationSnapshot snapshot;
                     lock (_observationLock) { EnsureCurrent(stamp); snapshot = _observation!; }
+                    if (manifest.RecordCount == 0 && snapshot.Capture.DocumentEmpty && string.IsNullOrWhiteSpace(manifestResult.Title))
+                    {
+                        bool reload;
+                        lock (_observationLock)
+                        {
+                            EnsureCurrent(stamp);
+                            reload = !reloaded && attempt < 3 && initialResponse is not null && !unsafeNavigation &&
+                                committedRequest == initialResponse.Request && navigation!.Method == "GET" &&
+                                navigation.StatusCode is >= 200 and < 300 and not (204 or 205);
+                            recoveries.Add(new(snapshot.Id, stamp.Generation, "empty_document", reload, navigation!));
+                            InvalidateObservation("empty_document");
+                            invalidations.Add(stamp.Invalidation!);
+                        }
+                        Activity.Current?.AddEvent(new ActivityEvent("browser.snapshot.empty", tags: new ActivityTagsCollection
+                        {
+                            ["browser.snapshot.id"] = snapshot.Id, ["browser.snapshot.attempt"] = attempt,
+                            ["browser.snapshot.reason"] = "empty_document", ["browser.snapshot.reload"] = reload,
+                            ["http.response.status_code"] = navigation?.StatusCode
+                        }));
+                        _logger.LogInformation("Empty Browser snapshot {SnapshotId}, attempt {Attempt}, reload {Reload}", snapshot.Id, attempt, reload);
+                        if (!reload)
+                            throw new BrowserObservationException("OBSERVATION_EMPTY", "The document is empty or unusable. No business absence or blocker can be established from this acquisition.", Acquisition());
+                        reloaded = true;
+                        BrowserNavigationPolicy.ValidateNavigationTarget(page.Url, _settings);
+                        await page.ReloadAsync(new PageReloadOptions { WaitUntil = ParseWaitUntil(waitUntil), Timeout = Remaining() }).WaitAsync(token);
+                        continue;
+                    }
                     var pages = snapshot.Pages.Select(p => p.Observation! with { NextCursor = null }).ToArray();
                     var result = manifestResult with
                     {
                         Format = "observation_complete", ObservationManifest = null, Truncated = false,
                         ObservationSnapshot = new(snapshot.Id, pages, manifest.RecordCount, false, false),
-                        Acquisition = new(attempt, invalidations.ToArray())
+                        Acquisition = Acquisition()
                     };
                     var aggregateLimit = checked(ObservationLimit(characters) * Math.Min(_settings.MaxObservationPages, 100));
                     if (JsonSerializer.Serialize(result, BrowserMcpJsonContext.Default.BrowserContentResult).Length > aggregateLimit)
@@ -226,18 +326,18 @@ public sealed partial class PlaywrightBrowserHost
                         return result;
                     }
                 }
-                catch (PlaywrightException) when (stamp.Invalidation is not null)
+                catch (PlaywrightException) when (stamp.Invalidation is { Reason: not "empty_document" })
                 {
                     var failure = Expired(stamp.Invalidation);
                     invalidations.AddRange(failure.Acquisition.Invalidations);
                     if (stamp.Invalidation.Reason != "navigation" || attempt == 3)
-                        throw new BrowserObservationException(failure.Code, failure.Message, new(attempt, invalidations.ToArray()));
+                        throw new BrowserObservationException(failure.Code, failure.Message, Acquisition());
                 }
                 catch (BrowserObservationException ex) when (ex.Code == "SNAPSHOT_EXPIRED")
                 {
                     invalidations.AddRange(ex.Acquisition.Invalidations);
                     if (ex.Acquisition.Invalidations.Any(i => i.Reason != "navigation") || attempt == 3)
-                        throw new BrowserObservationException(ex.Code, ex.Message, new(attempt, invalidations.ToArray()));
+                        throw new BrowserObservationException(ex.Code, ex.Message, Acquisition());
                 }
                 finally
                 {
@@ -256,15 +356,35 @@ public sealed partial class PlaywrightBrowserHost
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested && deadline.IsCancellationRequested)
         {
-            throw new BrowserObservationException("TIMEOUT", "Complete snapshot acquisition exceeded its shared timeout.", new(attempt, invalidations.ToArray()));
+            throw new BrowserObservationException("TIMEOUT", "Complete snapshot acquisition exceeded its shared timeout.", Acquisition());
         }
         catch (TimeoutException)
         {
-            throw new BrowserObservationException("TIMEOUT", "Complete snapshot acquisition exceeded its shared timeout.", new(attempt, invalidations.ToArray()));
+            throw new BrowserObservationException("TIMEOUT", "Complete snapshot acquisition exceeded its shared timeout.", Acquisition());
+        }
+        catch (OperationCanceledException ex) when (ct.IsCancellationRequested)
+        {
+            // Preserve the public host's cancellation semantics; the tool boundary
+            // can still retain the bounded acquisition evidence in its error receipt.
+            ex.Data[nameof(BrowserSnapshotAcquisition)] = Acquisition();
+            throw;
+        }
+        catch (PlaywrightException)
+        {
+            throw new BrowserObservationException("BROWSER_ERROR", "The Browser could not complete snapshot acquisition.", Acquisition());
         }
         catch (InvalidOperationException ex) when (ex is not BrowserObservationException)
         {
-            throw new BrowserObservationException("INVALID_INPUT", ex.Message, new(attempt, invalidations.ToArray()));
+            throw new BrowserObservationException("INVALID_INPUT", ex.Message, Acquisition());
+        }
+        finally
+        {
+            if (page is not null)
+            {
+                page.Request -= Requested;
+                page.Response -= Responded;
+                page.FrameNavigated -= Navigated;
+            }
         }
     }
 
@@ -373,6 +493,27 @@ public sealed partial class PlaywrightBrowserHost
           const records = [], elements = [], states = [], actionState = __ACTION_STATE__, owned = 'a[href],button,[role="button"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[contenteditable="true"],h1,h2,h3,h4,h5,h6,input,select,textarea';
           let visited = 0, size = 0, truncated = false;
           const text = s => (s || '').replace(/\s+/g, ' ').trim();
+          const documentEmpty = () => {
+            if (records.length || truncated || text(document.title) || !document.body) return false;
+            let count = 0, n = document.body.firstChild;
+            while (n) {
+              if (++count > 20000) return false; // unknown, never evidence of emptiness
+              const element = n.nodeType === 1;
+              const style = element ? getComputedStyle(n) : null;
+              const skip = element && (n.matches('script,style,noscript,template') || n.hidden ||
+                n.getAttribute('aria-hidden') === 'true' || style.display === 'none' || style.visibility === 'hidden');
+              if (!skip) {
+                if (n.nodeType === 3 && text(n.textContent).length > 0 || element &&
+                    (n.matches('img,svg,canvas,video,audio,iframe,object,embed,input,select,button,textarea,[contenteditable="true"],[role]') ||
+                     style.backgroundImage !== 'none')) return false;
+                if (n.firstChild) { n = n.firstChild; continue; }
+              }
+              while (n && n !== document.body && !n.nextSibling) n = n.parentNode;
+              if (!n || n === document.body) break;
+              n = n.nextSibling;
+            }
+            return true;
+          };
           const selector = e => {
             const parts = [];
             const unique = s => { const matches = document.querySelectorAll(s); return matches.length === 1 && matches[0] === e; };
@@ -384,7 +525,7 @@ public sealed partial class PlaywrightBrowserHost
             }
             return parts.join(' > ');
           };
-          if (root.closest('script,style,noscript,template,svg,[hidden],[aria-hidden="true"]') || getComputedStyle(root).display === 'none' || getComputedStyle(root).visibility === 'hidden') return {json: JSON.stringify({records, truncated}), elements, states};
+          if (root.closest('script,style,noscript,template,svg,[hidden],[aria-hidden="true"]') || getComputedStyle(root).display === 'none' || getComputedStyle(root).visibility === 'hidden') return {json: JSON.stringify({records, truncated, documentEmpty: documentEmpty()}), elements, states};
           const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
             acceptNode: e => {
               if (++visited > 20000) { truncated = true; return NodeFilter.FILTER_REJECT; }
@@ -413,7 +554,7 @@ public sealed partial class PlaywrightBrowserHost
             }
             element = walker.nextNode();
           }
-          return {json: JSON.stringify({records, truncated}), elements, states};
+          return {json: JSON.stringify({records, truncated, documentEmpty: documentEmpty()}), elements, states};
         }
         """.Replace("__ACTION_STATE__", ObservedActionStateScript, StringComparison.Ordinal);
 }
