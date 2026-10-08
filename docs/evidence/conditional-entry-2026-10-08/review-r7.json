@@ -1,0 +1,177 @@
+{
+  "revision": 7,
+  "status": "stopped",
+  "diagnostics": [
+    {
+      "code": "TASK_TRANSFORM_EACH",
+      "location": "/tasks/extract_product_facts_by_page/each",
+      "message": "Identify one bound collection input and the sole nonnullable array result field.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_TRANSFORM_EACH",
+      "location": "/tasks/project_current_entry_record_views/each",
+      "message": "Identify one bound collection input and the sole nonnullable array result field.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_TRANSFORM_EACH",
+      "location": "/tasks/project_entry_record_views/each",
+      "message": "Identify one bound collection input and the sole nonnullable array result field.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_TRANSFORM_EACH",
+      "location": "/tasks/project_result_record_views/each",
+      "message": "Identify one bound collection input and the sole nonnullable array result field.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_LOOKUP_INVALID",
+      "location": "/tasks/resolve_selected_candidates/outputs/candidates",
+      "message": "Lookup requires typed records, a literal declared identity field and compatible string or integer selections.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_CONDITIONAL_REQUIREMENT",
+      "location": "/tasks/search_and_collect_candidates/condition",
+      "message": "Operation 'submit_search_query' requires not(select_search_reference.captcha_detected) at /tasks/submit_search_query/requires, but the body path of 'search_and_collect_candidates' does not establish it. Guard the conditional entry without weakening requires. Consumer scope: /tasks/search_and_collect_candidates/body; phase: tasks. Producer 'select_search_reference': scope /root; phase: tasks.",
+      "required": true,
+      "validationStage": null,
+      "rule": "/tasks/submit_search_query/requires"
+    },
+    {
+      "code": "REVISION_REQUIRED",
+      "location": "/tasks/search_and_collect_candidates/condition",
+      "message": "Operation 'submit_search_query' requires not(select_search_reference.captcha_detected) at /tasks/submit_search_query/requires, but the body path of 'search_and_collect_candidates' does not establish it. Guard the conditional entry without weakening requires. Consumer scope: /tasks/search_and_collect_candidates/body; phase: tasks. Producer 'select_search_reference': scope /root; phase: tasks. Changing this entry also affects other work, an alternative or finalization, or cannot safely establish the guard. Explicitly revise the condition; requires and unrelated work remain immutable.",
+      "required": true,
+      "validationStage": null,
+      "rule": "/tasks/submit_search_query/requires"
+    }
+  ],
+  "result": {
+    "status": "stopped",
+    "planning_ms": 420704,
+    "calls": 5,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 2,
+    "diagnostics": [
+      {
+        "code": "TASK_TRANSFORM_EACH",
+        "location": "/tasks/extract_product_facts_by_page/each",
+        "message": "Identify one bound collection input and the sole nonnullable array result field.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_TRANSFORM_EACH",
+        "location": "/tasks/project_current_entry_record_views/each",
+        "message": "Identify one bound collection input and the sole nonnullable array result field.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_TRANSFORM_EACH",
+        "location": "/tasks/project_entry_record_views/each",
+        "message": "Identify one bound collection input and the sole nonnullable array result field.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_TRANSFORM_EACH",
+        "location": "/tasks/project_result_record_views/each",
+        "message": "Identify one bound collection input and the sole nonnullable array result field.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_LOOKUP_INVALID",
+        "location": "/tasks/resolve_selected_candidates/outputs/candidates",
+        "message": "Lookup requires typed records, a literal declared identity field and compatible string or integer selections.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      },
+      {
+        "code": "TASK_CONDITIONAL_REQUIREMENT",
+        "location": "/tasks/search_and_collect_candidates/condition",
+        "message": "Operation 'submit_search_query' requires not(select_search_reference.captcha_detected) at /tasks/submit_search_query/requires, but the body path of 'search_and_collect_candidates' does not establish it. Guard the conditional entry without weakening requires. Consumer scope: /tasks/search_and_collect_candidates/body; phase: tasks. Producer 'select_search_reference': scope /root; phase: tasks.",
+        "required": true,
+        "validationStage": null,
+        "rule": "/tasks/submit_search_query/requires"
+      },
+      {
+        "code": "REVISION_REQUIRED",
+        "location": "/tasks/search_and_collect_candidates/condition",
+        "message": "Operation 'submit_search_query' requires not(select_search_reference.captcha_detected) at /tasks/submit_search_query/requires, but the body path of 'search_and_collect_candidates' does not establish it. Guard the conditional entry without weakening requires. Consumer scope: /tasks/search_and_collect_candidates/body; phase: tasks. Producer 'select_search_reference': scope /root; phase: tasks. Changing this entry also affects other work, an alternative or finalization, or cannot safely establish the guard. Explicitly revise the condition; requires and unrelated work remain immutable.",
+        "required": true,
+        "validationStage": null,
+        "rule": "/tasks/submit_search_query/requires"
+      }
+    ],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 5,
+        "physical_attempts": 5,
+        "known_input_tokens": 75091,
+        "known_output_tokens": 25253,
+        "known_cost_eur": 1.0054530126896797,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 894,
+        "session_calls": 0,
+        "known_input_tokens": 13300613,
+        "known_output_tokens": 1773065,
+        "known_cost_eur": 106.51238380518801,
+        "reserved_input_tokens": 384000,
+        "reserved_output_tokens": 131072,
+        "reserved_cost_eur": 5.203327457848472,
+        "cost_upper_bound_eur": 111.71571126303648,
+        "unknown_attempts": 4
+      }
+    }
+  },
+  "revision_command": {
+    "mode": null,
+    "kind": "revise",
+    "expectedRevision": 7,
+    "artifactHash": null,
+    "text": "Explicit implementation revision of revision 7, preserving accepted requirements and all business operations, outputs and cleanup:\n1. Preserve search_and_collect_candidates.condition and conjoin NOT select_search_reference.captcha_detected. Do not remove submit_search_query.requires or change either business branch to evade it. This shared branch needs explicit revision, now authorized.\n2. Fix each declarations using the actual input names and sole result array names. If retained: project_entry_record_views / project_current_entry_record_views use each {input: entry_pages, output: record_views_by_page}; project_result_record_views uses {input: result_pages, output: record_views_by_page}; extract_product_facts_by_page uses {input: product_pages, output: facts_by_page}. 'each.input' names an existing bound collection, not a new singular alias; its resultType describes the whole assembled collection. Inference cannot invent original_index, candidate_id, classifications, statuses or field_kind strings: declared Browser records already have typed fields (kind,tag,selector,group,text,href,role,reference,actions), not original_index or offered_id. Prefer deterministic copy-only foreach/value bindings with existing index when adding original positions, followed by explicit flatten, rather than learned mapping for these typed copies. Keep typed original records separately with the same deterministic IDs, and explicitly project only identity + decision text into interpret. No learned index generation or flat >1000-item mapping each.\n3. Correct lookup argument order and literal key: lookup(port: actual existing identity field, items: [typed source records, selected IDs]). Check IDs against the offered compact view first, then against retained originals. Repeated selected IDs remain valid. The current resolve_selected_candidates operands are reversed and its port is not an identity field. Do not return URLs or references from interpretation as authoritative action arguments.\n4. Do not require extract outputs to fabricate classifications or statuses. Interpret may classify compact observed text; typed copies remain deterministic. For product fields use bounded independent page extraction only for genuinely untyped extraction, with optional observed facts in a sole nested-array output, followed by flatten and a global interpretation on those compact facts. Or deterministic record field projections may provide the compact observed text directly. Missing business data is explicit, never invented. Preserve all source coverage, completeness requirements, real visits, real workbook writing, truthful outputs and cleanup. Preserve existing limits and budgets. Correct implementation, not just objective descriptions.",
+    "preserveRequirements": true,
+    "selections": null,
+    "generation": null
+  }
+}

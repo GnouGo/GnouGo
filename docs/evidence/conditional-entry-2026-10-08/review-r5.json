@@ -1,0 +1,67 @@
+{
+  "revision": 5,
+  "status": "final_review",
+  "diagnostics": [],
+  "result": {
+    "status": "final_review",
+    "planning_ms": 263596,
+    "calls": 4,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 1,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 4,
+        "physical_attempts": 4,
+        "known_input_tokens": 53939,
+        "known_output_tokens": 11620,
+        "known_cost_eur": 0.5486689147218031,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 893,
+        "session_calls": 0,
+        "known_input_tokens": 13279461,
+        "known_output_tokens": 1759432,
+        "known_cost_eur": 106.05559970722013,
+        "reserved_input_tokens": 384000,
+        "reserved_output_tokens": 131072,
+        "reserved_cost_eur": 5.203327457848472,
+        "cost_upper_bound_eur": 111.2589271650686,
+        "unknown_attempts": 4
+      }
+    }
+  },
+  "revision_command": {
+    "mode": null,
+    "kind": "revise",
+    "expectedRevision": 5,
+    "artifactHash": "93e48fb8375ad88a69f4694d84d53f7e989fe1dcef35be52e13f2ab96f893e88",
+    "text": "Revision 5 compiles, but is not approved: inspect_entry_page and select_search_reference still bind raw observationSnapshot.pages directly to global interpret. select_first_ten_products also consumes raw pages, and extract_product_page_data requests one product from the entire page collection without independent extraction. Renaming these inputs or narrowing only their OUTPUT does not reduce the INPUT or establish original action data. Please implement the actual composition, not just its objective text.\nPreserve all accepted requirements, write_products_xlsx and its real filePath export, actual per-product visits, original ordering and cleanup. Add explicit typed value bindings/projections to turn complete page.records collections into the fields needed by each consumer (using existing copy-only foreach, explicit flatten, and original index if no suitable producer identity). Retain complete original records separately. Each decision receives compact identity+text and only other necessary decision fields, not selectors or full page envelopes. The global decision returns observed IDs only; lookup first checks the offered view then resolves original records before any action. Do not return regenerated URLs or references from interpretation. Expose required nullable/control action facts and make optional branch conditions establish them before interacting.\nFor non-typed product facts, use transform mode extract with explicit each input=product_pages and an array output, returning one compact nested array of observed fields per complete page. Flatten those declared results explicitly, then interpret only the compact observed facts to choose the product values and truthful missing-data status. Do not ask extraction to invent status strings or indices. Alternatively deterministic projections of already typed record fields require no extraction. Do not copy a whole page/record just to call it compact. No truncation, sampling of the global decision, increased limits or discarded pages. Necessary facts and source references remain preserved outside the decision view. Guard original producer completeness and keep required checks after their producers. Keep the final file write and cleanup, and preserve products outputs from actual observations. Use only existing contracts and value kinds. This is an explicit structural implementation revision with unchanged accepted intent and cumulative budgets.",
+    "preserveRequirements": true,
+    "selections": null,
+    "generation": null
+  },
+  "manual_review": {
+    "approved": false,
+    "reason": "Raw page collections still enter entry interpretation. Other copies need bounded extraction or deterministic typed projection."
+  }
+}

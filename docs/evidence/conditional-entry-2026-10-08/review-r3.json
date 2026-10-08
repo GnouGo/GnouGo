@@ -1,0 +1,81 @@
+{
+  "revision": 3,
+  "status": "stopped",
+  "diagnostics": [
+    {
+      "code": "REQUIREMENTS_OUTPUTS_CHANGED",
+      "location": "/outputs/products_file",
+      "message": "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "result": {
+    "status": "stopped",
+    "planning_ms": 97195,
+    "calls": 3,
+    "repairs": 0,
+    "discovery_reads": 2,
+    "review_revisions": 0,
+    "diagnostics": [
+      {
+        "code": "REQUIREMENTS_OUTPUTS_CHANGED",
+        "location": "/outputs/products_file",
+        "message": "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 3,
+        "physical_attempts": 3,
+        "known_input_tokens": 34724,
+        "known_output_tokens": 6420,
+        "known_cost_eur": 0.32498003372082707,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 892,
+        "session_calls": 0,
+        "known_input_tokens": 13260246,
+        "known_output_tokens": 1754232,
+        "known_cost_eur": 105.83191082621916,
+        "reserved_input_tokens": 384000,
+        "reserved_output_tokens": 131072,
+        "reserved_cost_eur": 5.203327457848472,
+        "cost_upper_bound_eur": 111.03523828406763,
+        "unknown_attempts": 4
+      }
+    }
+  },
+  "revision_command": {
+    "mode": null,
+    "kind": "revise",
+    "expectedRevision": 3,
+    "artifactHash": null,
+    "text": "Explicit implementation revision: preserve all accepted requirements, public inputs/outputs, original business operations and cleanup. Correct products_file to use a real document_write result field whose authoritative schema satisfies the accepted nonnullable string, with required success/presence assertions; do not substitute the destination literal for the writing result or remove the write.\nThe proposal also forwards entire Browser results directly into global interpretation and a whole search collection to a single extract. These are not bounded compaction. Revise using existing typed selection first, and independent extract each over complete producer pages where extraction is needed, with a narrow declared resultType per immediate consumer. Process every page; flatten only one declared level. Keep complete observations and exact action arguments separately. Global decisions receive only compact decision fields/IDs, with deterministic lookup to original records. Do not ask extraction to invent original indices, classifications, status values or select the first ten; original positions must come from deterministic bindings and business selection remains interpret over the complete compact candidate view. Do not flatten an unbounded record collection into mapping each; the existing 1000-item host ceiling remains.\nKeep actual per-product visits, observed-value extraction, explicit missing-data handling, real workbook writing and unconditional Browser cleanup. Do not forward raw observation envelopes into interpretation or return success/empty products when observations are incomplete. Add fail-fast completeness requirements using exact producer metadata. Any entry-known operation requires under a branch must already be implied by its condition; newly observed-result checks remain runtime assertions. Preserve nullable data and exact typed branch exports; never invent selectors or action compatibility. This is a full explicit revision because compaction needs task structure changes; all requirements and budgets remain unchanged.",
+    "preserveRequirements": true,
+    "selections": null,
+    "generation": null
+  }
+}
