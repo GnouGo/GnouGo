@@ -1,0 +1,11 @@
+{
+  "initial_continuation": "rejected before dispatch: frozen PATH fingerprint mismatch",
+  "original_path_hash": "8ee4a8d9877f93a76c508060a1030316fd460d9f4d05087fb9f95873c8a27061",
+  "restored_exact_path_hash": "8ee4a8d9877f93a76c508060a1030316fd460d9f4d05087fb9f95873c8a27061",
+  "restoration": "Existing prior Codex helper directory substituted for the new session helper directory; other PATH entries unchanged. dotnet, node, python3 and git resolve to the same executables.",
+  "source": "fb07a92c888a07358ed12d1ce92fdcd24db83937",
+  "frozen_binary_hashes_match": true,
+  "manifest_guard_bypassed": false,
+  "historical_manifest_modified": false,
+  "provider_dispatch_on_rejected_attempt": false
+}

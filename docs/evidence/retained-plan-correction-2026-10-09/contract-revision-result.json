@@ -1,0 +1,60 @@
+{
+  "revision": 5,
+  "artifact_hash": "6f80c50fffa968d9561853a221408566300beff335b44a5a5713329470405855",
+  "plan_delta": [
+    [
+      "/root/tasks/9/resultType/fields/0/type/items/nullable",
+      true,
+      false
+    ]
+  ],
+  "requirements_unchanged": true,
+  "result": {
+    "status": "final_review",
+    "planning_ms": 507483,
+    "calls": 4,
+    "repairs": 1,
+    "discovery_reads": 2,
+    "review_revisions": 1,
+    "diagnostics": [],
+    "execution_success": false,
+    "execution_oracle": false,
+    "execution_status": "not_started",
+    "accounting": {
+      "planning": {
+        "logical_calls": 4,
+        "physical_attempts": 5,
+        "known_input_tokens": 26670,
+        "known_output_tokens": 9759,
+        "known_cost_eur": 0.3781347058301535,
+        "unknown_attempts": 1,
+        "reserved_input_tokens": 96000,
+        "reserved_output_tokens": 32768,
+        "reserved_cost_eur": 1.2982873369420533
+      },
+      "execution": {
+        "logical_calls": 0,
+        "physical_attempts": 0,
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "known_cost_eur": 0,
+        "unknown_attempts": 0,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0
+      },
+      "campaign": {
+        "calls": 918,
+        "session_calls": 0,
+        "known_input_tokens": 13556498,
+        "known_output_tokens": 1853946,
+        "known_cost_eur": 109.80092316094273,
+        "reserved_input_tokens": 480000,
+        "reserved_output_tokens": 163840,
+        "reserved_cost_eur": 6.501614794790526,
+        "cost_upper_bound_eur": 116.30253795573326,
+        "unknown_attempts": 5
+      }
+    }
+  }
+}

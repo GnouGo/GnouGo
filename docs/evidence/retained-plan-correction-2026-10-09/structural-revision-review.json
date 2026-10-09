@@ -1,0 +1,357 @@
+{
+  "run": "consumerbindings20261009b-amazon-1",
+  "status": "clarification",
+  "revision": 8,
+  "artifact_hash": null,
+  "requirements_unchanged": true,
+  "operation_identity_scope_order_unchanged": true,
+  "operations": [
+    {
+      "scope": "root/tasks",
+      "id": "open_amazon_fr",
+      "operation": "cap_490d9e16075cbdca5954ec27"
+    },
+    {
+      "scope": "root/tasks/accept_consent_if_present/body/tasks",
+      "id": "click_consent",
+      "operation": "cap_dd05fbf36e155a64318f3588"
+    },
+    {
+      "scope": "root/tasks",
+      "id": "read_ready_home",
+      "operation": "cap_490d9e16075cbdca5954ec27"
+    },
+    {
+      "scope": "root/tasks/submit_search_if_possible/body/tasks",
+      "id": "fill_and_submit_query",
+      "operation": "cap_416310ac4ff2808dc91e3a14"
+    },
+    {
+      "scope": "root/tasks",
+      "id": "read_search_results",
+      "operation": "cap_490d9e16075cbdca5954ec27"
+    },
+    {
+      "scope": "root/tasks/visit_product_pages/body/tasks",
+      "id": "read_product_page",
+      "operation": "cap_490d9e16075cbdca5954ec27"
+    },
+    {
+      "scope": "root/tasks",
+      "id": "write_products_xlsx",
+      "operation": "cap_37c513d225bb1b870053c5d3"
+    },
+    {
+      "scope": "root/always",
+      "id": "close_browser_always",
+      "operation": "cap_bdb7ba9ab04b18783883fa86"
+    }
+  ],
+  "transforms": [
+    {
+      "scope": "root/tasks",
+      "id": "extract_initial_page_candidates",
+      "mode": "extract",
+      "each": {
+        "input": "initialPages",
+        "output": "initialPageFacts"
+      },
+      "inputs": [
+        "initialPages",
+        "snapshotId",
+        "snapshotCaptureTruncated",
+        "snapshotManifestTruncated",
+        "producerUrl"
+      ],
+      "result_fields": [
+        "initialPageFacts"
+      ]
+    },
+    {
+      "scope": "root/tasks",
+      "id": "decide_initial_actions",
+      "mode": "interpret",
+      "each": null,
+      "inputs": [
+        "consentOffered",
+        "searchOffered",
+        "captchaEvidence"
+      ],
+      "result_fields": [
+        "captchaEncountered",
+        "selectedConsentId",
+        "status"
+      ]
+    },
+    {
+      "scope": "root/tasks",
+      "id": "extract_ready_home_candidates",
+      "mode": "extract",
+      "each": {
+        "input": "readyPages",
+        "output": "readyPageFacts"
+      },
+      "inputs": [
+        "readyPages",
+        "snapshotId",
+        "snapshotCaptureTruncated",
+        "snapshotManifestTruncated",
+        "producerUrl"
+      ],
+      "result_fields": [
+        "readyPageFacts"
+      ]
+    },
+    {
+      "scope": "root/tasks",
+      "id": "decide_ready_search_target",
+      "mode": "interpret",
+      "each": null,
+      "inputs": [
+        "searchOffered",
+        "captchaEvidence"
+      ],
+      "result_fields": [
+        "captchaEncountered",
+        "selectedSearchId",
+        "status"
+      ]
+    },
+    {
+      "scope": "root/tasks",
+      "id": "extract_search_result_pages",
+      "mode": "extract",
+      "each": {
+        "input": "searchPages",
+        "output": "searchPageFacts"
+      },
+      "inputs": [
+        "searchPages",
+        "snapshotId",
+        "snapshotCaptureTruncated",
+        "snapshotManifestTruncated",
+        "producerUrl",
+        "query"
+      ],
+      "result_fields": [
+        "searchPageFacts"
+      ]
+    },
+    {
+      "scope": "root/tasks",
+      "id": "select_first_ten_product_ids",
+      "mode": "interpret",
+      "each": null,
+      "inputs": [
+        "productOffered",
+        "captchaEvidence",
+        "query"
+      ],
+      "result_fields": [
+        "captchaEncountered",
+        "selectedProductIds",
+        "status"
+      ]
+    },
+    {
+      "scope": "root/tasks/visit_product_pages/body/tasks",
+      "id": "extract_product_page_facts",
+      "mode": "extract",
+      "each": {
+        "input": "productPages",
+        "output": "productPageFacts"
+      },
+      "inputs": [
+        "productPages",
+        "snapshotId",
+        "snapshotCaptureTruncated",
+        "snapshotManifestTruncated",
+        "candidate",
+        "observedUrl"
+      ],
+      "result_fields": [
+        "productPageFacts"
+      ]
+    },
+    {
+      "scope": "root/tasks/visit_product_pages/body/tasks",
+      "id": "interpret_product_record",
+      "mode": "interpret",
+      "each": null,
+      "inputs": [
+        "candidate",
+        "productPageFacts",
+        "observedUrl"
+      ],
+      "result_fields": [
+        "product",
+        "captchaEncountered",
+        "status"
+      ]
+    },
+    {
+      "scope": "root/tasks",
+      "id": "normalize_products",
+      "mode": "extract",
+      "each": {
+        "input": "visitedProductRecords",
+        "output": "products"
+      },
+      "inputs": [
+        "visitedProductRecords"
+      ],
+      "result_fields": [
+        "products"
+      ]
+    },
+    {
+      "scope": "root/tasks",
+      "id": "aggregate_captcha_status",
+      "mode": "interpret",
+      "each": null,
+      "inputs": [
+        "initialCaptchaEncountered",
+        "readyCaptchaEncountered",
+        "searchCaptchaEncountered",
+        "productCaptchaEncountered",
+        "stageStatuses"
+      ],
+      "result_fields": [
+        "captchaEncountered",
+        "status"
+      ]
+    },
+    {
+      "scope": "root/tasks",
+      "id": "build_xlsx_tsv",
+      "mode": "interpret",
+      "each": null,
+      "inputs": [
+        "products",
+        "captchaEncountered",
+        "aggregateStatus"
+      ],
+      "result_fields": [
+        "xlsxTsv"
+      ]
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "TASK_FIELD_TYPE",
+      "location": "/tasks/initial_candidate_views/outputs/captchaEvidence",
+      "message": "Field 'captchaEvidence' requires a declared object; received \"array\" from output:extract_initial_page_candidates.initialPageFacts. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_FIELD_TYPE",
+      "location": "/tasks/initial_candidate_views/outputs/consentOffered",
+      "message": "Field 'consentControls' requires a declared object; received \"array\" from output:extract_initial_page_candidates.initialPageFacts. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_FIELD_TYPE",
+      "location": "/tasks/initial_candidate_views/outputs/searchOffered",
+      "message": "Field 'searchFillTargets' requires a declared object; received \"array\" from output:extract_initial_page_candidates.initialPageFacts. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_FIELD_TYPE",
+      "location": "/tasks/ready_candidate_views/outputs/captchaEvidence",
+      "message": "Field 'captchaEvidence' requires a declared object; received \"array\" from output:extract_ready_home_candidates.readyPageFacts. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_FIELD_TYPE",
+      "location": "/tasks/ready_candidate_views/outputs/searchOffered",
+      "message": "Field 'searchFillTargets' requires a declared object; received \"array\" from output:extract_ready_home_candidates.readyPageFacts. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_FIELD_TYPE",
+      "location": "/tasks/search_candidate_views/outputs/captchaEvidence",
+      "message": "Field 'captchaEvidence' requires a declared object; received \"array\" from output:extract_search_result_pages.searchPageFacts. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_FIELD_TYPE",
+      "location": "/tasks/search_candidate_views/outputs/productOffered",
+      "message": "Field 'productCandidates' requires a declared object; received \"array\" from output:extract_search_result_pages.searchPageFacts. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_FIELD_TYPE",
+      "location": "/tasks/search_candidate_views/outputs/productOriginals",
+      "message": "Field 'productCandidates' requires a declared object; received \"array\" from output:extract_search_result_pages.searchPageFacts. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "review_findings": [
+    {
+      "code": "TASK_FIELD_TYPE",
+      "count": 8,
+      "cause": "field is applied to arrays of per-page objects before flatten. Existing typed foreach projection must first collect the declared nested arrays."
+    },
+    {
+      "code": "REVIEW_PRODUCT_NULLABILITY",
+      "cause": "Structural response reintroduced nullable=true on normalize_products.products.items despite the accepted non-null record contract."
+    },
+    {
+      "code": "REVIEW_DETERMINISTIC_NORMALIZATION",
+      "cause": "normalize_products remains an extract transform although the visited product objects are already typed."
+    },
+    {
+      "code": "REVIEW_ORIGINAL_ACTION_RECONNECTION",
+      "cause": "Offered and original candidate views both reference extraction output rather than reconnecting selected IDs to retained producer records."
+    },
+    {
+      "code": "REVIEW_COMPACT_DECISION_VIEW",
+      "cause": "productOffered includes URL/reference/action fields and redundant per-page identifiers; it is not the declared minimal decision view."
+    },
+    {
+      "code": "REVIEW_DERIVED_IDENTITY",
+      "cause": "Extraction result types require originalRecordIndex/displayOrder and compatibility/status values not directly supplied by producer records; these must be derived by existing deterministic bindings or genuine explicit decisions, not assumed source-grounded scalars."
+    }
+  ],
+  "pending_questions": [
+    {
+      "id": "c1",
+      "question": "Les seuls slots émis permettent de remplacer des valeurs de sorties existantes, mais le langage de valeur autorisé ici ne contient pas d’opérateur typé d’itération/flatten permettant de projeter `initialPageFacts[]/readyPageFacts[]/searchPageFacts[]` vers les sous-tableaux `captchaEvidence`, `consentControls`, `searchFillTargets` ou `productCandidates` sans faire un `field` directement sur un tableau, ce que le diagnostic interdit. Quelle correction dois-je appliquer ?",
+      "alternatives": [
+        {
+          "id": "a",
+          "description": "Émettre de nouveaux slots ou une action permettant de remplacer/insérer les tâches pures de data-adaptation avec un constructeur explicite d’itération/flatten typé."
+        },
+        {
+          "id": "b",
+          "description": "Autoriser les sorties candidates à exposer les faits par page complets (`initialPageFacts`, `readyPageFacts`, `searchPageFacts`) au lieu des tableaux aplatis étroits, puis adapter séparément les consommateurs."
+        },
+        {
+          "id": "c",
+          "description": "Ne pas appliquer de patch avec ces slots, afin d’éviter de remplacer les liaisons par des tableaux vides ou par des vues trop larges non conformes aux exigences acceptées."
+        }
+      ],
+      "recommended": "a"
+    }
+  ],
+  "approval_requested": false,
+  "approval_applied": false,
+  "execution_started": false,
+  "blocked_by": "Existing eight-physical-attempt ceiling and both scoped repairs consumed; do not answer into another dispatch or reset this session."
+}
