@@ -1,0 +1,14 @@
+{
+  "changed_paths": [
+    "/root/tasks/3/body/outputs/0/value/items",
+    "/root/tasks/3/body/outputs/0/value/kind",
+    "/root/tasks/3/body/outputs/0/value/port",
+    "/root/tasks/3/body/outputs/0/value/source",
+    "/root/tasks/3/body/tasks/2/resultType/fields",
+    "/root/tasks/4/outputs/0/value/items",
+    "/root/tasks/4/outputs/0/value/kind",
+    "/root/tasks/4/outputs/0/value/port",
+    "/root/tasks/4/outputs/0/value/source"
+  ],
+  "requirements_unchanged": true
+}

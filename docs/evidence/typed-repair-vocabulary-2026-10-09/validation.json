@@ -1,0 +1,36 @@
+{
+  "candidate": "99cc3dcaa56755be2de7de7cafb6ffd32b7a5e11",
+  "planning_suite_before_final_two_cases": {
+    "passed": 1207,
+    "failed": 0
+  },
+  "focused_final": {
+    "passed": 75,
+    "failed": 0
+  },
+  "local_execution": {
+    "passed": 2,
+    "failed": 0
+  },
+  "release_pack": {
+    "success": true,
+    "warnings": 0
+  },
+  "native_aot": {
+    "rid": "osx-arm64",
+    "publish_success": true,
+    "execution_success": true,
+    "output": "numeric MCP: real native stdio decimal input/output conversion; exact producer-owned calculation\nschema projection: portable wire, unchanged authoritative restrictions\nrequired conditions: true/false and guarded ancestor payloads survive Native AOT serialization and execution\nconditional entries: runtime requires preserved without automatic guard proof\nrestricted mappings: observed HTML extraction, exact decimals, source-generated artifact serialization\ncollection mappings: independent extraction, ordered complete results, optional declaration serialization\ncompact bindings: fused collection, zero per-item calls, exact duplicates, no inference\nindexed projections: 1602 original positions and records, unchanged expression limits, zero per-record workflow calls\nconsumer bindings: checked input, zero materialization steps\nlookup: typed binding, original records, selected order/repeats, zero inference\nflatten: one typed level, empty candidates, null elements and duplicates, zero inference\nagent failure: structured host diagnostic survives source-generated serialization\nbusiness intent: persisted requirements and approval identity survive Native AOT serialization\nclarification: auto pause, custom answer, restart, unchanged budget and separate approval passed with deterministic inference\nconstant workspace: approved literal survives compilation and source-generated serialization; no agent execution\noperation outputs: approved payload and partial envelope survive source-generated serialization and YAML compilation\nlocal: passed, calls=1, replans=0, validations=2\nread_transform: passed, calls=1, replans=0, validations=3\nnullable_defaults: passed, calls=1, replans=0, validations=3\nconditional: passed, calls=1, replans=0, validations=3\ncollections: passed, calls=1, replans=0, validations=2\nprotected_cleanup: passed, calls=1, replans=0, validations=4\nreview_french: passed, calls=1, replans=0, validations=11\nreview_distractors: passed, calls=1, replans=0, validations=11\ntyped transforms: passed; mocked inference; ordered products and cleanup verified\nbounded discovery: passed; issued no-plan schema and counters survive serialization\nenum contracts and JSON encoding: passed; no inference\ntyped field bindings: passed; checked MCP selectors; ordered records and composed exports; no inference\nconditional arrays: passed; typed and empty branches execute with preserved contracts; no inference\nnull-only contracts: passed; both conditional branches; no inference\nconditional cleanup: passed; guarded field selection and explicit branch exports; no inference\ncatalog-owned bindings: passed; host injection and explicit override rejection verified\ntyped repair patches: passed; source-generated recovery; owned removal; immutable baseline; no inference\nstructural repair: passed; version-nine authority, preserved arguments and atomic AOT round trip; no inference\ntargeted revision: passed; optional authority round trip, typed patches and unchanged baseline; no inference\nadaptive mappings: three source-grounded specializations, shared budget, ordered values and durable replay\n"
+  },
+  "skill_validation": {
+    "success": true
+  },
+  "full_solution": {
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+    "exit_code": 0,
+    "total": 5011,
+    "passed": 4998,
+    "failed": 0,
+    "skipped": 13
+  }
+}

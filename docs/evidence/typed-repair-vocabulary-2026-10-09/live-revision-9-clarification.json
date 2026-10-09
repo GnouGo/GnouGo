@@ -1,0 +1,17 @@
+[
+  {
+    "id": "c1",
+    "question": "Le seul slot éditable est /tasks/resolve_selected_compact_candidates/outputs/records, mais l’échec provient du producteur flatten_search_candidates.candidates dont le type contient encore des éléments nullable ([object,null]). Un lookup valide exige une collection de records non-null déclarant candidateId. Puis-je recevoir un slot supplémentaire pour corriger le producteur compact afin que candidates soit array<object{candidateId:string,nameText:string}> sans null ?",
+    "alternatives": [
+      {
+        "id": "a",
+        "description": "Émettre des slots supplémentaires limités à extract_search_page_views / project_search_candidate_arrays / flatten_search_candidates pour rendre le tableau candidates strictement non-null et compatible lookup."
+      },
+      {
+        "id": "b",
+        "description": "Conserver le slot unique actuel; aucune correction valide du lookup n’est possible sans remplacer par une liaison qui ignorerait la sélection ou casserait les contrats aval."
+      }
+    ],
+    "recommended": "a"
+  }
+]
