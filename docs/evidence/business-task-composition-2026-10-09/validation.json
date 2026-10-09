@@ -57,7 +57,31 @@
     "planning_release_package": "passed",
     "planning_osx_arm64_native_aot": "passed",
     "skill": "passed",
-    "full_solution": "pending"
+    "full_solution": {
+      "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+      "exit_code": 0,
+      "passed": 5015,
+      "failed": 0,
+      "skipped": 13,
+      "total": 5028
+    },
+    "published_encrypted_recovery": {
+      "status": "passed",
+      "candidate": "1022ed33437179386eb8a43c5d9f3cbf11453bfd",
+      "job": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114030019028"
+    },
+    "ci_infrastructure_failures": [
+      {
+        "component": "Docker image builds",
+        "reason": "Docker Hub authentication token retrieval: timeout/504 Gateway Timeout",
+        "job": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034059062"
+      },
+      {
+        "component": "Linux x64 desktop",
+        "reason": "Copilot CLI SHA256SUMS acquisition: connection reset by peer (MSB3923)",
+        "job": "https://github.com/GnouGo/GnouGo/actions/runs/37992502243/job/114034138285"
+      }
+    ]
   },
   "matrix_expected_failures": [
     "unoffered original identity rejected before visits",

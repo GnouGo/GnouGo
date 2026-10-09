@@ -134,3 +134,20 @@ Known planning usage is 74,373 input / 16,987 output tokens, EUR 0.782212 and
 281,807 ms. Campaign upper bound is EUR 121.578871 / 150 with all historical
 reservations retained. Planning success is separate from execution and XLSX
 oracle success; neither has been observed for this live yet.
+
+## Final local validation
+
+`dotnet test GnOuGo.Agent.sln -m:1 -warnaserror` completed with exit code 0:
+**5,015 passed, zero failed, 13 skipped** across 33 projects. The host suite
+passed 739 tests; the planning suite passed 1,209. [Per-project totals](full-solution.json)
+retain the exact counts and log fingerprint. The frontend build also passed.
+Release Planning packaging, osx-arm64 Native AOT smoke and skill validation passed.
+The frozen candidate's published Linux Server passed its encrypted format-10
+planning persistence smoke, preserving execution journal schema 9.
+
+Current CI is not claimed green: Docker image jobs encountered Docker Hub
+authentication timeouts/504s, and the Linux x64 desktop Copilot CLI checksum
+download failed with a connection reset. Those are external acquisition failures.
+The prior retained-fixture CI budget failures remain historical; the same host
+suite passes locally on this candidate. Remaining remote job status is recorded
+separately from completed local checks and the unexecuted live artifact.
