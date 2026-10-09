@@ -31,7 +31,7 @@ internal static class PlanningSchemas
         alternatives.Any(a => a?["type"]?.ToString() == "null");
 
     internal static JsonObject Proposal(PlanningSession state, IReadOnlySet<string>? admitted = null) => PlanningRepairPatch.Active(state)
-        ? PlanningRepairPatch.Schema(state, FullProposal(state, compact: false, flatten: false, lookup: false)) : FullProposal(state, admitted: admitted);
+        ? PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state)) : FullProposal(state, admitted: admitted);
 
     internal static JsonObject FullProposal(PlanningSession state, bool compact = true, bool clarifications = true, IReadOnlySet<string>? admitted = null, bool scopeGuidance = true, bool flatten = true, bool lookup = true, bool arrayBounds = true)
     {

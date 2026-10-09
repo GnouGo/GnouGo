@@ -32,11 +32,11 @@ public sealed class RepairPatchTests
         var state = State(); state.Plan!.Root.Tasks[0].ResultType!.Fields.ForEach(f => f.Type.Nullable = false);
         return state;
     }
-    internal static IReadOnlyList<PlanningRepairPatch.Slot> Slots(PlanningSession state) => PlanningRepairPatch.Slots(state, PlanningSchemas.FullProposal(state, compact: false)["$defs"]!.AsObject());
+    internal static IReadOnlyList<PlanningRepairPatch.Slot> Slots(PlanningSession state) => PlanningRepairPatch.Slots(state, PlanningRepairPatch.Template(state)["$defs"]!.AsObject());
     internal static LLMRequest Request(PlanningSession state) => new()
     {
-        StructuredOutputSchema = PlanningRepairPatch.Schema(state, PlanningSchemas.FullProposal(state, compact: false, clarifications: false)),
-        Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = 9, ["authority"] = PlanningRepairPatch.Authority(state) } }.ToJsonString()
+        StructuredOutputSchema = PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state, clarifications: false)),
+        Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = PlanningRepairPatch.CurrentVersion, ["authority"] = PlanningRepairPatch.Authority(state) } }.ToJsonString()
     };
     internal static JsonObject Edit(PlanningSession state, string path, string action, JsonNode? value = null)
     {

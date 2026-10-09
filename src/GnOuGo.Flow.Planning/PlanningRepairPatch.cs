@@ -29,6 +29,10 @@ internal partial class RepairJsonContext : JsonSerializerContext;
 
 internal static class PlanningRepairPatch
 {
+    internal const int CurrentVersion = 10;
+    internal static JsonObject Template(PlanningSession state, int version = CurrentVersion, bool clarifications = true, bool scopedDependencies = true) =>
+        PlanningSchemas.FullProposal(state, compact: false, clarifications: clarifications, scopeGuidance: scopedDependencies,
+            flatten: version >= 10, lookup: version >= 10, arrayBounds: version >= 9);
     internal sealed record Slot(string Id, string Location, string Kind, JsonObject ValueSchema, string[] Actions);
     internal static bool Active(PlanningSession state) => state.Plan is not null && state.RevisionScope.Count > 0 && (state.EditablePaths is not null || PlanningModelCalls.IsRepair(state));
     internal static bool Issued(JsonObject? schema) => schema?["properties"] is JsonObject properties && properties.ContainsKey("patch");
@@ -64,7 +68,7 @@ internal static class PlanningRepairPatch
             ? new(null, parent, path[(split + 1)..], null, -1) : null;
     }
 
-    internal static IReadOnlyList<Slot> Slots(PlanningSession state, JsonObject definitions, bool structural = true, bool scopedDependencies = true, int version = 9)
+    internal static IReadOnlyList<Slot> Slots(PlanningSession state, JsonObject definitions, bool structural = true, bool scopedDependencies = true, int version = CurrentVersion)
     {
         var plan = state.Plan!; var symbols = new TaskPlanSymbols(plan);
         var index = Index(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!);
@@ -216,7 +220,7 @@ internal static class PlanningRepairPatch
         return schema;
     }
 
-    internal static JsonObject Schema(PlanningSession state, JsonObject template, int version = 9)
+    internal static JsonObject Schema(PlanningSession state, JsonObject template, int version = CurrentVersion)
     {
         var definitions = template["$defs"]!.DeepClone().AsObject();
         var slots = Slots(state, definitions, version: version); var edits = new JsonArray();
@@ -253,7 +257,7 @@ internal static class PlanningRepairPatch
         return PlanningSchemas.Compact(schema);
     }
 
-    internal static string Authority(PlanningSession state, bool scopedDependencies = true, int version = 9)
+    internal static string Authority(PlanningSession state, bool scopedDependencies = true, int version = CurrentVersion)
     {
         var authority = new JsonObject
         {
@@ -279,7 +283,7 @@ internal static class PlanningRepairPatch
 
     private static JsonObject PermissionDescriptors(PlanningSession state, bool scopedDependencies, int version)
     {
-        var definitions = PlanningSchemas.FullProposal(state, compact: false, clarifications: false, scopeGuidance: scopedDependencies, flatten: false, lookup: false, arrayBounds: version >= 9)["$defs"]!.AsObject();
+        var definitions = Template(state, version, clarifications: false, scopedDependencies: scopedDependencies)["$defs"]!.AsObject();
         var slots = Slots(state, definitions, scopedDependencies: scopedDependencies, version: version);
         return new() { ["definitions"] = definitions.DeepClone(), ["slots"] = new JsonArray(slots.Select(s => (JsonNode)new JsonObject
         { ["id"] = s.Id, ["location"] = s.Location, ["kind"] = s.Kind, ["schema"] = s.ValueSchema.DeepClone(),
@@ -297,7 +301,7 @@ internal static class PlanningRepairPatch
     {
         var repair = RequestContext(request)["repair"];
         var version = repair?["version"]?.GetValue<int>();
-        if (state.IntentVersion == 2 && version is 8 or 9)
+        if (state.IntentVersion == 2 && version is 8 or 9 or 10)
         {
             if (state.EditablePaths is not null)
             {
@@ -321,7 +325,9 @@ internal static class PlanningRepairPatch
     {
         var scopedDependencies = Verify(state, request);
         var version = RequestContext(request)["repair"]!["version"]!.GetValue<int>();
-        var definitions = PlanningSchemas.FullProposal(state, compact: false, scopeGuidance: scopedDependencies, flatten: false, lookup: false)["$defs"]!.AsObject();
+        // Retained envelopes keep their original reconstruction as well as their issued schema.
+        var definitions = (version >= 10 ? Template(state, version, scopedDependencies: scopedDependencies) :
+            PlanningSchemas.FullProposal(state, compact: false, scopeGuidance: scopedDependencies, flatten: false, lookup: false))["$defs"]!.AsObject();
         var slots = Slots(state, definitions, scopedDependencies: scopedDependencies, version: version).ToDictionary(s => s.Id, StringComparer.Ordinal);
         // Recovery and direct callers both enforce the exact issued response schema.
         var response = new JsonObject { ["discoveryRequests"] = null, ["patch"] = JsonSerializer.SerializeToNode(patch, RepairJsonContext.Default.RepairPatch) };

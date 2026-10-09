@@ -55,9 +55,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [InlineData("denied")]
     [InlineData("fabricated")]
     [InlineData("repeated-selection")]
+    [InlineData("typed-repair")]
+    [InlineData("typed-lookup-repair")]
     public async Task RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(string variant)
     {
         var ct = TestContext.Current.CancellationToken;
+        var typedRepair = variant is "typed-repair" or "typed-lookup-repair";
         var root = Directory.CreateTempSubdirectory("gnougo-retained-products-").FullName;
         var workspace = Path.Combine(root, "workspace"); Directory.CreateDirectory(workspace);
         var visits = new List<string>(); var submitted = new List<string>(); var consentSeen = new List<bool>();
@@ -115,14 +118,45 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
             var catalog = await RetainedCatalog(runtime, ct);
             var proposal = RetainedProposal("corrected", catalog, site.Urls.Single());
+            var expectedPlan = JsonSerializer.Serialize(proposal.Plan, PlanningJsonContext.Default.TaskPlan);
+            var corrections = new Dictionary<string, JsonNode?>();
+            if (typedRepair)
+            {
+                // Reproduce the retained typed-binding failures inside the full executable composition.
+                var bindings = RetainedTasks(proposal.Plan!.Root).SelectMany(t => t.Outputs.Select(o => (Task: t, Output: o))).ToArray();
+                var binding = bindings.First(b => b.Output.Value.Kind == (variant == "typed-repair" ? "flatten" : "lookup"));
+                corrections["/tasks/" + binding.Task.Id + "/outputs/" + binding.Output.Name] = JsonSerializer.SerializeToNode(binding.Output.Value, PlanningJsonContext.Default.TaskValue);
+                // Test independently: an invalid upstream projection prevents downstream typing.
+                if (variant == "typed-repair") binding.Output.Value.Items[0] = new() { Kind = "string", Text = "not an observed array" };
+                else binding.Output.Value.Items.Reverse();
+            }
             if (variant == "denied") proposal.Plan!.Root.Tasks.Single(t => t.Id == "write_products_xlsx").Inputs.Single(i => i.Name == "filePath").Value.Text = "../outside.xlsx";
             var adapter = new ProposalRuntime(runtime, proposal);
+            if (typedRepair) adapter.Patch = request =>
+            {
+                if (request.StructuredOutputSchema?["properties"]?["patch"] is null)
+                    return JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
+                var context = JsonNode.Parse(request.Prompt[request.Prompt.IndexOf("\n{", StringComparison.Ordinal)..])!["repair"]!;
+                Assert.Equal(10, context["version"]!.GetValue<int>());
+                var edits = context["slots"]!.AsArray().Select(slot => new JsonObject {
+                    ["slot"] = slot!["id"]!.ToString(), ["action"] = "replace", ["value"] = corrections[slot["location"]!.ToString()]!.DeepClone() }).ToArray();
+                Assert.Equal(corrections.Count, edits.Length);
+                return new JsonObject { ["discoveryRequests"] = null, ["clarifications"] = null,
+                    ["patch"] = new JsonObject { ["edits"] = new JsonArray(edits.Select(e => (JsonNode)e).ToArray()) } };
+            };
             var session = new PlanningSession { Catalog = catalog, Request = new() { TenantId = "local", Prompt = proposal.Requirements!.Summary,
                 Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } };
             var timer = Stopwatch.StartNew();
             session = await new HybridWorkflowPlanner().AdvanceAsync(session, new(), adapter, ct);
+            if (typedRepair)
+            {
+                Assert.Equal(1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
+                Assert.Contains(session.Diagnostics, d => d.Code == (variant == "typed-repair" ? "TASK_FLATTEN_INVALID" : "TASK_LOOKUP_INVALID"));
+                session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, adapter, ct);
+                Assert.Equal(expectedPlan, JsonSerializer.Serialize(session.Plan, PlanningJsonContext.Default.TaskPlan));
+            }
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
-            Assert.Equal(1, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
+            Assert.Equal(typedRepair ? 2 : 1, session.ModelCalls); Assert.Equal(typedRepair ? 1 : 0, session.ReplanAttempts);
             Assert.Empty(visits); Assert.Empty(model.Requests);
             var reviewed = new List<string> { "search_catalogue", "collect_top_products", "visit_and_extract", "save_excel", "cleanup_browser" };
             session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision,

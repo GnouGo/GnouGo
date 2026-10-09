@@ -98,7 +98,7 @@ public sealed class StructuralRepairTests
     public async Task RetiredRepairEnvelopesCannotBeReinterpretedAsCurrentAuthority()
     {
         var state = await MissingProducer(); var v1 = RepairPatchTests.Request(state);
-        v1.Prompt = v1.Prompt.Replace("\"version\":9", "\"version\":1", StringComparison.Ordinal);
+        v1.Prompt = v1.Prompt.Replace("\"version\":" + PlanningRepairPatch.CurrentVersion, "\"version\":1", StringComparison.Ordinal);
         Assert.Throws<PlanningConflictException>(() => Apply(state, "prerequisites", "insert_prerequisites", Prerequisite(), v1));
         var v2 = new PlanningPrompt(state).Request(); var recovered = PlannerFixture.Clone(state);
         Assert.Empty(new TaskPlanCompiler().Compile(Apply(recovered, "prerequisites", "insert_prerequisites", Prerequisite(), v2), state.Catalog!).Diagnostics);
@@ -112,7 +112,7 @@ public sealed class StructuralRepairTests
         var request = new LLMRequest
         {
             StructuredOutputSchema = PlanningRepairPatch.Schema(state, PlanningSchemas.FullProposal(state, compact: false, clarifications: false)),
-            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = 9, ["authority"] = PlanningRepairPatch.Authority(state) } }.ToJsonString()
+            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = PlanningRepairPatch.CurrentVersion, ["authority"] = PlanningRepairPatch.Authority(state) } }.ToJsonString()
         };
         var schema = request.StructuredOutputSchema.ToJsonString();
         Assert.Null(request.StructuredOutputSchema["properties"]!["clarifications"]);

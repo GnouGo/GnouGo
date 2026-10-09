@@ -126,7 +126,7 @@ public sealed class TargetedRevisionTests
         Assert.Equal(new[] { id, "consume", "persist" }, state.Plan!.Root.Tasks.Select(t => t.Id)); Assert.Single(state.Plan.Root.Always);
         var request = runtime.Calls[1]; Assert.True(PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()));
         Assert.DoesNotContain("plan", request.StructuredOutputSchema["properties"]!.AsObject().Select(p => p.Key));
-        Assert.Equal(9, PlanningRepairPatch.RequestContext(request)["repair"]!["version"]!.GetValue<int>());
+        Assert.Equal(PlanningRepairPatch.CurrentVersion, PlanningRepairPatch.RequestContext(request)["repair"]!["version"]!.GetValue<int>());
     }
 
     [Theory]

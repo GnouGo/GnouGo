@@ -88,7 +88,7 @@ internal static class PlanningRepairContext
     internal static JsonObject Build(PlanningSession state)
     {
         var selection = Select(state); var symbols = selection.Symbols;
-        var slots = PlanningRepairPatch.Slots(state, PlanningSchemas.FullProposal(state, compact: false, flatten: false, lookup: false)["$defs"]!.AsObject());
+        var slots = PlanningRepairPatch.Slots(state, PlanningRepairPatch.Template(state)["$defs"]!.AsObject());
         var taskNodes = new JsonArray(); var scopeNodes = new JsonArray();
         var inputs = new HashSet<string>(StringComparer.Ordinal); var choices = new HashSet<string>(StringComparer.Ordinal);
         void Referenced(TaskValue value)
@@ -144,7 +144,7 @@ internal static class PlanningRepairContext
             selection.Tasks.Any(id => symbols.Tasks[id].Task.Group == g.Id));
         return new JsonObject
         {
-            ["version"] = 9, ["authority"] = PlanningRepairPatch.Authority(state),
+            ["version"] = PlanningRepairPatch.CurrentVersion, ["authority"] = PlanningRepairPatch.Authority(state),
             ["editablePaths"] = state.EditablePaths is null ? null : new JsonArray(state.EditablePaths.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
             ["slots"] = new JsonArray(slots.Select(s => (JsonNode)new JsonObject { ["id"] = s.Id, ["location"] = s.Location, ["kind"] = s.Kind,
                 ["actions"] = new JsonArray(s.Actions.Select(a => (JsonNode?)JsonValue.Create(a)).ToArray()) }).ToArray()),

@@ -786,10 +786,22 @@ public sealed partial class TaskPlanCompiler
         var computation = new PlanningValue { Kind = "lookup", Text = value.Port, Items = [records.Value, selected.Value] };
         JsonObject schema;
         try { schema = PlanningValues.ComputationContract(computation, operand => ReferenceEquals(operand, records.Value) ? records.Schema : selected.Schema); }
-        catch (InvalidOperationException ex) { Fail("TASK_LOOKUP_INVALID", ex.Message); throw; }
+        catch (InvalidOperationException ex)
+        {
+            Fail("TASK_LOOKUP_INVALID", ex.Message + " " + Operand(0, records, "records: array of objects declaring identity field '" + value.Port + "'") +
+                " " + Operand(1, selected, "IDs: array of strings or safe integers compatible with the record identity") +
+                " json produces text, not a record collection.");
+            throw;
+        }
         computation.Items = [Consume(records with { SelectionSource = records, SelectionPath = [] }, scope).Value,
             Consume(selected with { SelectionSource = selected, SelectionPath = [] }, scope).Value];
         return new(computation, schema);
+
+        string Operand(int index, Bound operand, string expected) => "items[" + index + "] expected " + expected + "; received " +
+            (operand.Schema["type"]?.ToJsonString() ?? "union/opaque") +
+            (operand.Schema["items"] is JsonObject element ? " with items " + (element["type"]?.ToJsonString() ?? "union/opaque") : "") +
+            " from " + string.Join(", ", Values(value.Items[index]).Where(v => v.Kind is "output" or "input" or "item")
+                .Select(v => v.Kind + ":" + v.Source + (v.Port is null ? "" : "." + v.Port)).DefaultIfEmpty("the explicit " + value.Items[index].Kind + " binding")) + ".";
     }
 
     private Bound Predicate(TaskValue value, Scope scope)
