@@ -1,0 +1,57 @@
+{
+  "status": "stopped",
+  "planning_ms": 590283,
+  "calls": 4,
+  "repairs": 0,
+  "discovery_reads": 2,
+  "review_revisions": 1,
+  "diagnostics": [
+    {
+      "code": "REQUIREMENTS_OUTPUTS_CHANGED",
+      "location": "/outputs/rows",
+      "message": "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "execution_success": false,
+  "execution_oracle": false,
+  "execution_status": "not_started",
+  "accounting": {
+    "planning": {
+      "logical_calls": 4,
+      "physical_attempts": 5,
+      "known_input_tokens": 54104,
+      "known_output_tokens": 22026,
+      "known_cost_eur": 0.8264264797231342,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 926,
+      "session_calls": 0,
+      "known_input_tokens": 13637209,
+      "known_output_tokens": 1889459,
+      "known_cost_eur": 111.10445053692995,
+      "reserved_input_tokens": 480000,
+      "reserved_output_tokens": 163840,
+      "reserved_cost_eur": 6.501614794790526,
+      "cost_upper_bound_eur": 117.60606533172047,
+      "unknown_attempts": 5
+    }
+  }
+}
