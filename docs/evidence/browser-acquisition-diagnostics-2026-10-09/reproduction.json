@@ -1,0 +1,37 @@
+{
+  "baseline": "9b80e8b5cacbea30db11f881678712af73c656d8",
+  "original_live_timeout_reproduced": false,
+  "reproduced_defect": {
+    "test": "DeadlineDuringInvalidatedCaptureRetainsNavigationEvidence",
+    "baseline_error": "Assert.Single() Failure: The collection was empty",
+    "cause": "Known snapshot invalidation was omitted when the acquisition deadline expired during capture.",
+    "terminal_error_preserved": "TIMEOUT",
+    "extra_navigation_or_inference": false
+  },
+  "baseline_browser_diagnostics": [
+    {
+      "headless": true,
+      "success": true,
+      "pages": 38,
+      "records": 1233,
+      "total_milliseconds": 4023
+    },
+    {
+      "headless": false,
+      "success": true,
+      "pages": 52,
+      "records": 1551,
+      "total_milliseconds_including_local_warmup": 9930,
+      "acquisition_milliseconds_approximate": 4540
+    }
+  ],
+  "paid_calls": 0,
+  "e2e_acceptance_claimed": false,
+  "source_sha256": {
+    "src/GnOuGo.Browser.Mcp/PlaywrightBrowserHost.Observations.cs": "4bfc788c7fd25be82e2c28cbfeaa754d52a6263dddc1cc6cc4e639412b3d6c4f",
+    "tests/GnOuGo.Browser.Mcp.Tests/BrowserCompleteObservationTests.cs": "d6d4cb229474bea7e53e82debe793cccb9c6dade2e071ca6b64cf8cc440365e8",
+    "tests/GnOuGo.Browser.Mcp.Tests/BrowserEmptyObservationTests.cs": "d70d98a74c74d60010295719314302ca96c1b31ef159079e2cd1d98ac28649fc",
+    "tests/GnOuGo.Browser.Mcp.Tests/BrowserLifecycleTests.cs": "a691e5af6797f45197962d8c6fe6b143b123f5243c020caf25bcbef57d93ef62",
+    "tests/GnOuGo.Agent.Server.Tests/BrowserSnapshotReceiptTests.cs": "bca09995fe6480b0b680120f75166dcaa04bb599510dd8adb71a95101943e99b"
+  }
+}
