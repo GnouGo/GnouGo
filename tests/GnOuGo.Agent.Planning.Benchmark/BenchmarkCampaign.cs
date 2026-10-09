@@ -77,23 +77,29 @@ internal sealed class BenchmarkCampaign(IKeyVaultRecordStore records, string id)
     }
     // Closing an exhausted evaluation is not a receipt: unknown usage stays fully reserved forever.
     // The caller holds the campaign's process lease. Original runs, requests and failures stay untouched.
-    internal async Task<JsonObject> RetainInconclusiveAsync(string runKey, CancellationToken ct)
+    internal async Task<JsonObject> RetainInconclusiveAsync(string runKey, CancellationToken ct, bool liveWorkflow = false)
     {
-        var run = await LoadAsync("planning-evaluation-runs", runKey, ct) ?? throw new InvalidOperationException("No recorded run.");
+        var collection = liveWorkflow ? SchemaPortabilityCampaign.Collection : "planning-evaluation-runs";
+        var run = await LoadAsync(collection, runKey, ct) ?? throw new InvalidOperationException("No recorded run.");
         var requestId = run["session"]?["pendingCall"]?["id"]?.ToString() ?? throw new InvalidOperationException("No uncertain request.");
         if (await LoadAsync("planning-evaluation-closures", requestId, ct) is { } saved) return saved;
-        if (run["result"] is not JsonObject result || result["termination_reason"] is null || result["execution_correct"]?.GetValue<bool>() == true ||
+        if (run["result"] is not JsonObject result ||
+            (liveWorkflow ? result["status"]?.ToString() != "stopped" || result["execution_status"]?.ToString() != "not_started" ||
+                result["execution_oracle"]?.GetValue<bool>() != false || run["execution_started"] is not null
+                : result["termination_reason"] is null || result["execution_correct"]?.GetValue<bool>() == true) ||
             await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null ||
             await LoadAsync("planning-evaluation-failures", requestId, ct) is null ||
             await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct) is null)
             throw new InvalidOperationException("Only a saved failed run with uncertain HTTP evidence can be retained as inconclusive.");
         var request = await LoadAsync("planning-evaluation-requests", requestId, ct) ?? throw new InvalidOperationException("No reserved request.");
+        if (request["clientRequestId"]?.ToString() != requestId) throw new InvalidOperationException("The reserved request identity changed.");
         var accounting = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct);
         if (accounting["session_calls"]!.GetValue<long>() < 8) throw new InvalidOperationException("The run still has an HTTP attempt allowance.");
         var closure = new JsonObject { ["run_key"] = runKey, ["request_id"] = requestId, ["reason"] = "session_http_attempts_exhausted",
             ["outcome"] = "inconclusive", ["retained_at"] = DateTimeOffset.UtcNow.ToString("O"),
             ["request_hash"] = PlanningGraphCompiler.Fingerprint(request.ToJsonString()), ["run_hash"] = PlanningGraphCompiler.Fingerprint(run.ToJsonString()),
             ["accounting_at_closure"] = accounting };
+        if (liveWorkflow) closure["run_collection"] = collection;
         await SaveAsync("planning-evaluation-closures", requestId, closure, ct);
         return closure;
     }

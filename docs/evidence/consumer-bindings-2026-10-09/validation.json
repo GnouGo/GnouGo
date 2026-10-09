@@ -1,0 +1,42 @@
+{
+  "candidate": "2bccddfc",
+  "planner": {
+    "passed": 1193,
+    "failed": 0
+  },
+  "telemetry_and_host_focused": {
+    "passed": 90,
+    "failed": 0
+  },
+  "local_and_recovery": {
+    "passed_initial": 52,
+    "initial_failures": 2,
+    "corrected_cases_passed": 2,
+    "note": "Both original failures asserted the retired indexing set; corrected assertions verify checked consumer inlining and no indexing invocation. Exact visits, workbook and cleanup oracles are unchanged."
+  },
+  "release_packs": [
+    {
+      "component": "Core",
+      "exit_code": 0
+    },
+    {
+      "component": "Planning",
+      "exit_code": 0
+    },
+    {
+      "component": "Integrations",
+      "exit_code": 0
+    },
+    {
+      "component": "Persistence",
+      "exit_code": 0
+    }
+  ],
+  "native_aot": {
+    "target": "osx-arm64",
+    "published": true,
+    "smoke_passed": true,
+    "includes": "encrypted planning/run/mapping recovery"
+  },
+  "skill": "valid"
+}

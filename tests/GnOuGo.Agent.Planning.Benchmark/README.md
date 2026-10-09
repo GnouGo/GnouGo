@@ -192,6 +192,16 @@ uncertain transport attempt retains its conservative allowance; restart added no
 
 An individual request can exhaust its pinned HTTP retry policy before the session exhausts eight attempts. To retain that request permanently without replay or reconciliation, use `--schema-portability retain-exhausted-request --request-id <exact-id> --campaign <id> --workspace <path>`. This explicit action requires a clean checkout and the campaign lease, a saved dispatch failure, exhausted transport attempts ending with unknown completion, and no completion receipt or verified usage. It appends a closure with evidence hashes; original records and full unknown-usage reservations remain unchanged. New request identities may then use the remaining budget. Never use this to claim successful completion or free reserved cost. Campaign regressions cover rejection, restart, no redispatch, unchanged accounting and the shared spending ceiling.
 
+For a stopped live planning run which exhausted all eight session attempts before
+execution, `--schema-portability retain-inconclusive --run <exact-run-id>` exposes
+the existing failed-session archival operation for the live journal layout. This is
+an explicit operator decision, not automatic readiness recovery. It requires a
+saved dispatch failure, matching reserved identity, missing completion receipt and
+verified cumulative exhaustion. Started executions are ineligible. It appends only
+an inconclusive closure; it changes no original request, run, receipt or reservation
+and permanently prohibits replay. Pricing readiness alone does not establish that
+an earlier uncertain campaign entry has been closed.
+
 ## Parent comparison
 
 The read-only comparison loads all three repetitions for both revisions from the

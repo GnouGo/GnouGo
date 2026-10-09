@@ -76,3 +76,30 @@ the EUR 150 ceiling, including EUR 5.203327458 for four unknown attempts.
 Only one fresh Amazon run, at most ten products, is authorized. It requires concrete
 revision/hash-bound artifact review and requirement acknowledgments. No code-review
 evaluation or historical replay is included. PR #117 remains draft.
+
+### First fresh attempt
+
+Candidate `2bccddfc`, cohort `consumerbindings20261009a`, run
+`consumerbindings20261009a-amazon-1`: [retained result](fresh-attempt-result.json).
+The planner reserved one logical call and stopped before provider admission:
+**zero physical attempts, zero new tokens/cost, zero Browser actions, no XLSX**.
+The prior `gluev420261008b-amazon-1:8:…` request has no completion receipt or
+inconclusive closure. The existing campaign guard blocks fresh admission while
+that record is unresolved. Its full reserved cost remains in the ledger.
+
+This is not an execution success or provider-schema rejection. The stopped fresh
+run is not replayed. Explicit authorization to retain the exhausted historical
+run as inconclusive is pending; no historical record has been changed. The
+existing archival checks are extended only to recognize the live run's journal
+layout, with regressions for started executions, remaining attempts, successful
+results, mismatched identities and committed receipts. This adds no production
+planning or runtime behavior.
+
+### Completed local gates
+
+[Validation details](validation.json): all 54 local Browser/Document/recovery cases
+pass across the original run and the two corrected assertion reruns. Both indexed
+fixtures independently validate XLSX cells, visits and cleanup. Core, Planning,
+Integrations and Persistence Release packages pass with `-warnaserror`; the
+published macOS ARM64 Native AOT smoke passes, including encrypted recovery.
+Full-solution and CI results remain pending below.

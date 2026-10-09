@@ -519,8 +519,10 @@ public sealed class BenchmarkCampaignTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(new() { ClientRequestId = "one" }, _ => throw new InvalidOperationException("budget"), _ => throw new InvalidOperationException("must not dispatch"), Ct));
         Assert.False(await campaign.HasUncertainRequestAsync(Ct));
     }
-    [Fact]
-    public async Task ExhaustedRunClosureRetainsUncertaintyAndCostWithoutAllowingRedispatch()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExhaustedRunClosureRetainsUncertaintyAndCostWithoutAllowingRedispatch(bool liveWorkflow)
     {
         var records = new Records(); var campaign = new BenchmarkCampaign(records, "retained");
         var request = new LLMRequest { ClientRequestId = "session:1:hash" };
@@ -530,14 +532,16 @@ public sealed class BenchmarkCampaignTests
         await Assert.ThrowsAsync<IOException>(() => campaign.CallAsync(request, _ => Task.CompletedTask, _ => throw new IOException(), Ct));
         var run = new JsonObject { ["session"] = new JsonObject { ["pendingCall"] = new JsonObject { ["id"] = request.ClientRequestId } },
             ["result"] = new JsonObject { ["execution_correct"] = false, ["termination_reason"] = "session_http_budget" } };
-        await campaign.SaveAsync("planning-evaluation-runs", "source:pilot:case:1", run, Ct);
+        var collection = liveWorkflow ? SchemaPortabilityCampaign.Collection : "planning-evaluation-runs";
+        if (liveWorkflow) run["result"] = new JsonObject { ["status"] = "stopped", ["execution_status"] = "not_started", ["execution_oracle"] = false };
+        await campaign.SaveAsync(collection, "source:pilot:case:1", run, Ct);
         var before = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
-        await campaign.RetainInconclusiveAsync("source:pilot:case:1", Ct);
+        await campaign.RetainInconclusiveAsync("source:pilot:case:1", Ct, liveWorkflow);
         var writes = records.Writes;
-        await campaign.RetainInconclusiveAsync("source:pilot:case:1", Ct);
+        await campaign.RetainInconclusiveAsync("source:pilot:case:1", Ct, liveWorkflow);
         Assert.Equal(writes, records.Writes);
         Assert.True(JsonNode.DeepEquals(before, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
-        Assert.True(JsonNode.DeepEquals(run, await campaign.LoadAsync("planning-evaluation-runs", "source:pilot:case:1", Ct)));
+        Assert.True(JsonNode.DeepEquals(run, await campaign.LoadAsync(collection, "source:pilot:case:1", Ct)));
         Assert.True(await campaign.HasUncertainRequestAsync(Ct));
         Assert.Null(await campaign.LoadAsync("planning-evaluation-receipts", request.ClientRequestId, Ct));
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.CallAsync(request, _ => Task.CompletedTask, _ => throw new Exception("Must not dispatch"), Ct, allowHttpRecovery: true));
@@ -553,6 +557,30 @@ public sealed class BenchmarkCampaignTests
         await campaign.SaveAsync("planning-evaluation-runs", "run", new() { ["session"] = new JsonObject { ["pendingCall"] = new JsonObject { ["id"] = "session:1:hash" } } }, Ct);
         await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainInconclusiveAsync("run", Ct));
         Assert.Null(await campaign.LoadAsync("planning-evaluation-closures", "session:1:hash", Ct));
+    }
+    [Theory]
+    [InlineData("remaining_attempts")][InlineData("execution_started")][InlineData("completed")]
+    [InlineData("running")][InlineData("receipt")][InlineData("wrong_identity")]
+    public async Task LivePlanningClosureCannotArchiveActiveOrExecutedWork(string defect)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "retained-live");
+        const string id = "session:1:hash";
+        var journal = new BenchmarkHttpJournal(campaign, id, 100, 20, 1m);
+        var state = new LLMHttpRetryState { Fingerprint = "fixed" };
+        for (var i = 0; i < (defect == "remaining_attempts" ? 7 : 8); i++)
+        { state.Attempts.Add(new() { Id = i.ToString() }); await journal.SaveAsync(state, Ct); }
+        await Assert.ThrowsAsync<IOException>(() => campaign.CallAsync(new() { ClientRequestId = id }, _ => Task.CompletedTask, _ => throw new IOException(), Ct));
+        var run = new JsonObject { ["session"] = new JsonObject { ["pendingCall"] = new JsonObject { ["id"] = id } },
+            ["result"] = new JsonObject { ["status"] = "stopped", ["execution_status"] = "not_started", ["execution_oracle"] = false } };
+        if (defect == "execution_started") run["execution_started"] = "retained";
+        if (defect == "completed") run["result"]!["execution_oracle"] = true;
+        if (defect == "running") run["result"]!["status"] = "generating";
+        if (defect == "receipt") await campaign.SaveAsync("planning-evaluation-receipts", id, new(), Ct);
+        if (defect == "wrong_identity") await campaign.SaveAsync("planning-evaluation-requests", id, new() { ["clientRequestId"] = "different" }, Ct);
+        await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:session", run, Ct);
+        var writes = records.Writes;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.RetainInconclusiveAsync("run:session", Ct, liveWorkflow: true));
+        Assert.Equal(writes, records.Writes);
     }
     [Theory]
     [InlineData(null)]

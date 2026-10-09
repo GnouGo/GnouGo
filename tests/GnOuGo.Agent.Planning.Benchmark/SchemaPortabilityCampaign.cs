@@ -194,6 +194,12 @@ internal static class SchemaPortabilityCampaign
                 Option(args, "--request-id") ?? throw new ArgumentException("Supply the exact --request-id."), CancellationToken.None)).ToJsonString());
             return;
         }
+        if (phase == "retain-inconclusive")
+        {
+            var label = Option(args, "--run") ?? throw new ArgumentException("Supply the exact --run.");
+            Console.WriteLine((await campaign.RetainInconclusiveAsync("run:" + label, CancellationToken.None, liveWorkflow: true)).ToJsonString());
+            return;
+        }
         using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", Model, campaign, root, CancellationToken.None);
         if (phase == "copilot-probe") { await LiveExecutionReadiness.CopilotAsync(args, campaign, model, root); return; }
         if (phase == "mapping") { await MappingLiveEvaluation.RunAsync(args, campaign, model, root); return; }
