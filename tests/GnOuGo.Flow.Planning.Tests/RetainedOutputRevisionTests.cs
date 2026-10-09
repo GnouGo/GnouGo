@@ -22,11 +22,13 @@ public sealed class RetainedOutputRevisionTests
         var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
         var request = new PlanningPrompt(state).Request();
         var instructions = request.Prompt[..request.Prompt.IndexOf("\n{", StringComparison.Ordinal)];
-        Assert.Contains("body.outputs.rows=field(item,rows)", instructions);
-        Assert.Contains("flatten(output(loop,rows))", instructions);
-        Assert.Contains("value/direct bindings", instructions);
-        Assert.Contains("lookup items:[records,IDs], port:key; returns records; iterate", instructions);
-        Assert.Contains("json:text; flatten:one array level", instructions);
+        Assert.Contains("Pages→array<array<T>>", instructions);
+        Assert.Contains("flatten(output(extract,rows))", instructions);
+        Assert.Contains("inline copies/assembly/field/flatten/lookup in bindings/exports", instructions);
+        Assert.Contains("Pure foreach:necessary projections only", instructions);
+        Assert.Contains("requires:local assertion, not task", instructions);
+        Assert.Contains("lookup items:[records,IDs], port:key; returns array", instructions);
+        Assert.Contains("json:text", instructions);
         Assert.All(PlanningSchemaReferences.Walk(request.StructuredOutputSchema!.AsObject(), "", 0), entry => Assert.False(entry.Schema.ContainsKey("description")));
         var context = JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
         var transmitted = context["taskPlan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;

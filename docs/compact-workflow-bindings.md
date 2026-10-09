@@ -24,6 +24,40 @@ The TaskPlan still describes business operations and data dependencies. Typed fi
 
 Real business loops keep their child workflow and run inside an isolated captured scope. Sequential loops use the existing counted form over the captured, schema-checked collection. This prevents both preceding loops' results and the current full collection from becoming part of every legacy iteration snapshot. Existing authored loop executors and their result envelopes are unchanged.
 
+## Business TaskPlans, not a task per binding
+
+Fresh generation prefers business operations, decisions, inference and effectful
+loops. Write typed copies, selections, assemblies, `flatten` and `lookup` directly
+in consumer inputs or scope exports. Already typed iteration outputs need no
+normalization transform or forwarding task. Keep `requires` on the affected task;
+combine assertions with existing short-circuit predicates without moving their
+failure boundary past an effect. A separate named task remains appropriate for a
+necessary independent validation, shared computation or failure-preservation
+boundary.
+
+For independent extraction, declare the immediate decision's minimal closed
+result contract. One complete page may return one candidate array, so the complete
+result is `rows: array<array<Candidate>>`. The decision can bind
+`flatten(output(extract, rows))` directly. It does not need an object wrapper per
+page, a projection loop to remove that wrapper, and a named flatten task. Empty
+candidate arrays still represent examined pages. Full source observations and
+action arguments stay separate; source metadata establishes completeness.
+
+Selection returns observed IDs. Validate these against offered candidates, then
+reconnect them to original records with existing `lookup` bindings before actions.
+Lookup returns an array and preserves repeated selections. Existing bindings do
+not project an object field across an array: when necessary, retain one minimal
+pure `foreach` with grouped exports for original page records or validated IDs.
+Never replace that exception with learned copying, `field` on an array, or new
+operators. The compiler already lowers eligible pure loops without per-item
+workflow invocations.
+
+These are generation preferences and executable examples, not new acceptance
+rules or a post-generation rewriting pass. Existing `value` tasks, historical
+requests, compilation profiles and runtime semantics remain supported. Contracts
+define selected fields; neither a compiler relevance heuristic nor a smaller task
+count proves business completeness.
+
 ## Original indices and bounded inputs
 
 The v3 profile also fuses pure copies using the existing `index` binding. Final lowering emits a two-parameter structural `map` callback; the existing checked evaluator supplies the original zero-based index. It preserves complete observations, exact scalar representations, duplicates and nulls without per-record workflow invocations. Sole-property assembly/export wrappers may be removed when no sibling checks are lost. Entry guards and declared collection bounds still run; per-item guards, executable work, cleanup and prior-state dependencies prevent this optimization.

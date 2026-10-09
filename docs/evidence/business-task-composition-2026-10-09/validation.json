@@ -1,0 +1,77 @@
+{
+  "baseline_commit": "2663f4ace52794cabb91271ceb0c65b79d00621f",
+  "compilation_profile": "compact-bindings-v5",
+  "architecture_or_runtime_changes": false,
+  "comparison": {
+    "tasks": [
+      23,
+      13
+    ],
+    "steps": [
+      61,
+      60
+    ],
+    "sets": [
+      39,
+      36
+    ],
+    "yaml_bytes": [
+      92585,
+      77588
+    ]
+  },
+  "deterministic_planning": {
+    "calls": 1,
+    "repairs": 0
+  },
+  "local_execution": {
+    "visited_products": 10,
+    "pages": 38,
+    "offered_candidates": 12,
+    "decision_request_bytes": 2597,
+    "runtime_inference_calls": 24,
+    "mapping_invocations": 11,
+    "typed_copy_inference_calls": 0,
+    "invocations": 226,
+    "normal_steps": 225,
+    "cleanup_steps": 1,
+    "logical_journal_bytes": 22702244,
+    "execution_ms": 12680,
+    "xlsx_cells_match": true,
+    "browser_closed": true,
+    "committed_recovery_without_dispatch": true
+  },
+  "validation": {
+    "planning_tests": {
+      "passed": 1209,
+      "failed": 0
+    },
+    "new_fixture_matrix": {
+      "passed": 8,
+      "failed": 0
+    },
+    "final_fixture_recheck": {
+      "passed": 2,
+      "failed": 0
+    },
+    "planning_release_package": "passed",
+    "planning_osx_arm64_native_aot": "passed",
+    "skill": "passed",
+    "full_solution": "pending"
+  },
+  "matrix_expected_failures": [
+    "unoffered original identity rejected before visits",
+    "incomplete acquisition rejected before mapping",
+    "denied write produced no workbook",
+    "fabricated but typed workbook rejected by independent oracle"
+  ],
+  "paid_dispatches_during_implementation": 0,
+  "campaign_upper_bound_eur": "120.79665899575455349076839816",
+  "campaign_ceiling_eur": 150,
+  "sha256": {
+    "src/GnOuGo.Flow.Planning/PlanningPrompt.cs": "e9e19ff5613d4cf7e2cca9957608ab3967c76a6b40b348cf6db336c8a81507e2",
+    ".agents/skills/gnougo-planning/SKILL.md": "a6a89e6c12bca4b360749d57ca3715adf9460e0fa586ac28e612b092ddde5850",
+    "tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.BusinessTasks.cs": "51e308eaabf6f4230b23dbb3625aa94ba321b870aa98582cbfc702e577b3b4a9",
+    "tests/GnOuGo.Agent.Server.Tests/Fixtures/BusinessTaskComposition/compact.json": "57f87466491b136b5537fcc424f90105db4198555f9b5ce2e21634d9261b1491"
+  }
+}

@@ -1,0 +1,1447 @@
+{
+  "requirements": {
+    "summary": "Search the supplied query, visit up to ten results in observed order, extract observed fields, write a real workbook and release the browser.",
+    "outcomes": [
+      {
+        "id": "search",
+        "description": "Search using the public query."
+      },
+      {
+        "id": "select_first",
+        "description": "Retain at most ten results in observed order."
+      },
+      {
+        "id": "visit_extract",
+        "description": "Visit each selected result and extract observed details, preserving missing fields."
+      },
+      {
+        "id": "write_workbook",
+        "description": "Write a real workbook and return its producer path."
+      },
+      {
+        "id": "release",
+        "description": "Release the browser."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string",
+          "nullable": false
+        },
+        "required": true
+      }
+    ],
+    "outputs": [
+      {
+        "name": "filePath",
+        "type": {
+          "kind": "string",
+          "nullable": false
+        },
+        "required": true
+      },
+      {
+        "name": "rows",
+        "type": {
+          "kind": "array",
+          "nullable": false,
+          "minItems": 0,
+          "maxItems": 10,
+          "items": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "name",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                },
+                "required": true
+              },
+              {
+                "name": "description",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                },
+                "required": true
+              },
+              {
+                "name": "price",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                },
+                "required": true
+              },
+              {
+                "name": "error",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                },
+                "required": true
+              }
+            ]
+          }
+        },
+        "required": true
+      },
+      {
+        "name": "success",
+        "type": {
+          "kind": "boolean",
+          "nullable": false
+        },
+        "required": true
+      }
+    ]
+  },
+  "plan": {
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string",
+          "nullable": false
+        },
+        "required": true
+      }
+    ],
+    "root": {
+      "tasks": [
+        {
+          "id": "locate",
+          "objective": "Derive the search destination from the public query.",
+          "kind": "transform",
+          "mode": "interpret",
+          "inputs": [
+            {
+              "name": "query",
+              "value": {
+                "kind": "input",
+                "source": "query"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "url",
+                "type": {
+                  "kind": "string",
+                  "nullable": false
+                },
+                "required": true
+              }
+            ]
+          },
+          "requires": {
+            "kind": "predicate",
+            "items": [
+              {
+                "kind": "input",
+                "source": "query"
+              },
+              {
+                "kind": "null"
+              }
+            ],
+            "predicate": "not_equal"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "acquire",
+          "objective": "Acquire complete search observations.",
+          "kind": "operation",
+          "dependsOn": [
+            "locate"
+          ],
+          "operation": "acquire",
+          "inputs": [
+            {
+              "name": "url",
+              "value": {
+                "kind": "field",
+                "port": "url",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "locate"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "format",
+              "value": {
+                "kind": "string",
+                "text": "observation_complete"
+              }
+            },
+            {
+              "name": "waitUntil",
+              "value": {
+                "kind": "string",
+                "text": "domcontentloaded"
+              }
+            },
+            {
+              "name": "timeoutMs",
+              "value": {
+                "kind": "number",
+                "number": 30000
+              }
+            },
+            {
+              "name": "maxRecords",
+              "value": {
+                "kind": "number",
+                "number": 200
+              }
+            }
+          ],
+          "requires": {
+            "kind": "predicate",
+            "items": [
+              {
+                "kind": "field",
+                "port": "url",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "locate"
+                  }
+                ]
+              },
+              {
+                "kind": "null"
+              }
+            ],
+            "predicate": "not_equal"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "check_acquired",
+          "objective": "Check acquisition success and snapshot presence.",
+          "kind": "value",
+          "dependsOn": [
+            "acquire"
+          ],
+          "outputs": [
+            {
+              "name": "complete",
+              "value": {
+                "kind": "predicate",
+                "items": [
+                  {
+                    "kind": "predicate",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "acquire",
+                        "port": "success"
+                      },
+                      {
+                        "kind": "boolean",
+                        "boolean": true
+                      }
+                    ],
+                    "predicate": "equal"
+                  },
+                  {
+                    "kind": "predicate",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "acquire",
+                        "port": "observationSnapshot"
+                      },
+                      {
+                        "kind": "null"
+                      }
+                    ],
+                    "predicate": "not_equal"
+                  }
+                ],
+                "predicate": "and"
+              }
+            }
+          ],
+          "requires": {
+            "kind": "present",
+            "source": "acquire"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "check_complete",
+          "objective": "Check complete capture and manifest.",
+          "kind": "value",
+          "dependsOn": [
+            "check_acquired"
+          ],
+          "outputs": [
+            {
+              "name": "complete",
+              "value": {
+                "kind": "predicate",
+                "items": [
+                  {
+                    "kind": "predicate",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "port": "captureTruncated",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "acquire",
+                            "port": "observationSnapshot"
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "boolean",
+                        "boolean": false
+                      }
+                    ],
+                    "predicate": "equal"
+                  },
+                  {
+                    "kind": "predicate",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "port": "manifestTruncated",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "acquire",
+                            "port": "observationSnapshot"
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "boolean",
+                        "boolean": false
+                      }
+                    ],
+                    "predicate": "equal"
+                  }
+                ],
+                "predicate": "and"
+              }
+            }
+          ],
+          "requires": {
+            "kind": "predicate",
+            "items": [
+              {
+                "kind": "output",
+                "source": "check_acquired",
+                "port": "complete"
+              },
+              {
+                "kind": "boolean",
+                "boolean": true
+              }
+            ],
+            "predicate": "equal"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "extract_choices",
+          "objective": "Extract only observed identities and labels for the immediate selection.",
+          "kind": "transform",
+          "mode": "extract",
+          "each": {
+            "input": "pages",
+            "output": "pageViews"
+          },
+          "dependsOn": [
+            "check_complete"
+          ],
+          "inputs": [
+            {
+              "name": "pages",
+              "value": {
+                "kind": "field",
+                "port": "pages",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "acquire",
+                    "port": "observationSnapshot"
+                  }
+                ]
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "pageViews",
+                "type": {
+                  "kind": "array",
+                  "nullable": false,
+                  "minItems": 0,
+                  "maxItems": 100,
+                  "items": {
+                    "kind": "object",
+                    "nullable": false,
+                    "fields": [
+                      {
+                        "name": "pageId",
+                        "type": {
+                          "kind": "string",
+                          "nullable": false
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "candidates",
+                        "type": {
+                          "kind": "array",
+                          "nullable": false,
+                          "minItems": 0,
+                          "maxItems": 200,
+                          "items": {
+                            "kind": "object",
+                            "nullable": false,
+                            "fields": [
+                              {
+                                "name": "candidateKey",
+                                "type": {
+                                  "kind": "string",
+                                  "nullable": false
+                                },
+                                "required": true
+                              },
+                              {
+                                "name": "observedText",
+                                "type": {
+                                  "kind": "string",
+                                  "nullable": true
+                                },
+                                "required": true
+                              }
+                            ]
+                          }
+                        },
+                        "required": true
+                      }
+                    ]
+                  }
+                },
+                "required": true
+              }
+            ]
+          },
+          "requires": {
+            "kind": "predicate",
+            "items": [
+              {
+                "kind": "output",
+                "source": "check_complete",
+                "port": "complete"
+              },
+              {
+                "kind": "boolean",
+                "boolean": true
+              }
+            ],
+            "predicate": "equal"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "project_choices",
+          "objective": "Project candidate arrays from typed views.",
+          "kind": "foreach",
+          "dependsOn": [
+            "extract_choices"
+          ],
+          "requires": {
+            "kind": "present",
+            "source": "extract_choices"
+          },
+          "body": {
+            "outputs": [
+              {
+                "name": "offeredCandidates",
+                "value": {
+                  "kind": "field",
+                  "port": "candidates",
+                  "items": [
+                    {
+                      "kind": "item"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "items": {
+            "kind": "output",
+            "source": "extract_choices",
+            "port": "pageViews"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 1
+        },
+        {
+          "id": "offered",
+          "objective": "Concatenate offered candidates.",
+          "kind": "value",
+          "dependsOn": [
+            "project_choices"
+          ],
+          "outputs": [
+            {
+              "name": "records",
+              "value": {
+                "kind": "flatten",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "project_choices",
+                    "port": "offeredCandidates"
+                  }
+                ]
+              }
+            }
+          ],
+          "requires": {
+            "kind": "present",
+            "source": "project_choices"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "originals",
+          "objective": "Retain original record arrays for later actions.",
+          "kind": "foreach",
+          "dependsOn": [
+            "check_complete"
+          ],
+          "requires": {
+            "kind": "predicate",
+            "items": [
+              {
+                "kind": "output",
+                "source": "check_complete",
+                "port": "complete"
+              },
+              {
+                "kind": "boolean",
+                "boolean": true
+              }
+            ],
+            "predicate": "equal"
+          },
+          "body": {
+            "outputs": [
+              {
+                "name": "records",
+                "value": {
+                  "kind": "field",
+                  "port": "records",
+                  "items": [
+                    {
+                      "kind": "item"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "items": {
+            "kind": "field",
+            "port": "pages",
+            "items": [
+              {
+                "kind": "output",
+                "source": "acquire",
+                "port": "observationSnapshot"
+              }
+            ]
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 1
+        },
+        {
+          "id": "original_records",
+          "objective": "Concatenate original records.",
+          "kind": "value",
+          "dependsOn": [
+            "originals"
+          ],
+          "outputs": [
+            {
+              "name": "records",
+              "value": {
+                "kind": "flatten",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "originals",
+                    "port": "records"
+                  }
+                ]
+              }
+            }
+          ],
+          "requires": {
+            "kind": "present",
+            "source": "originals"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "choose",
+          "objective": "Choose up to ten observed identities in source order; preserve repetitions and add no filtering.",
+          "kind": "transform",
+          "mode": "interpret",
+          "dependsOn": [
+            "offered"
+          ],
+          "inputs": [
+            {
+              "name": "query",
+              "value": {
+                "kind": "input",
+                "source": "query"
+              }
+            },
+            {
+              "name": "offeredCandidates",
+              "value": {
+                "kind": "output",
+                "source": "offered",
+                "port": "records"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "productKeys",
+                "type": {
+                  "kind": "array",
+                  "nullable": false,
+                  "minItems": 0,
+                  "maxItems": 10,
+                  "items": {
+                    "kind": "string",
+                    "nullable": false
+                  }
+                },
+                "required": true
+              },
+              {
+                "name": "searchError",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                },
+                "required": true
+              }
+            ]
+          },
+          "requires": {
+            "kind": "present",
+            "source": "offered"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "verify_choices",
+          "objective": "Verify selected identities were offered.",
+          "kind": "value",
+          "dependsOn": [
+            "choose",
+            "offered"
+          ],
+          "outputs": [
+            {
+              "name": "records",
+              "value": {
+                "kind": "lookup",
+                "port": "candidateKey",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "offered",
+                    "port": "records"
+                  },
+                  {
+                    "kind": "field",
+                    "port": "productKeys",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "choose"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "requires": {
+            "kind": "present",
+            "source": "choose"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "resolve",
+          "objective": "Resolve exact original action records.",
+          "kind": "value",
+          "dependsOn": [
+            "verify_choices",
+            "original_records"
+          ],
+          "outputs": [
+            {
+              "name": "records",
+              "value": {
+                "kind": "lookup",
+                "port": "reference",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "original_records",
+                    "port": "records"
+                  },
+                  {
+                    "kind": "field",
+                    "port": "productKeys",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "choose"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "requires": {
+            "kind": "present",
+            "source": "verify_choices"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "visit",
+          "objective": "Visit the selected records in order.",
+          "kind": "foreach",
+          "dependsOn": [
+            "resolve"
+          ],
+          "requires": {
+            "kind": "present",
+            "source": "resolve"
+          },
+          "body": {
+            "tasks": [
+              {
+                "id": "read",
+                "objective": "Acquire complete observations from the observed destination.",
+                "kind": "operation",
+                "operation": "acquire",
+                "inputs": [
+                  {
+                    "name": "url",
+                    "value": {
+                      "kind": "field",
+                      "port": "href",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "format",
+                    "value": {
+                      "kind": "string",
+                      "text": "observation_complete"
+                    }
+                  },
+                  {
+                    "name": "waitUntil",
+                    "value": {
+                      "kind": "string",
+                      "text": "domcontentloaded"
+                    }
+                  },
+                  {
+                    "name": "timeoutMs",
+                    "value": {
+                      "kind": "number",
+                      "number": 30000
+                    }
+                  },
+                  {
+                    "name": "maxRecords",
+                    "value": {
+                      "kind": "number",
+                      "number": 200
+                    }
+                  }
+                ],
+                "requires": {
+                  "kind": "predicate",
+                  "items": [
+                    {
+                      "kind": "field",
+                      "port": "href",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "null"
+                    }
+                  ],
+                  "predicate": "not_equal"
+                },
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4
+              },
+              {
+                "id": "check_read",
+                "objective": "Check detail acquisition and snapshot presence.",
+                "kind": "value",
+                "dependsOn": [
+                  "read"
+                ],
+                "outputs": [
+                  {
+                    "name": "complete",
+                    "value": {
+                      "kind": "predicate",
+                      "items": [
+                        {
+                          "kind": "predicate",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "read",
+                              "port": "success"
+                            },
+                            {
+                              "kind": "boolean",
+                              "boolean": true
+                            }
+                          ],
+                          "predicate": "equal"
+                        },
+                        {
+                          "kind": "predicate",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "read",
+                              "port": "observationSnapshot"
+                            },
+                            {
+                              "kind": "null"
+                            }
+                          ],
+                          "predicate": "not_equal"
+                        }
+                      ],
+                      "predicate": "and"
+                    }
+                  }
+                ],
+                "requires": {
+                  "kind": "present",
+                  "source": "read"
+                },
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4
+              },
+              {
+                "id": "check_detail_complete",
+                "objective": "Check complete detail capture and manifest.",
+                "kind": "value",
+                "dependsOn": [
+                  "check_read"
+                ],
+                "outputs": [
+                  {
+                    "name": "complete",
+                    "value": {
+                      "kind": "predicate",
+                      "items": [
+                        {
+                          "kind": "predicate",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "port": "captureTruncated",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "read",
+                                  "port": "observationSnapshot"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "boolean",
+                              "boolean": false
+                            }
+                          ],
+                          "predicate": "equal"
+                        },
+                        {
+                          "kind": "predicate",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "port": "manifestTruncated",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "read",
+                                  "port": "observationSnapshot"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "boolean",
+                              "boolean": false
+                            }
+                          ],
+                          "predicate": "equal"
+                        }
+                      ],
+                      "predicate": "and"
+                    }
+                  }
+                ],
+                "requires": {
+                  "kind": "predicate",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "check_read",
+                      "port": "complete"
+                    },
+                    {
+                      "kind": "boolean",
+                      "boolean": true
+                    }
+                  ],
+                  "predicate": "equal"
+                },
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4
+              },
+              {
+                "id": "extract_facts",
+                "objective": "Extract only observed facts for the immediate reconciliation.",
+                "kind": "transform",
+                "mode": "extract",
+                "each": {
+                  "input": "pages",
+                  "output": "pageFacts"
+                },
+                "dependsOn": [
+                  "check_detail_complete"
+                ],
+                "inputs": [
+                  {
+                    "name": "pages",
+                    "value": {
+                      "kind": "field",
+                      "port": "pages",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "read",
+                          "port": "observationSnapshot"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "nullable": false,
+                  "fields": [
+                    {
+                      "name": "pageFacts",
+                      "type": {
+                        "kind": "array",
+                        "nullable": false,
+                        "minItems": 0,
+                        "maxItems": 100,
+                        "items": {
+                          "kind": "object",
+                          "nullable": false,
+                          "fields": [
+                            {
+                              "name": "pageId",
+                              "type": {
+                                "kind": "string",
+                                "nullable": false
+                              },
+                              "required": true
+                            },
+                            {
+                              "name": "nameFacts",
+                              "type": {
+                                "kind": "array",
+                                "nullable": false,
+                                "minItems": 0,
+                                "maxItems": 20,
+                                "items": {
+                                  "kind": "string",
+                                  "nullable": false
+                                }
+                              },
+                              "required": true
+                            },
+                            {
+                              "name": "descriptionFacts",
+                              "type": {
+                                "kind": "array",
+                                "nullable": false,
+                                "minItems": 0,
+                                "maxItems": 50,
+                                "items": {
+                                  "kind": "string",
+                                  "nullable": false
+                                }
+                              },
+                              "required": true
+                            },
+                            {
+                              "name": "priceFacts",
+                              "type": {
+                                "kind": "array",
+                                "nullable": false,
+                                "minItems": 0,
+                                "maxItems": 20,
+                                "items": {
+                                  "kind": "string",
+                                  "nullable": false
+                                }
+                              },
+                              "required": true
+                            },
+                            {
+                              "name": "observedError",
+                              "type": {
+                                "kind": "string",
+                                "nullable": true
+                              },
+                              "required": true
+                            }
+                          ]
+                        }
+                      },
+                      "required": true
+                    }
+                  ]
+                },
+                "requires": {
+                  "kind": "predicate",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "check_detail_complete",
+                      "port": "complete"
+                    },
+                    {
+                      "kind": "boolean",
+                      "boolean": true
+                    }
+                  ],
+                  "predicate": "equal"
+                },
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4
+              },
+              {
+                "id": "reconcile",
+                "objective": "Reconcile observed facts into a non-null record, preserving allowed missing fields.",
+                "kind": "transform",
+                "mode": "interpret",
+                "dependsOn": [
+                  "extract_facts"
+                ],
+                "inputs": [
+                  {
+                    "name": "compactFacts",
+                    "value": {
+                      "kind": "output",
+                      "source": "extract_facts",
+                      "port": "pageFacts"
+                    }
+                  },
+                  {
+                    "name": "pageUrl",
+                    "value": {
+                      "kind": "output",
+                      "source": "read",
+                      "port": "url"
+                    }
+                  },
+                  {
+                    "name": "browserErrorCode",
+                    "value": {
+                      "kind": "output",
+                      "source": "read",
+                      "port": "error_code"
+                    }
+                  },
+                  {
+                    "name": "browserErrorMessage",
+                    "value": {
+                      "kind": "output",
+                      "source": "read",
+                      "port": "error_message"
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "nullable": false,
+                  "fields": [
+                    {
+                      "name": "name",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      },
+                      "required": true
+                    },
+                    {
+                      "name": "description",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      },
+                      "required": true
+                    },
+                    {
+                      "name": "price",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      },
+                      "required": true
+                    },
+                    {
+                      "name": "error",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      },
+                      "required": true
+                    }
+                  ]
+                },
+                "requires": {
+                  "kind": "present",
+                  "source": "extract_facts"
+                },
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4
+              }
+            ],
+            "outputs": [
+              {
+                "name": "rows",
+                "value": {
+                  "kind": "output",
+                  "source": "reconcile"
+                }
+              }
+            ]
+          },
+          "items": {
+            "kind": "output",
+            "source": "resolve",
+            "port": "records"
+          },
+          "parallel": false,
+          "maxItems": 10,
+          "maxConcurrency": 1
+        },
+        {
+          "id": "rows",
+          "objective": "Return typed rows directly.",
+          "kind": "value",
+          "dependsOn": [
+            "visit"
+          ],
+          "outputs": [
+            {
+              "name": "rows",
+              "value": {
+                "kind": "output",
+                "source": "visit",
+                "port": "rows"
+              }
+            }
+          ],
+          "requires": {
+            "kind": "present",
+            "source": "visit"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "format",
+          "objective": "Format at most ten observed rows as TSV with name, description, price and error columns.",
+          "kind": "transform",
+          "mode": "interpret",
+          "dependsOn": [
+            "rows"
+          ],
+          "inputs": [
+            {
+              "name": "rows",
+              "value": {
+                "kind": "output",
+                "source": "rows",
+                "port": "rows"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "content",
+                "type": {
+                  "kind": "string",
+                  "nullable": false
+                },
+                "required": true
+              },
+              {
+                "name": "success",
+                "type": {
+                  "kind": "boolean",
+                  "nullable": false
+                },
+                "required": true
+              }
+            ]
+          },
+          "requires": {
+            "kind": "present",
+            "source": "rows"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "write",
+          "objective": "Write the actual workbook.",
+          "kind": "operation",
+          "dependsOn": [
+            "format"
+          ],
+          "operation": "persist",
+          "inputs": [
+            {
+              "name": "filePath",
+              "value": {
+                "kind": "string",
+                "text": "workflows/business-composition/items.xlsx"
+              }
+            },
+            {
+              "name": "content",
+              "value": {
+                "kind": "field",
+                "port": "content",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "format"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "append",
+              "value": {
+                "kind": "boolean",
+                "boolean": false
+              }
+            },
+            {
+              "name": "encoding",
+              "value": {
+                "kind": "string",
+                "text": "utf-8"
+              }
+            }
+          ],
+          "requires": {
+            "kind": "present",
+            "source": "format"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "result",
+          "objective": "Return writer evidence and the observed rows.",
+          "kind": "value",
+          "dependsOn": [
+            "write",
+            "rows",
+            "format"
+          ],
+          "outputs": [
+            {
+              "name": "filePath",
+              "value": {
+                "kind": "output",
+                "source": "write",
+                "port": "filePath"
+              }
+            },
+            {
+              "name": "rows",
+              "value": {
+                "kind": "output",
+                "source": "rows",
+                "port": "rows"
+              }
+            },
+            {
+              "name": "success",
+              "value": {
+                "kind": "predicate",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "write",
+                    "port": "success"
+                  },
+                  {
+                    "kind": "field",
+                    "port": "success",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "format"
+                      }
+                    ]
+                  }
+                ],
+                "predicate": "and"
+              }
+            }
+          ],
+          "requires": {
+            "kind": "present",
+            "source": "write"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "filePath",
+          "value": {
+            "kind": "output",
+            "source": "result",
+            "port": "filePath"
+          }
+        },
+        {
+          "name": "rows",
+          "value": {
+            "kind": "output",
+            "source": "result",
+            "port": "rows"
+          }
+        },
+        {
+          "name": "success",
+          "value": {
+            "kind": "output",
+            "source": "result",
+            "port": "success"
+          }
+        }
+      ],
+      "always": [
+        {
+          "id": "release",
+          "objective": "Release the browser even on failure.",
+          "kind": "operation",
+          "operation": "release",
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        }
+      ]
+    }
+  }
+}
