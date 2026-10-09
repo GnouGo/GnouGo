@@ -102,4 +102,16 @@ pass across the original run and the two corrected assertion reruns. Both indexe
 fixtures independently validate XLSX cells, visits and cleanup. Core, Planning,
 Integrations and Persistence Release packages pass with `-warnaserror`; the
 published macOS ARM64 Native AOT smoke passes, including encrypted recovery.
-Full-solution and CI results remain pending below.
+The full solution on production candidate `2bccddfc` passes **4,965 tests, 13
+skipped, zero failures**, with `-warnaserror` and exit code 0. Its full host suite
+completed. The subsequent harness-only change `cedb77e8` passes 56 campaign tests;
+production compiler/runtime sources are identical. Remote CI remains running at
+publication; no completed check has failed. PR #117 remains draft.
+
+The previous `b9421a3f` planner-validation and host-test jobs were cancelled after
+six hours. Their [GitHub annotations](prior-ci-timeouts.json) explicitly identify
+the maximum execution time, rather than an assertion failure or superseding push.
+The local orphan-listener reproduction blocks after its retired bounded queue
+fills; the ownership fix removes that cause without dropping events or increasing
+timeouts. This explains the reproduced local hang; it is not a captured remote
+stack trace. New complete test runs remain the verification of the correction.
