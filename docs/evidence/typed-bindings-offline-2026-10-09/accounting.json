@@ -1,0 +1,21 @@
+{
+  "campaign": "schema-portability-20261002",
+  "cost_ceiling_eur": 150,
+  "transport_accounting": {
+    "calls": 921,
+    "session_calls": 0,
+    "known_input_tokens": 13583105,
+    "known_output_tokens": 1867433,
+    "known_cost_eur": 110.27802405720682,
+    "reserved_input_tokens": 480000,
+    "reserved_output_tokens": 163840,
+    "reserved_cost_eur": 6.501614794790526,
+    "cost_upper_bound_eur": 116.77963885199735,
+    "unknown_attempts": 5
+  },
+  "evidence_hash": "131f50f6c8b1be1e68ead9bce80453dbebc381c68fc5f98895cc76bb68c360c7",
+  "retained_inconclusive_requests": 3,
+  "reserved_requests": 895,
+  "completed_receipts": 892,
+  "paid_calls_this_change": 0
+}

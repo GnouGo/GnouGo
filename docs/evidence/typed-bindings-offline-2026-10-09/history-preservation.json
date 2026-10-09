@@ -1,0 +1,10 @@
+{
+  "old_run": "consumerbindings20261009b-amazon-1",
+  "unchanged_inspection_sha256": "76f606d713dff106aa74508f79f50391c54f88a1eb9e175344a16d9aaec9034a",
+  "inspection_byte_identical": true,
+  "ledger_unchanged": true,
+  "requests_before": 895,
+  "requests_after": 895,
+  "upper_bound_eur": 116.77963885199735,
+  "unknown_reservations_eur": 6.501614794790526
+}
