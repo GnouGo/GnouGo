@@ -8,6 +8,37 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class RetainedOutputRevisionTests
 {
+    [Fact]
+    public void CompactGenerationReceivesProjectionGuidanceAndUnchangedAcceptedContracts()
+    {
+        var fixture = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
+            "Fixtures", "TargetedRevisions", "nullable-records.json")))!;
+        var state = PlannerFixture.Session();
+        state.Catalog = new();
+        state.Requirements = fixture["requirements"]!.Deserialize(PlanningJsonContext.Default.PlanningRequirements);
+        state.Request.Baseline = fixture["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan);
+        state.Request.Baseline!.Root.Tasks[0].ResultType!.Fields[0].Type.Items!.Nullable = false;
+        var baseline = Plan(state.Request.Baseline);
+        var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+        var request = new PlanningPrompt(state).Request();
+        var instructions = request.Prompt[..request.Prompt.IndexOf("\n{", StringComparison.Ordinal)];
+        Assert.Contains("body.outputs.rows=field(item,rows)", instructions);
+        Assert.Contains("flatten(output(loop,rows))", instructions);
+        Assert.Contains("value/direct bindings", instructions);
+        Assert.Contains("lookup takes/returns arrays", instructions);
+        Assert.All(PlanningSchemaReferences.Walk(request.StructuredOutputSchema!.AsObject(), "", 0), entry => Assert.False(entry.Schema.ContainsKey("description")));
+        var context = JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
+        var transmitted = context["taskPlan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        Assert.False(transmitted.Root.Tasks[0].ResultType!.Fields[0].Type.Items!.Nullable);
+        Assert.True(transmitted.Root.Tasks[0].ResultType!.Fields[0].Type.Items!.Fields[1].Type.Nullable);
+        Assert.Equal(baseline, Plan(transmitted));
+        Assert.Equal(requirements, JsonSerializer.Serialize(context["requirements"]!.Deserialize(PlanningJsonContext.Default.PlanningRequirements), PlanningJsonContext.Default.PlanningRequirements));
+        Assert.Equal(baseline, Plan(state.Request.Baseline));
+        // Once issued, a restart reuses its original prompt/schema rather than rebuilding guidance.
+        var stored = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
+        Assert.Equal(stored, JsonSerializer.Serialize(JsonSerializer.Deserialize(stored, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

@@ -1,0 +1,2677 @@
+{
+  "requirements": {
+    "summary": "Search the catalogue for query, visit the first at most ten products in observed order, preserve missing fields, write their observed values to a workbook and close the browser even on failure.",
+    "outcomes": [
+      {
+        "id": "search_catalogue",
+        "description": "Search the catalogue using the sole public query input."
+      },
+      {
+        "id": "collect_top_products",
+        "description": "Collect at most the first ten products in observed order, without deduplication or sponsored filtering."
+      },
+      {
+        "id": "visit_and_extract",
+        "description": "Visit every selected product and extract its observed name, description and price; preserve missing fields."
+      },
+      {
+        "id": "save_excel",
+        "description": "Write an actual Excel workbook at the approved destination."
+      },
+      {
+        "id": "cleanup_browser",
+        "description": "Close the browser on success and verified failure."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string",
+          "nullable": false
+        },
+        "required": true
+      }
+    ],
+    "outputs": [
+      {
+        "name": "xlsxPath",
+        "type": {
+          "kind": "string",
+          "nullable": false
+        },
+        "required": true
+      },
+      {
+        "name": "products",
+        "type": {
+          "kind": "array",
+          "nullable": false,
+          "minItems": 0,
+          "maxItems": 10,
+          "items": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "index",
+                "type": {
+                  "kind": "integer",
+                  "nullable": false
+                },
+                "required": true
+              },
+              {
+                "name": "name",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                },
+                "required": true
+              },
+              {
+                "name": "description",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                },
+                "required": true
+              },
+              {
+                "name": "price",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                },
+                "required": true
+              },
+              {
+                "name": "url",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                },
+                "required": true
+              },
+              {
+                "name": "status",
+                "type": {
+                  "kind": "string",
+                  "nullable": false
+                },
+                "required": true
+              }
+            ]
+          }
+        },
+        "required": true
+      },
+      {
+        "name": "captchaEncountered",
+        "type": {
+          "kind": "boolean",
+          "nullable": false
+        },
+        "required": true
+      }
+    ]
+  },
+  "plan": {
+    "inputs": [
+      {
+        "name": "query",
+        "type": {
+          "kind": "string",
+          "nullable": false
+        },
+        "required": true
+      }
+    ],
+    "root": {
+      "tasks": [
+        {
+          "id": "open_catalogue",
+          "objective": "Open the catalogue and capture the complete bounded producer observation before any interaction.",
+          "kind": "operation",
+          "operation": "browser_get_content",
+          "inputs": [
+            {
+              "name": "url",
+              "value": {
+                "kind": "string",
+                "text": "https://catalogue.example/"
+              }
+            },
+            {
+              "name": "waitUntil",
+              "value": {
+                "kind": "string",
+                "text": "domcontentloaded"
+              }
+            },
+            {
+              "name": "format",
+              "value": {
+                "kind": "string",
+                "text": "observation_complete"
+              }
+            },
+            {
+              "name": "maxRecords",
+              "value": {
+                "kind": "number",
+                "number": 200
+              }
+            },
+            {
+              "name": "timeoutMs",
+              "value": {
+                "kind": "number",
+                "number": 30000
+              }
+            }
+          ],
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "extract_initial_page_candidates",
+          "objective": "Extract only the declared observed decision facts from each complete page. Copy producer references verbatim; emit no compatibility claims, indices or action arguments. Empty candidate arrays mean this complete page has no corresponding observation.",
+          "kind": "transform",
+          "mode": "extract",
+          "each": {
+            "input": "pages",
+            "output": "initialPageFacts"
+          },
+          "dependsOn": [
+            "open_catalogue"
+          ],
+          "inputs": [
+            {
+              "name": "pages",
+              "value": {
+                "kind": "field",
+                "port": "pages",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "open_catalogue",
+                    "port": "observationSnapshot"
+                  }
+                ]
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "initialPageFacts",
+                "type": {
+                  "kind": "array",
+                  "nullable": false,
+                  "items": {
+                    "kind": "object",
+                    "nullable": false,
+                    "fields": [
+                      {
+                        "name": "consentControls",
+                        "type": {
+                          "kind": "array",
+                          "nullable": false,
+                          "items": {
+                            "kind": "object",
+                            "nullable": false,
+                            "fields": [
+                              {
+                                "name": "candidateId",
+                                "type": {
+                                  "kind": "string",
+                                  "nullable": false
+                                },
+                                "required": true
+                              },
+                              {
+                                "name": "text",
+                                "type": {
+                                  "kind": "string",
+                                  "nullable": false
+                                },
+                                "required": true
+                              },
+                              {
+                                "name": "tag",
+                                "type": {
+                                  "kind": "string",
+                                  "nullable": false
+                                },
+                                "required": true
+                              }
+                            ]
+                          },
+                          "maxItems": 200
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "captchaEvidence",
+                        "type": {
+                          "kind": "array",
+                          "nullable": false,
+                          "items": {
+                            "kind": "object",
+                            "nullable": false,
+                            "fields": [
+                              {
+                                "name": "evidenceId",
+                                "type": {
+                                  "kind": "string",
+                                  "nullable": false
+                                },
+                                "required": true
+                              },
+                              {
+                                "name": "text",
+                                "type": {
+                                  "kind": "string",
+                                  "nullable": false
+                                },
+                                "required": true
+                              }
+                            ]
+                          },
+                          "maxItems": 200
+                        },
+                        "required": true
+                      }
+                    ]
+                  },
+                  "maxItems": 100
+                },
+                "required": true
+              }
+            ]
+          },
+          "requires": {
+            "kind": "predicate",
+            "predicate": "and",
+            "items": [
+              {
+                "kind": "predicate",
+                "predicate": "not_equal",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "open_catalogue",
+                    "port": "observationSnapshot"
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ]
+              },
+              {
+                "kind": "predicate",
+                "predicate": "and",
+                "items": [
+                  {
+                    "kind": "predicate",
+                    "predicate": "equal",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "port": "captureTruncated",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "open_catalogue",
+                            "port": "observationSnapshot"
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "boolean",
+                        "boolean": false
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "predicate",
+                    "predicate": "equal",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "port": "manifestTruncated",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "open_catalogue",
+                            "port": "observationSnapshot"
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "boolean",
+                        "boolean": false
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "initial_candidate_views_projection",
+          "kind": "foreach",
+          "objective": "Project each typed item into its declared exports in source order.",
+          "items": {
+            "kind": "output",
+            "source": "extract_initial_page_candidates",
+            "port": "initialPageFacts"
+          },
+          "maxItems": 100,
+          "body": {
+            "outputs": [
+              {
+                "name": "consentControls",
+                "value": {
+                  "kind": "field",
+                  "port": "consentControls",
+                  "items": [
+                    {
+                      "kind": "item"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "captchaEvidence",
+                "value": {
+                  "kind": "field",
+                  "port": "captchaEvidence",
+                  "items": [
+                    {
+                      "kind": "item"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "initial_candidate_views",
+          "kind": "value",
+          "objective": "Assemble declared typed values without inference.",
+          "outputs": [
+            {
+              "name": "consentControls",
+              "value": {
+                "kind": "flatten",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "initial_candidate_views_projection",
+                    "port": "consentControls"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "captchaEvidence",
+              "value": {
+                "kind": "flatten",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "initial_candidate_views_projection",
+                    "port": "captchaEvidence"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "initial_candidate_views_originals",
+          "kind": "foreach",
+          "objective": "Project each typed item into its declared exports in source order.",
+          "items": {
+            "kind": "field",
+            "port": "pages",
+            "items": [
+              {
+                "kind": "output",
+                "source": "open_catalogue",
+                "port": "observationSnapshot"
+              }
+            ]
+          },
+          "maxItems": 100,
+          "body": {
+            "outputs": [
+              {
+                "name": "records",
+                "value": {
+                  "kind": "field",
+                  "port": "records",
+                  "items": [
+                    {
+                      "kind": "item"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "decide_initial_actions",
+          "objective": "Using only the compact initial offered view, detect observed CAPTCHA evidence and choose at most one compatible consent candidate by observed candidateId. Return candidate IDs only; do not return raw references as decisions.",
+          "kind": "transform",
+          "mode": "interpret",
+          "dependsOn": [
+            "initial_candidate_views"
+          ],
+          "inputs": [
+            {
+              "name": "consentOffered",
+              "value": {
+                "kind": "output",
+                "source": "initial_candidate_views",
+                "port": "consentControls"
+              }
+            },
+            {
+              "name": "captchaEvidence",
+              "value": {
+                "kind": "output",
+                "source": "initial_candidate_views",
+                "port": "captchaEvidence"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "captchaEncountered",
+                "type": {
+                  "kind": "boolean",
+                  "nullable": false
+                },
+                "required": true
+              },
+              {
+                "name": "selectedConsentId",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                },
+                "required": true
+              },
+              {
+                "name": "status",
+                "type": {
+                  "kind": "string",
+                  "nullable": false
+                },
+                "required": true
+              }
+            ]
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "accept_consent_if_present",
+          "kind": "sequence",
+          "objective": "Keep the optional action and its adaptation in a local scope.",
+          "dependsOn": [
+            "decide_initial_actions"
+          ],
+          "body": {
+            "tasks": [
+              {
+                "id": "accept_consent_if_present_condition",
+                "objective": "If an observed compatible consent control was selected and the initial compact facts do not show CAPTCHA, activate the resolved original reference.",
+                "kind": "conditional",
+                "condition": {
+                  "kind": "predicate",
+                  "predicate": "and",
+                  "items": [
+                    {
+                      "kind": "predicate",
+                      "predicate": "not",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "decide_initial_actions",
+                          "port": "captchaEncountered"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "predicate",
+                      "predicate": "not_equal",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "decide_initial_actions",
+                          "port": "selectedConsentId"
+                        },
+                        {
+                          "kind": "null"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "body": {
+                  "tasks": [
+                    {
+                      "id": "accept_consent_if_present_offered",
+                      "kind": "value",
+                      "objective": "Assemble declared typed values without inference.",
+                      "outputs": [
+                        {
+                          "name": "records",
+                          "value": {
+                            "kind": "lookup",
+                            "port": "candidateId",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "initial_candidate_views",
+                                "port": "consentControls"
+                              },
+                              {
+                                "kind": "array",
+                                "items": [
+                                  {
+                                    "kind": "output",
+                                    "source": "decide_initial_actions",
+                                    "port": "selectedConsentId"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "accept_consent_if_present_ids",
+                      "kind": "foreach",
+                      "objective": "Project each typed item into its declared exports in source order.",
+                      "items": {
+                        "kind": "output",
+                        "source": "accept_consent_if_present_offered",
+                        "port": "records"
+                      },
+                      "maxItems": 1,
+                      "body": {
+                        "outputs": [
+                          {
+                            "name": "ids",
+                            "value": {
+                              "kind": "field",
+                              "port": "candidateId",
+                              "items": [
+                                {
+                                  "kind": "item"
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": "accept_consent_if_present_originals",
+                      "kind": "value",
+                      "objective": "Assemble declared typed values without inference.",
+                      "outputs": [
+                        {
+                          "name": "records",
+                          "value": {
+                            "kind": "lookup",
+                            "port": "reference",
+                            "items": [
+                              {
+                                "kind": "flatten",
+                                "items": [
+                                  {
+                                    "kind": "output",
+                                    "source": "initial_candidate_views_originals",
+                                    "port": "records"
+                                  }
+                                ]
+                              },
+                              {
+                                "kind": "output",
+                                "source": "accept_consent_if_present_ids",
+                                "port": "ids"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "accept_consent_if_present_selection",
+                      "kind": "foreach",
+                      "objective": "Perform the selected action using its verified original record.",
+                      "items": {
+                        "kind": "output",
+                        "source": "accept_consent_if_present_originals",
+                        "port": "records"
+                      },
+                      "maxItems": 1,
+                      "body": {
+                        "tasks": [
+                          {
+                            "id": "click_consent",
+                            "objective": "Activate the consent control resolved from the retained observed candidate reference.",
+                            "kind": "operation",
+                            "operation": "browser_click",
+                            "inputs": [
+                              {
+                                "name": "reference",
+                                "value": {
+                                  "kind": "field",
+                                  "port": "reference",
+                                  "items": [
+                                    {
+                                      "kind": "item"
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "name": "requestedAction",
+                                "value": {
+                                  "kind": "string",
+                                  "text": "activate"
+                                }
+                              },
+                              {
+                                "name": "waitUntil",
+                                "value": {
+                                  "kind": "string",
+                                  "text": "domcontentloaded"
+                                }
+                              },
+                              {
+                                "name": "timeoutMs",
+                                "value": {
+                                  "kind": "number",
+                                  "number": 15000
+                                }
+                              }
+                            ],
+                            "requires": {
+                              "kind": "predicate",
+                              "predicate": "not_equal",
+                              "items": [
+                                {
+                                  "kind": "field",
+                                  "port": "reference",
+                                  "items": [
+                                    {
+                                      "kind": "item"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "kind": "null"
+                                }
+                              ]
+                            },
+                            "parallel": false,
+                            "maxItems": 100,
+                            "maxConcurrency": 4
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "otherwise": {},
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4
+              }
+            ]
+          }
+        },
+        {
+          "id": "read_ready_home",
+          "objective": "Read the current the catalogue page after any consent handling with a fresh complete bounded observation so references are current.",
+          "kind": "operation",
+          "dependsOn": [
+            "accept_consent_if_present"
+          ],
+          "operation": "browser_get_content",
+          "inputs": [
+            {
+              "name": "format",
+              "value": {
+                "kind": "string",
+                "text": "observation_complete"
+              }
+            },
+            {
+              "name": "maxRecords",
+              "value": {
+                "kind": "number",
+                "number": 200
+              }
+            },
+            {
+              "name": "timeoutMs",
+              "value": {
+                "kind": "number",
+                "number": 30000
+              }
+            }
+          ],
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "extract_ready_home_candidates",
+          "objective": "Extract only the declared observed decision facts from each complete page. Copy producer references verbatim; emit no compatibility claims, indices or action arguments. Empty candidate arrays mean this complete page has no corresponding observation.",
+          "kind": "transform",
+          "mode": "extract",
+          "each": {
+            "input": "pages",
+            "output": "readyPageFacts"
+          },
+          "dependsOn": [
+            "read_ready_home"
+          ],
+          "inputs": [
+            {
+              "name": "pages",
+              "value": {
+                "kind": "field",
+                "port": "pages",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "read_ready_home",
+                    "port": "observationSnapshot"
+                  }
+                ]
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "readyPageFacts",
+                "type": {
+                  "kind": "array",
+                  "nullable": false,
+                  "items": {
+                    "kind": "object",
+                    "nullable": false,
+                    "fields": [
+                      {
+                        "name": "searchFillTargets",
+                        "type": {
+                          "kind": "array",
+                          "nullable": false,
+                          "items": {
+                            "kind": "object",
+                            "nullable": false,
+                            "fields": [
+                              {
+                                "name": "candidateId",
+                                "type": {
+                                  "kind": "string",
+                                  "nullable": false
+                                },
+                                "required": true
+                              },
+                              {
+                                "name": "text",
+                                "type": {
+                                  "kind": "string",
+                                  "nullable": false
+                                },
+                                "required": true
+                              },
+                              {
+                                "name": "tag",
+                                "type": {
+                                  "kind": "string",
+                                  "nullable": false
+                                },
+                                "required": true
+                              }
+                            ]
+                          },
+                          "maxItems": 200
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "captchaEvidence",
+                        "type": {
+                          "kind": "array",
+                          "nullable": false,
+                          "items": {
+                            "kind": "object",
+                            "nullable": false,
+                            "fields": [
+                              {
+                                "name": "evidenceId",
+                                "type": {
+                                  "kind": "string",
+                                  "nullable": false
+                                },
+                                "required": true
+                              },
+                              {
+                                "name": "text",
+                                "type": {
+                                  "kind": "string",
+                                  "nullable": false
+                                },
+                                "required": true
+                              }
+                            ]
+                          },
+                          "maxItems": 200
+                        },
+                        "required": true
+                      }
+                    ]
+                  },
+                  "maxItems": 100
+                },
+                "required": true
+              }
+            ]
+          },
+          "requires": {
+            "kind": "predicate",
+            "predicate": "and",
+            "items": [
+              {
+                "kind": "predicate",
+                "predicate": "not_equal",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "read_ready_home",
+                    "port": "observationSnapshot"
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ]
+              },
+              {
+                "kind": "predicate",
+                "predicate": "and",
+                "items": [
+                  {
+                    "kind": "predicate",
+                    "predicate": "equal",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "port": "captureTruncated",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "read_ready_home",
+                            "port": "observationSnapshot"
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "boolean",
+                        "boolean": false
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "predicate",
+                    "predicate": "equal",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "port": "manifestTruncated",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "read_ready_home",
+                            "port": "observationSnapshot"
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "boolean",
+                        "boolean": false
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "ready_candidate_views_projection",
+          "kind": "foreach",
+          "objective": "Project each typed item into its declared exports in source order.",
+          "items": {
+            "kind": "output",
+            "source": "extract_ready_home_candidates",
+            "port": "readyPageFacts"
+          },
+          "maxItems": 100,
+          "body": {
+            "outputs": [
+              {
+                "name": "searchFillTargets",
+                "value": {
+                  "kind": "field",
+                  "port": "searchFillTargets",
+                  "items": [
+                    {
+                      "kind": "item"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "captchaEvidence",
+                "value": {
+                  "kind": "field",
+                  "port": "captchaEvidence",
+                  "items": [
+                    {
+                      "kind": "item"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "ready_candidate_views",
+          "kind": "value",
+          "objective": "Assemble declared typed values without inference.",
+          "outputs": [
+            {
+              "name": "searchFillTargets",
+              "value": {
+                "kind": "flatten",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "ready_candidate_views_projection",
+                    "port": "searchFillTargets"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "captchaEvidence",
+              "value": {
+                "kind": "flatten",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "ready_candidate_views_projection",
+                    "port": "captchaEvidence"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "ready_candidate_views_originals",
+          "kind": "foreach",
+          "objective": "Project each typed item into its declared exports in source order.",
+          "items": {
+            "kind": "field",
+            "port": "pages",
+            "items": [
+              {
+                "kind": "output",
+                "source": "read_ready_home",
+                "port": "observationSnapshot"
+              }
+            ]
+          },
+          "maxItems": 100,
+          "body": {
+            "outputs": [
+              {
+                "name": "records",
+                "value": {
+                  "kind": "field",
+                  "port": "records",
+                  "items": [
+                    {
+                      "kind": "item"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "decide_ready_search_target",
+          "objective": "Using only the compact ready-home offered view, detect observed CAPTCHA evidence and choose one compatible search-fill candidateId. Return observed candidate IDs only.",
+          "kind": "transform",
+          "mode": "interpret",
+          "dependsOn": [
+            "ready_candidate_views"
+          ],
+          "inputs": [
+            {
+              "name": "searchOffered",
+              "value": {
+                "kind": "output",
+                "source": "ready_candidate_views",
+                "port": "searchFillTargets"
+              }
+            },
+            {
+              "name": "captchaEvidence",
+              "value": {
+                "kind": "output",
+                "source": "ready_candidate_views",
+                "port": "captchaEvidence"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "captchaEncountered",
+                "type": {
+                  "kind": "boolean",
+                  "nullable": false
+                },
+                "required": true
+              },
+              {
+                "name": "selectedSearchId",
+                "type": {
+                  "kind": "string",
+                  "nullable": true
+                },
+                "required": true
+              },
+              {
+                "name": "status",
+                "type": {
+                  "kind": "string",
+                  "nullable": false
+                },
+                "required": true
+              }
+            ]
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "submit_search_if_possible",
+          "kind": "sequence",
+          "objective": "Keep the optional action and its adaptation in a local scope.",
+          "dependsOn": [
+            "decide_ready_search_target"
+          ],
+          "body": {
+            "tasks": [
+              {
+                "id": "submit_search_if_possible_condition",
+                "objective": "Submit the public input query in the resolved observed the catalogue search field unless a CAPTCHA or missing compatible search control prevents it.",
+                "kind": "conditional",
+                "condition": {
+                  "kind": "predicate",
+                  "predicate": "and",
+                  "items": [
+                    {
+                      "kind": "predicate",
+                      "predicate": "not",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "decide_ready_search_target",
+                          "port": "captchaEncountered"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "predicate",
+                      "predicate": "not_equal",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "decide_ready_search_target",
+                          "port": "selectedSearchId"
+                        },
+                        {
+                          "kind": "null"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "body": {
+                  "tasks": [
+                    {
+                      "id": "submit_search_if_possible_offered",
+                      "kind": "value",
+                      "objective": "Assemble declared typed values without inference.",
+                      "outputs": [
+                        {
+                          "name": "records",
+                          "value": {
+                            "kind": "lookup",
+                            "port": "candidateId",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "ready_candidate_views",
+                                "port": "searchFillTargets"
+                              },
+                              {
+                                "kind": "array",
+                                "items": [
+                                  {
+                                    "kind": "output",
+                                    "source": "decide_ready_search_target",
+                                    "port": "selectedSearchId"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "submit_search_if_possible_ids",
+                      "kind": "foreach",
+                      "objective": "Project each typed item into its declared exports in source order.",
+                      "items": {
+                        "kind": "output",
+                        "source": "submit_search_if_possible_offered",
+                        "port": "records"
+                      },
+                      "maxItems": 1,
+                      "body": {
+                        "outputs": [
+                          {
+                            "name": "ids",
+                            "value": {
+                              "kind": "field",
+                              "port": "candidateId",
+                              "items": [
+                                {
+                                  "kind": "item"
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": "submit_search_if_possible_originals",
+                      "kind": "value",
+                      "objective": "Assemble declared typed values without inference.",
+                      "outputs": [
+                        {
+                          "name": "records",
+                          "value": {
+                            "kind": "lookup",
+                            "port": "reference",
+                            "items": [
+                              {
+                                "kind": "flatten",
+                                "items": [
+                                  {
+                                    "kind": "output",
+                                    "source": "ready_candidate_views_originals",
+                                    "port": "records"
+                                  }
+                                ]
+                              },
+                              {
+                                "kind": "output",
+                                "source": "submit_search_if_possible_ids",
+                                "port": "ids"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "submit_search_if_possible_selection",
+                      "kind": "foreach",
+                      "objective": "Perform the selected action using its verified original record.",
+                      "items": {
+                        "kind": "output",
+                        "source": "submit_search_if_possible_originals",
+                        "port": "records"
+                      },
+                      "maxItems": 1,
+                      "body": {
+                        "tasks": [
+                          {
+                            "id": "fill_and_submit_query",
+                            "objective": "Fill the observed catalogue search input with the public query and submit the search.",
+                            "kind": "operation",
+                            "operation": "browser_fill",
+                            "inputs": [
+                              {
+                                "name": "reference",
+                                "value": {
+                                  "kind": "field",
+                                  "port": "reference",
+                                  "items": [
+                                    {
+                                      "kind": "item"
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "name": "value",
+                                "value": {
+                                  "kind": "input",
+                                  "source": "query"
+                                }
+                              },
+                              {
+                                "name": "submit",
+                                "value": {
+                                  "kind": "boolean",
+                                  "boolean": true
+                                }
+                              },
+                              {
+                                "name": "timeoutMs",
+                                "value": {
+                                  "kind": "number",
+                                  "number": 15000
+                                }
+                              }
+                            ],
+                            "requires": {
+                              "kind": "predicate",
+                              "predicate": "not_equal",
+                              "items": [
+                                {
+                                  "kind": "field",
+                                  "port": "reference",
+                                  "items": [
+                                    {
+                                      "kind": "item"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "kind": "null"
+                                }
+                              ]
+                            },
+                            "parallel": false,
+                            "maxItems": 100,
+                            "maxConcurrency": 4
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "otherwise": {},
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4
+              }
+            ]
+          }
+        },
+        {
+          "id": "read_search_results",
+          "objective": "Capture the current page after actual search submission, or the blocked page if search could not be submitted, as a complete bounded observation.",
+          "kind": "operation",
+          "dependsOn": [
+            "submit_search_if_possible"
+          ],
+          "operation": "browser_get_content",
+          "inputs": [
+            {
+              "name": "waitUntil",
+              "value": {
+                "kind": "string",
+                "text": "domcontentloaded"
+              }
+            },
+            {
+              "name": "format",
+              "value": {
+                "kind": "string",
+                "text": "observation_complete"
+              }
+            },
+            {
+              "name": "maxRecords",
+              "value": {
+                "kind": "number",
+                "number": 200
+              }
+            },
+            {
+              "name": "timeoutMs",
+              "value": {
+                "kind": "number",
+                "number": 30000
+              }
+            }
+          ],
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "extract_search_result_pages",
+          "objective": "Extract only the declared observed decision facts from each complete page. Copy producer references verbatim; emit no compatibility claims, indices or action arguments. Empty candidate arrays mean this complete page has no corresponding observation.",
+          "kind": "transform",
+          "mode": "extract",
+          "each": {
+            "input": "pages",
+            "output": "searchPageFacts"
+          },
+          "dependsOn": [
+            "read_search_results"
+          ],
+          "inputs": [
+            {
+              "name": "pages",
+              "value": {
+                "kind": "field",
+                "port": "pages",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "read_search_results",
+                    "port": "observationSnapshot"
+                  }
+                ]
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "searchPageFacts",
+                "type": {
+                  "kind": "array",
+                  "nullable": false,
+                  "items": {
+                    "kind": "object",
+                    "nullable": false,
+                    "fields": [
+                      {
+                        "name": "productCandidates",
+                        "type": {
+                          "kind": "array",
+                          "nullable": false,
+                          "items": {
+                            "kind": "object",
+                            "nullable": false,
+                            "fields": [
+                              {
+                                "name": "candidateId",
+                                "type": {
+                                  "kind": "string",
+                                  "nullable": false
+                                },
+                                "required": true
+                              },
+                              {
+                                "name": "text",
+                                "type": {
+                                  "kind": "string",
+                                  "nullable": false
+                                },
+                                "required": true
+                              }
+                            ]
+                          },
+                          "maxItems": 200
+                        },
+                        "required": true
+                      },
+                      {
+                        "name": "captchaEvidence",
+                        "type": {
+                          "kind": "array",
+                          "nullable": false,
+                          "items": {
+                            "kind": "object",
+                            "nullable": false,
+                            "fields": [
+                              {
+                                "name": "evidenceId",
+                                "type": {
+                                  "kind": "string",
+                                  "nullable": false
+                                },
+                                "required": true
+                              },
+                              {
+                                "name": "text",
+                                "type": {
+                                  "kind": "string",
+                                  "nullable": false
+                                },
+                                "required": true
+                              }
+                            ]
+                          },
+                          "maxItems": 200
+                        },
+                        "required": true
+                      }
+                    ]
+                  },
+                  "maxItems": 100
+                },
+                "required": true
+              }
+            ]
+          },
+          "requires": {
+            "kind": "predicate",
+            "predicate": "and",
+            "items": [
+              {
+                "kind": "predicate",
+                "predicate": "not_equal",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "read_search_results",
+                    "port": "observationSnapshot"
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ]
+              },
+              {
+                "kind": "predicate",
+                "predicate": "and",
+                "items": [
+                  {
+                    "kind": "predicate",
+                    "predicate": "equal",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "port": "captureTruncated",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "read_search_results",
+                            "port": "observationSnapshot"
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "boolean",
+                        "boolean": false
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "predicate",
+                    "predicate": "equal",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "port": "manifestTruncated",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "read_search_results",
+                            "port": "observationSnapshot"
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "boolean",
+                        "boolean": false
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "search_candidate_views_projection",
+          "kind": "foreach",
+          "objective": "Project each typed item into its declared exports in source order.",
+          "items": {
+            "kind": "output",
+            "source": "extract_search_result_pages",
+            "port": "searchPageFacts"
+          },
+          "maxItems": 100,
+          "body": {
+            "outputs": [
+              {
+                "name": "productCandidates",
+                "value": {
+                  "kind": "field",
+                  "port": "productCandidates",
+                  "items": [
+                    {
+                      "kind": "item"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "captchaEvidence",
+                "value": {
+                  "kind": "field",
+                  "port": "captchaEvidence",
+                  "items": [
+                    {
+                      "kind": "item"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "search_candidate_views",
+          "kind": "value",
+          "objective": "Assemble declared typed values without inference.",
+          "outputs": [
+            {
+              "name": "productCandidates",
+              "value": {
+                "kind": "flatten",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "search_candidate_views_projection",
+                    "port": "productCandidates"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "captchaEvidence",
+              "value": {
+                "kind": "flatten",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "search_candidate_views_projection",
+                    "port": "captchaEvidence"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "search_candidate_views_originals",
+          "kind": "foreach",
+          "objective": "Project each typed item into its declared exports in source order.",
+          "items": {
+            "kind": "field",
+            "port": "pages",
+            "items": [
+              {
+                "kind": "output",
+                "source": "read_search_results",
+                "port": "observationSnapshot"
+              }
+            ]
+          },
+          "maxItems": 100,
+          "body": {
+            "outputs": [
+              {
+                "name": "records",
+                "value": {
+                  "kind": "field",
+                  "port": "records",
+                  "items": [
+                    {
+                      "kind": "item"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "select_first_ten_product_ids",
+          "objective": "Select the first at most ten observed product candidate IDs in their offered order. Preserve duplicates; no sponsored filtering, deduplication or new ranking. Report observed CAPTCHA truthfully.",
+          "kind": "transform",
+          "mode": "interpret",
+          "dependsOn": [
+            "search_candidate_views"
+          ],
+          "inputs": [
+            {
+              "name": "productOffered",
+              "value": {
+                "kind": "output",
+                "source": "search_candidate_views",
+                "port": "productCandidates"
+              }
+            },
+            {
+              "name": "captchaEvidence",
+              "value": {
+                "kind": "output",
+                "source": "search_candidate_views",
+                "port": "captchaEvidence"
+              }
+            },
+            {
+              "name": "query",
+              "value": {
+                "kind": "input",
+                "source": "query"
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "captchaEncountered",
+                "type": {
+                  "kind": "boolean",
+                  "nullable": false
+                },
+                "required": true
+              },
+              {
+                "name": "selectedProductIds",
+                "type": {
+                  "kind": "array",
+                  "nullable": false,
+                  "minItems": 0,
+                  "maxItems": 10,
+                  "items": {
+                    "kind": "string",
+                    "nullable": false
+                  }
+                },
+                "required": true
+              },
+              {
+                "name": "status",
+                "type": {
+                  "kind": "string",
+                  "nullable": false
+                },
+                "required": true
+              }
+            ]
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "verify_selected_products",
+          "kind": "value",
+          "objective": "Assemble declared typed values without inference.",
+          "outputs": [
+            {
+              "name": "records",
+              "value": {
+                "kind": "lookup",
+                "port": "candidateId",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "search_candidate_views",
+                    "port": "productCandidates"
+                  },
+                  {
+                    "kind": "output",
+                    "source": "select_first_ten_product_ids",
+                    "port": "selectedProductIds"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "selected_product_ids",
+          "kind": "foreach",
+          "objective": "Project each typed item into its declared exports in source order.",
+          "items": {
+            "kind": "output",
+            "source": "verify_selected_products",
+            "port": "records"
+          },
+          "maxItems": 10,
+          "body": {
+            "outputs": [
+              {
+                "name": "ids",
+                "value": {
+                  "kind": "field",
+                  "port": "candidateId",
+                  "items": [
+                    {
+                      "kind": "item"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "resolve_selected_products",
+          "kind": "value",
+          "objective": "Assemble declared typed values without inference.",
+          "outputs": [
+            {
+              "name": "productCandidates",
+              "value": {
+                "kind": "lookup",
+                "port": "reference",
+                "items": [
+                  {
+                    "kind": "flatten",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "search_candidate_views_originals",
+                        "port": "records"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "output",
+                    "source": "selected_product_ids",
+                    "port": "ids"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "visit_product_pages",
+          "objective": "Visit each resolved product URL sequentially, one product per selected candidate, preserving selected order and original index; extract one non-null compact product record per item.",
+          "kind": "foreach",
+          "dependsOn": [
+            "resolve_selected_products"
+          ],
+          "body": {
+            "tasks": [
+              {
+                "id": "read_product_page",
+                "objective": "Open the current selected product URL and capture a complete bounded observation snapshot for that product.",
+                "kind": "operation",
+                "operation": "browser_get_content",
+                "inputs": [
+                  {
+                    "name": "url",
+                    "value": {
+                      "kind": "field",
+                      "port": "href",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "waitUntil",
+                    "value": {
+                      "kind": "string",
+                      "text": "domcontentloaded"
+                    }
+                  },
+                  {
+                    "name": "format",
+                    "value": {
+                      "kind": "string",
+                      "text": "observation_complete"
+                    }
+                  },
+                  {
+                    "name": "maxRecords",
+                    "value": {
+                      "kind": "number",
+                      "number": 200
+                    }
+                  },
+                  {
+                    "name": "timeoutMs",
+                    "value": {
+                      "kind": "number",
+                      "number": 30000
+                    }
+                  }
+                ],
+                "requires": {
+                  "kind": "predicate",
+                  "predicate": "not_equal",
+                  "items": [
+                    {
+                      "kind": "field",
+                      "port": "href",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "null"
+                    }
+                  ]
+                },
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4
+              },
+              {
+                "id": "extract_product_page_facts",
+                "objective": "Extract only the declared observed decision facts from each complete page. Copy producer references verbatim; emit no compatibility claims, indices or action arguments. Empty candidate arrays mean this complete page has no corresponding observation.",
+                "kind": "transform",
+                "mode": "extract",
+                "each": {
+                  "input": "pages",
+                  "output": "productPageFacts"
+                },
+                "dependsOn": [
+                  "read_product_page"
+                ],
+                "inputs": [
+                  {
+                    "name": "pages",
+                    "value": {
+                      "kind": "field",
+                      "port": "pages",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "read_product_page",
+                          "port": "observationSnapshot"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "nullable": false,
+                  "fields": [
+                    {
+                      "name": "productPageFacts",
+                      "type": {
+                        "kind": "array",
+                        "nullable": false,
+                        "items": {
+                          "kind": "object",
+                          "nullable": false,
+                          "fields": [
+                            {
+                              "name": "facts",
+                              "type": {
+                                "kind": "array",
+                                "nullable": false,
+                                "items": {
+                                  "kind": "object",
+                                  "nullable": false,
+                                  "fields": [
+                                    {
+                                      "name": "evidenceId",
+                                      "type": {
+                                        "kind": "string",
+                                        "nullable": false
+                                      },
+                                      "required": true
+                                    },
+                                    {
+                                      "name": "tag",
+                                      "type": {
+                                        "kind": "string",
+                                        "nullable": false
+                                      },
+                                      "required": true
+                                    },
+                                    {
+                                      "name": "text",
+                                      "type": {
+                                        "kind": "string",
+                                        "nullable": false
+                                      },
+                                      "required": true
+                                    }
+                                  ]
+                                },
+                                "maxItems": 200
+                              },
+                              "required": true
+                            }
+                          ]
+                        },
+                        "maxItems": 100
+                      },
+                      "required": true
+                    }
+                  ]
+                },
+                "requires": {
+                  "kind": "predicate",
+                  "predicate": "and",
+                  "items": [
+                    {
+                      "kind": "predicate",
+                      "predicate": "not_equal",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "read_product_page",
+                          "port": "observationSnapshot"
+                        },
+                        {
+                          "kind": "null"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "predicate",
+                      "predicate": "and",
+                      "items": [
+                        {
+                          "kind": "predicate",
+                          "predicate": "equal",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "port": "captureTruncated",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "read_product_page",
+                                  "port": "observationSnapshot"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "boolean",
+                              "boolean": false
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "predicate",
+                          "predicate": "equal",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "port": "manifestTruncated",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "read_product_page",
+                                  "port": "observationSnapshot"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "boolean",
+                              "boolean": false
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4
+              },
+              {
+                "id": "project_product_facts",
+                "kind": "foreach",
+                "objective": "Project each typed item into its declared exports in source order.",
+                "items": {
+                  "kind": "output",
+                  "source": "extract_product_page_facts",
+                  "port": "productPageFacts"
+                },
+                "maxItems": 100,
+                "body": {
+                  "outputs": [
+                    {
+                      "name": "facts",
+                      "value": {
+                        "kind": "field",
+                        "port": "facts",
+                        "items": [
+                          {
+                            "kind": "item"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "interpret_product_record",
+                "objective": "Choose only observed name, description and price from the compact evidence. Preserve absent fields as null and report missing fields or observed CAPTCHA truthfully. No invented values.",
+                "kind": "transform",
+                "mode": "interpret",
+                "dependsOn": [
+                  "extract_product_page_facts"
+                ],
+                "inputs": [
+                  {
+                    "name": "facts",
+                    "value": {
+                      "kind": "flatten",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "project_product_facts",
+                          "port": "facts"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "resultType": {
+                  "kind": "object",
+                  "nullable": false,
+                  "fields": [
+                    {
+                      "name": "name",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      },
+                      "required": true
+                    },
+                    {
+                      "name": "description",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      },
+                      "required": true
+                    },
+                    {
+                      "name": "price",
+                      "type": {
+                        "kind": "string",
+                        "nullable": true
+                      },
+                      "required": true
+                    },
+                    {
+                      "name": "status",
+                      "type": {
+                        "kind": "string",
+                        "nullable": false
+                      },
+                      "required": true
+                    },
+                    {
+                      "name": "captchaEncountered",
+                      "type": {
+                        "kind": "boolean",
+                        "nullable": false
+                      },
+                      "required": true
+                    }
+                  ]
+                },
+                "parallel": false,
+                "maxItems": 100,
+                "maxConcurrency": 4
+              },
+              {
+                "id": "assemble_product",
+                "kind": "value",
+                "objective": "Assemble declared typed values without inference.",
+                "outputs": [
+                  {
+                    "name": "product",
+                    "value": {
+                      "kind": "object",
+                      "members": [
+                        {
+                          "name": "index",
+                          "value": {
+                            "kind": "index"
+                          }
+                        },
+                        {
+                          "name": "name",
+                          "value": {
+                            "kind": "output",
+                            "source": "interpret_product_record",
+                            "port": "name"
+                          }
+                        },
+                        {
+                          "name": "description",
+                          "value": {
+                            "kind": "output",
+                            "source": "interpret_product_record",
+                            "port": "description"
+                          }
+                        },
+                        {
+                          "name": "price",
+                          "value": {
+                            "kind": "output",
+                            "source": "interpret_product_record",
+                            "port": "price"
+                          }
+                        },
+                        {
+                          "name": "url",
+                          "value": {
+                            "kind": "output",
+                            "source": "read_product_page",
+                            "port": "url"
+                          }
+                        },
+                        {
+                          "name": "status",
+                          "value": {
+                            "kind": "output",
+                            "source": "interpret_product_record",
+                            "port": "status"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "product",
+                "value": {
+                  "kind": "output",
+                  "source": "assemble_product",
+                  "port": "product"
+                }
+              },
+              {
+                "name": "productCaptchaEncountered",
+                "value": {
+                  "kind": "output",
+                  "source": "interpret_product_record",
+                  "port": "captchaEncountered"
+                }
+              },
+              {
+                "name": "productStatus",
+                "value": {
+                  "kind": "output",
+                  "source": "interpret_product_record",
+                  "port": "status"
+                }
+              }
+            ]
+          },
+          "items": {
+            "kind": "output",
+            "source": "resolve_selected_products",
+            "port": "productCandidates"
+          },
+          "parallel": false,
+          "maxItems": 10,
+          "maxConcurrency": 1
+        },
+        {
+          "id": "normalize_products",
+          "kind": "value",
+          "objective": "Assemble declared typed values without inference.",
+          "outputs": [
+            {
+              "name": "products",
+              "value": {
+                "kind": "output",
+                "source": "visit_product_pages",
+                "port": "product"
+              }
+            }
+          ]
+        },
+        {
+          "id": "aggregate_captcha_status",
+          "objective": "Aggregate observed CAPTCHA detections from compact stage outputs only, including initial, ready-home, search-results and product-page booleans. Do not inspect raw page input or invent CAPTCHA when acquisition was merely empty/unusable.",
+          "kind": "transform",
+          "mode": "interpret",
+          "dependsOn": [
+            "decide_initial_actions",
+            "decide_ready_search_target",
+            "select_first_ten_product_ids",
+            "visit_product_pages"
+          ],
+          "inputs": [
+            {
+              "name": "initialCaptchaEncountered",
+              "value": {
+                "kind": "field",
+                "port": "captchaEncountered",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "decide_initial_actions"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "readyCaptchaEncountered",
+              "value": {
+                "kind": "field",
+                "port": "captchaEncountered",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "decide_ready_search_target"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "searchCaptchaEncountered",
+              "value": {
+                "kind": "field",
+                "port": "captchaEncountered",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "select_first_ten_product_ids"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "productCaptchaEncountered",
+              "value": {
+                "kind": "output",
+                "source": "visit_product_pages",
+                "port": "productCaptchaEncountered"
+              }
+            },
+            {
+              "name": "stageStatuses",
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "field",
+                    "port": "status",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "decide_initial_actions"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "field",
+                    "port": "status",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "decide_ready_search_target"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "field",
+                    "port": "status",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "select_first_ten_product_ids"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "output",
+                    "source": "visit_product_pages",
+                    "port": "productStatus"
+                  }
+                ]
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "captchaEncountered",
+                "type": {
+                  "kind": "boolean",
+                  "nullable": false
+                },
+                "required": true
+              },
+              {
+                "name": "status",
+                "type": {
+                  "kind": "string",
+                  "nullable": false
+                },
+                "required": true
+              }
+            ]
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "build_xlsx_tsv",
+          "objective": "Format at most ten compact product records as TSV with Index, Name, Description, Price, URL and Status columns. Preserve values and order; blank cells represent explicit null fields. Do not select or fabricate products.",
+          "kind": "transform",
+          "mode": "interpret",
+          "dependsOn": [
+            "normalize_products",
+            "aggregate_captcha_status"
+          ],
+          "inputs": [
+            {
+              "name": "products",
+              "value": {
+                "kind": "field",
+                "port": "products",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "normalize_products"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "captchaEncountered",
+              "value": {
+                "kind": "field",
+                "port": "captchaEncountered",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "aggregate_captcha_status"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "aggregateStatus",
+              "value": {
+                "kind": "field",
+                "port": "status",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "aggregate_captcha_status"
+                  }
+                ]
+              }
+            }
+          ],
+          "resultType": {
+            "kind": "object",
+            "nullable": false,
+            "fields": [
+              {
+                "name": "xlsxTsv",
+                "type": {
+                  "kind": "string",
+                  "nullable": false
+                },
+                "required": true
+              }
+            ]
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "write_products_xlsx",
+          "objective": "Write the TSV-formatted extracted product records to the fixed authorized Excel workbook path inside the workspace.",
+          "kind": "operation",
+          "dependsOn": [
+            "build_xlsx_tsv"
+          ],
+          "operation": "document_write",
+          "inputs": [
+            {
+              "name": "filePath",
+              "value": {
+                "kind": "string",
+                "text": "workflows/retained-products/products.xlsx"
+              }
+            },
+            {
+              "name": "content",
+              "value": {
+                "kind": "field",
+                "port": "xlsxTsv",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "build_xlsx_tsv"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "append",
+              "value": {
+                "kind": "boolean",
+                "boolean": false
+              }
+            },
+            {
+              "name": "encoding",
+              "value": {
+                "kind": "string",
+                "text": "utf-8"
+              }
+            }
+          ],
+          "requires": {
+            "kind": "predicate",
+            "items": [
+              {
+                "kind": "field",
+                "port": "xlsxTsv",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "build_xlsx_tsv"
+                  }
+                ]
+              },
+              {
+                "kind": "null"
+              }
+            ],
+            "predicate": "not_equal"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        },
+        {
+          "id": "verify_write_success",
+          "objective": "Expose the workbook path only from the successful document writer output after typed success and non-null filePath assertions.",
+          "kind": "value",
+          "dependsOn": [
+            "write_products_xlsx"
+          ],
+          "outputs": [
+            {
+              "name": "xlsxPath",
+              "value": {
+                "kind": "output",
+                "source": "write_products_xlsx",
+                "port": "filePath"
+              }
+            }
+          ],
+          "requires": {
+            "kind": "predicate",
+            "items": [
+              {
+                "kind": "predicate",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "write_products_xlsx",
+                    "port": "success"
+                  },
+                  {
+                    "kind": "boolean",
+                    "boolean": true
+                  }
+                ],
+                "predicate": "equal"
+              },
+              {
+                "kind": "predicate",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "write_products_xlsx",
+                    "port": "filePath"
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ],
+                "predicate": "not_equal"
+              }
+            ],
+            "predicate": "and"
+          },
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "xlsxPath",
+          "value": {
+            "kind": "output",
+            "source": "verify_write_success",
+            "port": "xlsxPath"
+          }
+        },
+        {
+          "name": "products",
+          "value": {
+            "kind": "field",
+            "port": "products",
+            "items": [
+              {
+                "kind": "output",
+                "source": "normalize_products"
+              }
+            ]
+          }
+        },
+        {
+          "name": "captchaEncountered",
+          "value": {
+            "kind": "field",
+            "port": "captchaEncountered",
+            "items": [
+              {
+                "kind": "output",
+                "source": "aggregate_captcha_status"
+              }
+            ]
+          }
+        }
+      ],
+      "always": [
+        {
+          "id": "close_browser_always",
+          "objective": "Close the browser page/context even if any previous navigation, extraction, CAPTCHA handling, product visit, or file-writing step fails.",
+          "kind": "operation",
+          "operation": "browser_close",
+          "parallel": false,
+          "maxItems": 100,
+          "maxConcurrency": 4
+        }
+      ]
+    }
+  }
+}

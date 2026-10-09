@@ -19,7 +19,7 @@ using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
+public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
 {
     [Theory]
     [InlineData("nominal")]

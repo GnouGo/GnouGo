@@ -68,25 +68,41 @@ simple conditions, deterministic JSON encoding and registered typed transformati
 existing expression runtime. Opaque output needs whole-value validation before
 field access; assistant descriptions and sample values cannot establish a contract.
 
-`value` tasks only copy or assemble business values. Use an explicit `transform`
-for interpretation such as HTML extraction or tabular formatting: its `objective`
-is the instruction, `inputs` bind named data, and `resultType` is a nonempty,
-nonnullable, closed object of named business fields. Every field is required;
-explicit nullable types represent missing values. Nested types must be complete,
-with no opaque types or defaults. The compiler validates policy and inputs, renders
-a fixed prompt with instruction and data as separate template values, then lowers
-to `llm.call` with strict structured output. Data is never template code. The
-runtime's existing model configuration, permissions and inference budgets apply.
-Only validated structured fields become business ports; schema validity alone
-does not prove factual accuracy or external success. Transform result types do not
-change the source MCP contract. Text-mode template output is guaranteed by a shared
-mode-aware graph/runtime contract; unresolved modes remain conservative.
+`value` tasks copy or assemble already typed business values without inference.
+An explicit `transform` in `extract` mode structures observed JSON, text or HTML
+through bounded `mapping.dynamic`; `interpret` handles decisions, comparison and
+formatting through `llm.call`. Omitted mode preserves historical interpretation.
+The `objective` is the instruction, `inputs` bind named data, and `resultType` is a
+nonempty, nonnullable, closed object of declared business fields. Missing fields
+use explicit nullable types. Runtime permissions, budgets, complete-result
+validation and source-grounding remain authoritative. A transform never changes
+its producer's contract; shape validity alone does not prove factual correctness.
+
+For page-object arrays, project inside the existing item scope before flattening:
+
+```text
+extract.each → typed page views
+foreach loop over views:
+    export candidates = field(item, "candidates")
+flatten(output(loop, "candidates"))
+interpret compact candidates → selected IDs
+lookup offered candidates → lookup original observations → actions
+```
+
+Group related exports in that same scope; use one compact view per page and
+consumer when sufficient. `field` selects an object property, never an array
+index or length. `lookup` accepts an ID array and returns records in selected order,
+including repetitions; iterate the result even for a single selection. Keep full
+observations, completeness metadata and exact action arguments separately.
+Accepted output types and nullability survive every revision: a non-null product
+record with nullable fields is not a nullable record. Typed normalization stays a
+`value` task with direct bindings.
 
 String types may explicitly declare an `enum` of 1–256 distinct strings. The compiler
 preserves that domain in strict structured outputs and business interfaces; nullability
 is separate. The final YAML validator accepts direct references to runtime-checked
-structured enum results, including fields checked by `value.project` (whole-value or per-item), never unchecked results or unsafe fallback envelopes. Selector values must be required, non-null and a subset of the consumer enum. MCP telemetry preserves complete response content; progress arrays remain available to downstream contract validation. See [checked-output regression evidence](checked-output-contracts.md).
-`{ "kind": "field", "items": [{ "kind": "item" }], "port": "message" }` explicitly selects one declared business field. Its single source may be a typed input, output or loop item; nested selections compose. Field names are literal names, not executor paths. The compiler uses the existing checked `value.project` only where consumed, preserving branch/loop/cleanup availability. Missing fields fail and nullable fields stay nullable. There is no cast, default, inferred field mapping or inference call; opaque objects remain inaccessible. Producer type locations survive iteration and field selection, allowing exact nested enum repairs without opening unrelated tasks. This is an additive format-10 value, not a new planning representation or phase.
+structured enum results, including fields checked by compiler-owned expressions and schemas, never unchecked results or unsafe fallback envelopes. Selector values must be required, non-null and a subset of the consumer enum. MCP telemetry preserves complete response content; progress arrays remain available to downstream contract validation. See [checked-output regression evidence](checked-output-contracts.md).
+`{ "kind": "field", "items": [{ "kind": "item" }], "port": "message" }` explicitly selects one declared business field. Its single source may be a typed input, output or loop item; nested selections compose. Field names are literal names, not executor paths. Final lowering emits checked consumer expressions or necessary materializations, preserving branch/loop/cleanup availability. Missing fields fail and nullable fields stay nullable. There is no cast, default, inferred field mapping or inference call; opaque objects remain inaccessible. Producer type locations survive iteration and field selection, allowing exact nested enum repairs without opening unrelated tasks. This is an additive format-10 value, not a new planning representation or phase.
 
 `{ "kind": "json", "items": [<business value>] }` serializes one value using existing
 typed `set` stages and the existing `json` runtime function. It performs no inference,
@@ -94,7 +110,7 @@ does not expose arbitrary expressions and does not grant typed access to opaque 
 
 Explicit string literals retain their `const` contract through named values and scope captures. Runtime inputs (including inputs with defaults) and transform results keep their declared types. Producer-supplied patterns and string bounds are checked by the existing generic validators and appear in input diagnostics; Flow does not interpret tool names or filesystem rules. Declare a fixed resource location once and reuse its business binding for creation and cleanup, including partial failure. This guidance does not prove resource ownership or automatically reconcile independent paths.
 
-Generation requests the smallest sufficient semantic plan: concise objectives, necessary inputs/outputs and direct business bindings, with required scope exports and cleanup retained. Prefer data shapes consumable downstream, including scalar iteration items when records are unnecessary. Optional user inputs, policy-query tasks and extra outputs need a request or contract justification. Runtime permissions remain mandatory. The compiler does not optimize or rewrite submitted tasks.
+Generation requests the smallest sufficient semantic plan: concise objectives, necessary inputs/outputs and direct business bindings, with required scope exports and cleanup retained. Prefer data shapes consumable downstream, including scalar iteration items when records are unnecessary. Optional user inputs, policy-query tasks and extra outputs need a request or contract justification. Runtime permissions remain mandatory. Existing compact lowering optimizes pure typed glue while preserving business operations, scopes, assertions and execution order.
 
 The strict response schema is a compact wire representation of TaskPlan. Types expose only their kind-specific fields; nullable values and array item types stay explicit. New responses omit representation defaults `nullable: false`, `required: true` and absent `default: null`. Strict alternatives retain `nullable: true`, `required: false` and actual literal defaults, including an explicit null literal. Optional workflow/group inputs still require defaults; optional object fields do not. Existing DTO initializers supply these representation constants, never business values. Choice selections remain host-owned and are absent from generation. New schemas omit `explanation`. Historical responses still deserialize, and pending requests keep their original schemas and identities without redispatch. Optional string enum declarations and the JSON encoding value are additive format-10 contracts; existing records are not rewritten.
 
