@@ -33,6 +33,12 @@ public sealed record BrowserSnapshotAcquisition(int Attempts, IReadOnlyList<Brow
     public BrowserNavigationResponse? LastResponse { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<BrowserSnapshotRecovery>? Recoveries { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Phase { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? ElapsedMilliseconds { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, long>? TimingsMilliseconds { get; init; }
 }
 internal sealed class BrowserObservationException(string code, string message, BrowserSnapshotAcquisition acquisition) : InvalidOperationException(message)
 {
@@ -123,7 +129,8 @@ public sealed partial class PlaywrightBrowserHost
     }
 
     private async Task<BrowserContentResult> CaptureObservationAsync(IPage page, ILocator locator, ContentLocatorResolution resolution,
-        string? selector, int? status, int? characters, int? records, CancellationToken ct, bool paged = false, ObservationStamp? existingStamp = null)
+        string? selector, int? status, int? characters, int? records, CancellationToken ct, bool paged = false, ObservationStamp? existingStamp = null,
+        Action<string>? setPhase = null)
     {
         ct.ThrowIfCancellationRequested();
         var stamp = existingStamp ?? BeginObservation();
@@ -142,6 +149,7 @@ public sealed partial class PlaywrightBrowserHost
             var result = new BrowserContentResult(page.Url, title, status, selector,
                 resolution.ResolvedSelector, resolution.FallbackApplied, resolution.FallbackReason, paged ? "observation_pages" : "observation", "", false, 0);
             var snapshot = new ObservationSnapshot(stamp, result, capture, handle, paged);
+            setPhase?.Invoke("pagination");
             var response = paged ? ObservationManifest(snapshot, characters, records, ct) : ObservationPage(snapshot, 0, characters, records, ct);
             lock (_observationLock)
             {
@@ -172,6 +180,22 @@ public sealed partial class PlaywrightBrowserHost
         var invalidations = new List<BrowserSnapshotInvalidation>();
         var attempt = 0;
         var recoveries = new List<BrowserSnapshotRecovery>();
+        var timer = Stopwatch.StartNew();
+        var phase = "startup";
+        long phaseStarted = 0;
+        var timings = new Dictionary<string, long>(StringComparer.Ordinal);
+        void SetPhase(string next)
+        {
+            var elapsed = timer.ElapsedMilliseconds;
+            timings[phase] = timings.GetValueOrDefault(phase) + elapsed - phaseStarted;
+            phase = next;
+            phaseStarted = elapsed;
+            Activity.Current?.AddEvent(new ActivityEvent("browser.snapshot.phase", tags: new ActivityTagsCollection
+            {
+                ["browser.snapshot.phase"] = phase, ["browser.snapshot.attempt"] = attempt,
+                ["browser.snapshot.elapsed_ms"] = elapsed
+            }));
+        }
         IPage? page = null;
         IRequest? pendingRequest = null, committedRequest = null;
         int? pendingStatus = null;
@@ -216,18 +240,23 @@ public sealed partial class PlaywrightBrowserHost
         BrowserSnapshotAcquisition Acquisition()
         {
             lock (_observationLock)
+            {
+                var elapsed = timer.ElapsedMilliseconds;
+                var measured = new Dictionary<string, long>(timings, StringComparer.Ordinal);
+                measured[phase] = measured.GetValueOrDefault(phase) + elapsed - phaseStarted;
                 return new(attempt, invalidations.ToArray())
                 {
                     Navigation = navigation, LastResponse = lastResponse,
-                    Recoveries = recoveries.Count == 0 ? null : recoveries.ToArray()
+                    Recoveries = recoveries.Count == 0 ? null : recoveries.ToArray(),
+                    Phase = phase, ElapsedMilliseconds = elapsed, TimingsMilliseconds = measured
                 };
+            }
         }
         if (ObservationLimit(characters) < 1024 || Math.Min(records ?? 200, _settings.MaxObservationRecords) < 1 || _settings.MaxObservationPages < 1)
             throw new BrowserObservationException("INVALID_INPUT", "Observation limits require at least 1024 characters, one record and one page.", new(0, []));
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var timeout = NormalizeTimeout(timeoutMs, url is null ? _settings.DefaultTimeoutMs : _settings.NavigationTimeoutMs);
         deadline.CancelAfter(TimeSpan.FromMilliseconds(timeout));
-        var timer = Stopwatch.StartNew();
         float Remaining() => Math.Max(1, timeout - (float)timer.Elapsed.TotalMilliseconds);
         var token = deadline.Token;
         try
@@ -241,6 +270,7 @@ public sealed partial class PlaywrightBrowserHost
             if (target is not null)
             {
                 InvalidateObservation("navigation");
+                SetPhase("navigation");
                 initialResponse = await page.GotoAsync(target.ToString(), new PageGotoOptions
                     { WaitUntil = ParseWaitUntil(waitUntil), Timeout = Remaining() }).WaitAsync(token);
             }
@@ -252,15 +282,18 @@ public sealed partial class PlaywrightBrowserHost
                 var published = false;
                 try
                 {
+                    SetPhase("readiness");
                     await readiness.WaitForLoadStateAsync(ParseLoadState(waitUntil), Remaining(), token);
                     EnsureCurrent(stamp);
                     BrowserNavigationPolicy.ValidateNavigationTarget(page.Url, _settings);
                     // Complete acquisition must not silently broaden a requested selector.
                     var requested = string.IsNullOrWhiteSpace(selector) ? "body" : selector.Trim();
+                    SetPhase("selector");
                     var locator = await ResolveLocatorAsync(page, requested, Remaining()).WaitAsync(token);
                     EnsureCurrent(stamp);
                     var resolution = new ContentLocatorResolution(locator, requested, false, null);
-                    var manifestResult = await CaptureObservationAsync(page, locator, resolution, selector, null, characters, records, token, true, stamp);
+                    SetPhase("capture");
+                    var manifestResult = await CaptureObservationAsync(page, locator, resolution, selector, null, characters, records, token, true, stamp, SetPhase);
                     lock (_observationLock)
                     {
                         EnsureCurrent(stamp);
@@ -298,10 +331,12 @@ public sealed partial class PlaywrightBrowserHost
                             throw new BrowserObservationException("OBSERVATION_EMPTY", "The document is empty or unusable. No business absence or blocker can be established from this acquisition.", Acquisition());
                         reloaded = true;
                         BrowserNavigationPolicy.ValidateNavigationTarget(page.Url, _settings);
+                        SetPhase("reload");
                         await page.ReloadAsync(new PageReloadOptions { WaitUntil = ParseWaitUntil(waitUntil), Timeout = Remaining() }).WaitAsync(token);
                         continue;
                     }
                     var pages = snapshot.Pages.Select(p => p.Observation! with { NextCursor = null }).ToArray();
+                    SetPhase("publication");
                     var result = manifestResult with
                     {
                         Format = "observation_complete", ObservationManifest = null, Truncated = false,
@@ -309,9 +344,11 @@ public sealed partial class PlaywrightBrowserHost
                         Acquisition = Acquisition()
                     };
                     var aggregateLimit = checked(ObservationLimit(characters) * Math.Min(_settings.MaxObservationPages, 100));
+                    if (ObservationCheckpoint is { } publishing) await publishing(page, "publish", token).WaitAsync(token);
+                    token.ThrowIfCancellationRequested();
+                    result = result with { Acquisition = Acquisition() };
                     if (JsonSerializer.Serialize(result, BrowserMcpJsonContext.Default.BrowserContentResult).Length > aggregateLimit)
                         throw new BrowserObservationException("OBSERVATION_INCOMPLETE", "The complete snapshot exceeds the aggregate page allowance. Narrow the requested observation explicitly.", result.Acquisition);
-                    if (ObservationCheckpoint is { } publishing) await publishing(page, "publish", token).WaitAsync(token);
                     token.ThrowIfCancellationRequested();
                     lock (_observationLock)
                     {
@@ -343,6 +380,10 @@ public sealed partial class PlaywrightBrowserHost
                 {
                     lock (_observationLock)
                     {
+                        // A deadline or cancellation can win before the expiration catch.
+                        // Retain its known cause without retrying or changing the terminal error.
+                        if (stamp.Invalidation is { } invalidation && !invalidations.Any(i => i.SnapshotId == stamp.Id))
+                            invalidations.Add(invalidation);
                         if (_capturingObservation == stamp) _capturingObservation = null;
                         if (!published && _observation?.Stamp == stamp)
                         {
@@ -356,11 +397,11 @@ public sealed partial class PlaywrightBrowserHost
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested && deadline.IsCancellationRequested)
         {
-            throw new BrowserObservationException("TIMEOUT", "Complete snapshot acquisition exceeded its shared timeout.", Acquisition());
+            throw new BrowserObservationException("TIMEOUT", $"Complete snapshot acquisition exceeded its shared timeout during {phase}.", Acquisition());
         }
         catch (TimeoutException)
         {
-            throw new BrowserObservationException("TIMEOUT", "Complete snapshot acquisition exceeded its shared timeout.", Acquisition());
+            throw new BrowserObservationException("TIMEOUT", $"Complete snapshot acquisition exceeded its shared timeout during {phase}.", Acquisition());
         }
         catch (OperationCanceledException ex) when (ct.IsCancellationRequested)
         {

@@ -33,6 +33,9 @@ public sealed class BrowserEmptyObservationTests
         Assert.All(site.Calls, c => Assert.Equal("GET", c.Method));
         Assert.Equal(200, result.StatusCode); Assert.Equal(site.Url, result.Url);
         var acquisition = Assert.IsType<BrowserSnapshotAcquisition>(result.Acquisition);
+        Assert.Equal(remainsEmpty ? "pagination" : "publication", acquisition.Phase);
+        Assert.Equal(acquisition.ElapsedMilliseconds, acquisition.TimingsMilliseconds!.Values.Sum());
+        Assert.Contains("reload", acquisition.TimingsMilliseconds.Keys);
         Assert.Equal(2, acquisition.Attempts);
         Assert.Single(acquisition.Recoveries!, r => r.ReloadRequested);
         Assert.All(acquisition.Recoveries!, r => Assert.Equal("empty_document", r.Reason));
@@ -276,6 +279,7 @@ public sealed class BrowserEmptyObservationTests
             { Acquisition = new(1, []) };
         var json = JsonSerializer.Serialize(result, BrowserMcpJsonContext.Default.BrowserContentResult);
         Assert.DoesNotContain("recoveries", json); Assert.DoesNotContain("navigation", json); Assert.DoesNotContain("lastResponse", json);
+        Assert.DoesNotContain("phase", json); Assert.DoesNotContain("elapsedMilliseconds", json); Assert.DoesNotContain("timingsMilliseconds", json);
     }
 
     private sealed record Response(int Status, string Html, string? Redirect = null);

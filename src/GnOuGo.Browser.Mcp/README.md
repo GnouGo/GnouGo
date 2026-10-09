@@ -224,6 +224,19 @@ is not a claim that it completed. The top-level URL/title/status describe the fi
 observed document, including on failure when available. Old acquisition records
 without these optional fields remain readable; refresh discovery for the additions.
 
+Complete acquisitions also retain optional `phase`, `elapsedMilliseconds` and
+`timingsMilliseconds` diagnostics. The finite phases distinguish startup,
+navigation, readiness, selector resolution, capture (including transfer and
+document metadata), pagination, publication and the one eligible reload. Times
+accumulate across attempts under the same deadline. A timeout identifies its
+phase; a navigation invalidation is retained even when timeout/cancellation wins
+before expiration handling. These fields also survive MCP error receipts and
+encrypted recovery. Trace events contain phase names, attempts and elapsed times,
+never observed content or URLs. They do not establish business completeness or
+authorize retry. Historical receipts without this evidence cannot identify the
+phase that timed out; a visibly rendered page alone does not establish that a
+complete, coherent observation was acquired.
+
 Existing capture bounds remain 10,000 records / 2,000,000 record characters and
 bounded DOM traversal. Page limits remain at most 24,000 serialized characters,
 200 records and 100 pages, or stricter request/host settings. In complete mode,

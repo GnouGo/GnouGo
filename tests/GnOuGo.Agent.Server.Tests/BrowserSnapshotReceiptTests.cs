@@ -88,6 +88,7 @@ public sealed class BrowserSnapshotReceiptTests
             Assert.True(receipt.ExternalCompletionObserved); Assert.NotNull(receipt.CompletedAt);
             var evidence = receipt.Observation!.ToJsonString();
             Assert.Contains("OBSERVATION_EMPTY", evidence); Assert.Contains("empty_document", evidence); Assert.Contains("statusCode", evidence); Assert.Contains("recoveries", evidence);
+            Assert.Contains("timingsMilliseconds", evidence); Assert.Contains("elapsedMilliseconds", evidence); Assert.Contains("\"phase\":\"pagination\"", evidence);
             var close = Assert.Single(saved.Invocations.Values, i => i.Id.EndsWith("/step/close", StringComparison.Ordinal));
             Assert.True(close.ExternalCompletionObserved); Assert.NotNull(close.CompletedAt);
             var recovered = (await Store().ReadAsync("empty-tenant", "empty-run", ct))!;

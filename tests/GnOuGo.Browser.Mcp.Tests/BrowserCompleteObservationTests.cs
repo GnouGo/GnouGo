@@ -79,6 +79,69 @@ public sealed class BrowserCompleteObservationTests
     }
 
     [Fact]
+    public async Task DeadlineDuringInvalidatedCaptureRetainsNavigationEvidence()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var site = new Site();
+        await using var host = new PlaywrightBrowserHost(Options.Create(Settings()), NullLogger<PlaywrightBrowserHost>.Instance)
+        {
+            ObservationCheckpoint = async (page, phase, token) =>
+            {
+                if (phase != "capture") return;
+                await page.GotoAsync(site.Origin + "/new").WaitAsync(token);
+                await Task.Delay(Timeout.Infinite, token);
+            }
+        };
+        await host.GetContentAsync(site.Origin, "load", 5000, "main", "text", 1000, false, ct);
+        var result = await new BrowserTools(host, NullLogger<BrowserTools>.Instance).GetContentAsync(
+            format: "observation_complete", timeoutMs: 750, cancellationToken: ct);
+        Assert.Equal("TIMEOUT", result.ErrorCode);
+        Assert.Null(result.ObservationSnapshot);
+        Assert.Equal(1, result.Acquisition!.Attempts);
+        Assert.Equal("navigation", Assert.Single(result.Acquisition.Invalidations).Reason);
+        Assert.Equal(site.Origin + "/new", result.Acquisition.Navigation!.Url);
+        Assert.Equal(1, site.Visits.Count(p => p == "/new"));
+    }
+
+    [Theory]
+    [InlineData("capture", false)]
+    [InlineData("publish", false)]
+    [InlineData("capture", true)]
+    public async Task FailureRetainsPhaseAndCumulativeTimingWithoutPayloadTelemetry(string stopAt, bool cancel)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        await using var site = new Site();
+        await using var host = new PlaywrightBrowserHost(Options.Create(Settings()), NullLogger<PlaywrightBrowserHost>.Instance)
+        {
+            ObservationCheckpoint = async (_, phase, token) =>
+            {
+                if (phase != stopAt) return;
+                if (cancel) await cancellation.CancelAsync();
+                await Task.Delay(Timeout.Infinite, token);
+            }
+        };
+        await host.GetContentAsync(site.Origin, "load", 5000, "main", "text", 1000, false, ct);
+        using var activity = new Activity("acquisition-phases").Start();
+        var result = await new BrowserTools(host, NullLogger<BrowserTools>.Instance).GetContentAsync(
+            format: "observation_complete", timeoutMs: 750, cancellationToken: cancellation.Token);
+        Assert.Equal(cancel ? "CANCELLED" : "TIMEOUT", result.ErrorCode);
+        Assert.Null(result.ObservationSnapshot);
+        var json = JsonSerializer.Serialize(result, BrowserMcpJsonContext.Default.BrowserContentResult);
+        using var saved = JsonDocument.Parse(json);
+        var acquisition = saved.RootElement.GetProperty("acquisition");
+        var expectedPhase = stopAt == "publish" ? "publication" : "capture";
+        Assert.Equal(expectedPhase, acquisition.GetProperty("phase").GetString());
+        var timings = acquisition.GetProperty("timingsMilliseconds").EnumerateObject().ToArray();
+        Assert.All(timings, t => Assert.True(t.Value.GetInt64() >= 0));
+        Assert.Equal(acquisition.GetProperty("elapsedMilliseconds").GetInt64(), timings.Sum(t => t.Value.GetInt64()));
+        if (!cancel) Assert.Contains(expectedPhase, result.ErrorMessage!);
+        Assert.Contains(activity.Events, e => e.Name == "browser.snapshot.phase" && e.Tags.Any(t => t.Key == "browser.snapshot.phase" && Equals(t.Value, expectedPhase)));
+        Assert.DoesNotContain(activity.Events.SelectMany(e => e.Tags), t => t.Key.Contains("url", StringComparison.Ordinal) || t.Key.Contains("content", StringComparison.Ordinal));
+        Assert.Single(site.Visits);
+    }
+
+    [Fact]
     public async Task AcquisitionDeadlineIsSharedAndCancellationIsNotRetried()
     {
         var ct = TestContext.Current.CancellationToken;

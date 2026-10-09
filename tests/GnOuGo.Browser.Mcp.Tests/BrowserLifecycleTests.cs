@@ -11,6 +11,38 @@ public sealed class BrowserLifecycleTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Fact]
+    public async Task MainDocumentReadinessDoesNotWaitForUnfinishedChildDocument()
+    {
+        await using var site = await Site.CreateAsync(LoadState.DOMContentLoaded);
+        site.HoldChild = true;
+        using var observation = new NavigationObservation(site.Page);
+        observation.Start();
+        await site.Page.GotoAsync(site.Origin + "/destination", new() { WaitUntil = WaitUntilState.Commit });
+        await site.ResourceRequested.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct);
+        await site.ChildRequested.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct);
+        await site.Page.WaitForFunctionAsync("document.readyState === 'interactive'");
+        await site.Page.EvaluateAsync("""
+            () => {
+                window.readinessChecks = 0;
+                const read = Object.getOwnPropertyDescriptor(Document.prototype, 'readyState').get;
+                Object.defineProperty(document, 'readyState', { get() { window.readinessChecks++; return read.call(document); } });
+            }
+            """);
+        var waiting = observation.WaitForLoadStateAsync(LoadState.DOMContentLoaded, 1500, Ct);
+        await site.Page.WaitForFunctionAsync("window.readinessChecks > 0", null, new() { Timeout = 1000 });
+        site.ResourceRelease.TrySetResult();
+        await site.Page.WaitForFunctionAsync("performance.getEntriesByType('navigation')[0].domContentLoadedEventStart > 0");
+        Assert.Equal("Destination", await site.Page.TitleAsync());
+        Assert.False(site.ChildRelease.Task.IsCompleted);
+        await waiting;
+        Assert.Equal(1, site.Visits.Count(p => p == "/destination"));
+        // Explicit load still includes the unfinished child; it is not DOM readiness.
+        await Assert.ThrowsAsync<TimeoutException>(() => observation.WaitForLoadStateAsync(LoadState.Load, 100, Ct));
+        site.ChildRelease.TrySetResult();
+        await observation.WaitForLoadStateAsync(LoadState.Load, 5000, Ct);
+    }
+
     [Theory]
     [InlineData(LoadState.DOMContentLoaded, "before")]
     [InlineData(LoadState.DOMContentLoaded, "registration")]
@@ -199,6 +231,9 @@ public sealed class BrowserLifecycleTests
         internal readonly ConcurrentQueue<string> Visits = new();
         internal TaskCompletionSource ResourceRequested = Signal();
         internal TaskCompletionSource ResourceRelease = Signal();
+        internal bool HoldChild;
+        internal TaskCompletionSource ChildRequested = Signal();
+        internal TaskCompletionSource ChildRelease = Signal();
 
         internal static async Task<Site> CreateAsync(LoadState state)
         {
@@ -239,6 +274,12 @@ public sealed class BrowserLifecycleTests
             {
                 context.Response.Headers["Cache-Control"] = "no-store";
                 if (path == "/redirect") { context.Response.StatusCode = 302; context.Response.RedirectLocation = "/destination"; return; }
+                if (path == "/child")
+                {
+                    ChildRequested.TrySetResult(); await ChildRelease.Task.WaitAsync(_stop.Token);
+                    context.Response.ContentType = "text/html";
+                    await WriteAsync("<title>Child</title>"); return;
+                }
                 if (path == "/resource")
                 {
                     ResourceRequested.TrySetResult(); await ResourceRelease.Task.WaitAsync(_stop.Token);
@@ -248,7 +289,7 @@ public sealed class BrowserLifecycleTests
                 }
                 context.Response.ContentType = "text/html; charset=utf-8";
                 await WriteAsync(path == "/destination"
-                    ? "<!doctype html><title>Destination</title><body>Observed destination" + (state == LoadState.Load ? "<img src='/resource'>" : "<script defer src='/resource'></script>")
+                    ? "<!doctype html><title>Destination</title><body>Observed destination" + (HoldChild ? "<iframe src='/child'></iframe>" : "") + (state == LoadState.Load ? "<img src='/resource'>" : "<script defer src='/resource'></script>")
                     : "<!doctype html><title>Origin</title><script>window.actions=0;</script><a id='go' href='/destination'>Follow</a><a id='redirect' href='/redirect'>Redirect</a><a id='fragment' href='#section'>Section</a><button id='local' onclick='actions++'>Activate</button>");
             }
             catch (OperationCanceledException) when (_stop.IsCancellationRequested) { }
