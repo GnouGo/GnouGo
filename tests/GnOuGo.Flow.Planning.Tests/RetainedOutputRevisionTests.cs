@@ -9,6 +9,44 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class RetainedOutputRevisionTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ArrayOfPageObjectsNeedsTypedProjectionBeforeOneLevelFlatten(bool parallel)
+    {
+        var json = File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
+            "Fixtures", "TargetedRevisions", "array-field-flatten.json"));
+        var plan = JsonSerializer.Deserialize(json, PlanningJsonContext.Default.TaskPlan)!;
+        var engine = new WorkflowEngine();
+        var catalog = await new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask)
+            .DiscoverAsync(new() { Policy = new() { RequireExternalConfirmation = false } }, PlannerFixture.Ct);
+        var invalid = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Null(invalid.Graph);
+        Assert.Contains(invalid.Diagnostics, d => d.Code == "TASK_FIELD_TYPE" && d.Location == "/tasks/view/outputs/candidates"
+            && d.Message.Contains("array", StringComparison.Ordinal) && d.Message.Contains("retained", StringComparison.Ordinal));
+
+        // An explicit structural revision can use existing typed iteration. A
+        // value patch cannot pretend that an array exposes its elements' fields.
+        var retained = plan.Root.Tasks[0];
+        plan.Root.Tasks.Insert(1, new()
+        {
+            Id = "project_pages", Kind = "foreach", Objective = "Select each complete page's declared candidate array",
+            Items = new() { Kind = "output", Source = "retained", Port = "pages" }, MaxItems = 100, Parallel = parallel,
+            Body = new() { Outputs = [new("matches", new() { Kind = "field", Port = "matches", Items = [new() { Kind = "item" }] })] }
+        });
+        plan.Root.Tasks[2].Outputs[0].Value.Items = [new() { Kind = "output", Source = "project_pages", Port = "matches" }];
+        Assert.Same(retained, plan.Root.Tasks[0]);
+        var yaml = await LookupCompilationTests.Compile(plan, engine);
+        Assert.DoesNotContain("llm.call", yaml); Assert.DoesNotContain("mapping.dynamic", yaml); Assert.DoesNotContain("loop.", yaml);
+        var pages = JsonNode.Parse("""[{"matches":[]},{"matches":[{"id":"last","label":null},{"id":"same","label":"observed"}]},{"matches":[{"id":"same","label":"observed"}]}]""")!;
+        var original = pages.ToJsonString();
+        var result = await LookupCompilationTests.Execute(yaml, new() { ["pages"] = pages }, engine);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(original, result.Outputs!["original"]!.ToJsonString()); Assert.Equal(original, pages.ToJsonString());
+        Assert.Equal("""[{"id":"last","label":null},{"id":"same","label":"observed"},{"id":"same","label":"observed"}]""",
+            result.Outputs["candidates"]!.ToJsonString());
+    }
+
+    [Theory]
     [InlineData("normalize", "rows", "store", "release")]
     [InlineData("assemble", "résultats", "persist", "dispose")]
     public async Task TargetedContractCorrectionThenExplicitDeterministicRevisionPreserveBusinessWork(

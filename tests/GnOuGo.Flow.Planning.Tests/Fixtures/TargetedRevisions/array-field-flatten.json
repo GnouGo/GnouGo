@@ -1,0 +1,24 @@
+{
+  "inputs": [{ "name": "pages", "type": {
+    "kind": "array", "maxItems": 100, "items": { "kind": "object", "fields": [
+      { "name": "matches", "type": { "kind": "array", "items": { "kind": "object", "fields": [
+        { "name": "id", "type": { "kind": "string" } },
+        { "name": "label", "type": { "kind": "string", "nullable": true } }
+      ] } } }
+    ] }
+  } }],
+  "root": {
+    "tasks": [
+      { "id": "retained", "kind": "value", "objective": "Keep original observations available",
+        "outputs": [{ "name": "pages", "value": { "kind": "input", "source": "pages" } }] },
+      { "id": "view", "kind": "value", "objective": "Collect the declared candidates in source order",
+        "outputs": [{ "name": "candidates", "value": { "kind": "flatten", "items": [
+          { "kind": "field", "port": "matches", "items": [{ "kind": "output", "source": "retained", "port": "pages" }] }
+        ] } }] }
+    ],
+    "outputs": [
+      { "name": "candidates", "value": { "kind": "output", "source": "view", "port": "candidates" } },
+      { "name": "original", "value": { "kind": "output", "source": "retained", "port": "pages" } }
+    ]
+  }
+}
