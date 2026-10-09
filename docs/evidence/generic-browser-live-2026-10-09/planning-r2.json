@@ -1,0 +1,89 @@
+{
+  "status": "stopped",
+  "planning_ms": 56342,
+  "calls": 2,
+  "repairs": 0,
+  "discovery_reads": 2,
+  "review_revisions": 0,
+  "diagnostics": [
+    {
+      "code": "TASK_FLATTEN_INVALID",
+      "location": "/tasks/flatten_rows/outputs/rows",
+      "message": "Flatten requires one established nonnullable array of nonnullable typed arrays.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/open_amazon_search/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/read_product_page/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_REQUIRED",
+      "location": "/tasks/open_amazon_search/requires",
+      "message": "Conditions require a boolean business value. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_REQUIRED",
+      "location": "/tasks/read_product_page/requires",
+      "message": "Conditions require a boolean business value. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "execution_success": false,
+  "execution_oracle": false,
+  "execution_status": "not_started",
+  "accounting": {
+    "planning": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "known_input_tokens": 19327,
+      "known_output_tokens": 2585,
+      "known_cost_eur": 0.15457005945514243,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 952,
+      "session_calls": 0,
+      "known_input_tokens": 13887148,
+      "known_output_tokens": 1947632,
+      "known_cost_eur": 113.76208209252495,
+      "reserved_input_tokens": 480000,
+      "reserved_output_tokens": 163840,
+      "reserved_cost_eur": 6.501614794790526,
+      "cost_upper_bound_eur": 120.26369688731548,
+      "unknown_attempts": 5
+    }
+  }
+}

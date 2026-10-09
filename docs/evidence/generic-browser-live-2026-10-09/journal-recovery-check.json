@@ -1,0 +1,44 @@
+{
+  "status": "failed",
+  "revision": 22,
+  "steps_started": 4,
+  "finalization_steps_started": 1,
+  "finalization_completed": true,
+  "invocations": [
+    {
+      "id": "/workflow/main/step/n_195c11afd9c87a52",
+      "type": "set",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_aa8ab9fd9c4e8db8",
+      "type": "template.render",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_39ab528e132ab918",
+      "type": "llm.call",
+      "status": "completed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/step/n_ee40e5cae35eab47",
+      "type": "mcp.call",
+      "status": "failed",
+      "finalizer": false,
+      "completion_observed": true
+    },
+    {
+      "id": "/workflow/main/finally/step/n_38125c2e8d49993f",
+      "type": "mcp.call",
+      "status": "completed",
+      "finalizer": true,
+      "completion_observed": true
+    }
+  ]
+}
