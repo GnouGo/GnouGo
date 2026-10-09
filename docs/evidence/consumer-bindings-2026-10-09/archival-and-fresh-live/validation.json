@@ -1,0 +1,13 @@
+{
+  "production_changed": false,
+  "non_skipped_ci_passed": 29,
+  "ci_skipped": 4,
+  "accepted_output_regressions_passed": 7,
+  "accepted_output_regressions_failed": 0,
+  "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests -m:1 -warnaserror --no-build --filter FullyQualifiedName~AcceptedOutputTests",
+  "read_only_compile_replay_passed": true,
+  "full_solution_previously_passed": 4965,
+  "full_solution_previously_skipped": 13,
+  "e2e_execution_started": false,
+  "e2e_execution_passed": false
+}

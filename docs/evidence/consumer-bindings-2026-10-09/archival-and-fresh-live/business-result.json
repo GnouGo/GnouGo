@@ -1,0 +1,13 @@
+{
+  "run": "consumerbindings20261009b-amazon-1",
+  "planning_status": "stopped",
+  "artifact_produced": false,
+  "artifact_approval_submitted": false,
+  "execution_started": false,
+  "browser_actions": 0,
+  "product_pages_visited": 0,
+  "workbook_exists": false,
+  "xlsx_cells_verified": false,
+  "workflow_cleanup": "not_exercised",
+  "independent_execution_oracle": "not_run"
+}

@@ -115,3 +115,14 @@ The local orphan-listener reproduction blocks after its retired bounded queue
 fills; the ownership fix removes that cause without dropping events or increasing
 timeouts. This explains the reproduced local hang; it is not a captured remote
 stack trace. New complete test runs remain the verification of the correction.
+
+### Authorized archival and subsequent fresh attempt
+
+The user subsequently authorized archival of the exact exhausted historical run.
+Its inconclusive closure is now durable, with original evidence and reservations
+unchanged. [Follow-up evidence](archival-and-fresh-live/README.md) records the clean
+admission audit and fresh `consumerbindings20261009b-amazon-1` attempt on
+`fb07a92c`. All 29 non-skipped CI checks passed. Planning stopped because its
+producer allowed nullable product records while the accepted output did not;
+Browser execution and XLSX creation did not start. The campaign upper bound is
+EUR 116.276178030274, including all unknown reservations. PR #117 remains draft.

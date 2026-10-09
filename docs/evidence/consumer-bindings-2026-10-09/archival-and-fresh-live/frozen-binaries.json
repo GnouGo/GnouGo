@@ -1,0 +1,11 @@
+{
+  "source": "fb07a92c888a07358ed12d1ce92fdcd24db83937",
+  "binaries": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll": "9cd41f5716d0fc2cc72f600aa74a5b19776cc61ff9bfd46574717c339cf9e995",
+    "src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll": "8a00b200d98f58ae0cf11e5835df2e748e37c6a0c50f10e0f8aa59bc3d78d262",
+    "src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll": "4a010dfbf352bcc93acce3e59c78f0b137d052747dd16c0bb8383f54ad4751e0",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll": "8eac1c5a0fb83a0824164066c27deb1bbba91955b7a227350b18b5e9bb524204",
+    "tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Flow.Core.dll": "d4df58f1d0b99acc2509c4a6845224ace6c42213d53e01ea6e5ff28dd13b8925"
+  },
+  "oracle_source_sha256": "e2d6ddf002b75cfd5ddc5be10852c118e7b9d2a3c3d3875c03a0770de054f62a"
+}

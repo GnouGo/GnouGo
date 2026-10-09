@@ -1,0 +1,232 @@
+{
+  "run": "consumerbindings20261009b-amazon-1",
+  "phase": "planning",
+  "diagnostic": {
+    "code": "REQUIREMENTS_OUTPUTS_CHANGED",
+    "location": "/outputs/products",
+    "message": "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  "accepted_output": {
+    "name": "products",
+    "type": {
+      "kind": "array",
+      "nullable": false,
+      "minItems": 0,
+      "maxItems": 10,
+      "items": {
+        "kind": "object",
+        "nullable": false,
+        "items": null,
+        "fields": [
+          {
+            "name": "index",
+            "type": {
+              "kind": "integer",
+              "nullable": false,
+              "items": null,
+              "fields": []
+            },
+            "required": true,
+            "default": null
+          },
+          {
+            "name": "name",
+            "type": {
+              "kind": "string",
+              "nullable": true,
+              "items": null,
+              "fields": []
+            },
+            "required": true,
+            "default": null
+          },
+          {
+            "name": "description",
+            "type": {
+              "kind": "string",
+              "nullable": true,
+              "items": null,
+              "fields": []
+            },
+            "required": true,
+            "default": null
+          },
+          {
+            "name": "price",
+            "type": {
+              "kind": "string",
+              "nullable": true,
+              "items": null,
+              "fields": []
+            },
+            "required": true,
+            "default": null
+          },
+          {
+            "name": "url",
+            "type": {
+              "kind": "string",
+              "nullable": true,
+              "items": null,
+              "fields": []
+            },
+            "required": true,
+            "default": null
+          },
+          {
+            "name": "status",
+            "type": {
+              "kind": "string",
+              "nullable": false,
+              "items": null,
+              "fields": []
+            },
+            "required": true,
+            "default": null
+          }
+        ]
+      },
+      "fields": []
+    },
+    "required": true,
+    "default": null
+  },
+  "producer": {
+    "id": "normalize_products",
+    "kind": "transform",
+    "mode": "interpret",
+    "result_field": {
+      "name": "products",
+      "type": {
+        "kind": "array",
+        "nullable": false,
+        "minItems": 0,
+        "maxItems": 10,
+        "items": {
+          "kind": "object",
+          "nullable": true,
+          "items": null,
+          "fields": [
+            {
+              "name": "index",
+              "type": {
+                "kind": "integer",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "name",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "description",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "price",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "url",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "status",
+              "type": {
+                "kind": "string",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            }
+          ]
+        },
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  },
+  "only_declared_type_difference": {
+    "path": "/type/items/nullable",
+    "accepted": false,
+    "produced": true
+  },
+  "automatic_patch": {
+    "edits": [
+      {
+        "slot": "s0",
+        "action": "replace",
+        "value": {
+          "kind": "output",
+          "source": "visit_product_pages",
+          "port": "product"
+        }
+      }
+    ]
+  },
+  "artifact_hash": null,
+  "execution_event_count": 0,
+  "additional_review_findings": [
+    {
+      "task": "interpret_initial_page",
+      "mode": "interpret",
+      "input_ports": [
+        "observationSnapshot"
+      ]
+    },
+    {
+      "task": "interpret_ready_home",
+      "mode": "interpret",
+      "input_ports": [
+        "observationSnapshot"
+      ]
+    },
+    {
+      "task": "extract_search_product_candidates",
+      "mode": "interpret",
+      "input_ports": [
+        "observationSnapshot"
+      ]
+    }
+  ],
+  "new_inference_for_diagnosis": 0,
+  "saved_session_modified_by_diagnosis": false
+}
