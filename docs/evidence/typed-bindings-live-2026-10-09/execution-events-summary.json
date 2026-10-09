@@ -1,0 +1,164 @@
+[
+  {
+    "server": "GnOuGo.Document.Mcp",
+    "tool": "document_get_policy",
+    "arguments": {},
+    "started": "2026-10-09T11:41:42.9248290+00:00",
+    "error": false,
+    "latency_ms": 17,
+    "result": {
+      "defaultWorkingDirectory": "/Users/a115vc/Desktop/GnOuGo",
+      "allowedRoots": [
+        "/Users/a115vc/Desktop/GnOuGo"
+      ],
+      "allowedExtensions": [
+        ".pdf",
+        ".docx",
+        ".xlsx",
+        ".pptx",
+        ".txt",
+        ".md",
+        ".csv",
+        ".json",
+        ".xml",
+        ".yaml",
+        ".yml"
+      ],
+      "maxFileSizeBytes": 52428800
+    }
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_get_content",
+    "arguments": {
+      "url": "https://www.amazon.fr/s?k=chaussure%20geox%20homme%2045",
+      "waitUntil": "domcontentloaded",
+      "format": "observation_complete",
+      "maxRecords": 200,
+      "timeoutMs": 30000
+    },
+    "started": "2026-10-09T11:41:53.5531180+00:00",
+    "error": false,
+    "latency_ms": 8345,
+    "snapshot": {
+      "id": "85b8daff51c74b14be676b713c7bb854",
+      "recordCount": 1500,
+      "captureTruncated": false,
+      "manifestTruncated": false
+    },
+    "page_count": 51,
+    "record_count": 1500,
+    "final_url": "https://www.amazon.fr/s?k=chaussure+geox+homme+45",
+    "acquisition": {
+      "attempts": 2,
+      "invalidations": [
+        {
+          "snapshotId": "5de92349be4a48a0ae96f11fdbb0d517",
+          "generation": 4,
+          "reason": "navigation",
+          "atUtc": "2026-10-09T11:42:00.022634+00:00"
+        }
+      ],
+      "navigation": {
+        "generation": 5,
+        "url": "https://www.amazon.fr/s?k=chaussure+geox+homme+45",
+        "title": "Amazon.fr : chaussure geox homme 45",
+        "method": null,
+        "statusCode": null
+      },
+      "lastResponse": {
+        "url": "https://www.amazon.fr/s?k=chaussure%20geox%20homme%2045",
+        "method": "GET",
+        "statusCode": 200
+      }
+    },
+    "truncated": false
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_click",
+    "arguments": {
+      "reference": "85b8daff51c74b14be676b713c7bb854:record:1497",
+      "requestedAction": "activate",
+      "waitUntil": "domcontentloaded",
+      "timeoutMs": 15000
+    },
+    "started": "2026-10-09T11:42:51.4326440+00:00",
+    "error": true,
+    "latency_ms": 4,
+    "result": {
+      "action": "click",
+      "url": "",
+      "title": null,
+      "selector": "",
+      "submitted": false,
+      "triggeredNavigation": false,
+      "navigationType": "none",
+      "success": false,
+      "error_code": "ACTION_MISMATCH",
+      "error_message": "The observed element does not support the requested activate action.",
+      "ok": false,
+      "target": {
+        "reference": "85b8daff51c74b14be676b713c7bb854:record:1497",
+        "snapshotId": "85b8daff51c74b14be676b713c7bb854",
+        "requestedAction": "activate",
+        "rejectionCause": "ACTION_MISMATCH"
+      }
+    }
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_close",
+    "arguments": {},
+    "started": "2026-10-09T11:42:51.8705390+00:00",
+    "error": false,
+    "latency_ms": 1046,
+    "result": {
+      "closed": true,
+      "success": true,
+      "error_code": null,
+      "error_message": null,
+      "ok": true
+    }
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_get_content",
+    "arguments": {},
+    "started": "2026-10-09T11:42:53.2635230+00:00",
+    "error": true,
+    "latency_ms": 1,
+    "result": {
+      "url": "",
+      "title": null,
+      "statusCode": null,
+      "selector": null,
+      "resolvedSelector": "",
+      "fallbackApplied": false,
+      "fallbackReason": null,
+      "format": "html",
+      "content": "",
+      "truncated": false,
+      "maxCharacters": 0,
+      "success": false,
+      "error_code": "INVALID_INPUT",
+      "error_message": "InvalidOperationException: No active page. Call browser_get_content with url first.",
+      "ok": false
+    }
+  },
+  {
+    "server": "GnOuGo.Browser.Mcp",
+    "tool": "browser_close",
+    "arguments": {},
+    "started": "2026-10-09T11:42:53.2864250+00:00",
+    "error": false,
+    "latency_ms": 1002,
+    "result": {
+      "closed": true,
+      "success": true,
+      "error_code": null,
+      "error_message": null,
+      "ok": true
+    }
+  }
+]

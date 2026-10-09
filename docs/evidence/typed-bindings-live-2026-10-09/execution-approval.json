@@ -1,0 +1,18 @@
+{
+  "run": "typedbindings20261009b-amazon-1",
+  "user_reply": "I approve , please live test :)",
+  "scope": "One first execution of the reviewed revision 9, acknowledging its five requirements. No uncertain replay, cohort expansion or budget extension.",
+  "recorded_at_utc": "2026-10-09T11:41:24.149957+00:00",
+  "command": {
+    "kind": "approve",
+    "expectedRevision": 9,
+    "artifactHash": "cbcd077db834ebe6da54b25bb838e5b6cca897d845a52a29484fcbb21b6cdb89",
+    "reviewedRequirementIds": [
+      "search_amazon_fr",
+      "collect_products",
+      "extract_product_details",
+      "save_excel",
+      "close_browser"
+    ]
+  }
+}

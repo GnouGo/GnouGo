@@ -1,5 +1,10 @@
 # Fresh typed-bindings planning after explicit GO
 
+**Later execution update:** the user approved revision 9. Its one live execution
+failed on an incompatible observed action candidate; Browser cleanup passed and
+no workbook was produced. See [execution results and minimal correction](execution.md).
+The planning-stage record below remains separate from that execution evidence.
+
 The user authorized fresh paid planning with `YES GO`. Frozen production/harness
 candidate: `7a76fc951d31dec26978f6c01a07b76ae71ea154`. Campaign:
 `schema-portability-20261002`; cohort/run: `typedbindings20261009b` /
