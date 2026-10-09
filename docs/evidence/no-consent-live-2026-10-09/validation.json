@@ -1,0 +1,87 @@
+{
+  "focused": {
+    "counts": {
+      "total": "59",
+      "executed": "59",
+      "passed": "59",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "local_executions": [
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"repeated-selection\")",
+        "outcome": "Passed",
+        "duration": "00:01:29.1580000",
+        "observations": "RETAINED repeated-selection: success=True; planningCalls=1; repairs=0; planningMs=56675,0; executionMs=17802,8; yamlBytes=195479; mappingCalls=13; unsampledPages=21; interpretationCalls=15; requestEstimates=[6898,4558,6894,4539,6810,5315,6774,4670,6778,4674,6455,4571,6751,4660,6790,4679,6750,4656,6770,4671,6779,4679,6773,4675,6745,4655,4571,7490]; invocations=233; steps=232; cleanupSteps=1; journalBytes=44865420; error= \nCOVERAGE repeated-selection: pages=43; records=77; offered=12; selected=10; typedProjectionCalls=0; normalizationCalls=0\nORACLE repeated-selection: cellsMatch=True; firstTenVisits=False; workbookRows=11; browserClosed=true; noUnresolvedReceipts=true"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"denied\")",
+        "outcome": "Passed",
+        "duration": "00:01:27.1580000",
+        "observations": "RETAINED denied: success=False; planningCalls=1; repairs=0; planningMs=57621,8; executionMs=16475,8; yamlBytes=195453; mappingCalls=13; unsampledPages=21; interpretationCalls=15; requestEstimates=[6895,4555,6909,4546,6809,5285,6751,4655,6770,4670,6446,4566,6766,4671,6751,4660,6775,4675,6769,4671,6756,4664,6751,4660,6751,4660,4571,7491]; invocations=232; steps=231; cleanupSteps=1; journalBytes=42276357; error=MCP_CALL_ERROR mcp.call (tool) to 'document/document_write' returned an MCP error: {\"success\":false,\"filePath\":null,\"bytesWritten\":null,\"errorCode\":\"POLICY_VIOLATION\",\"errorMessage\":\"filePath must not contain parent traversal segments or wildcard characters.\",\"relativePath\":null,\"filePathAbsolute\":null} [workflow 'w_81be22d7f1c8baf9', step 'n_741382036864d8cb']"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"unknown-id\")",
+        "outcome": "Passed",
+        "duration": "00:01:12.4720000",
+        "observations": "RETAINED unknown-id: success=False; planningCalls=1; repairs=0; planningMs=55786,5; executionMs=5199,6; yamlBytes=195479; mappingCalls=3; unsampledPages=21; interpretationCalls=3; requestEstimates=[6915,4565,6894,4536,6798,5255]; invocations=63; steps=62; cleanupSteps=1; journalBytes=22567919; error=CONTRACT_UNSATISFIED A selected identity is absent from the lookup source. [workflow 'w_81be22d7f1c8baf9', step 'n_278f8d9cd23c0011']"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"incomplete\")",
+        "outcome": "Passed",
+        "duration": "00:01:13.0040000",
+        "observations": "RETAINED incomplete: success=False; planningCalls=1; repairs=0; planningMs=60483,3; executionMs=1526,0; yamlBytes=195479; mappingCalls=0; unsampledPages=0; interpretationCalls=0; requestEstimates=[]; invocations=5; steps=4; cleanupSteps=1; journalBytes=802222; error=MCP_CALL_ERROR mcp.call (tool) to 'browser/browser_get_content' returned an MCP error: A complete snapshot exceeds capture or page bounds. Narrow the requested observation explicitly. [workflow 'w_81be22d7f1c8baf9', step 'n_38250c12b4a947a5']"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"fabricated\")",
+        "outcome": "Passed",
+        "duration": "00:01:26.8910000",
+        "observations": "RETAINED fabricated: success=True; planningCalls=1; repairs=0; planningMs=56483,3; executionMs=15374,4; yamlBytes=195479; mappingCalls=13; unsampledPages=21; interpretationCalls=15; requestEstimates=[6909,4558,6893,4536,6805,5255,6764,4670,6766,4666,6466,4576,6774,4671,6756,4664,6766,4668,6743,4660,6765,4664,6768,4668,6779,4679,4571,7491]; invocations=233; steps=232; cleanupSteps=1; journalBytes=44795196; error= \nCOVERAGE fabricated: pages=43; records=77; offered=12; selected=10; typedProjectionCalls=0; normalizationCalls=0\nORACLE fabricated: cellsMatch=False; firstTenVisits=True; workbookRows=2; browserClosed=true; noUnresolvedReceipts=true"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"consent\")",
+        "outcome": "Passed",
+        "duration": "00:01:28.4820000",
+        "observations": "RETAINED consent: success=True; planningCalls=1; repairs=0; planningMs=57526,2; executionMs=16193,5; yamlBytes=195479; mappingCalls=13; unsampledPages=22; interpretationCalls=15; requestEstimates=[6926,4653,6899,4541,6796,5240,6761,4663,6754,4663,6441,4561,6780,4675,6758,4660,6748,4656,6778,4675,6746,4656,6769,4664,6788,4683,4571,7491]; invocations=237; steps=236; cleanupSteps=1; journalBytes=52193014; error= \nCOVERAGE consent: pages=44; records=79; offered=12; selected=10; typedProjectionCalls=0; normalizationCalls=0\nORACLE consent: cellsMatch=True; firstTenVisits=True; workbookRows=11; browserClosed=true; noUnresolvedReceipts=true"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"absent\")",
+        "outcome": "Passed",
+        "duration": "00:01:24.3540000",
+        "observations": "RETAINED absent: success=True; planningCalls=1; repairs=0; planningMs=55603,3; executionMs=14605,6; yamlBytes=195479; mappingCalls=13; unsampledPages=21; interpretationCalls=15; requestEstimates=[6904,4560,6898,4541,6804,5270,6744,4659,6775,4670,6479,4584,6759,4664,6780,4679,6783,4679,6741,4656,6760,4668,6775,4675,6746,4660,4571,7491]; invocations=233; steps=232; cleanupSteps=1; journalBytes=44809720; error= \nCOVERAGE absent: pages=43; records=77; offered=12; selected=10; typedProjectionCalls=0; normalizationCalls=0\nORACLE absent: cellsMatch=True; firstTenVisits=True; workbookRows=11; browserClosed=true; noUnresolvedReceipts=true"
+      }
+    ]
+  },
+  "browser": {
+    "counts": {
+      "total": "25",
+      "executed": "25",
+      "passed": "25",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "local_executions": []
+  }
+}

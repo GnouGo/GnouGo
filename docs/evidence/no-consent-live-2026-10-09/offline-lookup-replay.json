@@ -1,0 +1,12 @@
+{
+  "source_code_equal_to_candidate": true,
+  "compiler_production_reference": "7a76fc95",
+  "candidate": "3c765087",
+  "changes": [
+    "swap two lookup operands: records first, selected IDs second"
+  ],
+  "diagnostics": [],
+  "model_calls": 0,
+  "saved_session_modified": false,
+  "limitation": "Public compiler replay establishes contract validity only; candidate eligibility and blocked-product review findings still require revision."
+}

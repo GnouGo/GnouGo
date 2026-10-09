@@ -1,0 +1,81 @@
+{
+  "status": "stopped",
+  "planning_ms": 953605,
+  "calls": 5,
+  "repairs": 2,
+  "discovery_reads": 2,
+  "review_revisions": 1,
+  "diagnostics": [
+    {
+      "code": "TASK_LOOKUP_INVALID",
+      "location": "/tasks/home_selected_search_records/outputs/records",
+      "message": "Lookup requires typed records, a literal declared identity field and compatible string or integer selections.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_LOOKUP_INVALID",
+      "location": "/tasks/selected_product_records/outputs/records",
+      "message": "Lookup requires typed records, a literal declared identity field and compatible string or integer selections.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_ITEMS_INVALID",
+      "location": "/tasks/fill_search_loop/items",
+      "message": "Iteration needs an authoritative array contract.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_ITEMS_INVALID",
+      "location": "/tasks/visit_products_loop/items",
+      "message": "Iteration needs an authoritative array contract.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "execution_success": false,
+  "execution_oracle": false,
+  "execution_status": "not_started",
+  "accounting": {
+    "planning": {
+      "logical_calls": 5,
+      "physical_attempts": 7,
+      "known_input_tokens": 51173,
+      "known_output_tokens": 20623,
+      "known_cost_eur": 0.7760715236489485,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 938,
+      "session_calls": 0,
+      "known_input_tokens": 13736940,
+      "known_output_tokens": 1913818,
+      "known_cost_eur": 112.1954302156947,
+      "reserved_input_tokens": 480000,
+      "reserved_output_tokens": 163840,
+      "reserved_cost_eur": 6.501614794790526,
+      "cost_upper_bound_eur": 118.69704501048523,
+      "unknown_attempts": 5
+    }
+  }
+}

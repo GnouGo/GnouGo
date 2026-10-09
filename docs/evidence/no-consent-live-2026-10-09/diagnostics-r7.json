@@ -1,0 +1,34 @@
+[
+  {
+    "code": "TASK_LOOKUP_INVALID",
+    "location": "/tasks/home_selected_search_records/outputs/records",
+    "message": "Lookup requires typed records, a literal declared identity field and compatible string or integer selections.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "TASK_LOOKUP_INVALID",
+    "location": "/tasks/selected_product_records/outputs/records",
+    "message": "Lookup requires typed records, a literal declared identity field and compatible string or integer selections.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "TASK_ITEMS_INVALID",
+    "location": "/tasks/fill_search_loop/items",
+    "message": "Iteration needs an authoritative array contract.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "TASK_ITEMS_INVALID",
+    "location": "/tasks/visit_products_loop/items",
+    "message": "Iteration needs an authoritative array contract.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  }
+]

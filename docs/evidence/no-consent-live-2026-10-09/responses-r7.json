@@ -1,0 +1,3651 @@
+[
+  {
+    "id": "schema-portability-20261002:noconsent20261009a-amazon-1:1:2e60bd26405d0ba284f4fe3eb0d5c547eceef05aea654b163a1f1c96395d8dcb",
+    "response": {
+      "discoveryRequests": [
+        {
+          "sourceId": "source_258c29d9064381a5dd37bf0c",
+          "cursor": null,
+          "query": "Available browser navigation operations needed to open Amazon.fr, search with a public input query, inspect search results, visit up to the first 10 product pages, extract visible product name, description and price, detect observed blocking obstacles such as CAPTCHA, and close the browser even on failure without accepting/refusing/personalizing cookies.",
+          "operationIds": null
+        },
+        {
+          "sourceId": "source_0002e1b8daaf46eef1b331cc",
+          "cursor": null,
+          "query": "Available document operations needed to create directories if needed and write an XLSX workbook to workflows/schema-portability-20261002/noconsent20261009a-amazon-1/products.xlsx containing extracted Amazon.fr product rows with explicit null/missing/CAPTCHA/blockage values and no invented data.",
+          "operationIds": null
+        }
+      ],
+      "plan": null,
+      "clarifications": null,
+      "requirements": {
+        "summary": "Automate an authorized Amazon.fr product search from one public input named query, collect up to the first 10 products, visit each product page, extract product name, description and price without inventing missing data, and save the results as an Excel workbook at the specified disk path. The browser must be closed even if the workflow fails, and no cookie acceptance/refusal/personalization action may be performed.",
+        "outcomes": [
+          {
+            "id": "search_amazon_fr",
+            "description": "Use Amazon.fr to search for the provided article query."
+          },
+          {
+            "id": "collect_products",
+            "description": "List and process at most the first 10 search-result products."
+          },
+          {
+            "id": "extract_product_data",
+            "description": "For each processed product page, extract name, description and price; absent CAPTCHA, price or data values remain explicit rather than invented."
+          },
+          {
+            "id": "write_excel",
+            "description": "Save the workbook to workflows/schema-portability-20261002/noconsent20261009a-amazon-1/products.xlsx."
+          },
+          {
+            "id": "handle_blockage",
+            "description": "If an actually observed obstacle prevents continuation, report the blockage and stop without declaring success; an informational cookie link alone is not a blockage."
+          },
+          {
+            "id": "cleanup_browser",
+            "description": "Close the browser even in failure paths."
+          }
+        ],
+        "inputs": [
+          {
+            "name": "query",
+            "type": {
+              "kind": "string"
+            }
+          }
+        ],
+        "outputs": [
+          {
+            "name": "productsFile",
+            "type": {
+              "kind": "string"
+            },
+            "required": true
+          },
+          {
+            "name": "rows",
+            "type": {
+              "kind": "array",
+              "items": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "name",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  },
+                  {
+                    "name": "description",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  },
+                  {
+                    "name": "price",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  },
+                  {
+                    "name": "status",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  }
+                ]
+              },
+              "minItems": 0,
+              "maxItems": 10
+            },
+            "required": true
+          },
+          {
+            "name": "blocked",
+            "type": {
+              "kind": "boolean"
+            },
+            "required": true
+          },
+          {
+            "name": "blockageReason",
+            "type": {
+              "kind": "string",
+              "nullable": true
+            },
+            "required": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "schema-portability-20261002:noconsent20261009a-amazon-1:2:20e5dd28af1592ce64f4cb9e98ca46be86e3eee6a8be3e8d27b532915a2d7871",
+    "response": {
+      "discoveryRequests": null,
+      "plan": {
+        "inputs": [
+          {
+            "name": "query",
+            "type": {
+              "kind": "string"
+            }
+          }
+        ],
+        "root": {
+          "tasks": [
+            {
+              "id": "open_amazon",
+              "kind": "operation",
+              "objective": "Open Amazon.fr without performing any cookie acceptance/refusal/personalization action.",
+              "dependsOn": [],
+              "requires": null,
+              "operation": "cap_490d9e16075cbdca5954ec27",
+              "inputs": [
+                {
+                  "name": "url",
+                  "value": {
+                    "kind": "string",
+                    "text": "https://www.amazon.fr/"
+                  }
+                },
+                {
+                  "name": "format",
+                  "value": {
+                    "kind": "string",
+                    "text": "observation_complete"
+                  }
+                },
+                {
+                  "name": "waitUntil",
+                  "value": {
+                    "kind": "string",
+                    "text": "domcontentloaded"
+                  }
+                },
+                {
+                  "name": "timeoutMs",
+                  "value": {
+                    "kind": "number",
+                    "number": 30000
+                  }
+                },
+                {
+                  "name": "maxRecords",
+                  "value": {
+                    "kind": "number",
+                    "number": 200
+                  }
+                }
+              ]
+            },
+            {
+              "id": "interpret_home",
+              "kind": "transform",
+              "objective": "Interpret the Amazon.fr landing page: identify whether an actually observed blocking obstacle such as CAPTCHA prevents proceeding, and find the public search field reference if available. Do not treat an informational cookie link alone as a blockage.",
+              "dependsOn": [
+                "open_amazon"
+              ],
+              "requires": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "open_amazon",
+                    "port": "observationSnapshot"
+                  }
+                ],
+                "port": "observationSnapshot"
+              },
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "pageObservation",
+                  "value": {
+                    "kind": "output",
+                    "source": "open_amazon",
+                    "port": "observationSnapshot"
+                  }
+                },
+                {
+                  "name": "currentUrl",
+                  "value": {
+                    "kind": "output",
+                    "source": "open_amazon",
+                    "port": "url"
+                  }
+                },
+                {
+                  "name": "instruction",
+                  "value": {
+                    "kind": "string",
+                    "text": "Return blocked=true only for an actually observed obstacle preventing continuation, such as CAPTCHA, access denial, unavailable page, or a modal/overlay that blocks search and cannot be bypassed without cookie accept/refuse/personalize. A visible informational cookie link alone is not a blockage. Extract the reference for the Amazon search input/control if it is visible and supports fill; otherwise searchInputRef is null."
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "blocked",
+                    "type": {
+                      "kind": "boolean"
+                    }
+                  },
+                  {
+                    "name": "blockageReason",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  },
+                  {
+                    "name": "searchInputRef",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "search_blocked_value",
+              "kind": "value",
+              "objective": "Prepare explicit blocked result if Amazon.fr cannot be searched due to an observed obstacle.",
+              "dependsOn": [
+                "interpret_home"
+              ],
+              "requires": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "interpret_home",
+                    "port": null
+                  }
+                ],
+                "port": "blocked"
+              },
+              "outputs": [
+                {
+                  "name": "rows",
+                  "value": {
+                    "kind": "array",
+                    "items": []
+                  }
+                },
+                {
+                  "name": "blocked",
+                  "value": {
+                    "kind": "boolean",
+                    "boolean": true
+                  }
+                },
+                {
+                  "name": "blockageReason",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "interpret_home",
+                        "port": null
+                      }
+                    ],
+                    "port": "blockageReason"
+                  }
+                },
+                {
+                  "name": "productsFile",
+                  "value": {
+                    "kind": "string",
+                    "text": "workflows/schema-portability-20261002/noconsent20261009a-amazon-1/products.xlsx"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "search_sequence",
+              "kind": "conditional",
+              "objective": "If no observed obstacle blocks continuation, submit the provided query in the Amazon.fr search box.",
+              "dependsOn": [
+                "interpret_home"
+              ],
+              "requires": null,
+              "condition": {
+                "kind": "predicate",
+                "predicate": "and",
+                "items": [
+                  {
+                    "kind": "predicate",
+                    "predicate": "not",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "interpret_home",
+                            "port": null
+                          }
+                        ],
+                        "port": "blocked"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "predicate",
+                    "predicate": "not_equal",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "interpret_home",
+                            "port": null
+                          }
+                        ],
+                        "port": "searchInputRef"
+                      },
+                      {
+                        "kind": "null"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "body": {
+                "tasks": [
+                  {
+                    "id": "fill_search",
+                    "kind": "operation",
+                    "objective": "Fill the Amazon search field with the single public input query and submit the search.",
+                    "dependsOn": [],
+                    "requires": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "interpret_home",
+                          "port": null
+                        }
+                      ],
+                      "port": "searchInputRef"
+                    },
+                    "operation": "cap_416310ac4ff2808dc91e3a14",
+                    "inputs": [
+                      {
+                        "name": "reference",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "interpret_home",
+                              "port": null
+                            }
+                          ],
+                          "port": "searchInputRef"
+                        }
+                      },
+                      {
+                        "name": "value",
+                        "value": {
+                          "kind": "input",
+                          "source": "query"
+                        }
+                      },
+                      {
+                        "name": "submit",
+                        "value": {
+                          "kind": "boolean",
+                          "boolean": true
+                        }
+                      },
+                      {
+                        "name": "timeoutMs",
+                        "value": {
+                          "kind": "number",
+                          "number": 30000
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "read_search_results",
+                    "kind": "operation",
+                    "objective": "Read the search results page after submitting the query, preserving observed links and controls without clicking cookie controls.",
+                    "dependsOn": [
+                      "fill_search"
+                    ],
+                    "requires": null,
+                    "operation": "cap_490d9e16075cbdca5954ec27",
+                    "inputs": [
+                      {
+                        "name": "format",
+                        "value": {
+                          "kind": "string",
+                          "text": "observation_complete"
+                        }
+                      },
+                      {
+                        "name": "waitUntil",
+                        "value": {
+                          "kind": "string",
+                          "text": "domcontentloaded"
+                        }
+                      },
+                      {
+                        "name": "timeoutMs",
+                        "value": {
+                          "kind": "number",
+                          "number": 30000
+                        }
+                      },
+                      {
+                        "name": "maxRecords",
+                        "value": {
+                          "kind": "number",
+                          "number": 200
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "extract_product_links",
+                    "kind": "transform",
+                    "objective": "From the complete search-result observation, extract up to the first 10 product page links in visible result order, and detect any actually observed obstacle such as CAPTCHA. Do not invent products.",
+                    "dependsOn": [
+                      "read_search_results"
+                    ],
+                    "requires": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "read_search_results",
+                          "port": "observationSnapshot"
+                        }
+                      ],
+                      "port": "observationSnapshot"
+                    },
+                    "mode": "extract",
+                    "inputs": [
+                      {
+                        "name": "searchObservation",
+                        "value": {
+                          "kind": "output",
+                          "source": "read_search_results",
+                          "port": "observationSnapshot"
+                        }
+                      },
+                      {
+                        "name": "instruction",
+                        "value": {
+                          "kind": "string",
+                          "text": "Extract at most the first 10 organic/product-result page links from Amazon.fr search results, in page order. Exclude sponsored metadata-only links, navigation, pagination, images without product page href, help/account/cart links, cookie links, and unrelated links. Use observed href URLs. If an actually observed obstacle prevents collecting results, set blocked=true with a concrete reason. If no products are visible and no obstacle is visible, return an empty products array with blocked=false."
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "blocked",
+                          "type": {
+                            "kind": "boolean"
+                          }
+                        },
+                        {
+                          "name": "blockageReason",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        },
+                        {
+                          "name": "products",
+                          "type": {
+                            "kind": "array",
+                            "items": {
+                              "kind": "object",
+                              "fields": [
+                                {
+                                  "name": "url",
+                                  "type": {
+                                    "kind": "string"
+                                  }
+                                },
+                                {
+                                  "name": "searchResultName",
+                                  "type": {
+                                    "kind": "string",
+                                    "nullable": true
+                                  }
+                                }
+                              ]
+                            },
+                            "minItems": 0,
+                            "maxItems": 10
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "visit_products_loop",
+                    "kind": "foreach",
+                    "objective": "Visit each collected product page, up to 10 total, and extract explicit product fields without inventing absent data.",
+                    "dependsOn": [
+                      "extract_product_links"
+                    ],
+                    "requires": {
+                      "kind": "predicate",
+                      "predicate": "not",
+                      "items": [
+                        {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "extract_product_links",
+                              "port": null
+                            }
+                          ],
+                          "port": "blocked"
+                        }
+                      ]
+                    },
+                    "items": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "extract_product_links",
+                          "port": null
+                        }
+                      ],
+                      "port": "products"
+                    },
+                    "body": {
+                      "tasks": [
+                        {
+                          "id": "open_product_page",
+                          "kind": "operation",
+                          "objective": "Open one Amazon.fr product detail page from the collected search results.",
+                          "dependsOn": [],
+                          "requires": {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "item"
+                              }
+                            ],
+                            "port": "url"
+                          },
+                          "operation": "cap_490d9e16075cbdca5954ec27",
+                          "inputs": [
+                            {
+                              "name": "url",
+                              "value": {
+                                "kind": "field",
+                                "items": [
+                                  {
+                                    "kind": "item"
+                                  }
+                                ],
+                                "port": "url"
+                              }
+                            },
+                            {
+                              "name": "format",
+                              "value": {
+                                "kind": "string",
+                                "text": "observation_complete"
+                              }
+                            },
+                            {
+                              "name": "waitUntil",
+                              "value": {
+                                "kind": "string",
+                                "text": "domcontentloaded"
+                              }
+                            },
+                            {
+                              "name": "timeoutMs",
+                              "value": {
+                                "kind": "number",
+                                "number": 30000
+                              }
+                            },
+                            {
+                              "name": "maxRecords",
+                              "value": {
+                                "kind": "number",
+                                "number": 200
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "id": "extract_product_row",
+                          "kind": "transform",
+                          "objective": "Extract one row for the current product: name, description, price, and status. Missing price/data or CAPTCHA must be explicit and never invented.",
+                          "dependsOn": [
+                            "open_product_page"
+                          ],
+                          "requires": {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "open_product_page",
+                                "port": "observationSnapshot"
+                              }
+                            ],
+                            "port": "observationSnapshot"
+                          },
+                          "mode": "extract",
+                          "inputs": [
+                            {
+                              "name": "productObservation",
+                              "value": {
+                                "kind": "output",
+                                "source": "open_product_page",
+                                "port": "observationSnapshot"
+                              }
+                            },
+                            {
+                              "name": "fallbackSearchResultName",
+                              "value": {
+                                "kind": "field",
+                                "items": [
+                                  {
+                                    "kind": "item"
+                                  }
+                                ],
+                                "port": "searchResultName"
+                              }
+                            },
+                            {
+                              "name": "productUrl",
+                              "value": {
+                                "kind": "field",
+                                "items": [
+                                  {
+                                    "kind": "item"
+                                  }
+                                ],
+                                "port": "url"
+                              }
+                            },
+                            {
+                              "name": "instruction",
+                              "value": {
+                                "kind": "string",
+                                "text": "Extract product name, description, and price from the product detail page. If CAPTCHA, access denial, unavailable page, missing price, or missing data is observed, set missing fields to null and put the explicit condition in status. Never infer or invent missing values. Description may be the visible feature bullets, product description, or clearly labeled description text; if absent use null. Return rows as a one-element array."
+                              }
+                            }
+                          ],
+                          "resultType": {
+                            "kind": "object",
+                            "fields": [
+                              {
+                                "name": "rows",
+                                "type": {
+                                  "kind": "array",
+                                  "items": {
+                                    "kind": "object",
+                                    "fields": [
+                                      {
+                                        "name": "name",
+                                        "type": {
+                                          "kind": "string",
+                                          "nullable": true
+                                        }
+                                      },
+                                      {
+                                        "name": "description",
+                                        "type": {
+                                          "kind": "string",
+                                          "nullable": true
+                                        }
+                                      },
+                                      {
+                                        "name": "price",
+                                        "type": {
+                                          "kind": "string",
+                                          "nullable": true
+                                        }
+                                      },
+                                      {
+                                        "name": "status",
+                                        "type": {
+                                          "kind": "string",
+                                          "nullable": true
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  "minItems": 1,
+                                  "maxItems": 1
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "outputs": [
+                        {
+                          "name": "rows",
+                          "value": {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "extract_product_row",
+                                "port": null
+                              }
+                            ],
+                            "port": "rows"
+                          }
+                        }
+                      ],
+                      "always": []
+                    },
+                    "parallel": false,
+                    "maxItems": 10,
+                    "maxConcurrency": 1
+                  },
+                  {
+                    "id": "combine_rows",
+                    "kind": "transform",
+                    "objective": "Flatten the per-product one-row arrays into one products rows array and carry blockage status from the search stage.",
+                    "dependsOn": [
+                      "visit_products_loop"
+                    ],
+                    "requires": null,
+                    "inputs": [
+                      {
+                        "name": "loopRows",
+                        "value": {
+                          "kind": "flatten",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "visit_products_loop",
+                              "port": "rows"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "searchBlocked",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "extract_product_links",
+                              "port": null
+                            }
+                          ],
+                          "port": "blocked"
+                        }
+                      },
+                      {
+                        "name": "searchBlockageReason",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "extract_product_links",
+                              "port": null
+                            }
+                          ],
+                          "port": "blockageReason"
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "rows",
+                          "type": {
+                            "kind": "array",
+                            "items": {
+                              "kind": "object",
+                              "fields": [
+                                {
+                                  "name": "name",
+                                  "type": {
+                                    "kind": "string",
+                                    "nullable": true
+                                  }
+                                },
+                                {
+                                  "name": "description",
+                                  "type": {
+                                    "kind": "string",
+                                    "nullable": true
+                                  }
+                                },
+                                {
+                                  "name": "price",
+                                  "type": {
+                                    "kind": "string",
+                                    "nullable": true
+                                  }
+                                },
+                                {
+                                  "name": "status",
+                                  "type": {
+                                    "kind": "string",
+                                    "nullable": true
+                                  }
+                                }
+                              ]
+                            },
+                            "minItems": 0,
+                            "maxItems": 10
+                          }
+                        },
+                        {
+                          "name": "blocked",
+                          "type": {
+                            "kind": "boolean"
+                          }
+                        },
+                        {
+                          "name": "blockageReason",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "not_blocked_value",
+                    "kind": "value",
+                    "objective": "Expose successful non-blocked extraction values for workbook creation.",
+                    "dependsOn": [
+                      "combine_rows"
+                    ],
+                    "requires": null,
+                    "outputs": [
+                      {
+                        "name": "rows",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "combine_rows",
+                              "port": null
+                            }
+                          ],
+                          "port": "rows"
+                        }
+                      },
+                      {
+                        "name": "blocked",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "combine_rows",
+                              "port": null
+                            }
+                          ],
+                          "port": "blocked"
+                        }
+                      },
+                      {
+                        "name": "blockageReason",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "combine_rows",
+                              "port": null
+                            }
+                          ],
+                          "port": "blockageReason"
+                        }
+                      },
+                      {
+                        "name": "productsFile",
+                        "value": {
+                          "kind": "string",
+                          "text": "workflows/schema-portability-20261002/noconsent20261009a-amazon-1/products.xlsx"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "rows",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "not_blocked_value",
+                          "port": "rows"
+                        }
+                      ],
+                      "port": "rows"
+                    }
+                  },
+                  {
+                    "name": "blocked",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "not_blocked_value",
+                          "port": "blocked"
+                        }
+                      ],
+                      "port": "blocked"
+                    }
+                  },
+                  {
+                    "name": "blockageReason",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "not_blocked_value",
+                          "port": "blockageReason"
+                        }
+                      ],
+                      "port": "blockageReason"
+                    }
+                  },
+                  {
+                    "name": "productsFile",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "not_blocked_value",
+                          "port": "productsFile"
+                        }
+                      ],
+                      "port": "productsFile"
+                    }
+                  }
+                ],
+                "always": []
+              },
+              "otherwise": {
+                "tasks": [
+                  {
+                    "id": "missing_search_box_value",
+                    "kind": "value",
+                    "objective": "Report an explicit blockage if no usable Amazon search input was observed and no cookie action may be taken.",
+                    "dependsOn": [],
+                    "requires": null,
+                    "outputs": [
+                      {
+                        "name": "rows",
+                        "value": {
+                          "kind": "array",
+                          "items": []
+                        }
+                      },
+                      {
+                        "name": "blocked",
+                        "value": {
+                          "kind": "boolean",
+                          "boolean": true
+                        }
+                      },
+                      {
+                        "name": "blockageReason",
+                        "value": {
+                          "kind": "string",
+                          "text": "No usable Amazon.fr search input was observed; continuation would require unsupported or unauthorized interaction."
+                        }
+                      },
+                      {
+                        "name": "productsFile",
+                        "value": {
+                          "kind": "string",
+                          "text": "workflows/schema-portability-20261002/noconsent20261009a-amazon-1/products.xlsx"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "rows",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "missing_search_box_value",
+                          "port": "rows"
+                        }
+                      ],
+                      "port": "rows"
+                    }
+                  },
+                  {
+                    "name": "blocked",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "missing_search_box_value",
+                          "port": "blocked"
+                        }
+                      ],
+                      "port": "blocked"
+                    }
+                  },
+                  {
+                    "name": "blockageReason",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "missing_search_box_value",
+                          "port": "blockageReason"
+                        }
+                      ],
+                      "port": "blockageReason"
+                    }
+                  },
+                  {
+                    "name": "productsFile",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "missing_search_box_value",
+                          "port": "productsFile"
+                        }
+                      ],
+                      "port": "productsFile"
+                    }
+                  }
+                ],
+                "always": []
+              }
+            },
+            {
+              "id": "select_final_state",
+              "kind": "transform",
+              "objective": "Select the appropriate final state from either an initial observed blockage or the completed search/product workflow.",
+              "dependsOn": [
+                "search_blocked_value",
+                "search_sequence"
+              ],
+              "requires": null,
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "initialBlocked",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "interpret_home",
+                        "port": null
+                      }
+                    ],
+                    "port": "blocked"
+                  }
+                },
+                {
+                  "name": "initialRows",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "search_blocked_value",
+                        "port": "rows"
+                      }
+                    ],
+                    "port": "rows"
+                  }
+                },
+                {
+                  "name": "initialReason",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "search_blocked_value",
+                        "port": "blockageReason"
+                      }
+                    ],
+                    "port": "blockageReason"
+                  }
+                },
+                {
+                  "name": "searchedRows",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "search_sequence",
+                        "port": "rows"
+                      }
+                    ],
+                    "port": "rows"
+                  }
+                },
+                {
+                  "name": "searchedBlocked",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "search_sequence",
+                        "port": "blocked"
+                      }
+                    ],
+                    "port": "blocked"
+                  }
+                },
+                {
+                  "name": "searchedReason",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "search_sequence",
+                        "port": "blockageReason"
+                      }
+                    ],
+                    "port": "blockageReason"
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "rows",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "name": "name",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "description",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "price",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "status",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          }
+                        ]
+                      },
+                      "minItems": 0,
+                      "maxItems": 10
+                    }
+                  },
+                  {
+                    "name": "blocked",
+                    "type": {
+                      "kind": "boolean"
+                    }
+                  },
+                  {
+                    "name": "blockageReason",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  },
+                  {
+                    "name": "productsFile",
+                    "type": {
+                      "kind": "string"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "render_workbook_tsv",
+              "kind": "transform",
+              "objective": "Render extracted rows to tab-separated workbook content for .xlsx writing, with headers and explicit null/missing values.",
+              "dependsOn": [
+                "select_final_state"
+              ],
+              "requires": null,
+              "inputs": [
+                {
+                  "name": "rows",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "select_final_state",
+                        "port": null
+                      }
+                    ],
+                    "port": "rows"
+                  }
+                },
+                {
+                  "name": "blocked",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "select_final_state",
+                        "port": null
+                      }
+                    ],
+                    "port": "blocked"
+                  }
+                },
+                {
+                  "name": "blockageReason",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "select_final_state",
+                        "port": null
+                      }
+                    ],
+                    "port": "blockageReason"
+                  }
+                },
+                {
+                  "name": "instruction",
+                  "value": {
+                    "kind": "string",
+                    "text": "Create TSV content for an Excel workbook. First row headers: name, description, price, status. One row per product, preserving null or absent values explicitly as empty cells or explicit status text; normalize tabs and line breaks inside cells. If blocked before products are collected, include a single row with empty name/description/price and status equal to the blockage reason."
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "tsv",
+                    "type": {
+                      "kind": "string"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "write_products_xlsx",
+              "kind": "operation",
+              "objective": "Save the extracted Amazon product rows as an Excel workbook at the required relative path before browser cleanup.",
+              "dependsOn": [
+                "render_workbook_tsv"
+              ],
+              "requires": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "render_workbook_tsv",
+                    "port": null
+                  }
+                ],
+                "port": "tsv"
+              },
+              "operation": "cap_37c513d225bb1b870053c5d3",
+              "inputs": [
+                {
+                  "name": "filePath",
+                  "value": {
+                    "kind": "string",
+                    "text": "workflows/schema-portability-20261002/noconsent20261009a-amazon-1/products.xlsx"
+                  }
+                },
+                {
+                  "name": "content",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "render_workbook_tsv",
+                        "port": null
+                      }
+                    ],
+                    "port": "tsv"
+                  }
+                },
+                {
+                  "name": "append",
+                  "value": {
+                    "kind": "boolean",
+                    "boolean": false
+                  }
+                },
+                {
+                  "name": "encoding",
+                  "value": {
+                    "kind": "string",
+                    "text": "utf-8"
+                  }
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "name": "productsFile",
+              "value": {
+                "kind": "string",
+                "text": "workflows/schema-portability-20261002/noconsent20261009a-amazon-1/products.xlsx"
+              }
+            },
+            {
+              "name": "rows",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "select_final_state",
+                    "port": null
+                  }
+                ],
+                "port": "rows"
+              }
+            },
+            {
+              "name": "blocked",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "select_final_state",
+                    "port": null
+                  }
+                ],
+                "port": "blocked"
+              }
+            },
+            {
+              "name": "blockageReason",
+              "value": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "select_final_state",
+                    "port": null
+                  }
+                ],
+                "port": "blockageReason"
+              }
+            }
+          ],
+          "always": [
+            {
+              "id": "close_browser",
+              "kind": "operation",
+              "objective": "Close the browser page and context even if any earlier step fails.",
+              "dependsOn": [],
+              "requires": null,
+              "operation": "cap_bdb7ba9ab04b18783883fa86",
+              "inputs": []
+            }
+          ]
+        },
+        "groups": [],
+        "choices": []
+      },
+      "clarifications": null
+    }
+  },
+  {
+    "id": "schema-portability-20261002:noconsent20261009a-amazon-1:3:62513645482ba645c94f5b79bcfb3e7c49a38586520bcd35d73ca0600445a0ac",
+    "response": {
+      "discoveryRequests": null,
+      "plan": {
+        "inputs": [
+          {
+            "name": "query",
+            "type": {
+              "kind": "string"
+            }
+          }
+        ],
+        "root": {
+          "tasks": [
+            {
+              "id": "open_amazon",
+              "kind": "operation",
+              "objective": "Open Amazon.fr without performing any cookie acceptance/refusal/personalization action.",
+              "dependsOn": [],
+              "requires": null,
+              "operation": "cap_490d9e16075cbdca5954ec27",
+              "inputs": [
+                {
+                  "name": "url",
+                  "value": {
+                    "kind": "string",
+                    "text": "https://www.amazon.fr/"
+                  }
+                },
+                {
+                  "name": "format",
+                  "value": {
+                    "kind": "string",
+                    "text": "observation_complete"
+                  }
+                },
+                {
+                  "name": "waitUntil",
+                  "value": {
+                    "kind": "string",
+                    "text": "domcontentloaded"
+                  }
+                },
+                {
+                  "name": "timeoutMs",
+                  "value": {
+                    "kind": "number",
+                    "number": 30000
+                  }
+                },
+                {
+                  "name": "maxRecords",
+                  "value": {
+                    "kind": "number",
+                    "number": 200
+                  }
+                }
+              ]
+            },
+            {
+              "id": "home_pages_project",
+              "kind": "foreach",
+              "objective": "Project each bounded complete Amazon.fr landing-page observation page to its original records array for later one-level flattening and lookup.",
+              "dependsOn": [
+                "open_amazon"
+              ],
+              "requires": {
+                "kind": "predicate",
+                "predicate": "and",
+                "items": [
+                  {
+                    "kind": "predicate",
+                    "predicate": "not_equal",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "open_amazon",
+                        "port": "observationSnapshot"
+                      },
+                      {
+                        "kind": "null"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "predicate",
+                    "predicate": "equal",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "open_amazon",
+                            "port": "observationSnapshot"
+                          }
+                        ],
+                        "port": "captureTruncated"
+                      },
+                      {
+                        "kind": "boolean",
+                        "boolean": false
+                      }
+                    ]
+                  }
+                ]
+              },
+              "items": {
+                "kind": "field",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "open_amazon",
+                    "port": "observationSnapshot"
+                  }
+                ],
+                "port": "pages"
+              },
+              "body": {
+                "tasks": [],
+                "outputs": [
+                  {
+                    "name": "records",
+                    "value": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "item"
+                        }
+                      ],
+                      "port": "records"
+                    }
+                  }
+                ],
+                "always": []
+              },
+              "parallel": false,
+              "maxItems": 100,
+              "maxConcurrency": 1
+            },
+            {
+              "id": "home_records_value",
+              "kind": "value",
+              "objective": "Flatten the landing-page projected records exactly one level, retaining original observation records for action lookup.",
+              "dependsOn": [
+                "home_pages_project"
+              ],
+              "requires": {
+                "kind": "present",
+                "source": "home_pages_project"
+              },
+              "outputs": [
+                {
+                  "name": "records",
+                  "value": {
+                    "kind": "flatten",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "home_pages_project",
+                        "port": "records"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "compact_home_pages",
+              "kind": "transform",
+              "objective": "Create compact per-page landing-page views containing only immediate blockage/search-input decision facts and offered fill-capable candidate reference IDs; retain original records separately.",
+              "dependsOn": [
+                "open_amazon"
+              ],
+              "requires": {
+                "kind": "predicate",
+                "predicate": "and",
+                "items": [
+                  {
+                    "kind": "predicate",
+                    "predicate": "not_equal",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "open_amazon",
+                        "port": "observationSnapshot"
+                      },
+                      {
+                        "kind": "null"
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "predicate",
+                    "predicate": "equal",
+                    "items": [
+                      {
+                        "kind": "field",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "open_amazon",
+                            "port": "observationSnapshot"
+                          }
+                        ],
+                        "port": "captureTruncated"
+                      },
+                      {
+                        "kind": "boolean",
+                        "boolean": false
+                      }
+                    ]
+                  }
+                ]
+              },
+              "mode": "extract",
+              "each": {
+                "input": "pages",
+                "output": "compactPages"
+              },
+              "inputs": [
+                {
+                  "name": "pages",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "open_amazon",
+                        "port": "observationSnapshot"
+                      }
+                    ],
+                    "port": "pages"
+                  }
+                },
+                {
+                  "name": "instruction",
+                  "value": {
+                    "kind": "string",
+                    "text": "For each page, produce a compact view only. Identify immediate facts relevant to whether continuation is blocked, such as CAPTCHA, access denial, unavailable page, or a modal/overlay blocking search that cannot be bypassed without cookie accept/refuse/personalize. A visible informational cookie link alone is not a blockage. Offer only IDs for observed records that are visible Amazon search inputs and support fill. Candidate IDs must be original record references; do not synthesize selectors, arguments, URLs, or actions."
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "compactPages",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "name": "blockedEvidence",
+                            "type": {
+                              "kind": "string",
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "name": "offeredSearchInputIds",
+                            "type": {
+                              "kind": "array",
+                              "items": {
+                                "kind": "string"
+                              },
+                              "minItems": 0,
+                              "maxItems": 10
+                            }
+                          }
+                        ]
+                      },
+                      "minItems": 0,
+                      "maxItems": 100
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "interpret_home",
+              "kind": "transform",
+              "objective": "Select only from compact offered landing-page candidates and determine whether the initial page blocks search; do not consume the whole observation snapshot.",
+              "dependsOn": [
+                "compact_home_pages",
+                "home_records_value"
+              ],
+              "requires": {
+                "kind": "present",
+                "source": "compact_home_pages"
+              },
+              "mode": "interpret",
+              "inputs": [
+                {
+                  "name": "compactPages",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "compact_home_pages",
+                        "port": null
+                      }
+                    ],
+                    "port": "compactPages"
+                  }
+                },
+                {
+                  "name": "instruction",
+                  "value": {
+                    "kind": "string",
+                    "text": "Using only compactPages, set blocked=true if an actually observed obstacle prevents searching, including CAPTCHA/access denial/unavailable page or no usable offered search input. Do not treat a cookie information link alone as a blocker. If not blocked, select exactly one offeredSearchInputId, preserving its original ID; do not create selectors or references."
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "blocked",
+                    "type": {
+                      "kind": "boolean"
+                    }
+                  },
+                  {
+                    "name": "blockageReason",
+                    "type": {
+                      "kind": "string",
+                      "nullable": true
+                    }
+                  },
+                  {
+                    "name": "selectedSearchInputIds",
+                    "type": {
+                      "kind": "array",
+                      "items": {
+                        "kind": "string"
+                      },
+                      "minItems": 0,
+                      "maxItems": 1
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "search_sequence",
+              "kind": "conditional",
+              "objective": "Only if the landing page is not blocked, reconnect the selected original search-input record, submit the single public query, observe results, select product records, and visit each selected product.",
+              "dependsOn": [
+                "interpret_home"
+              ],
+              "requires": {
+                "kind": "present",
+                "source": "interpret_home"
+              },
+              "condition": {
+                "kind": "predicate",
+                "predicate": "not",
+                "items": [
+                  {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "interpret_home",
+                        "port": null
+                      }
+                    ],
+                    "port": "blocked"
+                  }
+                ]
+              },
+              "body": {
+                "tasks": [
+                  {
+                    "id": "home_selected_search_records",
+                    "kind": "value",
+                    "objective": "Lookup the selected search-input candidate IDs against original landing-page records to obtain the authoritative reference and action data.",
+                    "dependsOn": [],
+                    "requires": {
+                      "kind": "predicate",
+                      "predicate": "and",
+                      "items": [
+                        {
+                          "kind": "predicate",
+                          "predicate": "not_equal",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "interpret_home",
+                                  "port": null
+                                }
+                              ],
+                              "port": "selectedSearchInputIds"
+                            },
+                            {
+                              "kind": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "predicate",
+                          "predicate": "not_equal",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "home_records_value",
+                              "port": "records"
+                            },
+                            {
+                              "kind": "null"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "outputs": [
+                      {
+                        "name": "records",
+                        "value": {
+                          "kind": "lookup",
+                          "port": "reference",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "interpret_home",
+                                  "port": null
+                                }
+                              ],
+                              "port": "selectedSearchInputIds"
+                            },
+                            {
+                              "kind": "output",
+                              "source": "home_records_value",
+                              "port": "records"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "fill_search_loop",
+                    "kind": "foreach",
+                    "objective": "Fill and submit the selected original Amazon.fr search input using the sole public query input.",
+                    "dependsOn": [
+                      "home_selected_search_records"
+                    ],
+                    "requires": {
+                      "kind": "present",
+                      "source": "home_selected_search_records"
+                    },
+                    "items": {
+                      "kind": "output",
+                      "source": "home_selected_search_records",
+                      "port": "records"
+                    },
+                    "body": {
+                      "tasks": [
+                        {
+                          "id": "fill_search",
+                          "kind": "operation",
+                          "objective": "Fill the observed Amazon search field with query and submit without interacting with cookie controls.",
+                          "dependsOn": [],
+                          "requires": {
+                            "kind": "predicate",
+                            "predicate": "not_equal",
+                            "items": [
+                              {
+                                "kind": "field",
+                                "items": [
+                                  {
+                                    "kind": "item"
+                                  }
+                                ],
+                                "port": "reference"
+                              },
+                              {
+                                "kind": "null"
+                              }
+                            ]
+                          },
+                          "operation": "cap_416310ac4ff2808dc91e3a14",
+                          "inputs": [
+                            {
+                              "name": "reference",
+                              "value": {
+                                "kind": "field",
+                                "items": [
+                                  {
+                                    "kind": "item"
+                                  }
+                                ],
+                                "port": "reference"
+                              }
+                            },
+                            {
+                              "name": "value",
+                              "value": {
+                                "kind": "input",
+                                "source": "query"
+                              }
+                            },
+                            {
+                              "name": "submit",
+                              "value": {
+                                "kind": "boolean",
+                                "boolean": true
+                              }
+                            },
+                            {
+                              "name": "timeoutMs",
+                              "value": {
+                                "kind": "number",
+                                "number": 30000
+                              }
+                            }
+                          ]
+                        }
+                      ],
+                      "outputs": [
+                        {
+                          "name": "submitted",
+                          "value": {
+                            "kind": "output",
+                            "source": "fill_search",
+                            "port": "submitted"
+                          }
+                        }
+                      ],
+                      "always": []
+                    },
+                    "parallel": false,
+                    "maxItems": 1,
+                    "maxConcurrency": 1
+                  },
+                  {
+                    "id": "read_search_results",
+                    "kind": "operation",
+                    "objective": "Read the submitted Amazon.fr search results as a bounded complete observation, preserving original product link records and metadata.",
+                    "dependsOn": [
+                      "fill_search_loop"
+                    ],
+                    "requires": {
+                      "kind": "present",
+                      "source": "fill_search_loop"
+                    },
+                    "operation": "cap_490d9e16075cbdca5954ec27",
+                    "inputs": [
+                      {
+                        "name": "format",
+                        "value": {
+                          "kind": "string",
+                          "text": "observation_complete"
+                        }
+                      },
+                      {
+                        "name": "waitUntil",
+                        "value": {
+                          "kind": "string",
+                          "text": "domcontentloaded"
+                        }
+                      },
+                      {
+                        "name": "timeoutMs",
+                        "value": {
+                          "kind": "number",
+                          "number": 30000
+                        }
+                      },
+                      {
+                        "name": "maxRecords",
+                        "value": {
+                          "kind": "number",
+                          "number": 200
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "search_pages_project",
+                    "kind": "foreach",
+                    "objective": "Project each bounded complete search-result page to its original records array for one-level flattening and lookup.",
+                    "dependsOn": [
+                      "read_search_results"
+                    ],
+                    "requires": {
+                      "kind": "predicate",
+                      "predicate": "and",
+                      "items": [
+                        {
+                          "kind": "predicate",
+                          "predicate": "not_equal",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "read_search_results",
+                              "port": "observationSnapshot"
+                            },
+                            {
+                              "kind": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "predicate",
+                          "predicate": "equal",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "read_search_results",
+                                  "port": "observationSnapshot"
+                                }
+                              ],
+                              "port": "captureTruncated"
+                            },
+                            {
+                              "kind": "boolean",
+                              "boolean": false
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "items": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "read_search_results",
+                          "port": "observationSnapshot"
+                        }
+                      ],
+                      "port": "pages"
+                    },
+                    "body": {
+                      "tasks": [],
+                      "outputs": [
+                        {
+                          "name": "records",
+                          "value": {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "item"
+                              }
+                            ],
+                            "port": "records"
+                          }
+                        }
+                      ],
+                      "always": []
+                    },
+                    "parallel": false,
+                    "maxItems": 100,
+                    "maxConcurrency": 1
+                  },
+                  {
+                    "id": "search_records_value",
+                    "kind": "value",
+                    "objective": "Flatten the search-result records exactly one level, retaining original ordering and records for product-link lookup.",
+                    "dependsOn": [
+                      "search_pages_project"
+                    ],
+                    "requires": {
+                      "kind": "present",
+                      "source": "search_pages_project"
+                    },
+                    "outputs": [
+                      {
+                        "name": "records",
+                        "value": {
+                          "kind": "flatten",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "search_pages_project",
+                              "port": "records"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "compact_search_pages",
+                    "kind": "transform",
+                    "objective": "Create compact per-page search-result views containing only immediate blockage facts and offered product-link candidate IDs in observed order; do not apply sponsored/organic filtering or deduplication.",
+                    "dependsOn": [
+                      "read_search_results"
+                    ],
+                    "requires": {
+                      "kind": "predicate",
+                      "predicate": "and",
+                      "items": [
+                        {
+                          "kind": "predicate",
+                          "predicate": "not_equal",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "read_search_results",
+                              "port": "observationSnapshot"
+                            },
+                            {
+                              "kind": "null"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "predicate",
+                          "predicate": "equal",
+                          "items": [
+                            {
+                              "kind": "field",
+                              "items": [
+                                {
+                                  "kind": "output",
+                                  "source": "read_search_results",
+                                  "port": "observationSnapshot"
+                                }
+                              ],
+                              "port": "captureTruncated"
+                            },
+                            {
+                              "kind": "boolean",
+                              "boolean": false
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "mode": "extract",
+                    "each": {
+                      "input": "pages",
+                      "output": "compactPages"
+                    },
+                    "inputs": [
+                      {
+                        "name": "pages",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "read_search_results",
+                              "port": "observationSnapshot"
+                            }
+                          ],
+                          "port": "pages"
+                        }
+                      },
+                      {
+                        "name": "instruction",
+                        "value": {
+                          "kind": "string",
+                          "text": "For each search-result page, return only compact facts: any actually blocking obstacle and the offered product-detail link candidate IDs in their first observed page order. Candidate IDs must be original record references whose original records contain the authoritative href/action data. Do not exclude sponsored results, do not deduplicate, do not sample optional candidates, and do not invent eligibility criteria."
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "compactPages",
+                          "type": {
+                            "kind": "array",
+                            "items": {
+                              "kind": "object",
+                              "fields": [
+                                {
+                                  "name": "blockedEvidence",
+                                  "type": {
+                                    "kind": "string",
+                                    "nullable": true
+                                  }
+                                },
+                                {
+                                  "name": "offeredProductLinkIds",
+                                  "type": {
+                                    "kind": "array",
+                                    "items": {
+                                      "kind": "string"
+                                    },
+                                    "minItems": 0,
+                                    "maxItems": 200
+                                  }
+                                }
+                              ]
+                            },
+                            "minItems": 0,
+                            "maxItems": 100
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "interpret_search_selection",
+                    "kind": "transform",
+                    "objective": "Select up to the first 10 product-link candidate IDs from compact search observations, preserving observed order and repeated selections; detect real blockers truthfully.",
+                    "dependsOn": [
+                      "compact_search_pages",
+                      "search_records_value"
+                    ],
+                    "requires": {
+                      "kind": "present",
+                      "source": "compact_search_pages"
+                    },
+                    "mode": "interpret",
+                    "inputs": [
+                      {
+                        "name": "compactPages",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "compact_search_pages",
+                              "port": null
+                            }
+                          ],
+                          "port": "compactPages"
+                        }
+                      },
+                      {
+                        "name": "instruction",
+                        "value": {
+                          "kind": "string",
+                          "text": "Using only compactPages, set blocked=true only for an actually observed obstacle preventing product collection. If not blocked, select at most the first 10 offeredProductLinkIds in observed order. Preserve repeats if they were selected from the offered observations. Do not deduplicate, do not exclude sponsored products, and do not synthesize URLs or selectors."
+                        }
+                      }
+                    ],
+                    "resultType": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "blocked",
+                          "type": {
+                            "kind": "boolean"
+                          }
+                        },
+                        {
+                          "name": "blockageReason",
+                          "type": {
+                            "kind": "string",
+                            "nullable": true
+                          }
+                        },
+                        {
+                          "name": "selectedProductIds",
+                          "type": {
+                            "kind": "array",
+                            "items": {
+                              "kind": "string"
+                            },
+                            "minItems": 0,
+                            "maxItems": 10
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "products_sequence",
+                    "kind": "conditional",
+                    "objective": "If search results are not blocked, lookup original product records and visit each selected product page; otherwise expose the observed blockage without publishing a workbook.",
+                    "dependsOn": [
+                      "interpret_search_selection"
+                    ],
+                    "requires": {
+                      "kind": "present",
+                      "source": "interpret_search_selection"
+                    },
+                    "condition": {
+                      "kind": "predicate",
+                      "predicate": "not",
+                      "items": [
+                        {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "interpret_search_selection",
+                              "port": null
+                            }
+                          ],
+                          "port": "blocked"
+                        }
+                      ]
+                    },
+                    "body": {
+                      "tasks": [
+                        {
+                          "id": "selected_product_records",
+                          "kind": "value",
+                          "objective": "Lookup selected product IDs against the original search-result records so visits use authoritative observed href values.",
+                          "dependsOn": [],
+                          "requires": {
+                            "kind": "predicate",
+                            "predicate": "and",
+                            "items": [
+                              {
+                                "kind": "predicate",
+                                "predicate": "not_equal",
+                                "items": [
+                                  {
+                                    "kind": "field",
+                                    "items": [
+                                      {
+                                        "kind": "output",
+                                        "source": "interpret_search_selection",
+                                        "port": null
+                                      }
+                                    ],
+                                    "port": "selectedProductIds"
+                                  },
+                                  {
+                                    "kind": "null"
+                                  }
+                                ]
+                              },
+                              {
+                                "kind": "predicate",
+                                "predicate": "not_equal",
+                                "items": [
+                                  {
+                                    "kind": "output",
+                                    "source": "search_records_value",
+                                    "port": "records"
+                                  },
+                                  {
+                                    "kind": "null"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          "outputs": [
+                            {
+                              "name": "records",
+                              "value": {
+                                "kind": "lookup",
+                                "port": "reference",
+                                "items": [
+                                  {
+                                    "kind": "field",
+                                    "items": [
+                                      {
+                                        "kind": "output",
+                                        "source": "interpret_search_selection",
+                                        "port": null
+                                      }
+                                    ],
+                                    "port": "selectedProductIds"
+                                  },
+                                  {
+                                    "kind": "output",
+                                    "source": "search_records_value",
+                                    "port": "records"
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "id": "visit_products_loop",
+                          "kind": "foreach",
+                          "objective": "Visit every selected original product record, up to 10 total, sequentially and produce one non-null typed row object per actually visited product.",
+                          "dependsOn": [
+                            "selected_product_records"
+                          ],
+                          "requires": {
+                            "kind": "present",
+                            "source": "selected_product_records"
+                          },
+                          "items": {
+                            "kind": "output",
+                            "source": "selected_product_records",
+                            "port": "records"
+                          },
+                          "body": {
+                            "tasks": [
+                              {
+                                "id": "open_product_page",
+                                "kind": "operation",
+                                "objective": "Open one Amazon.fr product detail page using the authoritative href from the original selected product record.",
+                                "dependsOn": [],
+                                "requires": {
+                                  "kind": "predicate",
+                                  "predicate": "not_equal",
+                                  "items": [
+                                    {
+                                      "kind": "field",
+                                      "items": [
+                                        {
+                                          "kind": "item"
+                                        }
+                                      ],
+                                      "port": "href"
+                                    },
+                                    {
+                                      "kind": "null"
+                                    }
+                                  ]
+                                },
+                                "operation": "cap_490d9e16075cbdca5954ec27",
+                                "inputs": [
+                                  {
+                                    "name": "url",
+                                    "value": {
+                                      "kind": "field",
+                                      "items": [
+                                        {
+                                          "kind": "item"
+                                        }
+                                      ],
+                                      "port": "href"
+                                    }
+                                  },
+                                  {
+                                    "name": "format",
+                                    "value": {
+                                      "kind": "string",
+                                      "text": "observation_complete"
+                                    }
+                                  },
+                                  {
+                                    "name": "waitUntil",
+                                    "value": {
+                                      "kind": "string",
+                                      "text": "domcontentloaded"
+                                    }
+                                  },
+                                  {
+                                    "name": "timeoutMs",
+                                    "value": {
+                                      "kind": "number",
+                                      "number": 30000
+                                    }
+                                  },
+                                  {
+                                    "name": "maxRecords",
+                                    "value": {
+                                      "kind": "number",
+                                      "number": 200
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "id": "product_pages_project",
+                                "kind": "foreach",
+                                "objective": "Project each bounded complete product-detail observation page to records for compact extraction; fail on incomplete capture rather than fabricate a row.",
+                                "dependsOn": [
+                                  "open_product_page"
+                                ],
+                                "requires": {
+                                  "kind": "predicate",
+                                  "predicate": "and",
+                                  "items": [
+                                    {
+                                      "kind": "predicate",
+                                      "predicate": "not_equal",
+                                      "items": [
+                                        {
+                                          "kind": "output",
+                                          "source": "open_product_page",
+                                          "port": "observationSnapshot"
+                                        },
+                                        {
+                                          "kind": "null"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "kind": "predicate",
+                                      "predicate": "equal",
+                                      "items": [
+                                        {
+                                          "kind": "field",
+                                          "items": [
+                                            {
+                                              "kind": "output",
+                                              "source": "open_product_page",
+                                              "port": "observationSnapshot"
+                                            }
+                                          ],
+                                          "port": "captureTruncated"
+                                        },
+                                        {
+                                          "kind": "boolean",
+                                          "boolean": false
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "items": {
+                                  "kind": "field",
+                                  "items": [
+                                    {
+                                      "kind": "output",
+                                      "source": "open_product_page",
+                                      "port": "observationSnapshot"
+                                    }
+                                  ],
+                                  "port": "pages"
+                                },
+                                "body": {
+                                  "tasks": [],
+                                  "outputs": [
+                                    {
+                                      "name": "records",
+                                      "value": {
+                                        "kind": "field",
+                                        "items": [
+                                          {
+                                            "kind": "item"
+                                          }
+                                        ],
+                                        "port": "records"
+                                      }
+                                    }
+                                  ],
+                                  "always": []
+                                },
+                                "parallel": false,
+                                "maxItems": 100,
+                                "maxConcurrency": 1
+                              },
+                              {
+                                "id": "product_records_value",
+                                "kind": "value",
+                                "objective": "Flatten product-detail page records exactly one level for local compact product extraction.",
+                                "dependsOn": [
+                                  "product_pages_project"
+                                ],
+                                "requires": {
+                                  "kind": "present",
+                                  "source": "product_pages_project"
+                                },
+                                "outputs": [
+                                  {
+                                    "name": "records",
+                                    "value": {
+                                      "kind": "flatten",
+                                      "items": [
+                                        {
+                                          "kind": "output",
+                                          "source": "product_pages_project",
+                                          "port": "records"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "id": "compact_product_pages",
+                                "kind": "transform",
+                                "objective": "Create compact product-detail page views with explicit observed field candidates and blocker/missing-data facts only.",
+                                "dependsOn": [
+                                  "open_product_page"
+                                ],
+                                "requires": {
+                                  "kind": "predicate",
+                                  "predicate": "and",
+                                  "items": [
+                                    {
+                                      "kind": "predicate",
+                                      "predicate": "not_equal",
+                                      "items": [
+                                        {
+                                          "kind": "output",
+                                          "source": "open_product_page",
+                                          "port": "observationSnapshot"
+                                        },
+                                        {
+                                          "kind": "null"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "kind": "predicate",
+                                      "predicate": "equal",
+                                      "items": [
+                                        {
+                                          "kind": "field",
+                                          "items": [
+                                            {
+                                              "kind": "output",
+                                              "source": "open_product_page",
+                                              "port": "observationSnapshot"
+                                            }
+                                          ],
+                                          "port": "captureTruncated"
+                                        },
+                                        {
+                                          "kind": "boolean",
+                                          "boolean": false
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "mode": "extract",
+                                "each": {
+                                  "input": "pages",
+                                  "output": "compactPages"
+                                },
+                                "inputs": [
+                                  {
+                                    "name": "pages",
+                                    "value": {
+                                      "kind": "field",
+                                      "items": [
+                                        {
+                                          "kind": "output",
+                                          "source": "open_product_page",
+                                          "port": "observationSnapshot"
+                                        }
+                                      ],
+                                      "port": "pages"
+                                    }
+                                  },
+                                  {
+                                    "name": "instruction",
+                                    "value": {
+                                      "kind": "string",
+                                      "text": "For each product-detail page, produce only compact observed facts and candidates needed to form the row: possible product names, descriptions or feature bullets, prices, and explicit conditions such as CAPTCHA, access denial, unavailable product, absent price, or absent data. Keep null when absent; never invent values."
+                                    }
+                                  }
+                                ],
+                                "resultType": {
+                                  "kind": "object",
+                                  "fields": [
+                                    {
+                                      "name": "compactPages",
+                                      "type": {
+                                        "kind": "array",
+                                        "items": {
+                                          "kind": "object",
+                                          "fields": [
+                                            {
+                                              "name": "nameCandidates",
+                                              "type": {
+                                                "kind": "array",
+                                                "items": {
+                                                  "kind": "string"
+                                                },
+                                                "minItems": 0,
+                                                "maxItems": 20
+                                              }
+                                            },
+                                            {
+                                              "name": "descriptionCandidates",
+                                              "type": {
+                                                "kind": "array",
+                                                "items": {
+                                                  "kind": "string"
+                                                },
+                                                "minItems": 0,
+                                                "maxItems": 50
+                                              }
+                                            },
+                                            {
+                                              "name": "priceCandidates",
+                                              "type": {
+                                                "kind": "array",
+                                                "items": {
+                                                  "kind": "string"
+                                                },
+                                                "minItems": 0,
+                                                "maxItems": 20
+                                              }
+                                            },
+                                            {
+                                              "name": "statusEvidence",
+                                              "type": {
+                                                "kind": "array",
+                                                "items": {
+                                                  "kind": "string"
+                                                },
+                                                "minItems": 0,
+                                                "maxItems": 20
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        "minItems": 0,
+                                        "maxItems": 100
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "id": "extract_product_row",
+                                "kind": "transform",
+                                "objective": "Return exactly one non-null typed row object for the actually visited product, with nullable fields for missing observed values and explicit status for CAPTCHA, absent price, or absent data.",
+                                "dependsOn": [
+                                  "compact_product_pages"
+                                ],
+                                "requires": {
+                                  "kind": "present",
+                                  "source": "compact_product_pages"
+                                },
+                                "mode": "extract",
+                                "inputs": [
+                                  {
+                                    "name": "compactPages",
+                                    "value": {
+                                      "kind": "field",
+                                      "items": [
+                                        {
+                                          "kind": "output",
+                                          "source": "compact_product_pages",
+                                          "port": null
+                                        }
+                                      ],
+                                      "port": "compactPages"
+                                    }
+                                  },
+                                  {
+                                    "name": "instruction",
+                                    "value": {
+                                      "kind": "string",
+                                      "text": "Using only compact product-detail views, create one row object. name, description, and price are nullable and must contain only observed values. If CAPTCHA, access denial, unavailable page, missing price, or missing data is observed, keep affected fields null and explain explicitly in status. Do not invent a fallback row, product name, URL, or price."
+                                    }
+                                  }
+                                ],
+                                "resultType": {
+                                  "kind": "object",
+                                  "fields": [
+                                    {
+                                      "name": "row",
+                                      "type": {
+                                        "kind": "object",
+                                        "fields": [
+                                          {
+                                            "name": "name",
+                                            "type": {
+                                              "kind": "string",
+                                              "nullable": true
+                                            }
+                                          },
+                                          {
+                                            "name": "description",
+                                            "type": {
+                                              "kind": "string",
+                                              "nullable": true
+                                            }
+                                          },
+                                          {
+                                            "name": "price",
+                                            "type": {
+                                              "kind": "string",
+                                              "nullable": true
+                                            }
+                                          },
+                                          {
+                                            "name": "status",
+                                            "type": {
+                                              "kind": "string",
+                                              "nullable": true
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "id": "product_row_value",
+                                "kind": "value",
+                                "objective": "Copy the typed product row by direct binding for the outer foreach collection.",
+                                "dependsOn": [
+                                  "extract_product_row"
+                                ],
+                                "requires": {
+                                  "kind": "predicate",
+                                  "predicate": "not_equal",
+                                  "items": [
+                                    {
+                                      "kind": "field",
+                                      "items": [
+                                        {
+                                          "kind": "output",
+                                          "source": "extract_product_row",
+                                          "port": null
+                                        }
+                                      ],
+                                      "port": "row"
+                                    },
+                                    {
+                                      "kind": "null"
+                                    }
+                                  ]
+                                },
+                                "outputs": [
+                                  {
+                                    "name": "row",
+                                    "value": {
+                                      "kind": "field",
+                                      "items": [
+                                        {
+                                          "kind": "output",
+                                          "source": "extract_product_row",
+                                          "port": null
+                                        }
+                                      ],
+                                      "port": "row"
+                                    }
+                                  }
+                                ]
+                              }
+                            ],
+                            "outputs": [
+                              {
+                                "name": "row",
+                                "value": {
+                                  "kind": "output",
+                                  "source": "product_row_value",
+                                  "port": "row"
+                                }
+                              }
+                            ],
+                            "always": []
+                          },
+                          "parallel": false,
+                          "maxItems": 10,
+                          "maxConcurrency": 1
+                        },
+                        {
+                          "id": "successful_products_value",
+                          "kind": "value",
+                          "objective": "Expose non-blocked product rows by direct binding, preserving row order and max 10 cardinality from the product visit loop.",
+                          "dependsOn": [
+                            "visit_products_loop"
+                          ],
+                          "requires": {
+                            "kind": "present",
+                            "source": "visit_products_loop"
+                          },
+                          "outputs": [
+                            {
+                              "name": "rows",
+                              "value": {
+                                "kind": "output",
+                                "source": "visit_products_loop",
+                                "port": "row"
+                              }
+                            },
+                            {
+                              "name": "blocked",
+                              "value": {
+                                "kind": "boolean",
+                                "boolean": false
+                              }
+                            },
+                            {
+                              "name": "blockageReason",
+                              "value": {
+                                "kind": "null"
+                              }
+                            }
+                          ]
+                        }
+                      ],
+                      "outputs": [
+                        {
+                          "name": "rows",
+                          "value": {
+                            "kind": "output",
+                            "source": "successful_products_value",
+                            "port": "rows"
+                          }
+                        },
+                        {
+                          "name": "blocked",
+                          "value": {
+                            "kind": "output",
+                            "source": "successful_products_value",
+                            "port": "blocked"
+                          }
+                        },
+                        {
+                          "name": "blockageReason",
+                          "value": {
+                            "kind": "output",
+                            "source": "successful_products_value",
+                            "port": "blockageReason"
+                          }
+                        }
+                      ],
+                      "always": []
+                    },
+                    "otherwise": {
+                      "tasks": [
+                        {
+                          "id": "search_blockage_value",
+                          "kind": "value",
+                          "objective": "Expose the actually observed search-result blockage and no rows; workbook publication is guarded from this blocked path.",
+                          "dependsOn": [],
+                          "requires": {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "interpret_search_selection",
+                                "port": null
+                              }
+                            ],
+                            "port": "blocked"
+                          },
+                          "outputs": [
+                            {
+                              "name": "rows",
+                              "value": {
+                                "kind": "array",
+                                "items": []
+                              }
+                            },
+                            {
+                              "name": "blocked",
+                              "value": {
+                                "kind": "boolean",
+                                "boolean": true
+                              }
+                            },
+                            {
+                              "name": "blockageReason",
+                              "value": {
+                                "kind": "field",
+                                "items": [
+                                  {
+                                    "kind": "output",
+                                    "source": "interpret_search_selection",
+                                    "port": null
+                                  }
+                                ],
+                                "port": "blockageReason"
+                              }
+                            }
+                          ]
+                        }
+                      ],
+                      "outputs": [
+                        {
+                          "name": "rows",
+                          "value": {
+                            "kind": "output",
+                            "source": "search_blockage_value",
+                            "port": "rows"
+                          }
+                        },
+                        {
+                          "name": "blocked",
+                          "value": {
+                            "kind": "output",
+                            "source": "search_blockage_value",
+                            "port": "blocked"
+                          }
+                        },
+                        {
+                          "name": "blockageReason",
+                          "value": {
+                            "kind": "output",
+                            "source": "search_blockage_value",
+                            "port": "blockageReason"
+                          }
+                        }
+                      ],
+                      "always": []
+                    }
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "rows",
+                    "value": {
+                      "kind": "output",
+                      "source": "products_sequence",
+                      "port": "rows"
+                    }
+                  },
+                  {
+                    "name": "blocked",
+                    "value": {
+                      "kind": "output",
+                      "source": "products_sequence",
+                      "port": "blocked"
+                    }
+                  },
+                  {
+                    "name": "blockageReason",
+                    "value": {
+                      "kind": "output",
+                      "source": "products_sequence",
+                      "port": "blockageReason"
+                    }
+                  }
+                ],
+                "always": []
+              },
+              "otherwise": {
+                "tasks": [
+                  {
+                    "id": "home_blockage_value",
+                    "kind": "value",
+                    "objective": "Expose the actually observed landing-page blockage or missing usable search input; workbook publication is guarded from this blocked path.",
+                    "dependsOn": [],
+                    "requires": {
+                      "kind": "field",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "interpret_home",
+                          "port": null
+                        }
+                      ],
+                      "port": "blocked"
+                    },
+                    "outputs": [
+                      {
+                        "name": "rows",
+                        "value": {
+                          "kind": "array",
+                          "items": []
+                        }
+                      },
+                      {
+                        "name": "blocked",
+                        "value": {
+                          "kind": "boolean",
+                          "boolean": true
+                        }
+                      },
+                      {
+                        "name": "blockageReason",
+                        "value": {
+                          "kind": "field",
+                          "items": [
+                            {
+                              "kind": "output",
+                              "source": "interpret_home",
+                              "port": null
+                            }
+                          ],
+                          "port": "blockageReason"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "outputs": [
+                  {
+                    "name": "rows",
+                    "value": {
+                      "kind": "output",
+                      "source": "home_blockage_value",
+                      "port": "rows"
+                    }
+                  },
+                  {
+                    "name": "blocked",
+                    "value": {
+                      "kind": "output",
+                      "source": "home_blockage_value",
+                      "port": "blocked"
+                    }
+                  },
+                  {
+                    "name": "blockageReason",
+                    "value": {
+                      "kind": "output",
+                      "source": "home_blockage_value",
+                      "port": "blockageReason"
+                    }
+                  }
+                ],
+                "always": []
+              }
+            },
+            {
+              "id": "guard_success_before_workbook",
+              "kind": "value",
+              "objective": "Require the workflow to be non-blocked before workbook rendering and publication; blocked paths stop truthfully without writing a workbook.",
+              "dependsOn": [
+                "search_sequence"
+              ],
+              "requires": {
+                "kind": "predicate",
+                "predicate": "not",
+                "items": [
+                  {
+                    "kind": "output",
+                    "source": "search_sequence",
+                    "port": "blocked"
+                  }
+                ]
+              },
+              "outputs": [
+                {
+                  "name": "rows",
+                  "value": {
+                    "kind": "output",
+                    "source": "search_sequence",
+                    "port": "rows"
+                  }
+                },
+                {
+                  "name": "blocked",
+                  "value": {
+                    "kind": "boolean",
+                    "boolean": false
+                  }
+                },
+                {
+                  "name": "blockageReason",
+                  "value": {
+                    "kind": "null"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "render_workbook_tsv",
+              "kind": "transform",
+              "objective": "Render up to ten successfully visited product rows to tab-separated workbook content, preserving exact observed values and ordering.",
+              "dependsOn": [
+                "guard_success_before_workbook"
+              ],
+              "requires": {
+                "kind": "present",
+                "source": "guard_success_before_workbook"
+              },
+              "inputs": [
+                {
+                  "name": "rows",
+                  "value": {
+                    "kind": "output",
+                    "source": "guard_success_before_workbook",
+                    "port": "rows"
+                  }
+                },
+                {
+                  "name": "instruction",
+                  "value": {
+                    "kind": "string",
+                    "text": "Create TSV content for an Excel workbook. First row headers must be: name, description, price, status. Emit one row per product row in the supplied order, at most ten rows. Preserve observed values exactly except normalize tabs and line breaks inside cells. Nullable missing values remain empty cells, with any explicit missing/CAPTCHA/access status in the status cell. Do not add any synthetic blocked row."
+                  }
+                }
+              ],
+              "resultType": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "tsv",
+                    "type": {
+                      "kind": "string"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "write_products_xlsx",
+              "kind": "operation",
+              "objective": "Save the extracted Amazon product rows as an Excel workbook at the required relative workspace path before browser cleanup.",
+              "dependsOn": [
+                "render_workbook_tsv"
+              ],
+              "requires": {
+                "kind": "predicate",
+                "predicate": "not_equal",
+                "items": [
+                  {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "render_workbook_tsv",
+                        "port": null
+                      }
+                    ],
+                    "port": "tsv"
+                  },
+                  {
+                    "kind": "null"
+                  }
+                ]
+              },
+              "operation": "cap_37c513d225bb1b870053c5d3",
+              "inputs": [
+                {
+                  "name": "filePath",
+                  "value": {
+                    "kind": "string",
+                    "text": "workflows/schema-portability-20261002/noconsent20261009a-amazon-1/products.xlsx"
+                  }
+                },
+                {
+                  "name": "content",
+                  "value": {
+                    "kind": "field",
+                    "items": [
+                      {
+                        "kind": "output",
+                        "source": "render_workbook_tsv",
+                        "port": null
+                      }
+                    ],
+                    "port": "tsv"
+                  }
+                },
+                {
+                  "name": "append",
+                  "value": {
+                    "kind": "boolean",
+                    "boolean": false
+                  }
+                },
+                {
+                  "name": "encoding",
+                  "value": {
+                    "kind": "string",
+                    "text": "utf-8"
+                  }
+                }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "name": "productsFile",
+              "value": {
+                "kind": "output",
+                "source": "write_products_xlsx",
+                "port": "filePath"
+              }
+            },
+            {
+              "name": "rows",
+              "value": {
+                "kind": "output",
+                "source": "guard_success_before_workbook",
+                "port": "rows"
+              }
+            },
+            {
+              "name": "blocked",
+              "value": {
+                "kind": "output",
+                "source": "guard_success_before_workbook",
+                "port": "blocked"
+              }
+            },
+            {
+              "name": "blockageReason",
+              "value": {
+                "kind": "output",
+                "source": "guard_success_before_workbook",
+                "port": "blockageReason"
+              }
+            }
+          ],
+          "always": [
+            {
+              "id": "close_browser",
+              "kind": "operation",
+              "objective": "Close the browser page and context even if any earlier step fails.",
+              "dependsOn": [],
+              "requires": null,
+              "operation": "cap_bdb7ba9ab04b18783883fa86",
+              "inputs": []
+            }
+          ]
+        },
+        "groups": [],
+        "choices": []
+      },
+      "clarifications": null
+    }
+  },
+  {
+    "id": "schema-portability-20261002:noconsent20261009a-amazon-1:4:eea5187a5be721ec9801dc94e91a28bd1ba134ecfedb1dec6eed357f29808033",
+    "response": {
+      "discoveryRequests": null,
+      "patch": {
+        "edits": [
+          {
+            "slot": "s0",
+            "action": "replace",
+            "value": {
+              "kind": "json",
+              "items": [
+                {
+                  "kind": "object",
+                  "members": [
+                    {
+                      "name": "kind",
+                      "value": {
+                        "kind": "string",
+                        "text": "lookup"
+                      }
+                    },
+                    {
+                      "name": "text",
+                      "value": {
+                        "kind": "string",
+                        "text": "reference"
+                      }
+                    },
+                    {
+                      "name": "number",
+                      "value": {
+                        "kind": "null"
+                      }
+                    },
+                    {
+                      "name": "boolean",
+                      "value": {
+                        "kind": "null"
+                      }
+                    },
+                    {
+                      "name": "source",
+                      "value": {
+                        "kind": "null"
+                      }
+                    },
+                    {
+                      "name": "port",
+                      "value": {
+                        "kind": "null"
+                      }
+                    },
+                    {
+                      "name": "members",
+                      "value": {
+                        "kind": "array",
+                        "items": []
+                      }
+                    },
+                    {
+                      "name": "items",
+                      "value": {
+                        "kind": "array",
+                        "items": [
+                          {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "interpret_home",
+                                "port": null
+                              }
+                            ],
+                            "port": "selectedSearchInputIds"
+                          },
+                          {
+                            "kind": "output",
+                            "source": "home_records_value",
+                            "port": "records"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "predicate",
+                      "value": {
+                        "kind": "null"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "slot": "s1",
+            "action": "replace",
+            "value": {
+              "kind": "json",
+              "items": [
+                {
+                  "kind": "object",
+                  "members": [
+                    {
+                      "name": "kind",
+                      "value": {
+                        "kind": "string",
+                        "text": "lookup"
+                      }
+                    },
+                    {
+                      "name": "text",
+                      "value": {
+                        "kind": "string",
+                        "text": "reference"
+                      }
+                    },
+                    {
+                      "name": "number",
+                      "value": {
+                        "kind": "null"
+                      }
+                    },
+                    {
+                      "name": "boolean",
+                      "value": {
+                        "kind": "null"
+                      }
+                    },
+                    {
+                      "name": "source",
+                      "value": {
+                        "kind": "null"
+                      }
+                    },
+                    {
+                      "name": "port",
+                      "value": {
+                        "kind": "null"
+                      }
+                    },
+                    {
+                      "name": "members",
+                      "value": {
+                        "kind": "array",
+                        "items": []
+                      }
+                    },
+                    {
+                      "name": "items",
+                      "value": {
+                        "kind": "array",
+                        "items": [
+                          {
+                            "kind": "field",
+                            "items": [
+                              {
+                                "kind": "output",
+                                "source": "interpret_search_selection",
+                                "port": null
+                              }
+                            ],
+                            "port": "selectedProductIds"
+                          },
+                          {
+                            "kind": "output",
+                            "source": "search_records_value",
+                            "port": "records"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "predicate",
+                      "value": {
+                        "kind": "null"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "clarifications": null
+    }
+  },
+  {
+    "id": "schema-portability-20261002:noconsent20261009a-amazon-1:5:77b499cddf0282b4cbc38fcb84461472b95829df4495129cc6b1721466e9bf77",
+    "response": {
+      "discoveryRequests": null,
+      "patch": {
+        "edits": [
+          {
+            "slot": "s0",
+            "action": "replace",
+            "value": {
+              "kind": "json",
+              "items": [
+                {
+                  "kind": "object",
+                  "members": [
+                    {
+                      "name": "kind",
+                      "value": {
+                        "kind": "string",
+                        "text": "lookup"
+                      }
+                    },
+                    {
+                      "name": "port",
+                      "value": {
+                        "kind": "string",
+                        "text": "reference"
+                      }
+                    },
+                    {
+                      "name": "items",
+                      "value": {
+                        "kind": "array",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "interpret_home",
+                            "port": "selectedSearchInputIds"
+                          },
+                          {
+                            "kind": "output",
+                            "source": "home_records_value",
+                            "port": "records"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "slot": "s1",
+            "action": "replace",
+            "value": {
+              "kind": "json",
+              "items": [
+                {
+                  "kind": "object",
+                  "members": [
+                    {
+                      "name": "kind",
+                      "value": {
+                        "kind": "string",
+                        "text": "lookup"
+                      }
+                    },
+                    {
+                      "name": "port",
+                      "value": {
+                        "kind": "string",
+                        "text": "reference"
+                      }
+                    },
+                    {
+                      "name": "items",
+                      "value": {
+                        "kind": "array",
+                        "items": [
+                          {
+                            "kind": "output",
+                            "source": "interpret_search_selection",
+                            "port": "selectedProductIds"
+                          },
+                          {
+                            "kind": "output",
+                            "source": "search_records_value",
+                            "port": "records"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "clarifications": null
+    }
+  }
+]

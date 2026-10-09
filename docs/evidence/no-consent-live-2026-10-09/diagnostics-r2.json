@@ -1,0 +1,170 @@
+[
+  {
+    "code": "CONTRACT_UNSATISFIED",
+    "location": "/tasks/extract_product_links/requires",
+    "message": "TASK_FIELD_UNKNOWN: output:read_search_results.observationSnapshot does not declare field 'observationSnapshot'. Available fields: id, pages, recordCount, captureTruncated, manifestTruncated. Field names are literal, not paths.",
+    "required": true,
+    "validationStage": "contract:TASK_FIELD_UNKNOWN",
+    "rule": null
+  },
+  {
+    "code": "CONTRACT_UNSATISFIED",
+    "location": "/tasks/extract_product_row/requires",
+    "message": "TASK_FIELD_UNKNOWN: output:open_product_page.observationSnapshot does not declare field 'observationSnapshot'. Available fields: id, pages, recordCount, captureTruncated, manifestTruncated. Field names are literal, not paths.",
+    "required": true,
+    "validationStage": "contract:TASK_FIELD_UNKNOWN",
+    "rule": null
+  },
+  {
+    "code": "TASK_CONDITION_TYPE",
+    "location": "/tasks/fill_search/requires",
+    "message": "Conditions require a boolean business value.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "CONTRACT_UNSATISFIED",
+    "location": "/tasks/interpret_home/requires",
+    "message": "TASK_FIELD_UNKNOWN: output:open_amazon.observationSnapshot does not declare field 'observationSnapshot'. Available fields: id, pages, recordCount, captureTruncated, manifestTruncated. Field names are literal, not paths.",
+    "required": true,
+    "validationStage": "contract:TASK_FIELD_UNKNOWN",
+    "rule": null
+  },
+  {
+    "code": "TASK_CONDITION_TYPE",
+    "location": "/tasks/open_product_page/requires",
+    "message": "Conditions require a boolean business value.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "CONTRACT_UNSATISFIED",
+    "location": "/tasks/search_sequence/body/outputs/blockageReason",
+    "message": "TASK_FIELD_TYPE: Field 'blockageReason' requires a declared object; received [\"string\",\"null\"] from output:not_blocked_value.blockageReason. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+    "required": true,
+    "validationStage": "contract:TASK_FIELD_TYPE",
+    "rule": null
+  },
+  {
+    "code": "CONTRACT_UNSATISFIED",
+    "location": "/tasks/search_sequence/body/outputs/blocked",
+    "message": "TASK_FIELD_TYPE: Field 'blocked' requires a declared object; received \"boolean\" from output:not_blocked_value.blocked. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+    "required": true,
+    "validationStage": "contract:TASK_FIELD_TYPE",
+    "rule": null
+  },
+  {
+    "code": "CONTRACT_UNSATISFIED",
+    "location": "/tasks/search_sequence/body/outputs/productsFile",
+    "message": "TASK_FIELD_TYPE: Field 'productsFile' requires a declared object; received \"string\" from output:not_blocked_value.productsFile. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+    "required": true,
+    "validationStage": "contract:TASK_FIELD_TYPE",
+    "rule": null
+  },
+  {
+    "code": "CONTRACT_UNSATISFIED",
+    "location": "/tasks/search_sequence/body/outputs/rows",
+    "message": "TASK_FIELD_TYPE: Field 'rows' requires a declared object; received \"array\" from output:not_blocked_value.rows. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+    "required": true,
+    "validationStage": "contract:TASK_FIELD_TYPE",
+    "rule": null
+  },
+  {
+    "code": "CONTRACT_UNSATISFIED",
+    "location": "/tasks/search_sequence/otherwise/outputs/blockageReason",
+    "message": "TASK_FIELD_TYPE: Field 'blockageReason' requires a declared object; received \"string\" from output:missing_search_box_value.blockageReason. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+    "required": true,
+    "validationStage": "contract:TASK_FIELD_TYPE",
+    "rule": null
+  },
+  {
+    "code": "CONTRACT_UNSATISFIED",
+    "location": "/tasks/search_sequence/otherwise/outputs/blocked",
+    "message": "TASK_FIELD_TYPE: Field 'blocked' requires a declared object; received \"boolean\" from output:missing_search_box_value.blocked. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+    "required": true,
+    "validationStage": "contract:TASK_FIELD_TYPE",
+    "rule": null
+  },
+  {
+    "code": "CONTRACT_UNSATISFIED",
+    "location": "/tasks/search_sequence/otherwise/outputs/productsFile",
+    "message": "TASK_FIELD_TYPE: Field 'productsFile' requires a declared object; received \"string\" from output:missing_search_box_value.productsFile. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+    "required": true,
+    "validationStage": "contract:TASK_FIELD_TYPE",
+    "rule": null
+  },
+  {
+    "code": "CONTRACT_UNSATISFIED",
+    "location": "/tasks/search_sequence/otherwise/outputs/rows",
+    "message": "TASK_FIELD_TYPE: Field 'rows' requires a declared object; received \"array\" from output:missing_search_box_value.rows. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+    "required": true,
+    "validationStage": "contract:TASK_FIELD_TYPE",
+    "rule": null
+  },
+  {
+    "code": "CONTRACT_UNSATISFIED",
+    "location": "/tasks/select_final_state/inputs/initialReason",
+    "message": "TASK_FIELD_TYPE: Field 'blockageReason' requires a declared object; received [\"string\",\"null\"] from output:search_blocked_value.blockageReason. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+    "required": true,
+    "validationStage": "contract:TASK_FIELD_TYPE",
+    "rule": null
+  },
+  {
+    "code": "CONTRACT_UNSATISFIED",
+    "location": "/tasks/select_final_state/inputs/initialRows",
+    "message": "TASK_FIELD_TYPE: Field 'rows' requires a declared object; received \"array\" from output:search_blocked_value.rows. Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.",
+    "required": true,
+    "validationStage": "contract:TASK_FIELD_TYPE",
+    "rule": null
+  },
+  {
+    "code": "TASK_CONDITION_TYPE",
+    "location": "/tasks/write_products_xlsx/requires",
+    "message": "Conditions require a boolean business value.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_REQUIRED",
+    "location": "/tasks/extract_product_links/requires",
+    "message": "output:read_search_results.observationSnapshot does not declare field 'observationSnapshot'. Available fields: id, pages, recordCount, captureTruncated, manifestTruncated. Field names are literal, not paths. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_REQUIRED",
+    "location": "/tasks/extract_product_row/requires",
+    "message": "output:open_product_page.observationSnapshot does not declare field 'observationSnapshot'. Available fields: id, pages, recordCount, captureTruncated, manifestTruncated. Field names are literal, not paths. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_REQUIRED",
+    "location": "/tasks/fill_search/requires",
+    "message": "Conditions require a boolean business value. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_REQUIRED",
+    "location": "/tasks/interpret_home/requires",
+    "message": "output:open_amazon.observationSnapshot does not declare field 'observationSnapshot'. Available fields: id, pages, recordCount, captureTruncated, manifestTruncated. Field names are literal, not paths. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  },
+  {
+    "code": "REVISION_REQUIRED",
+    "location": "/tasks/open_product_page/requires",
+    "message": "Conditions require a boolean business value. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+    "required": true,
+    "validationStage": null,
+    "rule": null
+  }
+]

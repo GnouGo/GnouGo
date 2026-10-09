@@ -1,0 +1,81 @@
+{
+  "status": "stopped",
+  "planning_ms": 1098023,
+  "calls": 6,
+  "repairs": 2,
+  "discovery_reads": 2,
+  "review_revisions": 2,
+  "diagnostics": [
+    {
+      "code": "TASK_LOOKUP_INVALID",
+      "location": "/tasks/home_selected_offered_records/outputs/records",
+      "message": "Lookup requires typed records, a literal declared identity field and compatible string or integer selections.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_DEPENDENCY_UNKNOWN",
+      "location": "/tasks/home_selected_search_records/dependsOn",
+      "message": "Dependencies home_records_value must name preceding tasks in scope /tasks/search_sequence/body. Ancestor values may be captured without cross-scope dependsOn entries. Consumer scope: /tasks/search_sequence/body; phase: tasks. Producer 'home_records_value': scope /root; phase: tasks.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_LOOKUP_INVALID",
+      "location": "/tasks/selected_product_offered_records/outputs/records",
+      "message": "Lookup requires typed records, a literal declared identity field and compatible string or integer selections.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_DEPENDENCY_UNKNOWN",
+      "location": "/tasks/selected_product_records/dependsOn",
+      "message": "Dependencies search_records_value must name preceding tasks in scope /tasks/products_sequence/body. Ancestor values may be captured without cross-scope dependsOn entries. Consumer scope: /tasks/products_sequence/body; phase: tasks. Producer 'search_records_value': scope /tasks/search_sequence/body; phase: tasks.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "execution_success": false,
+  "execution_oracle": false,
+  "execution_status": "not_started",
+  "accounting": {
+    "planning": {
+      "logical_calls": 6,
+      "physical_attempts": 8,
+      "known_input_tokens": 74412,
+      "known_output_tokens": 28748,
+      "known_cost_eur": 1.0954831839559855,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 939,
+      "session_calls": 0,
+      "known_input_tokens": 13760179,
+      "known_output_tokens": 1921943,
+      "known_cost_eur": 112.51484187600174,
+      "reserved_input_tokens": 480000,
+      "reserved_output_tokens": 163840,
+      "reserved_cost_eur": 6.501614794790526,
+      "cost_upper_bound_eur": 119.01645667079227,
+      "unknown_attempts": 5
+    }
+  }
+}

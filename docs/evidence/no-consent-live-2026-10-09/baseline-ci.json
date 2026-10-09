@@ -1,0 +1,26 @@
+{
+  "baseline": "448ddf65c4845741f8ea1040b93ce798f5a514d4",
+  "pr_draft": true,
+  "stable_unit_tests": "passed",
+  "failures": [
+    {
+      "job": "Deterministic planner validation",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/37925978664/job/113804893788",
+      "causes": [
+        "Retained local workbook fixture: LLM_BUDGET_EXCEEDED after planning consumed its existing two-minute runtime budget"
+      ]
+    },
+    {
+      "job": "Agent Server Tests (non-blocking)",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/37925979122/job/113804896479",
+      "passed": 721,
+      "failed": 4,
+      "skipped": 1,
+      "cause": "Retained local workbook variants fabricated, repeated-selection, consent and absent exceeded the existing runtime elapsed allowance after planning; no limits changed."
+    }
+  ],
+  "copilot_mcp_tests": {
+    "passed": 240,
+    "failed": 0
+  }
+}
