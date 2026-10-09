@@ -1,0 +1,162 @@
+{
+  "summary": "Automatiser une recherche Amazon.fr à partir d’une entrée publique unique `query`, extraire jusqu’aux 10 premiers produits trouvés puis sauvegarder un fichier Excel local contenant les données et erreurs explicites observées.",
+  "outcomes": [
+    {
+      "id": "search_amazon_fr",
+      "description": "Ouvrir Amazon.fr et rechercher l’article fourni dans `query`."
+    },
+    {
+      "id": "collect_products",
+      "description": "Lister au maximum les 10 premiers produits visibles issus de la recherche."
+    },
+    {
+      "id": "visit_product_pages",
+      "description": "Naviguer sur la page de chaque produit retenu."
+    },
+    {
+      "id": "extract_product_data",
+      "description": "Extraire pour chaque produit le nom, la description et le prix, en conservant explicitement les données absentes ou erreurs observées sans invention."
+    },
+    {
+      "id": "save_excel",
+      "description": "Sauvegarder le classeur Excel sur le disque à `workflows/schema-portability-20261002/businesstasks20261009a-amazon-1/products.xlsx`."
+    },
+    {
+      "id": "close_browser",
+      "description": "Fermer le navigateur même en cas d’échec."
+    },
+    {
+      "id": "truthful_status",
+      "description": "Ne pas déclarer de réussite si la recherche, l’extraction ou la sauvegarde n’a pas abouti."
+    }
+  ],
+  "inputs": [
+    {
+      "name": "query",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ],
+  "outputs": [
+    {
+      "name": "xlsx_path",
+      "type": {
+        "kind": "string",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "products",
+      "type": {
+        "kind": "array",
+        "nullable": false,
+        "minItems": 0,
+        "maxItems": 10,
+        "items": {
+          "kind": "object",
+          "nullable": false,
+          "items": null,
+          "fields": [
+            {
+              "name": "name",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "description",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "price",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "product_url",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            },
+            {
+              "name": "observed_error",
+              "type": {
+                "kind": "string",
+                "nullable": true,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            }
+          ]
+        },
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "completed",
+      "type": {
+        "kind": "boolean",
+        "nullable": false,
+        "items": null,
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    },
+    {
+      "name": "errors",
+      "type": {
+        "kind": "array",
+        "nullable": false,
+        "minItems": 0,
+        "maxItems": 100,
+        "items": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "fields": []
+      },
+      "required": true,
+      "default": null
+    }
+  ]
+}

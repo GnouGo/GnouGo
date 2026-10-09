@@ -1,0 +1,97 @@
+{
+  "status": "stopped",
+  "planning_ms": 58150,
+  "calls": 2,
+  "repairs": 0,
+  "discovery_reads": 2,
+  "review_revisions": 0,
+  "diagnostics": [
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/click_cookie_accept/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/open_product_page/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "TASK_CONDITION_TYPE",
+      "location": "/tasks/submit_search/requires",
+      "message": "Conditions require a boolean business value.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_REQUIRED",
+      "location": "/tasks/click_cookie_accept/requires",
+      "message": "Conditions require a boolean business value. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_REQUIRED",
+      "location": "/tasks/open_product_page/requires",
+      "message": "Conditions require a boolean business value. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_REQUIRED",
+      "location": "/tasks/submit_search/requires",
+      "message": "Conditions require a boolean business value. The required binding and its producers are outside repair authority. Explicitly revise this binding; unrelated edits cannot correct its type.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "execution_success": false,
+  "execution_oracle": false,
+  "execution_status": "not_started",
+  "accounting": {
+    "planning": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "known_input_tokens": 19397,
+      "known_output_tokens": 4519,
+      "known_cost_eur": 0.20636702458070813,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 960,
+      "session_calls": 0,
+      "known_input_tokens": 13945460,
+      "known_output_tokens": 1965685,
+      "known_cost_eur": 114.50141122554474,
+      "reserved_input_tokens": 480000,
+      "reserved_output_tokens": 163840,
+      "reserved_cost_eur": 6.501614794790526,
+      "cost_upper_bound_eur": 121.00302602033526,
+      "unknown_attempts": 5
+    }
+  }
+}
