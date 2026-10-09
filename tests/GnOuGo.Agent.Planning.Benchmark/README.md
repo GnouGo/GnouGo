@@ -362,6 +362,16 @@ Build a clean committed checkout before collection. Keep the same source and
 configuration for every run within a cohort; a changed candidate requires a new
 cohort identity under the same campaign. Do not repeat the original diagnostic.
 
+Fresh Amazon evaluations prohibit accepting, rejecting or customizing cookies.
+Continue normal navigation and reading when possible; an actually observed obstacle
+that prevents progress must be reported as a failure, without interacting with its
+consent controls. An informational cookie link alone is not an obstacle. This is
+an operator-selected scenario constraint, not a Browser policy or planner rule.
+Review the generated artifact for this constraint before approval. Retained runs,
+prompts and approvals keep their original semantics; never replay an execution
+that has already started. Visit, observation, workbook and cleanup oracles remain
+unchanged.
+
 ```sh
 dotnet build tests/GnOuGo.Agent.Planning.Benchmark -m:1 -warnaserror -p:SkipClientBuild=true
 dotnet run --no-build --project tests/GnOuGo.Agent.Planning.Benchmark -- \
