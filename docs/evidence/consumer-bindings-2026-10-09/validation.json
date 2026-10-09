@@ -45,7 +45,7 @@
     "exit_code": 0,
     "passed": 4965,
     "failed": 0,
-    "skipped": 0,
+    "skipped": 13,
     "suites": [
       {
         "project": "GnOuGo.AI.Core.Tests",
@@ -73,7 +73,7 @@
         "total": 711,
         "passed": 710,
         "failed": 0,
-        "not_executed": 0
+        "not_executed": 1
       },
       {
         "project": "GnOuGo.Assets.Animation.Server.Tests",
@@ -122,7 +122,7 @@
         "total": 100,
         "passed": 93,
         "failed": 0,
-        "not_executed": 0
+        "not_executed": 7
       },
       {
         "project": "GnOuGo.Diff.Tests",
@@ -220,7 +220,7 @@
         "total": 12,
         "passed": 7,
         "failed": 0,
-        "not_executed": 0
+        "not_executed": 5
       },
       {
         "project": "GnOuGo.GithubCopilot.Mcp.Tests",
