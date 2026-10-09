@@ -33,11 +33,13 @@ internal sealed class PlanningPrompt(PlanningSession state)
 
     private const string Instructions = """
         Unsearched!=absent; reserve plan/repair; closed:plan:null.
-        Copies:value/direct bindings; preserve accepted types/nullability. extract each:{input:collection,output:sole array field}, one consumer view/item.
-        foreach views: body.outputs.rows=field(item,rows); flatten(output(loop,rows)). Group item projections. field:object only, not array index/length; flatten:one level.
-        Interpret compact fields, not originals; retain action data. Select producer/original-index IDs; lookup offered then originals. lookup takes/returns arrays; iterate. No truncation/sampling.
-        minItems/maxItems:cardinality, not flags/prose; foreach maxItems:total/default100. dependsOn:local; bindings capture/order. Branch ports:matching types/nullability; null guards, not flags.
-        requires:runtime assertion; present:completion. Evidence before cleanup; paths!=files. inputs:[] none/null unresolved. No invented facts/inputs/contracts/scripts/proofs. Defaults:contracts. Discover/clarify alternatives/limitations.
+        Copies:value/direct bindings; keep accepted nullability. extract each:{input:collection,output:sole array field}:consumer resultType only.
+        foreach views: body.outputs.rows=field(item,rows); flatten(output(loop,rows)).
+        field:object, not array index/length; flatten:one level. lookup takes/returns arrays; iterate.
+        Interpret compact views; retain originals/actions. Producer/index IDs:lookup offered then originals. No truncation/sampling.
+        minItems/maxItems:cardinality; foreach maxItems:total/default100. dependsOn:local; bindings:capture/order. Branch ports:match types/nullability; null guards.
+        requires:assertion; present:completion. Save before cleanup; paths!=files.
+        inputs:[] none/null unresolved. No invented facts/inputs/contracts/scripts/defaults. Discover/clarify compatible alternatives/limitations.
         """;
 
     private const string RepairInstructions = """
